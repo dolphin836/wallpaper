@@ -18,26 +18,37 @@ A full-stack wallpaper sharing platform where users can upload, browse, search, 
 
 - Docker & Docker Compose v2
 
+### Configuration
+
+```bash
+cp .env.example .env
+vi .env    # Modify as needed
+```
+
+Available `.env` variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `SITE_DOMAIN` | `localhost` | Domain for HTTPS (Let's Encrypt auto-cert if real domain) |
+| `HTTP_PORT` | `80` | HTTP port on host |
+| `HTTPS_PORT` | `443` | HTTPS port on host |
+| `POSTGRES_USER` | `wallpaper` | PostgreSQL username |
+| `POSTGRES_PASSWORD` | `wallpaper` | PostgreSQL password |
+| `POSTGRES_DB` | `wallpaper` | PostgreSQL database name |
+| `REDIS_PASSWORD` | (empty) | Redis password (optional) |
+| `MINIO_ROOT_USER` | `minioadmin` | MinIO access key |
+| `MINIO_ROOT_PASSWORD` | `minioadmin` | MinIO secret key |
+| `MINIO_BUCKET` | `wallpapers` | MinIO bucket name |
+| `JWT_SECRET` | `change-me...` | JWT signing secret |
+| `JWT_EXPIRE_HOUR` | `24` | JWT token expiry (hours) |
+
 ### Run
 
 ```bash
-docker compose up --build
+./wallctl.sh start
 ```
 
-Services will be available at:
-
-| Service | URL |
-|---|---|
-| Frontend | https://localhost (or http, auto-redirects) |
-| MinIO Console | http://localhost:9001 |
-
-**Production with real domain** (auto Let's Encrypt):
-
-```bash
-SITE_DOMAIN=wallpaper.example.com docker compose up --build -d
-```
-
-Caddy will automatically obtain and renew TLS certificates from Let's Encrypt.
+Only Caddy's HTTP/HTTPS ports are exposed to the host. All internal services (PostgreSQL, Redis, MinIO, Kafka, API, Worker) communicate within the Docker network.
 
 ### Development
 
