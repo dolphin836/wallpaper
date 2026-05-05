@@ -1,12 +1,31 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { AiOutlineHeart, AiOutlineDownload, AiOutlineLoading3Quarters, AiOutlineWarning } from 'react-icons/ai';
+import {
+  AiOutlineEye,
+  AiOutlineHeart,
+  AiOutlineStar,
+  AiOutlineDownload,
+  AiOutlineLoading3Quarters,
+  AiOutlineWarning,
+} from 'react-icons/ai';
 import type { Wallpaper } from '../types';
 
 const STATUS_PROCESSING = 0;
 const STATUS_PUBLISHED = 1;
 const STATUS_FAILED = 2;
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function formatCount(n: number): string {
+  if (n >= 10000) return `${(n / 1000).toFixed(0)}K`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return String(n);
+}
 
 interface Props {
   wallpaper: Wallpaper;
@@ -40,7 +59,6 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           aspectRatio: !fixedAspect && !fillHeight ? aspectRatio : undefined,
         }}
       >
-        {/* Shimmer overlay while image loads */}
         {imgSrc && !loaded && (
           <div className="absolute inset-0 z-[1] shimmer-overlay" />
         )}
@@ -65,7 +83,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
 
         {showStatus && wallpaper.status !== STATUS_PUBLISHED && (
           <span
-            className={`absolute top-2 left-2 z-[2] px-2 py-0.5 text-[10px] font-semibold rounded-full backdrop-blur-sm ${
+            className={`absolute top-2 left-2 z-[3] px-2 py-0.5 text-[10px] font-semibold rounded-full backdrop-blur-sm ${
               isProcessing
                 ? 'bg-amber-500/80 text-white'
                 : isFailed
@@ -77,31 +95,36 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           </span>
         )}
 
-        {wallpaper.width > 0 && wallpaper.height > 0 && (
-          <span className="absolute bottom-2 right-2 z-[2] px-1.5 py-0.5 text-[10px] font-medium text-white/90 bg-black/50 rounded backdrop-blur-sm">
-            {wallpaper.width}&times;{wallpaper.height}
-          </span>
-        )}
-
-        {!fillHeight && !fixedAspect && (
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
-        )}
-      </div>
-
-      {!fillHeight && (
-        <div className="p-3">
-          <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+        {/* Hover overlay with stats */}
+        <div className="absolute inset-0 z-[2] bg-gradient-to-r from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3 pointer-events-none">
+          <div className="flex flex-col gap-1 text-[11px] text-white/90">
             <span className="flex items-center gap-1">
-              <AiOutlineHeart size={14} />
-              {wallpaper.like_count}
+              <AiOutlineEye size={13} />
+              {formatCount(wallpaper.view_count)}
             </span>
             <span className="flex items-center gap-1">
-              <AiOutlineDownload size={14} />
-              {wallpaper.download_count}
+              <AiOutlineHeart size={13} />
+              {formatCount(wallpaper.like_count)}
+            </span>
+            <span className="flex items-center gap-1">
+              <AiOutlineStar size={13} />
+              {formatCount(wallpaper.favorite_count)}
+            </span>
+            <span className="flex items-center gap-1">
+              <AiOutlineDownload size={13} />
+              {formatCount(wallpaper.download_count)}
             </span>
           </div>
+          <div className="flex flex-col gap-0.5 text-[10px] text-white/70">
+            {wallpaper.width > 0 && wallpaper.height > 0 && (
+              <span>{wallpaper.width}&times;{wallpaper.height}</span>
+            )}
+            {wallpaper.file_size > 0 && (
+              <span>{formatSize(wallpaper.file_size)}</span>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </Link>
   );
 }
