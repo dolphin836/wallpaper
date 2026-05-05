@@ -73,7 +73,9 @@ cmd_status() {
     echo ""
     for svc in postgres redis minio kafka; do
         local health
-        health=$(docker inspect --format='{{.State.Health.Status}}' "${PROJECT_NAME}-${svc}-1" 2>/dev/null || echo "not running")
+        health=$(docker inspect --format='{{.State.Health.Status}}' "${PROJECT_NAME}-${svc}-1" 2>/dev/null \
+            || docker inspect --format='{{.State.Health.Status}}' "${PROJECT_NAME}_${svc}" 2>/dev/null \
+            || echo "not running")
         case "$health" in
             healthy)   echo -e "  ${svc}: ${GREEN}${health}${NC}" ;;
             unhealthy) echo -e "  ${svc}: ${RED}${health}${NC}" ;;
