@@ -145,8 +145,8 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         )}
 
         {/* Hover action buttons */}
-        <div className="absolute bottom-0 left-0 right-0 z-[2] opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-t from-black/60 to-transparent pt-8 pb-3 px-3">
-          <div className="flex items-center justify-end gap-1.5">
+        <div className="absolute right-0 top-0 bottom-0 z-[2] opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-l from-black/50 to-transparent pl-8 pr-3 flex items-center">
+          <div className="flex flex-col gap-2">
             {isAuthenticated && (
               <>
                 <button
