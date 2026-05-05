@@ -47,6 +47,7 @@ type MinIOConfig struct {
 	SecretKey string `env:"MINIO_SECRET_KEY" envDefault:"minioadmin"`
 	Bucket    string `env:"MINIO_BUCKET" envDefault:"wallpapers"`
 	UseSSL    bool   `env:"MINIO_USE_SSL" envDefault:"false"`
+	PublicURL string `env:"MINIO_PUBLIC_URL" envDefault:""`
 }
 
 type KafkaConfig struct {

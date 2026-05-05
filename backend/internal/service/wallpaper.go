@@ -73,7 +73,7 @@ type ListResponse struct {
 type WallpaperUploadedEvent struct {
 	WallpaperID int64  `json:"wallpaper_id"`
 	UserID      int64  `json:"user_id"`
-	OriginalURL string `json:"original_url"`
+	ObjectKey   string `json:"object_key"`
 	Timestamp   string `json:"timestamp"`
 }
 
@@ -127,7 +127,7 @@ func (s *WallpaperService) Upload(ctx context.Context, userID int64, req UploadR
 		}
 	}
 
-	s.publishUploadedEvent(ctx, w, userID, originalURL)
+	s.publishUploadedEvent(ctx, w, userID, objectName)
 
 	return w, nil
 }
@@ -340,11 +340,11 @@ func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64) (str
 	return w.OriginalURL, nil
 }
 
-func (s *WallpaperService) publishUploadedEvent(ctx context.Context, w *model.Wallpaper, userID int64, originalURL string) {
+func (s *WallpaperService) publishUploadedEvent(ctx context.Context, w *model.Wallpaper, userID int64, objectKey string) {
 	event := WallpaperUploadedEvent{
 		WallpaperID: w.ID,
 		UserID:      userID,
-		OriginalURL: originalURL,
+		ObjectKey:   objectKey,
 		Timestamp:   time.Now().UTC().Format(time.RFC3339),
 	}
 	data, err := json.Marshal(event)

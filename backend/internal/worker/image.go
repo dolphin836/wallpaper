@@ -40,7 +40,7 @@ func NewImageWorker(brokers []string, wpRepo *repo.WallpaperRepo, deviceRepo *re
 type WallpaperUploadedEvent struct {
 	WallpaperID int64  `json:"wallpaper_id"`
 	UserID      int64  `json:"user_id"`
-	OriginalURL string `json:"original_url"`
+	ObjectKey   string `json:"object_key"`
 	Timestamp   string `json:"timestamp"`
 }
 
@@ -82,7 +82,7 @@ func (w *ImageWorker) Run(ctx context.Context) error {
 }
 
 func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedEvent) error {
-	obj, err := w.storage.GetObject(ctx, event.OriginalURL)
+	obj, err := w.storage.GetObject(ctx, event.ObjectKey)
 	if err != nil {
 		return fmt.Errorf("get original: %w", err)
 	}

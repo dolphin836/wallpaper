@@ -11,8 +11,9 @@ import (
 )
 
 type Storage struct {
-	client *minio.Client
-	bucket string
+	client    *minio.Client
+	bucket    string
+	publicURL string
 }
 
 func New(cfg config.MinIOConfig) (*Storage, error) {
@@ -23,7 +24,7 @@ func New(cfg config.MinIOConfig) (*Storage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("minio client: %w", err)
 	}
-	return &Storage{client: client, bucket: cfg.Bucket}, nil
+	return &Storage{client: client, bucket: cfg.Bucket, publicURL: cfg.PublicURL}, nil
 }
 
 func (s *Storage) EnsureBucket(ctx context.Context) error {
@@ -58,5 +59,8 @@ func (s *Storage) GetObject(ctx context.Context, objectName string) (io.ReadClos
 }
 
 func (s *Storage) GetURL(objectName string) string {
+	if s.publicURL != "" {
+		return fmt.Sprintf("%s/%s/%s", s.publicURL, s.bucket, objectName)
+	}
 	return fmt.Sprintf("%s/%s/%s", s.client.EndpointURL(), s.bucket, objectName)
 }

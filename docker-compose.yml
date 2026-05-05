@@ -38,7 +38,11 @@ services:
 
   minio:
     image: minio/minio:latest
+    container_name: wallpaper_minio
     command: server /data --console-address ":9001"
+    networks:
+      - default
+      - caddy_shared
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
@@ -96,6 +100,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       MINIO_BUCKET: ${MINIO_BUCKET:-wallpapers}
+      MINIO_PUBLIC_URL: "https://${SITE_DOMAIN:-localhost}/storage"
       KAFKA_BROKERS: "kafka:9092"
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-random-string}
       JWT_EXPIRE_HOUR: ${JWT_EXPIRE_HOUR:-24}
@@ -126,6 +131,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       MINIO_BUCKET: ${MINIO_BUCKET:-wallpapers}
+      MINIO_PUBLIC_URL: "https://${SITE_DOMAIN:-localhost}/storage"
       KAFKA_BROKERS: "kafka:9092"
     depends_on:
       postgres:
