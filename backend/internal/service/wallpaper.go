@@ -362,7 +362,11 @@ func (s *WallpaperService) publishUploadedEvent(ctx context.Context, w *model.Wa
 		Key:   []byte(strconv.FormatInt(w.ID, 10)),
 		Value: data,
 	}); err != nil {
-		slog.ErrorContext(ctx, "failed to publish wallpaper uploaded event", "error", err)
+		slog.ErrorContext(ctx, "failed to publish wallpaper uploaded event",
+			"error", err, "wallpaper_id", w.ID)
+	} else {
+		slog.InfoContext(ctx, "wallpaper uploaded event published",
+			"wallpaper_id", w.ID, "object_key", objectKey)
 	}
 }
 

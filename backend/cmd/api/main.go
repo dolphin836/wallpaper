@@ -65,6 +65,10 @@ func main() {
 		Addr:                   kafka.TCP(cfg.Kafka.Brokers...),
 		Balancer:               &kafka.LeastBytes{},
 		AllowAutoTopicCreation: true,
+		BatchSize:              1,
+		BatchTimeout:           10 * time.Millisecond,
+		WriteTimeout:           10 * time.Second,
+		RequiredAcks:           kafka.RequireOne,
 	}
 	defer func() {
 		if err := kafkaWriter.Close(); err != nil {
