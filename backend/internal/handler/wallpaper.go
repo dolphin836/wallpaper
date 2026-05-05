@@ -27,12 +27,14 @@ func NewWallpaperHandler(wallpaperSvc *service.WallpaperService) *WallpaperHandl
 
 func (h *WallpaperHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		slog.ErrorContext(r.Context(), "parse multipart form failed", "error", err)
 		response.Error(w, http.StatusBadRequest, errcode.ErrBadRequest)
 		return
 	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
+		slog.ErrorContext(r.Context(), "get form file failed", "error", err)
 		response.Error(w, http.StatusBadRequest, errcode.ErrBadRequest)
 		return
 	}
