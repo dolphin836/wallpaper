@@ -73,28 +73,13 @@ services:
       retries: 10
     restart: unless-stopped
 
-  caddy:
-    image: caddy:2-alpine
-    ports:
-      - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443"
-      - "${HTTPS_PORT:-443}:443/udp"
-    volumes:
-      - ./deployments/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    environment:
-      SITE_DOMAIN: "${SITE_DOMAIN:-localhost}"
-    depends_on:
-      - api
-      - frontend
-    restart: unless-stopped
-
   api:
     build:
       context: ./backend
       dockerfile: Dockerfile
       target: api
+    ports:
+      - "127.0.0.1:${API_PORT:-8080}:8080"
     environment:
       SERVER_PORT: "8080"
       DB_HOST: postgres
@@ -153,6 +138,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-8880}:80"
     depends_on:
       - api
     restart: unless-stopped
@@ -161,5 +148,3 @@ volumes:
   pg_data:
   redis_data:
   minio_data:
-  caddy_data:
-  caddy_config:
