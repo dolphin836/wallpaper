@@ -11,9 +11,10 @@ import {
   AiOutlineFullscreen,
   AiOutlineClose,
 } from 'react-icons/ai';
-import { MdOpenInNew } from 'react-icons/md';
+import { MdOpenInNew, MdPhoneIphone } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import type { WallpaperDetail, WallpaperVariant } from '../types';
+import DeviceMockup from '../components/DeviceMockup';
 import {
   getWallpaper,
   likeWallpaper,
@@ -85,7 +86,7 @@ function findBestMatch(variants: WallpaperVariant[]): WallpaperVariant | null {
   return best;
 }
 
-function VariantList({ variants }: { variants: WallpaperVariant[] }) {
+function VariantList({ variants, onMockup }: { variants: WallpaperVariant[]; onMockup: (v: WallpaperVariant) => void }) {
   const grouped = variants.reduce<Record<string, WallpaperVariant[]>>((acc, v) => {
     const key = v.platform;
     if (!acc[key]) acc[key] = [];
@@ -120,6 +121,13 @@ function VariantList({ variants }: { variants: WallpaperVariant[] }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => onMockup(v)}
+                      className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                      title="Device mockup"
+                    >
+                      <MdPhoneIphone size={18} />
+                    </button>
                     <button
                       onClick={() => triggerDownload(v.url, `${v.brand}_${v.device_name}_${v.width}x${v.height}.jpg`)}
                       className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
@@ -158,6 +166,7 @@ export default function WallpaperDetailPage() {
   const [favLoading, setFavLoading] = useState(false);
   const [showVariants, setShowVariants] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
 
   const matchedVariant = useMemo(() => findBestMatch(variants), [variants]);
 
@@ -178,9 +187,12 @@ export default function WallpaperDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!fullscreen) return;
+    if (!fullscreen && !mockupVariant) return;
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setFullscreen(false);
+      if (e.key === 'Escape') {
+        setFullscreen(false);
+        setMockupVariant(null);
+      }
     };
     document.addEventListener('keydown', handleEsc);
     document.body.style.overflow = 'hidden';
@@ -188,7 +200,7 @@ export default function WallpaperDetailPage() {
       document.removeEventListener('keydown', handleEsc);
       document.body.style.overflow = '';
     };
-  }, [fullscreen]);
+  }, [fullscreen, mockupVariant]);
 
   const handleLike = async () => {
     if (!isAuthenticated) { navigate('/login'); return; }
@@ -257,6 +269,15 @@ export default function WallpaperDetailPage() {
 
   return (
     <>
+      {mockupVariant && (
+        <DeviceMockup
+          imageUrl={mockupVariant.url}
+          platform={mockupVariant.platform}
+          deviceName={`${mockupVariant.brand} ${mockupVariant.device_name}`}
+          onClose={() => setMockupVariant(null)}
+        />
+      )}
+
       {fullscreen && matchedVariant && (
         <div
           className="fixed inset-0 z-50 bg-black flex items-center justify-center"
@@ -395,9 +416,9 @@ export default function WallpaperDetailPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
-                {showVariants && (
-                  <VariantList variants={variants} />
-                )}
+              {showVariants && (
+                <VariantList variants={variants} onMockup={setMockupVariant} />
+              )}
               </div>
             )}
 
