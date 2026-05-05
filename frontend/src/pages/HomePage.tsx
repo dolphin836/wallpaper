@@ -1,20 +1,32 @@
 import { useState, useEffect, useCallback } from 'react';
-import { AiOutlineSearch } from 'react-icons/ai';
+import { BsGrid, BsColumnsGap, BsImage } from 'react-icons/bs';
 import toast from 'react-hot-toast';
 import type { Wallpaper } from '../types';
 import { getWallpapers } from '../api';
 import WallpaperGrid from '../components/WallpaperGrid';
+import type { ViewMode } from '../components/WallpaperGrid';
 import Spinner from '../components/Spinner';
+
+const VIEW_MODES: { key: ViewMode; icon: typeof BsGrid; label: string }[] = [
+  { key: 'waterfall', icon: BsColumnsGap, label: 'Waterfall' },
+  { key: 'grid', icon: BsGrid, label: 'Grid' },
+  { key: 'justified', icon: BsImage, label: 'Album' },
+];
 
 export default function HomePage() {
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
-  const [sort, setSort] = useState('latest');
-  const [search, setSearch] = useState('');
-  const [searchInput, setSearchInput] = useState('');
   const [cursor, setCursor] = useState<number | undefined>();
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    return (localStorage.getItem('wallpaper_view_mode') as ViewMode) || 'waterfall';
+  });
+
+  const handleViewChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem('wallpaper_view_mode', mode);
+  };
 
   const fetchWallpapers = useCallback(async (reset: boolean) => {
     const setter = reset ? setLoading : setLoadingMore;
@@ -23,8 +35,6 @@ export default function HomePage() {
       const res = await getWallpapers({
         cursor: reset ? undefined : cursor,
         limit: 20,
-        sort,
-        search: search || undefined,
       });
       const { items, next_cursor, has_more } = res.data.data;
       setWallpapers((prev) => (reset ? items : [...prev, ...items]));
@@ -35,45 +45,36 @@ export default function HomePage() {
     } finally {
       setter(false);
     }
-  }, [cursor, sort, search]);
+  }, [cursor]);
 
   useEffect(() => {
     fetchWallpapers(true);
-  }, [sort, search]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSearch(searchInput);
-  };
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <form onSubmit={handleSearch} className="relative w-full sm:w-80">
-          <AiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input
-            type="text"
-            placeholder="Search wallpapers..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          />
-        </form>
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <option value="latest">Latest</option>
-          <option value="popular">Popular</option>
-        </select>
+      <div className="flex items-center justify-end gap-1 mb-6">
+        {VIEW_MODES.map(({ key, icon: Icon, label }) => (
+          <button
+            key={key}
+            onClick={() => handleViewChange(key)}
+            title={label}
+            className={`p-2 rounded-lg transition-colors duration-200 ${
+              viewMode === key
+                ? 'bg-indigo-100 text-indigo-600'
+                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Icon size={18} />
+          </button>
+        ))}
       </div>
 
       {loading ? (
         <Spinner />
       ) : (
         <>
-          <WallpaperGrid wallpapers={wallpapers} />
+          <WallpaperGrid wallpapers={wallpapers} viewMode={viewMode} />
           {hasMore && (
             <div className="flex justify-center mt-8">
               <button
