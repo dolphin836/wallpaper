@@ -1,4 +1,14 @@
+{
+    acme_ca https://acme-v02.api.letsencrypt.org/directory
+}
+
 {$SITE_DOMAIN:localhost} {
+    tls {
+        issuer acme {
+            disable_tlsalpn_challenge
+        }
+    }
+
     handle /api/* {
         reverse_proxy api:8080
     }
