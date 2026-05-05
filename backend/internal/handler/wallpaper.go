@@ -42,10 +42,14 @@ func (h *WallpaperHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	categoryID, err := strconv.ParseInt(r.FormValue("category_id"), 10, 64)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
-		return
+	var categoryID int64
+	if raw := r.FormValue("category_id"); raw != "" {
+		v, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil {
+			response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+			return
+		}
+		categoryID = v
 	}
 
 	var tags []string

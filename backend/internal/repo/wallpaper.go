@@ -26,7 +26,7 @@ func (r *WallpaperRepo) GetByID(ctx context.Context, id int64) (*model.Wallpaper
 	var w model.Wallpaper
 	err := r.db.WithContext(ctx).
 		Select("id, user_id, title, description, category_id, original_url, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, status, view_count, like_count, download_count, favorite_count, created_at, updated_at").
-		Where("id = ?", id).
+		Where("id = ? AND status != ?", id, model.WallpaperStatusRemoved).
 		First(&w).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -62,6 +62,8 @@ func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wal
 	}
 	if opts.Status > 0 {
 		query = query.Where("status = ?", opts.Status)
+	} else {
+		query = query.Where("status != ?", model.WallpaperStatusRemoved)
 	}
 	if opts.Search != "" {
 		query = query.Where("title ILIKE ?", "%"+opts.Search+"%")
