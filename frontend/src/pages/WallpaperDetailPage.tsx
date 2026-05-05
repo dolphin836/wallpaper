@@ -13,7 +13,7 @@ import {
 import { MdOpenInNew, MdPhoneIphone } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import type { WallpaperDetail, WallpaperVariant } from '../types';
-import DeviceMockup from '../components/DeviceMockup';
+import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
 import {
   getWallpaper,
   likeWallpaper,
@@ -141,46 +141,54 @@ function VariantList({ variants, onMockup }: { variants: WallpaperVariant[]; onM
               {platformIcons[platform]} {platformLabels[platform] || platform}
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {items.map((v) => (
-                <div
-                  key={v.id}
-                  className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl"
-                >
-                  <div>
-                    <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                      {v.brand} {v.device_name}
+              {items.map((v) => {
+                const mockupOk = canShowMockup(v);
+                return (
+                  <div
+                    key={v.id}
+                    className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl"
+                  >
+                    <div>
+                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                        {v.brand} {v.device_name}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {v.width} &times; {v.height} &middot; {formatFileSize(v.file_size)}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {v.width} &times; {v.height} &middot; {formatFileSize(v.file_size)}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => onMockup(v)}
+                        disabled={!mockupOk}
+                        className={`p-2 rounded-lg transition-colors ${
+                          mockupOk
+                            ? 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-gray-600'
+                            : 'text-gray-200 dark:text-gray-600 cursor-not-allowed'
+                        }`}
+                        title={mockupOk ? 'Device mockup' : 'Screen too small for this device mockup'}
+                      >
+                        <MdPhoneIphone size={18} />
+                      </button>
+                      <button
+                        onClick={() => triggerDownload(v.url, `${v.brand}_${v.device_name}_${v.width}x${v.height}.jpg`)}
+                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                        title="Download"
+                      >
+                        <AiOutlineDownload size={18} />
+                      </button>
+                      <a
+                        href={v.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                        title="View in new tab"
+                      >
+                        <MdOpenInNew size={18} />
+                      </a>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => onMockup(v)}
-                      className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                      title="Device mockup"
-                    >
-                      <MdPhoneIphone size={18} />
-                    </button>
-                    <button
-                      onClick={() => triggerDownload(v.url, `${v.brand}_${v.device_name}_${v.width}x${v.height}.jpg`)}
-                      className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                      title="Download"
-                    >
-                      <AiOutlineDownload size={18} />
-                    </button>
-                    <a
-                      href={v.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                      title="View in new tab"
-                    >
-                      <MdOpenInNew size={18} />
-                    </a>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         );
@@ -198,10 +206,12 @@ export default function WallpaperDetailPage() {
   const [loading, setLoading] = useState(true);
   const [likeLoading, setLikeLoading] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
+  const [showVariants, setShowVariants] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
 
   const matchedVariant = useMemo(() => findBestMatch(variants), [variants]);
+  const canMockupMatched = useMemo(() => matchedVariant ? canShowMockup(matchedVariant) : false, [matchedVariant]);
 
   useEffect(() => {
     if (!id) return;
@@ -319,6 +329,8 @@ export default function WallpaperDetailPage() {
           imageUrl={mockupVariant.url}
           platform={mockupVariant.platform}
           deviceName={`${mockupVariant.brand} ${mockupVariant.device_name}`}
+          deviceWidth={mockupVariant.width}
+          deviceHeight={mockupVariant.height}
           onClose={() => setMockupVariant(null)}
         />
       )}
@@ -365,8 +377,8 @@ export default function WallpaperDetailPage() {
           {/* Info Panel */}
           <div className="p-6 sm:p-8 space-y-8">
 
-            {/* Actions: Download + Like + Favorite */}
-            <div className="flex items-center gap-3">
+            {/* Actions: Download + Like + Favorite + Preview + Mockup */}
+            <div className="flex items-center gap-3 flex-wrap">
               <button
                 onClick={handleDownload}
                 className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-3.5 text-base font-semibold text-white bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 rounded-full transition-colors duration-200"
@@ -403,11 +415,35 @@ export default function WallpaperDetailPage() {
               </button>
 
               <button
-                onClick={() => setFullscreen(true)}
-                title={matchedVariant ? `Preview for ${matchedVariant.brand} ${matchedVariant.device_name}` : 'Fullscreen preview'}
-                className="w-12 h-12 flex items-center justify-center rounded-full border-2 border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500 transition-colors duration-200 shrink-0"
+                onClick={() => matchedVariant && setFullscreen(true)}
+                disabled={!matchedVariant}
+                title={matchedVariant ? `Fullscreen preview (${matchedVariant.brand} ${matchedVariant.device_name})` : 'No matching resolution for your device'}
+                className={`w-12 h-12 flex items-center justify-center rounded-full border-2 transition-colors duration-200 shrink-0 ${
+                  matchedVariant
+                    ? 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500'
+                    : 'border-gray-100 text-gray-200 cursor-not-allowed'
+                }`}
               >
                 <AiOutlineFullscreen size={22} />
+              </button>
+
+              <button
+                onClick={() => matchedVariant && setMockupVariant(matchedVariant)}
+                disabled={!matchedVariant || !canMockupMatched}
+                title={
+                  !matchedVariant
+                    ? 'No matching device'
+                    : !canMockupMatched
+                      ? 'Screen too small for device mockup'
+                      : `Device mockup (${matchedVariant.brand} ${matchedVariant.device_name})`
+                }
+                className={`w-12 h-12 flex items-center justify-center rounded-full border-2 transition-colors duration-200 shrink-0 ${
+                  matchedVariant && canMockupMatched
+                    ? 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500'
+                    : 'border-gray-100 text-gray-200 cursor-not-allowed'
+                }`}
+              >
+                <MdPhoneIphone size={22} />
               </button>
             </div>
 
@@ -453,11 +489,22 @@ export default function WallpaperDetailPage() {
             {/* Device Variants */}
             {variants.length > 0 && (
               <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
-                <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
+                <button
+                  onClick={() => setShowVariants(!showVariants)}
+                  className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4 w-full"
+                >
                   <MdPhoneIphone size={18} />
                   Available Devices ({variants.length})
-                </h3>
-                <VariantList variants={variants} onMockup={setMockupVariant} />
+                  <svg
+                    className={`w-4 h-4 ml-auto transition-transform ${showVariants ? 'rotate-180' : ''}`}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showVariants && (
+                  <VariantList variants={variants} onMockup={setMockupVariant} />
+                )}
               </div>
             )}
 
