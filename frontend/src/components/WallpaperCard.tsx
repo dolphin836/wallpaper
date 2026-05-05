@@ -8,6 +8,8 @@ import {
   AiOutlineDownload,
   AiOutlineLoading3Quarters,
   AiOutlineWarning,
+  AiOutlineExpandAlt,
+  AiOutlineFile,
 } from 'react-icons/ai';
 import type { Wallpaper } from '../types';
 
@@ -96,31 +98,37 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         )}
 
         {/* Hover overlay with stats */}
-        <div className="absolute inset-0 z-[2] bg-gradient-to-r from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3 pointer-events-none">
-          <div className="flex flex-col gap-1 text-[11px] text-white/90">
-            <span className="flex items-center gap-1">
-              <AiOutlineEye size={13} />
+        <div className="absolute inset-0 z-[2] bg-gradient-to-l from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-end justify-between p-3.5 pointer-events-none">
+          <div className="flex flex-col gap-1.5 text-[13px] text-white/90 font-medium">
+            <span className="flex items-center gap-1.5">
+              <AiOutlineEye size={15} />
               {formatCount(wallpaper.view_count)}
             </span>
-            <span className="flex items-center gap-1">
-              <AiOutlineHeart size={13} />
+            <span className="flex items-center gap-1.5">
+              <AiOutlineHeart size={15} />
               {formatCount(wallpaper.like_count)}
             </span>
-            <span className="flex items-center gap-1">
-              <AiOutlineStar size={13} />
+            <span className="flex items-center gap-1.5">
+              <AiOutlineStar size={15} />
               {formatCount(wallpaper.favorite_count)}
             </span>
-            <span className="flex items-center gap-1">
-              <AiOutlineDownload size={13} />
+            <span className="flex items-center gap-1.5">
+              <AiOutlineDownload size={15} />
               {formatCount(wallpaper.download_count)}
             </span>
           </div>
-          <div className="flex flex-col gap-0.5 text-[10px] text-white/70">
+          <div className="flex flex-col gap-1 text-[12px] text-white/80 font-medium items-end">
             {wallpaper.width > 0 && wallpaper.height > 0 && (
-              <span>{wallpaper.width}&times;{wallpaper.height}</span>
+              <span className="flex items-center gap-1.5">
+                <AiOutlineExpandAlt size={14} />
+                {wallpaper.width}&times;{wallpaper.height}
+              </span>
             )}
             {wallpaper.file_size > 0 && (
-              <span>{formatSize(wallpaper.file_size)}</span>
+              <span className="flex items-center gap-1.5">
+                <AiOutlineFile size={14} />
+                {formatSize(wallpaper.file_size)}
+              </span>
             )}
           </div>
         </div>
