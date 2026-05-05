@@ -121,12 +121,28 @@ func (h *WallpaperHandler) List(w http.ResponseWriter, r *http.Request) {
 		categoryID = v
 	}
 
+	var deviceWidth, deviceHeight int
+	if raw := q.Get("device_width"); raw != "" {
+		v, err := strconv.Atoi(raw)
+		if err == nil {
+			deviceWidth = v
+		}
+	}
+	if raw := q.Get("device_height"); raw != "" {
+		v, err := strconv.Atoi(raw)
+		if err == nil {
+			deviceHeight = v
+		}
+	}
+
 	opts := repo.ListOptions{
-		Cursor:     cursor,
-		Limit:      limit,
-		CategoryID: categoryID,
-		Sort:       q.Get("sort"),
-		Search:     q.Get("search"),
+		Cursor:       cursor,
+		Limit:        limit,
+		CategoryID:   categoryID,
+		Sort:         q.Get("sort"),
+		Search:       q.Get("search"),
+		DeviceWidth:  deviceWidth,
+		DeviceHeight: deviceHeight,
 	}
 
 	resp, ec := h.wallpaperSvc.List(r.Context(), opts)

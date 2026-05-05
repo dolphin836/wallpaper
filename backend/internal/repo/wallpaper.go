@@ -46,6 +46,8 @@ type ListOptions struct {
 	IncludeAllActive bool
 	Sort             string // "newest" or "popular"
 	Search           string
+	DeviceWidth      int
+	DeviceHeight     int
 }
 
 func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wallpaper, error) {
@@ -70,6 +72,10 @@ func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wal
 	}
 	if opts.Search != "" {
 		query = query.Where("title ILIKE ?", "%"+opts.Search+"%")
+	}
+	if opts.DeviceWidth > 0 && opts.DeviceHeight > 0 {
+		query = query.Where("id IN (SELECT wallpaper_id FROM wallpaper_variants WHERE width = ? AND height = ?)",
+			opts.DeviceWidth, opts.DeviceHeight)
 	}
 
 	switch opts.Sort {

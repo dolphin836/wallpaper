@@ -13,6 +13,8 @@ export const getWallpapers = (params: {
   category_id?: number;
   sort?: string;
   search?: string;
+  device_width?: number;
+  device_height?: number;
 }) => client.get<ApiResponse<PaginatedData<Wallpaper>>>('/wallpapers', { params });
 
 export const getWallpaper = (id: number) =>
