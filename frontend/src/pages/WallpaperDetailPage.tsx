@@ -128,7 +128,7 @@ function MetaItem({ label, value }: { label: string; value: string }) {
   );
 }
 
-function VariantList({ variants, onMockup }: { variants: WallpaperVariant[]; onMockup: (v: WallpaperVariant) => void }) {
+function VariantList({ variants, matchedId, onMockup }: { variants: WallpaperVariant[]; matchedId?: number; onMockup: (v: WallpaperVariant) => void }) {
   const grouped = variants.reduce<Record<string, WallpaperVariant[]>>((acc, v) => {
     const key = v.platform;
     if (!acc[key]) acc[key] = [];
@@ -139,60 +139,79 @@ function VariantList({ variants, onMockup }: { variants: WallpaperVariant[]; onM
   const platformOrder = ['desktop', 'laptop', 'tablet', 'phone'];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {platformOrder.map((platform) => {
         const items = grouped[platform];
         if (!items || items.length === 0) return null;
         return (
           <div key={platform}>
-            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
               {platformIcons[platform]} {platformLabels[platform] || platform}
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {items.map((v) => {
                 const mockupOk = canShowMockup(v);
+                const isMatched = v.id === matchedId;
                 return (
                   <div
                     key={v.id}
-                    className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl"
+                    className={`relative rounded-xl border transition-colors ${
+                      isMatched
+                        ? 'border-indigo-300 bg-indigo-50/50 dark:border-indigo-500/40 dark:bg-indigo-950/20'
+                        : 'border-gray-100 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/50'
+                    }`}
                   >
-                    <div>
-                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                        {v.brand} {v.device_name}
+                    {isMatched && (
+                      <span className="absolute -top-2.5 left-3 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-indigo-500 text-white rounded-full">
+                        Your Device
+                      </span>
+                    )}
+                    <div className="px-4 py-3.5">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                          {v.brand} {v.device_name}
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {v.width} &times; {v.height} &middot; {formatFileSize(v.file_size)}
+                      <div className="grid grid-cols-3 gap-2 mb-3">
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Resolution</div>
+                          <div className="text-sm font-bold text-gray-700 dark:text-gray-200">{v.width}&times;{v.height}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Size</div>
+                          <div className="text-sm font-bold text-gray-700 dark:text-gray-200">{formatFileSize(v.file_size)}</div>
+                        </div>
+                        <div className="flex items-end justify-end gap-1">
+                          <button
+                            onClick={() => onMockup(v)}
+                            disabled={!mockupOk}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              mockupOk
+                                ? 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-gray-600'
+                                : 'text-gray-200 dark:text-gray-600 cursor-not-allowed'
+                            }`}
+                            title={mockupOk ? 'Device mockup' : 'Screen too small'}
+                          >
+                            <MdPhoneIphone size={16} />
+                          </button>
+                          <button
+                            onClick={() => triggerDownload(v.url, `${v.brand}_${v.device_name}_${v.width}x${v.height}.jpg`)}
+                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                            title="Download"
+                          >
+                            <AiOutlineDownload size={16} />
+                          </button>
+                          <a
+                            href={v.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                            title="Open"
+                          >
+                            <MdOpenInNew size={16} />
+                          </a>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => onMockup(v)}
-                        disabled={!mockupOk}
-                        className={`p-2 rounded-lg transition-colors ${
-                          mockupOk
-                            ? 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-gray-600'
-                            : 'text-gray-200 dark:text-gray-600 cursor-not-allowed'
-                        }`}
-                        title={mockupOk ? 'Device mockup' : 'Screen too small for this device mockup'}
-                      >
-                        <MdPhoneIphone size={18} />
-                      </button>
-                      <button
-                        onClick={() => triggerDownload(v.url, `${v.brand}_${v.device_name}_${v.width}x${v.height}.jpg`)}
-                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                        title="Download"
-                      >
-                        <AiOutlineDownload size={18} />
-                      </button>
-                      <a
-                        href={v.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                        title="View in new tab"
-                      >
-                        <MdOpenInNew size={18} />
-                      </a>
                     </div>
                   </div>
                 );
@@ -536,7 +555,7 @@ export default function WallpaperDetailPage() {
                   </svg>
                 </button>
                 {showVariants && (
-                  <VariantList variants={variants} onMockup={setMockupVariant} />
+                  <VariantList variants={variants} matchedId={matchedVariant?.id} onMockup={setMockupVariant} />
                 )}
               </div>
             )}
