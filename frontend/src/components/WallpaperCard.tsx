@@ -1,4 +1,5 @@
-import { useState, CSSProperties } from 'react';
+import { useState } from 'react';
+import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { AiOutlineHeart, AiOutlineDownload, AiOutlineLoading3Quarters, AiOutlineWarning } from 'react-icons/ai';
 import type { Wallpaper } from '../types';
