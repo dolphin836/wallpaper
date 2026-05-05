@@ -5,13 +5,29 @@ import type { Wallpaper } from '../types';
 import { getWallpapers } from '../api';
 import WallpaperGrid from '../components/WallpaperGrid';
 import type { ViewMode } from '../components/WallpaperGrid';
-import Spinner from '../components/Spinner';
 
 const VIEW_MODES: { key: ViewMode; icon: typeof BsGrid; label: string }[] = [
   { key: 'waterfall', icon: BsColumnsGap, label: 'Waterfall' },
   { key: 'grid', icon: BsGrid, label: 'Grid' },
   { key: 'justified', icon: BsImage, label: 'Album' },
 ];
+
+const SKELETON_RATIOS = [4/3, 3/4, 16/9, 1, 3/4, 4/3, 16/9, 3/2, 3/4, 4/3, 1, 16/9];
+
+function SkeletonGrid() {
+  return (
+    <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-5 space-y-5">
+      {SKELETON_RATIOS.map((ratio, i) => (
+        <div key={i} className="break-inside-avoid">
+          <div
+            className="rounded-xl bg-gray-200 dark:bg-gray-700 skeleton-card"
+            style={{ aspectRatio: ratio, animationDelay: `${i * 100}ms` }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function HomePage() {
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
@@ -71,7 +87,7 @@ export default function HomePage() {
       </div>
 
       {loading ? (
-        <Spinner />
+        <SkeletonGrid />
       ) : (
         <>
           <WallpaperGrid wallpapers={wallpapers} viewMode={viewMode} />

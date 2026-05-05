@@ -14,31 +14,44 @@ interface Props {
   fixedAspect?: boolean;
   fillHeight?: boolean;
   style?: CSSProperties;
+  animDelay?: number;
 }
 
-export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style }: Props) {
+export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0 }: Props) {
   const [loaded, setLoaded] = useState(false);
   const imgSrc = wallpaper.preview_url || wallpaper.thumb_url;
   const isProcessing = wallpaper.status === STATUS_PROCESSING;
   const isFailed = wallpaper.status === STATUS_FAILED;
 
+  const aspectRatio = wallpaper.width > 0 && wallpaper.height > 0
+    ? wallpaper.width / wallpaper.height
+    : 4 / 3;
+
   return (
     <Link
       to={`/wallpaper/${wallpaper.id}`}
-      className={`group block rounded-xl overflow-hidden bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all duration-200 ${fillHeight ? 'h-full' : ''}`}
-      style={style}
+      className={`group block rounded-xl overflow-hidden bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all duration-300 ${fillHeight ? 'h-full' : ''} animate-fade-in`}
+      style={{ ...style, animationDelay: `${animDelay}ms` }}
     >
       <div
         className={`relative overflow-hidden ${fillHeight ? 'h-full' : ''} ${fixedAspect ? 'aspect-[3/2]' : ''}`}
-        style={{ backgroundColor: wallpaper.dominant_color || '#e5e7eb' }}
+        style={{
+          backgroundColor: wallpaper.dominant_color || '#e5e7eb',
+          aspectRatio: !fixedAspect && !fillHeight ? aspectRatio : undefined,
+        }}
       >
+        {/* Shimmer overlay while image loads */}
+        {imgSrc && !loaded && (
+          <div className="absolute inset-0 z-[1] shimmer-overlay" />
+        )}
+
         {imgSrc ? (
           <img
             src={imgSrc}
             alt=""
             loading="lazy"
             onLoad={() => setLoaded(true)}
-            className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+            className={`w-full h-full object-cover transition-opacity duration-500 group-hover:scale-105 transition-transform ${loaded ? 'opacity-100' : 'opacity-0'}`}
           />
         ) : (
           <div className={`w-full flex items-center justify-center ${fixedAspect || fillHeight ? 'h-full' : 'aspect-[4/3]'}`}>
@@ -52,7 +65,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
 
         {showStatus && wallpaper.status !== STATUS_PUBLISHED && (
           <span
-            className={`absolute top-2 left-2 px-2 py-0.5 text-[10px] font-semibold rounded-full backdrop-blur-sm ${
+            className={`absolute top-2 left-2 z-[2] px-2 py-0.5 text-[10px] font-semibold rounded-full backdrop-blur-sm ${
               isProcessing
                 ? 'bg-amber-500/80 text-white'
                 : isFailed
@@ -65,7 +78,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         )}
 
         {wallpaper.width > 0 && wallpaper.height > 0 && (
-          <span className="absolute bottom-2 right-2 px-1.5 py-0.5 text-[10px] font-medium text-white/90 bg-black/50 rounded backdrop-blur-sm">
+          <span className="absolute bottom-2 right-2 z-[2] px-1.5 py-0.5 text-[10px] font-medium text-white/90 bg-black/50 rounded backdrop-blur-sm">
             {wallpaper.width}&times;{wallpaper.height}
           </span>
         )}

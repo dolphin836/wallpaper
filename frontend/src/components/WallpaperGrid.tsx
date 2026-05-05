@@ -16,6 +16,8 @@ interface JustifiedRow {
   height: number;
 }
 
+const STAGGER_MS = 40;
+
 function buildJustifiedRows(wallpapers: Wallpaper[], containerWidth: number, targetHeight: number): JustifiedRow[] {
   const rows: JustifiedRow[] = [];
   let currentRow: Wallpaper[] = [];
@@ -47,9 +49,9 @@ function buildJustifiedRows(wallpapers: Wallpaper[], containerWidth: number, tar
 function WaterfallLayout({ wallpapers, showStatus }: { wallpapers: Wallpaper[]; showStatus?: boolean }) {
   return (
     <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-5 space-y-5">
-      {wallpapers.map((w) => (
+      {wallpapers.map((w, i) => (
         <div key={w.id} className="break-inside-avoid">
-          <WallpaperCard wallpaper={w} showStatus={showStatus} />
+          <WallpaperCard wallpaper={w} showStatus={showStatus} animDelay={i * STAGGER_MS} />
         </div>
       ))}
     </div>
@@ -59,8 +61,8 @@ function WaterfallLayout({ wallpapers, showStatus }: { wallpapers: Wallpaper[]; 
 function GridLayout({ wallpapers, showStatus }: { wallpapers: Wallpaper[]; showStatus?: boolean }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-      {wallpapers.map((w) => (
-        <WallpaperCard key={w.id} wallpaper={w} showStatus={showStatus} fixedAspect />
+      {wallpapers.map((w, i) => (
+        <WallpaperCard key={w.id} wallpaper={w} showStatus={showStatus} fixedAspect animDelay={i * STAGGER_MS} />
       ))}
     </div>
   );
@@ -72,12 +74,14 @@ function JustifiedLayout({ wallpapers, showStatus }: { wallpapers: Wallpaper[]; 
     return buildJustifiedRows(wallpapers, width, 240);
   }, [wallpapers]);
 
+  let idx = 0;
   return (
     <div className="flex flex-col gap-1.5">
       {rows.map((row, ri) => (
         <div key={ri} className="flex gap-1.5" style={{ height: row.height }}>
           {row.items.map((w) => {
             const ratio = w.width > 0 && w.height > 0 ? w.width / w.height : 4 / 3;
+            const delay = idx++ * STAGGER_MS;
             return (
               <WallpaperCard
                 key={w.id}
@@ -85,6 +89,7 @@ function JustifiedLayout({ wallpapers, showStatus }: { wallpapers: Wallpaper[]; 
                 showStatus={showStatus}
                 style={{ width: row.height * ratio, flexShrink: 0, flexGrow: 1 }}
                 fillHeight
+                animDelay={delay}
               />
             );
           })}
