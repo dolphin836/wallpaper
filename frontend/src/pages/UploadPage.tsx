@@ -9,7 +9,6 @@ import {
   AiOutlineLoading3Quarters,
 } from 'react-icons/ai';
 import toast from 'react-hot-toast';
-import { uploadWallpaper } from '../api';
 import { useAuthStore } from '../store/auth';
 
 const MAX_SIZE = 20 * 1024 * 1024;
