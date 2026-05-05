@@ -64,10 +64,16 @@ type WallpaperDetail struct {
 	Uploader    *model.User `json:"uploader"`
 }
 
+type WallpaperListItem struct {
+	model.Wallpaper
+	IsLiked     bool `json:"is_liked"`
+	IsFavorited bool `json:"is_favorited"`
+}
+
 type ListResponse struct {
-	Items      []model.Wallpaper `json:"items"`
-	NextCursor int64             `json:"next_cursor"`
-	HasMore    bool              `json:"has_more"`
+	Items      []WallpaperListItem `json:"items"`
+	NextCursor int64               `json:"next_cursor"`
+	HasMore    bool                `json:"has_more"`
 }
 
 type WallpaperUploadedEvent struct {
@@ -187,12 +193,11 @@ func (s *WallpaperService) Get(ctx context.Context, id int64, currentUserID int6
 	return detail, nil
 }
 
-func (s *WallpaperService) List(ctx context.Context, opts repo.ListOptions) (*ListResponse, *errcode.ErrCode) {
+func (s *WallpaperService) List(ctx context.Context, opts repo.ListOptions, currentUserID int64) (*ListResponse, *errcode.ErrCode) {
 	if opts.Limit <= 0 || opts.Limit > 100 {
 		opts.Limit = 20
 	}
 
-	// Fetch one extra to determine if more pages exist
 	fetchLimit := opts.Limit + 1
 	opts.Limit = fetchLimit
 
@@ -212,8 +217,36 @@ func (s *WallpaperService) List(ctx context.Context, opts repo.ListOptions) (*Li
 		nextCursor = items[len(items)-1].ID
 	}
 
+	listItems := make([]WallpaperListItem, len(items))
+	for i := range items {
+		listItems[i] = WallpaperListItem{Wallpaper: items[i]}
+	}
+
+	if currentUserID > 0 && len(items) > 0 {
+		ids := make([]int64, len(items))
+		for i := range items {
+			ids[i] = items[i].ID
+		}
+		likedMap, err := s.interactionRepo.BatchIsLiked(ctx, currentUserID, ids)
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to batch check likes", "error", err)
+		} else {
+			for i := range listItems {
+				listItems[i].IsLiked = likedMap[listItems[i].ID]
+			}
+		}
+		favMap, err := s.interactionRepo.BatchIsFavorited(ctx, currentUserID, ids)
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to batch check favorites", "error", err)
+		} else {
+			for i := range listItems {
+				listItems[i].IsFavorited = favMap[listItems[i].ID]
+			}
+		}
+	}
+
 	return &ListResponse{
-		Items:      items,
+		Items:      listItems,
 		NextCursor: nextCursor,
 		HasMore:    hasMore,
 	}, nil

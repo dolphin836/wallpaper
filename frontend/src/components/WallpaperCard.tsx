@@ -30,8 +30,8 @@ interface Props {
 
 export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0 }: Props) {
   const [loaded, setLoaded] = useState(false);
-  const [liked, setLiked] = useState(false);
-  const [favorited, setFavorited] = useState(false);
+  const [liked, setLiked] = useState(wallpaper.is_liked ?? false);
+  const [favorited, setFavorited] = useState(wallpaper.is_favorited ?? false);
   const { isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
 
@@ -145,7 +145,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         )}
 
         {/* Hover action buttons */}
-        <div className="absolute right-0 top-0 bottom-0 z-[2] opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-l from-black/50 to-transparent pl-8 pr-3 flex items-center">
+        <div className="absolute right-0 top-0 bottom-0 z-[2] opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-l from-black/50 to-transparent pl-8 pr-3 flex items-end pb-3">
           <div className="flex flex-col gap-2">
             {isAuthenticated && (
               <>

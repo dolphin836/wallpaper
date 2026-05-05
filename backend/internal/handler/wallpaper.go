@@ -145,7 +145,8 @@ func (h *WallpaperHandler) List(w http.ResponseWriter, r *http.Request) {
 		DeviceHeight: deviceHeight,
 	}
 
-	resp, ec := h.wallpaperSvc.List(r.Context(), opts)
+	userID := middleware.GetUserID(r.Context())
+	resp, ec := h.wallpaperSvc.List(r.Context(), opts, userID)
 	if ec != nil {
 		response.Error(w, http.StatusInternalServerError, ec)
 		return

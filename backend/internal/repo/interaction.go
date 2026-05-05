@@ -65,6 +65,44 @@ func (r *InteractionRepo) IsFavorited(ctx context.Context, userID, wallpaperID i
 	return count > 0, nil
 }
 
+func (r *InteractionRepo) BatchIsLiked(ctx context.Context, userID int64, wallpaperIDs []int64) (map[int64]bool, error) {
+	if len(wallpaperIDs) == 0 {
+		return map[int64]bool{}, nil
+	}
+	var ids []int64
+	err := r.db.WithContext(ctx).
+		Model(&model.UserLike{}).
+		Where("user_id = ? AND wallpaper_id IN ?", userID, wallpaperIDs).
+		Pluck("wallpaper_id", &ids).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		result[id] = true
+	}
+	return result, nil
+}
+
+func (r *InteractionRepo) BatchIsFavorited(ctx context.Context, userID int64, wallpaperIDs []int64) (map[int64]bool, error) {
+	if len(wallpaperIDs) == 0 {
+		return map[int64]bool{}, nil
+	}
+	var ids []int64
+	err := r.db.WithContext(ctx).
+		Model(&model.UserFavorite{}).
+		Where("user_id = ? AND wallpaper_id IN ?", userID, wallpaperIDs).
+		Pluck("wallpaper_id", &ids).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		result[id] = true
+	}
+	return result, nil
+}
+
 func (r *InteractionRepo) ListFavorites(ctx context.Context, userID int64, cursor int64, limit int) ([]model.Wallpaper, error) {
 	query := r.db.WithContext(ctx).
 		Table("wallpapers").

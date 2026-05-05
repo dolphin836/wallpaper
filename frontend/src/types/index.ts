@@ -29,6 +29,8 @@ export interface Wallpaper {
   like_count: number;
   download_count: number;
   favorite_count: number;
+  is_liked: boolean;
+  is_favorited: boolean;
   created_at: string;
   updated_at: string;
 }
