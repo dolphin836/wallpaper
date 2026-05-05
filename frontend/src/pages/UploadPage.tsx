@@ -21,6 +21,7 @@ interface UploadFile {
   preview: string;
   status: FileStatus;
   progress: number;
+  error?: string;
 }
 
 export default function UploadPage() {
@@ -126,18 +127,25 @@ export default function UploadPage() {
             if (xhr.status >= 200 && xhr.status < 300) {
               resolve();
             } else {
-              reject(new Error(`HTTP ${xhr.status}`));
+              let msg = `HTTP ${xhr.status}`;
+              try {
+                const body = JSON.parse(xhr.responseText);
+                if (body.message) msg = body.message;
+              } catch { /* use default */ }
+              reject(new Error(msg));
             }
           };
 
           xhr.onerror = () => reject(new Error('Network error'));
+          xhr.ontimeout = () => reject(new Error('Upload timeout'));
           xhr.send(formData);
         });
 
         updateFile(i, { status: 'success', progress: 100 });
         success++;
-      } catch {
-        updateFile(i, { status: 'error', progress: 0 });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Upload failed';
+        updateFile(i, { status: 'error', progress: 0, error: msg });
         failed++;
       }
     }
@@ -238,10 +246,15 @@ export default function UploadPage() {
 
                   {/* Error overlay */}
                   {f.status === 'error' && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 px-2">
+                      <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center mb-1.5">
                         <AiOutlineCloseCircle size={22} className="text-white" />
                       </div>
+                      {f.error && (
+                        <span className="text-[10px] text-white/90 text-center leading-tight line-clamp-2">
+                          {f.error}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
