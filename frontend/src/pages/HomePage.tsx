@@ -46,7 +46,7 @@ export default function HomePage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [deviceFilter, setDeviceFilter] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    return (localStorage.getItem('wallpaper_view_mode') as ViewMode) || 'waterfall';
+    return (localStorage.getItem('wallpaper_view_mode') as ViewMode) || 'justified';
   });
 
   const screen = useMemo(() => getScreenResolution(), []);
