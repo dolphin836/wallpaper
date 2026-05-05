@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -36,6 +37,28 @@ func (s *Storage) EnsureBucket(ctx context.Context) error {
 		if err := s.client.MakeBucket(ctx, s.bucket, minio.MakeBucketOptions{}); err != nil {
 			return fmt.Errorf("make bucket: %w", err)
 		}
+	}
+	return s.ensurePublicRead(ctx)
+}
+
+func (s *Storage) ensurePublicRead(ctx context.Context) error {
+	policy := map[string]any{
+		"Version": "2012-10-17",
+		"Statement": []map[string]any{
+			{
+				"Effect":    "Allow",
+				"Principal": map[string]string{"AWS": "*"},
+				"Action":    []string{"s3:GetObject"},
+				"Resource":  []string{fmt.Sprintf("arn:aws:s3:::%s/*", s.bucket)},
+			},
+		},
+	}
+	data, err := json.Marshal(policy)
+	if err != nil {
+		return fmt.Errorf("marshal bucket policy: %w", err)
+	}
+	if err := s.client.SetBucketPolicy(ctx, s.bucket, string(data)); err != nil {
+		return fmt.Errorf("set bucket policy: %w", err)
 	}
 	return nil
 }
