@@ -14,6 +14,7 @@ interface Props {
 interface JustifiedRow {
   items: Wallpaper[];
   height: number;
+  partial?: boolean;
 }
 
 const STAGGER_MS = 40;
@@ -40,7 +41,10 @@ function buildJustifiedRows(wallpapers: Wallpaper[], containerWidth: number, tar
   }
 
   if (currentRow.length > 0) {
-    rows.push({ items: currentRow, height: targetHeight });
+    const fillRatio = currentWidth / containerWidth;
+    if (fillRatio >= 0.7) {
+      rows.push({ items: currentRow, height: targetHeight, partial: true });
+    }
   }
 
   return rows;
@@ -87,7 +91,7 @@ function JustifiedLayout({ wallpapers, showStatus }: { wallpapers: Wallpaper[]; 
                 key={w.id}
                 wallpaper={w}
                 showStatus={showStatus}
-                style={{ width: row.height * ratio, flexShrink: 0, flexGrow: 1 }}
+                style={{ width: row.height * ratio, flexShrink: 0, flexGrow: row.partial ? 0 : 1 }}
                 fillHeight
                 animDelay={delay}
               />
