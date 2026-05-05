@@ -17,13 +17,24 @@ function IconJustified({ size = 20 }: { size?: number }) {
   );
 }
 
-function IconGridLg({ size = 20 }: { size?: number }) {
+function IconGrid({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor">
       <rect x="1" y="1" width="8" height="8" rx="1.5" />
       <rect x="11" y="1" width="8" height="8" rx="1.5" />
       <rect x="1" y="11" width="8" height="8" rx="1.5" />
       <rect x="11" y="11" width="8" height="8" rx="1.5" />
+    </svg>
+  );
+}
+
+function IconSizeLg({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor">
+      <rect x="1" y="1" width="8.5" height="8.5" rx="1.5" />
+      <rect x="10.5" y="1" width="8.5" height="8.5" rx="1.5" />
+      <rect x="1" y="10.5" width="8.5" height="8.5" rx="1.5" />
+      <rect x="10.5" y="10.5" width="8.5" height="8.5" rx="1.5" />
     </svg>
   );
 }
@@ -61,9 +72,9 @@ type ToolbarItem =
   | { type: 'size'; key: SizeMode; icon: React.FC<{ size?: number }>; label: string };
 
 const TOOLBAR_ITEMS: ToolbarItem[] = [
-  { type: 'view', key: 'justified', icon: IconJustified, label: 'Album' },
-  { type: 'view', key: 'grid', icon: IconGridLg, label: 'Grid' },
-  { type: 'size', key: 'lg', icon: IconGridLg, label: 'Large' },
+  { type: 'view', key: 'justified', icon: IconJustified, label: 'Justified' },
+  { type: 'view', key: 'grid', icon: IconGrid, label: 'Grid' },
+  { type: 'size', key: 'lg', icon: IconSizeLg, label: 'Large' },
   { type: 'size', key: 'md', icon: IconGridMd, label: 'Medium' },
   { type: 'size', key: 'sm', icon: IconGridSm, label: 'Small' },
 ];
@@ -182,10 +193,10 @@ export default function HomePage() {
                     else handleSizeChange(item.key as SizeMode);
                   }}
                   title={item.label}
-                  className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors duration-200 ${
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-200 ${
                     isActive
-                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
+                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 shadow-sm'
+                      : 'bg-gray-100 text-gray-400 hover:bg-green-50 hover:text-green-600 hover:shadow-sm dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-green-900/20 dark:hover:text-green-400'
                   }`}
                 >
                   <Icon size={20} />

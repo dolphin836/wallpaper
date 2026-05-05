@@ -58,22 +58,24 @@ function buildJustifiedRows(wallpapers: Wallpaper[], containerWidth: number, tar
   return rows;
 }
 
-function GridLayout({ wallpapers, showStatus, height }: { wallpapers: Wallpaper[]; showStatus?: boolean; height: number }) {
+const GRID_COLS: Record<SizeMode, string> = {
+  lg: 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
+  md: 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6',
+  sm: 'grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10',
+};
+
+function GridLayout({ wallpapers, showStatus, sizeMode }: { wallpapers: Wallpaper[]; showStatus?: boolean; sizeMode: SizeMode }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {wallpapers.map((w, i) => {
-        const ratio = w.width > 0 && w.height > 0 ? w.width / w.height : 4 / 3;
-        return (
-          <WallpaperCard
-            key={w.id}
-            wallpaper={w}
-            showStatus={showStatus}
-            style={{ width: height * ratio, height }}
-            fillHeight
-            animDelay={i * STAGGER_MS}
-          />
-        );
-      })}
+    <div className={`grid ${GRID_COLS[sizeMode]} gap-1.5`}>
+      {wallpapers.map((w, i) => (
+        <WallpaperCard
+          key={w.id}
+          wallpaper={w}
+          showStatus={showStatus}
+          fixedAspect
+          animDelay={i * STAGGER_MS}
+        />
+      ))}
     </div>
   );
 }
@@ -118,7 +120,7 @@ export default function WallpaperGrid({ wallpapers, showStatus, viewMode = 'just
 
   switch (viewMode) {
     case 'grid':
-      return <GridLayout wallpapers={wallpapers} showStatus={showStatus} height={height} />;
+      return <GridLayout wallpapers={wallpapers} showStatus={showStatus} sizeMode={sizeMode} />;
     default:
       return <JustifiedLayout wallpapers={wallpapers} showStatus={showStatus} targetHeight={height} />;
   }
