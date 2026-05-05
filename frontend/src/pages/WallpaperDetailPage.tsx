@@ -200,12 +200,20 @@ export default function WallpaperDetailPage() {
         </div>
 
         <div className="p-6 sm:p-8">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{wallpaper.title}</h1>
-              {wallpaper.description && (
-                <p className="mt-2 text-gray-600 dark:text-gray-400">{wallpaper.description}</p>
-              )}
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-3">
+              <Link to={`/user/${wallpaper.uploader.id}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                {wallpaper.uploader.avatar_url ? (
+                  <img src={wallpaper.uploader.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-semibold">
+                    {(wallpaper.uploader.nickname || wallpaper.uploader.username).charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                  {wallpaper.uploader.nickname || wallpaper.uploader.username}
+                </span>
+              </Link>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button
@@ -241,34 +249,6 @@ export default function WallpaperDetailPage() {
               </button>
             </div>
           </div>
-
-          <div className="flex items-center gap-3 mb-6">
-            <Link to={`/user/${wallpaper.uploader.id}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-              {wallpaper.uploader.avatar_url ? (
-                <img src={wallpaper.uploader.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-semibold">
-                  {(wallpaper.uploader.nickname || wallpaper.uploader.username).charAt(0).toUpperCase()}
-                </div>
-              )}
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                {wallpaper.uploader.nickname || wallpaper.uploader.username}
-              </span>
-            </Link>
-          </div>
-
-          {wallpaper.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-6">
-              {wallpaper.tags.map((tag) => (
-                <span
-                  key={tag.id}
-                  className="px-3 py-1 text-xs font-medium bg-indigo-50 text-indigo-600 rounded-full"
-                >
-                  {tag.name}
-                </span>
-              ))}
-            </div>
-          )}
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-4 border-t border-gray-100 dark:border-gray-700">
             <div className="text-center">

@@ -1,15 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AiOutlineSearch } from 'react-icons/ai';
 import toast from 'react-hot-toast';
-import type { Wallpaper, Category } from '../types';
-import { getWallpapers, getCategories } from '../api';
+import type { Wallpaper } from '../types';
+import { getWallpapers } from '../api';
 import WallpaperGrid from '../components/WallpaperGrid';
 import Spinner from '../components/Spinner';
 
 export default function HomePage() {
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [activeCategory, setActiveCategory] = useState<number | undefined>();
   const [sort, setSort] = useState('latest');
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
@@ -18,12 +16,6 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  useEffect(() => {
-    getCategories()
-      .then((res) => setCategories(res.data.data))
-      .catch(() => toast.error('Failed to load categories'));
-  }, []);
-
   const fetchWallpapers = useCallback(async (reset: boolean) => {
     const setter = reset ? setLoading : setLoadingMore;
     setter(true);
@@ -31,7 +23,6 @@ export default function HomePage() {
       const res = await getWallpapers({
         cursor: reset ? undefined : cursor,
         limit: 20,
-        category_id: activeCategory,
         sort,
         search: search || undefined,
       });
@@ -44,11 +35,11 @@ export default function HomePage() {
     } finally {
       setter(false);
     }
-  }, [cursor, activeCategory, sort, search]);
+  }, [cursor, sort, search]);
 
   useEffect(() => {
     fetchWallpapers(true);
-  }, [activeCategory, sort, search]);
+  }, [sort, search]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,32 +67,6 @@ export default function HomePage() {
           <option value="latest">Latest</option>
           <option value="popular">Popular</option>
         </select>
-      </div>
-
-      <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-6 scrollbar-hide">
-        <button
-          onClick={() => setActiveCategory(undefined)}
-          className={`shrink-0 px-4 py-1.5 text-sm rounded-full font-medium transition-colors duration-200 ${
-            activeCategory === undefined
-              ? 'bg-indigo-600 text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          All
-        </button>
-        {categories.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => setActiveCategory(cat.id)}
-            className={`shrink-0 px-4 py-1.5 text-sm rounded-full font-medium transition-colors duration-200 ${
-              activeCategory === cat.id
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            {cat.name}
-          </button>
-        ))}
       </div>
 
       {loading ? (

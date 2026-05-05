@@ -63,7 +63,7 @@ func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wal
 	if opts.Status > 0 {
 		query = query.Where("status = ?", opts.Status)
 	} else {
-		query = query.Where("status != ?", model.WallpaperStatusRemoved)
+		query = query.Where("status = ?", model.WallpaperStatusPublished)
 	}
 	if opts.Search != "" {
 		query = query.Where("title ILIKE ?", "%"+opts.Search+"%")
@@ -93,13 +93,15 @@ func (r *WallpaperRepo) UpdateStatus(ctx context.Context, id int64, status int16
 		Update("status", status).Error
 }
 
-func (r *WallpaperRepo) UpdateThumbs(ctx context.Context, id int64, thumbURL, previewURL string) error {
+func (r *WallpaperRepo) UpdateProcessed(ctx context.Context, id int64, thumbURL, previewURL string, width, height int) error {
 	return r.db.WithContext(ctx).
 		Model(&model.Wallpaper{}).
 		Where("id = ?", id).
 		Updates(map[string]any{
 			"thumb_url":   thumbURL,
 			"preview_url": previewURL,
+			"width":       width,
+			"height":      height,
 			"status":      model.WallpaperStatusPublished,
 		}).Error
 }

@@ -143,6 +143,11 @@ func (s *WallpaperService) Get(ctx context.Context, id int64, currentUserID int6
 		return nil, errcode.ErrNotFound
 	}
 
+	if err := s.wallpaperRepo.IncrementCounter(ctx, id, "view_count", 1); err != nil {
+		slog.ErrorContext(ctx, "failed to increment view count", "error", err)
+	}
+	w.ViewCount++
+
 	tags, err := s.tagRepo.GetByWallpaperID(ctx, id)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get wallpaper tags",

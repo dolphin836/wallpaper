@@ -96,7 +96,7 @@ func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedE
 	bounds := img.Bounds()
 	origW, origH := bounds.Dx(), bounds.Dy()
 
-	if err := w.generateThumbAndPreview(ctx, img, format, event.WallpaperID); err != nil {
+	if err := w.generateThumbAndPreview(ctx, img, format, event.WallpaperID, origW, origH); err != nil {
 		return fmt.Errorf("thumb/preview: %w", err)
 	}
 
@@ -115,7 +115,7 @@ func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedE
 	return nil
 }
 
-func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Image, format string, wallpaperID int64) error {
+func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Image, format string, wallpaperID int64, origW, origH int) error {
 	thumb := resize.Thumbnail(300, 200, img, resize.Lanczos3)
 	thumbBuf := new(bytes.Buffer)
 	if err := encodeImage(thumbBuf, thumb, format); err != nil {
@@ -141,9 +141,9 @@ func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Ima
 		return fmt.Errorf("upload preview: %w", err)
 	}
 
-	if err := w.wpRepo.UpdateThumbs(ctx, wallpaperID,
-		w.storage.GetURL(thumbKey), w.storage.GetURL(previewKey)); err != nil {
-		return fmt.Errorf("update thumbs: %w", err)
+	if err := w.wpRepo.UpdateProcessed(ctx, wallpaperID,
+		w.storage.GetURL(thumbKey), w.storage.GetURL(previewKey), origW, origH); err != nil {
+		return fmt.Errorf("update processed: %w", err)
 	}
 	return nil
 }
@@ -178,7 +178,8 @@ func (w *ImageWorker) generateDeviceVariants(ctx context.Context, img image.Imag
 		}
 
 		objKey := fmt.Sprintf("variants/%d/%dx%d.jpg", wallpaperID, dev.Width, dev.Height)
-		if err := w.storage.Upload(ctx, objKey, buf, int64(buf.Len()), "image/jpeg"); err != nil {
+		fileSize := int64(buf.Len())
+		if err := w.storage.Upload(ctx, objKey, buf, fileSize, "image/jpeg"); err != nil {
 			slog.Error("upload variant failed",
 				"wallpaper_id", wallpaperID,
 				"device", dev.Name,
@@ -193,7 +194,7 @@ func (w *ImageWorker) generateDeviceVariants(ctx context.Context, img image.Imag
 			URL:         w.storage.GetURL(objKey),
 			Width:       dev.Width,
 			Height:      dev.Height,
-			FileSize:    int64(buf.Len()),
+			FileSize:    fileSize,
 		})
 
 		slog.Info("variant generated",
