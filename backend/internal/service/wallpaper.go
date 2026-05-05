@@ -340,7 +340,9 @@ func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64) (str
 		return "", errcode.ErrNotFound
 	}
 
-	s.publishStatsEvent(ctx, wallpaperID, "download", 0)
+	if err := s.wallpaperRepo.IncrementCounter(ctx, wallpaperID, "download_count", 1); err != nil {
+		slog.ErrorContext(ctx, "failed to increment download count", "error", err)
+	}
 
 	return w.OriginalURL, nil
 }

@@ -198,7 +198,6 @@ export default function WallpaperDetailPage() {
   const [loading, setLoading] = useState(true);
   const [likeLoading, setLikeLoading] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
-  const [showVariants, setShowVariants] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
 
@@ -274,9 +273,26 @@ export default function WallpaperDetailPage() {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!wallpaper) return;
-    window.open(downloadWallpaper(wallpaper.id), '_blank');
+    const url = downloadWallpaper(wallpaper.id);
+    try {
+      const resp = await fetch(url);
+      const finalUrl = resp.url;
+      const blob = await resp.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      const ext = finalUrl.split('.').pop()?.split('?')[0] || 'jpg';
+      a.download = `wallpaper_${wallpaper.id}_${wallpaper.width}x${wallpaper.height}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+      setWallpaper({ ...wallpaper, download_count: wallpaper.download_count + 1 });
+    } catch {
+      toast.error('Download failed');
+    }
   };
 
   const handleDelete = async () => {
@@ -437,22 +453,11 @@ export default function WallpaperDetailPage() {
             {/* Device Variants */}
             {variants.length > 0 && (
               <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
-                <button
-                  onClick={() => setShowVariants(!showVariants)}
-                  className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4"
-                >
-                  <AiOutlineDownload size={18} />
-                  Download for your device ({variants.length} resolutions)
-                  <svg
-                    className={`w-4 h-4 transition-transform ${showVariants ? 'rotate-180' : ''}`}
-                    fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {showVariants && (
-                  <VariantList variants={variants} onMockup={setMockupVariant} />
-                )}
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
+                  <MdPhoneIphone size={18} />
+                  Available Devices ({variants.length})
+                </h3>
+                <VariantList variants={variants} onMockup={setMockupVariant} />
               </div>
             )}
 
