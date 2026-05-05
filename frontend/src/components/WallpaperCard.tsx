@@ -1,33 +1,23 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
-  AiOutlineEye,
   AiOutlineHeart,
+  AiFillHeart,
   AiOutlineStar,
+  AiFillStar,
   AiOutlineDownload,
   AiOutlineLoading3Quarters,
   AiOutlineWarning,
-  AiOutlineExpandAlt,
-  AiOutlineFile,
 } from 'react-icons/ai';
+import toast from 'react-hot-toast';
 import type { Wallpaper } from '../types';
+import { useAuthStore } from '../store/auth';
+import { likeWallpaper, unlikeWallpaper, favoriteWallpaper, unfavoriteWallpaper, downloadWallpaper } from '../api';
 
 const STATUS_PROCESSING = 0;
 const STATUS_PUBLISHED = 1;
 const STATUS_FAILED = 2;
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-}
-
-function formatCount(n: number): string {
-  if (n >= 10000) return `${(n / 1000).toFixed(0)}K`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
-  return String(n);
-}
 
 interface Props {
   wallpaper: Wallpaper;
@@ -40,6 +30,11 @@ interface Props {
 
 export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0 }: Props) {
   const [loaded, setLoaded] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [favorited, setFavorited] = useState(false);
+  const { isAuthenticated } = useAuthStore();
+  const navigate = useNavigate();
+
   const imgSrc = wallpaper.preview_url || wallpaper.thumb_url;
   const isProcessing = wallpaper.status === STATUS_PROCESSING;
   const isFailed = wallpaper.status === STATUS_FAILED;
@@ -47,6 +42,58 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   const aspectRatio = wallpaper.width > 0 && wallpaper.height > 0
     ? wallpaper.width / wallpaper.height
     : 4 / 3;
+
+  const handleAction = (e: React.MouseEvent, action: () => void) => {
+    e.preventDefault();
+    e.stopPropagation();
+    action();
+  };
+
+  const handleDownload = async () => {
+    try {
+      const resp = await fetch(downloadWallpaper(wallpaper.id));
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const ext = wallpaper.original_url.split('.').pop()?.split('?')[0] || 'jpg';
+      a.download = `wallpaper_${wallpaper.id}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Download failed');
+    }
+  };
+
+  const handleLike = async () => {
+    if (!isAuthenticated) { navigate('/login'); return; }
+    try {
+      if (liked) {
+        await unlikeWallpaper(wallpaper.id);
+      } else {
+        await likeWallpaper(wallpaper.id);
+      }
+      setLiked(!liked);
+    } catch {
+      toast.error('Action failed');
+    }
+  };
+
+  const handleFavorite = async () => {
+    if (!isAuthenticated) { navigate('/login'); return; }
+    try {
+      if (favorited) {
+        await unfavoriteWallpaper(wallpaper.id);
+      } else {
+        await favoriteWallpaper(wallpaper.id);
+      }
+      setFavorited(!favorited);
+    } catch {
+      toast.error('Action failed');
+    }
+  };
 
   return (
     <Link
@@ -97,39 +144,42 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           </span>
         )}
 
-        {/* Hover overlay with stats */}
-        <div className="absolute inset-0 z-[2] bg-gradient-to-l from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-end justify-between p-3.5 pointer-events-none">
-          <div className="flex flex-col gap-1.5 text-[13px] text-white/90 font-medium">
-            <span className="flex items-center gap-1.5">
-              <AiOutlineEye size={15} />
-              {formatCount(wallpaper.view_count)}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <AiOutlineHeart size={15} />
-              {formatCount(wallpaper.like_count)}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <AiOutlineStar size={15} />
-              {formatCount(wallpaper.favorite_count)}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <AiOutlineDownload size={15} />
-              {formatCount(wallpaper.download_count)}
-            </span>
-          </div>
-          <div className="flex flex-col gap-1 text-[12px] text-white/80 font-medium items-end">
-            {wallpaper.width > 0 && wallpaper.height > 0 && (
-              <span className="flex items-center gap-1.5">
-                <AiOutlineExpandAlt size={14} />
-                {wallpaper.width}&times;{wallpaper.height}
-              </span>
+        {/* Hover action buttons */}
+        <div className="absolute bottom-0 left-0 right-0 z-[2] opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-t from-black/60 to-transparent pt-8 pb-3 px-3">
+          <div className="flex items-center justify-end gap-1.5">
+            {isAuthenticated && (
+              <>
+                <button
+                  onClick={(e) => handleAction(e, handleLike)}
+                  className={`p-2 rounded-full backdrop-blur-sm transition-colors ${
+                    liked
+                      ? 'bg-red-500/80 text-white'
+                      : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                  title={liked ? 'Unlike' : 'Like'}
+                >
+                  {liked ? <AiFillHeart size={18} /> : <AiOutlineHeart size={18} />}
+                </button>
+                <button
+                  onClick={(e) => handleAction(e, handleFavorite)}
+                  className={`p-2 rounded-full backdrop-blur-sm transition-colors ${
+                    favorited
+                      ? 'bg-amber-500/80 text-white'
+                      : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                  title={favorited ? 'Unfavorite' : 'Favorite'}
+                >
+                  {favorited ? <AiFillStar size={18} /> : <AiOutlineStar size={18} />}
+                </button>
+              </>
             )}
-            {wallpaper.file_size > 0 && (
-              <span className="flex items-center gap-1.5">
-                <AiOutlineFile size={14} />
-                {formatSize(wallpaper.file_size)}
-              </span>
-            )}
+            <button
+              onClick={(e) => handleAction(e, handleDownload)}
+              className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm transition-colors"
+              title="Download"
+            >
+              <AiOutlineDownload size={18} />
+            </button>
           </div>
         </div>
       </div>
