@@ -78,8 +78,10 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: api
-    ports:
-      - "127.0.0.1:${API_PORT:-8080}:8080"
+    container_name: wallpaper_api
+    networks:
+      - default
+      - caddy_shared
     environment:
       SERVER_PORT: "8080"
       DB_HOST: postgres
@@ -138,8 +140,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "127.0.0.1:${FRONTEND_PORT:-8880}:80"
+    container_name: wallpaper_frontend
+    networks:
+      - default
+      - caddy_shared
     depends_on:
       - api
     restart: unless-stopped
@@ -148,3 +152,7 @@ volumes:
   pg_data:
   redis_data:
   minio_data:
+
+networks:
+  caddy_shared:
+    external: true
