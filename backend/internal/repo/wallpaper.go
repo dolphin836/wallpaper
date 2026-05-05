@@ -38,13 +38,14 @@ func (r *WallpaperRepo) GetByID(ctx context.Context, id int64) (*model.Wallpaper
 }
 
 type ListOptions struct {
-	Cursor     int64
-	Limit      int
-	CategoryID int64
-	UserID     int64
-	Status     int16
-	Sort       string // "newest" or "popular"
-	Search     string
+	Cursor           int64
+	Limit            int
+	CategoryID       int64
+	UserID           int64
+	Status           int16
+	IncludeAllActive bool
+	Sort             string // "newest" or "popular"
+	Search           string
 }
 
 func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wallpaper, error) {
@@ -60,7 +61,9 @@ func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wal
 	if opts.UserID > 0 {
 		query = query.Where("user_id = ?", opts.UserID)
 	}
-	if opts.Status > 0 {
+	if opts.IncludeAllActive {
+		query = query.Where("status != ?", model.WallpaperStatusRemoved)
+	} else if opts.Status > 0 {
 		query = query.Where("status = ?", opts.Status)
 	} else {
 		query = query.Where("status = ?", model.WallpaperStatusPublished)

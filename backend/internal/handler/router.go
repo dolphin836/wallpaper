@@ -63,7 +63,10 @@ func NewRouter(deps Deps) *chi.Mux {
 		})
 
 		r.Get("/users/{id}", deps.UserHandler.GetProfile)
-		r.Get("/users/{id}/wallpapers", deps.UserHandler.GetWallpapers)
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.OptionalAuth(deps.JWTSecret))
+			r.Get("/users/{id}/wallpapers", deps.UserHandler.GetWallpapers)
+		})
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(deps.JWTSecret))
 			r.Get("/users/me/favorites", deps.UserHandler.GetFavorites)

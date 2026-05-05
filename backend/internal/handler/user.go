@@ -58,12 +58,21 @@ func (h *UserHandler) GetWallpapers(w http.ResponseWriter, r *http.Request) {
 	cursor, limit := parseCursorLimit(r)
 	fetchLimit := limit + 1
 
-	items, err := h.wallpaperRepo.List(r.Context(), repo.ListOptions{
+	currentUserID := middleware.GetUserID(r.Context())
+	isOwner := currentUserID == id
+
+	opts := repo.ListOptions{
 		Cursor: cursor,
 		Limit:  fetchLimit,
 		UserID: id,
-		Status: model.WallpaperStatusPublished,
-	})
+	}
+	if isOwner {
+		opts.IncludeAllActive = true
+	} else {
+		opts.Status = model.WallpaperStatusPublished
+	}
+
+	items, err := h.wallpaperRepo.List(r.Context(), opts)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to list user wallpapers",
 			"error", err, "user_id", id)

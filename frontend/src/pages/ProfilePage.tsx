@@ -3,12 +3,14 @@ import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import type { User, Wallpaper } from '../types';
 import { getUserProfile, getUserWallpapers } from '../api';
+import { useAuthStore } from '../store/auth';
 import WallpaperGrid from '../components/WallpaperGrid';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
+  const { user: currentUser } = useAuthStore();
   const [user, setUser] = useState<User | null>(null);
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
   const [cursor, setCursor] = useState<number | undefined>();
@@ -79,7 +81,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <WallpaperGrid wallpapers={wallpapers} />
+      <WallpaperGrid wallpapers={wallpapers} showStatus={currentUser?.id === Number(id)} />
 
       {hasMore && (
         <div className="flex justify-center mt-8">
