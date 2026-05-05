@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS wallpapers (
     file_size      BIGINT         NOT NULL DEFAULT 0,
     file_type      VARCHAR(16)    NOT NULL DEFAULT '',
     dominant_color VARCHAR(7)     NOT NULL DEFAULT '',
+    color_palette  VARCHAR(64)    NOT NULL DEFAULT '',
     status         SMALLINT       NOT NULL DEFAULT 0,
     view_count     BIGINT         NOT NULL DEFAULT 0,
     like_count     BIGINT         NOT NULL DEFAULT 0,
@@ -102,6 +103,8 @@ CREATE TABLE IF NOT EXISTS wallpaper_variants (
 );
 
 CREATE INDEX IF NOT EXISTS idx_variants_wallpaper ON wallpaper_variants(wallpaper_id, device_id);
+
+ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS color_palette VARCHAR(64) NOT NULL DEFAULT '';
 
 INSERT INTO categories (name, slug, sort_order) VALUES
     ('自然风光', 'nature', 1),

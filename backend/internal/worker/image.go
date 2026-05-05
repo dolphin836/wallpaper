@@ -96,7 +96,9 @@ func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedE
 	bounds := img.Bounds()
 	origW, origH := bounds.Dx(), bounds.Dy()
 
-	if err := w.generateThumbAndPreview(ctx, img, format, event.WallpaperID, origW, origH); err != nil {
+	dominantColor, colorPalette := extractColors(img)
+
+	if err := w.generateThumbAndPreview(ctx, img, format, event.WallpaperID, origW, origH, dominantColor, colorPalette); err != nil {
 		return fmt.Errorf("thumb/preview: %w", err)
 	}
 
@@ -115,7 +117,7 @@ func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedE
 	return nil
 }
 
-func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Image, format string, wallpaperID int64, origW, origH int) error {
+func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Image, format string, wallpaperID int64, origW, origH int, dominantColor, colorPalette string) error {
 	thumb := resize.Thumbnail(300, 200, img, resize.Lanczos3)
 	thumbBuf := new(bytes.Buffer)
 	if err := encodeImage(thumbBuf, thumb, format); err != nil {
@@ -142,7 +144,7 @@ func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Ima
 	}
 
 	if err := w.wpRepo.UpdateProcessed(ctx, wallpaperID,
-		w.storage.GetURL(thumbKey), w.storage.GetURL(previewKey), origW, origH); err != nil {
+		w.storage.GetURL(thumbKey), w.storage.GetURL(previewKey), origW, origH, dominantColor, colorPalette); err != nil {
 		return fmt.Errorf("update processed: %w", err)
 	}
 	return nil

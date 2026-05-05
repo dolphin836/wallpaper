@@ -56,6 +56,14 @@ function formatNumber(n: number): string {
   return n.toLocaleString();
 }
 
+function isLightColor(hex: string): boolean {
+  const c = hex.replace('#', '');
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 150;
+}
+
 const platformLabels: Record<string, string> = {
   desktop: 'Desktop',
   laptop: 'Laptop',
@@ -456,6 +464,31 @@ export default function WallpaperDetailPage() {
               <MetaItem label="Views" value={formatNumber(wallpaper.view_count)} />
               <MetaItem label="Uploaded" value={formatTimeAgo(wallpaper.created_at)} />
             </div>
+
+            {/* Color Palette */}
+            {wallpaper.color_palette && (
+              <div>
+                <h4 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
+                  Palette
+                </h4>
+                <div className="flex rounded-xl overflow-hidden h-14">
+                  {wallpaper.color_palette.split(',').map((hex) => (
+                    <div
+                      key={hex}
+                      className="flex-1 flex items-end justify-center pb-1.5 group relative cursor-pointer"
+                      style={{ backgroundColor: hex }}
+                      onClick={() => { navigator.clipboard.writeText(hex); toast.success(`Copied ${hex}`); }}
+                    >
+                      <span className="text-[10px] font-mono font-semibold opacity-80 drop-shadow-sm"
+                        style={{ color: isLightColor(hex) ? '#000' : '#fff' }}
+                      >
+                        {hex}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Uploader */}
             <div className="flex items-center justify-between pt-6 border-t border-gray-100 dark:border-gray-700">

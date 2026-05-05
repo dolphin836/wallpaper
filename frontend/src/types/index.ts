@@ -23,6 +23,7 @@ export interface Wallpaper {
   file_size: number;
   file_type: string;
   dominant_color: string;
+  color_palette: string;
   status: number;
   view_count: number;
   like_count: number;
