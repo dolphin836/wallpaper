@@ -1,16 +1,71 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { BsGrid, BsColumnsGap, BsImage } from 'react-icons/bs';
 import { MdDevices } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import type { Wallpaper } from '../types';
 import { getWallpapers } from '../api';
 import WallpaperGrid from '../components/WallpaperGrid';
-import type { ViewMode } from '../components/WallpaperGrid';
+import type { ViewMode, SizeMode } from '../components/WallpaperGrid';
 
-const VIEW_MODES: { key: ViewMode; icon: typeof BsGrid; label: string }[] = [
-  { key: 'waterfall', icon: BsColumnsGap, label: 'Waterfall' },
-  { key: 'grid', icon: BsGrid, label: 'Grid' },
-  { key: 'justified', icon: BsImage, label: 'Album' },
+function IconJustified({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor">
+      <rect x="1" y="2" width="8" height="7" rx="1.5" />
+      <rect x="11" y="2" width="8" height="7" rx="1.5" />
+      <rect x="1" y="11" width="12" height="7" rx="1.5" />
+      <rect x="15" y="11" width="4" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
+function IconGridLg({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor">
+      <rect x="1" y="1" width="8" height="8" rx="1.5" />
+      <rect x="11" y="1" width="8" height="8" rx="1.5" />
+      <rect x="1" y="11" width="8" height="8" rx="1.5" />
+      <rect x="11" y="11" width="8" height="8" rx="1.5" />
+    </svg>
+  );
+}
+
+function IconGridMd({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor">
+      <rect x="1" y="1" width="5" height="5" rx="1" />
+      <rect x="7.5" y="1" width="5" height="5" rx="1" />
+      <rect x="14" y="1" width="5" height="5" rx="1" />
+      <rect x="1" y="7.5" width="5" height="5" rx="1" />
+      <rect x="7.5" y="7.5" width="5" height="5" rx="1" />
+      <rect x="14" y="7.5" width="5" height="5" rx="1" />
+      <rect x="1" y="14" width="5" height="5" rx="1" />
+      <rect x="7.5" y="14" width="5" height="5" rx="1" />
+      <rect x="14" y="14" width="5" height="5" rx="1" />
+    </svg>
+  );
+}
+
+function IconGridSm({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor">
+      {[0, 1, 2, 3, 4].map((r) =>
+        [0, 1, 2, 3, 4].map((c) => (
+          <rect key={`${r}-${c}`} x={1 + c * 3.8} y={1 + r * 3.8} width="2.8" height="2.8" rx="0.6" />
+        ))
+      )}
+    </svg>
+  );
+}
+
+type ToolbarItem =
+  | { type: 'view'; key: ViewMode; icon: React.FC<{ size?: number }>; label: string }
+  | { type: 'size'; key: SizeMode; icon: React.FC<{ size?: number }>; label: string };
+
+const TOOLBAR_ITEMS: ToolbarItem[] = [
+  { type: 'view', key: 'justified', icon: IconJustified, label: 'Album' },
+  { type: 'view', key: 'grid', icon: IconGridLg, label: 'Grid' },
+  { type: 'size', key: 'lg', icon: IconGridLg, label: 'Large' },
+  { type: 'size', key: 'md', icon: IconGridMd, label: 'Medium' },
+  { type: 'size', key: 'sm', icon: IconGridSm, label: 'Small' },
 ];
 
 const SKELETON_RATIOS = [4/3, 3/4, 16/9, 1, 3/4, 4/3, 16/9, 3/2, 3/4, 4/3, 1, 16/9];
@@ -25,14 +80,13 @@ function getScreenResolution() {
 
 function SkeletonGrid() {
   return (
-    <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-5 space-y-5">
+    <div className="flex flex-wrap gap-1.5">
       {SKELETON_RATIOS.map((ratio, i) => (
-        <div key={i} className="break-inside-avoid">
-          <div
-            className="rounded-xl bg-gray-200 dark:bg-gray-700 skeleton-card"
-            style={{ aspectRatio: ratio, animationDelay: `${i * 100}ms` }}
-          />
-        </div>
+        <div
+          key={i}
+          className="rounded-xl bg-gray-200 dark:bg-gray-700 skeleton-card"
+          style={{ width: 260 * ratio, height: 260, animationDelay: `${i * 100}ms` }}
+        />
       ))}
     </div>
   );
@@ -48,12 +102,20 @@ export default function HomePage() {
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('wallpaper_view_mode') as ViewMode) || 'justified';
   });
+  const [sizeMode, setSizeMode] = useState<SizeMode>(() => {
+    return (localStorage.getItem('wallpaper_size_mode') as SizeMode) || 'md';
+  });
 
   const screen = useMemo(() => getScreenResolution(), []);
 
   const handleViewChange = (mode: ViewMode) => {
     setViewMode(mode);
     localStorage.setItem('wallpaper_view_mode', mode);
+  };
+
+  const handleSizeChange = (size: SizeMode) => {
+    setSizeMode(size);
+    localStorage.setItem('wallpaper_size_mode', size);
   };
 
   const fetchWallpapers = useCallback(async (reset: boolean, forDevice: boolean) => {
@@ -84,16 +146,12 @@ export default function HomePage() {
     fetchWallpapers(true, deviceFilter);
   }, [deviceFilter]);
 
-  const toggleDeviceFilter = () => {
-    setDeviceFilter((prev) => !prev);
-  };
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between gap-2 mb-6">
         <button
-          onClick={toggleDeviceFilter}
-          title={deviceFilter ? `Showing wallpapers for ${screen.width}×${screen.height} — click to show all` : 'Show only wallpapers matching your device'}
+          onClick={() => setDeviceFilter((p) => !p)}
+          title={deviceFilter ? `${screen.width}×${screen.height} — click to show all` : 'Filter for your device'}
           className={`flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
             deviceFilter
               ? 'bg-indigo-600 text-white'
@@ -106,21 +164,35 @@ export default function HomePage() {
           </span>
         </button>
 
-        <div className="flex items-center gap-1">
-          {VIEW_MODES.map(({ key, icon: Icon, label }) => (
-            <button
-              key={key}
-              onClick={() => handleViewChange(key)}
-              title={label}
-              className={`p-2 rounded-lg transition-colors duration-200 ${
-                viewMode === key
-                  ? 'bg-indigo-100 text-indigo-600'
-                  : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <Icon size={18} />
-            </button>
-          ))}
+        <div className="flex items-center gap-1.5">
+          {TOOLBAR_ITEMS.map((item, i) => {
+            const isActive = item.type === 'view'
+              ? viewMode === item.key
+              : sizeMode === item.key;
+            const showDivider = i === 2;
+            const Icon = item.icon;
+            return (
+              <div key={`${item.type}-${item.key}`} className="flex items-center gap-1.5">
+                {showDivider && (
+                  <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-0.5" />
+                )}
+                <button
+                  onClick={() => {
+                    if (item.type === 'view') handleViewChange(item.key as ViewMode);
+                    else handleSizeChange(item.key as SizeMode);
+                  }}
+                  title={item.label}
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors duration-200 ${
+                    isActive
+                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <Icon size={20} />
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -128,7 +200,7 @@ export default function HomePage() {
         <SkeletonGrid />
       ) : (
         <>
-          <WallpaperGrid wallpapers={wallpapers} viewMode={viewMode} />
+          <WallpaperGrid wallpapers={wallpapers} viewMode={viewMode} sizeMode={sizeMode} />
           {hasMore && (
             <div className="flex justify-center mt-8">
               <button

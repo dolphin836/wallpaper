@@ -3,12 +3,20 @@ import type { Wallpaper } from '../types';
 import WallpaperCard from './WallpaperCard';
 import EmptyState from './EmptyState';
 
-export type ViewMode = 'waterfall' | 'grid' | 'justified';
+export type ViewMode = 'justified' | 'grid';
+export type SizeMode = 'lg' | 'md' | 'sm';
+
+export const SIZE_HEIGHTS: Record<SizeMode, number> = {
+  lg: 520,
+  md: 260,
+  sm: 100,
+};
 
 interface Props {
   wallpapers: Wallpaper[];
   showStatus?: boolean;
   viewMode?: ViewMode;
+  sizeMode?: SizeMode;
 }
 
 interface JustifiedRow {
@@ -50,33 +58,31 @@ function buildJustifiedRows(wallpapers: Wallpaper[], containerWidth: number, tar
   return rows;
 }
 
-function WaterfallLayout({ wallpapers, showStatus }: { wallpapers: Wallpaper[]; showStatus?: boolean }) {
+function GridLayout({ wallpapers, showStatus, height }: { wallpapers: Wallpaper[]; showStatus?: boolean; height: number }) {
   return (
-    <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-5 space-y-5">
-      {wallpapers.map((w, i) => (
-        <div key={w.id} className="break-inside-avoid">
-          <WallpaperCard wallpaper={w} showStatus={showStatus} animDelay={i * STAGGER_MS} />
-        </div>
-      ))}
+    <div className="flex flex-wrap gap-1.5">
+      {wallpapers.map((w, i) => {
+        const ratio = w.width > 0 && w.height > 0 ? w.width / w.height : 4 / 3;
+        return (
+          <WallpaperCard
+            key={w.id}
+            wallpaper={w}
+            showStatus={showStatus}
+            style={{ width: height * ratio, height }}
+            fillHeight
+            animDelay={i * STAGGER_MS}
+          />
+        );
+      })}
     </div>
   );
 }
 
-function GridLayout({ wallpapers, showStatus }: { wallpapers: Wallpaper[]; showStatus?: boolean }) {
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-      {wallpapers.map((w, i) => (
-        <WallpaperCard key={w.id} wallpaper={w} showStatus={showStatus} fixedAspect animDelay={i * STAGGER_MS} />
-      ))}
-    </div>
-  );
-}
-
-function JustifiedLayout({ wallpapers, showStatus }: { wallpapers: Wallpaper[]; showStatus?: boolean }) {
+function JustifiedLayout({ wallpapers, showStatus, targetHeight }: { wallpapers: Wallpaper[]; showStatus?: boolean; targetHeight: number }) {
   const rows = useMemo(() => {
     const width = typeof window !== 'undefined' ? Math.min(window.innerWidth - 32, 1280) : 1280;
-    return buildJustifiedRows(wallpapers, width, 240);
-  }, [wallpapers]);
+    return buildJustifiedRows(wallpapers, width, targetHeight);
+  }, [wallpapers, targetHeight]);
 
   let idx = 0;
   return (
@@ -103,17 +109,17 @@ function JustifiedLayout({ wallpapers, showStatus }: { wallpapers: Wallpaper[]; 
   );
 }
 
-export default function WallpaperGrid({ wallpapers, showStatus, viewMode = 'waterfall' }: Props) {
+export default function WallpaperGrid({ wallpapers, showStatus, viewMode = 'justified', sizeMode = 'md' }: Props) {
   if (wallpapers.length === 0) {
     return <EmptyState message="No wallpapers found." />;
   }
 
+  const height = SIZE_HEIGHTS[sizeMode];
+
   switch (viewMode) {
     case 'grid':
-      return <GridLayout wallpapers={wallpapers} showStatus={showStatus} />;
-    case 'justified':
-      return <JustifiedLayout wallpapers={wallpapers} showStatus={showStatus} />;
+      return <GridLayout wallpapers={wallpapers} showStatus={showStatus} height={height} />;
     default:
-      return <WaterfallLayout wallpapers={wallpapers} showStatus={showStatus} />;
+      return <JustifiedLayout wallpapers={wallpapers} showStatus={showStatus} targetHeight={height} />;
   }
 }
