@@ -103,6 +103,16 @@ function SkeletonGrid() {
   );
 }
 
+const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent);
+
+function AppleIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 384 512" fill="currentColor">
+      <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/>
+    </svg>
+  );
+}
+
 export default function HomePage() {
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
   const [cursor, setCursor] = useState<number | undefined>();
@@ -110,6 +120,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [deviceFilter, setDeviceFilter] = useState(false);
+  const [macFilter, setMacFilter] = useState(false);
   const [sortTrending, setSortTrending] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('wallpaper_view_mode') as ViewMode) || 'justified';
@@ -130,7 +141,21 @@ export default function HomePage() {
     localStorage.setItem('wallpaper_size_mode', size);
   };
 
-  const fetchWallpapers = useCallback(async (reset: boolean, forDevice: boolean) => {
+  const toggleDeviceFilter = () => {
+    setDeviceFilter((p) => {
+      if (!p) setMacFilter(false);
+      return !p;
+    });
+  };
+
+  const toggleMacFilter = () => {
+    setMacFilter((p) => {
+      if (!p) setDeviceFilter(false);
+      return !p;
+    });
+  };
+
+  const fetchWallpapers = useCallback(async (reset: boolean) => {
     const setter = reset ? setLoading : setLoadingMore;
     setter(true);
     try {
@@ -138,9 +163,12 @@ export default function HomePage() {
         cursor: reset ? undefined : cursor,
         limit: 20,
       };
-      if (forDevice) {
+      if (macFilter) {
+        params.dynamic_only = true;
+      } else if (deviceFilter) {
         params.device_width = screen.width;
         params.device_height = screen.height;
+        if (isMac) params.include_dynamic = true;
       }
       if (sortTrending) {
         params.sort = 'trending';
@@ -155,20 +183,22 @@ export default function HomePage() {
     } finally {
       setter(false);
     }
-  }, [cursor, screen]);
+  }, [cursor, screen, deviceFilter, macFilter, sortTrending]);
 
   useEffect(() => {
-    fetchWallpapers(true, deviceFilter);
-  }, [deviceFilter, sortTrending]);
+    fetchWallpapers(true);
+  }, [deviceFilter, macFilter, sortTrending]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between gap-2 mb-6">
+        {/* Filters */}
         <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider mr-1 hidden sm:inline">Filter</span>
           <button
-            onClick={() => setDeviceFilter((p) => !p)}
+            onClick={toggleDeviceFilter}
             title={deviceFilter ? `${screen.width}×${screen.height} — click to show all` : 'Filter for your device'}
-            className={`flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
               deviceFilter
                 ? 'bg-indigo-600 text-white'
                 : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
@@ -180,9 +210,26 @@ export default function HomePage() {
             </span>
           </button>
           <button
+            onClick={toggleMacFilter}
+            title={macFilter ? 'Showing macOS dynamic wallpapers — click to show all' : 'Show only macOS dynamic wallpapers'}
+            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
+              macFilter
+                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+            }`}
+          >
+            <AppleIcon size={15} />
+            <span className="hidden sm:inline">macOS</span>
+          </button>
+
+          <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-1" />
+
+          {/* Sort */}
+          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider mr-1 hidden sm:inline">Sort</span>
+          <button
             onClick={() => setSortTrending((p) => !p)}
             title={sortTrending ? 'Showing trending — click for latest' : 'Sort by trending'}
-            className={`flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
               sortTrending
                 ? 'bg-orange-500 text-white'
                 : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
@@ -193,6 +240,7 @@ export default function HomePage() {
           </button>
         </div>
 
+        {/* Layout */}
         <div className="flex items-center gap-1.5">
           {TOOLBAR_ITEMS.map((item, i) => {
             const isActive = item.type === 'view'
@@ -233,7 +281,7 @@ export default function HomePage() {
           {hasMore && (
             <div className="flex justify-center mt-8">
               <button
-                onClick={() => fetchWallpapers(false, deviceFilter)}
+                onClick={() => fetchWallpapers(false)}
                 disabled={loadingMore}
                 className="px-6 py-2.5 text-sm font-medium text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-200 disabled:opacity-50"
               >

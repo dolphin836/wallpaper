@@ -136,13 +136,15 @@ func (h *WallpaperHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	opts := repo.ListOptions{
-		Cursor:       cursor,
-		Limit:        limit,
-		CategoryID:   categoryID,
-		Sort:         q.Get("sort"),
-		Search:       q.Get("search"),
-		DeviceWidth:  deviceWidth,
-		DeviceHeight: deviceHeight,
+		Cursor:         cursor,
+		Limit:          limit,
+		CategoryID:     categoryID,
+		Sort:           q.Get("sort"),
+		Search:         q.Get("search"),
+		DeviceWidth:    deviceWidth,
+		DeviceHeight:   deviceHeight,
+		IncludeDynamic: q.Get("include_dynamic") == "true",
+		DynamicOnly:    q.Get("dynamic_only") == "true",
 	}
 
 	userID := middleware.GetUserID(r.Context())

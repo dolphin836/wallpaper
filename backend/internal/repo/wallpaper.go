@@ -48,6 +48,8 @@ type ListOptions struct {
 	Search           string
 	DeviceWidth      int
 	DeviceHeight     int
+	IncludeDynamic   bool
+	DynamicOnly      bool
 }
 
 func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wallpaper, error) {
@@ -73,9 +75,16 @@ func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wal
 	if opts.Search != "" {
 		query = query.Where("title ILIKE ?", "%"+opts.Search+"%")
 	}
-	if opts.DeviceWidth > 0 && opts.DeviceHeight > 0 {
-		query = query.Where("id IN (SELECT wallpaper_id FROM wallpaper_variants WHERE width = ? AND height = ?)",
-			opts.DeviceWidth, opts.DeviceHeight)
+	if opts.DynamicOnly {
+		query = query.Where("is_dynamic = true")
+	} else if opts.DeviceWidth > 0 && opts.DeviceHeight > 0 {
+		if opts.IncludeDynamic {
+			query = query.Where("(id IN (SELECT wallpaper_id FROM wallpaper_variants WHERE width = ? AND height = ?) OR is_dynamic = true)",
+				opts.DeviceWidth, opts.DeviceHeight)
+		} else {
+			query = query.Where("id IN (SELECT wallpaper_id FROM wallpaper_variants WHERE width = ? AND height = ?)",
+				opts.DeviceWidth, opts.DeviceHeight)
+		}
 	}
 
 	switch opts.Sort {
