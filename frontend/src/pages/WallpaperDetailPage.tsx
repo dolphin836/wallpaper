@@ -27,8 +27,19 @@ import {
 import { useAuthStore } from '../store/auth';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
+import { MdDesktopMac } from 'react-icons/md';
 import AddToCollectionModal from '../components/AddToCollectionModal';
 import SetWallpaperGuide from '../components/SetWallpaperGuide';
+
+const dynamicTypeLabels: Record<string, string> = {
+  solar: 'Solar',
+  h24: 'Time-based (24h)',
+  apr: 'Appearance (Light/Dark)',
+};
+
+function isMacOS(): boolean {
+  return /Macintosh|Mac OS X/i.test(navigator.userAgent);
+}
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -316,7 +327,7 @@ export default function WallpaperDetailPage() {
 
   const handleDownload = async (variant?: WallpaperVariant) => {
     if (!wallpaper) return;
-    const useVariant = variant || matchedVariant;
+    const useVariant = wallpaper.is_dynamic ? null : (variant || matchedVariant);
     try {
       let blobUrl: string;
       let filename: string;
@@ -412,15 +423,23 @@ export default function WallpaperDetailPage() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           {/* Image */}
-          <div
-            className="w-full flex items-center justify-center bg-gray-100"
-            style={{ backgroundColor: wallpaper.dominant_color || undefined }}
-          >
-            <img
-              src={wallpaper.preview_url || wallpaper.original_url}
-              alt=""
-              className="max-h-[70vh] w-full object-contain"
-            />
+          <div className="relative">
+            <div
+              className="w-full flex items-center justify-center bg-gray-100"
+              style={{ backgroundColor: wallpaper.dominant_color || undefined }}
+            >
+              <img
+                src={wallpaper.preview_url || wallpaper.original_url}
+                alt=""
+                className="max-h-[70vh] w-full object-contain"
+              />
+            </div>
+            {wallpaper.is_dynamic && (
+              <span className="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-purple-600/90 to-indigo-500/90 text-white backdrop-blur-sm shadow-lg">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" fill="currentColor"><animate attributeName="r" values="3;5;3" dur="1.5s" repeatCount="indefinite"/></circle><circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.4"><animate attributeName="r" values="5;7;5" dur="1.5s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.4;0.1;0.4" dur="1.5s" repeatCount="indefinite"/></circle></svg>
+                Dynamic Wallpaper &middot; {dynamicTypeLabels[wallpaper.dynamic_type] || wallpaper.dynamic_type}
+              </span>
+            )}
           </div>
 
           {/* Info Panel */}
@@ -428,24 +447,35 @@ export default function WallpaperDetailPage() {
 
             {/* Actions: Download + Like + Favorite + Preview + Mockup */}
             <div className="flex items-center gap-3 flex-wrap">
-              <button
-                onClick={() => handleDownload()}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-3.5 text-base font-semibold text-white bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 rounded-full transition-colors duration-200"
-              >
-                <AiOutlineDownload size={20} />
-                <span>
-                  {matchedVariant
-                    ? `Download for ${matchedVariant.brand} ${matchedVariant.device_name}`
-                    : 'Download Original'
-                  }
-                </span>
-                <span className="text-sm font-normal opacity-70">
-                  {matchedVariant
-                    ? `${matchedVariant.width}\u00D7${matchedVariant.height}`
-                    : `${wallpaper.width}\u00D7${wallpaper.height} \u00B7 ${formatFileSize(wallpaper.file_size)}`
-                  }
-                </span>
-              </button>
+              {wallpaper.is_dynamic && !isMacOS() ? (
+                <div className="flex-1 sm:flex-none flex items-center gap-3 px-6 py-3 text-sm rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                  <MdDesktopMac size={20} />
+                  <span>Dynamic wallpapers are only supported on macOS</span>
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleDownload()}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-3.5 text-base font-semibold text-white bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 rounded-full transition-colors duration-200"
+                >
+                  <AiOutlineDownload size={20} />
+                  <span>
+                    {wallpaper.is_dynamic
+                      ? 'Download Dynamic Wallpaper'
+                      : matchedVariant
+                        ? `Download for ${matchedVariant.brand} ${matchedVariant.device_name}`
+                        : 'Download Original'
+                    }
+                  </span>
+                  <span className="text-sm font-normal opacity-70">
+                    {wallpaper.is_dynamic
+                      ? `${wallpaper.width}\u00D7${wallpaper.height} \u00B7 ${formatFileSize(wallpaper.file_size)}`
+                      : matchedVariant
+                        ? `${matchedVariant.width}\u00D7${matchedVariant.height}`
+                        : `${wallpaper.width}\u00D7${wallpaper.height} \u00B7 ${formatFileSize(wallpaper.file_size)}`
+                    }
+                  </span>
+                </button>
+              )}
 
               <button
                 onClick={handleLike}
@@ -471,37 +501,41 @@ export default function WallpaperDetailPage() {
                 {wallpaper.is_favorited ? <AiFillStar size={22} /> : <AiOutlineStar size={22} />}
               </button>
 
-              <button
-                onClick={() => matchedVariant && setFullscreen(true)}
-                disabled={!matchedVariant}
-                title={matchedVariant ? `Fullscreen preview (${matchedVariant.brand} ${matchedVariant.device_name})` : 'No matching resolution for your device'}
-                className={`w-12 h-12 flex items-center justify-center rounded-full border-2 transition-colors duration-200 shrink-0 ${
-                  matchedVariant
-                    ? 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500'
-                    : 'border-gray-100 text-gray-200 cursor-not-allowed'
-                }`}
-              >
-                <AiOutlineFullscreen size={22} />
-              </button>
+              {!wallpaper.is_dynamic && (
+                <>
+                  <button
+                    onClick={() => matchedVariant && setFullscreen(true)}
+                    disabled={!matchedVariant}
+                    title={matchedVariant ? `Fullscreen preview (${matchedVariant.brand} ${matchedVariant.device_name})` : 'No matching resolution for your device'}
+                    className={`w-12 h-12 flex items-center justify-center rounded-full border-2 transition-colors duration-200 shrink-0 ${
+                      matchedVariant
+                        ? 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500'
+                        : 'border-gray-100 text-gray-200 cursor-not-allowed'
+                    }`}
+                  >
+                    <AiOutlineFullscreen size={22} />
+                  </button>
 
-              <button
-                onClick={() => matchedVariant && setMockupVariant(matchedVariant)}
-                disabled={!matchedVariant || !canMockupMatched}
-                title={
-                  !matchedVariant
-                    ? 'No matching device'
-                    : !canMockupMatched
-                      ? 'Screen too small for device mockup'
-                      : `Device mockup (${matchedVariant.brand} ${matchedVariant.device_name})`
-                }
-                className={`w-12 h-12 flex items-center justify-center rounded-full border-2 transition-colors duration-200 shrink-0 ${
-                  matchedVariant && canMockupMatched
-                    ? 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500'
-                    : 'border-gray-100 text-gray-200 cursor-not-allowed'
-                }`}
-              >
-                <MdPhoneIphone size={22} />
-              </button>
+                  <button
+                    onClick={() => matchedVariant && setMockupVariant(matchedVariant)}
+                    disabled={!matchedVariant || !canMockupMatched}
+                    title={
+                      !matchedVariant
+                        ? 'No matching device'
+                        : !canMockupMatched
+                          ? 'Screen too small for device mockup'
+                          : `Device mockup (${matchedVariant.brand} ${matchedVariant.device_name})`
+                    }
+                    className={`w-12 h-12 flex items-center justify-center rounded-full border-2 transition-colors duration-200 shrink-0 ${
+                      matchedVariant && canMockupMatched
+                        ? 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500'
+                        : 'border-gray-100 text-gray-200 cursor-not-allowed'
+                    }`}
+                  >
+                    <MdPhoneIphone size={22} />
+                  </button>
+                </>
+              )}
 
               {isAuthenticated && (
                 <button
@@ -578,8 +612,8 @@ export default function WallpaperDetailPage() {
               )}
             </div>
 
-            {/* Device Variants */}
-            {variants.length > 0 && (
+            {/* Device Variants (hidden for dynamic wallpapers — no variants generated) */}
+            {!wallpaper.is_dynamic && variants.length > 0 && (
               <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
                 <button
                   onClick={() => setShowVariants(!showVariants)}

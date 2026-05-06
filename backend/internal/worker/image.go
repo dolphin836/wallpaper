@@ -9,8 +9,10 @@ import (
 	"image/draw"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"log/slog"
 
+	_ "github.com/gen2brain/heic"
 	"github.com/nfnt/resize"
 	"github.com/segmentio/kafka-go"
 
@@ -81,6 +83,19 @@ func (w *ImageWorker) Run(ctx context.Context) error {
 	}
 }
 
+func detectDynamicType(data []byte) string {
+	if bytes.Contains(data, []byte("apple_desktop:solar")) {
+		return "solar"
+	}
+	if bytes.Contains(data, []byte("apple_desktop:h24")) {
+		return "h24"
+	}
+	if bytes.Contains(data, []byte("apple_desktop:apr")) {
+		return "apr"
+	}
+	return ""
+}
+
 func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedEvent) error {
 	obj, err := w.storage.GetObject(ctx, event.ObjectKey)
 	if err != nil {
@@ -88,7 +103,15 @@ func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedE
 	}
 	defer obj.Close()
 
-	img, format, err := image.Decode(obj)
+	data, err := io.ReadAll(obj)
+	if err != nil {
+		return fmt.Errorf("read original: %w", err)
+	}
+
+	dynType := detectDynamicType(data)
+	isDynamic := dynType != ""
+
+	img, format, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("decode image: %w", err)
 	}
@@ -102,18 +125,30 @@ func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedE
 		return fmt.Errorf("thumb/preview: %w", err)
 	}
 
-	if err := w.generateDeviceVariants(ctx, img, format, event.WallpaperID, origW, origH); err != nil {
-		slog.Error("device variants partially failed (non-fatal)",
+	if isDynamic {
+		if err := w.wpRepo.UpdateDynamic(ctx, event.WallpaperID, true, dynType); err != nil {
+			return fmt.Errorf("update dynamic: %w", err)
+		}
+		slog.Info("dynamic wallpaper detected, skipping variant generation",
 			"wallpaper_id", event.WallpaperID,
-			"error", err,
+			"dynamic_type", dynType,
+			"original_size", fmt.Sprintf("%dx%d", origW, origH),
+			"format", format,
+		)
+	} else {
+		if err := w.generateDeviceVariants(ctx, img, format, event.WallpaperID, origW, origH); err != nil {
+			slog.Error("device variants partially failed (non-fatal)",
+				"wallpaper_id", event.WallpaperID,
+				"error", err,
+			)
+		}
+		slog.Info("image processed",
+			"wallpaper_id", event.WallpaperID,
+			"original_size", fmt.Sprintf("%dx%d", origW, origH),
+			"format", format,
 		)
 	}
 
-	slog.Info("image processed",
-		"wallpaper_id", event.WallpaperID,
-		"original_size", fmt.Sprintf("%dx%d", origW, origH),
-		"format", format,
-	)
 	return nil
 }
 

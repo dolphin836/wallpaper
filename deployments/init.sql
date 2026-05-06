@@ -155,6 +155,9 @@ CREATE INDEX IF NOT EXISTS idx_we_created ON wallpaper_events(created_at);
 
 ALTER TABLE wallpaper_variants ADD COLUMN IF NOT EXISTS download_count BIGINT NOT NULL DEFAULT 0;
 
+ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS is_dynamic BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS dynamic_type VARCHAR(16) NOT NULL DEFAULT '';
+
 INSERT INTO categories (name, slug, sort_order) VALUES
     ('自然风光', 'nature', 1),
     ('城市建筑', 'city', 2),

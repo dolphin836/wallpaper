@@ -25,7 +25,7 @@ func (r *WallpaperRepo) Create(ctx context.Context, w *model.Wallpaper) error {
 func (r *WallpaperRepo) GetByID(ctx context.Context, id int64) (*model.Wallpaper, error) {
 	var w model.Wallpaper
 	err := r.db.WithContext(ctx).
-		Select("id, user_id, title, description, category_id, original_url, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, created_at, updated_at").
+		Select("id, user_id, title, description, category_id, original_url, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, created_at, updated_at").
 		Where("id = ? AND status != ?", id, model.WallpaperStatusRemoved).
 		First(&w).Error
 	if err != nil {
@@ -52,7 +52,7 @@ type ListOptions struct {
 
 func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wallpaper, error) {
 	query := r.db.WithContext(ctx).
-		Select("id, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, created_at")
+		Select("id, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, created_at")
 
 	if opts.Cursor > 0 {
 		query = query.Where("id < ?", opts.Cursor)
@@ -101,7 +101,7 @@ func (r *WallpaperRepo) GetByIDs(ctx context.Context, ids []int64) ([]model.Wall
 	}
 	var wallpapers []model.Wallpaper
 	err := r.db.WithContext(ctx).
-		Select("id, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, created_at").
+		Select("id, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, created_at").
 		Where("id IN ? AND status = ?", ids, model.WallpaperStatusPublished).
 		Find(&wallpapers).Error
 	return wallpapers, err
@@ -123,9 +123,19 @@ func (r *WallpaperRepo) UpdateProcessed(ctx context.Context, id int64, thumbURL,
 			"preview_url":    previewURL,
 			"width":          width,
 			"height":         height,
-			"dominant_color":  dominantColor,
-			"color_palette":   colorPalette,
+			"dominant_color": dominantColor,
+			"color_palette":  colorPalette,
 			"status":         model.WallpaperStatusPublished,
+		}).Error
+}
+
+func (r *WallpaperRepo) UpdateDynamic(ctx context.Context, id int64, isDynamic bool, dynamicType string) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Wallpaper{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"is_dynamic":   isDynamic,
+			"dynamic_type": dynamicType,
 		}).Error
 }
 

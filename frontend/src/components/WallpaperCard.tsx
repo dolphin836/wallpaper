@@ -38,6 +38,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   const imgSrc = wallpaper.preview_url || wallpaper.thumb_url;
   const isProcessing = wallpaper.status === STATUS_PROCESSING;
   const isFailed = wallpaper.status === STATUS_FAILED;
+  const canDownload = !wallpaper.is_dynamic || /Macintosh|Mac OS X/i.test(navigator.userAgent);
 
   const aspectRatio = wallpaper.width > 0 && wallpaper.height > 0
     ? wallpaper.width / wallpaper.height
@@ -130,9 +131,16 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           </div>
         )}
 
+        {wallpaper.is_dynamic && (
+          <span className="absolute top-2 left-2 z-[3] flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-gradient-to-r from-purple-600/80 to-indigo-500/80 text-white backdrop-blur-sm">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" fill="currentColor"><animate attributeName="r" values="3;5;3" dur="1.5s" repeatCount="indefinite"/></circle><circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.4"><animate attributeName="r" values="5;7;5" dur="1.5s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.4;0.1;0.4" dur="1.5s" repeatCount="indefinite"/></circle></svg>
+            Dynamic
+          </span>
+        )}
+
         {showStatus && wallpaper.status !== STATUS_PUBLISHED && (
           <span
-            className={`absolute top-2 left-2 z-[3] px-2 py-0.5 text-[10px] font-semibold rounded-full backdrop-blur-sm ${
+            className={`absolute ${wallpaper.is_dynamic ? 'top-8' : 'top-2'} left-2 z-[3] px-2 py-0.5 text-[10px] font-semibold rounded-full backdrop-blur-sm ${
               isProcessing
                 ? 'bg-amber-500/80 text-white'
                 : isFailed
@@ -173,13 +181,15 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
                 </button>
               </>
             )}
-            <button
-              onClick={(e) => handleAction(e, handleDownload)}
-              className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm transition-colors"
-              title="Download"
-            >
-              <AiOutlineDownload size={18} />
-            </button>
+            {canDownload && (
+              <button
+                onClick={(e) => handleAction(e, handleDownload)}
+                className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm transition-colors"
+                title="Download"
+              >
+                <AiOutlineDownload size={18} />
+              </button>
+            )}
           </div>
         </div>
       </div>

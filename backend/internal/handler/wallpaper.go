@@ -15,7 +15,7 @@ import (
 	"github.com/wallpaper/backend/internal/service"
 )
 
-const maxUploadSize = 25 << 20
+const maxUploadSize = 200 << 20
 
 type WallpaperHandler struct {
 	wallpaperSvc *service.WallpaperService

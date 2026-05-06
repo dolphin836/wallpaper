@@ -29,6 +29,8 @@ type Wallpaper struct {
 	LikeCount     int64     `gorm:"not null;default:0" json:"like_count"`
 	DownloadCount int64     `gorm:"not null;default:0" json:"download_count"`
 	FavoriteCount int64     `gorm:"not null;default:0" json:"favorite_count"`
+	IsDynamic     bool      `gorm:"not null;default:false" json:"is_dynamic"`
+	DynamicType   string    `gorm:"size:16;not null;default:''" json:"dynamic_type"`
 	CreatedAt     time.Time `gorm:"not null;autoCreateTime;index:idx_wallpapers_status_created" json:"created_at"`
 	UpdatedAt     time.Time `gorm:"not null;autoUpdateTime" json:"updated_at"`
 }

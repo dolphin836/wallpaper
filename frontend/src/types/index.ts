@@ -31,6 +31,8 @@ export interface Wallpaper {
   favorite_count: number;
   is_liked: boolean;
   is_favorited: boolean;
+  is_dynamic: boolean;
+  dynamic_type: string;
   created_at: string;
   updated_at: string;
 }
