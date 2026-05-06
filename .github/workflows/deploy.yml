@@ -107,6 +107,9 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
+          timeout: 60s
+          command_timeout: 10m
           script: |
             cd ${{ secrets.DEPLOY_PATH || '/opt/wallpaper' }}
             git pull --ff-only
@@ -124,6 +127,5 @@ jobs:
               docker compose up -d --build --no-deps frontend
             fi
 
-            docker compose restart caddy
             echo ">>> Deploy complete"
             docker compose ps
