@@ -11,7 +11,7 @@ import {
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../store/auth';
 
-const MAX_SIZE = 20 * 1024 * 1024;
+const MAX_SIZE = 200 * 1024 * 1024;
 const MAX_FILES = 20;
 
 type FileStatus = 'pending' | 'uploading' | 'success' | 'error';
@@ -45,7 +45,7 @@ export default function UploadPage() {
     const toAdd = accepted.slice(0, remaining);
     const oversized = toAdd.filter((f) => f.size > MAX_SIZE);
     if (oversized.length > 0) {
-      toast.error(`${oversized.length} file(s) exceed 20MB limit and were skipped`);
+      toast.error(`${oversized.length} file(s) exceed 200MB limit and were skipped`);
     }
     const valid = toAdd.filter((f) => f.size <= MAX_SIZE);
     if (valid.length === 0) return;
@@ -69,7 +69,7 @@ export default function UploadPage() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'image/*': [] },
+    accept: { 'image/*': [], 'image/heic': ['.heic'], 'image/heif': ['.heif'] },
     maxFiles: MAX_FILES,
     maxSize: MAX_SIZE,
     disabled: uploading,
@@ -186,7 +186,7 @@ export default function UploadPage() {
             Drag & drop images here, or click to select
           </p>
           <p className="text-xs text-gray-400">
-            Max 20MB per file &middot; Up to {MAX_FILES} images at a time
+            Max 200MB per file &middot; Up to {MAX_FILES} images at a time
           </p>
         </div>
       </div>
