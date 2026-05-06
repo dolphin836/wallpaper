@@ -1,0 +1,14 @@
+---
+description: Auto commit and push after every completed change
+alwaysApply: true
+---
+
+# Auto Commit & Push
+
+Every time a code change is completed, immediately commit and push without waiting for the user to ask.
+
+1. `git add` relevant files
+2. `git commit` with a concise Conventional Commits message
+3. `git push` to remote
+
+Do NOT skip or defer — treat this as part of completing the task.
