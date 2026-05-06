@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { AiFillHeart, AiOutlineHeart, AiOutlineDelete, AiOutlineEdit } from 'react-icons/ai';
+import { AiFillHeart, AiOutlineHeart, AiOutlineDelete, AiOutlineEdit, AiOutlineClose, AiOutlineCheck } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { CollectionDetail as CollectionDetailType, Wallpaper } from '../types';
-import { getCollection, getCollectionWallpapers, likeCollection, unlikeCollection, deleteCollection } from '../api';
+import { getCollection, getCollectionWallpapers, likeCollection, unlikeCollection, deleteCollection, updateCollection } from '../api';
 import { useAuthStore } from '../store/auth';
 import WallpaperGrid from '../components/WallpaperGrid';
 import Spinner from '../components/Spinner';
@@ -21,6 +21,10 @@ export default function CollectionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [liking, setLiking] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -87,6 +91,29 @@ export default function CollectionDetailPage() {
     }
   };
 
+  const startEdit = () => {
+    if (!collection) return;
+    setEditTitle(collection.title);
+    setEditDesc(collection.description);
+    setEditing(true);
+  };
+
+  const handleSave = async () => {
+    if (!collection || saving) return;
+    if (!editTitle.trim()) { toast.error('Title is required'); return; }
+    setSaving(true);
+    try {
+      await updateCollection(collection.id, { title: editTitle.trim(), description: editDesc.trim(), is_public: collection.is_public });
+      setCollection({ ...collection, title: editTitle.trim(), description: editDesc.trim() });
+      setEditing(false);
+      toast.success('Collection updated');
+    } catch {
+      toast.error('Failed to update');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return <Spinner />;
   }
@@ -101,41 +128,82 @@ export default function CollectionDetailPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{collection.title}</h1>
-            {collection.description && (
-              <p className="text-gray-500 dark:text-gray-400 mb-3">{collection.description}</p>
+          <div className="flex-1 min-w-0">
+            {editing ? (
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full text-2xl font-bold bg-transparent border-b-2 border-indigo-500 text-gray-900 dark:text-white outline-none pb-1"
+                  autoFocus
+                />
+                <textarea
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  rows={2}
+                  placeholder="Description (optional)"
+                  className="w-full text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <AiOutlineCheck size={16} />
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setEditing(false)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  >
+                    <AiOutlineClose size={16} />
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{collection.title}</h1>
+                {collection.description && (
+                  <p className="text-gray-500 dark:text-gray-400 mb-3">{collection.description}</p>
+                )}
+                <div className="flex items-center gap-4 text-sm text-gray-400">
+                  <span>{collection.wallpaper_count} wallpapers</span>
+                  <span>{collection.view_count} views</span>
+                </div>
+              </>
             )}
-            <div className="flex items-center gap-4 text-sm text-gray-400">
-              <span>{collection.wallpaper_count} wallpapers</span>
-              <span>{collection.view_count} views</span>
-            </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleLike}
               disabled={liking}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors duration-200 disabled:opacity-50"
-              style={collection.is_liked
-                ? { color: '#ef4444', borderColor: '#ef4444' }
-                : undefined}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors duration-200 disabled:opacity-50 ${
+                collection.is_liked
+                  ? 'text-red-500 border-red-300'
+                  : 'text-gray-500 border-gray-200 hover:border-gray-300'
+              }`}
             >
               {collection.is_liked ? <AiFillHeart size={18} /> : <AiOutlineHeart size={18} />}
               {collection.like_count}
             </button>
 
-            {isOwner && (
+            {isOwner && !editing && (
               <>
                 <button
-                  onClick={() => navigate(`/collections/${collection.id}/edit`)}
+                  onClick={startEdit}
                   className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  title="Edit collection"
                 >
                   <AiOutlineEdit size={20} />
                 </button>
                 <button
                   onClick={handleDelete}
                   className="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  title="Delete collection"
                 >
                   <AiOutlineDelete size={20} />
                 </button>

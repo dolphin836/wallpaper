@@ -98,8 +98,8 @@ export const unlikeCollection = (id: number) =>
 export const getMyCollections = () =>
   client.get<ApiResponse<CollectionBrief[]>>('/users/me/collections');
 
-export const getUserCollections = (userId: number) =>
-  client.get<ApiResponse<Collection[]>>(`/users/${userId}/collections`);
+export const getUserCollections = (userId: number, params?: { cursor?: number; limit?: number }) =>
+  client.get<ApiResponse<PaginatedData<Collection>>>(`/users/${userId}/collections`, { params });
 
 export const downloadVariant = (wallpaperId: number, variantId: number) =>
   client.post<ApiResponse<{ url: string }>>(`/wallpapers/${wallpaperId}/variants/${variantId}/download`);
