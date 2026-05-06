@@ -50,12 +50,15 @@ export default function UploadPage() {
     const valid = toAdd.filter((f) => f.size <= MAX_SIZE);
     if (valid.length === 0) return;
 
-    const newFiles: UploadFile[] = valid.map((f) => ({
-      file: f,
-      preview: URL.createObjectURL(f),
-      status: 'pending',
-      progress: 0,
-    }));
+    const newFiles: UploadFile[] = valid.map((f) => {
+      const isHEIC = /\.heic$/i.test(f.name) || f.type === 'image/heic' || f.type === 'image/heif';
+      return {
+        file: f,
+        preview: isHEIC ? '' : URL.createObjectURL(f),
+        status: 'pending' as FileStatus,
+        progress: 0,
+      };
+    });
     setFiles((prev) => [...prev, ...newFiles]);
   }, [files.length]);
 
@@ -186,7 +189,7 @@ export default function UploadPage() {
             Drag & drop images here, or click to select
           </p>
           <p className="text-xs text-gray-400">
-            Max 200MB per file &middot; Up to {MAX_FILES} images at a time
+            JPG, PNG, HEIC (macOS Dynamic Wallpaper) &middot; Max 200MB &middot; Up to {MAX_FILES} files
           </p>
         </div>
       </div>
@@ -213,13 +216,22 @@ export default function UploadPage() {
             {files.map((f, idx) => (
               <div key={idx} className="relative group">
                 <div className="aspect-square relative rounded-lg overflow-hidden">
-                  <img
-                    src={f.preview}
-                    alt=""
-                    className={`w-full h-full object-cover transition-opacity duration-200 ${
+                  {f.preview ? (
+                    <img
+                      src={f.preview}
+                      alt=""
+                      className={`w-full h-full object-cover transition-opacity duration-200 ${
+                        f.status === 'uploading' ? 'opacity-60' : f.status === 'error' ? 'opacity-40' : ''
+                      }`}
+                    />
+                  ) : (
+                    <div className={`w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 ${
                       f.status === 'uploading' ? 'opacity-60' : f.status === 'error' ? 'opacity-40' : ''
-                    }`}
-                  />
+                    }`}>
+                      <svg width="24" height="24" viewBox="0 0 384 512" fill="white" className="mb-2 opacity-60"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+                      <span className="text-[10px] text-white/50 font-medium text-center px-1 truncate w-full">{f.file.name}</span>
+                    </div>
+                  )}
 
                   {/* Per-file progress overlay */}
                   {f.status === 'uploading' && (
