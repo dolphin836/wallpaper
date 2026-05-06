@@ -82,25 +82,30 @@ func main() {
 	tagRepo := repo.NewTagRepo(db)
 	interactionRepo := repo.NewInteractionRepo(db)
 	deviceRepo := repo.NewDeviceRepo(db)
+	collectionRepo := repo.NewCollectionRepo(db)
+	eventRepo := repo.NewEventRepo(db)
 
 	authSvc := service.NewAuthService(userRepo, cfg.JWT.Secret, cfg.JWT.ExpireHour)
-	wallpaperSvc := service.NewWallpaperService(wallpaperRepo, tagRepo, interactionRepo, userRepo, store, kafkaWriter)
+	wallpaperSvc := service.NewWallpaperService(wallpaperRepo, tagRepo, interactionRepo, userRepo, eventRepo, store, kafkaWriter)
+	collectionSvc := service.NewCollectionService(collectionRepo, interactionRepo)
 
 	authHandler := handler.NewAuthHandler(authSvc)
 	wallpaperHandler := handler.NewWallpaperHandler(wallpaperSvc)
 	categoryHandler := handler.NewCategoryHandler(categoryRepo)
 	tagHandler := handler.NewTagHandler(tagRepo)
 	userHandler := handler.NewUserHandler(userRepo, wallpaperRepo, interactionRepo)
-	deviceHandler := handler.NewDeviceHandler(deviceRepo)
+	deviceHandler := handler.NewDeviceHandler(deviceRepo, eventRepo)
+	collectionHandler := handler.NewCollectionHandler(collectionSvc)
 
 	router := handler.NewRouter(handler.Deps{
-		AuthHandler:      authHandler,
-		WallpaperHandler: wallpaperHandler,
-		CategoryHandler:  categoryHandler,
-		TagHandler:       tagHandler,
-		UserHandler:      userHandler,
-		DeviceHandler:    deviceHandler,
-		JWTSecret:        cfg.JWT.Secret,
+		AuthHandler:       authHandler,
+		WallpaperHandler:  wallpaperHandler,
+		CategoryHandler:   categoryHandler,
+		TagHandler:        tagHandler,
+		UserHandler:       userHandler,
+		DeviceHandler:     deviceHandler,
+		CollectionHandler: collectionHandler,
+		JWTSecret:         cfg.JWT.Secret,
 	})
 
 	srv := &http.Server{

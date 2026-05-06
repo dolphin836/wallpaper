@@ -10,6 +10,8 @@ import WallpaperDetailPage from './pages/WallpaperDetailPage';
 import UploadPage from './pages/UploadPage';
 import ProfilePage from './pages/ProfilePage';
 import FavoritesPage from './pages/FavoritesPage';
+import CollectionsPage from './pages/CollectionsPage';
+import CollectionDetailPage from './pages/CollectionDetailPage';
 
 function App() {
   const loadFromStorage = useAuthStore((s) => s.loadFromStorage);
@@ -30,6 +32,8 @@ function App() {
           <Route path="/upload" element={<UploadPage />} />
           <Route path="/user/:id" element={<ProfilePage />} />
           <Route path="/favorites" element={<FavoritesPage />} />
+          <Route path="/collections" element={<CollectionsPage />} />
+          <Route path="/collections/:id" element={<CollectionDetailPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

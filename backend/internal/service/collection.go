@@ -1,0 +1,253 @@
+package service
+
+import (
+	"context"
+	"log/slog"
+
+	"github.com/wallpaper/backend/internal/model"
+	"github.com/wallpaper/backend/internal/pkg/errcode"
+	"github.com/wallpaper/backend/internal/repo"
+)
+
+type CollectionService struct {
+	collectionRepo  *repo.CollectionRepo
+	interactionRepo *repo.InteractionRepo
+}
+
+func NewCollectionService(cr *repo.CollectionRepo, ir *repo.InteractionRepo) *CollectionService {
+	return &CollectionService{collectionRepo: cr, interactionRepo: ir}
+}
+
+type CollectionDetail struct {
+	model.Collection
+	IsLiked bool `json:"is_liked"`
+}
+
+type CollectionListResponse struct {
+	Items      []model.Collection `json:"items"`
+	NextCursor int64              `json:"next_cursor"`
+	HasMore    bool               `json:"has_more"`
+}
+
+type WallpaperCollectionResponse struct {
+	Items      []model.Wallpaper `json:"items"`
+	NextCursor int64             `json:"next_cursor"`
+	HasMore    bool              `json:"has_more"`
+}
+
+func (s *CollectionService) Create(ctx context.Context, userID int64, title, description string, isPublic bool) (*model.Collection, *errcode.ErrCode) {
+	if title == "" {
+		return nil, errcode.ErrInvalidParam
+	}
+	c := &model.Collection{
+		UserID:      userID,
+		Title:       title,
+		Description: description,
+		IsPublic:    isPublic,
+	}
+	if err := s.collectionRepo.Create(ctx, c); err != nil {
+		slog.ErrorContext(ctx, "failed to create collection", "error", err)
+		return nil, errcode.ErrInternal
+	}
+	return c, nil
+}
+
+func (s *CollectionService) Get(ctx context.Context, id int64, currentUserID int64) (*CollectionDetail, *errcode.ErrCode) {
+	c, err := s.collectionRepo.GetByID(ctx, id)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to get collection", "error", err)
+		return nil, errcode.ErrInternal
+	}
+	if c == nil {
+		return nil, errcode.ErrNotFound
+	}
+	if !c.IsPublic && c.UserID != currentUserID {
+		return nil, errcode.ErrNotFound
+	}
+
+	if err := s.collectionRepo.IncrementCounter(ctx, id, "view_count", 1); err != nil {
+		slog.ErrorContext(ctx, "failed to increment collection view count", "error", err)
+	}
+	c.ViewCount++
+
+	detail := &CollectionDetail{Collection: *c}
+	if currentUserID > 0 {
+		liked, err := s.collectionRepo.IsLiked(ctx, currentUserID, id)
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to check collection like", "error", err)
+		}
+		detail.IsLiked = liked
+	}
+	return detail, nil
+}
+
+func (s *CollectionService) List(ctx context.Context, cursor int64, limit int, userID int64) (*CollectionListResponse, *errcode.ErrCode) {
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	fetchLimit := limit + 1
+	items, err := s.collectionRepo.List(ctx, cursor, fetchLimit, userID)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to list collections", "error", err)
+		return nil, errcode.ErrInternal
+	}
+	hasMore := len(items) == fetchLimit
+	if hasMore {
+		items = items[:len(items)-1]
+	}
+	var nextCursor int64
+	if hasMore && len(items) > 0 {
+		nextCursor = items[len(items)-1].ID
+	}
+	return &CollectionListResponse{Items: items, NextCursor: nextCursor, HasMore: hasMore}, nil
+}
+
+func (s *CollectionService) Update(ctx context.Context, id, userID int64, title, description string, isPublic bool) *errcode.ErrCode {
+	c, err := s.collectionRepo.GetByID(ctx, id)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to get collection", "error", err)
+		return errcode.ErrInternal
+	}
+	if c == nil {
+		return errcode.ErrNotFound
+	}
+	if c.UserID != userID {
+		return errcode.ErrForbidden
+	}
+	c.Title = title
+	c.Description = description
+	c.IsPublic = isPublic
+	if err := s.collectionRepo.Update(ctx, c); err != nil {
+		slog.ErrorContext(ctx, "failed to update collection", "error", err)
+		return errcode.ErrInternal
+	}
+	return nil
+}
+
+func (s *CollectionService) Delete(ctx context.Context, id, userID int64) *errcode.ErrCode {
+	c, err := s.collectionRepo.GetByID(ctx, id)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to get collection", "error", err)
+		return errcode.ErrInternal
+	}
+	if c == nil {
+		return errcode.ErrNotFound
+	}
+	if c.UserID != userID {
+		return errcode.ErrForbidden
+	}
+	if err := s.collectionRepo.Delete(ctx, id); err != nil {
+		slog.ErrorContext(ctx, "failed to delete collection", "error", err)
+		return errcode.ErrInternal
+	}
+	return nil
+}
+
+func (s *CollectionService) AddWallpaper(ctx context.Context, collectionID, wallpaperID, userID int64) *errcode.ErrCode {
+	c, err := s.collectionRepo.GetByID(ctx, collectionID)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to get collection", "error", err)
+		return errcode.ErrInternal
+	}
+	if c == nil {
+		return errcode.ErrNotFound
+	}
+	if c.UserID != userID {
+		return errcode.ErrForbidden
+	}
+	if err := s.collectionRepo.AddWallpaper(ctx, collectionID, wallpaperID); err != nil {
+		slog.ErrorContext(ctx, "failed to add wallpaper to collection", "error", err)
+		return errcode.ErrInternal
+	}
+	return nil
+}
+
+func (s *CollectionService) RemoveWallpaper(ctx context.Context, collectionID, wallpaperID, userID int64) *errcode.ErrCode {
+	c, err := s.collectionRepo.GetByID(ctx, collectionID)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to get collection", "error", err)
+		return errcode.ErrInternal
+	}
+	if c == nil {
+		return errcode.ErrNotFound
+	}
+	if c.UserID != userID {
+		return errcode.ErrForbidden
+	}
+	if err := s.collectionRepo.RemoveWallpaper(ctx, collectionID, wallpaperID); err != nil {
+		slog.ErrorContext(ctx, "failed to remove wallpaper from collection", "error", err)
+		return errcode.ErrInternal
+	}
+	return nil
+}
+
+func (s *CollectionService) Like(ctx context.Context, userID, collectionID int64) *errcode.ErrCode {
+	c, err := s.collectionRepo.GetByID(ctx, collectionID)
+	if err != nil || c == nil {
+		return errcode.ErrNotFound
+	}
+	if err := s.collectionRepo.LikeCollection(ctx, userID, collectionID); err != nil {
+		slog.ErrorContext(ctx, "failed to like collection", "error", err)
+		return errcode.ErrInternal
+	}
+	return nil
+}
+
+func (s *CollectionService) Unlike(ctx context.Context, userID, collectionID int64) *errcode.ErrCode {
+	if err := s.collectionRepo.UnlikeCollection(ctx, userID, collectionID); err != nil {
+		slog.ErrorContext(ctx, "failed to unlike collection", "error", err)
+		return errcode.ErrInternal
+	}
+	return nil
+}
+
+func (s *CollectionService) ListWallpapers(ctx context.Context, collectionID int64, cursor int64, limit int) (*WallpaperCollectionResponse, *errcode.ErrCode) {
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	fetchLimit := limit + 1
+	items, err := s.collectionRepo.ListWallpapers(ctx, collectionID, int(cursor), fetchLimit)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to list collection wallpapers", "error", err)
+		return nil, errcode.ErrInternal
+	}
+	hasMore := len(items) == fetchLimit
+	if hasMore {
+		items = items[:len(items)-1]
+	}
+	var nextCursor int64
+	if hasMore && len(items) > 0 {
+		nextCursor = items[len(items)-1].ID
+	}
+	return &WallpaperCollectionResponse{Items: items, NextCursor: nextCursor, HasMore: hasMore}, nil
+}
+
+func (s *CollectionService) ListByUser(ctx context.Context, ownerID int64, cursor int64, limit int) (*CollectionListResponse, *errcode.ErrCode) {
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	fetchLimit := limit + 1
+	items, err := s.collectionRepo.ListByUser(ctx, ownerID, cursor, fetchLimit)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to list user collections", "error", err)
+		return nil, errcode.ErrInternal
+	}
+	hasMore := len(items) == fetchLimit
+	if hasMore {
+		items = items[:len(items)-1]
+	}
+	var nextCursor int64
+	if hasMore && len(items) > 0 {
+		nextCursor = items[len(items)-1].ID
+	}
+	return &CollectionListResponse{Items: items, NextCursor: nextCursor, HasMore: hasMore}, nil
+}
+
+func (s *CollectionService) ListUserCollections(ctx context.Context, userID int64) ([]repo.CollectionBrief, *errcode.ErrCode) {
+	items, err := s.collectionRepo.ListUserCollections(ctx, userID)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to list user collections", "error", err)
+		return nil, errcode.ErrInternal
+	}
+	return items, nil
+}

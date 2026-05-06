@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"errors"
 
 	"gorm.io/gorm"
 
@@ -62,4 +63,26 @@ func (r *DeviceRepo) DeleteVariantsByWallpaper(ctx context.Context, wallpaperID 
 	return r.db.WithContext(ctx).
 		Where("wallpaper_id = ?", wallpaperID).
 		Delete(&model.WallpaperVariant{}).Error
+}
+
+func (r *DeviceRepo) GetVariant(ctx context.Context, id int64) (*model.WallpaperVariant, error) {
+	var v model.WallpaperVariant
+	err := r.db.WithContext(ctx).
+		Select("id, wallpaper_id, device_id, url, width, height, file_size, download_count, created_at").
+		Where("id = ?", id).
+		First(&v).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r *DeviceRepo) IncrementVariantDownload(ctx context.Context, variantID int64) error {
+	return r.db.WithContext(ctx).
+		Model(&model.WallpaperVariant{}).
+		Where("id = ?", variantID).
+		Update("download_count", gorm.Expr("download_count + 1")).Error
 }

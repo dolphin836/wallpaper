@@ -106,6 +106,55 @@ CREATE INDEX IF NOT EXISTS idx_variants_wallpaper ON wallpaper_variants(wallpape
 
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS color_palette VARCHAR(64) NOT NULL DEFAULT '';
 
+CREATE TABLE IF NOT EXISTS collections (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id         BIGINT         NOT NULL,
+    title           VARCHAR(100)   NOT NULL,
+    description     TEXT           NOT NULL DEFAULT '',
+    cover_url       VARCHAR(512)   NOT NULL DEFAULT '',
+    is_public       BOOLEAN        NOT NULL DEFAULT TRUE,
+    wallpaper_count INT            NOT NULL DEFAULT 0,
+    view_count      BIGINT         NOT NULL DEFAULT 0,
+    like_count      BIGINT         NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ(6) NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ(6) NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_collections_user ON collections(user_id);
+CREATE INDEX IF NOT EXISTS idx_collections_public ON collections(is_public, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS collection_wallpapers (
+    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    collection_id BIGINT NOT NULL,
+    wallpaper_id  BIGINT NOT NULL,
+    sort_order    INT    NOT NULL DEFAULT 0,
+    created_at    TIMESTAMPTZ(6) NOT NULL DEFAULT NOW(),
+    UNIQUE(collection_id, wallpaper_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cw_collection ON collection_wallpapers(collection_id, sort_order);
+
+CREATE TABLE IF NOT EXISTS collection_likes (
+    user_id       BIGINT NOT NULL,
+    collection_id BIGINT NOT NULL,
+    created_at    TIMESTAMPTZ(6) NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, collection_id)
+);
+
+CREATE TABLE IF NOT EXISTS wallpaper_events (
+    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    wallpaper_id BIGINT       NOT NULL,
+    event_type   VARCHAR(20)  NOT NULL,
+    variant_id   BIGINT,
+    user_id      BIGINT       NOT NULL DEFAULT 0,
+    created_at   TIMESTAMPTZ(6) NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_we_wallpaper_type ON wallpaper_events(wallpaper_id, event_type);
+CREATE INDEX IF NOT EXISTS idx_we_created ON wallpaper_events(created_at);
+
+ALTER TABLE wallpaper_variants ADD COLUMN IF NOT EXISTS download_count BIGINT NOT NULL DEFAULT 0;
+
 INSERT INTO categories (name, slug, sort_order) VALUES
     ('自然风光', 'nature', 1),
     ('城市建筑', 'city', 2),

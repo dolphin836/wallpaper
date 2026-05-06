@@ -15,6 +15,7 @@ type Deps struct {
 	TagHandler       *TagHandler
 	UserHandler      *UserHandler
 	DeviceHandler    *DeviceHandler
+	CollectionHandler *CollectionHandler
 	JWTSecret        string
 }
 
@@ -50,6 +51,12 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Get("/wallpapers/{id}", deps.WallpaperHandler.Get)
 			r.Get("/wallpapers/{id}/download", deps.WallpaperHandler.Download)
 			r.Get("/wallpapers/{id}/variants", deps.DeviceHandler.ListVariants)
+			r.Post("/wallpapers/{id}/variants/{vid}/download", deps.DeviceHandler.DownloadVariant)
+
+			r.Get("/collections", deps.CollectionHandler.List)
+			r.Get("/collections/{id}", deps.CollectionHandler.Get)
+			r.Get("/collections/{id}/wallpapers", deps.CollectionHandler.ListWallpapers)
+			r.Get("/users/{id}/collections", deps.CollectionHandler.ListUserCollections)
 		})
 
 		r.Group(func(r chi.Router) {
@@ -60,6 +67,15 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Delete("/wallpapers/{id}/like", deps.WallpaperHandler.Unlike)
 			r.Post("/wallpapers/{id}/favorite", deps.WallpaperHandler.Favorite)
 			r.Delete("/wallpapers/{id}/favorite", deps.WallpaperHandler.Unfavorite)
+
+			r.Post("/collections", deps.CollectionHandler.Create)
+			r.Put("/collections/{id}", deps.CollectionHandler.Update)
+			r.Delete("/collections/{id}", deps.CollectionHandler.Delete)
+			r.Post("/collections/{id}/wallpapers", deps.CollectionHandler.AddWallpaper)
+			r.Delete("/collections/{id}/wallpapers/{wid}", deps.CollectionHandler.RemoveWallpaper)
+			r.Post("/collections/{id}/like", deps.CollectionHandler.Like)
+			r.Delete("/collections/{id}/like", deps.CollectionHandler.Unlike)
+			r.Get("/users/me/collections", deps.CollectionHandler.ListMyCollections)
 		})
 
 		r.Get("/users/{id}", deps.UserHandler.GetProfile)

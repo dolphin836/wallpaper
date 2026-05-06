@@ -1,5 +1,5 @@
 import client from './client';
-import type { ApiResponse, AuthResponse, Wallpaper, WallpaperDetail, PaginatedData, Category, Tag, User, DeviceProfile, WallpaperVariant } from '../types';
+import type { ApiResponse, AuthResponse, Wallpaper, WallpaperDetail, PaginatedData, Category, Tag, User, DeviceProfile, WallpaperVariant, Collection, CollectionDetail, CollectionBrief } from '../types';
 
 export const register = (data: { username: string; email: string; password: string }) =>
   client.post<ApiResponse<AuthResponse>>('/auth/register', data);
@@ -64,3 +64,42 @@ export const getDevices = () =>
 
 export const getWallpaperVariants = (wallpaperId: number) =>
   client.get<ApiResponse<WallpaperVariant[]>>(`/wallpapers/${wallpaperId}/variants`);
+
+export const getCollections = (params: { cursor?: number; limit?: number }) =>
+  client.get<ApiResponse<PaginatedData<Collection>>>('/collections', { params });
+
+export const getCollection = (id: number) =>
+  client.get<ApiResponse<CollectionDetail>>(`/collections/${id}`);
+
+export const createCollection = (data: { title: string; description?: string; is_public?: boolean }) =>
+  client.post<ApiResponse<Collection>>('/collections', data);
+
+export const updateCollection = (id: number, data: { title: string; description?: string; is_public?: boolean }) =>
+  client.put<ApiResponse<null>>(`/collections/${id}`, data);
+
+export const deleteCollection = (id: number) =>
+  client.delete<ApiResponse<null>>(`/collections/${id}`);
+
+export const getCollectionWallpapers = (id: number, params: { cursor?: number; limit?: number }) =>
+  client.get<ApiResponse<PaginatedData<Wallpaper>>>(`/collections/${id}/wallpapers`, { params });
+
+export const addToCollection = (collectionId: number, wallpaperId: number) =>
+  client.post<ApiResponse<null>>(`/collections/${collectionId}/wallpapers`, { wallpaper_id: wallpaperId });
+
+export const removeFromCollection = (collectionId: number, wallpaperId: number) =>
+  client.delete<ApiResponse<null>>(`/collections/${collectionId}/wallpapers/${wallpaperId}`);
+
+export const likeCollection = (id: number) =>
+  client.post<ApiResponse<null>>(`/collections/${id}/like`);
+
+export const unlikeCollection = (id: number) =>
+  client.delete<ApiResponse<null>>(`/collections/${id}/like`);
+
+export const getMyCollections = () =>
+  client.get<ApiResponse<CollectionBrief[]>>('/users/me/collections');
+
+export const getUserCollections = (userId: number) =>
+  client.get<ApiResponse<Collection[]>>(`/users/${userId}/collections`);
+
+export const downloadVariant = (wallpaperId: number, variantId: number) =>
+  client.post<ApiResponse<{ url: string }>>(`/wallpapers/${wallpaperId}/variants/${variantId}/download`);

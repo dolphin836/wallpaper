@@ -23,6 +23,7 @@ type WallpaperService struct {
 	tagRepo         *repo.TagRepo
 	interactionRepo *repo.InteractionRepo
 	userRepo        *repo.UserRepo
+	eventRepo       *repo.EventRepo
 	storage         *storage.Storage
 	kafkaWriter     *kafka.Writer
 }
@@ -32,6 +33,7 @@ func NewWallpaperService(
 	tr *repo.TagRepo,
 	ir *repo.InteractionRepo,
 	ur *repo.UserRepo,
+	er *repo.EventRepo,
 	st *storage.Storage,
 	kw *kafka.Writer,
 ) *WallpaperService {
@@ -40,6 +42,7 @@ func NewWallpaperService(
 		tagRepo:         tr,
 		interactionRepo: ir,
 		userRepo:        ur,
+		eventRepo:       er,
 		storage:         st,
 		kafkaWriter:     kw,
 	}
@@ -154,6 +157,10 @@ func (s *WallpaperService) Get(ctx context.Context, id int64, currentUserID int6
 	}
 	w.ViewCount++
 
+	if err := s.eventRepo.Record(ctx, id, "view", currentUserID, nil); err != nil {
+		slog.ErrorContext(ctx, "failed to record view event", "error", err, "wallpaper_id", id)
+	}
+
 	tags, err := s.tagRepo.GetByWallpaperID(ctx, id)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get wallpaper tags",
@@ -196,6 +203,10 @@ func (s *WallpaperService) Get(ctx context.Context, id int64, currentUserID int6
 func (s *WallpaperService) List(ctx context.Context, opts repo.ListOptions, currentUserID int64) (*ListResponse, *errcode.ErrCode) {
 	if opts.Limit <= 0 || opts.Limit > 100 {
 		opts.Limit = 20
+	}
+
+	if opts.Sort == "trending" {
+		return s.listTrending(ctx, opts, currentUserID)
 	}
 
 	fetchLimit := opts.Limit + 1
@@ -252,6 +263,74 @@ func (s *WallpaperService) List(ctx context.Context, opts repo.ListOptions, curr
 	}, nil
 }
 
+func (s *WallpaperService) listTrending(ctx context.Context, opts repo.ListOptions, currentUserID int64) (*ListResponse, *errcode.ErrCode) {
+	since := time.Now().UTC().Add(-7 * 24 * time.Hour)
+	trendingIDs, err := s.eventRepo.GetTrending(ctx, since, opts.Limit)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to get trending wallpapers", "error", err)
+		return nil, errcode.ErrInternal
+	}
+	if len(trendingIDs) == 0 {
+		return &ListResponse{Items: []WallpaperListItem{}, HasMore: false}, nil
+	}
+
+	items, err := s.wallpaperRepo.GetByIDs(ctx, trendingIDs)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to get wallpapers by ids", "error", err)
+		return nil, errcode.ErrInternal
+	}
+
+	idxMap := make(map[int64]int, len(trendingIDs))
+	for i, id := range trendingIDs {
+		idxMap[id] = i
+	}
+	ordered := make([]model.Wallpaper, 0, len(items))
+	for range trendingIDs {
+		ordered = append(ordered, model.Wallpaper{})
+	}
+	for _, w := range items {
+		if idx, ok := idxMap[w.ID]; ok {
+			ordered[idx] = w
+		}
+	}
+	filtered := make([]model.Wallpaper, 0, len(ordered))
+	for _, w := range ordered {
+		if w.ID > 0 {
+			filtered = append(filtered, w)
+		}
+	}
+
+	listItems := make([]WallpaperListItem, len(filtered))
+	for i := range filtered {
+		listItems[i] = WallpaperListItem{Wallpaper: filtered[i]}
+	}
+
+	if currentUserID > 0 && len(filtered) > 0 {
+		ids := make([]int64, len(filtered))
+		for i := range filtered {
+			ids[i] = filtered[i].ID
+		}
+		likedMap, err := s.interactionRepo.BatchIsLiked(ctx, currentUserID, ids)
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to batch check likes", "error", err)
+		} else {
+			for i := range listItems {
+				listItems[i].IsLiked = likedMap[listItems[i].ID]
+			}
+		}
+		favMap, err := s.interactionRepo.BatchIsFavorited(ctx, currentUserID, ids)
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to batch check favorites", "error", err)
+		} else {
+			for i := range listItems {
+				listItems[i].IsFavorited = favMap[listItems[i].ID]
+			}
+		}
+	}
+
+	return &ListResponse{Items: listItems, HasMore: false}, nil
+}
+
 func (s *WallpaperService) Delete(ctx context.Context, id int64, userID int64) *errcode.ErrCode {
 	w, err := s.wallpaperRepo.GetByID(ctx, id)
 	if err != nil {
@@ -293,6 +372,11 @@ func (s *WallpaperService) Like(ctx context.Context, userID, wallpaperID int64) 
 		slog.ErrorContext(ctx, "failed to increment like count", "error", err)
 		return errcode.ErrInternal
 	}
+
+	if err := s.eventRepo.Record(ctx, wallpaperID, "like", userID, nil); err != nil {
+		slog.ErrorContext(ctx, "failed to record like event", "error", err, "wallpaper_id", wallpaperID)
+	}
+
 	return nil
 }
 
@@ -375,6 +459,10 @@ func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64) (str
 
 	if err := s.wallpaperRepo.IncrementCounter(ctx, wallpaperID, "download_count", 1); err != nil {
 		slog.ErrorContext(ctx, "failed to increment download count", "error", err)
+	}
+
+	if err := s.eventRepo.Record(ctx, wallpaperID, "download", 0, nil); err != nil {
+		slog.ErrorContext(ctx, "failed to record download event", "error", err, "wallpaper_id", wallpaperID)
 	}
 
 	return w.OriginalURL, nil

@@ -63,6 +63,9 @@ export default function Layout() {
               <Link to="/" className="text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-200 font-medium">
                 Home
               </Link>
+              <Link to="/collections" className="text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-200 font-medium">
+                Collections
+              </Link>
               {isAuthenticated && (
                 <Link to="/upload" className="text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-200 font-medium">
                   Upload
@@ -151,6 +154,9 @@ export default function Layout() {
           <div className="md:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 space-y-2">
             <Link to="/" onClick={() => setMenuOpen(false)} className="block py-2 text-gray-700 dark:text-gray-200 hover:text-indigo-600">
               Home
+            </Link>
+            <Link to="/collections" onClick={() => setMenuOpen(false)} className="block py-2 text-gray-700 dark:text-gray-200 hover:text-indigo-600">
+              Collections
             </Link>
             {isAuthenticated && (
               <Link to="/upload" onClick={() => setMenuOpen(false)} className="block py-2 text-gray-700 hover:text-indigo-600">

@@ -95,6 +95,18 @@ func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wal
 	return wallpapers, err
 }
 
+func (r *WallpaperRepo) GetByIDs(ctx context.Context, ids []int64) ([]model.Wallpaper, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var wallpapers []model.Wallpaper
+	err := r.db.WithContext(ctx).
+		Select("id, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, created_at").
+		Where("id IN ? AND status = ?", ids, model.WallpaperStatusPublished).
+		Find(&wallpapers).Error
+	return wallpapers, err
+}
+
 func (r *WallpaperRepo) UpdateStatus(ctx context.Context, id int64, status int16) error {
 	return r.db.WithContext(ctx).
 		Model(&model.Wallpaper{}).

@@ -10,7 +10,7 @@ import {
   AiOutlineFullscreen,
   AiOutlineClose,
 } from 'react-icons/ai';
-import { MdOpenInNew, MdPhoneIphone } from 'react-icons/md';
+import { MdOpenInNew, MdPhoneIphone, MdPlaylistAdd } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import type { WallpaperDetail, WallpaperVariant } from '../types';
 import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
@@ -27,6 +27,8 @@ import {
 import { useAuthStore } from '../store/auth';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
+import AddToCollectionModal from '../components/AddToCollectionModal';
+import SetWallpaperGuide from '../components/SetWallpaperGuide';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -236,6 +238,8 @@ export default function WallpaperDetailPage() {
   const [showVariants, setShowVariants] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
+  const [showAddToCollection, setShowAddToCollection] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   const matchedVariant = useMemo(() => findBestMatch(variants), [variants]);
   const canMockupMatched = useMemo(() => matchedVariant ? canShowMockup(matchedVariant) : false, [matchedVariant]);
@@ -310,23 +314,35 @@ export default function WallpaperDetailPage() {
     }
   };
 
-  const handleDownload = async () => {
+  const handleDownload = async (variant?: WallpaperVariant) => {
     if (!wallpaper) return;
-    const url = downloadWallpaper(wallpaper.id);
+    const useVariant = variant || matchedVariant;
     try {
-      const resp = await fetch(url);
-      const finalUrl = resp.url;
-      const blob = await resp.blob();
-      const blobUrl = URL.createObjectURL(blob);
+      let blobUrl: string;
+      let filename: string;
+      if (useVariant) {
+        const resp = await fetch(useVariant.url);
+        const blob = await resp.blob();
+        blobUrl = URL.createObjectURL(blob);
+        filename = `wallpaper_${wallpaper.id}_${useVariant.width}x${useVariant.height}.jpg`;
+      } else {
+        const url = downloadWallpaper(wallpaper.id);
+        const resp = await fetch(url);
+        const finalUrl = resp.url;
+        const blob = await resp.blob();
+        blobUrl = URL.createObjectURL(blob);
+        const ext = finalUrl.split('.').pop()?.split('?')[0] || 'jpg';
+        filename = `wallpaper_${wallpaper.id}_${wallpaper.width}x${wallpaper.height}.${ext}`;
+      }
       const a = document.createElement('a');
       a.href = blobUrl;
-      const ext = finalUrl.split('.').pop()?.split('?')[0] || 'jpg';
-      a.download = `wallpaper_${wallpaper.id}_${wallpaper.width}x${wallpaper.height}.${ext}`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
       setWallpaper({ ...wallpaper, download_count: wallpaper.download_count + 1 });
+      setShowGuide(true);
     } catch {
       toast.error('Download failed');
     }
@@ -351,6 +367,12 @@ export default function WallpaperDetailPage() {
 
   return (
     <>
+      {showAddToCollection && wallpaper && (
+        <AddToCollectionModal wallpaperId={wallpaper.id} onClose={() => setShowAddToCollection(false)} />
+      )}
+
+      {showGuide && <SetWallpaperGuide onClose={() => setShowGuide(false)} />}
+
       {mockupVariant && (
         <DeviceMockup
           imageUrl={mockupVariant.url}
@@ -407,13 +429,21 @@ export default function WallpaperDetailPage() {
             {/* Actions: Download + Like + Favorite + Preview + Mockup */}
             <div className="flex items-center gap-3 flex-wrap">
               <button
-                onClick={handleDownload}
+                onClick={() => handleDownload()}
                 className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-3.5 text-base font-semibold text-white bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 rounded-full transition-colors duration-200"
               >
                 <AiOutlineDownload size={20} />
-                <span>Download</span>
+                <span>
+                  {matchedVariant
+                    ? `Download for ${matchedVariant.brand} ${matchedVariant.device_name}`
+                    : 'Download Original'
+                  }
+                </span>
                 <span className="text-sm font-normal opacity-70">
-                  {wallpaper.width}&times;{wallpaper.height} &middot; {formatFileSize(wallpaper.file_size)}
+                  {matchedVariant
+                    ? `${matchedVariant.width}\u00D7${matchedVariant.height}`
+                    : `${wallpaper.width}\u00D7${wallpaper.height} \u00B7 ${formatFileSize(wallpaper.file_size)}`
+                  }
                 </span>
               </button>
 
@@ -472,6 +502,16 @@ export default function WallpaperDetailPage() {
               >
                 <MdPhoneIphone size={22} />
               </button>
+
+              {isAuthenticated && (
+                <button
+                  onClick={() => setShowAddToCollection(true)}
+                  title="Add to collection"
+                  className="w-12 h-12 flex items-center justify-center rounded-full border-2 border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500 transition-colors duration-200 shrink-0"
+                >
+                  <MdPlaylistAdd size={22} />
+                </button>
+              )}
             </div>
 
             {/* Metadata Grid */}

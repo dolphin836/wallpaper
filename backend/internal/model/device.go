@@ -26,8 +26,9 @@ type WallpaperVariant struct {
 	URL         string    `gorm:"size:512;not null" json:"url"`
 	Width       int       `gorm:"not null" json:"width"`
 	Height      int       `gorm:"not null" json:"height"`
-	FileSize    int64     `gorm:"not null;default:0" json:"file_size"`
-	CreatedAt   time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
+	FileSize      int64     `gorm:"not null;default:0" json:"file_size"`
+	DownloadCount int64     `gorm:"not null;default:0" json:"download_count"`
+	CreatedAt     time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
 }
 
 func (WallpaperVariant) TableName() string {

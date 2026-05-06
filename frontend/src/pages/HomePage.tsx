@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { MdDevices } from 'react-icons/md';
+import { MdDevices, MdTrendingUp } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import type { Wallpaper } from '../types';
 import { getWallpapers } from '../api';
@@ -110,6 +110,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [deviceFilter, setDeviceFilter] = useState(false);
+  const [sortTrending, setSortTrending] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('wallpaper_view_mode') as ViewMode) || 'justified';
   });
@@ -141,6 +142,9 @@ export default function HomePage() {
         params.device_width = screen.width;
         params.device_height = screen.height;
       }
+      if (sortTrending) {
+        params.sort = 'trending';
+      }
       const res = await getWallpapers(params);
       const { items, next_cursor, has_more } = res.data.data;
       setWallpapers((prev) => (reset ? items : [...prev, ...items]));
@@ -155,25 +159,39 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchWallpapers(true, deviceFilter);
-  }, [deviceFilter]);
+  }, [deviceFilter, sortTrending]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between gap-2 mb-6">
-        <button
-          onClick={() => setDeviceFilter((p) => !p)}
-          title={deviceFilter ? `${screen.width}×${screen.height} — click to show all` : 'Filter for your device'}
-          className={`flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
-            deviceFilter
-              ? 'bg-indigo-600 text-white'
-              : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
-          }`}
-        >
-          <MdDevices size={18} />
-          <span className="hidden sm:inline">
-            {deviceFilter ? `${screen.width}×${screen.height}` : 'My Device'}
-          </span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setDeviceFilter((p) => !p)}
+            title={deviceFilter ? `${screen.width}×${screen.height} — click to show all` : 'Filter for your device'}
+            className={`flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
+              deviceFilter
+                ? 'bg-indigo-600 text-white'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+            }`}
+          >
+            <MdDevices size={18} />
+            <span className="hidden sm:inline">
+              {deviceFilter ? `${screen.width}×${screen.height}` : 'My Device'}
+            </span>
+          </button>
+          <button
+            onClick={() => setSortTrending((p) => !p)}
+            title={sortTrending ? 'Showing trending — click for latest' : 'Sort by trending'}
+            className={`flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
+              sortTrending
+                ? 'bg-orange-500 text-white'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+            }`}
+          >
+            <MdTrendingUp size={18} />
+            <span className="hidden sm:inline">Trending</span>
+          </button>
+        </div>
 
         <div className="flex items-center gap-1.5">
           {TOOLBAR_ITEMS.map((item, i) => {

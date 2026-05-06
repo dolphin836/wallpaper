@@ -96,3 +96,28 @@ export interface WallpaperVariant {
   brand: string;
   device_name: string;
 }
+
+export interface Collection {
+  id: number;
+  user_id: number;
+  title: string;
+  description: string;
+  cover_url: string;
+  is_public: boolean;
+  wallpaper_count: number;
+  view_count: number;
+  like_count: number;
+  is_liked?: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CollectionDetail extends Collection {
+  is_liked: boolean;
+}
+
+export interface CollectionBrief {
+  id: number;
+  title: string;
+  wallpaper_count: number;
+}
