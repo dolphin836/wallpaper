@@ -59,6 +59,9 @@ export const getUserWallpapers = (id: number, params: { cursor?: number; limit?:
 export const getMyFavorites = (params: { cursor?: number; limit?: number }) =>
   client.get<ApiResponse<PaginatedData<Wallpaper>>>('/users/me/favorites', { params });
 
+export const getMyLikes = (params: { cursor?: number; limit?: number }) =>
+  client.get<ApiResponse<PaginatedData<Wallpaper>>>('/users/me/likes', { params });
+
 export const getDevices = () =>
   client.get<ApiResponse<DeviceProfile[]>>('/devices');
 

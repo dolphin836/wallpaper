@@ -86,6 +86,7 @@ func NewRouter(deps Deps) *chi.Mux {
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(deps.JWTSecret))
 			r.Get("/users/me/favorites", deps.UserHandler.GetFavorites)
+			r.Get("/users/me/likes", deps.UserHandler.GetLikes)
 		})
 	})
 

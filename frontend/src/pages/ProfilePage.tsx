@@ -3,29 +3,51 @@ import { useParams, Link } from 'react-router-dom';
 import { AiOutlineHeart, AiOutlineEye, AiOutlinePicture } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { User, Wallpaper, Collection } from '../types';
-import { getUserProfile, getUserWallpapers, getUserCollections } from '../api';
+import { getUserProfile, getUserWallpapers, getUserCollections, getMyFavorites, getMyLikes } from '../api';
 import { useAuthStore } from '../store/auth';
 import WallpaperGrid from '../components/WallpaperGrid';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 
+type TabKey = 'wallpapers' | 'collections' | 'favorites' | 'likes';
+
+interface WallpaperTab {
+  items: Wallpaper[];
+  cursor?: number;
+  hasMore: boolean;
+  loaded: boolean;
+}
+
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
   const { user: currentUser } = useAuthStore();
   const [user, setUser] = useState<User | null>(null);
-  const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
-  const [cursor, setCursor] = useState<number | undefined>();
-  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
-  const [activeTab, setActiveTab] = useState<'wallpapers' | 'collections'>('wallpapers');
+  const [activeTab, setActiveTab] = useState<TabKey>('wallpapers');
+
+  const isOwnProfile = currentUser?.id === Number(id);
+
+  const [tabs, setTabs] = useState<Record<string, WallpaperTab>>({
+    wallpapers: { items: [], hasMore: false, loaded: false },
+    favorites: { items: [], hasMore: false, loaded: false },
+    likes: { items: [], hasMore: false, loaded: false },
+  });
+
+  const updateTab = (key: string, updates: Partial<WallpaperTab>) => {
+    setTabs((prev) => ({ ...prev, [key]: { ...prev[key], ...updates } }));
+  };
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    setWallpapers([]);
-    setCursor(undefined);
+    setTabs({
+      wallpapers: { items: [], hasMore: false, loaded: false },
+      favorites: { items: [], hasMore: false, loaded: false },
+      likes: { items: [], hasMore: false, loaded: false },
+    });
+    setActiveTab('wallpapers');
 
     Promise.all([
       getUserProfile(Number(id)),
@@ -35,38 +57,71 @@ export default function ProfilePage() {
       .then(([profileRes, wpRes, colRes]) => {
         setUser(profileRes.data.data);
         const { items, next_cursor, has_more } = wpRes.data.data;
-        setWallpapers(items);
-        setCursor(next_cursor);
-        setHasMore(has_more);
+        updateTab('wallpapers', { items, cursor: next_cursor, hasMore: has_more, loaded: true });
         setCollections(colRes.data.data?.items || []);
       })
       .catch(() => toast.error('Failed to load profile'))
       .finally(() => setLoading(false));
   }, [id]);
 
+  const loadTabData = useCallback(async (key: 'favorites' | 'likes') => {
+    if (tabs[key].loaded) return;
+    const fetcher = key === 'favorites' ? getMyFavorites : getMyLikes;
+    try {
+      const res = await fetcher({ limit: 20 });
+      const { items, next_cursor, has_more } = res.data.data;
+      updateTab(key, { items, cursor: next_cursor, hasMore: has_more, loaded: true });
+    } catch {
+      toast.error('Failed to load data');
+    }
+  }, [tabs]);
+
+  const handleTabChange = (tab: TabKey) => {
+    setActiveTab(tab);
+    if ((tab === 'favorites' || tab === 'likes') && !tabs[tab].loaded) {
+      loadTabData(tab);
+    }
+  };
+
   const loadMore = useCallback(async () => {
-    if (!id || loadingMore) return;
+    if (loadingMore) return;
+    const tabKey = activeTab;
+    const tab = tabs[tabKey];
+    if (!tab || !tab.hasMore) return;
+
     setLoadingMore(true);
     try {
-      const res = await getUserWallpapers(Number(id), { cursor, limit: 20 });
+      let res;
+      if (tabKey === 'wallpapers') {
+        res = await getUserWallpapers(Number(id), { cursor: tab.cursor, limit: 20 });
+      } else if (tabKey === 'favorites') {
+        res = await getMyFavorites({ cursor: tab.cursor, limit: 20 });
+      } else {
+        res = await getMyLikes({ cursor: tab.cursor, limit: 20 });
+      }
       const { items, next_cursor, has_more } = res.data.data;
-      setWallpapers((prev) => [...prev, ...items]);
-      setCursor(next_cursor);
-      setHasMore(has_more);
+      updateTab(tabKey, {
+        items: [...tab.items, ...items],
+        cursor: next_cursor,
+        hasMore: has_more,
+      });
     } catch {
       toast.error('Failed to load more');
     } finally {
       setLoadingMore(false);
     }
-  }, [id, cursor, loadingMore]);
+  }, [activeTab, tabs, id, loadingMore]);
 
-  if (loading) {
-    return <Spinner />;
-  }
+  if (loading) return <Spinner />;
+  if (!user) return <EmptyState message="User not found." />;
 
-  if (!user) {
-    return <EmptyState message="User not found." />;
-  }
+  const currentTab = tabs[activeTab];
+  const tabDefs: { key: TabKey; label: string; ownerOnly: boolean }[] = [
+    { key: 'wallpapers', label: `Wallpapers`, ownerOnly: false },
+    { key: 'collections', label: `Collections`, ownerOnly: false },
+    { key: 'favorites', label: `Favorites`, ownerOnly: true },
+    { key: 'likes', label: `Likes`, ownerOnly: true },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -86,52 +141,25 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div className="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-700">
-        <button
-          onClick={() => setActiveTab('wallpapers')}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'wallpapers'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Wallpapers ({wallpapers.length}{hasMore ? '+' : ''})
-        </button>
-        <button
-          onClick={() => setActiveTab('collections')}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'collections'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Collections ({collections.length})
-        </button>
+      <div className="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+        {tabDefs
+          .filter((t) => !t.ownerOnly || isOwnProfile)
+          .map((t) => (
+            <button
+              key={t.key}
+              onClick={() => handleTabChange(t.key)}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === t.key
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
       </div>
 
-      {activeTab === 'wallpapers' ? (
-        <>
-          <WallpaperGrid wallpapers={wallpapers} showStatus={currentUser?.id === Number(id)} />
-          {hasMore && (
-            <div className="flex justify-center mt-8">
-              <button
-                onClick={loadMore}
-                disabled={loadingMore}
-                className="px-6 py-2.5 text-sm font-medium text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-200 disabled:opacity-50"
-              >
-                {loadingMore ? (
-                  <span className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-                    Loading...
-                  </span>
-                ) : (
-                  'Load More'
-                )}
-              </button>
-            </div>
-          )}
-        </>
-      ) : (
+      {activeTab === 'collections' ? (
         <>
           {collections.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -170,6 +198,36 @@ export default function ProfilePage() {
             </div>
           ) : (
             <EmptyState message="No collections yet." />
+          )}
+        </>
+      ) : (
+        <>
+          {currentTab && currentTab.items.length > 0 ? (
+            <WallpaperGrid
+              wallpapers={currentTab.items}
+              showStatus={activeTab === 'wallpapers' && isOwnProfile}
+            />
+          ) : currentTab?.loaded ? (
+            <EmptyState message={`No ${activeTab} yet.`} />
+          ) : null}
+
+          {currentTab?.hasMore && (
+            <div className="flex justify-center mt-8">
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="px-6 py-2.5 text-sm font-medium text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-200 disabled:opacity-50"
+              >
+                {loadingMore ? (
+                  <span className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                    Loading...
+                  </span>
+                ) : (
+                  'Load More'
+                )}
+              </button>
+            </div>
           )}
         </>
       )}

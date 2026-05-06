@@ -127,6 +127,36 @@ func (h *UserHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *UserHandler) GetLikes(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	cursor, limit := parseCursorLimit(r)
+	fetchLimit := limit + 1
+
+	items, err := h.interactionRepo.ListLikes(r.Context(), userID, cursor, fetchLimit)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to list likes",
+			"error", err, "user_id", userID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	hasMore := len(items) == fetchLimit
+	if hasMore {
+		items = items[:len(items)-1]
+	}
+
+	var nextCursor int64
+	if hasMore && len(items) > 0 {
+		nextCursor = items[len(items)-1].ID
+	}
+
+	response.OK(w, map[string]any{
+		"items":       items,
+		"next_cursor": nextCursor,
+		"has_more":    hasMore,
+	})
+}
+
 func parseCursorLimit(r *http.Request) (int64, int) {
 	var cursor int64
 	if raw := r.URL.Query().Get("cursor"); raw != "" {
