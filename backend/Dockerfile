@@ -18,6 +18,6 @@ ENTRYPOINT ["/bin/api"]
 
 FROM alpine:3.19 AS worker
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
-    apk add --no-cache ca-certificates tzdata
+    apk add --no-cache ca-certificates tzdata libheif-tools
 COPY --from=builder /bin/worker /bin/worker
 ENTRYPOINT ["/bin/worker"]

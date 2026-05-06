@@ -1,7 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { useEffect } from 'react';
-import { useAuthStore } from './store/auth';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
@@ -14,12 +12,6 @@ import CollectionsPage from './pages/CollectionsPage';
 import CollectionDetailPage from './pages/CollectionDetailPage';
 
 function App() {
-  const loadFromStorage = useAuthStore((s) => s.loadFromStorage);
-
-  useEffect(() => {
-    loadFromStorage();
-  }, [loadFromStorage]);
-
   return (
     <BrowserRouter>
       <Toaster position="top-center" />

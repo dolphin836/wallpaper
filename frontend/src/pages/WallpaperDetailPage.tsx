@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   AiFillHeart,
@@ -251,6 +251,23 @@ export default function WallpaperDetailPage() {
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [frameIdx, setFrameIdx] = useState(0);
+  const [framePlaying, setFramePlaying] = useState(true);
+
+  const frames = useMemo(() => {
+    if (!wallpaper?.frame_urls) return [];
+    return wallpaper.frame_urls.split(',').filter(Boolean);
+  }, [wallpaper?.frame_urls]);
+
+  const nextFrame = useCallback(() => {
+    setFrameIdx((prev) => (prev + 1) % (frames.length || 1));
+  }, [frames.length]);
+
+  useEffect(() => {
+    if (!framePlaying || frames.length < 2) return;
+    const timer = setInterval(nextFrame, 2500);
+    return () => clearInterval(timer);
+  }, [framePlaying, frames.length, nextFrame]);
 
   const matchedVariant = useMemo(() => findBestMatch(variants), [variants]);
   const canMockupMatched = useMemo(() => matchedVariant ? canShowMockup(matchedVariant) : false, [matchedVariant]);
@@ -422,23 +439,70 @@ export default function WallpaperDetailPage() {
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          {/* Image */}
+          {/* Image / Dynamic Slideshow */}
           <div className="relative">
             <div
-              className="w-full flex items-center justify-center bg-gray-100"
+              className="w-full flex items-center justify-center bg-gray-100 overflow-hidden"
               style={{ backgroundColor: wallpaper.dominant_color || undefined }}
             >
-              <img
-                src={wallpaper.preview_url || wallpaper.original_url}
-                alt=""
-                className="max-h-[70vh] w-full object-contain"
-              />
+              {frames.length > 1 ? (
+                <div className="relative w-full">
+                  {frames.map((url, i) => (
+                    <img
+                      key={i}
+                      src={url}
+                      alt=""
+                      className={`w-full max-h-[70vh] object-contain transition-opacity duration-1000 ${
+                        i === frameIdx ? 'opacity-100' : 'opacity-0 absolute inset-0'
+                      }`}
+                      style={i !== frameIdx ? { position: 'absolute', top: 0, left: 0, width: '100%' } : undefined}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <img
+                  src={wallpaper.preview_url || wallpaper.original_url}
+                  alt=""
+                  className="max-h-[70vh] w-full object-contain"
+                />
+              )}
             </div>
+
             {wallpaper.is_dynamic && (
-              <span className="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-purple-600/90 to-indigo-500/90 text-white backdrop-blur-sm shadow-lg">
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" fill="currentColor"><animate attributeName="r" values="3;5;3" dur="1.5s" repeatCount="indefinite"/></circle><circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.4"><animate attributeName="r" values="5;7;5" dur="1.5s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.4;0.1;0.4" dur="1.5s" repeatCount="indefinite"/></circle></svg>
-                Dynamic Wallpaper &middot; {dynamicTypeLabels[wallpaper.dynamic_type] || wallpaper.dynamic_type}
+              <span className="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-black/60 text-white backdrop-blur-sm shadow-lg">
+                <svg width="14" height="14" viewBox="0 0 384 512" fill="currentColor"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+                macOS &middot; {dynamicTypeLabels[wallpaper.dynamic_type] || wallpaper.dynamic_type}
               </span>
+            )}
+
+            {frames.length > 1 && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-sm">
+                <button
+                  onClick={() => setFramePlaying((p) => !p)}
+                  className="text-white/80 hover:text-white transition-colors"
+                  title={framePlaying ? 'Pause' : 'Play'}
+                >
+                  {framePlaying ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+                  )}
+                </button>
+                <div className="flex gap-1.5">
+                  {frames.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { setFrameIdx(i); setFramePlaying(false); }}
+                      className={`w-1.5 h-1.5 rounded-full transition-all ${
+                        i === frameIdx ? 'bg-white scale-125' : 'bg-white/40 hover:bg-white/60'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-[10px] text-white/60 font-mono ml-1">
+                  {frameIdx + 1}/{frames.length}
+                </span>
+              </div>
             )}
           </div>
 

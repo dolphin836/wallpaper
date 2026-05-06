@@ -7,13 +7,24 @@ interface AuthState {
   isAuthenticated: boolean;
   setAuth: (token: string, user: User) => void;
   logout: () => void;
-  loadFromStorage: () => void;
+}
+
+function getInitialAuth(): { token: string | null; user: User | null; isAuthenticated: boolean } {
+  const token = localStorage.getItem('token');
+  const userStr = localStorage.getItem('user');
+  if (token && userStr) {
+    try {
+      return { token, user: JSON.parse(userStr), isAuthenticated: true };
+    } catch {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+  }
+  return { token: null, user: null, isAuthenticated: false };
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  token: null,
-  user: null,
-  isAuthenticated: false,
+  ...getInitialAuth(),
   setAuth: (token, user) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
@@ -23,18 +34,5 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     set({ token: null, user: null, isAuthenticated: false });
-  },
-  loadFromStorage: () => {
-    const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
-    if (token && userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        set({ token, user, isAuthenticated: true });
-      } catch {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
-    }
   },
 }));

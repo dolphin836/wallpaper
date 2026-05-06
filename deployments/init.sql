@@ -157,6 +157,7 @@ ALTER TABLE wallpaper_variants ADD COLUMN IF NOT EXISTS download_count BIGINT NO
 
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS is_dynamic BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS dynamic_type VARCHAR(16) NOT NULL DEFAULT '';
+ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS frame_urls TEXT NOT NULL DEFAULT '';
 
 INSERT INTO categories (name, slug, sort_order) VALUES
     ('自然风光', 'nature', 1),

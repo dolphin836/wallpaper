@@ -33,6 +33,7 @@ export interface Wallpaper {
   is_favorited: boolean;
   is_dynamic: boolean;
   dynamic_type: string;
+  frame_urls: string;
   created_at: string;
   updated_at: string;
 }

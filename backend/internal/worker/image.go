@@ -11,6 +11,12 @@ import (
 	"image/png"
 	"io"
 	"log/slog"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 
 	_ "github.com/gen2brain/heic"
 	"github.com/nfnt/resize"
@@ -96,6 +102,90 @@ func detectDynamicType(data []byte) string {
 	return ""
 }
 
+// extractDynamicFrames uses heif-convert to extract all frames from a dynamic
+// HEIC file, resizes each to preview width, and uploads to storage.
+// Returns a list of frame URLs. Non-fatal: returns empty slice on failure.
+func (w *ImageWorker) extractDynamicFrames(ctx context.Context, data []byte, wallpaperID int64) []string {
+	if _, err := exec.LookPath("heif-convert"); err != nil {
+		slog.Warn("heif-convert not available, skipping frame extraction", "wallpaper_id", wallpaperID)
+		return nil
+	}
+
+	tmpDir, err := os.MkdirTemp("", fmt.Sprintf("heic-frames-%d-*", wallpaperID))
+	if err != nil {
+		slog.Error("create temp dir failed", "error", err)
+		return nil
+	}
+	defer os.RemoveAll(tmpDir)
+
+	inputPath := filepath.Join(tmpDir, "input.heic")
+	if err := os.WriteFile(inputPath, data, 0644); err != nil {
+		slog.Error("write temp heic failed", "error", err)
+		return nil
+	}
+
+	outputBase := filepath.Join(tmpDir, "frame.jpg")
+	cmd := exec.CommandContext(ctx, "heif-convert", "-q", "85", inputPath, outputBase)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		slog.Error("heif-convert failed", "error", err, "output", string(out))
+		return nil
+	}
+
+	matches, _ := filepath.Glob(filepath.Join(tmpDir, "frame*.jpg"))
+	if len(matches) <= 1 {
+		return nil
+	}
+
+	sort.Slice(matches, func(i, j int) bool {
+		return extractFrameIndex(matches[i]) < extractFrameIndex(matches[j])
+	})
+
+	var urls []string
+	for i, path := range matches {
+		f, err := os.Open(path)
+		if err != nil {
+			continue
+		}
+		fImg, _, err := image.Decode(f)
+		f.Close()
+		if err != nil {
+			continue
+		}
+
+		previewWidth := uint(800)
+		if fImg.Bounds().Dx() < 800 {
+			previewWidth = uint(fImg.Bounds().Dx())
+		}
+		resized := resize.Resize(previewWidth, 0, fImg, resize.Lanczos3)
+
+		buf := new(bytes.Buffer)
+		if err := jpeg.Encode(buf, resized, &jpeg.Options{Quality: 85}); err != nil {
+			continue
+		}
+
+		key := fmt.Sprintf("frames/%d/%d.jpg", wallpaperID, i)
+		if err := w.storage.Upload(ctx, key, buf, int64(buf.Len()), "image/jpeg"); err != nil {
+			slog.Error("upload frame failed", "wallpaper_id", wallpaperID, "frame", i, "error", err)
+			continue
+		}
+		urls = append(urls, w.storage.GetURL(key))
+	}
+
+	slog.Info("dynamic frames extracted", "wallpaper_id", wallpaperID, "count", len(urls))
+	return urls
+}
+
+func extractFrameIndex(path string) int {
+	base := filepath.Base(path)
+	base = strings.TrimSuffix(base, filepath.Ext(base))
+	parts := strings.Split(base, "-")
+	if len(parts) < 2 {
+		return 0
+	}
+	n, _ := strconv.Atoi(parts[len(parts)-1])
+	return n
+}
+
 func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedEvent) error {
 	obj, err := w.storage.GetObject(ctx, event.ObjectKey)
 	if err != nil {
@@ -126,14 +216,15 @@ func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedE
 	}
 
 	if isDynamic {
-		if err := w.wpRepo.UpdateDynamic(ctx, event.WallpaperID, true, dynType); err != nil {
+		frameURLs := w.extractDynamicFrames(ctx, data, event.WallpaperID)
+		if err := w.wpRepo.UpdateDynamic(ctx, event.WallpaperID, true, dynType, strings.Join(frameURLs, ",")); err != nil {
 			return fmt.Errorf("update dynamic: %w", err)
 		}
-		slog.Info("dynamic wallpaper detected, skipping variant generation",
+		slog.Info("dynamic wallpaper processed",
 			"wallpaper_id", event.WallpaperID,
 			"dynamic_type", dynType,
+			"frames", len(frameURLs),
 			"original_size", fmt.Sprintf("%dx%d", origW, origH),
-			"format", format,
 		)
 	} else {
 		if err := w.generateDeviceVariants(ctx, img, format, event.WallpaperID, origW, origH); err != nil {
