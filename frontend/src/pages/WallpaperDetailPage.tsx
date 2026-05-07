@@ -672,8 +672,14 @@ export default function WallpaperDetailPage() {
                   </div>
                 )}
                 <div>
-                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                    {wallpaper.uploader.nickname || wallpaper.uploader.username}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                      {wallpaper.uploader.nickname || wallpaper.uploader.username}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-700/30">
+                      <span className="text-xs">🪙</span>
+                      <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{wallpaper.uploader.coins ?? 0}</span>
+                    </span>
                   </div>
                   <div className="text-xs text-gray-400">Uploader</div>
                 </div>

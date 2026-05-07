@@ -134,9 +134,15 @@ export default function ProfilePage() {
           </div>
         )}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {user.nickname || user.username}
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {user.nickname || user.username}
+            </h1>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200/60 dark:border-amber-700/40">
+              <span className="text-sm">🪙</span>
+              <span className="text-sm font-bold text-amber-600 dark:text-amber-400">{user.coins ?? 0}</span>
+            </span>
+          </div>
           {user.bio && <p className="mt-1 text-gray-600 dark:text-gray-400">{user.bio}</p>}
         </div>
       </div>
