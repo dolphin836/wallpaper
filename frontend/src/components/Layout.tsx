@@ -8,6 +8,8 @@ import {
   AiOutlineAppstore,
   AiOutlineCloudUpload,
   AiOutlineLogout,
+  AiOutlineLeft,
+  AiOutlineRight,
 } from 'react-icons/ai';
 import { BsSun, BsMoon } from 'react-icons/bs';
 
@@ -132,14 +134,24 @@ export default function Layout() {
       <div className="flex-1 md:ml-56 lg:ml-60 flex flex-col min-h-screen">
         {/* Top bar */}
         <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-14 flex items-center justify-between px-4 sm:px-6">
-          {/* Left: mobile hamburger + brand */}
-          <div className="flex items-center gap-3">
+          {/* Left: mobile hamburger + brand + history nav */}
+          <div className="flex items-center gap-1.5">
             <button onClick={() => setSidebarOpen(true)} className="md:hidden p-1.5 text-gray-600 dark:text-gray-300">
               <AiOutlineMenu size={22} />
             </button>
-            <Link to="/" className="md:hidden font-bold text-gray-900 dark:text-white">
+            <Link to="/" className="md:hidden font-bold text-gray-900 dark:text-white mr-2">
               Wallpaper <span className="text-indigo-600 dark:text-indigo-400">Exchange</span>
             </Link>
+            {location.pathname !== '/' && (
+              <>
+                <button onClick={() => navigate(-1)} className={ICON_BTN} title="Back">
+                  <AiOutlineLeft size={18} />
+                </button>
+                <button onClick={() => navigate(1)} className={ICON_BTN} title="Forward">
+                  <AiOutlineRight size={18} />
+                </button>
+              </>
+            )}
           </div>
 
           {/* Right: actions */}
