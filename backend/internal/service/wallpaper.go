@@ -67,16 +67,18 @@ type UploadRequest struct {
 
 type WallpaperDetail struct {
 	model.Wallpaper
-	Tags        []model.Tag `json:"tags"`
-	IsLiked     bool        `json:"is_liked"`
-	IsFavorited bool        `json:"is_favorited"`
-	Uploader    *model.User `json:"uploader"`
+	Tags         []model.Tag `json:"tags"`
+	IsLiked      bool        `json:"is_liked"`
+	IsFavorited  bool        `json:"is_favorited"`
+	IsDownloaded bool        `json:"is_downloaded"`
+	Uploader     *model.User `json:"uploader"`
 }
 
 type WallpaperListItem struct {
 	model.Wallpaper
-	IsLiked     bool `json:"is_liked"`
-	IsFavorited bool `json:"is_favorited"`
+	IsLiked      bool `json:"is_liked"`
+	IsFavorited  bool `json:"is_favorited"`
+	IsDownloaded bool `json:"is_downloaded"`
 }
 
 type ListResponse struct {
@@ -211,6 +213,12 @@ func (s *WallpaperService) Get(ctx context.Context, id int64, currentUserID int6
 			return nil, errcode.ErrInternal
 		}
 		detail.IsFavorited = favorited
+
+		downloaded, err := s.interactionRepo.HasDownloaded(ctx, currentUserID, id)
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to check download status", "error", err)
+		}
+		detail.IsDownloaded = downloaded
 	}
 
 	return detail, nil
@@ -271,6 +279,14 @@ func (s *WallpaperService) List(ctx context.Context, opts repo.ListOptions, curr
 		} else {
 			for i := range listItems {
 				listItems[i].IsFavorited = favMap[listItems[i].ID]
+			}
+		}
+		dlMap, err := s.interactionRepo.BatchHasDownloaded(ctx, currentUserID, ids)
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to batch check downloads", "error", err)
+		} else {
+			for i := range listItems {
+				listItems[i].IsDownloaded = dlMap[listItems[i].ID]
 			}
 		}
 	}
@@ -346,6 +362,14 @@ func (s *WallpaperService) listTrending(ctx context.Context, opts repo.ListOptio
 		} else {
 			for i := range listItems {
 				listItems[i].IsFavorited = favMap[listItems[i].ID]
+			}
+		}
+		dlMap, err := s.interactionRepo.BatchHasDownloaded(ctx, currentUserID, ids)
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to batch check downloads", "error", err)
+		} else {
+			for i := range listItems {
+				listItems[i].IsDownloaded = dlMap[listItems[i].ID]
 			}
 		}
 	}

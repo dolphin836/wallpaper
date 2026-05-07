@@ -83,12 +83,12 @@ export default function Layout() {
               </button>
               {isAuthenticated && user && (
                 <Link
-                  to="/coins"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors duration-200 text-sm font-medium"
+                  to={`/user/${user.id}`}
+                  className="group flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 border border-amber-200/60 dark:border-amber-600/40 hover:from-amber-100 hover:to-yellow-100 dark:hover:from-amber-900/50 dark:hover:to-yellow-900/50 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow"
                   title="My coins"
                 >
-                  <span className="text-base">🪙</span>
-                  <span>{user.coins ?? 0}</span>
+                  <span className="text-base drop-shadow-sm group-hover:scale-110 transition-transform duration-200">💰</span>
+                  <span className="bg-gradient-to-r from-amber-600 to-yellow-500 bg-clip-text text-transparent">{user.coins ?? 0}</span>
                 </Link>
               )}
               {isAuthenticated && user ? (
@@ -168,8 +168,9 @@ export default function Layout() {
             )}
             {isAuthenticated && user ? (
               <>
-                <Link to="/coins" onClick={() => setMenuOpen(false)} className="flex items-center gap-1.5 py-2 text-amber-600 font-medium">
-                  <span>🪙</span> {user.coins ?? 0} coins
+                <Link to={`/user/${user.id}`} onClick={() => setMenuOpen(false)} className="flex items-center gap-1.5 py-2 font-semibold">
+                  <span className="text-base">💰</span>
+                  <span className="bg-gradient-to-r from-amber-600 to-yellow-500 bg-clip-text text-transparent">{user.coins ?? 0} coins</span>
                 </Link>
                 <Link to={`/user/${user.id}`} onClick={() => setMenuOpen(false)} className="block py-2 text-gray-700 hover:text-indigo-600">
                   Profile

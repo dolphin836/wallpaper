@@ -2,14 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { AiOutlineHeart, AiOutlineEye, AiOutlinePicture } from 'react-icons/ai';
 import toast from 'react-hot-toast';
-import type { User, Wallpaper, Collection } from '../types';
-import { getUserProfile, getUserWallpapers, getUserCollections, getMyFavorites, getMyLikes, getMyDownloads } from '../api';
+import type { User, Wallpaper, Collection, CoinTransaction } from '../types';
+import { getUserProfile, getUserWallpapers, getUserCollections, getMyFavorites, getMyLikes, getMyDownloads, getMyCoins, getCoinTransactions } from '../api';
 import { useAuthStore } from '../store/auth';
 import WallpaperGrid from '../components/WallpaperGrid';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 
-type TabKey = 'wallpapers' | 'collections' | 'favorites' | 'likes' | 'downloads';
+type TabKey = 'coins' | 'wallpapers' | 'collections' | 'favorites' | 'likes' | 'downloads';
 
 interface WallpaperTab {
   items: Wallpaper[];
@@ -18,16 +18,27 @@ interface WallpaperTab {
   loaded: boolean;
 }
 
+const TX_LABELS: Record<string, { label: string; color: string }> = {
+  register_bonus: { label: 'Registration Bonus', color: 'text-green-600' },
+  upload_reward: { label: 'Upload Reward', color: 'text-green-600' },
+  download_cost: { label: 'Download Cost', color: 'text-red-500' },
+  download_earned: { label: 'Download Earned', color: 'text-green-600' },
+};
+
+function formatTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleString();
+}
+
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, updateCoins } = useAuthStore();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
-  const [activeTab, setActiveTab] = useState<TabKey>('wallpapers');
 
   const isOwnProfile = currentUser?.id === Number(id);
+  const [activeTab, setActiveTab] = useState<TabKey>(isOwnProfile ? 'coins' : 'wallpapers');
 
   const [tabs, setTabs] = useState<Record<string, WallpaperTab>>({
     wallpapers: { items: [], hasMore: false, loaded: false },
@@ -36,9 +47,43 @@ export default function ProfilePage() {
     downloads: { items: [], hasMore: false, loaded: false },
   });
 
+  const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
+  const [txCursor, setTxCursor] = useState<number | undefined>();
+  const [txHasMore, setTxHasMore] = useState(false);
+  const [txLoading, setTxLoading] = useState(false);
+  const [txLoaded, setTxLoaded] = useState(false);
+
   const updateTab = (key: string, updates: Partial<WallpaperTab>) => {
     setTabs((prev) => ({ ...prev, [key]: { ...prev[key], ...updates } }));
   };
+
+  const loadCoins = useCallback(async () => {
+    try {
+      const res = await getMyCoins();
+      updateCoins(res.data.data.coins);
+    } catch {
+      // silent
+    }
+  }, [updateCoins]);
+
+  const loadTransactions = useCallback(async (reset: boolean) => {
+    setTxLoading(true);
+    try {
+      const res = await getCoinTransactions({
+        cursor: reset ? undefined : txCursor,
+        limit: 20,
+      });
+      const { items, next_cursor, has_more } = res.data.data;
+      setTransactions((prev) => (reset ? items : [...prev, ...items]));
+      setTxCursor(next_cursor);
+      setTxHasMore(has_more);
+      setTxLoaded(true);
+    } catch {
+      toast.error('Failed to load transactions');
+    } finally {
+      setTxLoading(false);
+    }
+  }, [txCursor]);
 
   useEffect(() => {
     if (!id) return;
@@ -49,7 +94,11 @@ export default function ProfilePage() {
       likes: { items: [], hasMore: false, loaded: false },
       downloads: { items: [], hasMore: false, loaded: false },
     });
-    setActiveTab('wallpapers');
+    setTransactions([]);
+    setTxLoaded(false);
+
+    const own = currentUser?.id === Number(id);
+    setActiveTab(own ? 'coins' : 'wallpapers');
 
     Promise.all([
       getUserProfile(Number(id)),
@@ -64,6 +113,11 @@ export default function ProfilePage() {
       })
       .catch(() => toast.error('Failed to load profile'))
       .finally(() => setLoading(false));
+
+    if (own) {
+      loadCoins();
+      loadTransactions(true);
+    }
   }, [id]);
 
   const loadTabData = useCallback(async (key: 'favorites' | 'likes' | 'downloads') => {
@@ -82,6 +136,10 @@ export default function ProfilePage() {
     setActiveTab(tab);
     if ((tab === 'favorites' || tab === 'likes' || tab === 'downloads') && !tabs[tab].loaded) {
       loadTabData(tab);
+    }
+    if (tab === 'coins' && !txLoaded) {
+      loadCoins();
+      loadTransactions(true);
     }
   };
 
@@ -121,12 +179,78 @@ export default function ProfilePage() {
 
   const currentTab = tabs[activeTab];
   const tabDefs: { key: TabKey; label: string; ownerOnly: boolean }[] = [
-    { key: 'wallpapers', label: `Wallpapers`, ownerOnly: false },
-    { key: 'collections', label: `Collections`, ownerOnly: false },
-    { key: 'downloads', label: `Downloads`, ownerOnly: true },
-    { key: 'favorites', label: `Favorites`, ownerOnly: true },
-    { key: 'likes', label: `Likes`, ownerOnly: true },
+    { key: 'coins', label: 'Coins', ownerOnly: true },
+    { key: 'wallpapers', label: 'Wallpapers', ownerOnly: false },
+    { key: 'collections', label: 'Collections', ownerOnly: false },
+    { key: 'downloads', label: 'Downloads', ownerOnly: true },
+    { key: 'favorites', label: 'Favorites', ownerOnly: true },
+    { key: 'likes', label: 'Likes', ownerOnly: true },
   ];
+
+  const renderCoinsTab = () => (
+    <div className="max-w-2xl">
+      <div className="bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 rounded-2xl p-6 mb-8 text-white shadow-lg relative overflow-hidden">
+        <div className="absolute -right-4 -top-4 text-[120px] opacity-10 rotate-12 select-none">💰</div>
+        <p className="text-sm font-medium opacity-90 mb-1">My Coins</p>
+        <p className="text-4xl font-bold">{currentUser?.coins ?? 0}</p>
+        <p className="text-xs opacity-75 mt-2">
+          Upload wallpapers to earn coins. Each download costs 1 coin (your own wallpapers are free).
+        </p>
+      </div>
+
+      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Transaction History</h3>
+
+      {txLoading && transactions.length === 0 ? (
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-16 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
+          ))}
+        </div>
+      ) : transactions.length === 0 ? (
+        <EmptyState message="No transactions yet." />
+      ) : (
+        <div className="space-y-2">
+          {transactions.map((tx) => {
+            const info = TX_LABELS[tx.tx_type] ?? { label: tx.tx_type, color: tx.amount > 0 ? 'text-green-600' : 'text-red-500' };
+            return (
+              <div
+                key={tx.id}
+                className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{info.label}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {formatTime(tx.created_at)}
+                    {tx.ref_id > 0 && (
+                      <> · <Link to={`/wallpaper/${tx.ref_id}`} className="text-indigo-500 hover:underline">Wallpaper #{tx.ref_id}</Link></>
+                    )}
+                  </p>
+                </div>
+                <div className="text-right ml-4">
+                  <p className={`text-sm font-bold ${info.color}`}>
+                    {tx.amount > 0 ? '+' : ''}{tx.amount}
+                  </p>
+                  <p className="text-xs text-gray-400">Balance: {tx.balance}</p>
+                </div>
+              </div>
+            );
+          })}
+
+          {txHasMore && (
+            <div className="flex justify-center pt-4">
+              <button
+                onClick={() => loadTransactions(false)}
+                disabled={txLoading}
+                className="px-6 py-2 text-sm font-medium text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors disabled:opacity-50"
+              >
+                {txLoading ? 'Loading...' : 'Load More'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -143,9 +267,9 @@ export default function ProfilePage() {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               {user.nickname || user.username}
             </h1>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200/60 dark:border-amber-700/40">
-              <span className="text-sm">🪙</span>
-              <span className="text-sm font-bold text-amber-600 dark:text-amber-400">{user.coins ?? 0}</span>
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200/60 dark:border-amber-700/40 shadow-sm">
+              <span className="text-base">💰</span>
+              <span className="text-sm font-bold bg-gradient-to-r from-amber-600 to-yellow-500 bg-clip-text text-transparent">{isOwnProfile ? (currentUser?.coins ?? 0) : (user.coins ?? 0)}</span>
             </span>
           </div>
           {user.bio && <p className="mt-1 text-gray-600 dark:text-gray-400">{user.bio}</p>}
@@ -165,12 +289,18 @@ export default function ProfilePage() {
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              {t.label}
+              {t.key === 'coins' ? (
+                <span className="flex items-center gap-1.5">💰 {t.label}</span>
+              ) : (
+                t.label
+              )}
             </button>
           ))}
       </div>
 
-      {activeTab === 'collections' ? (
+      {activeTab === 'coins' ? (
+        renderCoinsTab()
+      ) : activeTab === 'collections' ? (
         <>
           {collections.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

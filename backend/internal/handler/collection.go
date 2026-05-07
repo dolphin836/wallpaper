@@ -7,18 +7,23 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"log/slog"
+
 	"github.com/wallpaper/backend/internal/middleware"
+	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/pkg/errcode"
 	"github.com/wallpaper/backend/internal/pkg/response"
+	"github.com/wallpaper/backend/internal/repo"
 	"github.com/wallpaper/backend/internal/service"
 )
 
 type CollectionHandler struct {
-	collectionSvc *service.CollectionService
+	collectionSvc   *service.CollectionService
+	interactionRepo *repo.InteractionRepo
 }
 
-func NewCollectionHandler(collectionSvc *service.CollectionService) *CollectionHandler {
-	return &CollectionHandler{collectionSvc: collectionSvc}
+func NewCollectionHandler(collectionSvc *service.CollectionService, interactionRepo *repo.InteractionRepo) *CollectionHandler {
+	return &CollectionHandler{collectionSvc: collectionSvc, interactionRepo: interactionRepo}
 }
 
 type createCollectionRequest struct {
@@ -297,12 +302,53 @@ func (h *CollectionHandler) ListWallpapers(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	currentUserID := middleware.GetUserID(r.Context())
+
+	type wallpaperWithStatus struct {
+		model.Wallpaper
+		IsLiked      bool `json:"is_liked"`
+		IsFavorited  bool `json:"is_favorited"`
+		IsDownloaded bool `json:"is_downloaded"`
+	}
+
+	items := make([]wallpaperWithStatus, len(resp.Items))
+	wpIDs := make([]int64, len(resp.Items))
 	for i := range resp.Items {
 		if currentUserID <= 0 || currentUserID != resp.Items[i].UserID {
 			resp.Items[i].OriginalURL = ""
 		}
+		wpIDs[i] = resp.Items[i].ID
+		items[i] = wallpaperWithStatus{Wallpaper: resp.Items[i]}
 	}
-	response.OK(w, resp)
+
+	if currentUserID > 0 && len(wpIDs) > 0 {
+		if likedMap, err := h.interactionRepo.BatchIsLiked(r.Context(), currentUserID, wpIDs); err != nil {
+			slog.ErrorContext(r.Context(), "batch check likes failed", "error", err)
+		} else {
+			for i := range items {
+				items[i].IsLiked = likedMap[items[i].ID]
+			}
+		}
+		if favMap, err := h.interactionRepo.BatchIsFavorited(r.Context(), currentUserID, wpIDs); err != nil {
+			slog.ErrorContext(r.Context(), "batch check favorites failed", "error", err)
+		} else {
+			for i := range items {
+				items[i].IsFavorited = favMap[items[i].ID]
+			}
+		}
+		if dlMap, err := h.interactionRepo.BatchHasDownloaded(r.Context(), currentUserID, wpIDs); err != nil {
+			slog.ErrorContext(r.Context(), "batch check downloads failed", "error", err)
+		} else {
+			for i := range items {
+				items[i].IsDownloaded = dlMap[items[i].ID]
+			}
+		}
+	}
+
+	response.OK(w, map[string]any{
+		"items":       items,
+		"next_cursor": resp.NextCursor,
+		"has_more":    resp.HasMore,
+	})
 }
 
 func (h *CollectionHandler) ListMyCollections(w http.ResponseWriter, r *http.Request) {

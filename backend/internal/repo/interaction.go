@@ -119,6 +119,25 @@ func (r *InteractionRepo) ListFavorites(ctx context.Context, userID int64, curso
 	return wallpapers, err
 }
 
+func (r *InteractionRepo) BatchHasDownloaded(ctx context.Context, userID int64, wallpaperIDs []int64) (map[int64]bool, error) {
+	if len(wallpaperIDs) == 0 {
+		return map[int64]bool{}, nil
+	}
+	var ids []int64
+	err := r.db.WithContext(ctx).
+		Model(&model.UserDownload{}).
+		Where("user_id = ? AND wallpaper_id IN ?", userID, wallpaperIDs).
+		Pluck("wallpaper_id", &ids).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		result[id] = true
+	}
+	return result, nil
+}
+
 func (r *InteractionRepo) HasDownloaded(ctx context.Context, userID, wallpaperID int64) (bool, error) {
 	var count int64
 	err := r.db.WithContext(ctx).

@@ -58,6 +58,48 @@ func stripOriginalURLs(items []model.Wallpaper, ownerID int64) {
 	}
 }
 
+type wallpaperItem struct {
+	model.Wallpaper
+	IsLiked      bool `json:"is_liked"`
+	IsFavorited  bool `json:"is_favorited"`
+	IsDownloaded bool `json:"is_downloaded"`
+}
+
+func (h *UserHandler) enrichItems(r *http.Request, items []model.Wallpaper, userID int64) []wallpaperItem {
+	result := make([]wallpaperItem, len(items))
+	ids := make([]int64, len(items))
+	for i := range items {
+		ids[i] = items[i].ID
+		result[i] = wallpaperItem{Wallpaper: items[i]}
+	}
+
+	if userID > 0 && len(ids) > 0 {
+		if m, err := h.interactionRepo.BatchIsLiked(r.Context(), userID, ids); err != nil {
+			slog.ErrorContext(r.Context(), "batch check likes failed", "error", err)
+		} else {
+			for i := range result {
+				result[i].IsLiked = m[result[i].ID]
+			}
+		}
+		if m, err := h.interactionRepo.BatchIsFavorited(r.Context(), userID, ids); err != nil {
+			slog.ErrorContext(r.Context(), "batch check favorites failed", "error", err)
+		} else {
+			for i := range result {
+				result[i].IsFavorited = m[result[i].ID]
+			}
+		}
+		if m, err := h.interactionRepo.BatchHasDownloaded(r.Context(), userID, ids); err != nil {
+			slog.ErrorContext(r.Context(), "batch check downloads failed", "error", err)
+		} else {
+			for i := range result {
+				result[i].IsDownloaded = m[result[i].ID]
+			}
+		}
+	}
+
+	return result
+}
+
 func (h *UserHandler) GetWallpapers(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
@@ -103,7 +145,7 @@ func (h *UserHandler) GetWallpapers(w http.ResponseWriter, r *http.Request) {
 	stripOriginalURLs(items, currentUserID)
 
 	response.OK(w, map[string]any{
-		"items":       items,
+		"items":       h.enrichItems(r, items, currentUserID),
 		"next_cursor": nextCursor,
 		"has_more":    hasMore,
 	})
@@ -135,7 +177,7 @@ func (h *UserHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 	stripOriginalURLs(items, userID)
 
 	response.OK(w, map[string]any{
-		"items":       items,
+		"items":       h.enrichItems(r, items, userID),
 		"next_cursor": nextCursor,
 		"has_more":    hasMore,
 	})
@@ -167,7 +209,7 @@ func (h *UserHandler) GetLikes(w http.ResponseWriter, r *http.Request) {
 	stripOriginalURLs(items, userID)
 
 	response.OK(w, map[string]any{
-		"items":       items,
+		"items":       h.enrichItems(r, items, userID),
 		"next_cursor": nextCursor,
 		"has_more":    hasMore,
 	})
@@ -199,7 +241,7 @@ func (h *UserHandler) GetDownloads(w http.ResponseWriter, r *http.Request) {
 	stripOriginalURLs(items, userID)
 
 	response.OK(w, map[string]any{
-		"items":       items,
+		"items":       h.enrichItems(r, items, userID),
 		"next_cursor": nextCursor,
 		"has_more":    hasMore,
 	})

@@ -7,6 +7,7 @@ import {
   AiOutlineStar,
   AiFillStar,
   AiOutlineDownload,
+  AiOutlineCheckCircle,
   AiOutlineLoading3Quarters,
   AiOutlineWarning,
 } from 'react-icons/ai';
@@ -34,6 +35,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   const [likeLoading, setLikeLoading] = useState(false);
   const [favorited, setFavorited] = useState(wallpaper.is_favorited ?? false);
   const [favLoading, setFavLoading] = useState(false);
+  const [downloaded, setDownloaded] = useState(wallpaper.is_downloaded ?? false);
   const [downloading, setDownloading] = useState(false);
   const { isAuthenticated, user, updateCoins } = useAuthStore();
   const navigate = useNavigate();
@@ -91,6 +93,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      setDownloaded(true);
       if (!isOwnWallpaper && user) {
         updateCoins(user.coins - 1);
       }
@@ -228,11 +231,17 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               <button
                 onClick={(e) => handleAction(e, () => requireAuth(handleDownload))}
                 disabled={downloading}
-                className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm transition-colors disabled:opacity-50"
-                title="Download (1 coin)"
+                className={`p-2 rounded-full backdrop-blur-sm transition-all duration-200 disabled:opacity-50 ${
+                  downloaded
+                    ? 'bg-green-500/80 text-white scale-110'
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                }`}
+                title={downloaded ? 'Downloaded' : 'Download (1 coin)'}
               >
                 {downloading ? (
                   <AiOutlineLoading3Quarters size={18} className="animate-spin" />
+                ) : downloaded ? (
+                  <AiOutlineCheckCircle size={18} />
                 ) : (
                   <AiOutlineDownload size={18} />
                 )}

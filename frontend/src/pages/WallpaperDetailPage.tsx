@@ -6,6 +6,7 @@ import {
   AiFillStar,
   AiOutlineStar,
   AiOutlineDownload,
+  AiOutlineCheckCircle,
   AiOutlineDelete,
   AiOutlineFullscreen,
   AiOutlineClose,
@@ -223,6 +224,7 @@ export default function WallpaperDetailPage() {
   const [showAddToCollection, setShowAddToCollection] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [dlLoading, setDlLoading] = useState(false);
+  const [dlDone, setDlDone] = useState(false);
   const [frameIdx, setFrameIdx] = useState(0);
   const [framePlaying, setFramePlaying] = useState(true);
 
@@ -253,7 +255,9 @@ export default function WallpaperDetailPage() {
       getWallpaperVariants(numId),
     ])
       .then(([wpRes, varRes]) => {
-        setWallpaper(wpRes.data.data);
+        const wp = wpRes.data.data;
+        setWallpaper(wp);
+        setDlDone(wp.is_downloaded ?? false);
         setVariants(varRes.data.data || []);
       })
       .catch(() => toast.error('Failed to load wallpaper'))
@@ -363,6 +367,7 @@ export default function WallpaperDetailPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
       setWallpaper({ ...wallpaper, download_count: wallpaper.download_count + 1 });
+      setDlDone(true);
       if (!isOwnerDl && user) {
         updateCoins(user.coins - 1);
       }
@@ -532,10 +537,14 @@ export default function WallpaperDetailPage() {
                 <button
                   onClick={() => handleDownload()}
                   disabled={dlLoading}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-3.5 text-base font-semibold text-white bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 rounded-full transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-3.5 text-base font-semibold rounded-full transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    dlDone
+                      ? 'text-white bg-green-600 hover:bg-green-700'
+                      : 'text-white bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100'
+                  }`}
                 >
-                  {dlLoading ? <AiOutlineLoading3Quarters size={20} className="animate-spin" /> : <AiOutlineDownload size={20} />}
-                  {!isOwner && <span className="text-xs opacity-70">🪙 1</span>}
+                  {dlLoading ? <AiOutlineLoading3Quarters size={20} className="animate-spin" /> : dlDone ? <AiOutlineCheckCircle size={20} /> : <AiOutlineDownload size={20} />}
+                  {!isOwner && !dlDone && <span className="text-xs opacity-70">💰 1</span>}
                   <span>
                     {wallpaper.is_dynamic
                       ? 'Download Dynamic Wallpaper'
@@ -676,9 +685,9 @@ export default function WallpaperDetailPage() {
                     <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
                       {wallpaper.uploader.nickname || wallpaper.uploader.username}
                     </span>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-700/30">
-                      <span className="text-xs">🪙</span>
-                      <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{wallpaper.uploader.coins ?? 0}</span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200/50 dark:border-amber-700/30">
+                      <span className="text-xs">💰</span>
+                      <span className="text-xs font-bold bg-gradient-to-r from-amber-600 to-yellow-500 bg-clip-text text-transparent">{wallpaper.uploader.coins ?? 0}</span>
                     </span>
                   </div>
                   <div className="text-xs text-gray-400">Uploader</div>

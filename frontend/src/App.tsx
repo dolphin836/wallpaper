@@ -9,8 +9,6 @@ import UploadPage from './pages/UploadPage';
 import ProfilePage from './pages/ProfilePage';
 import CollectionsPage from './pages/CollectionsPage';
 import CollectionDetailPage from './pages/CollectionDetailPage';
-import CoinsPage from './pages/CoinsPage';
-
 function App() {
   return (
     <BrowserRouter>
@@ -25,7 +23,6 @@ function App() {
           <Route path="/user/:id" element={<ProfilePage />} />
           <Route path="/collections" element={<CollectionsPage />} />
           <Route path="/collections/:id" element={<CollectionDetailPage />} />
-          <Route path="/coins" element={<CoinsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
