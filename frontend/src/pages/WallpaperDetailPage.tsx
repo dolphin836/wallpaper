@@ -409,9 +409,9 @@ export default function WallpaperDetailPage() {
 
       {showGuide && <SetWallpaperGuide onClose={() => setShowGuide(false)} />}
 
-      {mockupVariant && (
+      {mockupVariant && wallpaper && (
         <DeviceMockup
-          imageUrl={mockupVariant.url}
+          imageUrl={wallpaper.preview_url || wallpaper.original_url}
           platform={mockupVariant.platform}
           deviceName={`${mockupVariant.brand} ${mockupVariant.device_name}`}
           deviceWidth={mockupVariant.width}
