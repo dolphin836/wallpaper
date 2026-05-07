@@ -83,7 +83,7 @@ function JustifiedView({ wallpapers, showStatus, targetHeight }: { wallpapers: W
       containerPadding: 0,
       boxSpacing: BOX_SPACING,
       targetRowHeight: targetHeight,
-      showWidows: false,
+      showWidows: true,
       forceAspectRatio: false,
     });
 
