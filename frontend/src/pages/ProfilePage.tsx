@@ -184,6 +184,16 @@ export default function ProfilePage() {
     }
   };
 
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editNickname, setEditNickname] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [oldPw, setOldPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [savingPw, setSavingPw] = useState(false);
+
   if (loading) return <Spinner />;
   if (!user) return <EmptyState message="User not found." />;
 
@@ -253,16 +263,6 @@ export default function ProfilePage() {
       )}
     </div>
   );
-
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [editNickname, setEditNickname] = useState('');
-  const [editBio, setEditBio] = useState('');
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [oldPw, setOldPw] = useState('');
-  const [newPw, setNewPw] = useState('');
-  const [savingPw, setSavingPw] = useState(false);
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
