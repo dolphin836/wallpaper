@@ -113,15 +113,41 @@ function AppleIcon({ size = 16 }: { size?: number }) {
   );
 }
 
+const CACHE_KEY = 'home_feed_cache';
+
+interface FeedCache {
+  wallpapers: Wallpaper[];
+  cursor?: number;
+  hasMore: boolean;
+  scrollY: number;
+  deviceFilter: boolean;
+  macFilter: boolean;
+  sortTrending: boolean;
+}
+
+function saveFeedCache(data: FeedCache) {
+  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch { /* quota */ }
+}
+
+function loadFeedCache(): FeedCache | null {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
 export default function HomePage() {
-  const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
-  const [cursor, setCursor] = useState<number | undefined>();
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const cached = useMemo(() => loadFeedCache(), []);
+
+  const [wallpapers, setWallpapers] = useState<Wallpaper[]>(cached?.wallpapers ?? []);
+  const [cursor, setCursor] = useState<number | undefined>(cached?.cursor);
+  const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
+  const [loading, setLoading] = useState(!cached);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [deviceFilter, setDeviceFilter] = useState(false);
-  const [macFilter, setMacFilter] = useState(false);
-  const [sortTrending, setSortTrending] = useState(false);
+  const [deviceFilter, setDeviceFilter] = useState(cached?.deviceFilter ?? false);
+  const [macFilter, setMacFilter] = useState(cached?.macFilter ?? false);
+  const [sortTrending, setSortTrending] = useState(cached?.sortTrending ?? false);
+  const restoredRef = useRef(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('wallpaper_view_mode') as ViewMode) || 'justified';
   });
@@ -142,6 +168,8 @@ export default function HomePage() {
   };
 
   const toggleDeviceFilter = () => {
+    restoredRef.current = false;
+    sessionStorage.removeItem(CACHE_KEY);
     setDeviceFilter((p) => {
       if (!p) setMacFilter(false);
       return !p;
@@ -149,6 +177,8 @@ export default function HomePage() {
   };
 
   const toggleMacFilter = () => {
+    restoredRef.current = false;
+    sessionStorage.removeItem(CACHE_KEY);
     setMacFilter((p) => {
       if (!p) setDeviceFilter(false);
       return !p;
@@ -193,8 +223,27 @@ export default function HomePage() {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (cached && !restoredRef.current) {
+      restoredRef.current = true;
+      requestAnimationFrame(() => {
+        window.scrollTo(0, cached.scrollY);
+      });
+      return;
+    }
     fetchWallpapers(true);
   }, [deviceFilter, macFilter, sortTrending]);
+
+  useEffect(() => {
+    const saveScroll = () => {
+      saveFeedCache({
+        wallpapers, cursor, hasMore,
+        scrollY: window.scrollY,
+        deviceFilter, macFilter, sortTrending,
+      });
+    };
+    window.addEventListener('scroll', saveScroll, { passive: true });
+    return () => window.removeEventListener('scroll', saveScroll);
+  }, [wallpapers, cursor, hasMore, deviceFilter, macFilter, sortTrending]);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -247,7 +296,7 @@ export default function HomePage() {
           {/* Sort */}
           <span className="text-xs font-medium text-gray-400 uppercase tracking-wider mr-1 hidden sm:inline">Sort</span>
           <button
-            onClick={() => setSortTrending((p) => !p)}
+            onClick={() => { restoredRef.current = false; sessionStorage.removeItem(CACHE_KEY); setSortTrending((p) => !p); }}
             title={sortTrending ? 'Showing trending — click for latest' : 'Sort by trending'}
             className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
               sortTrending
