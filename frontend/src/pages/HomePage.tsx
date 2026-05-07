@@ -44,6 +44,8 @@ function AppleIcon({ size = 16 }: { size?: number }) {
 
 const CACHE_KEY = 'home_feed_cache';
 
+const CACHE_TTL = 5 * 60 * 1000;
+
 interface FeedCache {
   wallpapers: Wallpaper[];
   cursor?: number;
@@ -52,16 +54,23 @@ interface FeedCache {
   deviceFilter: boolean;
   macFilter: boolean;
   sortTrending: boolean;
+  savedAt: number;
 }
 
-function saveFeedCache(data: FeedCache) {
-  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch { /* quota */ }
+function saveFeedCache(data: Omit<FeedCache, 'savedAt'>) {
+  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ...data, savedAt: Date.now() })); } catch { /* quota */ }
 }
 
 function loadFeedCache(): FeedCache | null {
   try {
     const raw = sessionStorage.getItem(CACHE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const cache: FeedCache = JSON.parse(raw);
+    if (Date.now() - cache.savedAt > CACHE_TTL) {
+      sessionStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+    return cache;
   } catch { return null; }
 }
 
