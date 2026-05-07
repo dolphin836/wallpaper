@@ -54,9 +54,8 @@ const DotField = memo(({
   const glowIdRef = useRef(`dot-field-glow-${Math.random().toString(36).slice(2, 9)}`);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = canvasRef.current!;
     const glowEl = glowRef.current;
-    if (!canvas) return;
     const ctx = canvas.getContext('2d', { alpha: true })!;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     let resizeTimer: ReturnType<typeof setTimeout>;
