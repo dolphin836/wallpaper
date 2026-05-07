@@ -12,6 +12,7 @@
   "dependencies": {
     "@types/react-router-dom": "^5.3.3",
     "axios": "^1.16.0",
+    "justified-layout": "^4.1.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-dropzone": "^15.0.0",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.2.4",
+    "@types/justified-layout": "^4.1.4",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

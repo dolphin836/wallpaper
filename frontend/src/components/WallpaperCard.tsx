@@ -151,7 +151,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   return (
     <Link
       to={`/wallpaper/${wallpaper.id}`}
-      className={`group block rounded-xl overflow-hidden bg-slate-100 dark:bg-ws-dark-card shadow-sm hover:shadow-lg transition-all duration-300 ${fillHeight ? 'h-full' : ''} animate-fade-in`}
+      className={`group block rounded-lg overflow-hidden bg-slate-100 dark:bg-ws-dark-card transition-all duration-300 ${fillHeight ? 'h-full' : ''} animate-fade-in`}
       style={{ ...style, animationDelay: `${animDelay}ms` }}
     >
       <div

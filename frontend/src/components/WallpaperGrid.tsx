@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
+import justifiedLayout from 'justified-layout';
 import type { Wallpaper } from '../types';
 import WallpaperCard from './WallpaperCard';
 import EmptyState from './EmptyState';
@@ -12,6 +13,9 @@ export const SIZE_HEIGHTS: Record<SizeMode, number> = {
   sm: 100,
 };
 
+const BOX_SPACING = 16;
+const STAGGER_MS = 40;
+
 interface Props {
   wallpapers: Wallpaper[];
   showStatus?: boolean;
@@ -19,43 +23,19 @@ interface Props {
   sizeMode?: SizeMode;
 }
 
-interface JustifiedRow {
-  items: Wallpaper[];
-  height: number;
-  partial?: boolean;
-}
-
-const STAGGER_MS = 40;
-
-function buildJustifiedRows(wallpapers: Wallpaper[], containerWidth: number, targetHeight: number): JustifiedRow[] {
-  const rows: JustifiedRow[] = [];
-  let currentRow: Wallpaper[] = [];
-  let currentWidth = 0;
-  const gap = 6;
-
-  for (const w of wallpapers) {
-    const ratio = w.width > 0 && w.height > 0 ? w.width / w.height : 4 / 3;
-    const itemWidth = targetHeight * ratio;
-    currentRow.push(w);
-    currentWidth += itemWidth + (currentRow.length > 1 ? gap : 0);
-
-    if (currentWidth >= containerWidth) {
-      const totalGap = (currentRow.length - 1) * gap;
-      const scale = (containerWidth - totalGap) / (currentWidth - totalGap);
-      rows.push({ items: currentRow, height: targetHeight * scale });
-      currentRow = [];
-      currentWidth = 0;
-    }
-  }
-
-  if (currentRow.length > 0) {
-    const fillRatio = currentWidth / containerWidth;
-    if (fillRatio >= 0.7) {
-      rows.push({ items: currentRow, height: targetHeight, partial: true });
-    }
-  }
-
-  return rows;
+function useContainerWidth(ref: React.RefObject<HTMLDivElement | null>) {
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (w > 0) setWidth(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return width;
 }
 
 const GRID_COLS: Record<SizeMode, string> = {
@@ -66,7 +46,7 @@ const GRID_COLS: Record<SizeMode, string> = {
 
 function GridLayout({ wallpapers, showStatus, sizeMode }: { wallpapers: Wallpaper[]; showStatus?: boolean; sizeMode: SizeMode }) {
   return (
-    <div className={`grid ${GRID_COLS[sizeMode]} gap-1.5`}>
+    <div className={`grid ${GRID_COLS[sizeMode]} gap-4`}>
       {wallpapers.map((w, i) => (
         <WallpaperCard
           key={w.id}
@@ -80,33 +60,61 @@ function GridLayout({ wallpapers, showStatus, sizeMode }: { wallpapers: Wallpape
   );
 }
 
-function JustifiedLayout({ wallpapers, showStatus, targetHeight }: { wallpapers: Wallpaper[]; showStatus?: boolean; targetHeight: number }) {
-  const rows = useMemo(() => {
-    const width = typeof window !== 'undefined' ? Math.min(window.innerWidth - 32, 1280) : 1280;
-    return buildJustifiedRows(wallpapers, width, targetHeight);
-  }, [wallpapers, targetHeight]);
+interface LayoutBox {
+  width: number;
+  height: number;
+  left: number;
+  top: number;
+}
 
-  let idx = 0;
+function JustifiedView({ wallpapers, showStatus, targetHeight }: { wallpapers: Wallpaper[]; showStatus?: boolean; targetHeight: number }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const containerWidth = useContainerWidth(containerRef);
+
+  const { boxes, containerHeight } = useMemo(() => {
+    if (containerWidth <= 0) return { boxes: [] as LayoutBox[], containerHeight: 0 };
+
+    const ratios = wallpapers.map((w) =>
+      w.width > 0 && w.height > 0 ? w.width / w.height : 4 / 3,
+    );
+
+    const result = justifiedLayout(ratios, {
+      containerWidth,
+      containerPadding: 0,
+      boxSpacing: BOX_SPACING,
+      targetRowHeight: targetHeight,
+      showWidows: false,
+      forceAspectRatio: false,
+    });
+
+    return {
+      boxes: result.boxes as LayoutBox[],
+      containerHeight: result.containerHeight as number,
+    };
+  }, [wallpapers, containerWidth, targetHeight]);
+
   return (
-    <div className="flex flex-col gap-1.5">
-      {rows.map((row, ri) => (
-        <div key={ri} className="flex gap-1.5" style={{ height: row.height }}>
-          {row.items.map((w) => {
-            const ratio = w.width > 0 && w.height > 0 ? w.width / w.height : 4 / 3;
-            const delay = idx++ * STAGGER_MS;
-            return (
-              <WallpaperCard
-                key={w.id}
-                wallpaper={w}
-                showStatus={showStatus}
-                style={{ width: row.height * ratio, flexShrink: 0, flexGrow: row.partial ? 0 : 1 }}
-                fillHeight
-                animDelay={delay}
-              />
-            );
-          })}
-        </div>
-      ))}
+    <div ref={containerRef} className="relative w-full" style={{ height: containerHeight || undefined }}>
+      {boxes.map((box, i) => {
+        const w = wallpapers[i];
+        if (!w) return null;
+        return (
+          <WallpaperCard
+            key={w.id}
+            wallpaper={w}
+            showStatus={showStatus}
+            fillHeight
+            animDelay={i * STAGGER_MS}
+            style={{
+              position: 'absolute',
+              left: box.left,
+              top: box.top,
+              width: box.width,
+              height: box.height,
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -122,6 +130,6 @@ export default function WallpaperGrid({ wallpapers, showStatus, viewMode = 'just
     case 'grid':
       return <GridLayout wallpapers={wallpapers} showStatus={showStatus} sizeMode={sizeMode} />;
     default:
-      return <JustifiedLayout wallpapers={wallpapers} showStatus={showStatus} targetHeight={height} />;
+      return <JustifiedView wallpapers={wallpapers} showStatus={showStatus} targetHeight={height} />;
   }
 }
