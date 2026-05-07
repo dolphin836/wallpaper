@@ -1,16 +1,20 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/wallpaper/backend/internal/middleware"
 	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/pkg/errcode"
 	"github.com/wallpaper/backend/internal/pkg/response"
+	"github.com/wallpaper/backend/internal/pkg/storage"
 	"github.com/wallpaper/backend/internal/repo"
 )
 
@@ -19,14 +23,16 @@ type UserHandler struct {
 	wallpaperRepo   *repo.WallpaperRepo
 	interactionRepo *repo.InteractionRepo
 	coinRepo        *repo.CoinRepo
+	storage         *storage.Storage
 }
 
-func NewUserHandler(ur *repo.UserRepo, wr *repo.WallpaperRepo, ir *repo.InteractionRepo, cr *repo.CoinRepo) *UserHandler {
+func NewUserHandler(ur *repo.UserRepo, wr *repo.WallpaperRepo, ir *repo.InteractionRepo, cr *repo.CoinRepo, s *storage.Storage) *UserHandler {
 	return &UserHandler{
 		userRepo:        ur,
 		wallpaperRepo:   wr,
 		interactionRepo: ir,
 		coinRepo:        cr,
+		storage:         s,
 	}
 }
 
@@ -286,6 +292,115 @@ func (h *UserHandler) GetCoinTransactions(w http.ResponseWriter, r *http.Request
 		"next_cursor": nextCursor,
 		"has_more":    hasMore,
 	})
+}
+
+func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	var req struct {
+		Nickname string `json:"nickname"`
+		Bio      string `json:"bio"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrBadRequest)
+		return
+	}
+	if len(req.Nickname) > 64 || len(req.Bio) > 500 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	if err := h.userRepo.UpdateProfile(r.Context(), userID, req.Nickname, req.Bio); err != nil {
+		slog.ErrorContext(r.Context(), "failed to update profile", "error", err, "user_id", userID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	user, _ := h.userRepo.GetByID(r.Context(), userID)
+	response.OK(w, user)
+}
+
+func (h *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
+	if err := r.ParseMultipartForm(5 << 20); err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrBadRequest)
+		return
+	}
+	file, header, err := r.FormFile("avatar")
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	defer file.Close()
+
+	ct := header.Header.Get("Content-Type")
+	if ct != "image/jpeg" && ct != "image/png" && ct != "image/webp" {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+
+	ext := "jpg"
+	switch ct {
+	case "image/png":
+		ext = "png"
+	case "image/webp":
+		ext = "webp"
+	}
+	objectKey := fmt.Sprintf("avatars/%d.%s", userID, ext)
+
+	if err := h.storage.Upload(r.Context(), objectKey, file, header.Size, ct); err != nil {
+		slog.ErrorContext(r.Context(), "failed to upload avatar", "error", err, "user_id", userID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrUploadFailed)
+		return
+	}
+
+	avatarURL := h.storage.GetURL(objectKey)
+	if err := h.userRepo.UpdateAvatar(r.Context(), userID, avatarURL); err != nil {
+		slog.ErrorContext(r.Context(), "failed to save avatar url", "error", err, "user_id", userID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	response.OK(w, map[string]string{"avatar_url": avatarURL})
+}
+
+func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	var req struct {
+		OldPassword string `json:"old_password"`
+		NewPassword string `json:"new_password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrBadRequest)
+		return
+	}
+	if len(req.NewPassword) < 8 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+
+	user, err := h.userRepo.GetByIDWithHash(r.Context(), userID)
+	if err != nil || user == nil {
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.OldPassword)); err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrWrongPassword)
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	if err := h.userRepo.UpdatePassword(r.Context(), userID, string(hash)); err != nil {
+		slog.ErrorContext(r.Context(), "failed to update password", "error", err, "user_id", userID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	response.OK(w, nil)
 }
 
 func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {

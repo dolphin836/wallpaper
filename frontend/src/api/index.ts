@@ -115,6 +115,17 @@ export const getUserCollections = (userId: number, params?: { cursor?: number; l
 export const downloadVariant = (wallpaperId: number, variantId: number) =>
   client.post<ApiResponse<{ url: string }>>(`/wallpapers/${wallpaperId}/variants/${variantId}/download`);
 
+export const updateProfile = (data: { nickname: string; bio: string }) =>
+  client.put<ApiResponse<User>>('/users/me/profile', data);
+
+export const uploadAvatar = (formData: FormData) =>
+  client.post<ApiResponse<{ avatar_url: string }>>('/users/me/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+
+export const changePassword = (data: { old_password: string; new_password: string }) =>
+  client.put<ApiResponse<null>>('/users/me/password', data);
+
 export const getMyCoins = () =>
   client.get<ApiResponse<{ coins: number }>>('/users/me/coins');
 

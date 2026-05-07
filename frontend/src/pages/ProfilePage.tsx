@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import usePageTitle from '../hooks/usePageTitle';
-import { AiOutlineHeart, AiOutlineEye, AiOutlinePicture } from 'react-icons/ai';
+import { AiOutlineHeart, AiOutlineEye, AiOutlinePicture, AiOutlineEdit, AiOutlineCamera, AiOutlineLock, AiOutlineCheck, AiOutlineClose } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { User, Wallpaper, Collection, CoinTransaction } from '../types';
-import { getUserProfile, getUserWallpapers, getUserCollections, getMyFavorites, getMyLikes, getMyDownloads, getMyCoins, getCoinTransactions } from '../api';
+import { getUserProfile, getUserWallpapers, getUserCollections, getMyFavorites, getMyLikes, getMyDownloads, getMyCoins, getCoinTransactions, updateProfile, uploadAvatar, changePassword } from '../api';
 import { useAuthStore } from '../store/auth';
 import WallpaperGrid from '../components/WallpaperGrid';
 import Spinner from '../components/Spinner';
@@ -263,27 +263,153 @@ export default function ProfilePage() {
     </div>
   );
 
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editNickname, setEditNickname] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [oldPw, setOldPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [savingPw, setSavingPw] = useState(false);
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error('Avatar must be under 5MB'); return; }
+    const fd = new FormData();
+    fd.append('avatar', file);
+    try {
+      const res = await uploadAvatar(fd);
+      const url = res.data.data.avatar_url;
+      setUser((prev) => prev ? { ...prev, avatar_url: url } : prev);
+      useAuthStore.getState().updateUser({ avatar_url: url });
+      toast.success('Avatar updated');
+    } catch {
+      toast.error('Failed to upload avatar');
+    }
+  };
+
+  const startEditProfile = () => {
+    setEditNickname(user?.nickname || '');
+    setEditBio(user?.bio || '');
+    setEditingProfile(true);
+  };
+
+  const saveProfile = async () => {
+    setSavingProfile(true);
+    try {
+      const res = await updateProfile({ nickname: editNickname, bio: editBio });
+      const updated = res.data.data;
+      setUser((prev) => prev ? { ...prev, nickname: updated.nickname, bio: updated.bio } : prev);
+      useAuthStore.getState().updateUser({ nickname: updated.nickname });
+      setEditingProfile(false);
+      toast.success('Profile updated');
+    } catch {
+      toast.error('Failed to update profile');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPw.length < 8) { toast.error('New password must be at least 8 characters'); return; }
+    setSavingPw(true);
+    try {
+      await changePassword({ old_password: oldPw, new_password: newPw });
+      toast.success('Password changed');
+      setShowPasswordModal(false);
+      setOldPw('');
+      setNewPw('');
+    } catch (err: any) {
+      const msg = err.response?.data?.message;
+      toast.error(msg === 'wrong password' ? 'Current password is incorrect' : 'Failed to change password');
+    } finally {
+      setSavingPw(false);
+    }
+  };
+
   return (
     <div className="px-6 py-6">
-      <div className="flex items-center gap-5 mb-10">
-        {user.avatar_url ? (
-          <img src={user.avatar_url} alt="" className="w-20 h-20 rounded-full object-cover" />
-        ) : (
-          <div className="w-20 h-20 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-3xl font-bold">
-            {(user.nickname || user.username).charAt(0).toUpperCase()}
+      {/* Password Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowPasswordModal(false)}>
+          <div className="bg-white dark:bg-ws-dark-card rounded-2xl shadow-xl border border-ws-border dark:border-white/5 p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Change Password</h3>
+            <div className="space-y-3">
+              <input type="password" placeholder="Current password" value={oldPw} onChange={(e) => setOldPw(e.target.value)} className="w-full bg-ws-bg dark:bg-ws-dark-bg border border-ws-border dark:border-white/10 rounded-xl py-2.5 px-4 text-sm outline-none focus:ring-1 focus:ring-ws-purple dark:text-white" />
+              <input type="password" placeholder="New password (min 8 chars)" value={newPw} onChange={(e) => setNewPw(e.target.value)} className="w-full bg-ws-bg dark:bg-ws-dark-bg border border-ws-border dark:border-white/10 rounded-xl py-2.5 px-4 text-sm outline-none focus:ring-1 focus:ring-ws-purple dark:text-white" />
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button onClick={() => setShowPasswordModal(false)} className="flex-1 py-2.5 text-sm font-medium rounded-xl border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:bg-ws-bg dark:hover:bg-white/5 transition-colors">Cancel</button>
+              <button onClick={handleChangePassword} disabled={savingPw} className="flex-1 py-2.5 text-sm font-semibold text-white bg-ws-purple hover:bg-ws-purple-hover rounded-xl transition-colors disabled:opacity-50">{savingPw ? 'Saving...' : 'Confirm'}</button>
+            </div>
           </div>
-        )}
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {user.nickname || user.username}
-            </h1>
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200/60 dark:border-amber-700/40 shadow-sm">
-              <span className="text-base">💰</span>
-              <span className="text-sm font-bold bg-gradient-to-r from-amber-600 to-yellow-500 bg-clip-text text-transparent">{isOwnProfile ? (currentUser?.coins ?? 0) : (user.coins ?? 0)}</span>
-            </span>
+        </div>
+      )}
+
+      {/* Profile header */}
+      <div className="flex items-start gap-6 mb-10">
+        <div className="relative group flex-shrink-0">
+          <div className="w-24 h-24 rounded-2xl overflow-hidden ring-4 ring-ws-purple/20 dark:ring-purple-900/40 shadow-lg">
+            {user.avatar_url ? (
+              <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-ws-purple-light via-purple-200 to-purple-300 dark:from-ws-dark-active dark:via-purple-900/50 dark:to-purple-800/30 flex items-center justify-center text-3xl font-bold text-ws-purple dark:text-purple-400">
+                {(user.nickname || user.username).charAt(0).toUpperCase()}
+              </div>
+            )}
           </div>
-          {user.bio && <p className="mt-1 text-gray-600 dark:text-gray-400">{user.bio}</p>}
+          {isOwnProfile && (
+            <>
+              <button
+                onClick={() => avatarInputRef.current?.click()}
+                className="absolute inset-0 rounded-2xl bg-black/0 group-hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+              >
+                <AiOutlineCamera size={22} className="text-white" />
+              </button>
+              <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarChange} />
+            </>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          {editingProfile ? (
+            <div className="space-y-3">
+              <input value={editNickname} onChange={(e) => setEditNickname(e.target.value)} placeholder="Nickname" maxLength={64} className="w-full max-w-xs bg-ws-bg dark:bg-ws-dark-card border border-ws-border dark:border-white/10 rounded-xl py-2 px-3.5 text-sm font-semibold outline-none focus:ring-1 focus:ring-ws-purple dark:text-white" />
+              <textarea value={editBio} onChange={(e) => setEditBio(e.target.value)} placeholder="Write something about yourself..." maxLength={500} rows={2} className="w-full max-w-md bg-ws-bg dark:bg-ws-dark-card border border-ws-border dark:border-white/10 rounded-xl py-2 px-3.5 text-sm outline-none focus:ring-1 focus:ring-ws-purple resize-none dark:text-white" />
+              <div className="flex gap-2">
+                <button onClick={saveProfile} disabled={savingProfile} className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-ws-purple hover:bg-ws-purple-hover rounded-lg transition-colors disabled:opacity-50">
+                  <AiOutlineCheck size={14} />{savingProfile ? 'Saving...' : 'Save'}
+                </button>
+                <button onClick={() => setEditingProfile(false)} className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-ws-muted dark:text-ws-dark-muted border border-ws-border dark:border-white/10 rounded-lg hover:bg-ws-bg dark:hover:bg-white/5 transition-colors">
+                  <AiOutlineClose size={14} />Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {user.nickname || user.username}
+                </h1>
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200/60 dark:border-amber-700/40 shadow-sm">
+                  <span className="text-base">💰</span>
+                  <span className="text-sm font-bold bg-gradient-to-r from-amber-600 to-yellow-500 bg-clip-text text-transparent">{isOwnProfile ? (currentUser?.coins ?? 0) : (user.coins ?? 0)}</span>
+                </span>
+              </div>
+              {user.bio && <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">{user.bio}</p>}
+              {isOwnProfile && (
+                <div className="flex items-center gap-2 mt-3">
+                  <button onClick={startEditProfile} className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-ws-muted dark:text-ws-dark-muted border border-ws-border dark:border-white/10 rounded-lg hover:text-ws-purple hover:border-ws-purple/30 transition-colors">
+                    <AiOutlineEdit size={14} />Edit Profile
+                  </button>
+                  <button onClick={() => setShowPasswordModal(true)} className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-ws-muted dark:text-ws-dark-muted border border-ws-border dark:border-white/10 rounded-lg hover:text-ws-purple hover:border-ws-purple/30 transition-colors">
+                    <AiOutlineLock size={14} />Password
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 

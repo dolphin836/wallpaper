@@ -94,7 +94,7 @@ func main() {
 	wallpaperHandler := handler.NewWallpaperHandler(wallpaperSvc)
 	categoryHandler := handler.NewCategoryHandler(categoryRepo)
 	tagHandler := handler.NewTagHandler(tagRepo)
-	userHandler := handler.NewUserHandler(userRepo, wallpaperRepo, interactionRepo, coinRepo)
+	userHandler := handler.NewUserHandler(userRepo, wallpaperRepo, interactionRepo, coinRepo, store)
 	deviceHandler := handler.NewDeviceHandler(deviceRepo, eventRepo, wallpaperRepo, coinRepo, interactionRepo)
 	collectionHandler := handler.NewCollectionHandler(collectionSvc, interactionRepo)
 

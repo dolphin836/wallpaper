@@ -66,6 +66,36 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*model.U
 	return &user, nil
 }
 
+func (r *UserRepo) GetByIDWithHash(ctx context.Context, id int64) (*model.User, error) {
+	var user model.User
+	err := r.db.WithContext(ctx).
+		Select("id, password_hash").
+		Where("id = ?", id).
+		First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *UserRepo) UpdateProfile(ctx context.Context, id int64, nickname, bio string) error {
+	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).
+		Updates(map[string]any{"nickname": nickname, "bio": bio}).Error
+}
+
+func (r *UserRepo) UpdateAvatar(ctx context.Context, id int64, avatarURL string) error {
+	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).
+		Update("avatar_url", avatarURL).Error
+}
+
+func (r *UserRepo) UpdatePassword(ctx context.Context, id int64, hash string) error {
+	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).
+		Update("password_hash", hash).Error
+}
+
 type UserListItem struct {
 	model.User
 	WallpaperCount int64 `json:"wallpaper_count"`

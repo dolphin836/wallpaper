@@ -72,6 +72,9 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Post("/wallpapers/{id}/favorite", deps.WallpaperHandler.Favorite)
 			r.Delete("/wallpapers/{id}/favorite", deps.WallpaperHandler.Unfavorite)
 
+			r.Put("/users/me/profile", deps.UserHandler.UpdateProfile)
+			r.Post("/users/me/avatar", deps.UserHandler.UploadAvatar)
+			r.Put("/users/me/password", deps.UserHandler.ChangePassword)
 			r.Get("/users/me/coins", deps.UserHandler.GetCoins)
 			r.Get("/users/me/coin-transactions", deps.UserHandler.GetCoinTransactions)
 			r.Get("/users/me/favorites", deps.UserHandler.GetFavorites)
