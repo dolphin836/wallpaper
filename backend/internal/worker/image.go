@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	_ "github.com/gen2brain/heic"
+	"github.com/google/uuid"
 	"github.com/nfnt/resize"
 	"github.com/segmentio/kafka-go"
 
@@ -163,7 +164,7 @@ func (w *ImageWorker) extractDynamicFrames(ctx context.Context, data []byte, wal
 			continue
 		}
 
-		key := fmt.Sprintf("frames/%d/%d.jpg", wallpaperID, i)
+		key := fmt.Sprintf("frames/%s.jpg", uuid.New().String())
 		if err := w.storage.Upload(ctx, key, buf, int64(buf.Len()), "image/jpeg"); err != nil {
 			slog.Error("upload frame failed", "wallpaper_id", wallpaperID, "frame", i, "error", err)
 			continue
@@ -249,7 +250,7 @@ func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Ima
 	if err := encodeImage(thumbBuf, thumb, format); err != nil {
 		return fmt.Errorf("encode thumb: %w", err)
 	}
-	thumbKey := fmt.Sprintf("thumbs/%d_thumb.jpg", wallpaperID)
+	thumbKey := fmt.Sprintf("thumbs/%s.jpg", uuid.New().String())
 	if err := w.storage.Upload(ctx, thumbKey, thumbBuf, int64(thumbBuf.Len()), "image/jpeg"); err != nil {
 		return fmt.Errorf("upload thumb: %w", err)
 	}
@@ -265,7 +266,7 @@ func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Ima
 	if err := jpeg.Encode(previewBuf, watermarked, &jpeg.Options{Quality: 60}); err != nil {
 		return fmt.Errorf("encode preview: %w", err)
 	}
-	previewKey := fmt.Sprintf("previews/%d_preview.jpg", wallpaperID)
+	previewKey := fmt.Sprintf("previews/%s.jpg", uuid.New().String())
 	if err := w.storage.Upload(ctx, previewKey, previewBuf, int64(previewBuf.Len()), "image/jpeg"); err != nil {
 		return fmt.Errorf("upload preview: %w", err)
 	}
@@ -306,7 +307,7 @@ func (w *ImageWorker) generateDeviceVariants(ctx context.Context, img image.Imag
 			continue
 		}
 
-		objKey := fmt.Sprintf("variants/%d/%dx%d.jpg", wallpaperID, dev.Width, dev.Height)
+		objKey := fmt.Sprintf("variants/%s.jpg", uuid.New().String())
 		fileSize := int64(buf.Len())
 		if err := w.storage.Upload(ctx, objKey, buf, fileSize, "image/jpeg"); err != nil {
 			slog.Error("upload variant failed",
