@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
-import { AiOutlineMenu, AiOutlineClose, AiOutlineCompass, AiOutlineAppstore, AiOutlineCloudUpload, AiOutlineLogin, AiOutlineUserAdd, AiOutlineLogout } from 'react-icons/ai';
+import {
+  AiOutlineMenu,
+  AiOutlineClose,
+  AiOutlineCompass,
+  AiOutlineAppstore,
+  AiOutlineCloudUpload,
+  AiOutlineLogout,
+} from 'react-icons/ai';
 import { BsSun, BsMoon } from 'react-icons/bs';
 
 function useDarkMode() {
@@ -25,6 +32,8 @@ function useDarkMode() {
 
   return [dark, () => setDark((d) => !d)] as const;
 }
+
+const ICON_BTN = 'p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150';
 
 export default function Layout() {
   const { isAuthenticated, user, logout } = useAuthStore();
@@ -52,7 +61,7 @@ export default function Layout() {
     return location.pathname.startsWith(path);
   };
 
-  const sidebarContent = (
+  const sidebarNav = (
     <>
       {/* Brand */}
       <div className="px-5 pt-6 pb-8">
@@ -85,90 +94,13 @@ export default function Layout() {
             </Link>
           );
         })}
-
-        {isAuthenticated && (
-          <Link
-            to="/upload"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
-              isActive('/upload')
-                ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
-          >
-            <AiOutlineCloudUpload size={20} />
-            Upload
-          </Link>
-        )}
       </nav>
 
-      {/* Bottom section */}
-      <div className="px-3 pb-4 space-y-2 border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
-        {/* Dark mode */}
-        <button
-          onClick={toggleDark}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-150"
-        >
-          {dark ? <BsSun size={18} /> : <BsMoon size={18} />}
-          {dark ? 'Light Mode' : 'Dark Mode'}
-        </button>
-
-        {isAuthenticated && user ? (
-          <>
-            {/* Coins */}
-            <Link
-              to={`/user/${user.id}`}
-              className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-150"
-            >
-              <span className="text-base">💰</span>
-              <span className="bg-gradient-to-r from-amber-600 to-yellow-500 bg-clip-text text-transparent">{user.coins ?? 0} coins</span>
-            </Link>
-
-            {/* User */}
-            <Link
-              to={`/user/${user.id}`}
-              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
-                isActive(`/user/${user.id}`)
-                  ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
-            >
-              {user.avatar_url ? (
-                <img src={user.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
-              ) : (
-                <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-semibold text-xs">
-                  {(user.nickname || user.username).charAt(0).toUpperCase()}
-                </div>
-              )}
-              <span className="truncate">{user.nickname || user.username}</span>
-            </Link>
-
-            {/* Logout */}
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-150"
-            >
-              <AiOutlineLogout size={18} />
-              Logout
-            </button>
-          </>
-        ) : (
-          <>
-            <Link
-              to="/login"
-              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-150"
-            >
-              <AiOutlineLogin size={18} />
-              Login
-            </Link>
-            <Link
-              to="/register"
-              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 justify-center transition-colors duration-150"
-            >
-              <AiOutlineUserAdd size={18} />
-              Register
-            </Link>
-          </>
-        )}
+      {/* Copyright */}
+      <div className="px-5 pb-4 pt-2">
+        <p className="text-[11px] text-gray-400 dark:text-gray-500">
+          &copy; {new Date().getFullYear()} Wallpaper Exchange
+        </p>
       </div>
     </>
   );
@@ -177,12 +109,12 @@ export default function Layout() {
     <div className="min-h-screen flex bg-gray-50 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-200">
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:flex-col md:w-56 lg:w-60 fixed inset-y-0 left-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-40">
-        {sidebarContent}
+        {sidebarNav}
       </aside>
 
-      {/* Mobile overlay */}
+      {/* Mobile sidebar drawer */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
           <aside className="relative w-64 h-full flex flex-col bg-white dark:bg-gray-800 shadow-xl">
             <button
@@ -191,32 +123,89 @@ export default function Layout() {
             >
               <AiOutlineClose size={20} />
             </button>
-            {sidebarContent}
+            {sidebarNav}
           </aside>
         </div>
       )}
 
-      {/* Mobile top bar */}
-      <div className="fixed top-0 left-0 right-0 z-30 md:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-14 flex items-center px-4 gap-3">
-        <button onClick={() => setSidebarOpen(true)} className="p-1.5 text-gray-600 dark:text-gray-300">
-          <AiOutlineMenu size={22} />
-        </button>
-        <Link to="/" className="font-bold text-gray-900 dark:text-white">
-          Wallpaper <span className="text-indigo-600 dark:text-indigo-400">Exchange</span>
-        </Link>
-      </div>
+      {/* Main column */}
+      <div className="flex-1 md:ml-56 lg:ml-60 flex flex-col min-h-screen">
+        {/* Top bar */}
+        <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-14 flex items-center justify-between px-4 sm:px-6">
+          {/* Left: mobile hamburger + brand */}
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-1.5 text-gray-600 dark:text-gray-300">
+              <AiOutlineMenu size={22} />
+            </button>
+            <Link to="/" className="md:hidden font-bold text-gray-900 dark:text-white">
+              Wallpaper <span className="text-indigo-600 dark:text-indigo-400">Exchange</span>
+            </Link>
+          </div>
 
-      {/* Main content */}
-      <div className="flex-1 md:ml-56 lg:ml-60">
-        <main className="min-h-screen pt-14 md:pt-0">
+          {/* Right: actions */}
+          <div className="flex items-center gap-1.5">
+            <button onClick={toggleDark} className={ICON_BTN} title={dark ? 'Light Mode' : 'Dark Mode'}>
+              {dark ? <BsSun size={18} /> : <BsMoon size={18} />}
+            </button>
+
+            {isAuthenticated && user ? (
+              <>
+                <Link to="/upload" className={ICON_BTN} title="Upload">
+                  <AiOutlineCloudUpload size={20} />
+                </Link>
+
+                <Link
+                  to={`/user/${user.id}`}
+                  className="flex items-center gap-1.5 ml-1 px-2 py-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
+                  title="Profile"
+                >
+                  <span className="text-sm">💰</span>
+                  <span className="text-xs font-semibold bg-gradient-to-r from-amber-600 to-yellow-500 bg-clip-text text-transparent">
+                    {user.coins ?? 0}
+                  </span>
+                </Link>
+
+                <Link
+                  to={`/user/${user.id}`}
+                  className="ml-0.5 flex-shrink-0"
+                  title={user.nickname || user.username}
+                >
+                  {user.avatar_url ? (
+                    <img src={user.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-semibold text-sm">
+                      {(user.nickname || user.username).charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </Link>
+
+                <button onClick={handleLogout} className={ICON_BTN} title="Logout">
+                  <AiOutlineLogout size={18} />
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="px-4 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors duration-150"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/register"
+                  className="px-4 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors duration-150"
+                >
+                  Register
+                </Link>
+              </>
+            )}
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1">
           <Outlet />
         </main>
-
-        <footer className="border-t border-gray-200 dark:border-gray-700 py-6">
-          <div className="max-w-7xl mx-auto px-4 text-center text-sm text-gray-500 dark:text-gray-400">
-            &copy; {new Date().getFullYear()} Wallpaper Exchange. All rights reserved.
-          </div>
-        </footer>
       </div>
     </div>
   );
