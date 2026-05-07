@@ -90,6 +90,10 @@ export default function HomePage() {
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef(false);
+  const cursorRef = useRef(cursor);
+  const hasMoreRef = useRef(hasMore);
+  cursorRef.current = cursor;
+  hasMoreRef.current = hasMore;
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('wallpaper_view_mode') as ViewMode) || 'justified';
   });
@@ -130,13 +134,13 @@ export default function HomePage() {
   const busyRef = useRef(false);
 
   const fetchWallpapers = useCallback(async (reset: boolean) => {
-    if (!reset && (busyRef.current || !hasMore)) return;
+    if (!reset && (busyRef.current || !hasMoreRef.current)) return;
     busyRef.current = true;
     const setter = reset ? setLoading : setLoadingMore;
     setter(true);
     try {
       const params: Parameters<typeof getWallpapers>[0] = {
-        cursor: reset ? undefined : cursor,
+        cursor: reset ? undefined : cursorRef.current,
         limit: 20,
       };
       if (macFilter) {
@@ -160,7 +164,7 @@ export default function HomePage() {
       setter(false);
       busyRef.current = false;
     }
-  }, [cursor, screen, deviceFilter, macFilter, sortTrending, hasMore]);
+  }, [screen, deviceFilter, macFilter, sortTrending]);
 
   const sentinelRef = useRef<HTMLDivElement>(null);
 
