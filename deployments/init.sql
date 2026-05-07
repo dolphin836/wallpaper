@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS wallpapers (
     width          INT            NOT NULL DEFAULT 0,
     height         INT            NOT NULL DEFAULT 0,
     file_size      BIGINT         NOT NULL DEFAULT 0,
-    file_type      VARCHAR(16)    NOT NULL DEFAULT '',
+    file_type      VARCHAR(64)    NOT NULL DEFAULT '',
     dominant_color VARCHAR(7)     NOT NULL DEFAULT '',
     color_palette  VARCHAR(64)    NOT NULL DEFAULT '',
     status         SMALLINT       NOT NULL DEFAULT 0,

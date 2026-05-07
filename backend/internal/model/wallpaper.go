@@ -21,7 +21,7 @@ type Wallpaper struct {
 	Width         int       `gorm:"not null;default:0" json:"width"`
 	Height        int       `gorm:"not null;default:0" json:"height"`
 	FileSize      int64     `gorm:"not null;default:0" json:"file_size"`
-	FileType      string    `gorm:"size:16;not null;default:''" json:"file_type"`
+	FileType      string    `gorm:"size:64;not null;default:''" json:"file_type"`
 	DominantColor string    `gorm:"size:7;not null;default:''" json:"dominant_color"`
 	ColorPalette  string    `gorm:"size:64;not null;default:''" json:"color_palette"`
 	Status        int16     `gorm:"not null;default:0;index:idx_wallpapers_status_created" json:"status"`

@@ -2,7 +2,9 @@ package handler
 
 import (
 	"log/slog"
+	"mime"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -16,6 +18,12 @@ import (
 )
 
 const maxUploadSize = 200 << 20
+
+var extMIME = map[string]string{
+	".heic": "image/heic",
+	".heif": "image/heif",
+	".avif": "image/avif",
+}
 
 type WallpaperHandler struct {
 	wallpaperSvc *service.WallpaperService
@@ -66,6 +74,16 @@ func (h *WallpaperHandler) Upload(w http.ResponseWriter, r *http.Request) {
 
 	userID := middleware.GetUserID(r.Context())
 
+	fileType := header.Header.Get("Content-Type")
+	if fileType == "" || fileType == "application/octet-stream" {
+		ext := strings.ToLower(filepath.Ext(header.Filename))
+		if ct := mime.TypeByExtension(ext); ct != "" {
+			fileType = ct
+		} else if ct, ok := extMIME[ext]; ok {
+			fileType = ct
+		}
+	}
+
 	req := service.UploadRequest{
 		Title:       r.FormValue("title"),
 		Description: r.FormValue("description"),
@@ -73,7 +91,7 @@ func (h *WallpaperHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		Tags:        tags,
 		File:        file,
 		FileSize:    header.Size,
-		FileType:    header.Header.Get("Content-Type"),
+		FileType:    fileType,
 		FileName:    header.Filename,
 	}
 
