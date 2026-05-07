@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import usePageTitle from '../hooks/usePageTitle';
 import { AiOutlineHeart, AiOutlineEye, AiOutlinePicture } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { User, Wallpaper, Collection, CoinTransaction } from '../types';
@@ -33,6 +34,7 @@ export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
   const { user: currentUser, updateCoins } = useAuthStore();
   const [user, setUser] = useState<User | null>(null);
+  usePageTitle(user ? `${user.nickname || user.username}'s Profile` : 'Profile');
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);

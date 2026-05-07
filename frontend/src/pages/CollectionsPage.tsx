@@ -5,8 +5,10 @@ import toast from 'react-hot-toast';
 import type { Collection } from '../types';
 import { getCollections } from '../api';
 import Spinner from '../components/Spinner';
+import usePageTitle from '../hooks/usePageTitle';
 
 export default function CollectionsPage() {
+  usePageTitle('Collections');
   const [collections, setCollections] = useState<Collection[]>([]);
   const [cursor, setCursor] = useState<number | undefined>();
   const [hasMore, setHasMore] = useState(false);

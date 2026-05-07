@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import usePageTitle from '../hooks/usePageTitle';
 import { AiFillHeart, AiOutlineHeart, AiOutlineDelete, AiOutlineEdit, AiOutlineClose, AiOutlineCheck } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { CollectionDetail as CollectionDetailType, Wallpaper } from '../types';
@@ -15,6 +16,7 @@ export default function CollectionDetailPage() {
   const { user } = useAuthStore();
 
   const [collection, setCollection] = useState<CollectionDetailType | null>(null);
+  usePageTitle(collection ? collection.name : 'Collection');
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
   const [cursor, setCursor] = useState<number | undefined>();
   const [hasMore, setHasMore] = useState(false);

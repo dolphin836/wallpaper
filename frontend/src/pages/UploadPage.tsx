@@ -10,6 +10,7 @@ import {
 } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../store/auth';
+import usePageTitle from '../hooks/usePageTitle';
 
 const MAX_SIZE = 200 * 1024 * 1024;
 const MAX_FILES = 20;
@@ -25,6 +26,7 @@ interface UploadFile {
 }
 
 export default function UploadPage() {
+  usePageTitle('Upload');
   const { isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
   const [files, setFiles] = useState<UploadFile[]>([]);

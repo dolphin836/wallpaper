@@ -3,10 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { register } from '../api';
 import { useAuthStore } from '../store/auth';
+import usePageTitle from '../hooks/usePageTitle';
 
 const INPUT_CLS = 'w-full bg-ws-bg dark:bg-ws-dark-card border-none rounded-xl py-2.5 px-4 text-sm focus:ring-1 focus:ring-ws-purple outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-ws-dark-muted dark:text-white';
 
 export default function RegisterPage() {
+  usePageTitle('Register');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

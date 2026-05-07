@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import usePageTitle from '../hooks/usePageTitle';
 import {
   AiFillHeart,
   AiOutlineHeart,
@@ -214,6 +215,7 @@ export default function WallpaperDetailPage() {
   const navigate = useNavigate();
   const { isAuthenticated, user, updateCoins } = useAuthStore();
   const [wallpaper, setWallpaper] = useState<WallpaperDetail | null>(null);
+  usePageTitle(wallpaper ? `${wallpaper.width}×${wallpaper.height} Wallpaper` : 'Wallpaper');
   const [variants, setVariants] = useState<WallpaperVariant[]>([]);
   const [loading, setLoading] = useState(true);
   const [likeLoading, setLikeLoading] = useState(false);

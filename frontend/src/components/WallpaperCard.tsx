@@ -219,8 +219,8 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         )}
 
         {/* Action buttons — appear on hover */}
-        <div className="absolute right-0 bottom-0 z-[2] p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="flex items-center gap-1.5">
+        <div className="absolute right-0 top-0 bottom-0 z-[2] p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end">
+          <div className="flex flex-col gap-1.5">
             <button
               onClick={(e) => handleAction(e, () => requireAuth(handleLike))}
               disabled={likeLoading}

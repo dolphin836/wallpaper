@@ -6,6 +6,7 @@ import type { Wallpaper } from '../types';
 import { getWallpapers } from '../api';
 import WallpaperGrid from '../components/WallpaperGrid';
 import type { ViewMode, SizeMode } from '../components/WallpaperGrid';
+import usePageTitle from '../hooks/usePageTitle';
 
 function getScreenResolution() {
   const dpr = window.devicePixelRatio || 1;
@@ -63,6 +64,7 @@ function loadFeedCache(): FeedCache | null {
 }
 
 export default function HomePage() {
+  usePageTitle('Discover');
   const cached = useMemo(() => loadFeedCache(), []);
 
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>(cached?.wallpapers ?? []);

@@ -70,8 +70,8 @@ export default function Layout() {
         <div className="w-7 h-7 border-2 border-slate-800 dark:border-white flex items-center justify-center rotate-45 flex-shrink-0">
           <div className="w-full h-px bg-slate-800 dark:bg-white -rotate-45" />
         </div>
-        <Link to="/" className="text-xl font-semibold tracking-widest text-slate-800 dark:text-white">
-          WALLSCAPE
+        <Link to="/" className="text-base font-semibold tracking-wide leading-tight text-slate-800 dark:text-white">
+          Wallpaper<br />Exchange
         </Link>
       </div>
 
