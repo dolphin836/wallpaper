@@ -16,7 +16,7 @@ export default function CollectionDetailPage() {
   const { user } = useAuthStore();
 
   const [collection, setCollection] = useState<CollectionDetailType | null>(null);
-  usePageTitle(collection ? collection.name : 'Collection');
+  usePageTitle(collection ? collection.title : 'Collection');
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
   const [cursor, setCursor] = useState<number | undefined>();
   const [hasMore, setHasMore] = useState(false);
