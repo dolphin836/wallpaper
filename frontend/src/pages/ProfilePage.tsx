@@ -19,6 +19,19 @@ interface WallpaperTab {
   loaded: boolean;
 }
 
+const PAGE_SIZE = 20;
+
+function Pagination({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-center gap-2 mt-8">
+      <button onClick={() => onChange(page - 1)} disabled={page <= 1} className="px-3 py-1.5 text-sm rounded-lg border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple disabled:opacity-30 disabled:cursor-not-allowed transition-colors">&larr; Prev</button>
+      <span className="px-3 text-sm text-ws-muted dark:text-ws-dark-muted">{page} / {totalPages}</span>
+      <button onClick={() => onChange(page + 1)} disabled={page >= totalPages} className="px-3 py-1.5 text-sm rounded-lg border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple disabled:opacity-30 disabled:cursor-not-allowed transition-colors">Next &rarr;</button>
+    </div>
+  );
+}
+
 const TX_LABELS: Record<string, { label: string; color: string }> = {
   register_bonus: { label: 'Registration Bonus', color: 'text-green-600' },
   upload_reward: { label: 'Upload Reward', color: 'text-green-600' },
@@ -36,7 +49,6 @@ export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   usePageTitle(user ? `${user.nickname || user.username}'s Profile` : 'Profile');
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
 
   const isOwnProfile = currentUser?.id === Number(id);
@@ -48,10 +60,10 @@ export default function ProfilePage() {
     likes: { items: [], hasMore: false, loaded: false },
     downloads: { items: [], hasMore: false, loaded: false },
   });
+  const [tabPage, setTabPage] = useState<Record<string, number>>({ wallpapers: 1, favorites: 1, likes: 1, downloads: 1, collections: 1, coins: 1 });
 
   const [tabLoading, setTabLoading] = useState(false);
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
-  const [txCursor, setTxCursor] = useState<number | undefined>();
   const [txHasMore, setTxHasMore] = useState(false);
   const [txLoading, setTxLoading] = useState(false);
   const [txLoaded, setTxLoaded] = useState(false);
@@ -69,24 +81,54 @@ export default function ProfilePage() {
     }
   }, [updateCoins]);
 
-  const loadTransactions = useCallback(async (reset: boolean) => {
+  const loadTransactions = useCallback(async (page: number) => {
     setTxLoading(true);
     try {
-      const res = await getCoinTransactions({
-        cursor: reset ? undefined : txCursor,
-        limit: 20,
-      });
-      const { items, next_cursor, has_more } = res.data.data;
-      setTransactions((prev) => (reset ? items : [...prev, ...items]));
-      setTxCursor(next_cursor);
-      setTxHasMore(has_more);
+      const cursor = page > 1 ? undefined : undefined;
+      const res = await getCoinTransactions({ cursor, limit: PAGE_SIZE * page });
+      const allItems = res.data.data?.items ?? [];
+      const start = (page - 1) * PAGE_SIZE;
+      setTransactions(allItems.slice(start, start + PAGE_SIZE));
+      setTxHasMore(allItems.length > start + PAGE_SIZE || res.data.data?.has_more);
       setTxLoaded(true);
     } catch {
       toast.error('Failed to load transactions');
     } finally {
       setTxLoading(false);
     }
-  }, [txCursor]);
+  }, []);
+
+  const loadWallpaperPage = useCallback(async (key: string, page: number) => {
+    setTabLoading(true);
+    const limit = PAGE_SIZE;
+    const cursor = page > 1 ? undefined : undefined;
+    const fetchLimit = limit * page;
+    try {
+      let res;
+      if (key === 'wallpapers') {
+        res = await getUserWallpapers(Number(id), { limit: fetchLimit });
+      } else if (key === 'favorites') {
+        res = await getMyFavorites({ limit: fetchLimit });
+      } else if (key === 'downloads') {
+        res = await getMyDownloads({ limit: fetchLimit });
+      } else {
+        res = await getMyLikes({ limit: fetchLimit });
+      }
+      const allItems = res.data.data?.items ?? [];
+      const start = (page - 1) * limit;
+      const hasMore = res.data.data?.has_more || allItems.length > start + limit;
+      updateTab(key, {
+        items: allItems.slice(start, start + limit),
+        hasMore,
+        loaded: true,
+      });
+    } catch {
+      toast.error('Failed to load data');
+      updateTab(key, { loaded: true });
+    } finally {
+      setTabLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -97,6 +139,7 @@ export default function ProfilePage() {
       likes: { items: [], hasMore: false, loaded: false },
       downloads: { items: [], hasMore: false, loaded: false },
     });
+    setTabPage({ wallpapers: 1, favorites: 1, likes: 1, downloads: 1, collections: 1, coins: 1 });
     setTransactions([]);
     setTxLoaded(false);
 
@@ -105,13 +148,13 @@ export default function ProfilePage() {
 
     Promise.all([
       getUserProfile(Number(id)),
-      getUserWallpapers(Number(id), { limit: 20 }),
+      getUserWallpapers(Number(id), { limit: PAGE_SIZE }),
       getUserCollections(Number(id), { limit: 50 }),
     ])
       .then(([profileRes, wpRes, colRes]) => {
         setUser(profileRes.data.data);
-        const { items, next_cursor, has_more } = wpRes.data.data;
-        updateTab('wallpapers', { items, cursor: next_cursor, hasMore: has_more, loaded: true });
+        const { items, has_more } = wpRes.data.data;
+        updateTab('wallpapers', { items, hasMore: has_more, loaded: true });
         setCollections(colRes.data.data?.items || []);
       })
       .catch(() => toast.error('Failed to load profile'))
@@ -119,71 +162,29 @@ export default function ProfilePage() {
 
     if (own) {
       loadCoins();
-      loadTransactions(true);
+      loadTransactions(1);
     }
   }, [id]);
-
-  const loadTabData = useCallback(async (key: 'favorites' | 'likes' | 'downloads') => {
-    const fetchers = { favorites: getMyFavorites, likes: getMyLikes, downloads: getMyDownloads };
-    setTabLoading(true);
-    try {
-      const res = await fetchers[key]({ limit: 20 });
-      const d = res.data.data;
-      updateTab(key, {
-        items: d?.items ?? [],
-        cursor: d?.next_cursor,
-        hasMore: d?.has_more ?? false,
-        loaded: true,
-      });
-    } catch {
-      toast.error('Failed to load data');
-      updateTab(key, { loaded: true });
-    } finally {
-      setTabLoading(false);
-    }
-  }, []);
 
   const handleTabChange = (tab: TabKey) => {
     setActiveTab(tab);
     if ((tab === 'favorites' || tab === 'likes' || tab === 'downloads') && !tabs[tab]?.loaded) {
-      loadTabData(tab);
+      loadWallpaperPage(tab, 1);
     }
     if (tab === 'coins' && !txLoaded) {
       loadCoins();
-      loadTransactions(true);
+      loadTransactions(1);
     }
   };
 
-  const loadMore = useCallback(async () => {
-    if (loadingMore) return;
-    const tabKey = activeTab;
-    const tab = tabs[tabKey];
-    if (!tab || !tab.hasMore) return;
-
-    setLoadingMore(true);
-    try {
-      let res;
-      if (tabKey === 'wallpapers') {
-        res = await getUserWallpapers(Number(id), { cursor: tab.cursor, limit: 20 });
-      } else if (tabKey === 'favorites') {
-        res = await getMyFavorites({ cursor: tab.cursor, limit: 20 });
-      } else if (tabKey === 'downloads') {
-        res = await getMyDownloads({ cursor: tab.cursor, limit: 20 });
-      } else {
-        res = await getMyLikes({ cursor: tab.cursor, limit: 20 });
-      }
-      const { items, next_cursor, has_more } = res.data.data;
-      updateTab(tabKey, {
-        items: [...tab.items, ...items],
-        cursor: next_cursor,
-        hasMore: has_more,
-      });
-    } catch {
-      toast.error('Failed to load more');
-    } finally {
-      setLoadingMore(false);
+  const handlePageChange = (key: string, page: number) => {
+    setTabPage((prev) => ({ ...prev, [key]: page }));
+    if (key === 'coins') {
+      loadTransactions(page);
+    } else {
+      loadWallpaperPage(key, page);
     }
-  }, [activeTab, tabs, id, loadingMore]);
+  };
 
   if (loading) return <Spinner />;
   if (!user) return <EmptyState message="User not found." />;
@@ -247,16 +248,8 @@ export default function ProfilePage() {
             );
           })}
 
-          {txHasMore && (
-            <div className="flex justify-center pt-4">
-              <button
-                onClick={() => loadTransactions(false)}
-                disabled={txLoading}
-                className="px-6 py-2 text-sm font-medium text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors disabled:opacity-50"
-              >
-                {txLoading ? 'Loading...' : 'Load More'}
-              </button>
-            </div>
+          {(txHasMore || tabPage.coins > 1) && (
+            <Pagination page={tabPage.coins} totalPages={txHasMore ? tabPage.coins + 1 : tabPage.coins} onChange={(p) => handlePageChange('coins', p)} />
           )}
         </div>
       )}
@@ -482,35 +475,23 @@ export default function ProfilePage() {
         <>
           {tabLoading && !currentTab?.loaded ? (
             <div className="flex justify-center py-12">
-              <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+              <div className="w-8 h-8 border-2 border-ws-purple/20 border-t-ws-purple rounded-full animate-spin" />
             </div>
           ) : currentTab && currentTab.items.length > 0 ? (
-            <WallpaperGrid
-              wallpapers={currentTab.items}
-              showStatus={activeTab === 'wallpapers' && isOwnProfile}
-            />
+            <>
+              <WallpaperGrid
+                wallpapers={currentTab.items}
+                showStatus={activeTab === 'wallpapers' && isOwnProfile}
+                viewMode="grid"
+                sizeMode="md"
+              />
+              {(currentTab.hasMore || tabPage[activeTab] > 1) && (
+                <Pagination page={tabPage[activeTab]} totalPages={currentTab.hasMore ? tabPage[activeTab] + 1 : tabPage[activeTab]} onChange={(p) => handlePageChange(activeTab, p)} />
+              )}
+            </>
           ) : currentTab?.loaded ? (
             <EmptyState message={`No ${activeTab} yet.`} />
           ) : null}
-
-          {currentTab?.hasMore && (
-            <div className="flex justify-center mt-8">
-              <button
-                onClick={loadMore}
-                disabled={loadingMore}
-                className="px-6 py-2.5 text-sm font-medium text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-200 disabled:opacity-50"
-              >
-                {loadingMore ? (
-                  <span className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-                    Loading...
-                  </span>
-                ) : (
-                  'Load More'
-                )}
-              </button>
-            </div>
-          )}
         </>
       )}
     </div>
