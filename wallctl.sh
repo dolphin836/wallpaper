@@ -143,6 +143,58 @@ cmd_clean() {
     fi
 }
 
+cmd_reset_data() {
+    log_warn "This will DELETE all data EXCEPT user accounts (users table)."
+    log_warn "Includes: wallpapers, variants, uploads (MinIO), collections, likes, favorites, downloads, coins, etc."
+    read -rp "Are you sure? [y/N] " confirm
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        log_info "Cancelled."
+        return
+    fi
+
+    local DB_USER="${POSTGRES_USER:-wallpaper}"
+    local DB_NAME="${POSTGRES_DB:-wallpaper}"
+    local MINIO_BUCKET="${MINIO_BUCKET:-wallpapers}"
+
+    log_info "Truncating database tables (keeping users)..."
+    compose exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN;
+TRUNCATE TABLE wallpaper_events       CASCADE;
+TRUNCATE TABLE wallpaper_variants     CASCADE;
+TRUNCATE TABLE wallpaper_tags         CASCADE;
+TRUNCATE TABLE collection_wallpapers  CASCADE;
+TRUNCATE TABLE collection_likes       CASCADE;
+TRUNCATE TABLE collections            CASCADE;
+TRUNCATE TABLE user_likes             CASCADE;
+TRUNCATE TABLE user_favorites         CASCADE;
+TRUNCATE TABLE user_downloads         CASCADE;
+TRUNCATE TABLE coin_transactions      CASCADE;
+TRUNCATE TABLE wallpapers             CASCADE;
+TRUNCATE TABLE tags                   CASCADE;
+UPDATE users SET coins = 10 WHERE id > 0;
+COMMIT;
+SQL
+    log_info "Database tables truncated."
+
+    log_info "Clearing MinIO bucket: ${MINIO_BUCKET}..."
+    compose exec minio sh -c "
+        mc alias set local http://localhost:9000 \${MINIO_ROOT_USER} \${MINIO_ROOT_PASSWORD} --api S3v4 2>/dev/null
+        mc rm --recursive --force local/${MINIO_BUCKET}/ 2>/dev/null || true
+    "
+    log_info "MinIO bucket cleared."
+
+    log_info "Flushing Redis cache..."
+    local REDIS_PW="${REDIS_PASSWORD:-}"
+    if [ -n "$REDIS_PW" ]; then
+        compose exec redis redis-cli -a "$REDIS_PW" FLUSHALL
+    else
+        compose exec redis redis-cli FLUSHALL
+    fi
+    log_info "Redis flushed."
+
+    log_info "Data reset complete. User accounts preserved (coins reset to 10)."
+}
+
 cmd_db_shell() {
     compose exec postgres psql -U wallpaper -d wallpaper
 }
@@ -169,6 +221,7 @@ ${YELLOW}Commands:${NC}
   ${GREEN}build${NC}    [target]       Build images only (no restart)
   ${GREEN}deploy${NC}                  Git pull + rebuild + restart app services
   ${GREEN}clean${NC}                   Remove all containers, images, and volumes
+  ${GREEN}reset-data${NC}              Delete all data except user accounts
   ${GREEN}db-shell${NC}                Open psql shell to the database
   ${GREEN}db-migrate${NC}              Run deployments/init.sql on the database
   ${GREEN}help${NC}                    Show this help message
@@ -200,6 +253,7 @@ case "${1:-help}" in
     build)      cmd_build "${2:-all}" ;;
     deploy)     cmd_deploy ;;
     clean)      cmd_clean ;;
+    reset-data) cmd_reset_data ;;
     db-shell)   cmd_db_shell ;;
     db-migrate) cmd_db_migrate ;;
     help|*)     cmd_help ;;
