@@ -73,6 +73,8 @@ export default function HomePage() {
   const [deviceFilter, setDeviceFilter] = useState(cached?.deviceFilter ?? false);
   const [macFilter, setMacFilter] = useState(cached?.macFilter ?? false);
   const [sortTrending, setSortTrending] = useState(cached?.sortTrending ?? false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('wallpaper_view_mode') as ViewMode) || 'justified';
@@ -172,6 +174,14 @@ export default function HomePage() {
   }, [wallpapers, cursor, hasMore, deviceFilter, macFilter, sortTrending]);
 
   useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
@@ -202,22 +212,20 @@ export default function HomePage() {
             }`}
           >
             <MdDevices size={16} />
-            <span className="hidden sm:inline">{deviceFilter ? `${screen.width}×${screen.height}` : 'Device'}</span>
+            <span className="hidden sm:inline">{deviceFilter ? `${screen.width}×${screen.height}` : 'My Device'}</span>
           </button>
 
-          {isMac && (
-            <button
-              onClick={toggleMacFilter}
-              className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-full border transition-colors ${
-                macFilter
-                  ? 'bg-ws-purple text-white border-ws-purple shadow-sm'
-                  : 'text-slate-600 dark:text-ws-dark-muted border-ws-border dark:border-white/10 dark:bg-ws-dark-card hover:bg-ws-bg dark:hover:bg-white/5'
-              }`}
-            >
-              <AppleIcon size={14} />
-              <span className="hidden sm:inline">macOS</span>
-            </button>
-          )}
+          <button
+            onClick={toggleMacFilter}
+            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-full border transition-colors ${
+              macFilter
+                ? 'bg-ws-purple text-white border-ws-purple shadow-sm'
+                : 'text-slate-600 dark:text-ws-dark-muted border-ws-border dark:border-white/10 dark:bg-ws-dark-card hover:bg-ws-bg dark:hover:bg-white/5'
+            }`}
+          >
+            <AppleIcon size={14} />
+            <span className="hidden sm:inline">macOS</span>
+          </button>
         </div>
 
         {/* Right: view + size + sort */}
@@ -265,14 +273,32 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* Sort */}
-          <button
-            onClick={() => { restoredRef.current = false; sessionStorage.removeItem(CACHE_KEY); setSortTrending((p) => !p); }}
-            className="flex items-center gap-5 px-4 py-2.5 bg-ws-bg dark:bg-ws-dark-card border border-ws-border dark:border-white/10 text-sm font-medium text-slate-700 dark:text-ws-dark-muted rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
-          >
-            {sortTrending ? 'Popular' : 'Recent'}
-            <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} /></svg>
-          </button>
+          {/* Sort dropdown */}
+          <div className="relative" ref={sortRef}>
+            <button
+              onClick={() => setSortOpen((p) => !p)}
+              className="flex items-center gap-5 px-4 py-2.5 bg-ws-bg dark:bg-ws-dark-card border border-ws-border dark:border-white/10 text-sm font-medium text-slate-700 dark:text-ws-dark-muted rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              {sortTrending ? 'Trending' : 'Latest'}
+              <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} /></svg>
+            </button>
+            {sortOpen && (
+              <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-ws-dark-card border border-ws-border dark:border-white/10 rounded-lg shadow-lg z-10 py-1">
+                <button
+                  onClick={() => { if (sortTrending) { restoredRef.current = false; sessionStorage.removeItem(CACHE_KEY); setSortTrending(false); } setSortOpen(false); }}
+                  className={`w-full text-left px-4 py-2 text-sm transition-colors ${!sortTrending ? 'text-ws-purple font-semibold bg-ws-purple-light dark:bg-ws-dark-active' : 'text-slate-700 dark:text-ws-dark-muted hover:bg-ws-bg dark:hover:bg-white/5'}`}
+                >
+                  Latest
+                </button>
+                <button
+                  onClick={() => { if (!sortTrending) { restoredRef.current = false; sessionStorage.removeItem(CACHE_KEY); setSortTrending(true); } setSortOpen(false); }}
+                  className={`w-full text-left px-4 py-2 text-sm transition-colors ${sortTrending ? 'text-ws-purple font-semibold bg-ws-purple-light dark:bg-ws-dark-active' : 'text-slate-700 dark:text-ws-dark-muted hover:bg-ws-bg dark:hover:bg-white/5'}`}
+                >
+                  Trending
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
