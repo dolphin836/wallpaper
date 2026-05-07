@@ -84,8 +84,7 @@ export default function ProfilePage() {
   const loadTransactions = useCallback(async (page: number) => {
     setTxLoading(true);
     try {
-      const cursor = page > 1 ? undefined : undefined;
-      const res = await getCoinTransactions({ cursor, limit: PAGE_SIZE * page });
+      const res = await getCoinTransactions({ limit: PAGE_SIZE * page });
       const allItems = res.data.data?.items ?? [];
       const start = (page - 1) * PAGE_SIZE;
       setTransactions(allItems.slice(start, start + PAGE_SIZE));
@@ -101,7 +100,6 @@ export default function ProfilePage() {
   const loadWallpaperPage = useCallback(async (key: string, page: number) => {
     setTabLoading(true);
     const limit = PAGE_SIZE;
-    const cursor = page > 1 ? undefined : undefined;
     const fetchLimit = limit * page;
     try {
       let res;
