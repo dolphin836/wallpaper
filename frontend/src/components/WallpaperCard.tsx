@@ -51,11 +51,11 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
 
   const resLabel = (() => {
     const px = Math.max(wallpaper.width, wallpaper.height);
-    if (px >= 5120) return '5K';
+    if (px >= 7680) return '8K';
     if (px >= 3840) return '4K';
     if (px >= 2560) return '2K';
-    if (px >= 1920) return '1080p';
-    if (px >= 1280) return '720p';
+    if (px >= 1920) return '1080P';
+    if (px >= 1280) return '720P';
     return '';
   })();
 
