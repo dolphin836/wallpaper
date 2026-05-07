@@ -31,7 +31,9 @@ interface Props {
 export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0 }: Props) {
   const [loaded, setLoaded] = useState(false);
   const [liked, setLiked] = useState(wallpaper.is_liked ?? false);
+  const [likeLoading, setLikeLoading] = useState(false);
   const [favorited, setFavorited] = useState(wallpaper.is_favorited ?? false);
+  const [favLoading, setFavLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const { isAuthenticated, user, updateCoins } = useAuthStore();
   const navigate = useNavigate();
@@ -100,6 +102,8 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   };
 
   const handleLike = async () => {
+    if (likeLoading) return;
+    setLikeLoading(true);
     try {
       if (liked) {
         await unlikeWallpaper(wallpaper.id);
@@ -109,10 +113,14 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
       setLiked(!liked);
     } catch {
       toast.error('Action failed');
+    } finally {
+      setLikeLoading(false);
     }
   };
 
   const handleFavorite = async () => {
+    if (favLoading) return;
+    setFavLoading(true);
     try {
       if (favorited) {
         await unfavoriteWallpaper(wallpaper.id);
@@ -122,6 +130,8 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
       setFavorited(!favorited);
     } catch {
       toast.error('Action failed');
+    } finally {
+      setFavLoading(false);
     }
   };
 
@@ -192,25 +202,27 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           <div className="flex flex-col gap-2">
             <button
               onClick={(e) => handleAction(e, () => requireAuth(handleLike))}
-              className={`p-2 rounded-full backdrop-blur-sm transition-colors ${
+              disabled={likeLoading}
+              className={`p-2 rounded-full backdrop-blur-sm transition-all duration-200 disabled:opacity-50 ${
                 liked
-                  ? 'bg-red-500/80 text-white'
+                  ? 'bg-red-500/80 text-white scale-110'
                   : 'bg-white/20 text-white hover:bg-white/30'
               }`}
               title={liked ? 'Unlike' : 'Like'}
             >
-              {liked ? <AiFillHeart size={18} /> : <AiOutlineHeart size={18} />}
+              {likeLoading ? <AiOutlineLoading3Quarters size={18} className="animate-spin" /> : liked ? <AiFillHeart size={18} /> : <AiOutlineHeart size={18} />}
             </button>
             <button
               onClick={(e) => handleAction(e, () => requireAuth(handleFavorite))}
-              className={`p-2 rounded-full backdrop-blur-sm transition-colors ${
+              disabled={favLoading}
+              className={`p-2 rounded-full backdrop-blur-sm transition-all duration-200 disabled:opacity-50 ${
                 favorited
-                  ? 'bg-amber-500/80 text-white'
+                  ? 'bg-amber-500/80 text-white scale-110'
                   : 'bg-white/20 text-white hover:bg-white/30'
               }`}
               title={favorited ? 'Unfavorite' : 'Favorite'}
             >
-              {favorited ? <AiFillStar size={18} /> : <AiOutlineStar size={18} />}
+              {favLoading ? <AiOutlineLoading3Quarters size={18} className="animate-spin" /> : favorited ? <AiFillStar size={18} /> : <AiOutlineStar size={18} />}
             </button>
             {canDownload && (
               <button
