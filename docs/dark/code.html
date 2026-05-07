@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Wallscape - Wallpaper Exchange</title>
+<!-- Tailwind CSS v3 CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Font Awesome for icons -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              purple: '#6d28d9', // Deep purple from the UI
+              dark: '#0f0f0f',   // Very dark background
+              sidebar: '#1a1a1a', // Sidebar background
+              header: '#141414',  // Header background
+              card: '#222222',    // Card/Input background
+              textMuted: '#9ca3af',
+              activeBg: '#2a2135' // Purple-tinted dark background for active state
+            }
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-layout">
+    body {
+      background-color: #0f0f0f;
+      color: #ffffff;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+    
+    /* Custom scrollbar for the content area */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #141414;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 10px;
+    }
+    
+    .nav-item-active {
+      background-color: #2a2135;
+      color: #c084fc;
+      border: 1px solid #4c1d95;
+    }
+
+    /* Subtle borders for grid items */
+    .gallery-item {
+      transition: transform 0.2s ease;
+    }
+    .gallery-item:hover {
+      transform: scale(1.02);
+    }
+  </style>
+</head>
+<body class="flex h-screen">
+<!-- BEGIN: LeftSidebar -->
+<aside class="w-64 bg-brand-sidebar flex flex-col border-r border-white/5" data-purpose="sidebar">
+<!-- Logo Section -->
+<div class="p-6 flex items-center gap-2">
+<div class="w-6 h-6 border-2 border-white flex items-center justify-center transform rotate-45">
+<div class="w-full h-px bg-white transform -rotate-45"></div>
+</div>
+<h1 class="text-xl font-semibold tracking-widest">WALLSCAPE</h1>
+</div>
+<!-- Navigation Menu -->
+<nav class="flex-1 mt-4 px-4 space-y-2">
+<a class="flex items-center gap-4 p-3 rounded-lg nav-item-active group" href="#">
+<i class="fa-regular fa-compass"></i>
+<span class="text-sm font-medium">Discover</span>
+</a>
+<a class="flex items-center gap-4 p-3 rounded-lg text-brand-textMuted hover:bg-white/5 transition-colors" href="#">
+<i class="fa-regular fa-folder"></i>
+<span class="text-sm font-medium">My Collection</span>
+</a>
+<a class="flex items-center gap-4 p-3 rounded-lg text-brand-textMuted hover:bg-white/5 transition-colors" href="#">
+<i class="fa-solid fa-users"></i>
+<span class="text-sm font-medium">Following</span>
+</a>
+<a class="flex items-center gap-4 p-3 rounded-lg text-brand-textMuted hover:bg-white/5 transition-colors" href="#">
+<i class="fa-solid fa-gear"></i>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+<!-- Sidebar Footer -->
+<div class="p-6 mt-auto border-t border-white/5 text-xs text-brand-textMuted space-y-4">
+<a class="block hover:text-white" href="#">Terms</a>
+<div class="flex items-center justify-between">
+<a class="hover:text-white" href="#">Privacy</a>
+<div class="w-3 h-3 bg-brand-purple rounded-full"></div>
+</div>
+<div class="pt-4 opacity-50">
+        © 2026 Wallpaper Exchange
+      </div>
+</div>
+</aside>
+<!-- END: LeftSidebar -->
+<!-- BEGIN: MainContent -->
+<main class="flex-1 flex flex-col bg-brand-dark overflow-hidden">
+<!-- BEGIN: TopHeader -->
+<header class="h-16 flex items-center justify-between px-8 border-b border-white/5 bg-brand-header" data-purpose="main-header">
+<!-- Navigation & Search -->
+<div class="flex items-center gap-4 flex-1 max-w-2xl">
+<div class="flex items-center gap-2 mr-4">
+<button class="p-2 text-brand-textMuted hover:text-white bg-white/5 rounded"><i class="fa-solid fa-arrow-left"></i></button>
+<button class="p-2 text-brand-textMuted hover:text-white bg-white/5 rounded opacity-50 cursor-not-allowed"><i class="fa-solid fa-arrow-right"></i></button>
+</div>
+<div class="relative flex-1">
+<span class="absolute inset-y-0 left-3 flex items-center text-brand-textMuted">
+<i class="fa-solid fa-magnifying-glass"></i>
+</span>
+<input class="w-full bg-brand-card border-none rounded-md pl-10 pr-4 py-2 text-sm focus:ring-1 focus:ring-brand-purple transition-all" placeholder="Search wallpapers..." type="text"/>
+</div>
+</div>
+<!-- User Controls -->
+<div class="flex items-center gap-4 ml-6">
+<button class="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-sm font-medium px-5 py-2 rounded-md flex items-center gap-2">
+<i class="fa-solid fa-plus text-xs"></i>
+          Upload
+        </button>
+<div class="h-6 w-px bg-white/10 mx-2"></div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-brand-textMuted hover:text-white bg-white/5 rounded-full">
+<i class="fa-regular fa-moon"></i>
+</button>
+<button class="p-2 text-brand-textMuted hover:text-white bg-white/5 rounded-full">
+<i class="fa-solid fa-power-off"></i>
+</button>
+<div class="ml-2">
+<img alt="User" class="w-8 h-8 rounded-md border border-white/10" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBRn-Q811Oj6bAGkZoFKG6FKvzCqZoacMZ_uiqxnQ1zw40nWYehjER0J65jq_MGdf-22mXTfMibMTQo-Aa7maA_mlMt3ssAV8rEy3xLzwhcqaAR9FONm7US8ahqw1U4m19y94cBl0HTFjrF_pGhaXb9__ghnxnJMcIVzPm3EvrvXlTZVvqHq9VF_kwSftOvTQ4DCmC60llJE7WI5UK10g38ihoQKHUqJGei3tjwlkb3S31SELMIEc1US9bCQKQoSrAPngmo9FZdm8WC"/>
+</div>
+</div>
+</div>
+</header>
+<!-- END: TopHeader -->
+<!-- Scrollable Content Area -->
+<div class="flex-1 overflow-y-auto custom-scrollbar p-8">
+<!-- BEGIN: ContentControls -->
+<div class="flex flex-wrap items-center justify-between mb-8 gap-4" data-purpose="content-filters">
+<!-- Filter Tabs -->
+<div class="flex items-center gap-2">
+<button class="bg-brand-purple text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2">
+<i class="fa-regular fa-star"></i> Popular
+          </button>
+<button class="bg-brand-card text-brand-textMuted px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-brand-card/80">
+<i class="fa-regular fa-clock"></i> Recent
+          </button>
+</div>
+<!-- View Settings -->
+<div class="flex items-center gap-4">
+<!-- Layout toggle -->
+<div class="flex bg-brand-card p-1 rounded-md">
+<button class="p-1.5 px-3 bg-brand-purple rounded text-white"><i class="fa-solid fa-grip"></i></button>
+<button class="p-1.5 px-3 text-brand-textMuted hover:text-white"><i class="fa-solid fa-list"></i></button>
+</div>
+<!-- Size toggle -->
+<div class="flex bg-brand-card p-1 rounded-md">
+<button class="px-3 py-1 bg-brand-purple rounded text-xs font-bold text-white">S</button>
+<button class="px-3 py-1 text-brand-textMuted hover:text-white text-xs font-bold">M</button>
+<button class="px-3 py-1 text-brand-textMuted hover:text-white text-xs font-bold">L</button>
+</div>
+<!-- Sort Dropdown -->
+<div class="relative group">
+<button class="bg-brand-card text-brand-textMuted px-4 py-2 rounded-md text-sm flex items-center gap-6">
+              Sort
+              <i class="fa-solid fa-chevron-down text-[10px]"></i>
+</button>
+</div>
+</div>
+</div>
+<!-- END: ContentControls -->
+<!-- BEGIN: WallpaperGrid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-purpose="wallpaper-gallery">
+<!-- Wallpaper Card 1 -->
+<div class="gallery-item group cursor-pointer">
+<div class="bg-brand-card rounded-lg overflow-hidden relative aspect-[4/3]">
+<img alt="Abstract Pyramid" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxboX75Tgtve-fSccVO8LJ7JosCvrLfvHDy0PuekRPnLXsKTroLZc1bGFzFP5PQdXeQsPqV4AASf3ODSodb5H69Y0GAV7lX4U5FCVxGAWyLXTuBn5BFnH5bw3j4OASyFx7rL_EbfuXLyUiKLfJ881fhUbIq4zLMz-6UVisEP_4IqsAllTJG_M6SFDfkf_fE8WDd09eNER5baGkAF7hTSyNQ8Qn_pJ2Cz2dSTZuNikGej4HrN_Yoks9YNM0gSF6P1YEBBk3iRjO22Rk"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<button class="p-3 bg-white/20 backdrop-blur rounded-full"><i class="fa-solid fa-expand"></i></button>
+</div>
+</div>
+</div>
+<!-- Wallpaper Card 2 -->
+<div class="gallery-item group cursor-pointer">
+<div class="bg-brand-card rounded-lg overflow-hidden aspect-[4/3]">
+<img alt="Mountain Mist" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbHJ8RmgzSX3UDN-iYKFOGVPhPqdKMQsirNumc_1SZkHU-SlsQfHfh3XU0MNSaeyZQ2BMhRJTI6rVwjxqoDhPny8KSJCgy-Y7LPUcIPeokGhjpf-4LdEvVVlwkjVKTZcbdnC8gx1x0rJkMuYK6AyES2e-kL_T0vhzIQQ6tcfGTmqpXrRg401miunUtnI9zJ1hb2oZuQP2axgn7izOdAGG5vC74_wdJyD_h79QXzmQS95rBRplv_9Izya8e1_qQFzJwo15x6giI_7IC"/>
+</div>
+</div>
+<!-- Wallpaper Card 3 -->
+<div class="gallery-item group cursor-pointer">
+<div class="bg-brand-card rounded-lg overflow-hidden border border-white/5 aspect-[4/3]">
+<img alt="Brutalist Concrete" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBgzsKWIE_qMHS-FLH5oxi5OT5Xwi1VWtg4Axh_6mz5EKXoUomijURmHg1_F4F8GcJvF9D4uouJkJ7UKsTfOIcb3tQKDmNqlPH7GRkIu6W_W8SDzNB2XmGJbtYo5NWmZF0ZuCRi5A8ggGvdPEtMUBZjj8719LZybgLTE1F30va3FGWS7erham1L-ADUXR9Aq0bdDKpgNGiTtTpsqSdzY3VIJpUQ945qg6vEIwpsqLJDn0g2Siz3QEGfxps5xiv9FYEE0ruyAImmn1Vw"/>
+</div>
+</div>
+<!-- Wallpaper Card 4 -->
+<div class="gallery-item group cursor-pointer">
+<div class="bg-brand-card rounded-lg overflow-hidden aspect-[4/3]">
+<img alt="Tropical Leaves" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDe5O1PDE_q7Vu9KLl_krb7a45w7sf-JFObUUQGcIaKat6OL9X-fH2miDfLUTur_gcmhOjHe8vdgSGbN0lrp9wxHVNfAR4Dy8XxjmKW3LMbR0Je3YG4jD-5aJMeTNKkgYQMoldfbNudFvnC3CcalkANP8CG8Vfx1wTHtuFa_X8g3yzL7-BVdTbj1STN8nzvy1U1jBY6H5_6_ci_FpRTqO25VlBmYeO4tIDV-SZNFDUga2sm-ONgAUEVKx9_MDfZmI9p7BN7Lnt9vf-l"/>
+</div>
+</div>
+<!-- Wallpaper Card 5 -->
+<div class="gallery-item group cursor-pointer">
+<div class="bg-brand-card rounded-lg overflow-hidden aspect-[4/3]">
+<img alt="Purple Gradient" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLrUfFMq5s2of9ynOVMxRY4LZfWDouB94HxOMW1nzZIu6I7S6ZHjOFlbrJmGF_jc0YanCPhTRuMXaUWJ-P_qOYIbXwKgig5CA6p9nowXqkdYXrthx6aUxIy5BS2M5uXLSedG_-CQesQBeC_DomP7wzyReLh0E4vj_M8XAHoXTjCGeYy1C8PSNy1XzMZzZrsa-5DUuowZYz1KKZNSTj0LVm16SbkJVmmu5b4wJ_amqJG_QQKB0J7tptaXvNQL7zSKrcMxP6UApoUC4a"/>
+</div>
+</div>
+<!-- Wallpaper Card 6 -->
+<div class="gallery-item group cursor-pointer">
+<div class="bg-brand-card rounded-lg overflow-hidden aspect-[4/3]">
+<img alt="Dark Cityscape" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCM5Rrg8mR5pP6hdpQbmld-bLDBOyqi8eRqRoLqDQLPn_flhPfKysZlVqoAPzMLr8anCMI2SRL0pQbh4gvxHLQu_BKZ7psjKzeV5aL7rblYpZI6pRKUvhzZ1EQIrUjXqC5LKQUomEJyy5M6HKCjj8q_Ri27yXj7u67Yws5FTlgMz5XZROT3rygUaz6kdMh5C8gZhxU2-gkqXgoJOw9Q5kNijPxH0VqJtodr0SojZzj3OLmsdP9k4GFtG1KreznX0g90vuUnFrzqgtBz"/>
+</div>
+</div>
+<!-- Wallpaper Card 7 (Duplicate style for visual fill) -->
+<div class="gallery-item group cursor-pointer">
+<div class="bg-brand-card rounded-lg overflow-hidden border border-white/5 aspect-[4/3]">
+<img alt="Geometric 1" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMJDY8B0ezqk_RBpAcTT2ajFspFCwcDE0bC6Adp3gCHO52Qct3255lsFIf8NmHGcNX7u0UsUGn3cCnSv0KGufCcb9vGXe771nnkxO3wcaS1AdY6wyM6psxs7fquYOqt8KkIHXQi3zVbzGFDHgLIomedwzGXnT-4WANIXsdb96kbmcxAQPqlhExabP7sNq2-7LNIj05fy_djKY4eg5ekUsxQyKbWxS3_WWOw0L7d4DhMcrQB7oiwV5wJXH5tzWftBrvdO29D98W97fc"/>
+</div>
+</div>
+<!-- Wallpaper Card 8 -->
+<div class="gallery-item group cursor-pointer">
+<div class="bg-brand-card rounded-lg overflow-hidden aspect-[4/3]">
+<img alt="Geometric 2" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5isv1RcVdrCfUwM_jrbQEkA1Gc-Cv2Bs_9lmZOQxJPVNjy3Q4RmFlSLxXntDdbXqaKZhtcoxwOVIHpSXwMzEpoyIuMuKLr4aS8hbA4DSzI_GaIPCzTuguKC_BNMs7V7NU3L0iiwpVf9LadxZJeQ-zO_7qOZcShxe7467KvHWrNi22rAXbCXjH4zGalEBL8etcAvenqXaQoiNKJxB4kpUFOnBL_xnMJCQU3YehAgDhdSSJgTh05g_5tJG6DR9CtG206BT5J_jJWtr-"/>
+</div>
+</div>
+<!-- Wallpaper Card 9 -->
+<div class="gallery-item group cursor-pointer">
+<div class="bg-brand-card rounded-lg overflow-hidden aspect-[4/3]">
+<img alt="Geometric 3" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCwvLyrY0s03PkBAvXda8dHqaDnPksFFgl1-FxpBZ1mbUIDJgK2oqVgEOcFTntNIQutsHKCTu4IiFAnb915EbZbwdO91V0PFDhkdyinOohVztI55UgvMHx9u5xsDiEo6O69ig4rYQRgW6TQKUVyeixDS11Zs0I2mhL0sg0OXsTDjN3HGoTsjh7TkeyLJaYzDjKoQ--Ofy7gJnEnZn_l0mQGRuLEsDOytDcZNYIS6-06MIpTalok73HxMpuy9B6UGvYfiqc0_JpIuPyE"/>
+</div>
+</div>
+</div>
+<!-- END: WallpaperGrid -->
+</div>
+</main>
+<!-- END: MainContent -->
+</body></html>

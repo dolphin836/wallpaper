@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 import { login } from '../api';
 import { useAuthStore } from '../store/auth';
 
+const INPUT_CLS = 'w-full bg-ws-bg dark:bg-ws-dark-card border-none rounded-xl py-2.5 px-4 text-sm focus:ring-1 focus:ring-ws-purple outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-ws-dark-muted dark:text-white';
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,44 +31,28 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-[calc(100vh-10rem)] flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-        <h1 className="text-2xl font-bold text-gray-900 text-center mb-8">Sign In</h1>
+      <div className="w-full max-w-md bg-white dark:bg-ws-dark-sidebar rounded-2xl shadow-sm border border-ws-border dark:border-white/5 p-8">
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-white text-center mb-8">Sign In</h1>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="you@example.com"
-            />
+            <label className="block text-sm font-medium text-ws-muted dark:text-ws-dark-muted mb-1.5">Email</label>
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={INPUT_CLS} placeholder="you@example.com" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="••••••••"
-            />
+            <label className="block text-sm font-medium text-ws-muted dark:text-ws-dark-muted mb-1.5">Password</label>
+            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className={INPUT_CLS} placeholder="••••••••" />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors duration-200 disabled:opacity-50"
+            className="w-full py-2.5 text-sm font-semibold text-white bg-ws-purple hover:bg-ws-purple-hover rounded-xl transition-colors duration-200 disabled:opacity-50 shadow-sm"
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-        <p className="mt-6 text-center text-sm text-gray-500">
+        <p className="mt-6 text-center text-sm text-ws-muted dark:text-ws-dark-muted">
           Don&apos;t have an account?{' '}
-          <Link to="/register" className="text-indigo-600 hover:text-indigo-700 font-medium">
-            Register
-          </Link>
+          <Link to="/register" className="text-ws-purple hover:underline font-medium">Register</Link>
         </p>
       </div>
     </div>

@@ -1,85 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { MdDevices, MdTrendingUp } from 'react-icons/md';
+import { AiOutlineStar, AiOutlineClockCircle, AiOutlineAppstore, AiOutlineBars } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { Wallpaper } from '../types';
 import { getWallpapers } from '../api';
 import WallpaperGrid from '../components/WallpaperGrid';
 import type { ViewMode, SizeMode } from '../components/WallpaperGrid';
-
-function IconJustified({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor">
-      <rect x="1" y="2" width="8" height="7" rx="1.5" />
-      <rect x="11" y="2" width="8" height="7" rx="1.5" />
-      <rect x="1" y="11" width="12" height="7" rx="1.5" />
-      <rect x="15" y="11" width="4" height="7" rx="1.5" />
-    </svg>
-  );
-}
-
-function IconGrid({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor">
-      <rect x="1" y="1" width="8" height="8" rx="1.5" />
-      <rect x="11" y="1" width="8" height="8" rx="1.5" />
-      <rect x="1" y="11" width="8" height="8" rx="1.5" />
-      <rect x="11" y="11" width="8" height="8" rx="1.5" />
-    </svg>
-  );
-}
-
-function IconSizeLg({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor">
-      <rect x="1" y="1" width="8.5" height="8.5" rx="1.5" />
-      <rect x="10.5" y="1" width="8.5" height="8.5" rx="1.5" />
-      <rect x="1" y="10.5" width="8.5" height="8.5" rx="1.5" />
-      <rect x="10.5" y="10.5" width="8.5" height="8.5" rx="1.5" />
-    </svg>
-  );
-}
-
-function IconGridMd({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor">
-      <rect x="1" y="1" width="5" height="5" rx="1" />
-      <rect x="7.5" y="1" width="5" height="5" rx="1" />
-      <rect x="14" y="1" width="5" height="5" rx="1" />
-      <rect x="1" y="7.5" width="5" height="5" rx="1" />
-      <rect x="7.5" y="7.5" width="5" height="5" rx="1" />
-      <rect x="14" y="7.5" width="5" height="5" rx="1" />
-      <rect x="1" y="14" width="5" height="5" rx="1" />
-      <rect x="7.5" y="14" width="5" height="5" rx="1" />
-      <rect x="14" y="14" width="5" height="5" rx="1" />
-    </svg>
-  );
-}
-
-function IconGridSm({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="currentColor">
-      {[0, 1, 2, 3, 4].map((r) =>
-        [0, 1, 2, 3, 4].map((c) => (
-          <rect key={`${r}-${c}`} x={1 + c * 3.8} y={1 + r * 3.8} width="2.8" height="2.8" rx="0.6" />
-        ))
-      )}
-    </svg>
-  );
-}
-
-type ToolbarItem =
-  | { type: 'view'; key: ViewMode; icon: React.FC<{ size?: number }>; label: string }
-  | { type: 'size'; key: SizeMode; icon: React.FC<{ size?: number }>; label: string };
-
-const TOOLBAR_ITEMS: ToolbarItem[] = [
-  { type: 'view', key: 'justified', icon: IconJustified, label: 'Justified' },
-  { type: 'view', key: 'grid', icon: IconGrid, label: 'Grid' },
-  { type: 'size', key: 'lg', icon: IconSizeLg, label: 'Large' },
-  { type: 'size', key: 'md', icon: IconGridMd, label: 'Medium' },
-  { type: 'size', key: 'sm', icon: IconGridSm, label: 'Small' },
-];
-
-const SKELETON_RATIOS = [4/3, 3/4, 16/9, 1, 3/4, 4/3, 16/9, 3/2, 3/4, 4/3, 1, 16/9];
 
 function getScreenResolution() {
   const dpr = window.devicePixelRatio || 1;
@@ -91,12 +17,12 @@ function getScreenResolution() {
 
 function SkeletonGrid() {
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {SKELETON_RATIOS.map((ratio, i) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {Array.from({ length: 9 }).map((_, i) => (
         <div
           key={i}
-          className="rounded-xl bg-gray-200 dark:bg-gray-700 skeleton-card"
-          style={{ width: 260 * ratio, height: 260, animationDelay: `${i * 100}ms` }}
+          className="aspect-[4/3] rounded-xl bg-slate-100 dark:bg-ws-dark-card skeleton-card"
+          style={{ animationDelay: `${i * 80}ms` }}
         />
       ))}
     </div>
@@ -258,90 +184,118 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, [fetchWallpapers]);
 
+  const filterPill = (active: boolean, activeClass: string, inactiveClass: string) =>
+    active ? activeClass : inactiveClass;
+
+  const SIZE_KEYS: SizeMode[] = ['sm', 'md', 'lg'];
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex items-center justify-between gap-2 mb-6">
-        {/* Filters */}
+    <div className="px-6 py-4">
+      {/* Control bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        {/* Left: filter pills */}
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider mr-1 hidden sm:inline">Filter</span>
-          <button
-            onClick={toggleDeviceFilter}
-            title={deviceFilter ? `${screen.width}×${screen.height} — click to show all` : 'Filter for your device'}
-            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
-              deviceFilter
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
-            }`}
-          >
-            <MdDevices size={18} />
-            <span className="hidden sm:inline">
-              {deviceFilter ? `${screen.width}×${screen.height}` : 'My Device'}
-            </span>
-          </button>
-          <button
-            onClick={toggleMacFilter}
-            title={macFilter ? 'Showing macOS dynamic wallpapers — click to show all' : 'Show only macOS dynamic wallpapers'}
-            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
-              macFilter
-                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
-            }`}
-          >
-            <AppleIcon size={15} />
-            <span className="hidden sm:inline">macOS</span>
-          </button>
-
-          <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-1" />
-
-          {/* Sort */}
-          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider mr-1 hidden sm:inline">Sort</span>
           <button
             onClick={() => { restoredRef.current = false; sessionStorage.removeItem(CACHE_KEY); setSortTrending((p) => !p); }}
-            title={sortTrending ? 'Showing trending — click for latest' : 'Sort by trending'}
-            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
-              sortTrending
-                ? 'bg-orange-500 text-white'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-full transition-colors shadow-sm ${
+              filterPill(
+                sortTrending,
+                'bg-ws-purple text-white',
+                'bg-ws-purple text-white',
+              )
             }`}
           >
-            <MdTrendingUp size={18} />
-            <span className="hidden sm:inline">Trending</span>
+            <AiOutlineStar size={16} />
+            Popular
           </button>
+          <button
+            onClick={() => { restoredRef.current = false; sessionStorage.removeItem(CACHE_KEY); if (sortTrending) setSortTrending(false); }}
+            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-full border transition-colors ${
+              !sortTrending
+                ? 'bg-ws-purple text-white border-ws-purple shadow-sm'
+                : 'text-slate-600 dark:text-ws-dark-muted border-ws-border dark:border-white/10 dark:bg-ws-dark-card hover:bg-ws-bg dark:hover:bg-white/5'
+            }`}
+          >
+            <AiOutlineClockCircle size={16} />
+            Recent
+          </button>
+
+          <button
+            onClick={toggleDeviceFilter}
+            title={deviceFilter ? `${screen.width}×${screen.height}` : 'Filter for your device'}
+            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-full border transition-colors ${
+              deviceFilter
+                ? 'bg-ws-purple text-white border-ws-purple shadow-sm'
+                : 'text-slate-600 dark:text-ws-dark-muted border-ws-border dark:border-white/10 dark:bg-ws-dark-card hover:bg-ws-bg dark:hover:bg-white/5'
+            }`}
+          >
+            <MdDevices size={16} />
+            <span className="hidden sm:inline">{deviceFilter ? `${screen.width}×${screen.height}` : 'Device'}</span>
+          </button>
+
+          {isMac && (
+            <button
+              onClick={toggleMacFilter}
+              className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-full border transition-colors ${
+                macFilter
+                  ? 'bg-ws-purple text-white border-ws-purple shadow-sm'
+                  : 'text-slate-600 dark:text-ws-dark-muted border-ws-border dark:border-white/10 dark:bg-ws-dark-card hover:bg-ws-bg dark:hover:bg-white/5'
+              }`}
+            >
+              <AppleIcon size={14} />
+              <span className="hidden sm:inline">macOS</span>
+            </button>
+          )}
         </div>
 
-        {/* Layout */}
-        <div className="flex items-center gap-1.5">
-          {TOOLBAR_ITEMS.map((item, i) => {
-            const isActive = item.type === 'view'
-              ? viewMode === item.key
-              : sizeMode === item.key;
-            const showDivider = i === 2;
-            const Icon = item.icon;
-            return (
-              <div key={`${item.type}-${item.key}`} className="flex items-center gap-1.5">
-                {showDivider && (
-                  <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-0.5" />
-                )}
-                <button
-                  onClick={() => {
-                    if (item.type === 'view') handleViewChange(item.key as ViewMode);
-                    else handleSizeChange(item.key as SizeMode);
-                  }}
-                  title={item.label}
-                  className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-200 ${
-                    isActive
-                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 shadow-sm'
-                      : 'bg-gray-100 text-gray-400 hover:bg-green-50 hover:text-green-600 hover:shadow-sm dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-green-900/20 dark:hover:text-green-400'
-                  }`}
-                >
-                  <Icon size={20} />
-                </button>
-              </div>
-            );
-          })}
+        {/* Right: view + size toggles */}
+        <div className="flex items-center gap-3">
+          {/* View toggle */}
+          <div className="flex items-center p-1 bg-ws-purple-light dark:bg-ws-dark-card rounded-lg">
+            <button
+              onClick={() => handleViewChange('justified')}
+              className={`p-2 rounded-md transition-colors ${
+                viewMode === 'justified'
+                  ? 'bg-ws-purple text-white shadow-sm'
+                  : 'text-ws-purple dark:text-ws-dark-muted hover:bg-indigo-50 dark:hover:bg-white/5'
+              }`}
+              title="Grid"
+            >
+              <AiOutlineAppstore size={16} />
+            </button>
+            <button
+              onClick={() => handleViewChange('grid')}
+              className={`p-2 rounded-md transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-ws-purple text-white shadow-sm'
+                  : 'text-ws-purple dark:text-ws-dark-muted hover:bg-indigo-50 dark:hover:bg-white/5'
+              }`}
+              title="List"
+            >
+              <AiOutlineBars size={16} />
+            </button>
+          </div>
+
+          {/* Size toggle */}
+          <div className="flex items-center h-10 bg-ws-purple-light dark:bg-ws-dark-card rounded-lg overflow-hidden">
+            {SIZE_KEYS.map((k) => (
+              <button
+                key={k}
+                onClick={() => handleSizeChange(k)}
+                className={`px-4 text-sm font-bold transition-colors ${
+                  sizeMode === k
+                    ? 'bg-ws-purple text-white shadow-sm'
+                    : 'text-ws-purple dark:text-ws-dark-muted hover:bg-ws-purple/10 dark:hover:bg-white/5'
+                }`}
+              >
+                {k.toUpperCase()}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
+      {/* Gallery */}
       {loading ? (
         <SkeletonGrid />
       ) : (
@@ -350,7 +304,7 @@ export default function HomePage() {
           {hasMore && (
             <div ref={sentinelRef} className="flex justify-center py-8">
               {loadingMore && (
-                <div className="w-6 h-6 border-2 border-gray-200 border-t-indigo-600 rounded-full animate-spin" />
+                <div className="w-6 h-6 border-2 border-slate-200 dark:border-ws-dark-card border-t-ws-purple rounded-full animate-spin" />
               )}
             </div>
           )}

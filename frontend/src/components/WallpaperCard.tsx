@@ -151,7 +151,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   return (
     <Link
       to={`/wallpaper/${wallpaper.id}`}
-      className={`group block rounded-xl overflow-hidden bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all duration-300 ${fillHeight ? 'h-full' : ''} animate-fade-in`}
+      className={`group block rounded-xl overflow-hidden bg-slate-100 dark:bg-ws-dark-card shadow-sm hover:shadow-lg transition-all duration-300 ${fillHeight ? 'h-full' : ''} animate-fade-in`}
       style={{ ...style, animationDelay: `${animDelay}ms` }}
     >
       <div
@@ -174,24 +174,25 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               onLoad={() => setLoaded(true)}
               onContextMenu={(e) => e.preventDefault()}
               draggable={false}
-              className={`w-full h-full object-cover transition-opacity duration-500 group-hover:scale-105 transition-transform select-none ${loaded ? 'opacity-100' : 'opacity-0'}`}
+              className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-105 select-none ${loaded ? 'opacity-100' : 'opacity-0'}`}
               style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
             />
-            <div className="absolute inset-0 z-[1]" onContextMenu={(e) => e.preventDefault()} />
+            <div className="absolute inset-0 z-[1] bg-black/0 group-hover:bg-black/10 transition-colors duration-300" onContextMenu={(e) => e.preventDefault()} />
           </>
         ) : (
           <div className={`w-full flex items-center justify-center ${fixedAspect || fillHeight ? 'h-full' : 'aspect-[4/3]'}`}>
             {isProcessing ? (
-              <AiOutlineLoading3Quarters size={32} className="text-gray-400 animate-spin" />
+              <AiOutlineLoading3Quarters size={32} className="text-slate-400 animate-spin" />
             ) : (
-              <AiOutlineWarning size={32} className="text-gray-400" />
+              <AiOutlineWarning size={32} className="text-slate-400" />
             )}
           </div>
         )}
 
-        <div className="absolute top-2 left-2 z-[3] flex items-center gap-1">
+        {/* Tags: top-left */}
+        <div className="absolute top-2.5 left-2.5 z-[3] flex items-center gap-1.5">
           {wallpaper.is_dynamic && (
-            <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-black/60 text-white backdrop-blur-sm">
+            <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-black/50 text-white backdrop-blur-sm">
               <svg width="10" height="10" viewBox="0 0 384 512" fill="currentColor"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
               macOS
             </span>
@@ -205,62 +206,62 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
 
         {showStatus && wallpaper.status !== STATUS_PUBLISHED && (
           <span
-            className={`absolute ${wallpaper.is_dynamic || resLabel ? 'top-8' : 'top-2'} left-2 z-[3] px-2 py-0.5 text-[10px] font-semibold rounded-full backdrop-blur-sm ${
+            className={`absolute ${wallpaper.is_dynamic || resLabel ? 'top-8' : 'top-2.5'} left-2.5 z-[3] px-2 py-0.5 text-[10px] font-semibold rounded-full backdrop-blur-sm ${
               isProcessing
                 ? 'bg-amber-500/80 text-white'
                 : isFailed
                   ? 'bg-red-500/80 text-white'
-                  : 'bg-gray-500/80 text-white'
+                  : 'bg-slate-500/80 text-white'
             }`}
           >
             {isProcessing ? 'Processing' : isFailed ? 'Failed' : `Status ${wallpaper.status}`}
           </span>
         )}
 
-        {/* Action buttons */}
-        <div className="absolute right-0 top-0 bottom-0 z-[2] bg-gradient-to-l from-black/40 to-transparent pl-8 pr-3 flex items-end pb-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="flex flex-col gap-2">
+        {/* Action buttons — appear on hover */}
+        <div className="absolute inset-0 z-[2] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+          <div className="flex items-center gap-2">
             <button
               onClick={(e) => handleAction(e, () => requireAuth(handleLike))}
               disabled={likeLoading}
-              className={`p-2 rounded-full backdrop-blur-sm transition-all duration-200 disabled:opacity-50 ${
+              className={`p-2.5 rounded-full backdrop-blur-md transition-all duration-200 disabled:opacity-50 ${
                 liked
-                  ? 'bg-red-500/80 text-white scale-110'
+                  ? 'bg-red-500/90 text-white'
                   : 'bg-white/20 text-white hover:bg-white/30'
               }`}
               title={liked ? 'Unlike' : 'Like'}
             >
-              {likeLoading ? <AiOutlineLoading3Quarters size={18} className="animate-spin" /> : liked ? <AiFillHeart size={18} /> : <AiOutlineHeart size={18} />}
+              {likeLoading ? <AiOutlineLoading3Quarters size={16} className="animate-spin" /> : liked ? <AiFillHeart size={16} /> : <AiOutlineHeart size={16} />}
             </button>
             <button
               onClick={(e) => handleAction(e, () => requireAuth(handleFavorite))}
               disabled={favLoading}
-              className={`p-2 rounded-full backdrop-blur-sm transition-all duration-200 disabled:opacity-50 ${
+              className={`p-2.5 rounded-full backdrop-blur-md transition-all duration-200 disabled:opacity-50 ${
                 favorited
-                  ? 'bg-amber-500/80 text-white scale-110'
+                  ? 'bg-amber-500/90 text-white'
                   : 'bg-white/20 text-white hover:bg-white/30'
               }`}
               title={favorited ? 'Unfavorite' : 'Favorite'}
             >
-              {favLoading ? <AiOutlineLoading3Quarters size={18} className="animate-spin" /> : favorited ? <AiFillStar size={18} /> : <AiOutlineStar size={18} />}
+              {favLoading ? <AiOutlineLoading3Quarters size={16} className="animate-spin" /> : favorited ? <AiFillStar size={16} /> : <AiOutlineStar size={16} />}
             </button>
             {canDownload && (
               <button
                 onClick={(e) => handleAction(e, () => requireAuth(handleDownload))}
                 disabled={downloading}
-                className={`p-2 rounded-full backdrop-blur-sm transition-all duration-200 disabled:opacity-50 ${
+                className={`p-2.5 rounded-full backdrop-blur-md transition-all duration-200 disabled:opacity-50 ${
                   downloaded
-                    ? 'bg-green-500/80 text-white scale-110'
+                    ? 'bg-green-500/90 text-white'
                     : 'bg-white/20 text-white hover:bg-white/30'
                 }`}
                 title={downloaded ? 'Downloaded' : 'Download (1 coin)'}
               >
                 {downloading ? (
-                  <AiOutlineLoading3Quarters size={18} className="animate-spin" />
+                  <AiOutlineLoading3Quarters size={16} className="animate-spin" />
                 ) : downloaded ? (
-                  <AiOutlineCheckCircle size={18} />
+                  <AiOutlineCheckCircle size={16} />
                 ) : (
-                  <AiOutlineDownload size={18} />
+                  <AiOutlineDownload size={16} />
                 )}
               </button>
             )}

@@ -47,9 +47,9 @@ export default function CollectionsPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="px-6 py-6">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Collections</h1>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Collections</h1>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -57,14 +57,14 @@ export default function CollectionsPage() {
           <Link
             key={c.id}
             to={`/collections/${c.id}`}
-            className="group block rounded-2xl overflow-hidden bg-white dark:bg-gray-800 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 dark:border-gray-700"
+            className="group block rounded-xl overflow-hidden bg-white dark:bg-ws-dark-card shadow-sm hover:shadow-lg transition-all duration-300 border border-ws-border dark:border-white/5"
           >
-            <div className="aspect-video bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 relative overflow-hidden">
+            <div className="aspect-video bg-slate-100 dark:bg-ws-dark-card relative overflow-hidden">
               {c.cover_url ? (
                 <img src={c.cover_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <AiOutlinePicture size={48} className="text-indigo-200 dark:text-indigo-700" />
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-ws-purple-light to-purple-100 dark:from-ws-dark-active dark:to-purple-900/20">
+                  <AiOutlinePicture size={48} className="text-ws-purple/30 dark:text-purple-400/20" />
                 </div>
               )}
               <div className="absolute bottom-3 right-3 px-2.5 py-1 bg-black/50 backdrop-blur-sm text-white text-xs font-medium rounded-full">
@@ -72,13 +72,13 @@ export default function CollectionsPage() {
               </div>
             </div>
             <div className="p-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-indigo-600 transition-colors">
+              <h3 className="text-base font-semibold text-slate-800 dark:text-white mb-1.5 group-hover:text-ws-purple transition-colors">
                 {c.title}
               </h3>
               {c.description && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3">{c.description}</p>
+                <p className="text-sm text-ws-muted dark:text-ws-dark-muted line-clamp-2 mb-3">{c.description}</p>
               )}
-              <div className="flex items-center gap-4 text-xs text-gray-400">
+              <div className="flex items-center gap-4 text-xs text-ws-muted dark:text-ws-dark-muted">
                 <span className="flex items-center gap-1"><AiOutlineHeart size={14} />{c.like_count}</span>
                 <span className="flex items-center gap-1"><AiOutlineEye size={14} />{c.view_count}</span>
               </div>
@@ -88,7 +88,7 @@ export default function CollectionsPage() {
       </div>
 
       {collections.length === 0 && !loading && (
-        <div className="text-center py-20 text-gray-400">No collections yet.</div>
+        <div className="text-center py-20 text-ws-muted dark:text-ws-dark-muted">No collections yet.</div>
       )}
 
       {hasMore && (
@@ -96,11 +96,11 @@ export default function CollectionsPage() {
           <button
             onClick={loadMore}
             disabled={loadingMore}
-            className="px-6 py-2.5 text-sm font-medium text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-200 disabled:opacity-50"
+            className="px-6 py-2.5 text-sm font-semibold text-ws-purple border border-ws-purple rounded-xl hover:bg-ws-purple-light dark:hover:bg-ws-dark-active transition-colors duration-200 disabled:opacity-50"
           >
             {loadingMore ? (
               <span className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-ws-purple-light border-t-ws-purple rounded-full animate-spin" />
                 Loading...
               </span>
             ) : (

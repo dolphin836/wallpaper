@@ -2,6 +2,31 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+  --color-ws-purple: #7c5dfa;
+  --color-ws-purple-light: #f0edff;
+  --color-ws-purple-dark: #6d28d9;
+  --color-ws-purple-hover: #6c4de6;
+  --color-ws-bg: #f8f9fc;
+  --color-ws-border: #e5e7eb;
+  --color-ws-muted: #6b7280;
+  --color-ws-dark-bg: #0f0f0f;
+  --color-ws-dark-sidebar: #1a1a1a;
+  --color-ws-dark-header: #141414;
+  --color-ws-dark-card: #222222;
+  --color-ws-dark-active: #2a2135;
+  --color-ws-dark-muted: #9ca3af;
+  --color-ws-dark-border: rgba(255 255 255 / 0.05);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+.dark ::-webkit-scrollbar-thumb { background: #333; }
+.dark ::-webkit-scrollbar-track { background: #141414; }
+
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }

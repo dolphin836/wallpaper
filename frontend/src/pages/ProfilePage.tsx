@@ -262,7 +262,7 @@ export default function ProfilePage() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="px-6 py-6">
       <div className="flex items-center gap-5 mb-10">
         {user.avatar_url ? (
           <img src={user.avatar_url} alt="" className="w-20 h-20 rounded-full object-cover" />
