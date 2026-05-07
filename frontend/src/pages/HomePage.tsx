@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { MdDevices } from 'react-icons/md';
-import { AiOutlineStar, AiOutlineClockCircle, AiOutlineAppstore, AiOutlineBars } from 'react-icons/ai';
+import { AiOutlineAppstore, AiOutlineBars } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { Wallpaper } from '../types';
 import { getWallpapers } from '../api';
@@ -184,42 +184,14 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, [fetchWallpapers]);
 
-  const filterPill = (active: boolean, activeClass: string, inactiveClass: string) =>
-    active ? activeClass : inactiveClass;
-
   const SIZE_KEYS: SizeMode[] = ['sm', 'md', 'lg'];
 
   return (
     <div className="px-6 py-4">
       {/* Control bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        {/* Left: filter pills */}
+        {/* Left: filters */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => { restoredRef.current = false; sessionStorage.removeItem(CACHE_KEY); setSortTrending((p) => !p); }}
-            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-full transition-colors shadow-sm ${
-              filterPill(
-                sortTrending,
-                'bg-ws-purple text-white',
-                'bg-ws-purple text-white',
-              )
-            }`}
-          >
-            <AiOutlineStar size={16} />
-            Popular
-          </button>
-          <button
-            onClick={() => { restoredRef.current = false; sessionStorage.removeItem(CACHE_KEY); if (sortTrending) setSortTrending(false); }}
-            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-full border transition-colors ${
-              !sortTrending
-                ? 'bg-ws-purple text-white border-ws-purple shadow-sm'
-                : 'text-slate-600 dark:text-ws-dark-muted border-ws-border dark:border-white/10 dark:bg-ws-dark-card hover:bg-ws-bg dark:hover:bg-white/5'
-            }`}
-          >
-            <AiOutlineClockCircle size={16} />
-            Recent
-          </button>
-
           <button
             onClick={toggleDeviceFilter}
             title={deviceFilter ? `${screen.width}×${screen.height}` : 'Filter for your device'}
@@ -248,16 +220,16 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Right: view + size toggles */}
-        <div className="flex items-center gap-3">
+        {/* Right: view + size + sort */}
+        <div className="flex items-center gap-4">
           {/* View toggle */}
-          <div className="flex items-center p-1 bg-ws-purple-light dark:bg-ws-dark-card rounded-lg">
+          <div className="flex items-center p-1 bg-ws-bg dark:bg-ws-dark-card rounded-lg border border-ws-border dark:border-white/10">
             <button
               onClick={() => handleViewChange('justified')}
               className={`p-2 rounded-md transition-colors ${
                 viewMode === 'justified'
                   ? 'bg-ws-purple text-white shadow-sm'
-                  : 'text-ws-purple dark:text-ws-dark-muted hover:bg-indigo-50 dark:hover:bg-white/5'
+                  : 'text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple'
               }`}
               title="Grid"
             >
@@ -268,7 +240,7 @@ export default function HomePage() {
               className={`p-2 rounded-md transition-colors ${
                 viewMode === 'grid'
                   ? 'bg-ws-purple text-white shadow-sm'
-                  : 'text-ws-purple dark:text-ws-dark-muted hover:bg-indigo-50 dark:hover:bg-white/5'
+                  : 'text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple'
               }`}
               title="List"
             >
@@ -277,21 +249,30 @@ export default function HomePage() {
           </div>
 
           {/* Size toggle */}
-          <div className="flex items-center h-10 bg-ws-purple-light dark:bg-ws-dark-card rounded-lg overflow-hidden">
+          <div className="flex items-center h-10 bg-ws-bg dark:bg-ws-dark-card rounded-lg overflow-hidden border border-ws-border dark:border-white/10">
             {SIZE_KEYS.map((k) => (
               <button
                 key={k}
                 onClick={() => handleSizeChange(k)}
-                className={`px-4 text-sm font-bold transition-colors ${
+                className={`px-4 h-full text-sm font-bold transition-colors ${
                   sizeMode === k
-                    ? 'bg-ws-purple text-white shadow-sm'
-                    : 'text-ws-purple dark:text-ws-dark-muted hover:bg-ws-purple/10 dark:hover:bg-white/5'
+                    ? 'bg-ws-purple text-white'
+                    : 'text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple dark:hover:text-white'
                 }`}
               >
                 {k.toUpperCase()}
               </button>
             ))}
           </div>
+
+          {/* Sort */}
+          <button
+            onClick={() => { restoredRef.current = false; sessionStorage.removeItem(CACHE_KEY); setSortTrending((p) => !p); }}
+            className="flex items-center gap-5 px-4 py-2.5 bg-ws-bg dark:bg-ws-dark-card border border-ws-border dark:border-white/10 text-sm font-medium text-slate-700 dark:text-ws-dark-muted rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+          >
+            {sortTrending ? 'Popular' : 'Recent'}
+            <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} /></svg>
+          </button>
         </div>
       </div>
 

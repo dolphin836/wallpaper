@@ -182,19 +182,6 @@ export default function Layout() {
 
           {/* Right: utilities */}
           <div className="flex items-center gap-2 ml-4">
-            {isAuthenticated && user && (
-              <Link
-                to={`/user/${user.id}`}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-ws-bg dark:bg-white/5 hover:bg-ws-purple-light dark:hover:bg-white/10 transition-colors"
-                title="My coins"
-              >
-                <span className="text-sm">💰</span>
-                <span className="text-xs font-semibold bg-gradient-to-r from-amber-600 to-yellow-500 bg-clip-text text-transparent">
-                  {user.coins ?? 0}
-                </span>
-              </Link>
-            )}
-
             <button
               onClick={toggleDark}
               className="p-2.5 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple dark:hover:text-white bg-ws-bg dark:bg-white/5 rounded-xl transition-colors"
