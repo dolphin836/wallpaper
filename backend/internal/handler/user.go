@@ -50,6 +50,14 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, user)
 }
 
+func stripOriginalURLs(items []model.Wallpaper, ownerID int64) {
+	for i := range items {
+		if items[i].UserID != ownerID {
+			items[i].OriginalURL = ""
+		}
+	}
+}
+
 func (h *UserHandler) GetWallpapers(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
@@ -92,6 +100,8 @@ func (h *UserHandler) GetWallpapers(w http.ResponseWriter, r *http.Request) {
 		nextCursor = items[len(items)-1].ID
 	}
 
+	stripOriginalURLs(items, currentUserID)
+
 	response.OK(w, map[string]any{
 		"items":       items,
 		"next_cursor": nextCursor,
@@ -122,6 +132,8 @@ func (h *UserHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 		nextCursor = items[len(items)-1].ID
 	}
 
+	stripOriginalURLs(items, userID)
+
 	response.OK(w, map[string]any{
 		"items":       items,
 		"next_cursor": nextCursor,
@@ -151,6 +163,8 @@ func (h *UserHandler) GetLikes(w http.ResponseWriter, r *http.Request) {
 	if hasMore && len(items) > 0 {
 		nextCursor = items[len(items)-1].ID
 	}
+
+	stripOriginalURLs(items, userID)
 
 	response.OK(w, map[string]any{
 		"items":       items,

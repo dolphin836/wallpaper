@@ -296,6 +296,12 @@ func (h *CollectionHandler) ListWallpapers(w http.ResponseWriter, r *http.Reques
 		response.Error(w, http.StatusInternalServerError, ec)
 		return
 	}
+	currentUserID := middleware.GetUserID(r.Context())
+	for i := range resp.Items {
+		if currentUserID <= 0 || currentUserID != resp.Items[i].UserID {
+			resp.Items[i].OriginalURL = ""
+		}
+	}
 	response.OK(w, resp)
 }
 

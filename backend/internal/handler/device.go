@@ -50,6 +50,9 @@ func (h *DeviceHandler) ListVariants(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
+	for i := range variants {
+		variants[i].URL = ""
+	}
 	response.OK(w, variants)
 }
 
@@ -104,5 +107,5 @@ func (h *DeviceHandler) DownloadVariant(w http.ResponseWriter, r *http.Request) 
 		slog.ErrorContext(r.Context(), "failed to record variant download event", "error", err, "wallpaper_id", wallpaperID, "variant_id", variantID)
 	}
 
-	http.Redirect(w, r, variant.URL, http.StatusFound)
+	response.OK(w, map[string]string{"url": variant.URL})
 }

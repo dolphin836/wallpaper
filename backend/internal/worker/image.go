@@ -152,14 +152,14 @@ func (w *ImageWorker) extractDynamicFrames(ctx context.Context, data []byte, wal
 			continue
 		}
 
-		previewWidth := uint(800)
-		if fImg.Bounds().Dx() < 800 {
+		previewWidth := uint(600)
+		if fImg.Bounds().Dx() < 600 {
 			previewWidth = uint(fImg.Bounds().Dx())
 		}
 		resized := resize.Resize(previewWidth, 0, fImg, resize.Lanczos3)
 
 		buf := new(bytes.Buffer)
-		if err := jpeg.Encode(buf, resized, &jpeg.Options{Quality: 85}); err != nil {
+		if err := jpeg.Encode(buf, resized, &jpeg.Options{Quality: 60}); err != nil {
 			continue
 		}
 
@@ -255,13 +255,14 @@ func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Ima
 	}
 
 	bounds := img.Bounds()
-	previewWidth := uint(800)
-	if bounds.Dx() < 800 {
+	previewWidth := uint(600)
+	if bounds.Dx() < 600 {
 		previewWidth = uint(bounds.Dx())
 	}
 	preview := resize.Resize(previewWidth, 0, img, resize.Lanczos3)
+	watermarked := addWatermark(preview)
 	previewBuf := new(bytes.Buffer)
-	if err := encodeImage(previewBuf, preview, format); err != nil {
+	if err := jpeg.Encode(previewBuf, watermarked, &jpeg.Options{Quality: 60}); err != nil {
 		return fmt.Errorf("encode preview: %w", err)
 	}
 	previewKey := fmt.Sprintf("previews/%d_preview.jpg", wallpaperID)

@@ -184,6 +184,10 @@ func (s *WallpaperService) Get(ctx context.Context, id int64, currentUserID int6
 		return nil, errcode.ErrInternal
 	}
 
+	if currentUserID <= 0 || currentUserID != w.UserID {
+		w.OriginalURL = ""
+	}
+
 	detail := &WallpaperDetail{
 		Wallpaper: *w,
 		Tags:      tags,
@@ -239,6 +243,9 @@ func (s *WallpaperService) List(ctx context.Context, opts repo.ListOptions, curr
 
 	listItems := make([]WallpaperListItem, len(items))
 	for i := range items {
+		if currentUserID <= 0 || currentUserID != items[i].UserID {
+			items[i].OriginalURL = ""
+		}
 		listItems[i] = WallpaperListItem{Wallpaper: items[i]}
 	}
 
@@ -311,6 +318,9 @@ func (s *WallpaperService) listTrending(ctx context.Context, opts repo.ListOptio
 
 	listItems := make([]WallpaperListItem, len(filtered))
 	for i := range filtered {
+		if currentUserID <= 0 || currentUserID != filtered[i].UserID {
+			filtered[i].OriginalURL = ""
+		}
 		listItems[i] = WallpaperListItem{Wallpaper: filtered[i]}
 	}
 

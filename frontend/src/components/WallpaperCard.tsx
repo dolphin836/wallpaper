@@ -143,13 +143,19 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         )}
 
         {imgSrc ? (
-          <img
-            src={imgSrc}
-            alt=""
-            loading="lazy"
-            onLoad={() => setLoaded(true)}
-            className={`w-full h-full object-cover transition-opacity duration-500 group-hover:scale-105 transition-transform ${loaded ? 'opacity-100' : 'opacity-0'}`}
-          />
+          <>
+            <img
+              src={imgSrc}
+              alt=""
+              loading="lazy"
+              onLoad={() => setLoaded(true)}
+              onContextMenu={(e) => e.preventDefault()}
+              draggable={false}
+              className={`w-full h-full object-cover transition-opacity duration-500 group-hover:scale-105 transition-transform select-none ${loaded ? 'opacity-100' : 'opacity-0'}`}
+              style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
+            />
+            <div className="absolute inset-0 z-[1]" onContextMenu={(e) => e.preventDefault()} />
+          </>
         ) : (
           <div className={`w-full flex items-center justify-center ${fixedAspect || fillHeight ? 'h-full' : 'aspect-[4/3]'}`}>
             {isProcessing ? (

@@ -10,7 +10,7 @@ import {
   AiOutlineFullscreen,
   AiOutlineClose,
 } from 'react-icons/ai';
-import { MdOpenInNew, MdPhoneIphone, MdPlaylistAdd } from 'react-icons/md';
+import { MdPhoneIphone, MdPlaylistAdd } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import type { WallpaperDetail, WallpaperVariant } from '../types';
 import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
@@ -22,6 +22,7 @@ import {
   unfavoriteWallpaper,
   deleteWallpaper,
   downloadWallpaper,
+  downloadVariant,
   getWallpaperVariants,
 } from '../api';
 import { useAuthStore } from '../store/auth';
@@ -85,22 +86,6 @@ const platformIcons: Record<string, string> = {
   phone: '📲',
 };
 
-async function triggerDownload(url: string, filename: string) {
-  try {
-    const resp = await fetch(url);
-    const blob = await resp.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(blobUrl);
-  } catch {
-    toast.error('Download failed');
-  }
-}
 
 function findBestMatch(variants: WallpaperVariant[]): WallpaperVariant | null {
   const sw = window.screen.width * (window.devicePixelRatio || 1);
@@ -135,7 +120,7 @@ function MetaItem({ label, value }: { label: string; value: string }) {
   );
 }
 
-function VariantList({ variants, matchedId, onMockup }: { variants: WallpaperVariant[]; matchedId?: number; onMockup: (v: WallpaperVariant) => void }) {
+function VariantList({ variants, matchedId, onMockup, onDownload }: { variants: WallpaperVariant[]; matchedId?: number; onMockup: (v: WallpaperVariant) => void; onDownload: (v: WallpaperVariant) => void }) {
   const grouped = variants.reduce<Record<string, WallpaperVariant[]>>((acc, v) => {
     const key = v.platform;
     if (!acc[key]) acc[key] = [];
@@ -202,21 +187,12 @@ function VariantList({ variants, matchedId, onMockup }: { variants: WallpaperVar
                             <MdPhoneIphone size={16} />
                           </button>
                           <button
-                            onClick={() => triggerDownload(v.url, `${v.brand}_${v.device_name}_${v.width}x${v.height}.jpg`)}
+                            onClick={() => onDownload(v)}
                             className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
                             title="Download"
                           >
                             <AiOutlineDownload size={16} />
                           </button>
-                          <a
-                            href={v.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                            title="Open"
-                          >
-                            <MdOpenInNew size={16} />
-                          </a>
                         </div>
                       </div>
                     </div>
@@ -349,7 +325,10 @@ export default function WallpaperDetailPage() {
       let blobUrl: string;
       let filename: string;
       if (useVariant) {
-        const resp = await fetch(useVariant.url);
+        const apiResp = await downloadVariant(wallpaper.id, useVariant.id);
+        const dlUrl = apiResp.data.data?.url;
+        if (!dlUrl) { toast.error('Download failed'); return; }
+        const resp = await fetch(dlUrl);
         const blob = await resp.blob();
         blobUrl = URL.createObjectURL(blob);
         filename = `wallpaper_${wallpaper.id}_${useVariant.width}x${useVariant.height}.jpg`;
@@ -384,8 +363,13 @@ export default function WallpaperDetailPage() {
         updateCoins(user.coins - 1);
       }
       setShowGuide(true);
-    } catch {
-      toast.error('Download failed');
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 402) {
+        toast.error('Insufficient coins. Upload wallpapers to earn more!');
+      } else {
+        toast.error('Download failed');
+      }
     }
   };
 
@@ -433,7 +417,10 @@ export default function WallpaperDetailPage() {
           <img
             src={matchedVariant?.url || wallpaper.preview_url || wallpaper.original_url}
             alt=""
-            className="w-full h-full object-contain"
+            onContextMenu={(e) => e.preventDefault()}
+            draggable={false}
+            className="w-full h-full object-contain select-none"
+            style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
           />
           <button
             onClick={() => setFullscreen(false)}
@@ -465,10 +452,12 @@ export default function WallpaperDetailPage() {
                       key={i}
                       src={url}
                       alt=""
-                      className={`w-full max-h-[70vh] object-contain transition-opacity duration-1000 ${
+                      onContextMenu={(e) => e.preventDefault()}
+                      draggable={false}
+                      className={`w-full max-h-[70vh] object-contain select-none transition-opacity duration-1000 ${
                         i === frameIdx ? 'opacity-100' : 'opacity-0 absolute inset-0'
                       }`}
-                      style={i !== frameIdx ? { position: 'absolute', top: 0, left: 0, width: '100%' } : undefined}
+                      style={{ ...(i !== frameIdx ? { position: 'absolute', top: 0, left: 0, width: '100%' } : undefined), WebkitUserDrag: 'none' } as React.CSSProperties}
                     />
                   ))}
                 </div>
@@ -476,9 +465,13 @@ export default function WallpaperDetailPage() {
                 <img
                   src={wallpaper.preview_url || wallpaper.original_url}
                   alt=""
-                  className="max-h-[70vh] w-full object-contain"
+                  onContextMenu={(e) => e.preventDefault()}
+                  draggable={false}
+                  className="max-h-[70vh] w-full object-contain select-none"
+                  style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                 />
               )}
+              <div className="absolute inset-0 z-[1]" onContextMenu={(e) => e.preventDefault()} />
             </div>
 
             {wallpaper.is_dynamic && (
@@ -712,7 +705,7 @@ export default function WallpaperDetailPage() {
                   </svg>
                 </button>
                 {showVariants && (
-                  <VariantList variants={variants} matchedId={matchedVariant?.id} onMockup={setMockupVariant} />
+                  <VariantList variants={variants} matchedId={matchedVariant?.id} onMockup={setMockupVariant} onDownload={(v) => handleDownload(v)} />
                 )}
               </div>
             )}
