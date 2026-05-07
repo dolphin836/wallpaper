@@ -152,11 +152,17 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
     }
   };
 
+  const isPublished = wallpaper.status === STATUS_PUBLISHED;
+  const Wrapper = isPublished ? Link : 'div';
+  const wrapperProps = isPublished
+    ? { to: `/wallpaper/${wallpaper.id}` }
+    : { style: { cursor: 'default' } };
+
   return (
-    <Link
-      to={`/wallpaper/${wallpaper.id}`}
+    <Wrapper
+      {...(wrapperProps as any)}
       className={`group block rounded-lg overflow-hidden bg-slate-100 dark:bg-ws-dark-card transition-all duration-300 ${fillHeight ? 'h-full' : ''} animate-fade-in`}
-      style={{ ...style, animationDelay: `${animDelay}ms` }}
+      style={{ ...style, animationDelay: `${animDelay}ms`, ...(isPublished ? {} : { cursor: 'default' }) }}
     >
       <div
         className={`relative overflow-hidden ${fillHeight ? 'h-full' : ''} ${fixedAspect ? 'aspect-[3/2]' : ''}`}
@@ -222,8 +228,8 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           </span>
         )}
 
-        {/* Action buttons — appear on hover */}
-        <div className="absolute right-0 top-0 bottom-0 z-[2] p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end">
+        {/* Action buttons — appear on hover, only for published wallpapers */}
+        {isPublished && <div className="absolute right-0 top-0 bottom-0 z-[2] p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end">
           <div className="flex flex-col gap-1.5">
             <button
               onClick={(e) => handleAction(e, () => requireAuth(handleLike))}
@@ -270,8 +276,8 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               </button>
             )}
           </div>
-        </div>
+        </div>}
       </div>
-    </Link>
+    </Wrapper>
   );
 }
