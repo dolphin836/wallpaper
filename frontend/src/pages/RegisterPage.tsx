@@ -13,11 +13,16 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const setAuth = useAuthStore((s) => s.setAuth);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!agreed) {
+      toast.error('Please agree to the Terms of Service and Privacy Policy');
+      return;
+    }
     setLoading(true);
     try {
       const res = await register({ username, email, password });
@@ -49,9 +54,23 @@ export default function RegisterPage() {
             <label className="block text-sm font-medium text-ws-muted dark:text-ws-dark-muted mb-1.5">Password</label>
             <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className={INPUT_CLS} placeholder="••••••••" />
           </div>
+          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded border-ws-border dark:border-white/20 text-ws-purple focus:ring-ws-purple bg-ws-bg dark:bg-ws-dark-card"
+            />
+            <span className="text-xs text-ws-muted dark:text-ws-dark-muted leading-relaxed">
+              I agree to the{' '}
+              <Link to="/terms" className="text-ws-purple hover:underline" target="_blank">Terms of Service</Link>
+              {' '}and{' '}
+              <Link to="/privacy" className="text-ws-purple hover:underline" target="_blank">Privacy Policy</Link>
+            </span>
+          </label>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !agreed}
             className="w-full py-2.5 text-sm font-semibold text-white bg-ws-purple hover:bg-ws-purple-hover rounded-xl transition-colors duration-200 disabled:opacity-50 shadow-sm"
           >
             {loading ? 'Creating account...' : 'Create Account'}
