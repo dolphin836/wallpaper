@@ -6,6 +6,7 @@ import {
   AiOutlineClose,
   AiOutlineCompass,
   AiOutlineAppstore,
+  AiOutlineTeam,
   AiOutlineLeft,
   AiOutlineRight,
   AiOutlineSearch,
@@ -54,6 +55,7 @@ export default function Layout() {
   const navItems = [
     { to: '/', label: 'Discover', icon: AiOutlineCompass },
     { to: '/collections', label: 'Collections', icon: AiOutlineAppstore },
+    { to: '/uploaders', label: 'Uploaders', icon: AiOutlineTeam },
   ];
 
   const isActive = (path: string) => {

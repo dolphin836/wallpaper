@@ -45,6 +45,8 @@ func NewRouter(deps Deps) *chi.Mux {
 		r.Get("/tags", deps.TagHandler.Popular)
 		r.Get("/devices", deps.DeviceHandler.ListDevices)
 
+		r.Get("/users", deps.UserHandler.ListUsers)
+
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.OptionalAuth(deps.JWTSecret))
 			r.Get("/wallpapers", deps.WallpaperHandler.List)

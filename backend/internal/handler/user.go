@@ -288,6 +288,37 @@ func (h *UserHandler) GetCoinTransactions(w http.ResponseWriter, r *http.Request
 	})
 }
 
+func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	sort := r.URL.Query().Get("sort")
+	page := 1
+	if raw := r.URL.Query().Get("page"); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+			page = v
+		}
+	}
+	limit := 24
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 && v <= 50 {
+			limit = v
+		}
+	}
+	offset := (page - 1) * limit
+
+	items, total, err := h.userRepo.ListUsers(r.Context(), sort, offset, limit)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to list users", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	response.OK(w, map[string]any{
+		"items": items,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
+}
+
 func parseCursorLimit(r *http.Request) (int64, int) {
 	var cursor int64
 	if raw := r.URL.Query().Get("cursor"); raw != "" {

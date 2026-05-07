@@ -9,6 +9,7 @@ import UploadPage from './pages/UploadPage';
 import ProfilePage from './pages/ProfilePage';
 import CollectionsPage from './pages/CollectionsPage';
 import CollectionDetailPage from './pages/CollectionDetailPage';
+import UploadersPage from './pages/UploadersPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
 function App() {
@@ -24,6 +25,7 @@ function App() {
           <Route path="/upload" element={<UploadPage />} />
           <Route path="/user/:id" element={<ProfilePage />} />
           <Route path="/collections" element={<CollectionsPage />} />
+          <Route path="/uploaders" element={<UploadersPage />} />
           <Route path="/collections/:id" element={<CollectionDetailPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />

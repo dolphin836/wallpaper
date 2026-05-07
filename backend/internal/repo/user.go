@@ -65,3 +65,33 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*model.U
 	}
 	return &user, nil
 }
+
+type UserListItem struct {
+	model.User
+	WallpaperCount int64 `json:"wallpaper_count"`
+}
+
+func (r *UserRepo) ListUsers(ctx context.Context, sort string, offset, limit int) ([]UserListItem, int64, error) {
+	var total int64
+	r.db.WithContext(ctx).Model(&model.User{}).Where("id > 0 AND status = 1").Count(&total)
+
+	var items []UserListItem
+	q := r.db.WithContext(ctx).
+		Table("users").
+		Select("users.id, users.username, users.nickname, users.avatar_url, users.bio, users.coins, users.status, users.created_at, COUNT(w.id) AS wallpaper_count").
+		Joins("LEFT JOIN wallpapers w ON w.user_id = users.id AND w.status = 1").
+		Where("users.id > 0 AND users.status = 1").
+		Group("users.id")
+
+	switch sort {
+	case "uploads":
+		q = q.Order("wallpaper_count DESC, users.id DESC")
+	case "coins":
+		q = q.Order("users.coins DESC, users.id DESC")
+	default:
+		q = q.Order("users.created_at DESC, users.id DESC")
+	}
+
+	err := q.Offset(offset).Limit(limit).Find(&items).Error
+	return items, total, err
+}

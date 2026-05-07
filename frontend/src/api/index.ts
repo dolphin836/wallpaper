@@ -1,5 +1,5 @@
 import client from './client';
-import type { ApiResponse, AuthResponse, Wallpaper, WallpaperDetail, PaginatedData, Category, Tag, User, DeviceProfile, WallpaperVariant, Collection, CollectionDetail, CollectionBrief, CoinTransaction } from '../types';
+import type { ApiResponse, AuthResponse, Wallpaper, WallpaperDetail, PaginatedData, Category, Tag, User, UserListItem, DeviceProfile, WallpaperVariant, Collection, CollectionDetail, CollectionBrief, CoinTransaction } from '../types';
 
 export const register = (data: { username: string; email: string; password: string }) =>
   client.post<ApiResponse<AuthResponse>>('/auth/register', data);
@@ -51,6 +51,9 @@ export const getCategories = () =>
 
 export const getTags = () =>
   client.get<ApiResponse<Tag[]>>('/tags');
+
+export const getUsers = (params: { page?: number; limit?: number; sort?: string }) =>
+  client.get<ApiResponse<{ items: UserListItem[]; total: number; page: number; limit: number }>>('/users', { params });
 
 export const getUserProfile = (id: number) =>
   client.get<ApiResponse<User>>(`/users/${id}`);

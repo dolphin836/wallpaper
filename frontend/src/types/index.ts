@@ -10,6 +10,10 @@ export interface User {
   created_at: string;
 }
 
+export interface UserListItem extends User {
+  wallpaper_count: number;
+}
+
 export interface CoinTransaction {
   id: number;
   user_id: number;
