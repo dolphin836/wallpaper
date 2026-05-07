@@ -110,7 +110,7 @@ export default function HomePage() {
   };
 
   const toggleDeviceFilter = () => {
-    restoredRef.current = false;
+    restoredRef.current = true;
     sessionStorage.removeItem(CACHE_KEY);
     setDeviceFilter((p) => {
       if (!p) setMacFilter(false);
@@ -119,7 +119,7 @@ export default function HomePage() {
   };
 
   const toggleMacFilter = () => {
-    restoredRef.current = false;
+    restoredRef.current = true;
     sessionStorage.removeItem(CACHE_KEY);
     setMacFilter((p) => {
       if (!p) setDeviceFilter(false);
@@ -299,13 +299,13 @@ export default function HomePage() {
             {sortOpen && (
               <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-ws-dark-card border border-ws-border dark:border-white/10 rounded-lg shadow-lg z-10 py-1">
                 <button
-                  onClick={() => { if (sortTrending) { restoredRef.current = false; sessionStorage.removeItem(CACHE_KEY); setSortTrending(false); } setSortOpen(false); }}
+                  onClick={() => { if (sortTrending) { restoredRef.current = true; sessionStorage.removeItem(CACHE_KEY); setSortTrending(false); } setSortOpen(false); }}
                   className={`w-full text-left px-4 py-2 text-sm transition-colors ${!sortTrending ? 'text-ws-purple font-semibold bg-ws-purple-light dark:bg-ws-dark-active' : 'text-slate-700 dark:text-ws-dark-muted hover:bg-ws-bg dark:hover:bg-white/5'}`}
                 >
                   Latest
                 </button>
                 <button
-                  onClick={() => { if (!sortTrending) { restoredRef.current = false; sessionStorage.removeItem(CACHE_KEY); setSortTrending(true); } setSortOpen(false); }}
+                  onClick={() => { if (!sortTrending) { restoredRef.current = true; sessionStorage.removeItem(CACHE_KEY); setSortTrending(true); } setSortOpen(false); }}
                   className={`w-full text-left px-4 py-2 text-sm transition-colors ${sortTrending ? 'text-ws-purple font-semibold bg-ws-purple-light dark:bg-ws-dark-active' : 'text-slate-700 dark:text-ws-dark-muted hover:bg-ws-bg dark:hover:bg-white/5'}`}
                 >
                   Trending
