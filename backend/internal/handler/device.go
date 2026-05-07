@@ -87,15 +87,12 @@ func (h *DeviceHandler) DownloadVariant(w http.ResponseWriter, r *http.Request) 
 	}
 
 	isOwner := wp != nil && wp.UserID == userID
-	if !isOwner {
-		if _, err := h.coinRepo.AddCoins(r.Context(), userID, -1, "download_cost", wallpaperID, "Download wallpaper variant"); err != nil {
+	if !isOwner && wp != nil {
+		if _, err := h.coinRepo.Transfer(r.Context(), userID, wp.UserID, 1,
+			"download_cost", "download_earned", wallpaperID,
+			"Download wallpaper variant", "Wallpaper variant downloaded by others"); err != nil {
 			response.Error(w, http.StatusPaymentRequired, errcode.ErrInsufficientCoins)
 			return
-		}
-		if wp != nil {
-			if _, err := h.coinRepo.AddCoins(r.Context(), wp.UserID, 1, "download_earned", wallpaperID, "Wallpaper variant downloaded by others"); err != nil {
-				slog.ErrorContext(r.Context(), "failed to reward uploader for variant download", "error", err)
-			}
 		}
 	}
 

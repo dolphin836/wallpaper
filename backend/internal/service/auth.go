@@ -91,7 +91,9 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (*AuthR
 	}
 
 	const registerBonus int64 = 10
-	balance, err := s.coinRepo.AddCoins(ctx, user.ID, registerBonus, model.CoinTxRegisterBonus, 0, "Registration bonus")
+	balance, err := s.coinRepo.Transfer(ctx, repo.SystemUserID, user.ID, registerBonus,
+		model.CoinTxRegisterBonus, model.CoinTxRegisterBonus, 0,
+		"Registration bonus issued", "Registration bonus")
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to grant register bonus", "error", err, "user_id", user.ID)
 	} else {

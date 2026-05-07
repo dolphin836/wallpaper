@@ -161,6 +161,11 @@ ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS frame_urls TEXT NOT NULL DEFAULT
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS coins BIGINT NOT NULL DEFAULT 0;
 
+INSERT INTO users (id, username, email, password_hash, nickname, coins, status)
+OVERRIDING SYSTEM VALUE
+VALUES (0, '__system__', 'system@internal', '', 'System', 0, 0)
+ON CONFLICT (id) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS coin_transactions (
     id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id      BIGINT       NOT NULL,

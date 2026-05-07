@@ -141,7 +141,9 @@ func (s *WallpaperService) Upload(ctx context.Context, userID int64, req UploadR
 
 	s.publishUploadedEvent(ctx, w, userID, objectName)
 
-	if _, err := s.coinRepo.AddCoins(ctx, userID, 1, model.CoinTxUploadReward, w.ID, "Upload wallpaper reward"); err != nil {
+	if _, err := s.coinRepo.Transfer(ctx, repo.SystemUserID, userID, 1,
+		model.CoinTxUploadReward, model.CoinTxUploadReward, w.ID,
+		"Upload reward issued", "Upload wallpaper reward"); err != nil {
 		slog.ErrorContext(ctx, "failed to grant upload coin", "error", err, "user_id", userID, "wallpaper_id", w.ID)
 	}
 
@@ -467,13 +469,11 @@ func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, user
 	isOwner := w.UserID == userID
 
 	if !isOwner {
-		if _, err := s.coinRepo.AddCoins(ctx, userID, -1, model.CoinTxDownloadCost, wallpaperID, "Download wallpaper"); err != nil {
-			slog.WarnContext(ctx, "coin deduction failed", "error", err, "user_id", userID, "wallpaper_id", wallpaperID)
+		if _, err := s.coinRepo.Transfer(ctx, userID, w.UserID, 1,
+			model.CoinTxDownloadCost, model.CoinTxDownloadEarned, wallpaperID,
+			"Download wallpaper", "Wallpaper downloaded by others"); err != nil {
+			slog.WarnContext(ctx, "coin transfer failed", "error", err, "user_id", userID, "wallpaper_id", wallpaperID)
 			return "", errcode.ErrInsufficientCoins
-		}
-
-		if _, err := s.coinRepo.AddCoins(ctx, w.UserID, 1, model.CoinTxDownloadEarned, wallpaperID, "Wallpaper downloaded by others"); err != nil {
-			slog.ErrorContext(ctx, "failed to reward uploader", "error", err, "uploader_id", w.UserID, "wallpaper_id", wallpaperID)
 		}
 	}
 

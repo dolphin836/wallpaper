@@ -9,6 +9,8 @@ import (
 	"github.com/wallpaper/backend/internal/model"
 )
 
+const SystemUserID int64 = 0
+
 type CoinRepo struct {
 	db *gorm.DB
 }
@@ -17,45 +19,58 @@ func NewCoinRepo(db *gorm.DB) *CoinRepo {
 	return &CoinRepo{db: db}
 }
 
-// AddCoins atomically adds amount to user balance and writes a transaction log.
-// amount can be negative (deduction). Returns the new balance.
-// The caller must guarantee amount validity; this method rejects negative resulting balance.
-func (r *CoinRepo) AddCoins(ctx context.Context, userID int64, amount int64, txType string, refID int64, desc string) (int64, error) {
-	var newBalance int64
+// addCoinsInTx updates user balance and writes a transaction log within the given tx.
+// System user (id=0) allows negative balance; real users do not.
+func addCoinsInTx(tx *gorm.DB, userID int64, amount int64, txType string, refID int64, desc string) (int64, error) {
+	result := tx.Model(&model.User{}).Where("id = ?", userID)
+	if amount < 0 && userID != SystemUserID {
+		result = result.Where("coins >= ?", -amount)
+	}
+	result = result.UpdateColumn("coins", gorm.Expr("coins + ?", amount))
+	if result.Error != nil {
+		return 0, fmt.Errorf("update coins: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return 0, fmt.Errorf("insufficient coins")
+	}
+
+	var user model.User
+	if err := tx.Select("coins").Where("id = ?", userID).First(&user).Error; err != nil {
+		return 0, fmt.Errorf("read balance: %w", err)
+	}
+
+	txn := model.CoinTransaction{
+		UserID:      userID,
+		Amount:      amount,
+		Balance:     user.Coins,
+		TxType:      txType,
+		RefID:       refID,
+		Description: desc,
+	}
+	if err := tx.Create(&txn).Error; err != nil {
+		return 0, fmt.Errorf("create transaction: %w", err)
+	}
+	return user.Coins, nil
+}
+
+// Transfer moves coins from one user to another with double-entry bookkeeping.
+// Both sides are written in a single transaction; if the source has insufficient
+// coins the entire operation is rolled back.
+// Returns the new balance of toUserID.
+func (r *CoinRepo) Transfer(ctx context.Context, fromID, toID int64, amount int64, fromTxType, toTxType string, refID int64, fromDesc, toDesc string) (int64, error) {
+	var toBalance int64
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		result := tx.Model(&model.User{}).
-			Where("id = ?", userID)
-		if amount < 0 {
-			result = result.Where("coins >= ?", -amount)
+		if _, err := addCoinsInTx(tx, fromID, -amount, fromTxType, refID, fromDesc); err != nil {
+			return fmt.Errorf("debit from %d: %w", fromID, err)
 		}
-		result = result.UpdateColumn("coins", gorm.Expr("coins + ?", amount))
-		if result.Error != nil {
-			return fmt.Errorf("update coins: %w", result.Error)
+		bal, err := addCoinsInTx(tx, toID, amount, toTxType, refID, toDesc)
+		if err != nil {
+			return fmt.Errorf("credit to %d: %w", toID, err)
 		}
-		if result.RowsAffected == 0 {
-			return fmt.Errorf("insufficient coins")
-		}
-
-		var user model.User
-		if err := tx.Select("coins").Where("id = ?", userID).First(&user).Error; err != nil {
-			return fmt.Errorf("read balance: %w", err)
-		}
-		newBalance = user.Coins
-
-		txn := model.CoinTransaction{
-			UserID:      userID,
-			Amount:      amount,
-			Balance:     newBalance,
-			TxType:      txType,
-			RefID:       refID,
-			Description: desc,
-		}
-		if err := tx.Create(&txn).Error; err != nil {
-			return fmt.Errorf("create transaction: %w", err)
-		}
+		toBalance = bal
 		return nil
 	})
-	return newBalance, err
+	return toBalance, err
 }
 
 func (r *CoinRepo) GetBalance(ctx context.Context, userID int64) (int64, error) {
