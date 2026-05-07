@@ -192,6 +192,21 @@ SQL
     fi
     log_info "Redis flushed."
 
+    log_info "Resetting Kafka consumer group offsets..."
+    compose exec kafka /opt/kafka/bin/kafka-consumer-groups.sh \
+        --bootstrap-server localhost:9092 \
+        --group image-worker --topic wallpaper.uploaded \
+        --reset-offsets --to-latest --execute 2>/dev/null || true
+    compose exec kafka /opt/kafka/bin/kafka-consumer-groups.sh \
+        --bootstrap-server localhost:9092 \
+        --group stats-worker --topic wallpaper.stats \
+        --reset-offsets --to-latest --execute 2>/dev/null || true
+    log_info "Kafka offsets reset."
+
+    log_info "Restarting worker to re-establish Kafka consumers..."
+    compose restart worker
+    log_info "Worker restarted."
+
     log_info "Data reset complete. User accounts preserved (coins reset to 10)."
 }
 
