@@ -7,7 +7,7 @@ import (
 	"math"
 )
 
-// addWatermark stamps a tiled diagonal "WallShare" text pattern onto img.
+// addWatermark stamps a tiled diagonal "Wallpaper Exchange" text pattern onto img.
 // Uses a pixel-font approach — no external font files required.
 func addWatermark(img image.Image) *image.NRGBA {
 	bounds := img.Bounds()
@@ -62,18 +62,24 @@ func drawStamp(dst *image.NRGBA, stamp *image.NRGBA, ox, oy int) {
 	}
 }
 
-// renderStamp creates a small image with "WallShare" text using a built-in pixel font.
+// renderStamp creates a small image with "Wallpaper Exchange" text using a built-in pixel font.
 func renderStamp() *image.NRGBA {
 	glyphs := map[byte][]string{
 		'W': {"1   1", "1   1", "1 1 1", "1 1 1", " 1 1 "},
-		'a': {"  ", " 11", "1 1", "1 1", " 11"},
+		'a': {"   ", " 11", "1 1", "1 1", " 11"},
 		'l': {"1 ", "1 ", "1 ", "1 ", "11"},
-		'S': {" 11", "1  ", " 1 ", "  1", "11 "},
-		'h': {"1  ", "1  ", "111", "1 1", "1 1"},
-		'r': {"  ", "11", "1 ", "1 ", "1 "},
+		'p': {"   ", "11 ", "1 1", "11 ", "1  "},
 		'e': {" 1 ", "1 1", "111", "1  ", " 11"},
+		'r': {"  ", "11", "1 ", "1 ", "1 "},
+		' ': {"  ", "  ", "  ", "  ", "  "},
+		'E': {"111", "1  ", "11 ", "1  ", "111"},
+		'x': {"   ", "1 1", " 1 ", "1 1", "1 1"},
+		'c': {"  ", " 1", "1 ", "1 ", " 1"},
+		'h': {"1  ", "1  ", "111", "1 1", "1 1"},
+		'n': {"   ", "11 ", "1 1", "1 1", "1 1"},
+		'g': {"   ", " 11", "1 1", " 11", "  1"},
 	}
-	text := "WallShare"
+	text := "Wallpaper Exchange"
 	scale := 3
 
 	totalW := 0
