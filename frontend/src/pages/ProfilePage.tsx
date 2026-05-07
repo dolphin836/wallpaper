@@ -47,6 +47,7 @@ export default function ProfilePage() {
     downloads: { items: [], hasMore: false, loaded: false },
   });
 
+  const [tabLoading, setTabLoading] = useState(false);
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
   const [txCursor, setTxCursor] = useState<number | undefined>();
   const [txHasMore, setTxHasMore] = useState(false);
@@ -121,20 +122,28 @@ export default function ProfilePage() {
   }, [id]);
 
   const loadTabData = useCallback(async (key: 'favorites' | 'likes' | 'downloads') => {
-    if (tabs[key].loaded) return;
     const fetchers = { favorites: getMyFavorites, likes: getMyLikes, downloads: getMyDownloads };
+    setTabLoading(true);
     try {
       const res = await fetchers[key]({ limit: 20 });
-      const { items, next_cursor, has_more } = res.data.data;
-      updateTab(key, { items, cursor: next_cursor, hasMore: has_more, loaded: true });
+      const d = res.data.data;
+      updateTab(key, {
+        items: d?.items ?? [],
+        cursor: d?.next_cursor,
+        hasMore: d?.has_more ?? false,
+        loaded: true,
+      });
     } catch {
       toast.error('Failed to load data');
+      updateTab(key, { loaded: true });
+    } finally {
+      setTabLoading(false);
     }
-  }, [tabs]);
+  }, []);
 
   const handleTabChange = (tab: TabKey) => {
     setActiveTab(tab);
-    if ((tab === 'favorites' || tab === 'likes' || tab === 'downloads') && !tabs[tab].loaded) {
+    if ((tab === 'favorites' || tab === 'likes' || tab === 'downloads') && !tabs[tab]?.loaded) {
       loadTabData(tab);
     }
     if (tab === 'coins' && !txLoaded) {
@@ -343,7 +352,11 @@ export default function ProfilePage() {
         </>
       ) : (
         <>
-          {currentTab && currentTab.items.length > 0 ? (
+          {tabLoading && !currentTab?.loaded ? (
+            <div className="flex justify-center py-12">
+              <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+            </div>
+          ) : currentTab && currentTab.items.length > 0 ? (
             <WallpaperGrid
               wallpapers={currentTab.items}
               showStatus={activeTab === 'wallpapers' && isOwnProfile}

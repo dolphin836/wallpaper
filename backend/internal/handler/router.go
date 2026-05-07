@@ -9,14 +9,14 @@ import (
 )
 
 type Deps struct {
-	AuthHandler      *AuthHandler
-	WallpaperHandler *WallpaperHandler
-	CategoryHandler  *CategoryHandler
-	TagHandler       *TagHandler
-	UserHandler      *UserHandler
-	DeviceHandler    *DeviceHandler
+	AuthHandler       *AuthHandler
+	WallpaperHandler  *WallpaperHandler
+	CategoryHandler   *CategoryHandler
+	TagHandler        *TagHandler
+	UserHandler       *UserHandler
+	DeviceHandler     *DeviceHandler
 	CollectionHandler *CollectionHandler
-	JWTSecret        string
+	JWTSecret         string
 }
 
 func NewRouter(deps Deps) *chi.Mux {
@@ -55,10 +55,12 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Get("/collections/{id}", deps.CollectionHandler.Get)
 			r.Get("/collections/{id}/wallpapers", deps.CollectionHandler.ListWallpapers)
 			r.Get("/users/{id}/collections", deps.CollectionHandler.ListUserCollections)
+			r.Get("/users/{id}/wallpapers", deps.UserHandler.GetWallpapers)
 		})
 
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(deps.JWTSecret))
+
 			r.Post("/wallpapers", deps.WallpaperHandler.Upload)
 			r.Delete("/wallpapers/{id}", deps.WallpaperHandler.Delete)
 			r.Get("/wallpapers/{id}/download", deps.WallpaperHandler.Download)
@@ -70,6 +72,10 @@ func NewRouter(deps Deps) *chi.Mux {
 
 			r.Get("/users/me/coins", deps.UserHandler.GetCoins)
 			r.Get("/users/me/coin-transactions", deps.UserHandler.GetCoinTransactions)
+			r.Get("/users/me/favorites", deps.UserHandler.GetFavorites)
+			r.Get("/users/me/likes", deps.UserHandler.GetLikes)
+			r.Get("/users/me/downloads", deps.UserHandler.GetDownloads)
+			r.Get("/users/me/collections", deps.CollectionHandler.ListMyCollections)
 
 			r.Post("/collections", deps.CollectionHandler.Create)
 			r.Put("/collections/{id}", deps.CollectionHandler.Update)
@@ -78,20 +84,9 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Delete("/collections/{id}/wallpapers/{wid}", deps.CollectionHandler.RemoveWallpaper)
 			r.Post("/collections/{id}/like", deps.CollectionHandler.Like)
 			r.Delete("/collections/{id}/like", deps.CollectionHandler.Unlike)
-			r.Get("/users/me/collections", deps.CollectionHandler.ListMyCollections)
 		})
 
 		r.Get("/users/{id}", deps.UserHandler.GetProfile)
-		r.Group(func(r chi.Router) {
-			r.Use(middleware.OptionalAuth(deps.JWTSecret))
-			r.Get("/users/{id}/wallpapers", deps.UserHandler.GetWallpapers)
-		})
-		r.Group(func(r chi.Router) {
-			r.Use(middleware.Auth(deps.JWTSecret))
-			r.Get("/users/me/favorites", deps.UserHandler.GetFavorites)
-			r.Get("/users/me/likes", deps.UserHandler.GetLikes)
-			r.Get("/users/me/downloads", deps.UserHandler.GetDownloads)
-		})
 	})
 
 	return r
