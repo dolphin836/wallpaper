@@ -371,7 +371,11 @@ export default function WallpaperDetailPage() {
       setWallpaper({ ...wallpaper, download_count: wallpaper.download_count + 1 });
       setDlDone(true);
       if (!isOwnerDl && user) {
-        updateCoins(user.coins - 1);
+        const remaining = user.coins - 1;
+        updateCoins(remaining);
+        if (remaining <= 3 && remaining > 0) {
+          toast(`${remaining} coin${remaining === 1 ? '' : 's'} left. Upload wallpapers to earn more!`, { icon: '💡' });
+        }
       }
       setShowGuide(true);
     } catch (err: unknown) {
@@ -628,6 +632,18 @@ export default function WallpaperDetailPage() {
                 </button>
               )}
             </div>
+
+            {isAuthenticated && user && !isOwner && user.coins <= 3 && (
+              <Link
+                to="/upload"
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200/60 dark:border-amber-700/30 text-sm text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-colors"
+              >
+                <span className="text-base">💡</span>
+                {user.coins <= 0
+                  ? 'No coins left — upload a wallpaper to earn coins and keep downloading.'
+                  : `Only ${user.coins} coin${user.coins === 1 ? '' : 's'} remaining. Share your wallpapers to earn more!`}
+              </Link>
+            )}
 
             {/* Metadata Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-6">

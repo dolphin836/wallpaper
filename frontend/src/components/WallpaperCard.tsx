@@ -105,7 +105,11 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
       URL.revokeObjectURL(url);
       setDownloaded(true);
       if (!isOwnWallpaper && user) {
-        updateCoins(user.coins - 1);
+        const remaining = user.coins - 1;
+        updateCoins(remaining);
+        if (remaining <= 3 && remaining > 0) {
+          toast(`${remaining} coin${remaining === 1 ? '' : 's'} left. Upload wallpapers to earn more!`, { icon: '💡' });
+        }
       }
     } catch {
       toast.error('Download failed');

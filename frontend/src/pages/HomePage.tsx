@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { MdDevices } from 'react-icons/md';
 import { AiOutlineAppstore, AiOutlineBars } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { Wallpaper } from '../types';
 import { getWallpapers } from '../api';
+import { useAuthStore } from '../store/auth';
 import WallpaperGrid from '../components/WallpaperGrid';
 import type { ViewMode, SizeMode } from '../components/WallpaperGrid';
 import usePageTitle from '../hooks/usePageTitle';
@@ -65,6 +67,7 @@ function loadFeedCache(): FeedCache | null {
 
 export default function HomePage() {
   usePageTitle('Discover');
+  const { isAuthenticated, user } = useAuthStore();
   const cached = useMemo(() => loadFeedCache(), []);
 
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>(cached?.wallpapers ?? []);
@@ -303,6 +306,21 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {isAuthenticated && user && user.coins <= 0 && (
+        <Link
+          to="/upload"
+          className="flex items-center gap-3 mb-5 px-5 py-3 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/10 dark:to-yellow-900/5 border border-amber-200/50 dark:border-amber-700/20 hover:border-amber-300 dark:hover:border-amber-600/30 transition-colors group"
+        >
+          <span className="text-lg">✨</span>
+          <span className="text-sm text-amber-800 dark:text-amber-300">
+            You're out of coins! Share your wallpapers with the community to earn coins and keep downloading.
+          </span>
+          <span className="ml-auto text-xs font-semibold text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300 whitespace-nowrap">
+            Upload now &rarr;
+          </span>
+        </Link>
+      )}
 
       {/* Gallery */}
       {loading ? (
