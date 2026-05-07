@@ -544,15 +544,7 @@ export default function WallpaperDetailPage() {
                   }`}
                 >
                   {dlLoading ? <AiOutlineLoading3Quarters size={20} className="animate-spin" /> : dlDone ? <AiOutlineCheckCircle size={20} /> : <AiOutlineDownload size={20} />}
-                  {!isOwner && !dlDone && <span className="text-xs opacity-70">💰 1</span>}
-                  <span>
-                    {wallpaper.is_dynamic
-                      ? 'Download Dynamic Wallpaper'
-                      : matchedVariant
-                        ? `Download for ${matchedVariant.brand} ${matchedVariant.device_name}`
-                        : 'Download Original'
-                    }
-                  </span>
+                  <span>Download</span>
                   <span className="text-sm font-normal opacity-70">
                     {wallpaper.is_dynamic
                       ? `${wallpaper.width}\u00D7${wallpaper.height} \u00B7 ${formatFileSize(wallpaper.file_size)}`
