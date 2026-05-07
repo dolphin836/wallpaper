@@ -32,7 +32,8 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   const [loaded, setLoaded] = useState(false);
   const [liked, setLiked] = useState(wallpaper.is_liked ?? false);
   const [favorited, setFavorited] = useState(wallpaper.is_favorited ?? false);
-  const { isAuthenticated } = useAuthStore();
+  const [downloading, setDownloading] = useState(false);
+  const { isAuthenticated, user, updateCoins } = useAuthStore();
   const navigate = useNavigate();
 
   const imgSrc = wallpaper.preview_url || wallpaper.thumb_url;
@@ -50,9 +51,34 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
     action();
   };
 
+  const requireAuth = (action: () => void) => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    action();
+  };
+
+  const isOwnWallpaper = user && wallpaper.user_id === user.id;
+
   const handleDownload = async () => {
+    if (!isOwnWallpaper && user && user.coins <= 0) {
+      toast.error('Insufficient coins. Upload wallpapers to earn more!');
+      return;
+    }
+    setDownloading(true);
     try {
-      const resp = await fetch(downloadWallpaper(wallpaper.id));
+      const resp = await fetch(downloadWallpaper(wallpaper.id), {
+        headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
+      });
+      if (resp.status === 402) {
+        toast.error('Insufficient coins. Upload wallpapers to earn more!');
+        return;
+      }
+      if (!resp.ok) {
+        toast.error('Download failed');
+        return;
+      }
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -63,13 +89,17 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      if (!isOwnWallpaper && user) {
+        updateCoins(user.coins - 1);
+      }
     } catch {
       toast.error('Download failed');
+    } finally {
+      setDownloading(false);
     }
   };
 
   const handleLike = async () => {
-    if (!isAuthenticated) { navigate('/login'); return; }
     try {
       if (liked) {
         await unlikeWallpaper(wallpaper.id);
@@ -83,7 +113,6 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   };
 
   const handleFavorite = async () => {
-    if (!isAuthenticated) { navigate('/login'); return; }
     try {
       if (favorited) {
         await unfavoriteWallpaper(wallpaper.id);
@@ -152,42 +181,43 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           </span>
         )}
 
-        {/* Hover action buttons */}
-        <div className="absolute right-0 top-0 bottom-0 z-[2] opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-l from-black/50 to-transparent pl-8 pr-3 flex items-end pb-3">
+        {/* Action buttons — always visible */}
+        <div className="absolute right-0 top-0 bottom-0 z-[2] bg-gradient-to-l from-black/40 to-transparent pl-8 pr-3 flex items-end pb-3 opacity-0 group-hover:opacity-100 sm:opacity-100 transition-opacity duration-300">
           <div className="flex flex-col gap-2">
-            {isAuthenticated && (
-              <>
-                <button
-                  onClick={(e) => handleAction(e, handleLike)}
-                  className={`p-2 rounded-full backdrop-blur-sm transition-colors ${
-                    liked
-                      ? 'bg-red-500/80 text-white'
-                      : 'bg-white/20 text-white hover:bg-white/30'
-                  }`}
-                  title={liked ? 'Unlike' : 'Like'}
-                >
-                  {liked ? <AiFillHeart size={18} /> : <AiOutlineHeart size={18} />}
-                </button>
-                <button
-                  onClick={(e) => handleAction(e, handleFavorite)}
-                  className={`p-2 rounded-full backdrop-blur-sm transition-colors ${
-                    favorited
-                      ? 'bg-amber-500/80 text-white'
-                      : 'bg-white/20 text-white hover:bg-white/30'
-                  }`}
-                  title={favorited ? 'Unfavorite' : 'Favorite'}
-                >
-                  {favorited ? <AiFillStar size={18} /> : <AiOutlineStar size={18} />}
-                </button>
-              </>
-            )}
+            <button
+              onClick={(e) => handleAction(e, () => requireAuth(handleLike))}
+              className={`p-2 rounded-full backdrop-blur-sm transition-colors ${
+                liked
+                  ? 'bg-red-500/80 text-white'
+                  : 'bg-white/20 text-white hover:bg-white/30'
+              }`}
+              title={liked ? 'Unlike' : 'Like'}
+            >
+              {liked ? <AiFillHeart size={18} /> : <AiOutlineHeart size={18} />}
+            </button>
+            <button
+              onClick={(e) => handleAction(e, () => requireAuth(handleFavorite))}
+              className={`p-2 rounded-full backdrop-blur-sm transition-colors ${
+                favorited
+                  ? 'bg-amber-500/80 text-white'
+                  : 'bg-white/20 text-white hover:bg-white/30'
+              }`}
+              title={favorited ? 'Unfavorite' : 'Favorite'}
+            >
+              {favorited ? <AiFillStar size={18} /> : <AiOutlineStar size={18} />}
+            </button>
             {canDownload && (
               <button
-                onClick={(e) => handleAction(e, handleDownload)}
-                className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm transition-colors"
-                title="Download"
+                onClick={(e) => handleAction(e, () => requireAuth(handleDownload))}
+                disabled={downloading}
+                className="p-2 rounded-full bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm transition-colors disabled:opacity-50"
+                title="Download (1 coin)"
               >
-                <AiOutlineDownload size={18} />
+                {downloading ? (
+                  <AiOutlineLoading3Quarters size={18} className="animate-spin" />
+                ) : (
+                  <AiOutlineDownload size={18} />
+                )}
               </button>
             )}
           </div>

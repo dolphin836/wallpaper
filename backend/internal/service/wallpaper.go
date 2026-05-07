@@ -24,6 +24,7 @@ type WallpaperService struct {
 	interactionRepo *repo.InteractionRepo
 	userRepo        *repo.UserRepo
 	eventRepo       *repo.EventRepo
+	coinRepo        *repo.CoinRepo
 	storage         *storage.Storage
 	kafkaWriter     *kafka.Writer
 }
@@ -34,6 +35,7 @@ func NewWallpaperService(
 	ir *repo.InteractionRepo,
 	ur *repo.UserRepo,
 	er *repo.EventRepo,
+	cr *repo.CoinRepo,
 	st *storage.Storage,
 	kw *kafka.Writer,
 ) *WallpaperService {
@@ -43,6 +45,7 @@ func NewWallpaperService(
 		interactionRepo: ir,
 		userRepo:        ur,
 		eventRepo:       er,
+		coinRepo:        cr,
 		storage:         st,
 		kafkaWriter:     kw,
 	}
@@ -137,6 +140,10 @@ func (s *WallpaperService) Upload(ctx context.Context, userID int64, req UploadR
 	}
 
 	s.publishUploadedEvent(ctx, w, userID, objectName)
+
+	if _, err := s.coinRepo.AddCoins(ctx, userID, 1, model.CoinTxUploadReward, w.ID, "Upload wallpaper reward"); err != nil {
+		slog.ErrorContext(ctx, "failed to grant upload coin", "error", err, "user_id", userID, "wallpaper_id", w.ID)
+	}
 
 	return w, nil
 }
@@ -446,7 +453,7 @@ func (s *WallpaperService) Unfavorite(ctx context.Context, userID, wallpaperID i
 	return nil
 }
 
-func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64) (string, *errcode.ErrCode) {
+func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, userID int64) (string, *errcode.ErrCode) {
 	w, err := s.wallpaperRepo.GetByID(ctx, wallpaperID)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get wallpaper",
@@ -457,11 +464,24 @@ func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64) (str
 		return "", errcode.ErrNotFound
 	}
 
+	isOwner := w.UserID == userID
+
+	if !isOwner {
+		if _, err := s.coinRepo.AddCoins(ctx, userID, -1, model.CoinTxDownloadCost, wallpaperID, "Download wallpaper"); err != nil {
+			slog.WarnContext(ctx, "coin deduction failed", "error", err, "user_id", userID, "wallpaper_id", wallpaperID)
+			return "", errcode.ErrInsufficientCoins
+		}
+
+		if _, err := s.coinRepo.AddCoins(ctx, w.UserID, 1, model.CoinTxDownloadEarned, wallpaperID, "Wallpaper downloaded by others"); err != nil {
+			slog.ErrorContext(ctx, "failed to reward uploader", "error", err, "uploader_id", w.UserID, "wallpaper_id", wallpaperID)
+		}
+	}
+
 	if err := s.wallpaperRepo.IncrementCounter(ctx, wallpaperID, "download_count", 1); err != nil {
 		slog.ErrorContext(ctx, "failed to increment download count", "error", err)
 	}
 
-	if err := s.eventRepo.Record(ctx, wallpaperID, "download", 0, nil); err != nil {
+	if err := s.eventRepo.Record(ctx, wallpaperID, "download", userID, nil); err != nil {
 		slog.ErrorContext(ctx, "failed to record download event", "error", err, "wallpaper_id", wallpaperID)
 	}
 

@@ -19,6 +19,7 @@ var (
 	ErrNotFound      = &ErrCode{40400, "resource not found"}
 	ErrUserExists    = &ErrCode{40901, "username or email already exists"}
 	ErrRateLimited   = &ErrCode{42900, "too many requests"}
-	ErrInternal      = &ErrCode{50000, "internal server error"}
-	ErrUploadFailed  = &ErrCode{50001, "file upload failed"}
+	ErrInsufficientCoins = &ErrCode{40201, "insufficient coins"}
+	ErrInternal          = &ErrCode{50000, "internal server error"}
+	ErrUploadFailed      = &ErrCode{50001, "file upload failed"}
 )

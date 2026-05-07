@@ -283,11 +283,16 @@ func (h *WallpaperHandler) Download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, ec := h.wallpaperSvc.Download(r.Context(), id)
+	userID := middleware.GetUserID(r.Context())
+
+	url, ec := h.wallpaperSvc.Download(r.Context(), id, userID)
 	if ec != nil {
 		status := http.StatusInternalServerError
-		if ec.Code == errcode.ErrNotFound.Code {
+		switch ec.Code {
+		case errcode.ErrNotFound.Code:
 			status = http.StatusNotFound
+		case errcode.ErrInsufficientCoins.Code:
+			status = http.StatusPaymentRequired
 		}
 		response.Error(w, status, ec)
 		return

@@ -5,7 +5,19 @@ export interface User {
   nickname: string;
   avatar_url: string;
   bio: string;
+  coins: number;
   status: number;
+  created_at: string;
+}
+
+export interface CoinTransaction {
+  id: number;
+  user_id: number;
+  amount: number;
+  balance: number;
+  tx_type: string;
+  ref_id: number;
+  description: string;
   created_at: string;
 }
 

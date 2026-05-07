@@ -84,17 +84,18 @@ func main() {
 	deviceRepo := repo.NewDeviceRepo(db)
 	collectionRepo := repo.NewCollectionRepo(db)
 	eventRepo := repo.NewEventRepo(db)
+	coinRepo := repo.NewCoinRepo(db)
 
-	authSvc := service.NewAuthService(userRepo, cfg.JWT.Secret, cfg.JWT.ExpireHour)
-	wallpaperSvc := service.NewWallpaperService(wallpaperRepo, tagRepo, interactionRepo, userRepo, eventRepo, store, kafkaWriter)
+	authSvc := service.NewAuthService(userRepo, coinRepo, cfg.JWT.Secret, cfg.JWT.ExpireHour)
+	wallpaperSvc := service.NewWallpaperService(wallpaperRepo, tagRepo, interactionRepo, userRepo, eventRepo, coinRepo, store, kafkaWriter)
 	collectionSvc := service.NewCollectionService(collectionRepo, interactionRepo)
 
 	authHandler := handler.NewAuthHandler(authSvc)
 	wallpaperHandler := handler.NewWallpaperHandler(wallpaperSvc)
 	categoryHandler := handler.NewCategoryHandler(categoryRepo)
 	tagHandler := handler.NewTagHandler(tagRepo)
-	userHandler := handler.NewUserHandler(userRepo, wallpaperRepo, interactionRepo)
-	deviceHandler := handler.NewDeviceHandler(deviceRepo, eventRepo)
+	userHandler := handler.NewUserHandler(userRepo, wallpaperRepo, interactionRepo, coinRepo)
+	deviceHandler := handler.NewDeviceHandler(deviceRepo, eventRepo, wallpaperRepo, coinRepo)
 	collectionHandler := handler.NewCollectionHandler(collectionSvc)
 
 	router := handler.NewRouter(handler.Deps{

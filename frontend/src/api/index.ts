@@ -1,5 +1,5 @@
 import client from './client';
-import type { ApiResponse, AuthResponse, Wallpaper, WallpaperDetail, PaginatedData, Category, Tag, User, DeviceProfile, WallpaperVariant, Collection, CollectionDetail, CollectionBrief } from '../types';
+import type { ApiResponse, AuthResponse, Wallpaper, WallpaperDetail, PaginatedData, Category, Tag, User, DeviceProfile, WallpaperVariant, Collection, CollectionDetail, CollectionBrief, CoinTransaction } from '../types';
 
 export const register = (data: { username: string; email: string; password: string }) =>
   client.post<ApiResponse<AuthResponse>>('/auth/register', data);
@@ -108,3 +108,9 @@ export const getUserCollections = (userId: number, params?: { cursor?: number; l
 
 export const downloadVariant = (wallpaperId: number, variantId: number) =>
   client.post<ApiResponse<{ url: string }>>(`/wallpapers/${wallpaperId}/variants/${variantId}/download`);
+
+export const getMyCoins = () =>
+  client.get<ApiResponse<{ coins: number }>>('/users/me/coins');
+
+export const getCoinTransactions = (params: { cursor?: number; limit?: number }) =>
+  client.get<ApiResponse<PaginatedData<CoinTransaction>>>('/users/me/coin-transactions', { params });

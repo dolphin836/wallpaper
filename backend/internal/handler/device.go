@@ -14,12 +14,19 @@ import (
 )
 
 type DeviceHandler struct {
-	deviceRepo *repo.DeviceRepo
-	eventRepo  *repo.EventRepo
+	deviceRepo    *repo.DeviceRepo
+	eventRepo     *repo.EventRepo
+	wallpaperRepo *repo.WallpaperRepo
+	coinRepo      *repo.CoinRepo
 }
 
-func NewDeviceHandler(deviceRepo *repo.DeviceRepo, eventRepo *repo.EventRepo) *DeviceHandler {
-	return &DeviceHandler{deviceRepo: deviceRepo, eventRepo: eventRepo}
+func NewDeviceHandler(deviceRepo *repo.DeviceRepo, eventRepo *repo.EventRepo, wallpaperRepo *repo.WallpaperRepo, coinRepo *repo.CoinRepo) *DeviceHandler {
+	return &DeviceHandler{
+		deviceRepo:    deviceRepo,
+		eventRepo:     eventRepo,
+		wallpaperRepo: wallpaperRepo,
+		coinRepo:      coinRepo,
+	}
 }
 
 func (h *DeviceHandler) ListDevices(w http.ResponseWriter, r *http.Request) {
@@ -70,11 +77,32 @@ func (h *DeviceHandler) DownloadVariant(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	userID := middleware.GetUserID(r.Context())
+
+	wp, err := h.wallpaperRepo.GetByID(r.Context(), wallpaperID)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to get wallpaper for coin check", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	isOwner := wp != nil && wp.UserID == userID
+	if !isOwner {
+		if _, err := h.coinRepo.AddCoins(r.Context(), userID, -1, "download_cost", wallpaperID, "Download wallpaper variant"); err != nil {
+			response.Error(w, http.StatusPaymentRequired, errcode.ErrInsufficientCoins)
+			return
+		}
+		if wp != nil {
+			if _, err := h.coinRepo.AddCoins(r.Context(), wp.UserID, 1, "download_earned", wallpaperID, "Wallpaper variant downloaded by others"); err != nil {
+				slog.ErrorContext(r.Context(), "failed to reward uploader for variant download", "error", err)
+			}
+		}
+	}
+
 	if err := h.deviceRepo.IncrementVariantDownload(r.Context(), variantID); err != nil {
 		slog.ErrorContext(r.Context(), "failed to increment variant download count", "error", err, "variant_id", variantID)
 	}
 
-	userID := middleware.GetUserID(r.Context())
 	if err := h.eventRepo.Record(r.Context(), wallpaperID, "variant_download", userID, &variantID); err != nil {
 		slog.ErrorContext(r.Context(), "failed to record variant download event", "error", err, "wallpaper_id", wallpaperID, "variant_id", variantID)
 	}

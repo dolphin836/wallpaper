@@ -24,7 +24,7 @@ func (r *UserRepo) Create(ctx context.Context, user *model.User) error {
 func (r *UserRepo) GetByID(ctx context.Context, id int64) (*model.User, error) {
 	var user model.User
 	err := r.db.WithContext(ctx).
-		Select("id, username, email, nickname, avatar_url, bio, status, created_at").
+		Select("id, username, email, nickname, avatar_url, bio, coins, status, created_at").
 		Where("id = ?", id).
 		First(&user).Error
 	if err != nil {

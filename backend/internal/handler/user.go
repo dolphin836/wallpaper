@@ -18,13 +18,15 @@ type UserHandler struct {
 	userRepo        *repo.UserRepo
 	wallpaperRepo   *repo.WallpaperRepo
 	interactionRepo *repo.InteractionRepo
+	coinRepo        *repo.CoinRepo
 }
 
-func NewUserHandler(ur *repo.UserRepo, wr *repo.WallpaperRepo, ir *repo.InteractionRepo) *UserHandler {
+func NewUserHandler(ur *repo.UserRepo, wr *repo.WallpaperRepo, ir *repo.InteractionRepo, cr *repo.CoinRepo) *UserHandler {
 	return &UserHandler{
 		userRepo:        ur,
 		wallpaperRepo:   wr,
 		interactionRepo: ir,
+		coinRepo:        cr,
 	}
 }
 
@@ -135,6 +137,47 @@ func (h *UserHandler) GetLikes(w http.ResponseWriter, r *http.Request) {
 	items, err := h.interactionRepo.ListLikes(r.Context(), userID, cursor, fetchLimit)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to list likes",
+			"error", err, "user_id", userID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	hasMore := len(items) == fetchLimit
+	if hasMore {
+		items = items[:len(items)-1]
+	}
+
+	var nextCursor int64
+	if hasMore && len(items) > 0 {
+		nextCursor = items[len(items)-1].ID
+	}
+
+	response.OK(w, map[string]any{
+		"items":       items,
+		"next_cursor": nextCursor,
+		"has_more":    hasMore,
+	})
+}
+
+func (h *UserHandler) GetCoins(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	balance, err := h.coinRepo.GetBalance(r.Context(), userID)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to get coin balance", "error", err, "user_id", userID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, map[string]int64{"coins": balance})
+}
+
+func (h *UserHandler) GetCoinTransactions(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	cursor, limit := parseCursorLimit(r)
+	fetchLimit := limit + 1
+
+	items, err := h.coinRepo.ListTransactions(r.Context(), userID, cursor, fetchLimit)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to list coin transactions",
 			"error", err, "user_id", userID)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return

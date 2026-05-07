@@ -49,9 +49,7 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Use(middleware.OptionalAuth(deps.JWTSecret))
 			r.Get("/wallpapers", deps.WallpaperHandler.List)
 			r.Get("/wallpapers/{id}", deps.WallpaperHandler.Get)
-			r.Get("/wallpapers/{id}/download", deps.WallpaperHandler.Download)
 			r.Get("/wallpapers/{id}/variants", deps.DeviceHandler.ListVariants)
-			r.Post("/wallpapers/{id}/variants/{vid}/download", deps.DeviceHandler.DownloadVariant)
 
 			r.Get("/collections", deps.CollectionHandler.List)
 			r.Get("/collections/{id}", deps.CollectionHandler.Get)
@@ -63,10 +61,15 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Use(middleware.Auth(deps.JWTSecret))
 			r.Post("/wallpapers", deps.WallpaperHandler.Upload)
 			r.Delete("/wallpapers/{id}", deps.WallpaperHandler.Delete)
+			r.Get("/wallpapers/{id}/download", deps.WallpaperHandler.Download)
+			r.Post("/wallpapers/{id}/variants/{vid}/download", deps.DeviceHandler.DownloadVariant)
 			r.Post("/wallpapers/{id}/like", deps.WallpaperHandler.Like)
 			r.Delete("/wallpapers/{id}/like", deps.WallpaperHandler.Unlike)
 			r.Post("/wallpapers/{id}/favorite", deps.WallpaperHandler.Favorite)
 			r.Delete("/wallpapers/{id}/favorite", deps.WallpaperHandler.Unfavorite)
+
+			r.Get("/users/me/coins", deps.UserHandler.GetCoins)
+			r.Get("/users/me/coin-transactions", deps.UserHandler.GetCoinTransactions)
 
 			r.Post("/collections", deps.CollectionHandler.Create)
 			r.Put("/collections/{id}", deps.CollectionHandler.Update)

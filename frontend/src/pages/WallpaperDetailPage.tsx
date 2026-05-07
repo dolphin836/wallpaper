@@ -234,7 +234,7 @@ function VariantList({ variants, matchedId, onMockup }: { variants: WallpaperVar
 export default function WallpaperDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, updateCoins } = useAuthStore();
   const [wallpaper, setWallpaper] = useState<WallpaperDetail | null>(null);
   const [variants, setVariants] = useState<WallpaperVariant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -337,7 +337,13 @@ export default function WallpaperDetailPage() {
   };
 
   const handleDownload = async (variant?: WallpaperVariant) => {
+    if (!isAuthenticated) { navigate('/login'); return; }
     if (!wallpaper) return;
+    const isOwnerDl = user?.id === wallpaper.user_id;
+    if (!isOwnerDl && user && user.coins <= 0) {
+      toast.error('Insufficient coins. Upload wallpapers to earn more!');
+      return;
+    }
     const useVariant = wallpaper.is_dynamic ? null : (variant || matchedVariant);
     try {
       let blobUrl: string;
@@ -349,7 +355,17 @@ export default function WallpaperDetailPage() {
         filename = `wallpaper_${wallpaper.id}_${useVariant.width}x${useVariant.height}.jpg`;
       } else {
         const url = downloadWallpaper(wallpaper.id);
-        const resp = await fetch(url);
+        const resp = await fetch(url, {
+          headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
+        });
+        if (resp.status === 402) {
+          toast.error('Insufficient coins. Upload wallpapers to earn more!');
+          return;
+        }
+        if (!resp.ok) {
+          toast.error('Download failed');
+          return;
+        }
         const finalUrl = resp.url;
         const blob = await resp.blob();
         blobUrl = URL.createObjectURL(blob);
@@ -364,6 +380,9 @@ export default function WallpaperDetailPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
       setWallpaper({ ...wallpaper, download_count: wallpaper.download_count + 1 });
+      if (!isOwnerDl && user) {
+        updateCoins(user.coins - 1);
+      }
       setShowGuide(true);
     } catch {
       toast.error('Download failed');
@@ -516,6 +535,7 @@ export default function WallpaperDetailPage() {
                   className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-3.5 text-base font-semibold text-white bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 rounded-full transition-colors duration-200"
                 >
                   <AiOutlineDownload size={20} />
+                  {!isOwner && <span className="text-xs opacity-70">🪙 1</span>}
                   <span>
                     {wallpaper.is_dynamic
                       ? 'Download Dynamic Wallpaper'

@@ -159,6 +159,21 @@ ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS is_dynamic BOOLEAN NOT NULL DEFA
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS dynamic_type VARCHAR(16) NOT NULL DEFAULT '';
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS frame_urls TEXT NOT NULL DEFAULT '';
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS coins BIGINT NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS coin_transactions (
+    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id      BIGINT       NOT NULL,
+    amount       BIGINT       NOT NULL,
+    balance      BIGINT       NOT NULL,
+    tx_type      VARCHAR(32)  NOT NULL,
+    ref_id       BIGINT       NOT NULL DEFAULT 0,
+    description  VARCHAR(256) NOT NULL DEFAULT '',
+    created_at   TIMESTAMPTZ(6) NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_coin_tx_user ON coin_transactions(user_id, created_at DESC);
+
 INSERT INTO categories (name, slug, sort_order) VALUES
     ('自然风光', 'nature', 1),
     ('城市建筑', 'city', 2),

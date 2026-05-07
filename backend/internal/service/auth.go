@@ -7,21 +7,23 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/wallpaper/backend/internal/pkg/errcode"
 	"github.com/wallpaper/backend/internal/model"
+	"github.com/wallpaper/backend/internal/pkg/errcode"
 	jwtpkg "github.com/wallpaper/backend/internal/pkg/jwt"
 	"github.com/wallpaper/backend/internal/repo"
 )
 
 type AuthService struct {
 	userRepo  *repo.UserRepo
+	coinRepo  *repo.CoinRepo
 	jwtSecret string
 	jwtExpire int
 }
 
-func NewAuthService(userRepo *repo.UserRepo, jwtSecret string, jwtExpire int) *AuthService {
+func NewAuthService(userRepo *repo.UserRepo, coinRepo *repo.CoinRepo, jwtSecret string, jwtExpire int) *AuthService {
 	return &AuthService{
 		userRepo:  userRepo,
+		coinRepo:  coinRepo,
 		jwtSecret: jwtSecret,
 		jwtExpire: jwtExpire,
 	}
@@ -86,6 +88,14 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (*AuthR
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		slog.ErrorContext(ctx, "failed to create user", "error", err)
 		return nil, errcode.ErrInternal
+	}
+
+	const registerBonus int64 = 10
+	balance, err := s.coinRepo.AddCoins(ctx, user.ID, registerBonus, model.CoinTxRegisterBonus, 0, "Registration bonus")
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to grant register bonus", "error", err, "user_id", user.ID)
+	} else {
+		user.Coins = balance
 	}
 
 	token, err := jwtpkg.GenerateToken(user.ID, s.jwtSecret, s.jwtExpire)

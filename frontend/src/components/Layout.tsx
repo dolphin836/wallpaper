@@ -81,6 +81,16 @@ export default function Layout() {
               >
                 {dark ? <BsSun size={18} /> : <BsMoon size={18} />}
               </button>
+              {isAuthenticated && user && (
+                <Link
+                  to="/coins"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors duration-200 text-sm font-medium"
+                  title="My coins"
+                >
+                  <span className="text-base">🪙</span>
+                  <span>{user.coins ?? 0}</span>
+                </Link>
+              )}
               {isAuthenticated && user ? (
                 <div className="relative" ref={dropdownRef}>
                   <button
@@ -158,6 +168,9 @@ export default function Layout() {
             )}
             {isAuthenticated && user ? (
               <>
+                <Link to="/coins" onClick={() => setMenuOpen(false)} className="flex items-center gap-1.5 py-2 text-amber-600 font-medium">
+                  <span>🪙</span> {user.coins ?? 0} coins
+                </Link>
                 <Link to={`/user/${user.id}`} onClick={() => setMenuOpen(false)} className="block py-2 text-gray-700 hover:text-indigo-600">
                   Profile
                 </Link>
