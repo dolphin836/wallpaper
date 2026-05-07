@@ -31,10 +31,10 @@ export default function RegisterPage() {
 
   return (
     <div className="relative min-h-[calc(100vh-10rem)] flex items-center justify-center px-4">
-      <div className="absolute inset-0 -z-10">
-        <DotField dotRadius={1.5} dotSpacing={14} bulgeStrength={67} glowRadius={160} sparkle={false} waveAmplitude={0} />
+      <div className="absolute inset-0 pointer-events-none">
+        <DotField dotRadius={1.5} dotSpacing={14} bulgeStrength={67} glowRadius={160} sparkle={false} waveAmplitude={0} style={{ pointerEvents: 'auto' }} />
       </div>
-      <div className="w-full max-w-md bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+      <div className="relative z-10 w-full max-w-md bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
         <h1 className="text-2xl font-bold text-gray-900 text-center mb-8">Create Account</h1>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
