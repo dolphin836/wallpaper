@@ -341,13 +341,20 @@ export default function HomePage() {
       ) : (
         <>
           <WallpaperGrid wallpapers={wallpapers} viewMode={viewMode} sizeMode={sizeMode} />
-          {hasMore && (
-            <div ref={sentinelRef} className="flex justify-center py-8">
+          {hasMore ? (
+            <div ref={sentinelRef} className="flex justify-center py-10">
               {loadingMore && (
-                <div className="w-6 h-6 border-2 border-slate-200 dark:border-ws-dark-card border-t-ws-purple rounded-full animate-spin" />
+                <div className="flex items-center gap-2 text-xs text-ws-muted dark:text-ws-dark-muted">
+                  <div className="w-4 h-4 border-2 border-slate-200 dark:border-white/10 border-t-ws-purple rounded-full animate-spin" />
+                  <span>Loading more...</span>
+                </div>
               )}
             </div>
-          )}
+          ) : wallpapers.length > 0 ? (
+            <div className="flex justify-center py-10">
+              <span className="text-xs text-ws-muted/60 dark:text-ws-dark-muted/40">You've reached the end</span>
+            </div>
+          ) : null}
         </>
       )}
     </div>
