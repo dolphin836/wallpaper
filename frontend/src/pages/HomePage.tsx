@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { MdDevices, MdTrendingUp } from 'react-icons/md';
+import { MdDevices } from 'react-icons/md';
 import { AiOutlineStar, AiOutlineClockCircle, AiOutlineAppstore, AiOutlineBars } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { Wallpaper } from '../types';

@@ -9,7 +9,6 @@ import {
   AiOutlineLeft,
   AiOutlineRight,
   AiOutlineSearch,
-  AiOutlineCloudUpload,
   AiOutlineLogout,
 } from 'react-icons/ai';
 import { BsSun, BsMoon } from 'react-icons/bs';
