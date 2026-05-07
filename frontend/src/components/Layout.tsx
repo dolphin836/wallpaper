@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { AiOutlineMenu, AiOutlineClose } from 'react-icons/ai';
@@ -30,23 +30,10 @@ export default function Layout() {
   const { isAuthenticated, user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const [dark, toggleDark] = useDarkMode();
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const handleLogout = () => {
     logout();
-    setDropdownOpen(false);
     navigate('/');
   };
 
@@ -92,10 +79,11 @@ export default function Layout() {
                 </Link>
               )}
               {isAuthenticated && user ? (
-                <div className="relative" ref={dropdownRef}>
-                  <button
-                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                <>
+                  <Link
+                    to={`/user/${user.id}`}
                     className="flex items-center gap-2 rounded-full px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                    title="Profile"
                   >
                     {user.avatar_url ? (
                       <img src={user.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
@@ -107,25 +95,14 @@ export default function Layout() {
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                       {user.nickname || user.username}
                     </span>
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="px-3 py-1.5 text-sm font-medium text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors duration-200"
+                  >
+                    Logout
                   </button>
-                  {dropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1">
-                      <Link
-                        to={`/user/${user.id}`}
-                        onClick={() => setDropdownOpen(false)}
-                        className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-                      >
-                        Profile
-                      </Link>
-                      <button
-                        onClick={handleLogout}
-                        className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  )}
-                </div>
+                </>
               ) : (
                 <>
                   <Link
