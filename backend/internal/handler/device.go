@@ -14,18 +14,20 @@ import (
 )
 
 type DeviceHandler struct {
-	deviceRepo    *repo.DeviceRepo
-	eventRepo     *repo.EventRepo
-	wallpaperRepo *repo.WallpaperRepo
-	coinRepo      *repo.CoinRepo
+	deviceRepo      *repo.DeviceRepo
+	eventRepo       *repo.EventRepo
+	wallpaperRepo   *repo.WallpaperRepo
+	coinRepo        *repo.CoinRepo
+	interactionRepo *repo.InteractionRepo
 }
 
-func NewDeviceHandler(deviceRepo *repo.DeviceRepo, eventRepo *repo.EventRepo, wallpaperRepo *repo.WallpaperRepo, coinRepo *repo.CoinRepo) *DeviceHandler {
+func NewDeviceHandler(deviceRepo *repo.DeviceRepo, eventRepo *repo.EventRepo, wallpaperRepo *repo.WallpaperRepo, coinRepo *repo.CoinRepo, interactionRepo *repo.InteractionRepo) *DeviceHandler {
 	return &DeviceHandler{
-		deviceRepo:    deviceRepo,
-		eventRepo:     eventRepo,
-		wallpaperRepo: wallpaperRepo,
-		coinRepo:      coinRepo,
+		deviceRepo:      deviceRepo,
+		eventRepo:       eventRepo,
+		wallpaperRepo:   wallpaperRepo,
+		coinRepo:        coinRepo,
+		interactionRepo: interactionRepo,
 	}
 }
 
@@ -91,12 +93,24 @@ func (h *DeviceHandler) DownloadVariant(w http.ResponseWriter, r *http.Request) 
 
 	isOwner := wp != nil && wp.UserID == userID
 	if !isOwner && wp != nil {
-		if _, err := h.coinRepo.Transfer(r.Context(), userID, wp.UserID, 1,
-			"download_cost", "download_earned", wallpaperID,
-			"Download wallpaper variant", "Wallpaper variant downloaded by others"); err != nil {
-			response.Error(w, http.StatusPaymentRequired, errcode.ErrInsufficientCoins)
+		alreadyPaid, checkErr := h.interactionRepo.HasDownloaded(r.Context(), userID, wallpaperID)
+		if checkErr != nil {
+			slog.ErrorContext(r.Context(), "failed to check download history", "error", checkErr)
+			response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 			return
 		}
+		if !alreadyPaid {
+			if _, err := h.coinRepo.Transfer(r.Context(), userID, wp.UserID, 1,
+				"download_cost", "download_earned", wallpaperID,
+				"Download wallpaper variant", "Wallpaper variant downloaded by others"); err != nil {
+				response.Error(w, http.StatusPaymentRequired, errcode.ErrInsufficientCoins)
+				return
+			}
+		}
+	}
+
+	if err := h.interactionRepo.RecordDownload(r.Context(), userID, wallpaperID); err != nil {
+		slog.ErrorContext(r.Context(), "failed to record download", "error", err)
 	}
 
 	if err := h.deviceRepo.IncrementVariantDownload(r.Context(), variantID); err != nil {

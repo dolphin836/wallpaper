@@ -9,6 +9,7 @@ import {
   AiOutlineDelete,
   AiOutlineFullscreen,
   AiOutlineClose,
+  AiOutlineLoading3Quarters,
 } from 'react-icons/ai';
 import { MdPhoneIphone, MdPlaylistAdd } from 'react-icons/md';
 import toast from 'react-hot-toast';
@@ -221,6 +222,7 @@ export default function WallpaperDetailPage() {
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [dlLoading, setDlLoading] = useState(false);
   const [frameIdx, setFrameIdx] = useState(0);
   const [framePlaying, setFramePlaying] = useState(true);
 
@@ -313,6 +315,7 @@ export default function WallpaperDetailPage() {
   };
 
   const handleDownload = async (variant?: WallpaperVariant) => {
+    if (dlLoading) return;
     if (!isAuthenticated) { navigate('/login'); return; }
     if (!wallpaper) return;
     const isOwnerDl = user?.id === wallpaper.user_id;
@@ -321,6 +324,7 @@ export default function WallpaperDetailPage() {
       return;
     }
     const useVariant = wallpaper.is_dynamic ? null : (variant || matchedVariant);
+    setDlLoading(true);
     try {
       let blobUrl: string;
       let filename: string;
@@ -370,6 +374,8 @@ export default function WallpaperDetailPage() {
       } else {
         toast.error('Download failed');
       }
+    } finally {
+      setDlLoading(false);
     }
   };
 
@@ -525,9 +531,10 @@ export default function WallpaperDetailPage() {
               ) : (
                 <button
                   onClick={() => handleDownload()}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-3.5 text-base font-semibold text-white bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 rounded-full transition-colors duration-200"
+                  disabled={dlLoading}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-3.5 text-base font-semibold text-white bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 rounded-full transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <AiOutlineDownload size={20} />
+                  {dlLoading ? <AiOutlineLoading3Quarters size={20} className="animate-spin" /> : <AiOutlineDownload size={20} />}
                   {!isOwner && <span className="text-xs opacity-70">🪙 1</span>}
                   <span>
                     {wallpaper.is_dynamic

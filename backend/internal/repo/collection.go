@@ -211,6 +211,34 @@ func (r *CollectionRepo) IncrementCounter(ctx context.Context, id int64, field s
 		Update(field, gorm.Expr(field+" + ?", delta)).Error
 }
 
+func (r *CollectionRepo) RemoveWallpaperFromAll(ctx context.Context, wallpaperID int64) error {
+	var collectionIDs []int64
+	if err := r.db.WithContext(ctx).
+		Model(&model.CollectionWallpaper{}).
+		Where("wallpaper_id = ?", wallpaperID).
+		Pluck("collection_id", &collectionIDs).Error; err != nil {
+		return fmt.Errorf("find collections: %w", err)
+	}
+	if len(collectionIDs) == 0 {
+		return nil
+	}
+
+	if err := r.db.WithContext(ctx).
+		Where("wallpaper_id = ?", wallpaperID).
+		Delete(&model.CollectionWallpaper{}).Error; err != nil {
+		return fmt.Errorf("delete from collections: %w", err)
+	}
+
+	if err := r.db.WithContext(ctx).
+		Model(&model.Collection{}).
+		Where("id IN ? AND wallpaper_count > 0", collectionIDs).
+		UpdateColumn("wallpaper_count", gorm.Expr("wallpaper_count - 1")).Error; err != nil {
+		return fmt.Errorf("decrement wallpaper_count: %w", err)
+	}
+
+	return nil
+}
+
 func (r *CollectionRepo) ListUserCollections(ctx context.Context, userID int64) ([]CollectionBrief, error) {
 	var items []CollectionBrief
 	err := r.db.WithContext(ctx).

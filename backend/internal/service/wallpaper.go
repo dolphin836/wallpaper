@@ -25,6 +25,7 @@ type WallpaperService struct {
 	userRepo        *repo.UserRepo
 	eventRepo       *repo.EventRepo
 	coinRepo        *repo.CoinRepo
+	collectionRepo  *repo.CollectionRepo
 	storage         *storage.Storage
 	kafkaWriter     *kafka.Writer
 }
@@ -36,6 +37,7 @@ func NewWallpaperService(
 	ur *repo.UserRepo,
 	er *repo.EventRepo,
 	cr *repo.CoinRepo,
+	colr *repo.CollectionRepo,
 	st *storage.Storage,
 	kw *kafka.Writer,
 ) *WallpaperService {
@@ -46,6 +48,7 @@ func NewWallpaperService(
 		userRepo:        ur,
 		eventRepo:       er,
 		coinRepo:        cr,
+		collectionRepo:  colr,
 		storage:         st,
 		kafkaWriter:     kw,
 	}
@@ -364,6 +367,11 @@ func (s *WallpaperService) Delete(ctx context.Context, id int64, userID int64) *
 		return errcode.ErrForbidden
 	}
 
+	if err := s.collectionRepo.RemoveWallpaperFromAll(ctx, id); err != nil {
+		slog.ErrorContext(ctx, "failed to remove wallpaper from collections",
+			"error", err, "wallpaper_id", id)
+	}
+
 	if err := s.wallpaperRepo.Delete(ctx, id); err != nil {
 		slog.ErrorContext(ctx, "failed to delete wallpaper",
 			"error", err, "wallpaper_id", id)
@@ -479,12 +487,23 @@ func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, user
 	isOwner := w.UserID == userID
 
 	if !isOwner {
-		if _, err := s.coinRepo.Transfer(ctx, userID, w.UserID, 1,
-			model.CoinTxDownloadCost, model.CoinTxDownloadEarned, wallpaperID,
-			"Download wallpaper", "Wallpaper downloaded by others"); err != nil {
-			slog.WarnContext(ctx, "coin transfer failed", "error", err, "user_id", userID, "wallpaper_id", wallpaperID)
-			return "", errcode.ErrInsufficientCoins
+		alreadyPaid, err := s.interactionRepo.HasDownloaded(ctx, userID, wallpaperID)
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to check download history", "error", err)
+			return "", errcode.ErrInternal
 		}
+		if !alreadyPaid {
+			if _, err := s.coinRepo.Transfer(ctx, userID, w.UserID, 1,
+				model.CoinTxDownloadCost, model.CoinTxDownloadEarned, wallpaperID,
+				"Download wallpaper", "Wallpaper downloaded by others"); err != nil {
+				slog.WarnContext(ctx, "coin transfer failed", "error", err, "user_id", userID, "wallpaper_id", wallpaperID)
+				return "", errcode.ErrInsufficientCoins
+			}
+		}
+	}
+
+	if err := s.interactionRepo.RecordDownload(ctx, userID, wallpaperID); err != nil {
+		slog.ErrorContext(ctx, "failed to record download", "error", err)
 	}
 
 	if err := s.wallpaperRepo.IncrementCounter(ctx, wallpaperID, "download_count", 1); err != nil {

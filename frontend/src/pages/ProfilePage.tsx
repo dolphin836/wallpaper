@@ -3,13 +3,13 @@ import { useParams, Link } from 'react-router-dom';
 import { AiOutlineHeart, AiOutlineEye, AiOutlinePicture } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { User, Wallpaper, Collection } from '../types';
-import { getUserProfile, getUserWallpapers, getUserCollections, getMyFavorites, getMyLikes } from '../api';
+import { getUserProfile, getUserWallpapers, getUserCollections, getMyFavorites, getMyLikes, getMyDownloads } from '../api';
 import { useAuthStore } from '../store/auth';
 import WallpaperGrid from '../components/WallpaperGrid';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 
-type TabKey = 'wallpapers' | 'collections' | 'favorites' | 'likes';
+type TabKey = 'wallpapers' | 'collections' | 'favorites' | 'likes' | 'downloads';
 
 interface WallpaperTab {
   items: Wallpaper[];
@@ -33,6 +33,7 @@ export default function ProfilePage() {
     wallpapers: { items: [], hasMore: false, loaded: false },
     favorites: { items: [], hasMore: false, loaded: false },
     likes: { items: [], hasMore: false, loaded: false },
+    downloads: { items: [], hasMore: false, loaded: false },
   });
 
   const updateTab = (key: string, updates: Partial<WallpaperTab>) => {
@@ -46,6 +47,7 @@ export default function ProfilePage() {
       wallpapers: { items: [], hasMore: false, loaded: false },
       favorites: { items: [], hasMore: false, loaded: false },
       likes: { items: [], hasMore: false, loaded: false },
+      downloads: { items: [], hasMore: false, loaded: false },
     });
     setActiveTab('wallpapers');
 
@@ -64,11 +66,11 @@ export default function ProfilePage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const loadTabData = useCallback(async (key: 'favorites' | 'likes') => {
+  const loadTabData = useCallback(async (key: 'favorites' | 'likes' | 'downloads') => {
     if (tabs[key].loaded) return;
-    const fetcher = key === 'favorites' ? getMyFavorites : getMyLikes;
+    const fetchers = { favorites: getMyFavorites, likes: getMyLikes, downloads: getMyDownloads };
     try {
-      const res = await fetcher({ limit: 20 });
+      const res = await fetchers[key]({ limit: 20 });
       const { items, next_cursor, has_more } = res.data.data;
       updateTab(key, { items, cursor: next_cursor, hasMore: has_more, loaded: true });
     } catch {
@@ -78,7 +80,7 @@ export default function ProfilePage() {
 
   const handleTabChange = (tab: TabKey) => {
     setActiveTab(tab);
-    if ((tab === 'favorites' || tab === 'likes') && !tabs[tab].loaded) {
+    if ((tab === 'favorites' || tab === 'likes' || tab === 'downloads') && !tabs[tab].loaded) {
       loadTabData(tab);
     }
   };
@@ -96,6 +98,8 @@ export default function ProfilePage() {
         res = await getUserWallpapers(Number(id), { cursor: tab.cursor, limit: 20 });
       } else if (tabKey === 'favorites') {
         res = await getMyFavorites({ cursor: tab.cursor, limit: 20 });
+      } else if (tabKey === 'downloads') {
+        res = await getMyDownloads({ cursor: tab.cursor, limit: 20 });
       } else {
         res = await getMyLikes({ cursor: tab.cursor, limit: 20 });
       }
@@ -119,6 +123,7 @@ export default function ProfilePage() {
   const tabDefs: { key: TabKey; label: string; ownerOnly: boolean }[] = [
     { key: 'wallpapers', label: `Wallpapers`, ownerOnly: false },
     { key: 'collections', label: `Collections`, ownerOnly: false },
+    { key: 'downloads', label: `Downloads`, ownerOnly: true },
     { key: 'favorites', label: `Favorites`, ownerOnly: true },
     { key: 'likes', label: `Likes`, ownerOnly: true },
   ];

@@ -173,6 +173,38 @@ func (h *UserHandler) GetLikes(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *UserHandler) GetDownloads(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	cursor, limit := parseCursorLimit(r)
+	fetchLimit := limit + 1
+
+	items, err := h.interactionRepo.ListDownloads(r.Context(), userID, cursor, fetchLimit)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to list downloads",
+			"error", err, "user_id", userID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	hasMore := len(items) == fetchLimit
+	if hasMore {
+		items = items[:len(items)-1]
+	}
+
+	var nextCursor int64
+	if hasMore && len(items) > 0 {
+		nextCursor = items[len(items)-1].ID
+	}
+
+	stripOriginalURLs(items, userID)
+
+	response.OK(w, map[string]any{
+		"items":       items,
+		"next_cursor": nextCursor,
+		"has_more":    hasMore,
+	})
+}
+
 func (h *UserHandler) GetCoins(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 	balance, err := h.coinRepo.GetBalance(r.Context(), userID)

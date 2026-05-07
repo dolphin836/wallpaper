@@ -179,6 +179,15 @@ CREATE TABLE IF NOT EXISTS coin_transactions (
 
 CREATE INDEX IF NOT EXISTS idx_coin_tx_user ON coin_transactions(user_id, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS user_downloads (
+    user_id      BIGINT NOT NULL,
+    wallpaper_id BIGINT NOT NULL,
+    created_at   TIMESTAMPTZ(6) NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, wallpaper_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_downloads_user ON user_downloads(user_id, created_at DESC);
+
 INSERT INTO categories (name, slug, sort_order) VALUES
     ('自然风光', 'nature', 1),
     ('城市建筑', 'city', 2),
