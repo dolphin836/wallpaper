@@ -28,3 +28,4 @@ redis_data/
 minio_data/
 caddy_data/
 caddy_config/
+backend/sluggen
