@@ -220,6 +220,18 @@ cmd_db_migrate() {
     log_info "Migration complete."
 }
 
+cmd_sluggen() {
+    local flag="${1:-}"
+    log_info "Regenerating slugs for wallpapers and collections..."
+    if [ "$flag" = "--force" ]; then
+        log_warn "Force mode: ALL slugs will be regenerated."
+        compose exec api /bin/sluggen --force
+    else
+        compose exec api /bin/sluggen
+    fi
+    log_info "Slug generation complete."
+}
+
 cmd_help() {
     cat <<EOF
 ${CYAN}wallctl.sh${NC} - WallShare Application Manager
@@ -239,6 +251,7 @@ ${YELLOW}Commands:${NC}
   ${GREEN}reset-data${NC}              Delete all data except user accounts
   ${GREEN}db-shell${NC}                Open psql shell to the database
   ${GREEN}db-migrate${NC}              Run deployments/init.sql on the database
+  ${GREEN}sluggen${NC}   [--force]     Regenerate URL slugs (--force = all, default = empty only)
   ${GREEN}help${NC}                    Show this help message
 
 ${YELLOW}Restart targets:${NC}
@@ -271,5 +284,6 @@ case "${1:-help}" in
     reset-data) cmd_reset_data ;;
     db-shell)   cmd_db_shell ;;
     db-migrate) cmd_db_migrate ;;
+    sluggen)    cmd_sluggen "${2:-}" ;;
     help|*)     cmd_help ;;
 esac
