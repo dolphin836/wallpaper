@@ -1,14 +1,21 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/jpeg"
+	_ "image/png"
 	"log/slog"
 	"net/http"
 	"strconv"
 
+	_ "github.com/gen2brain/heic"
 	"github.com/go-chi/chi/v5"
+	"github.com/nfnt/resize"
 	"golang.org/x/crypto/bcrypt"
+	_ "golang.org/x/image/webp"
 
 	"github.com/wallpaper/backend/internal/middleware"
 	"github.com/wallpaper/backend/internal/model"
@@ -317,36 +324,50 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, user)
 }
 
+const avatarSize = 256
+
 func (h *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20) // 5MB
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20)
 	if err := r.ParseMultipartForm(5 << 20); err != nil {
 		response.Error(w, http.StatusBadRequest, errcode.ErrBadRequest)
 		return
 	}
-	file, header, err := r.FormFile("avatar")
+	file, _, err := r.FormFile("avatar")
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
 	defer file.Close()
 
-	ct := header.Header.Get("Content-Type")
-	if ct != "image/jpeg" && ct != "image/png" && ct != "image/webp" {
+	src, _, err := image.Decode(file)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to decode avatar image", "error", err, "user_id", userID)
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
 
-	ext := "jpg"
-	switch ct {
-	case "image/png":
-		ext = "png"
-	case "image/webp":
-		ext = "webp"
-	}
-	objectKey := fmt.Sprintf("avatars/%d.%s", userID, ext)
+	cropped := cropCenter(src)
+	resized := resize.Resize(avatarSize, avatarSize, cropped, resize.Lanczos3)
 
-	if err := h.storage.Upload(r.Context(), objectKey, file, header.Size, ct); err != nil {
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, resized, &jpeg.Options{Quality: 85}); err != nil {
+		slog.ErrorContext(r.Context(), "failed to encode avatar", "error", err, "user_id", userID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	oldUser, _ := h.userRepo.GetByID(r.Context(), userID)
+	if oldUser != nil && oldUser.AvatarURL != "" {
+		if oldKey := h.storage.ObjectKeyFromURL(oldUser.AvatarURL); oldKey != "" {
+			if delErr := h.storage.Delete(r.Context(), oldKey); delErr != nil {
+				slog.WarnContext(r.Context(), "failed to delete old avatar", "error", delErr, "key", oldKey)
+			}
+		}
+	}
+
+	objectKey := fmt.Sprintf("avatars/%d.jpg", userID)
+	if err := h.storage.Upload(r.Context(), objectKey, &buf, int64(buf.Len()), "image/jpeg"); err != nil {
 		slog.ErrorContext(r.Context(), "failed to upload avatar", "error", err, "user_id", userID)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrUploadFailed)
 		return
@@ -360,6 +381,35 @@ func (h *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.OK(w, map[string]string{"avatar_url": avatarURL})
+}
+
+func cropCenter(src image.Image) image.Image {
+	bounds := src.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+	if w == h {
+		return src
+	}
+	var rect image.Rectangle
+	if w > h {
+		x0 := (w - h) / 2
+		rect = image.Rect(x0, 0, x0+h, h)
+	} else {
+		y0 := (h - w) / 2
+		rect = image.Rect(0, y0, w, y0+w)
+	}
+	type subImager interface {
+		SubImage(r image.Rectangle) image.Image
+	}
+	if si, ok := src.(subImager); ok {
+		return si.SubImage(rect)
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, rect.Dx(), rect.Dy()))
+	for y := rect.Min.Y; y < rect.Max.Y; y++ {
+		for x := rect.Min.X; x < rect.Max.X; x++ {
+			dst.Set(x-rect.Min.X, y-rect.Min.Y, src.At(x, y))
+		}
+	}
+	return dst
 }
 
 func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -81,9 +82,26 @@ func (s *Storage) GetObject(ctx context.Context, objectName string) (io.ReadClos
 	return obj, nil
 }
 
+func (s *Storage) Delete(ctx context.Context, objectName string) error {
+	return s.client.RemoveObject(ctx, s.bucket, objectName, minio.RemoveObjectOptions{})
+}
+
 func (s *Storage) GetURL(objectName string) string {
 	if s.publicURL != "" {
 		return fmt.Sprintf("%s/%s/%s", s.publicURL, s.bucket, objectName)
 	}
 	return fmt.Sprintf("%s/%s/%s", s.client.EndpointURL(), s.bucket, objectName)
+}
+
+// ObjectKeyFromURL extracts the object key from a full URL produced by GetURL.
+func (s *Storage) ObjectKeyFromURL(fullURL string) string {
+	prefix := fmt.Sprintf("%s/%s/", s.publicURL, s.bucket)
+	if after, ok := strings.CutPrefix(fullURL, prefix); ok {
+		return after
+	}
+	prefix = fmt.Sprintf("%s/%s/", s.client.EndpointURL(), s.bucket)
+	if after, ok := strings.CutPrefix(fullURL, prefix); ok {
+		return after
+	}
+	return ""
 }
