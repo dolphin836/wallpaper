@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { register } from '../api';
 import { useAuthStore } from '../store/auth';
@@ -16,6 +16,8 @@ export default function RegisterPage() {
   const [agreed, setAgreed] = useState(false);
   const setAuth = useAuthStore((s) => s.setAuth);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isDesktop = searchParams.get('desktop') === '1';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +30,10 @@ export default function RegisterPage() {
       const res = await register({ username, email, password });
       const { token, user } = res.data.data;
       setAuth(token, user);
+      if (isDesktop) {
+        window.location.href = `wallxch://auth?token=${encodeURIComponent(token)}`;
+        return;
+      }
       toast.success('Account created!');
       navigate('/');
     } catch (err: any) {
@@ -78,7 +84,7 @@ export default function RegisterPage() {
         </form>
         <p className="mt-6 text-center text-sm text-ws-muted dark:text-ws-dark-muted">
           Already have an account?{' '}
-          <Link to="/login" className="text-ws-purple hover:underline font-medium">Sign In</Link>
+          <Link to={isDesktop ? '/login?desktop=1' : '/login'} className="text-ws-purple hover:underline font-medium">Sign In</Link>
         </p>
       </div>
     </div>
