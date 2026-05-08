@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -26,12 +29,20 @@ func NewRouter(deps Deps) *chi.Mux {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recovery)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowOriginFunc: func(_ *http.Request, origin string) bool {
+			switch origin {
+			case "https://wallpaperexchange.com",
+				"https://www.wallpaperexchange.com",
+				"https://wallpaper.haibing.site":
+				return true
+			}
+			return strings.HasPrefix(origin, "http://localhost:")
+		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
-		MaxAge:           300,
+		MaxAge:           86400,
 	}))
 
 	limiter := middleware.NewRateLimiter(10, 30)
