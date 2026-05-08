@@ -20,10 +20,11 @@ import (
 type CollectionHandler struct {
 	collectionSvc   *service.CollectionService
 	interactionRepo *repo.InteractionRepo
+	userRepo        *repo.UserRepo
 }
 
-func NewCollectionHandler(collectionSvc *service.CollectionService, interactionRepo *repo.InteractionRepo) *CollectionHandler {
-	return &CollectionHandler{collectionSvc: collectionSvc, interactionRepo: interactionRepo}
+func NewCollectionHandler(collectionSvc *service.CollectionService, interactionRepo *repo.InteractionRepo, userRepo *repo.UserRepo) *CollectionHandler {
+	return &CollectionHandler{collectionSvc: collectionSvc, interactionRepo: interactionRepo, userRepo: userRepo}
 }
 
 type createCollectionRequest struct {
@@ -100,14 +101,14 @@ func (h *CollectionHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CollectionHandler) Get(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil {
+	idOrSlug := chi.URLParam(r, "id")
+	if idOrSlug == "" {
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	detail, ec := h.collectionSvc.Get(r.Context(), id, userID)
+	detail, ec := h.collectionSvc.Get(r.Context(), idOrSlug, userID)
 	if ec != nil {
 		status := http.StatusInternalServerError
 		if ec.Code == errcode.ErrNotFound.Code {
@@ -269,10 +270,15 @@ func (h *CollectionHandler) Unlike(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CollectionHandler) ListWallpapers(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	param := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(param, 10, 64)
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
-		return
+		c, lookupErr := h.collectionSvc.ResolveSlug(r.Context(), param)
+		if lookupErr != nil || c == nil {
+			response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+			return
+		}
+		id = c.ID
 	}
 
 	q := r.URL.Query()
@@ -362,10 +368,15 @@ func (h *CollectionHandler) ListMyCollections(w http.ResponseWriter, r *http.Req
 }
 
 func (h *CollectionHandler) ListUserCollections(w http.ResponseWriter, r *http.Request) {
-	ownerID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	param := chi.URLParam(r, "id")
+	ownerID, err := strconv.ParseInt(param, 10, 64)
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
-		return
+		user, lookupErr := h.userRepo.GetByUsername(r.Context(), param)
+		if lookupErr != nil || user == nil {
+			response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+			return
+		}
+		ownerID = user.ID
 	}
 
 	q := r.URL.Query()

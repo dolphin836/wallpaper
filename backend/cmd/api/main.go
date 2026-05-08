@@ -96,7 +96,7 @@ func main() {
 	tagHandler := handler.NewTagHandler(tagRepo)
 	userHandler := handler.NewUserHandler(userRepo, wallpaperRepo, interactionRepo, coinRepo, store)
 	deviceHandler := handler.NewDeviceHandler(deviceRepo, eventRepo, wallpaperRepo, coinRepo, interactionRepo)
-	collectionHandler := handler.NewCollectionHandler(collectionSvc, interactionRepo)
+	collectionHandler := handler.NewCollectionHandler(collectionSvc, interactionRepo, userRepo)
 
 	router := handler.NewRouter(handler.Deps{
 		AuthHandler:       authHandler,

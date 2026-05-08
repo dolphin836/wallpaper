@@ -44,9 +44,15 @@ func NewUserHandler(ur *repo.UserRepo, wr *repo.WallpaperRepo, ir *repo.Interact
 }
 
 func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	param := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(param, 10, 64)
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		user, lookupErr := h.userRepo.GetByUsername(r.Context(), param)
+		if lookupErr != nil || user == nil {
+			response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+			return
+		}
+		response.OK(w, user)
 		return
 	}
 
@@ -114,10 +120,15 @@ func (h *UserHandler) enrichItems(r *http.Request, items []model.Wallpaper, user
 }
 
 func (h *UserHandler) GetWallpapers(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	param := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(param, 10, 64)
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
-		return
+		user, lookupErr := h.userRepo.GetByUsername(r.Context(), param)
+		if lookupErr != nil || user == nil {
+			response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+			return
+		}
+		id = user.ID
 	}
 
 	cursor, limit := parseCursorLimit(r)

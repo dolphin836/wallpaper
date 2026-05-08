@@ -11,7 +11,7 @@ import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 
 export default function CollectionDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { slug: id } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
@@ -30,12 +30,11 @@ export default function CollectionDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    const collectionId = Number(id);
     setLoading(true);
 
     Promise.all([
-      getCollection(collectionId),
-      getCollectionWallpapers(collectionId, { limit: 20 }),
+      getCollection(id!),
+      getCollectionWallpapers(id!, { limit: 20 }),
     ])
       .then(([colRes, wpRes]) => {
         setCollection(colRes.data.data);
@@ -52,7 +51,7 @@ export default function CollectionDetailPage() {
     if (loadingMore || !id) return;
     setLoadingMore(true);
     try {
-      const res = await getCollectionWallpapers(Number(id), { cursor, limit: 20 });
+      const res = await getCollectionWallpapers(id!, { cursor, limit: 20 });
       const { items, next_cursor, has_more } = res.data.data;
       setWallpapers((prev) => [...prev, ...items]);
       setCursor(next_cursor);

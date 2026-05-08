@@ -155,6 +155,12 @@ CREATE INDEX IF NOT EXISTS idx_we_created ON wallpaper_events(created_at);
 
 ALTER TABLE wallpaper_variants ADD COLUMN IF NOT EXISTS download_count BIGINT NOT NULL DEFAULT 0;
 
+ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS slug VARCHAR(160) NOT NULL DEFAULT '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_wallpapers_slug ON wallpapers(slug) WHERE slug != '';
+
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS slug VARCHAR(160) NOT NULL DEFAULT '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_collections_slug ON collections(slug) WHERE slug != '';
+
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS is_dynamic BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS dynamic_type VARCHAR(16) NOT NULL DEFAULT '';
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS frame_urls TEXT NOT NULL DEFAULT '';

@@ -21,12 +21,12 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/wallpaper/:id" element={<WallpaperDetailPage />} />
+          <Route path="/wallpaper/:slug" element={<WallpaperDetailPage />} />
           <Route path="/upload" element={<UploadPage />} />
-          <Route path="/user/:id" element={<ProfilePage />} />
+          <Route path="/user/:username" element={<ProfilePage />} />
           <Route path="/collections" element={<CollectionsPage />} />
           <Route path="/uploaders" element={<UploadersPage />} />
-          <Route path="/collections/:id" element={<CollectionDetailPage />} />
+          <Route path="/collections/:slug" element={<CollectionDetailPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
         </Route>

@@ -58,7 +58,7 @@ export default function CollectionsPage() {
         {collections.map((c) => (
           <Link
             key={c.id}
-            to={`/collections/${c.id}`}
+            to={`/collections/${c.slug}`}
             className="group block rounded-xl overflow-hidden bg-white dark:bg-ws-dark-card shadow-sm hover:shadow-lg transition-all duration-300 border border-ws-border dark:border-white/5"
           >
             <div className="aspect-video bg-slate-100 dark:bg-ws-dark-card relative overflow-hidden">

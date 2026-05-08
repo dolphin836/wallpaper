@@ -27,6 +27,7 @@ export interface CoinTransaction {
 
 export interface Wallpaper {
   id: number;
+  slug: string;
   user_id: number;
   category_id: number;
   title: string;
@@ -119,6 +120,7 @@ export interface WallpaperVariant {
 
 export interface Collection {
   id: number;
+  slug: string;
   user_id: number;
   title: string;
   description: string;

@@ -11,6 +11,7 @@ const (
 
 type Wallpaper struct {
 	ID            int64     `gorm:"primaryKey" json:"id"`
+	Slug          string    `gorm:"size:160;not null;default:'';uniqueIndex" json:"slug"`
 	UserID        int64     `gorm:"not null;index" json:"user_id"`
 	CategoryID    int64     `gorm:"not null;default:0;index" json:"category_id"`
 	Title         string    `gorm:"size:128;not null;default:''" json:"title"`

@@ -14,6 +14,7 @@ import (
 
 	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/pkg/errcode"
+	"github.com/wallpaper/backend/internal/pkg/slug"
 	"github.com/wallpaper/backend/internal/pkg/storage"
 	"github.com/wallpaper/backend/internal/repo"
 )
@@ -111,7 +112,12 @@ func (s *WallpaperService) Upload(ctx context.Context, userID int64, req UploadR
 	}
 	originalURL := s.storage.GetURL(objectName)
 
+	slugSource := req.Title
+	if slugSource == "" {
+		slugSource = req.FileName
+	}
 	w := &model.Wallpaper{
+		Slug:        slug.FromFileName(slugSource),
 		UserID:      userID,
 		Title:       req.Title,
 		Description: req.Description,
@@ -155,30 +161,36 @@ func (s *WallpaperService) Upload(ctx context.Context, userID int64, req UploadR
 	return w, nil
 }
 
-func (s *WallpaperService) Get(ctx context.Context, id int64, currentUserID int64) (*WallpaperDetail, *errcode.ErrCode) {
-	w, err := s.wallpaperRepo.GetByID(ctx, id)
+func (s *WallpaperService) GetBySlug(ctx context.Context, idOrSlug string, currentUserID int64) (*WallpaperDetail, *errcode.ErrCode) {
+	var w *model.Wallpaper
+	var err error
+	if id, parseErr := strconv.ParseInt(idOrSlug, 10, 64); parseErr == nil {
+		w, err = s.wallpaperRepo.GetByID(ctx, id)
+	} else {
+		w, err = s.wallpaperRepo.GetBySlug(ctx, idOrSlug)
+	}
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get wallpaper",
-			"error", err, "wallpaper_id", id)
+			"error", err, "wallpaper_ref", idOrSlug)
 		return nil, errcode.ErrInternal
 	}
 	if w == nil {
 		return nil, errcode.ErrNotFound
 	}
 
-	if err := s.wallpaperRepo.IncrementCounter(ctx, id, "view_count", 1); err != nil {
+	if err := s.wallpaperRepo.IncrementCounter(ctx, w.ID, "view_count", 1); err != nil {
 		slog.ErrorContext(ctx, "failed to increment view count", "error", err)
 	}
 	w.ViewCount++
 
-	if err := s.eventRepo.Record(ctx, id, "view", currentUserID, nil); err != nil {
-		slog.ErrorContext(ctx, "failed to record view event", "error", err, "wallpaper_id", id)
+	if err := s.eventRepo.Record(ctx, w.ID, "view", currentUserID, nil); err != nil {
+		slog.ErrorContext(ctx, "failed to record view event", "error", err, "wallpaper_id", w.ID)
 	}
 
-	tags, err := s.tagRepo.GetByWallpaperID(ctx, id)
+	tags, err := s.tagRepo.GetByWallpaperID(ctx, w.ID)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get wallpaper tags",
-			"error", err, "wallpaper_id", id)
+			"error", err, "wallpaper_id", w.ID)
 		return nil, errcode.ErrInternal
 	}
 
@@ -200,21 +212,21 @@ func (s *WallpaperService) Get(ctx context.Context, id int64, currentUserID int6
 	}
 
 	if currentUserID > 0 {
-		liked, err := s.interactionRepo.IsLiked(ctx, currentUserID, id)
+		liked, err := s.interactionRepo.IsLiked(ctx, currentUserID, w.ID)
 		if err != nil {
 			slog.ErrorContext(ctx, "failed to check like status", "error", err)
 			return nil, errcode.ErrInternal
 		}
 		detail.IsLiked = liked
 
-		favorited, err := s.interactionRepo.IsFavorited(ctx, currentUserID, id)
+		favorited, err := s.interactionRepo.IsFavorited(ctx, currentUserID, w.ID)
 		if err != nil {
 			slog.ErrorContext(ctx, "failed to check favorite status", "error", err)
 			return nil, errcode.ErrInternal
 		}
 		detail.IsFavorited = favorited
 
-		downloaded, err := s.interactionRepo.HasDownloaded(ctx, currentUserID, id)
+		downloaded, err := s.interactionRepo.HasDownloaded(ctx, currentUserID, w.ID)
 		if err != nil {
 			slog.ErrorContext(ctx, "failed to check download status", "error", err)
 		}

@@ -175,15 +175,15 @@ func (h *WallpaperHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WallpaperHandler) Get(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil {
+	idOrSlug := chi.URLParam(r, "id")
+	if idOrSlug == "" {
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
 
 	userID := middleware.GetUserID(r.Context())
 
-	detail, ec := h.wallpaperSvc.Get(r.Context(), id, userID)
+	detail, ec := h.wallpaperSvc.GetBySlug(r.Context(), idOrSlug, userID)
 	if ec != nil {
 		status := http.StatusInternalServerError
 		if ec.Code == errcode.ErrNotFound.Code {

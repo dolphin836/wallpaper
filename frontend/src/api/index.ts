@@ -19,8 +19,8 @@ export const getWallpapers = (params: {
   dynamic_only?: boolean;
 }) => client.get<ApiResponse<PaginatedData<Wallpaper>>>('/wallpapers', { params });
 
-export const getWallpaper = (id: number) =>
-  client.get<ApiResponse<WallpaperDetail>>(`/wallpapers/${id}`);
+export const getWallpaper = (slug: string) =>
+  client.get<ApiResponse<WallpaperDetail>>(`/wallpapers/${slug}`);
 
 export const uploadWallpaper = (formData: FormData) =>
   client.post<ApiResponse<Wallpaper>>('/wallpapers', formData, {
@@ -55,11 +55,11 @@ export const getTags = () =>
 export const getUsers = (params: { page?: number; limit?: number; sort?: string }) =>
   client.get<ApiResponse<{ items: UserListItem[]; total: number; page: number; limit: number }>>('/users', { params });
 
-export const getUserProfile = (id: number) =>
-  client.get<ApiResponse<User>>(`/users/${id}`);
+export const getUserProfile = (username: string) =>
+  client.get<ApiResponse<User>>(`/users/${username}`);
 
-export const getUserWallpapers = (id: number, params: { cursor?: number; limit?: number }) =>
-  client.get<ApiResponse<PaginatedData<Wallpaper>>>(`/users/${id}/wallpapers`, { params });
+export const getUserWallpapers = (username: string, params: { cursor?: number; limit?: number }) =>
+  client.get<ApiResponse<PaginatedData<Wallpaper>>>(`/users/${username}/wallpapers`, { params });
 
 export const getMyFavorites = (params: { cursor?: number; limit?: number }) =>
   client.get<ApiResponse<PaginatedData<Wallpaper>>>('/users/me/favorites', { params });
@@ -79,8 +79,8 @@ export const getWallpaperVariants = (wallpaperId: number) =>
 export const getCollections = (params: { cursor?: number; limit?: number }) =>
   client.get<ApiResponse<PaginatedData<Collection>>>('/collections', { params });
 
-export const getCollection = (id: number) =>
-  client.get<ApiResponse<CollectionDetail>>(`/collections/${id}`);
+export const getCollection = (slug: string) =>
+  client.get<ApiResponse<CollectionDetail>>(`/collections/${slug}`);
 
 export const createCollection = (data: { title: string; description?: string; is_public?: boolean }) =>
   client.post<ApiResponse<Collection>>('/collections', data);
@@ -91,8 +91,8 @@ export const updateCollection = (id: number, data: { title: string; description?
 export const deleteCollection = (id: number) =>
   client.delete<ApiResponse<null>>(`/collections/${id}`);
 
-export const getCollectionWallpapers = (id: number, params: { cursor?: number; limit?: number }) =>
-  client.get<ApiResponse<PaginatedData<Wallpaper>>>(`/collections/${id}/wallpapers`, { params });
+export const getCollectionWallpapers = (slug: string, params: { cursor?: number; limit?: number }) =>
+  client.get<ApiResponse<PaginatedData<Wallpaper>>>(`/collections/${slug}/wallpapers`, { params });
 
 export const addToCollection = (collectionId: number, wallpaperId: number) =>
   client.post<ApiResponse<null>>(`/collections/${collectionId}/wallpapers`, { wallpaper_id: wallpaperId });
@@ -109,8 +109,8 @@ export const unlikeCollection = (id: number) =>
 export const getMyCollections = () =>
   client.get<ApiResponse<CollectionBrief[]>>('/users/me/collections');
 
-export const getUserCollections = (userId: number, params?: { cursor?: number; limit?: number }) =>
-  client.get<ApiResponse<PaginatedData<Collection>>>(`/users/${userId}/collections`, { params });
+export const getUserCollections = (username: string, params?: { cursor?: number; limit?: number }) =>
+  client.get<ApiResponse<PaginatedData<Collection>>>(`/users/${username}/collections`, { params });
 
 export const downloadVariant = (wallpaperId: number, variantId: number) =>
   client.post<ApiResponse<{ url: string }>>(`/wallpapers/${wallpaperId}/variants/${variantId}/download`);

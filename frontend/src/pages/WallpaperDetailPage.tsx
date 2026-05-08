@@ -211,7 +211,7 @@ function VariantList({ variants, matchedId, onMockup, onDownload }: { variants: 
 }
 
 export default function WallpaperDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { slug: id } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { isAuthenticated, user, updateCoins } = useAuthStore();
   const [wallpaper, setWallpaper] = useState<WallpaperDetail | null>(null);
@@ -251,16 +251,15 @@ export default function WallpaperDetailPage() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    const numId = Number(id);
-    Promise.all([
-      getWallpaper(numId),
-      getWallpaperVariants(numId),
-    ])
-      .then(([wpRes, varRes]) => {
+    getWallpaper(id)
+      .then(async (wpRes) => {
         const wp = wpRes.data.data;
         setWallpaper(wp);
         setDlDone(wp.is_downloaded ?? false);
-        setVariants(varRes.data.data || []);
+        try {
+          const varRes = await getWallpaperVariants(wp.id);
+          setVariants(varRes.data.data || []);
+        } catch { /* variants optional */ }
       })
       .catch(() => toast.error('Failed to load wallpaper'))
       .finally(() => setLoading(false));
@@ -682,7 +681,7 @@ export default function WallpaperDetailPage() {
 
             {/* Uploader */}
             <div className="flex items-center justify-between pt-6 border-t border-gray-100 dark:border-gray-700">
-              <Link to={`/user/${wallpaper.uploader.id}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+              <Link to={`/user/${wallpaper.uploader.username}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                 {wallpaper.uploader.avatar_url ? (
                   <img src={wallpaper.uploader.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
                 ) : (

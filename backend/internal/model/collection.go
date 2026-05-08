@@ -4,6 +4,7 @@ import "time"
 
 type Collection struct {
 	ID             int64     `gorm:"primaryKey" json:"id"`
+	Slug           string    `gorm:"size:160;not null;default:'';uniqueIndex" json:"slug"`
 	UserID         int64     `gorm:"not null;index" json:"user_id"`
 	Title          string    `gorm:"size:100;not null" json:"title"`
 	Description    string    `gorm:"type:text;not null;default:''" json:"description"`

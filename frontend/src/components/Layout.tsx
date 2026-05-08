@@ -201,7 +201,7 @@ export default function Layout() {
                 >
                   <AiOutlineLogout size={18} />
                 </button>
-                <Link to={`/user/${user.id}`} className="ml-1 flex-shrink-0" title={user.nickname || user.username}>
+                <Link to={`/user/${user.username}`} className="ml-1 flex-shrink-0" title={user.nickname || user.username}>
                   {user.avatar_url ? (
                     <img
                       src={user.avatar_url}

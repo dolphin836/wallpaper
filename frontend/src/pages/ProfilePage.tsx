@@ -44,14 +44,14 @@ function formatTime(dateStr: string): string {
 }
 
 export default function ProfilePage() {
-  const { id } = useParams<{ id: string }>();
+  const { username } = useParams<{ username: string }>();
   const { user: currentUser, updateCoins } = useAuthStore();
   const [user, setUser] = useState<User | null>(null);
   usePageTitle(user ? `${user.nickname || user.username}'s Profile` : 'Profile');
   const [loading, setLoading] = useState(true);
   const [collections, setCollections] = useState<Collection[]>([]);
 
-  const isOwnProfile = currentUser?.id === Number(id);
+  const isOwnProfile = currentUser?.username === username;
   const [activeTab, setActiveTab] = useState<TabKey>(isOwnProfile ? 'coins' : 'wallpapers');
 
   const [tabs, setTabs] = useState<Record<string, WallpaperTab>>({
@@ -104,7 +104,7 @@ export default function ProfilePage() {
     try {
       let res;
       if (key === 'wallpapers') {
-        res = await getUserWallpapers(Number(id), { limit: fetchLimit });
+        res = await getUserWallpapers(username!, { limit: fetchLimit });
       } else if (key === 'favorites') {
         res = await getMyFavorites({ limit: fetchLimit });
       } else if (key === 'downloads') {
@@ -126,10 +126,10 @@ export default function ProfilePage() {
     } finally {
       setTabLoading(false);
     }
-  }, [id]);
+  }, [username]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!username) return;
     setLoading(true);
     setTabs({
       wallpapers: { items: [], hasMore: false, loaded: false },
@@ -141,13 +141,13 @@ export default function ProfilePage() {
     setTransactions([]);
     setTxLoaded(false);
 
-    const own = currentUser?.id === Number(id);
+    const own = currentUser?.username === username;
     setActiveTab(own ? 'coins' : 'wallpapers');
 
     Promise.all([
-      getUserProfile(Number(id)),
-      getUserWallpapers(Number(id), { limit: PAGE_SIZE }),
-      getUserCollections(Number(id), { limit: 50 }),
+      getUserProfile(username),
+      getUserWallpapers(username, { limit: PAGE_SIZE }),
+      getUserCollections(username, { limit: 50 }),
     ])
       .then(([profileRes, wpRes, colRes]) => {
         setUser(profileRes.data.data);
@@ -162,7 +162,7 @@ export default function ProfilePage() {
       loadCoins();
       loadTransactions(1);
     }
-  }, [id]);
+  }, [username]);
 
   const handleTabChange = (tab: TabKey) => {
     setActiveTab(tab);
@@ -435,7 +435,7 @@ export default function ProfilePage() {
               {collections.map((c) => (
                 <Link
                   key={c.id}
-                  to={`/collections/${c.id}`}
+                  to={`/collections/${c.slug}`}
                   className="group block rounded-2xl overflow-hidden bg-white dark:bg-gray-800 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 dark:border-gray-700"
                 >
                   <div className="aspect-video bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 relative overflow-hidden">

@@ -32,8 +32,23 @@ func (r *CollectionRepo) Create(ctx context.Context, c *model.Collection) error 
 func (r *CollectionRepo) GetByID(ctx context.Context, id int64) (*model.Collection, error) {
 	var c model.Collection
 	err := r.db.WithContext(ctx).
-		Select("id, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, created_at, updated_at").
+		Select("id, slug, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, created_at, updated_at").
 		Where("id = ?", id).
+		First(&c).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (r *CollectionRepo) GetBySlug(ctx context.Context, slug string) (*model.Collection, error) {
+	var c model.Collection
+	err := r.db.WithContext(ctx).
+		Select("id, slug, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, created_at, updated_at").
+		Where("slug = ?", slug).
 		First(&c).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -57,7 +72,7 @@ func (r *CollectionRepo) Delete(ctx context.Context, id int64) error {
 
 func (r *CollectionRepo) List(ctx context.Context, cursor int64, limit int, userID int64) ([]model.Collection, error) {
 	query := r.db.WithContext(ctx).
-		Select("id, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, created_at, updated_at")
+		Select("id, slug, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, created_at, updated_at")
 
 	if cursor > 0 {
 		query = query.Where("id < ?", cursor)
@@ -76,7 +91,7 @@ func (r *CollectionRepo) List(ctx context.Context, cursor int64, limit int, user
 
 func (r *CollectionRepo) ListByUser(ctx context.Context, ownerID int64, cursor int64, limit int) ([]model.Collection, error) {
 	query := r.db.WithContext(ctx).
-		Select("id, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, created_at, updated_at").
+		Select("id, slug, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, created_at, updated_at").
 		Where("user_id = ? AND is_public = ?", ownerID, true)
 
 	if cursor > 0 {
@@ -138,7 +153,7 @@ func (r *CollectionRepo) RemoveWallpaper(ctx context.Context, collectionID, wall
 func (r *CollectionRepo) ListWallpapers(ctx context.Context, collectionID int64, cursor, limit int) ([]model.Wallpaper, error) {
 	query := r.db.WithContext(ctx).
 		Table("wallpapers").
-		Select("wallpapers.id, wallpapers.user_id, wallpapers.title, wallpapers.category_id, wallpapers.thumb_url, wallpapers.preview_url, wallpapers.width, wallpapers.height, wallpapers.file_size, wallpapers.file_type, wallpapers.dominant_color, wallpapers.status, wallpapers.view_count, wallpapers.like_count, wallpapers.download_count, wallpapers.favorite_count, wallpapers.created_at").
+		Select("wallpapers.id, wallpapers.slug, wallpapers.user_id, wallpapers.title, wallpapers.category_id, wallpapers.thumb_url, wallpapers.preview_url, wallpapers.width, wallpapers.height, wallpapers.file_size, wallpapers.file_type, wallpapers.dominant_color, wallpapers.status, wallpapers.view_count, wallpapers.like_count, wallpapers.download_count, wallpapers.favorite_count, wallpapers.created_at").
 		Joins("JOIN collection_wallpapers cw ON cw.wallpaper_id = wallpapers.id").
 		Where("cw.collection_id = ? AND wallpapers.status = ?", collectionID, model.WallpaperStatusPublished)
 

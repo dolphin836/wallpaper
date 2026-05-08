@@ -84,7 +84,7 @@ export default function UploadersPage() {
             {users.map((u) => (
               <Link
                 key={u.id}
-                to={`/user/${u.id}`}
+                to={`/user/${u.username}`}
                 className="group flex flex-col items-center p-5 rounded-xl bg-white dark:bg-ws-dark-card border border-ws-border dark:border-white/5 hover:border-ws-purple/30 dark:hover:border-purple-800/30 hover:shadow-md transition-all duration-200"
               >
                 {u.avatar_url ? (

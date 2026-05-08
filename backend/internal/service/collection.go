@@ -3,9 +3,11 @@ package service
 import (
 	"context"
 	"log/slog"
+	"strconv"
 
 	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/pkg/errcode"
+	"github.com/wallpaper/backend/internal/pkg/slug"
 	"github.com/wallpaper/backend/internal/repo"
 )
 
@@ -40,6 +42,7 @@ func (s *CollectionService) Create(ctx context.Context, userID int64, title, des
 		return nil, errcode.ErrInvalidParam
 	}
 	c := &model.Collection{
+		Slug:        slug.Generate(title),
 		UserID:      userID,
 		Title:       title,
 		Description: description,
@@ -52,8 +55,14 @@ func (s *CollectionService) Create(ctx context.Context, userID int64, title, des
 	return c, nil
 }
 
-func (s *CollectionService) Get(ctx context.Context, id int64, currentUserID int64) (*CollectionDetail, *errcode.ErrCode) {
-	c, err := s.collectionRepo.GetByID(ctx, id)
+func (s *CollectionService) Get(ctx context.Context, idOrSlug string, currentUserID int64) (*CollectionDetail, *errcode.ErrCode) {
+	var c *model.Collection
+	var err error
+	if id, parseErr := strconv.ParseInt(idOrSlug, 10, 64); parseErr == nil {
+		c, err = s.collectionRepo.GetByID(ctx, id)
+	} else {
+		c, err = s.collectionRepo.GetBySlug(ctx, idOrSlug)
+	}
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get collection", "error", err)
 		return nil, errcode.ErrInternal
@@ -65,14 +74,14 @@ func (s *CollectionService) Get(ctx context.Context, id int64, currentUserID int
 		return nil, errcode.ErrNotFound
 	}
 
-	if err := s.collectionRepo.IncrementCounter(ctx, id, "view_count", 1); err != nil {
+	if err := s.collectionRepo.IncrementCounter(ctx, c.ID, "view_count", 1); err != nil {
 		slog.ErrorContext(ctx, "failed to increment collection view count", "error", err)
 	}
 	c.ViewCount++
 
 	detail := &CollectionDetail{Collection: *c}
 	if currentUserID > 0 {
-		liked, err := s.collectionRepo.IsLiked(ctx, currentUserID, id)
+		liked, err := s.collectionRepo.IsLiked(ctx, currentUserID, c.ID)
 		if err != nil {
 			slog.ErrorContext(ctx, "failed to check collection like", "error", err)
 		}
@@ -250,4 +259,8 @@ func (s *CollectionService) ListUserCollections(ctx context.Context, userID int6
 		return nil, errcode.ErrInternal
 	}
 	return items, nil
+}
+
+func (s *CollectionService) ResolveSlug(ctx context.Context, slug string) (*model.Collection, error) {
+	return s.collectionRepo.GetBySlug(ctx, slug)
 }
