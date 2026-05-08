@@ -1,7 +1,18 @@
 import axios from 'axios';
 
+function resolveBaseURL(): string {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  const host = window.location.hostname;
+  if (host === 'wallpaperexchange.com' || host === 'www.wallpaperexchange.com') {
+    return 'https://api.wallpaperexchange.com/api/v1';
+  }
+  return '/api/v1';
+}
+
 const client = axios.create({
-  baseURL: '/api/v1',
+  baseURL: resolveBaseURL(),
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 });
