@@ -192,6 +192,10 @@ SQL
     fi
     log_info "Redis flushed."
 
+    log_info "Stopping worker to reset Kafka offsets..."
+    compose stop worker 2>/dev/null || true
+    sleep 2
+
     log_info "Resetting Kafka consumer group offsets..."
     compose exec kafka /opt/kafka/bin/kafka-consumer-groups.sh \
         --bootstrap-server localhost:9092 \
@@ -201,6 +205,9 @@ SQL
         --bootstrap-server localhost:9092 \
         --group stats-worker --topic wallpaper.stats \
         --reset-offsets --to-latest --execute 2>/dev/null || true
+
+    log_info "Restarting worker..."
+    compose start worker 2>/dev/null || true
     log_info "Kafka offsets reset."
 
     log_info "Restarting worker to re-establish Kafka consumers..."
