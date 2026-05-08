@@ -187,3 +187,49 @@ func (r *InteractionRepo) ListLikes(ctx context.Context, userID int64, cursor in
 	err := query.Order("wallpapers.id DESC").Limit(limit).Find(&wallpapers).Error
 	return wallpapers, err
 }
+
+type EngagementUser struct {
+	ID        int64  `json:"id"`
+	Username  string `json:"username"`
+	Nickname  string `json:"nickname"`
+	AvatarURL string `json:"avatar_url"`
+}
+
+func (r *InteractionRepo) RecentLikers(ctx context.Context, wallpaperID int64, limit int) ([]EngagementUser, error) {
+	var users []EngagementUser
+	err := r.db.WithContext(ctx).
+		Table("users").
+		Select("users.id, users.username, users.nickname, users.avatar_url").
+		Joins("JOIN user_likes ON user_likes.user_id = users.id").
+		Where("user_likes.wallpaper_id = ?", wallpaperID).
+		Order("user_likes.created_at DESC").
+		Limit(limit).
+		Find(&users).Error
+	return users, err
+}
+
+func (r *InteractionRepo) RecentFavoriters(ctx context.Context, wallpaperID int64, limit int) ([]EngagementUser, error) {
+	var users []EngagementUser
+	err := r.db.WithContext(ctx).
+		Table("users").
+		Select("users.id, users.username, users.nickname, users.avatar_url").
+		Joins("JOIN user_favorites ON user_favorites.user_id = users.id").
+		Where("user_favorites.wallpaper_id = ?", wallpaperID).
+		Order("user_favorites.created_at DESC").
+		Limit(limit).
+		Find(&users).Error
+	return users, err
+}
+
+func (r *InteractionRepo) RecentDownloaders(ctx context.Context, wallpaperID int64, limit int) ([]EngagementUser, error) {
+	var users []EngagementUser
+	err := r.db.WithContext(ctx).
+		Table("users").
+		Select("users.id, users.username, users.nickname, users.avatar_url").
+		Joins("JOIN user_downloads ON user_downloads.user_id = users.id").
+		Where("user_downloads.wallpaper_id = ?", wallpaperID).
+		Order("user_downloads.created_at DESC").
+		Limit(limit).
+		Find(&users).Error
+	return users, err
+}

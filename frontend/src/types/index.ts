@@ -143,3 +143,16 @@ export interface CollectionBrief {
   title: string;
   wallpaper_count: number;
 }
+
+export interface EngagementUser {
+  id: number;
+  username: string;
+  nickname: string;
+  avatar_url: string;
+}
+
+export interface Engagements {
+  likers: EngagementUser[];
+  favoriters: EngagementUser[];
+  downloaders: EngagementUser[];
+}

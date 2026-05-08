@@ -63,6 +63,7 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Get("/wallpapers", deps.WallpaperHandler.List)
 			r.Get("/wallpapers/{id}", deps.WallpaperHandler.Get)
 			r.Get("/wallpapers/{id}/variants", deps.DeviceHandler.ListVariants)
+			r.Get("/wallpapers/{id}/engagements", deps.WallpaperHandler.GetEngagements)
 
 			r.Get("/collections", deps.CollectionHandler.List)
 			r.Get("/collections/{id}", deps.CollectionHandler.Get)

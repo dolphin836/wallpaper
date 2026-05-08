@@ -195,6 +195,21 @@ func (h *WallpaperHandler) Get(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, detail)
 }
 
+func (h *WallpaperHandler) GetEngagements(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+
+	result, ec := h.wallpaperSvc.GetEngagements(r.Context(), id)
+	if ec != nil {
+		response.Error(w, http.StatusInternalServerError, ec)
+		return
+	}
+	response.OK(w, result)
+}
+
 func (h *WallpaperHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {

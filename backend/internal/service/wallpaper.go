@@ -598,3 +598,37 @@ func (s *WallpaperService) publishStatsEvent(ctx context.Context, wallpaperID in
 		slog.ErrorContext(ctx, "failed to publish stats event", "error", err)
 	}
 }
+
+type EngagementsResponse struct {
+	Likers      []repo.EngagementUser `json:"likers"`
+	Favoriters  []repo.EngagementUser `json:"favoriters"`
+	Downloaders []repo.EngagementUser `json:"downloaders"`
+}
+
+func (s *WallpaperService) GetEngagements(ctx context.Context, wallpaperID int64) (*EngagementsResponse, *errcode.ErrCode) {
+	const limit = 5
+
+	likers, err := s.interactionRepo.RecentLikers(ctx, wallpaperID, limit)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to get recent likers", "error", err, "wallpaper_id", wallpaperID)
+		likers = []repo.EngagementUser{}
+	}
+
+	favoriters, err := s.interactionRepo.RecentFavoriters(ctx, wallpaperID, limit)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to get recent favoriters", "error", err, "wallpaper_id", wallpaperID)
+		favoriters = []repo.EngagementUser{}
+	}
+
+	downloaders, err := s.interactionRepo.RecentDownloaders(ctx, wallpaperID, limit)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to get recent downloaders", "error", err, "wallpaper_id", wallpaperID)
+		downloaders = []repo.EngagementUser{}
+	}
+
+	return &EngagementsResponse{
+		Likers:      likers,
+		Favoriters:  favoriters,
+		Downloaders: downloaders,
+	}, nil
+}

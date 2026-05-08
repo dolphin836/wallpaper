@@ -15,7 +15,7 @@ import {
 } from 'react-icons/ai';
 import { MdPhoneIphone, MdPlaylistAdd } from 'react-icons/md';
 import toast from 'react-hot-toast';
-import type { WallpaperDetail, WallpaperVariant } from '../types';
+import type { WallpaperDetail, WallpaperVariant, Engagements } from '../types';
 import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
 import {
   getWallpaper,
@@ -27,10 +27,12 @@ import {
   downloadWallpaper,
   downloadVariant,
   getWallpaperVariants,
+  getWallpaperEngagements,
 } from '../api';
 import { useAuthStore } from '../store/auth';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
+import AvatarStack from '../components/AvatarStack';
 import { MdDesktopMac } from 'react-icons/md';
 import AddToCollectionModal from '../components/AddToCollectionModal';
 import SetWallpaperGuide from '../components/SetWallpaperGuide';
@@ -229,6 +231,7 @@ export default function WallpaperDetailPage() {
   const [dlDone, setDlDone] = useState(false);
   const [frameIdx, setFrameIdx] = useState(0);
   const [framePlaying, setFramePlaying] = useState(true);
+  const [engagements, setEngagements] = useState<Engagements | null>(null);
 
   const frames = useMemo(() => {
     if (!wallpaper?.frame_urls) return [];
@@ -260,6 +263,9 @@ export default function WallpaperDetailPage() {
           const varRes = await getWallpaperVariants(wp.id);
           setVariants(varRes.data.data || []);
         } catch { /* variants optional */ }
+        getWallpaperEngagements(wp.id)
+          .then((res) => setEngagements(res.data.data))
+          .catch(() => { /* non-critical */ });
       })
       .catch(() => toast.error('Failed to load wallpaper'))
       .finally(() => setLoading(false));
@@ -648,8 +654,18 @@ export default function WallpaperDetailPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-6">
               <MetaItem label="Resolution" value={`${wallpaper.width}\u00D7${wallpaper.height}`} />
               <MetaItem label="File Size" value={formatFileSize(wallpaper.file_size)} />
-              <MetaItem label="Likes" value={formatNumber(wallpaper.like_count)} />
-              <MetaItem label="Downloads" value={formatNumber(wallpaper.download_count)} />
+              <div>
+                <MetaItem label="Likes" value={formatNumber(wallpaper.like_count)} />
+                {engagements && <AvatarStack users={engagements.likers} total={wallpaper.like_count} />}
+              </div>
+              <div>
+                <MetaItem label="Downloads" value={formatNumber(wallpaper.download_count)} />
+                {engagements && <AvatarStack users={engagements.downloaders} total={wallpaper.download_count} />}
+              </div>
+              <div>
+                <MetaItem label="Favorites" value={formatNumber(wallpaper.favorite_count)} />
+                {engagements && <AvatarStack users={engagements.favoriters} total={wallpaper.favorite_count} />}
+              </div>
               <MetaItem label="Views" value={formatNumber(wallpaper.view_count)} />
               <MetaItem label="Uploaded" value={formatTimeAgo(wallpaper.created_at)} />
             </div>
