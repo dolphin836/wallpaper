@@ -70,7 +70,7 @@ export default function Layout() {
     <>
       {/* Brand */}
       <Link to="/" className="p-6 flex items-center gap-2.5 group">
-        <img src="/logo-192.png" alt="Wallpaper Exchange" className="w-8 h-8 rounded-lg flex-shrink-0" />
+        <img src="/logo-192.png" alt="Wallpaper Exchange" className="w-9 h-9 rounded-lg border border-slate-200 dark:border-white/10 flex-shrink-0" />
         <span className="text-base font-semibold tracking-wide leading-tight text-slate-800 dark:text-white">
           Wallpaper<br />Exchange
         </span>
