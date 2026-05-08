@@ -7,6 +7,7 @@ import type { Wallpaper } from '../types';
 import { getWallpapers } from '../api';
 import { useAuthStore } from '../store/auth';
 import WallpaperGrid from '../components/WallpaperGrid';
+import { SIZE_HEIGHTS } from '../components/WallpaperGrid';
 import type { ViewMode, SizeMode } from '../components/WallpaperGrid';
 import ProgressiveBlur from '../components/ProgressiveBlur';
 import usePageTitle from '../hooks/usePageTitle';
@@ -17,6 +18,47 @@ function getScreenResolution() {
     width: Math.round(window.screen.width * dpr),
     height: Math.round(window.screen.height * dpr),
   };
+}
+
+const GRID_BREAKPOINT_COLS: Record<SizeMode, [number, number, number, number]> = {
+  lg: [2, 2, 3, 4],
+  md: [3, 4, 5, 6],
+  sm: [4, 6, 8, 10],
+};
+
+function calculatePageSize(
+  viewMode: ViewMode,
+  sizeMode: SizeMode,
+  screens = 4,
+): number {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const containerWidth = vw - 48;
+  const gap = 16;
+
+  let count: number;
+
+  if (viewMode === 'justified') {
+    const rowHeight = SIZE_HEIGHTS[sizeMode];
+    const avgAspect = 1.6;
+    const itemsPerRow = Math.max(1, Math.floor(containerWidth / (rowHeight * avgAspect + gap)));
+    const rowsPerScreen = Math.max(1, Math.floor(vh / (rowHeight + gap)));
+    count = itemsPerRow * rowsPerScreen * screens;
+  } else {
+    const bp = GRID_BREAKPOINT_COLS[sizeMode];
+    let cols: number;
+    if (containerWidth >= 1024) cols = bp[3];
+    else if (containerWidth >= 768) cols = bp[2];
+    else if (containerWidth >= 640) cols = bp[1];
+    else cols = bp[0];
+
+    const cardWidth = (containerWidth - gap * (cols - 1)) / cols;
+    const cardHeight = cardWidth * 0.75;
+    const rowsPerScreen = Math.max(1, Math.floor(vh / (cardHeight + gap)));
+    count = cols * rowsPerScreen * screens;
+  }
+
+  return Math.max(20, Math.min(200, count));
 }
 
 function SkeletonGrid() {
@@ -101,6 +143,10 @@ export default function HomePage() {
   const [sizeMode, setSizeMode] = useState<SizeMode>(() => {
     return (localStorage.getItem('wallpaper_size_mode') as SizeMode) || 'md';
   });
+  const viewModeRef = useRef(viewMode);
+  const sizeModeRef = useRef(sizeMode);
+  viewModeRef.current = viewMode;
+  sizeModeRef.current = sizeMode;
 
   const screen = useMemo(() => getScreenResolution(), []);
 
@@ -142,7 +188,7 @@ export default function HomePage() {
     try {
       const params: Parameters<typeof getWallpapers>[0] = {
         cursor: reset ? undefined : cursorRef.current,
-        limit: 20,
+        limit: calculatePageSize(viewModeRef.current, sizeModeRef.current),
       };
       if (macFilter) {
         params.dynamic_only = true;

@@ -125,7 +125,7 @@ func (h *WallpaperHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 		limit = v
 	}
-	if limit <= 0 || limit > 50 {
+	if limit <= 0 || limit > 200 {
 		limit = 20
 	}
 
