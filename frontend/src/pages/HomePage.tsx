@@ -9,7 +9,6 @@ import { useAuthStore } from '../store/auth';
 import WallpaperGrid from '../components/WallpaperGrid';
 import { SIZE_HEIGHTS } from '../components/WallpaperGrid';
 import type { ViewMode, SizeMode } from '../components/WallpaperGrid';
-import ProgressiveBlur from '../components/ProgressiveBlur';
 import usePageTitle from '../hooks/usePageTitle';
 
 function getScreenResolution() {
@@ -126,7 +125,6 @@ export default function HomePage() {
   const [cursor, setCursor] = useState<number | undefined>(cached?.cursor);
   const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
   const [loading, setLoading] = useState(!cached);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [deviceFilter, setDeviceFilter] = useState(cached?.deviceFilter ?? false);
   const [macFilter, setMacFilter] = useState(cached?.macFilter ?? false);
   const [sortTrending, setSortTrending] = useState(cached?.sortTrending ?? false);
@@ -184,8 +182,7 @@ export default function HomePage() {
   const fetchWallpapers = useCallback(async (reset: boolean) => {
     if (!reset && (busyRef.current || !hasMoreRef.current)) return;
     busyRef.current = true;
-    const setter = reset ? setLoading : setLoadingMore;
-    setter(true);
+    if (reset) setLoading(true);
     try {
       const params: Parameters<typeof getWallpapers>[0] = {
         cursor: reset ? undefined : cursorRef.current,
@@ -213,7 +210,7 @@ export default function HomePage() {
     } catch {
       toast.error('Failed to load wallpapers');
     } finally {
-      setter(false);
+      if (reset) setLoading(false);
       busyRef.current = false;
     }
   }, [screen, deviceFilter, macFilter, sortTrending]);
@@ -266,7 +263,7 @@ export default function HomePage() {
       (entries) => {
         if (entries[0].isIntersecting) fetchWallpapers(false);
       },
-      { rootMargin: '200px' },
+      { rootMargin: '1500px' },
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -400,17 +397,8 @@ export default function HomePage() {
         <SkeletonGrid />
       ) : (
         <>
-          <div className="relative">
-            <WallpaperGrid wallpapers={wallpapers} viewMode={viewMode} sizeMode={sizeMode} staggerFrom={staggerFrom} />
-            {hasMore && <ProgressiveBlur height="180px" />}
-          </div>
+          <WallpaperGrid wallpapers={wallpapers} viewMode={viewMode} sizeMode={sizeMode} staggerFrom={staggerFrom} />
           <div ref={sentinelRef} className="flex justify-center py-10">
-            {hasMore && loadingMore && (
-              <div className="flex items-center gap-2 text-xs text-ws-muted dark:text-ws-dark-muted">
-                <div className="w-4 h-4 border-2 border-slate-200 dark:border-white/10 border-t-ws-purple rounded-full animate-spin" />
-                <span>Loading more...</span>
-              </div>
-            )}
             {!hasMore && wallpapers.length > 0 && (
               <span className="text-xs text-ws-muted/60 dark:text-ws-dark-muted/40">You've reached the end</span>
             )}
