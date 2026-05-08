@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
+import { resolveBaseURL } from '../api/client';
 import {
   AiOutlineCloudUpload,
   AiOutlineClose,
@@ -114,7 +115,7 @@ export default function UploadPage() {
       try {
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
-          xhr.open('POST', '/api/v1/wallpapers');
+          xhr.open('POST', `${resolveBaseURL()}/wallpapers`);
 
           const token = localStorage.getItem('token');
           if (token) {
