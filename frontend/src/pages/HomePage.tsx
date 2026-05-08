@@ -178,11 +178,13 @@ export default function HomePage() {
 
   const busyRef = useRef(false);
   const [staggerFrom, setStaggerFrom] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const fetchWallpapers = useCallback(async (reset: boolean) => {
     if (!reset && (busyRef.current || !hasMoreRef.current)) return;
     busyRef.current = true;
     if (reset) setLoading(true);
+    else setLoadingMore(true);
     try {
       const params: Parameters<typeof getWallpapers>[0] = {
         cursor: reset ? undefined : cursorRef.current,
@@ -211,6 +213,7 @@ export default function HomePage() {
       toast.error('Failed to load wallpapers');
     } finally {
       if (reset) setLoading(false);
+      else setLoadingMore(false);
       busyRef.current = false;
     }
   }, [screen, deviceFilter, macFilter, sortTrending]);
@@ -399,6 +402,22 @@ export default function HomePage() {
         <>
           <WallpaperGrid wallpapers={wallpapers} viewMode={viewMode} sizeMode={sizeMode} staggerFrom={staggerFrom} />
           <div ref={sentinelRef} className="flex justify-center py-10">
+            {hasMore && (
+              <button
+                onClick={() => fetchWallpapers(false)}
+                disabled={loadingMore}
+                className="px-6 py-2 text-sm font-medium rounded-full border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:bg-slate-50 dark:hover:bg-white/5 transition-colors disabled:opacity-50"
+              >
+                {loadingMore ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-3.5 h-3.5 border-2 border-slate-200 dark:border-white/10 border-t-ws-purple rounded-full animate-spin" />
+                    Loading...
+                  </span>
+                ) : (
+                  'Load more'
+                )}
+              </button>
+            )}
             {!hasMore && wallpapers.length > 0 && (
               <span className="text-xs text-ws-muted/60 dark:text-ws-dark-muted/40">You've reached the end</span>
             )}
