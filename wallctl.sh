@@ -122,7 +122,7 @@ cmd_deploy() {
     log_info "Deploying (pull latest + rebuild + restart)..."
 
     log_info "Pulling latest code..."
-    git -C "$SCRIPT_DIR" pull --ff-only
+    (cd "$SCRIPT_DIR" && git pull --ff-only)
 
     log_info "Rebuilding and restarting app services..."
     compose up -d --build api worker frontend
