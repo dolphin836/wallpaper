@@ -13,6 +13,7 @@ import {
   AiOutlineLogout,
 } from 'react-icons/ai';
 import { BsSun, BsMoon } from 'react-icons/bs';
+import DotPattern from './DotPattern';
 
 function useDarkMode() {
   const [dark, setDark] = useState(() => {
@@ -235,8 +236,11 @@ export default function Layout() {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 bg-white dark:bg-ws-dark-bg">
-          <Outlet />
+        <main className="flex-1 bg-white dark:bg-ws-dark-bg relative">
+          <DotPattern className="text-slate-200/80 dark:text-white/[0.03]" />
+          <div className="relative z-[1]">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
