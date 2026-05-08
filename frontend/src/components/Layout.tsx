@@ -69,14 +69,12 @@ export default function Layout() {
   const sidebarNav = (
     <>
       {/* Brand */}
-      <div className="p-6 flex items-center gap-2.5">
-        <div className="w-7 h-7 border-2 border-slate-800 dark:border-white flex items-center justify-center rotate-45 flex-shrink-0">
-          <div className="w-full h-px bg-slate-800 dark:bg-white -rotate-45" />
-        </div>
-        <Link to="/" className="text-base font-semibold tracking-wide leading-tight text-slate-800 dark:text-white">
+      <Link to="/" className="p-6 flex items-center gap-2.5 group">
+        <img src="/logo-192.png" alt="Wallpaper Exchange" className="w-8 h-8 rounded-lg flex-shrink-0" />
+        <span className="text-base font-semibold tracking-wide leading-tight text-slate-800 dark:text-white">
           Wallpaper<br />Exchange
-        </Link>
-      </div>
+        </span>
+      </Link>
 
       {/* Nav */}
       <nav className="flex-1 mt-4 px-4 space-y-1">
