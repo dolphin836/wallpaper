@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-function resolveBaseURL(): string {
+export function resolveBaseURL(): string {
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL;
   }

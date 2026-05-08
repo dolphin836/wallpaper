@@ -14,11 +14,7 @@ final class AuthService: NSObject {
     private let keychainService = "com.wallpaperexchange.mac"
     private let keychainAccount = "jwt_token"
 
-    #if DEBUG
-    private let loginURL = "http://localhost:5173/login?desktop=1"
-    #else
     private let loginURL = "https://wallpaperexchange.com/login?desktop=1"
-    #endif
 
     private override init() {
         super.init()

@@ -23,11 +23,7 @@ enum APIError: LocalizedError {
 actor APIClient {
     static let shared = APIClient()
 
-    #if DEBUG
-    private let baseURL = "http://localhost:8080/api/v1"
-    #else
     private let baseURL = "https://api.wallpaperexchange.com/api/v1"
-    #endif
 
     private let session: URLSession
     private let decoder: JSONDecoder

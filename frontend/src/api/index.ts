@@ -1,4 +1,4 @@
-import client from './client';
+import client, { resolveBaseURL } from './client';
 import type { ApiResponse, AuthResponse, Wallpaper, WallpaperDetail, PaginatedData, Category, Tag, User, UserListItem, DeviceProfile, WallpaperVariant, Collection, CollectionDetail, CollectionBrief, CoinTransaction, Engagements } from '../types';
 
 export const register = (data: { username: string; email: string; password: string }) =>
@@ -44,7 +44,7 @@ export const unfavoriteWallpaper = (id: number) =>
   client.delete<ApiResponse<null>>(`/wallpapers/${id}/favorite`);
 
 export const downloadWallpaper = (id: number) =>
-  `/api/v1/wallpapers/${id}/download`;
+  `${resolveBaseURL()}/wallpapers/${id}/download`;
 
 export const getCategories = () =>
   client.get<ApiResponse<Category[]>>('/categories');
