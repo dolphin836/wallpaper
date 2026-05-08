@@ -179,6 +179,7 @@ export default function HomePage() {
   };
 
   const busyRef = useRef(false);
+  const [staggerFrom, setStaggerFrom] = useState(0);
 
   const fetchWallpapers = useCallback(async (reset: boolean) => {
     if (!reset && (busyRef.current || !hasMoreRef.current)) return;
@@ -202,7 +203,11 @@ export default function HomePage() {
       }
       const res = await getWallpapers(params);
       const { items, next_cursor, has_more } = res.data.data;
-      setWallpapers((prev) => (reset ? items : [...prev, ...items]));
+      setWallpapers((prev) => {
+        const base = reset ? [] : prev;
+        setStaggerFrom(base.length);
+        return [...base, ...items];
+      });
       setCursor(next_cursor);
       setHasMore(has_more);
     } catch {
@@ -227,15 +232,23 @@ export default function HomePage() {
   }, [deviceFilter, macFilter, sortTrending]);
 
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const saveScroll = () => {
-      saveFeedCache({
-        wallpapers, cursor, hasMore,
-        scrollY: window.scrollY,
-        deviceFilter, macFilter, sortTrending,
-      });
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+        saveFeedCache({
+          wallpapers, cursor, hasMore,
+          scrollY: window.scrollY,
+          deviceFilter, macFilter, sortTrending,
+        });
+      }, 500);
     };
     window.addEventListener('scroll', saveScroll, { passive: true });
-    return () => window.removeEventListener('scroll', saveScroll);
+    return () => {
+      window.removeEventListener('scroll', saveScroll);
+      if (timer) clearTimeout(timer);
+    };
   }, [wallpapers, cursor, hasMore, deviceFilter, macFilter, sortTrending]);
 
   useEffect(() => {
@@ -386,9 +399,11 @@ export default function HomePage() {
       {loading ? (
         <SkeletonGrid />
       ) : (
-        <div className="relative">
-          <WallpaperGrid wallpapers={wallpapers} viewMode={viewMode} sizeMode={sizeMode} />
-          {hasMore && <ProgressiveBlur height="180px" />}
+        <>
+          <div className="relative">
+            <WallpaperGrid wallpapers={wallpapers} viewMode={viewMode} sizeMode={sizeMode} staggerFrom={staggerFrom} />
+            {hasMore && <ProgressiveBlur height="180px" />}
+          </div>
           <div ref={sentinelRef} className="flex justify-center py-10">
             {hasMore && loadingMore && (
               <div className="flex items-center gap-2 text-xs text-ws-muted dark:text-ws-dark-muted">
@@ -400,7 +415,7 @@ export default function HomePage() {
               <span className="text-xs text-ws-muted/60 dark:text-ws-dark-muted/40">You've reached the end</span>
             )}
           </div>
-        </div>
+        </>
       )}
     </div>
   );
