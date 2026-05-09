@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   AiOutlineHeart,
   AiFillHeart,
@@ -39,6 +39,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   const [downloading, setDownloading] = useState(false);
   const { isAuthenticated, user, updateCoins } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const imgSrc = wallpaper.preview_url || wallpaper.thumb_url;
   const isProcessing = wallpaper.status === STATUS_PROCESSING;
@@ -155,7 +156,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   const isPublished = wallpaper.status === STATUS_PUBLISHED;
   const Wrapper = isPublished ? Link : 'div';
   const wrapperProps = isPublished
-    ? { to: `/wallpaper/${wallpaper.slug}` }
+    ? { to: `/wallpaper/${wallpaper.slug}`, state: { background: location } }
     : { style: { cursor: 'default' } };
 
   return (

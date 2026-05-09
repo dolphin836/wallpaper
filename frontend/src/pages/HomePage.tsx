@@ -84,53 +84,19 @@ function AppleIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-const CACHE_KEY = 'home_feed_cache';
-
-const CACHE_TTL = 5 * 60 * 1000;
-
-interface FeedCache {
-  wallpapers: Wallpaper[];
-  cursor?: number;
-  hasMore: boolean;
-  scrollY: number;
-  deviceFilter: boolean;
-  macFilter: boolean;
-  sortTrending: boolean;
-  savedAt: number;
-}
-
-function saveFeedCache(data: Omit<FeedCache, 'savedAt'>) {
-  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ...data, savedAt: Date.now() })); } catch { /* quota */ }
-}
-
-function loadFeedCache(): FeedCache | null {
-  try {
-    const raw = sessionStorage.getItem(CACHE_KEY);
-    if (!raw) return null;
-    const cache: FeedCache = JSON.parse(raw);
-    if (Date.now() - cache.savedAt > CACHE_TTL) {
-      sessionStorage.removeItem(CACHE_KEY);
-      return null;
-    }
-    return cache;
-  } catch { return null; }
-}
-
 export default function HomePage() {
   usePageTitle('Discover');
   const { isAuthenticated, user } = useAuthStore();
-  const cached = useMemo(() => loadFeedCache(), []);
 
-  const [wallpapers, setWallpapers] = useState<Wallpaper[]>(cached?.wallpapers ?? []);
-  const [cursor, setCursor] = useState<number | undefined>(cached?.cursor);
-  const [hasMore, setHasMore] = useState(cached?.hasMore ?? false);
-  const [loading, setLoading] = useState(!cached);
-  const [deviceFilter, setDeviceFilter] = useState(cached?.deviceFilter ?? false);
-  const [macFilter, setMacFilter] = useState(cached?.macFilter ?? false);
-  const [sortTrending, setSortTrending] = useState(cached?.sortTrending ?? false);
+  const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
+  const [cursor, setCursor] = useState<number | undefined>();
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [deviceFilter, setDeviceFilter] = useState(false);
+  const [macFilter, setMacFilter] = useState(false);
+  const [sortTrending, setSortTrending] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
-  const restoredRef = useRef(false);
   const cursorRef = useRef(cursor);
   const hasMoreRef = useRef(hasMore);
   cursorRef.current = cursor;
@@ -159,8 +125,6 @@ export default function HomePage() {
   };
 
   const toggleDeviceFilter = () => {
-    restoredRef.current = true;
-    sessionStorage.removeItem(CACHE_KEY);
     setDeviceFilter((p) => {
       if (!p) setMacFilter(false);
       return !p;
@@ -168,8 +132,6 @@ export default function HomePage() {
   };
 
   const toggleMacFilter = () => {
-    restoredRef.current = true;
-    sessionStorage.removeItem(CACHE_KEY);
     setMacFilter((p) => {
       if (!p) setDeviceFilter(false);
       return !p;
@@ -221,35 +183,8 @@ export default function HomePage() {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (cached && !restoredRef.current) {
-      restoredRef.current = true;
-      requestAnimationFrame(() => {
-        window.scrollTo(0, cached.scrollY);
-      });
-      return;
-    }
     fetchWallpapers(true);
   }, [deviceFilter, macFilter, sortTrending]);
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const saveScroll = () => {
-      if (timer) return;
-      timer = setTimeout(() => {
-        timer = null;
-        saveFeedCache({
-          wallpapers, cursor, hasMore,
-          scrollY: window.scrollY,
-          deviceFilter, macFilter, sortTrending,
-        });
-      }, 500);
-    };
-    window.addEventListener('scroll', saveScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', saveScroll);
-      if (timer) clearTimeout(timer);
-    };
-  }, [wallpapers, cursor, hasMore, deviceFilter, macFilter, sortTrending]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -363,13 +298,13 @@ export default function HomePage() {
             {sortOpen && (
               <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-ws-dark-card border border-ws-border dark:border-white/10 rounded-lg shadow-lg z-10 py-1">
                 <button
-                  onClick={() => { if (sortTrending) { restoredRef.current = true; sessionStorage.removeItem(CACHE_KEY); setSortTrending(false); } setSortOpen(false); }}
+                  onClick={() => { if (sortTrending) setSortTrending(false); setSortOpen(false); }}
                   className={`w-full text-left px-4 py-2 text-sm transition-colors ${!sortTrending ? 'text-ws-purple font-semibold bg-ws-purple-light dark:bg-ws-dark-active' : 'text-slate-700 dark:text-ws-dark-muted hover:bg-ws-bg dark:hover:bg-white/5'}`}
                 >
                   Latest
                 </button>
                 <button
-                  onClick={() => { if (!sortTrending) { restoredRef.current = true; sessionStorage.removeItem(CACHE_KEY); setSortTrending(true); } setSortOpen(false); }}
+                  onClick={() => { if (!sortTrending) setSortTrending(true); setSortOpen(false); }}
                   className={`w-full text-left px-4 py-2 text-sm transition-colors ${sortTrending ? 'text-ws-purple font-semibold bg-ws-purple-light dark:bg-ws-dark-active' : 'text-slate-700 dark:text-ws-dark-muted hover:bg-ws-bg dark:hover:bg-white/5'}`}
                 >
                   Trending

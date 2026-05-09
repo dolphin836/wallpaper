@@ -159,7 +159,6 @@ export default function UploadPage() {
     setUploading(false);
     if (failed === 0) {
       toast.success(`${success} wallpaper(s) uploaded successfully`);
-      sessionStorage.removeItem('home_feed_cache');
       setTimeout(() => navigate('/'), 1000);
     } else {
       toast.error(`${success} succeeded, ${failed} failed — you can retry failed ones`);

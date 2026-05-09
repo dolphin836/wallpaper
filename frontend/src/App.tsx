@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
@@ -12,11 +12,15 @@ import CollectionDetailPage from './pages/CollectionDetailPage';
 import UploadersPage from './pages/UploadersPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
-function App() {
+import WallpaperDetailModal from './components/WallpaperDetailModal';
+
+function AppRoutes() {
+  const location = useLocation();
+  const background = (location.state as { background?: Location })?.background;
+
   return (
-    <BrowserRouter>
-      <Toaster position="top-center" />
-      <Routes>
+    <>
+      <Routes location={background || location}>
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -31,6 +35,21 @@ function App() {
           <Route path="/privacy" element={<PrivacyPage />} />
         </Route>
       </Routes>
+
+      {background && (
+        <Routes>
+          <Route path="/wallpaper/:slug" element={<WallpaperDetailModal />} />
+        </Routes>
+      )}
+    </>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Toaster position="top-center" />
+      <AppRoutes />
     </BrowserRouter>
   );
 }
