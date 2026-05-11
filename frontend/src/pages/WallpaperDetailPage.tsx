@@ -84,6 +84,11 @@ function findBestMatch(variants: WallpaperVariant[]): WallpaperVariant | null {
   let bestDiff = Infinity;
 
   for (const v of variants) {
+    // Legacy data: some wallpaper_variants rows have metadata (width/height/device_id) but an
+    // empty `url`. If we match one, the fullscreen `<img>`'s `src` falls back to preview_url
+    // (landscape, watermarked) while the label still claims a phone variant — confusing.
+    // Treat URL-less variants as non-existent.
+    if (!v.url) continue;
     const diff = Math.abs(v.width - sw) + Math.abs(v.height - sh);
     if (diff < bestDiff) {
       bestDiff = diff;
