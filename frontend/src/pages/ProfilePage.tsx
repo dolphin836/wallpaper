@@ -19,16 +19,8 @@ interface WallpaperTab {
   // cursors[i] = the `cursor` value to send when fetching page i+1.
   // cursors[0] is always 0. cursors[N] is set after page N is fetched, ready for page N+1.
   cursors: number[];
-  // total is undefined when the backend response didn't include it (older API).
-  // In that case we fall back to hasMore-based totalPages so the UI still works.
-  total?: number;
-  hasMore: boolean;
+  total: number;
   loaded: boolean;
-}
-
-function computeTotalPages(total: number | undefined, hasMore: boolean, page: number, pageSize: number): number {
-  if (total !== undefined) return Math.max(1, Math.ceil(total / pageSize));
-  return hasMore ? page + 1 : page;
 }
 
 // Page size matches the grid layout used in WallpaperGrid (sizeMode="md"):
@@ -149,7 +141,7 @@ export default function ProfilePage() {
 
   const pageSize = useViewportPageSize();
 
-  const emptyTab = (): WallpaperTab => ({ items: [], page: 1, cursors: [0], hasMore: false, loaded: false });
+  const emptyTab = (): WallpaperTab => ({ items: [], page: 1, cursors: [0], total: 0, loaded: false });
   const [tabs, setTabs] = useState<Record<WallpaperTabKey, WallpaperTab>>({
     wallpapers: emptyTab(),
     favorites: emptyTab(),
@@ -166,8 +158,7 @@ export default function ProfilePage() {
   const [txCursors, setTxCursors] = useState<number[]>([0]);
   const txCursorsRef = useRef(txCursors);
   txCursorsRef.current = txCursors;
-  const [txTotal, setTxTotal] = useState<number | undefined>(undefined);
-  const [txHasMore, setTxHasMore] = useState(false);
+  const [txTotal, setTxTotal] = useState(0);
   const [txLoading, setTxLoading] = useState(false);
   const [txLoaded, setTxLoaded] = useState(false);
 
@@ -192,8 +183,7 @@ export default function ProfilePage() {
       const nextCursor = data?.next_cursor ?? 0;
       setTransactions(items);
       setTxPage(targetPage);
-      setTxTotal(data?.total);
-      setTxHasMore(hasMore);
+      setTxTotal(data?.total ?? 0);
       setTxCursors((prev) => {
         const next = prev.slice(0, targetPage);
         if (hasMore && nextCursor > 0) next[targetPage] = nextCursor;
@@ -230,7 +220,7 @@ export default function ProfilePage() {
       const items = data?.items ?? [];
       const hasMore = data?.has_more ?? false;
       const nextCursor = data?.next_cursor ?? 0;
-      const total = data?.total;
+      const total = data?.total ?? 0;
       setTabs((prev) => {
         const prevTab = prev[key];
         const cursors = prevTab.cursors.slice(0, targetPage);
@@ -242,7 +232,6 @@ export default function ProfilePage() {
             page: targetPage,
             cursors,
             total,
-            hasMore,
             loaded: true,
           },
         };
@@ -267,8 +256,7 @@ export default function ProfilePage() {
     setTransactions([]);
     setTxPage(1);
     setTxCursors([0]);
-    setTxTotal(undefined);
-    setTxHasMore(false);
+    setTxTotal(0);
     setTxLoaded(false);
 
     const own = currentUser?.username === username;
@@ -285,13 +273,13 @@ export default function ProfilePage() {
         const items = data?.items ?? [];
         const hasMore = data?.has_more ?? false;
         const nextCursor = data?.next_cursor ?? 0;
-        const total = data?.total;
+        const total = data?.total ?? 0;
         setTabs((prev) => {
           const cursors: number[] = [0];
           if (hasMore && nextCursor > 0) cursors[1] = nextCursor;
           return {
             ...prev,
-            wallpapers: { items, page: 1, cursors, total, hasMore, loaded: true },
+            wallpapers: { items, page: 1, cursors, total, loaded: true },
           };
         });
         setCollections(colRes.data.data?.items || []);
@@ -414,7 +402,7 @@ export default function ProfilePage() {
 
           <Pagination
             page={txPage}
-            totalPages={computeTotalPages(txTotal, txHasMore, txPage, pageSize)}
+            totalPages={Math.max(1, Math.ceil(txTotal / pageSize))}
             onChange={(p) => fetchTransactionsPage(p)}
           />
         </div>
@@ -644,7 +632,7 @@ export default function ProfilePage() {
               />
               <Pagination
                 page={currentTab.page}
-                totalPages={computeTotalPages(currentTab.total, currentTab.hasMore, currentTab.page, pageSize)}
+                totalPages={Math.max(1, Math.ceil(currentTab.total / pageSize))}
                 onChange={(p) => fetchWallpaperPage(activeTab as WallpaperTabKey, p)}
               />
             </>
