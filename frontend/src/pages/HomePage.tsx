@@ -180,7 +180,35 @@ export default function HomePage() {
     }
   }, [screen, deviceFilter, macFilter, sortTrending]);
 
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  // Holds latest fetchWallpapers so the (stable) sentinel ref-callback always calls the latest closure.
+  const fetchWallpapersRef = useRef(fetchWallpapers);
+  fetchWallpapersRef.current = fetchWallpapers;
+
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  // Ref callback: attaches/recreates the IntersectionObserver whenever the sentinel mounts.
+  // Bug fix: the previous useEffect-based attach ran when the sentinel was still null
+  // (initial load shows <SkeletonGrid/>, sentinel hadn't mounted yet) and never re-ran when
+  // loading flipped to false, so autoload was permanently broken on first paint.
+  const attachSentinel = useCallback((el: HTMLDivElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+    sentinelRef.current = el;
+    if (!el) return;
+    // Trigger when the sentinel is within ~2 screens of the viewport — matches the
+    // "start loading when the 3rd screen of a 4-screen page enters viewport" intent.
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) fetchWallpapersRef.current(false);
+      },
+      { rootMargin: `${window.innerHeight * 2}px 0px` },
+    );
+    obs.observe(el);
+    observerRef.current = obs;
+  }, []);
 
   useEffect(() => {
     fetchWallpapers(true);
@@ -194,18 +222,23 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  // After each fetch the list grows, but IntersectionObserver only fires on *state change*.
+  // If the just-loaded page didn't push the sentinel out of the trigger zone (e.g. page came
+  // back smaller than expected, or the viewport is much taller than the page), the observer
+  // sits silently until the user scrolls. So we manually re-check after every length change.
   useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) fetchWallpapers(false);
-      },
-      { rootMargin: '1500px' },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [fetchWallpapers]);
+    if (loading || loadingMore || !hasMore) return;
+    const id = requestAnimationFrame(() => {
+      const el = sentinelRef.current;
+      if (!el || busyRef.current || !hasMoreRef.current) return;
+      const rect = el.getBoundingClientRect();
+      // Trigger zone = viewport bottom + rootMargin = vh + 2vh = 3vh from viewport top.
+      if (rect.top <= window.innerHeight * 3) {
+        fetchWallpapersRef.current(false);
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [wallpapers.length, loading, loadingMore, hasMore]);
 
   const SIZE_KEYS: SizeMode[] = ['sm', 'md', 'lg'];
 
@@ -336,7 +369,7 @@ export default function HomePage() {
       ) : (
         <>
           <WallpaperGrid wallpapers={wallpapers} viewMode={viewMode} sizeMode={sizeMode} staggerFrom={staggerFrom} />
-          <div ref={sentinelRef} className="flex justify-center py-10">
+          <div ref={attachSentinel} className="flex justify-center py-10">
             {hasMore && (
               <button
                 onClick={() => fetchWallpapers(false)}
