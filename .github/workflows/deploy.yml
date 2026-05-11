@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -45,6 +45,7 @@ jobs:
           port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
           timeout: 60s
           command_timeout: 15m
+          debug: true
           script: |
             cd ${{ secrets.DEPLOY_PATH || '/opt/wallpaper' }}
             git pull --ff-only
