@@ -45,7 +45,6 @@ jobs:
           port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
           timeout: 60s
           command_timeout: 15m
-          debug: true
           script: |
             cd ${{ secrets.DEPLOY_PATH || '/opt/wallpaper' }}
             git pull --ff-only
