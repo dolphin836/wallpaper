@@ -156,7 +156,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   const isPublished = wallpaper.status === STATUS_PUBLISHED;
   const Wrapper = isPublished ? Link : 'div';
   const wrapperProps = isPublished
-    ? { to: `/wallpaper/${wallpaper.slug}`, state: { background: location } }
+    ? { to: `/wallpaper/${wallpaper.slug}`, state: { background: location, initialWallpaper: wallpaper } }
     : { style: { cursor: 'default' } };
 
   return (

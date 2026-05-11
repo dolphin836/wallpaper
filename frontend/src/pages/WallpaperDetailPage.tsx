@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import usePageTitle from '../hooks/usePageTitle';
 import {
   AiFillHeart,
@@ -15,7 +15,7 @@ import {
 } from 'react-icons/ai';
 import { MdPhoneIphone, MdPlaylistAdd } from 'react-icons/md';
 import toast from 'react-hot-toast';
-import type { WallpaperDetail, WallpaperVariant, Engagements } from '../types';
+import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User } from '../types';
 import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
 import {
   getWallpaper,
@@ -199,11 +199,18 @@ function VariantList({ variants, matchedId, onMockup, onDownload }: { variants: 
 export default function WallpaperDetailPage() {
   const { slug: id } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, user, updateCoins } = useAuthStore();
-  const [wallpaper, setWallpaper] = useState<WallpaperDetail | null>(null);
+  const initialWallpaper = (location.state as { initialWallpaper?: Wallpaper } | null)?.initialWallpaper;
+  // Hydrate from list snapshot so the preview renders immediately; uploader/tags are filled in by the detail fetch.
+  const [wallpaper, setWallpaper] = useState<WallpaperDetail | null>(() =>
+    initialWallpaper
+      ? ({ ...initialWallpaper, tags: [], uploader: undefined as unknown as User } as WallpaperDetail)
+      : null
+  );
   usePageTitle(wallpaper ? `${wallpaper.width}×${wallpaper.height} Wallpaper` : 'Wallpaper');
   const [variants, setVariants] = useState<WallpaperVariant[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialWallpaper);
   const [likeLoading, setLikeLoading] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
   const [showVariants, setShowVariants] = useState(false);
@@ -237,7 +244,6 @@ export default function WallpaperDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
     getWallpaper(id)
       .then(async (wpRes) => {
         const wp = wpRes.data.data;
@@ -251,8 +257,12 @@ export default function WallpaperDetailPage() {
           .then((res) => setEngagements(res.data.data))
           .catch(() => { /* non-critical */ });
       })
-      .catch(() => toast.error('Failed to load wallpaper'))
+      .catch(() => {
+        if (!initialWallpaper) toast.error('Failed to load wallpaper');
+      })
       .finally(() => setLoading(false));
+    // initialWallpaper is read once from navigation state; intentionally not a dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   useEffect(() => {
@@ -448,11 +458,17 @@ export default function WallpaperDetailPage() {
           {/* Image / Dynamic Slideshow */}
           <div className="relative">
             <div
-              className="w-full flex items-center justify-center bg-gray-100 overflow-hidden"
-              style={{ backgroundColor: wallpaper.dominant_color || undefined }}
+              className="relative w-full flex items-center justify-center bg-gray-100 overflow-hidden mx-auto"
+              style={{
+                aspectRatio: wallpaper.width > 0 && wallpaper.height > 0
+                  ? `${wallpaper.width} / ${wallpaper.height}`
+                  : undefined,
+                maxHeight: '70vh',
+                backgroundColor: wallpaper.dominant_color || undefined,
+              }}
             >
               {frames.length > 1 ? (
-                <div className="relative w-full">
+                <div className="relative w-full h-full">
                   {frames.map((url, i) => (
                     <img
                       key={i}
@@ -460,10 +476,10 @@ export default function WallpaperDetailPage() {
                       alt=""
                       onContextMenu={(e) => e.preventDefault()}
                       draggable={false}
-                      className={`w-full max-h-[70vh] object-contain select-none transition-opacity duration-1000 ${
-                        i === frameIdx ? 'opacity-100' : 'opacity-0 absolute inset-0'
+                      className={`absolute inset-0 w-full h-full object-contain select-none transition-opacity duration-1000 ${
+                        i === frameIdx ? 'opacity-100' : 'opacity-0'
                       }`}
-                      style={{ ...(i !== frameIdx ? { position: 'absolute', top: 0, left: 0, width: '100%' } : undefined), WebkitUserDrag: 'none' } as React.CSSProperties}
+                      style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                     />
                   ))}
                 </div>
@@ -473,7 +489,7 @@ export default function WallpaperDetailPage() {
                   alt=""
                   onContextMenu={(e) => e.preventDefault()}
                   draggable={false}
-                  className="max-h-[70vh] w-full object-contain select-none"
+                  className="w-full h-full object-contain select-none"
                   style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                 />
               )}
@@ -679,39 +695,41 @@ export default function WallpaperDetailPage() {
             )}
 
             {/* Uploader */}
-            <div className="flex items-center justify-between pt-6 border-t border-gray-100 dark:border-gray-700">
-              <Link to={`/user/${wallpaper.uploader.username}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                {wallpaper.uploader.avatar_url ? (
-                  <img src={wallpaper.uploader.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-semibold text-sm">
-                    {(wallpaper.uploader.nickname || wallpaper.uploader.username).charAt(0).toUpperCase()}
+            {wallpaper.uploader && (
+              <div className="flex items-center justify-between pt-6 border-t border-gray-100 dark:border-gray-700">
+                <Link to={`/user/${wallpaper.uploader.username}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                  {wallpaper.uploader.avatar_url ? (
+                    <img src={wallpaper.uploader.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-semibold text-sm">
+                      {(wallpaper.uploader.nickname || wallpaper.uploader.username).charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                        {wallpaper.uploader.nickname || wallpaper.uploader.username}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200/50 dark:border-amber-700/30">
+                        <span className="text-xs">💰</span>
+                        <span className="text-xs font-bold bg-gradient-to-r from-amber-600 to-yellow-500 bg-clip-text text-transparent">{wallpaper.uploader.coins ?? 0}</span>
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-400">Uploader</div>
                   </div>
-                )}
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                      {wallpaper.uploader.nickname || wallpaper.uploader.username}
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200/50 dark:border-amber-700/30">
-                      <span className="text-xs">💰</span>
-                      <span className="text-xs font-bold bg-gradient-to-r from-amber-600 to-yellow-500 bg-clip-text text-transparent">{wallpaper.uploader.coins ?? 0}</span>
-                    </span>
-                  </div>
-                  <div className="text-xs text-gray-400">Uploader</div>
-                </div>
-              </Link>
+                </Link>
 
-              {isOwner && (
-                <button
-                  onClick={handleDelete}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
-                >
-                  <AiOutlineDelete size={16} />
-                  Delete
-                </button>
-              )}
-            </div>
+                {isOwner && (
+                  <button
+                    onClick={handleDelete}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
+                  >
+                    <AiOutlineDelete size={16} />
+                    Delete
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Device Variants (hidden for dynamic wallpapers — no variants generated) */}
             {!wallpaper.is_dynamic && variants.length > 0 && (
