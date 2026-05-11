@@ -506,13 +506,12 @@ func parseCursorLimit(r *http.Request) (int64, int) {
 
 	limit := 20
 	if raw := r.URL.Query().Get("limit"); raw != "" {
-		v, err := strconv.Atoi(raw)
-		if err == nil {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
 			limit = v
 		}
 	}
-	if limit <= 0 || limit > 50 {
-		limit = 20
+	if limit > 50 {
+		limit = 50
 	}
 
 	return cursor, limit

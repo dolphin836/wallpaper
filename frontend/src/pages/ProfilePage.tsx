@@ -11,15 +11,50 @@ import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 
 type TabKey = 'coins' | 'wallpapers' | 'collections' | 'favorites' | 'likes' | 'downloads';
+type WallpaperTabKey = 'wallpapers' | 'favorites' | 'likes' | 'downloads';
 
 interface WallpaperTab {
   items: Wallpaper[];
-  cursor?: number;
+  page: number;
+  // cursors[i] = the `cursor` value to send when fetching page i+1.
+  // cursors[0] is always 0. cursors[N] is set after page N is fetched, ready for page N+1.
+  cursors: number[];
   hasMore: boolean;
   loaded: boolean;
 }
 
-const PAGE_SIZE = 20;
+// Page size matches the grid layout used in WallpaperGrid (sizeMode="md"):
+//   grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6
+// Target ~4 rows per page based on the current viewport.
+function gridColsForWidth(width: number): number {
+  if (width >= 1024) return 6;
+  if (width >= 768) return 5;
+  if (width >= 640) return 4;
+  return 3;
+}
+
+function computePageSize(width: number): number {
+  return gridColsForWidth(width) * 4;
+}
+
+function useViewportPageSize(): number {
+  const [size, setSize] = useState(() =>
+    typeof window === 'undefined' ? 20 : computePageSize(window.innerWidth),
+  );
+  useEffect(() => {
+    let raf = 0;
+    const onResize = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setSize(computePageSize(window.innerWidth)));
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+  return size;
+}
 
 function Pagination({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
   if (totalPages <= 1) return null;
@@ -54,23 +89,28 @@ export default function ProfilePage() {
   const isOwnProfile = currentUser?.username === username;
   const [activeTab, setActiveTab] = useState<TabKey>(isOwnProfile ? 'coins' : 'wallpapers');
 
-  const [tabs, setTabs] = useState<Record<string, WallpaperTab>>({
-    wallpapers: { items: [], hasMore: false, loaded: false },
-    favorites: { items: [], hasMore: false, loaded: false },
-    likes: { items: [], hasMore: false, loaded: false },
-    downloads: { items: [], hasMore: false, loaded: false },
+  const pageSize = useViewportPageSize();
+
+  const emptyTab = (): WallpaperTab => ({ items: [], page: 1, cursors: [0], hasMore: false, loaded: false });
+  const [tabs, setTabs] = useState<Record<WallpaperTabKey, WallpaperTab>>({
+    wallpapers: emptyTab(),
+    favorites: emptyTab(),
+    likes: emptyTab(),
+    downloads: emptyTab(),
   });
-  const [tabPage, setTabPage] = useState<Record<string, number>>({ wallpapers: 1, favorites: 1, likes: 1, downloads: 1, collections: 1, coins: 1 });
+  // Loader callbacks read from tabs via this ref to avoid recreating on every state change.
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
 
   const [tabLoading, setTabLoading] = useState(false);
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
+  const [txPage, setTxPage] = useState(1);
+  const [txCursors, setTxCursors] = useState<number[]>([0]);
+  const txCursorsRef = useRef(txCursors);
+  txCursorsRef.current = txCursors;
   const [txHasMore, setTxHasMore] = useState(false);
   const [txLoading, setTxLoading] = useState(false);
   const [txLoaded, setTxLoaded] = useState(false);
-
-  const updateTab = (key: string, updates: Partial<WallpaperTab>) => {
-    setTabs((prev) => ({ ...prev, [key]: { ...prev[key], ...updates } }));
-  };
 
   const loadCoins = useCallback(async () => {
     try {
@@ -81,64 +121,91 @@ export default function ProfilePage() {
     }
   }, [updateCoins]);
 
-  const loadTransactions = useCallback(async (page: number) => {
+  const fetchTransactionsPage = useCallback(async (targetPage: number) => {
     setTxLoading(true);
     try {
-      const res = await getCoinTransactions({ limit: PAGE_SIZE * page });
-      const allItems = res.data.data?.items ?? [];
-      const start = (page - 1) * PAGE_SIZE;
-      setTransactions(allItems.slice(start, start + PAGE_SIZE));
-      setTxHasMore(allItems.length > start + PAGE_SIZE || res.data.data?.has_more);
+      const cursors = txCursorsRef.current;
+      const cursor = cursors[targetPage - 1] ?? 0;
+      const res = await getCoinTransactions({ cursor: cursor > 0 ? cursor : undefined, limit: pageSize });
+      const data = res.data.data;
+      const items = data?.items ?? [];
+      const hasMore = data?.has_more ?? false;
+      const nextCursor = data?.next_cursor ?? 0;
+      setTransactions(items);
+      setTxPage(targetPage);
+      setTxHasMore(hasMore);
+      setTxCursors((prev) => {
+        const next = prev.slice(0, targetPage);
+        if (hasMore && nextCursor > 0) next[targetPage] = nextCursor;
+        return next;
+      });
       setTxLoaded(true);
     } catch {
       toast.error('Failed to load transactions');
     } finally {
       setTxLoading(false);
     }
-  }, []);
+  }, [pageSize]);
 
-  const loadWallpaperPage = useCallback(async (key: string, page: number) => {
+  const fetchWallpaperPage = useCallback(async (key: WallpaperTabKey, targetPage: number) => {
+    if (!username) return;
     setTabLoading(true);
-    const limit = PAGE_SIZE;
-    const fetchLimit = limit * page;
     try {
+      const current = tabsRef.current[key];
+      const cursor = current.cursors[targetPage - 1] ?? 0;
+      const params: { cursor?: number; limit: number } = { limit: pageSize };
+      if (cursor > 0) params.cursor = cursor;
+
       let res;
       if (key === 'wallpapers') {
-        res = await getUserWallpapers(username!, { limit: fetchLimit });
+        res = await getUserWallpapers(username, params);
       } else if (key === 'favorites') {
-        res = await getMyFavorites({ limit: fetchLimit });
+        res = await getMyFavorites(params);
       } else if (key === 'downloads') {
-        res = await getMyDownloads({ limit: fetchLimit });
+        res = await getMyDownloads(params);
       } else {
-        res = await getMyLikes({ limit: fetchLimit });
+        res = await getMyLikes(params);
       }
-      const allItems = res.data.data?.items ?? [];
-      const start = (page - 1) * limit;
-      const hasMore = res.data.data?.has_more || allItems.length > start + limit;
-      updateTab(key, {
-        items: allItems.slice(start, start + limit),
-        hasMore,
-        loaded: true,
+      const data = res.data.data;
+      const items = data?.items ?? [];
+      const hasMore = data?.has_more ?? false;
+      const nextCursor = data?.next_cursor ?? 0;
+      setTabs((prev) => {
+        const prevTab = prev[key];
+        const cursors = prevTab.cursors.slice(0, targetPage);
+        if (hasMore && nextCursor > 0) cursors[targetPage] = nextCursor;
+        return {
+          ...prev,
+          [key]: {
+            items,
+            page: targetPage,
+            cursors,
+            hasMore,
+            loaded: true,
+          },
+        };
       });
     } catch {
       toast.error('Failed to load data');
-      updateTab(key, { loaded: true });
+      setTabs((prev) => ({ ...prev, [key]: { ...prev[key], loaded: true } }));
     } finally {
       setTabLoading(false);
     }
-  }, [username]);
+  }, [username, pageSize]);
 
   useEffect(() => {
     if (!username) return;
     setLoading(true);
     setTabs({
-      wallpapers: { items: [], hasMore: false, loaded: false },
-      favorites: { items: [], hasMore: false, loaded: false },
-      likes: { items: [], hasMore: false, loaded: false },
-      downloads: { items: [], hasMore: false, loaded: false },
+      wallpapers: emptyTab(),
+      favorites: emptyTab(),
+      likes: emptyTab(),
+      downloads: emptyTab(),
     });
-    setTabPage({ wallpapers: 1, favorites: 1, likes: 1, downloads: 1, collections: 1, coins: 1 });
     setTransactions([]);
+    setTxPage(1);
+    setTxCursors([0]);
+    setTxHasMore(false);
     setTxLoaded(false);
 
     const own = currentUser?.username === username;
@@ -146,13 +213,23 @@ export default function ProfilePage() {
 
     Promise.all([
       getUserProfile(username),
-      getUserWallpapers(username, { limit: PAGE_SIZE }),
+      getUserWallpapers(username, { limit: pageSize }),
       getUserCollections(username, { limit: 50 }),
     ])
       .then(([profileRes, wpRes, colRes]) => {
         setUser(profileRes.data.data);
-        const { items, has_more } = wpRes.data.data;
-        updateTab('wallpapers', { items, hasMore: has_more, loaded: true });
+        const data = wpRes.data.data;
+        const items = data?.items ?? [];
+        const hasMore = data?.has_more ?? false;
+        const nextCursor = data?.next_cursor ?? 0;
+        setTabs((prev) => {
+          const cursors: number[] = [0];
+          if (hasMore && nextCursor > 0) cursors[1] = nextCursor;
+          return {
+            ...prev,
+            wallpapers: { items, page: 1, cursors, hasMore, loaded: true },
+          };
+        });
         setCollections(colRes.data.data?.items || []);
       })
       .catch(() => toast.error('Failed to load profile'))
@@ -160,27 +237,40 @@ export default function ProfilePage() {
 
     if (own) {
       loadCoins();
-      loadTransactions(1);
+      fetchTransactionsPage(1);
     }
+    // Intentionally only re-run when username changes. pageSize changes are handled by the dedicated effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username]);
+
+  // When the viewport changes the page size, drop cached pages on loaded tabs and refetch page 1
+  // (cached cursors were sized for the old page size and are no longer valid offsets).
+  const prevPageSizeRef = useRef(pageSize);
+  useEffect(() => {
+    if (prevPageSizeRef.current === pageSize) return;
+    prevPageSizeRef.current = pageSize;
+    if (!username) return;
+
+    (Object.keys(tabsRef.current) as WallpaperTabKey[]).forEach((key) => {
+      if (tabsRef.current[key].loaded) {
+        fetchWallpaperPage(key, 1);
+      }
+    });
+    if (txLoaded) {
+      fetchTransactionsPage(1);
+    }
+    // We intentionally don't include tabs/transactions in deps — we read fresh state via refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageSize, username, fetchWallpaperPage, fetchTransactionsPage]);
 
   const handleTabChange = (tab: TabKey) => {
     setActiveTab(tab);
-    if ((tab === 'favorites' || tab === 'likes' || tab === 'downloads') && !tabs[tab]?.loaded) {
-      loadWallpaperPage(tab, 1);
+    if ((tab === 'favorites' || tab === 'likes' || tab === 'downloads') && !tabs[tab].loaded) {
+      fetchWallpaperPage(tab, 1);
     }
     if (tab === 'coins' && !txLoaded) {
       loadCoins();
-      loadTransactions(1);
-    }
-  };
-
-  const handlePageChange = (key: string, page: number) => {
-    setTabPage((prev) => ({ ...prev, [key]: page }));
-    if (key === 'coins') {
-      loadTransactions(page);
-    } else {
-      loadWallpaperPage(key, page);
+      fetchTransactionsPage(1);
     }
   };
 
@@ -197,7 +287,9 @@ export default function ProfilePage() {
   if (loading) return <Spinner />;
   if (!user) return <EmptyState message="User not found." />;
 
-  const currentTab = tabs[activeTab];
+  const currentTab = (activeTab === 'coins' || activeTab === 'collections')
+    ? undefined
+    : tabs[activeTab];
   const tabDefs: { key: TabKey; label: string; ownerOnly: boolean }[] = [
     { key: 'coins', label: 'Coins', ownerOnly: true },
     { key: 'wallpapers', label: 'Wallpapers', ownerOnly: false },
@@ -256,9 +348,11 @@ export default function ProfilePage() {
             );
           })}
 
-          {(txHasMore || tabPage.coins > 1) && (
-            <Pagination page={tabPage.coins} totalPages={txHasMore ? tabPage.coins + 1 : tabPage.coins} onChange={(p) => handlePageChange('coins', p)} />
-          )}
+          <Pagination
+            page={txPage}
+            totalPages={txHasMore ? txPage + 1 : txPage}
+            onChange={(p) => fetchTransactionsPage(p)}
+          />
         </div>
       )}
     </div>
@@ -483,9 +577,11 @@ export default function ProfilePage() {
                 viewMode="grid"
                 sizeMode="md"
               />
-              {(currentTab.hasMore || tabPage[activeTab] > 1) && (
-                <Pagination page={tabPage[activeTab]} totalPages={currentTab.hasMore ? tabPage[activeTab] + 1 : tabPage[activeTab]} onChange={(p) => handlePageChange(activeTab, p)} />
-              )}
+              <Pagination
+                page={currentTab.page}
+                totalPages={currentTab.hasMore ? currentTab.page + 1 : currentTab.page}
+                onChange={(p) => fetchWallpaperPage(activeTab as WallpaperTabKey, p)}
+              />
             </>
           ) : currentTab?.loaded ? (
             <EmptyState message={`No ${activeTab} yet.`} />
