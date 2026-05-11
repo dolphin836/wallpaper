@@ -172,6 +172,36 @@ func (r *InteractionRepo) ListDownloads(ctx context.Context, userID int64, curso
 	return wallpapers, err
 }
 
+func (r *InteractionRepo) CountFavorites(ctx context.Context, userID int64) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Table("user_favorites").
+		Joins("JOIN wallpapers ON wallpapers.id = user_favorites.wallpaper_id").
+		Where("user_favorites.user_id = ? AND wallpapers.status = ?", userID, model.WallpaperStatusPublished).
+		Count(&count).Error
+	return count, err
+}
+
+func (r *InteractionRepo) CountDownloads(ctx context.Context, userID int64) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Table("user_downloads").
+		Joins("JOIN wallpapers ON wallpapers.id = user_downloads.wallpaper_id").
+		Where("user_downloads.user_id = ? AND wallpapers.status = ?", userID, model.WallpaperStatusPublished).
+		Count(&count).Error
+	return count, err
+}
+
+func (r *InteractionRepo) CountLikes(ctx context.Context, userID int64) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Table("user_likes").
+		Joins("JOIN wallpapers ON wallpapers.id = user_likes.wallpaper_id").
+		Where("user_likes.user_id = ? AND wallpapers.status = ?", userID, model.WallpaperStatusPublished).
+		Count(&count).Error
+	return count, err
+}
+
 func (r *InteractionRepo) ListLikes(ctx context.Context, userID int64, cursor int64, limit int) ([]model.Wallpaper, error) {
 	query := r.db.WithContext(ctx).
 		Table("wallpapers").

@@ -19,7 +19,7 @@ interface WallpaperTab {
   // cursors[i] = the `cursor` value to send when fetching page i+1.
   // cursors[0] is always 0. cursors[N] is set after page N is fetched, ready for page N+1.
   cursors: number[];
-  hasMore: boolean;
+  total: number;
   loaded: boolean;
 }
 
@@ -56,14 +56,64 @@ function useViewportPageSize(): number {
   return size;
 }
 
+// Returns the page-number sequence with ellipses, e.g. for page=5, total=10: [1, '...', 4, 5, 6, '...', 10].
+// Always shows first + last + a small window around the current page.
+function paginationItems(page: number, total: number): (number | 'ellipsis')[] {
+  const set = new Set<number>([1, total]);
+  for (let i = page - 1; i <= page + 1; i++) {
+    if (i > 1 && i < total) set.add(i);
+  }
+  const sorted = Array.from(set).sort((a, b) => a - b);
+  const out: (number | 'ellipsis')[] = [];
+  let prev = 0;
+  for (const p of sorted) {
+    if (prev > 0 && p - prev > 1) out.push('ellipsis');
+    out.push(p);
+    prev = p;
+  }
+  return out;
+}
+
 function Pagination({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
   if (totalPages <= 1) return null;
+  const items = paginationItems(page, totalPages);
   return (
-    <div className="flex items-center justify-center gap-2 mt-8">
-      <button onClick={() => onChange(page - 1)} disabled={page <= 1} className="px-3 py-1.5 text-sm rounded-lg border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple disabled:opacity-30 disabled:cursor-not-allowed transition-colors">&larr; Prev</button>
-      <span className="px-3 text-sm text-ws-muted dark:text-ws-dark-muted">{page} / {totalPages}</span>
-      <button onClick={() => onChange(page + 1)} disabled={page >= totalPages} className="px-3 py-1.5 text-sm rounded-lg border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple disabled:opacity-30 disabled:cursor-not-allowed transition-colors">Next &rarr;</button>
-    </div>
+    <nav className="flex items-center justify-center gap-1.5 mt-8" aria-label="Pagination">
+      <button
+        onClick={() => onChange(page - 1)}
+        disabled={page <= 1}
+        className="px-3 py-1.5 text-sm rounded-lg border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple hover:border-ws-purple/30 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-ws-muted disabled:hover:border-ws-border transition-colors"
+        aria-label="Previous page"
+      >
+        &larr;
+      </button>
+      {items.map((it, i) =>
+        it === 'ellipsis' ? (
+          <span key={`e${i}`} className="px-1 text-sm text-ws-muted dark:text-ws-dark-muted select-none">…</span>
+        ) : (
+          <button
+            key={it}
+            onClick={() => onChange(it)}
+            aria-current={it === page ? 'page' : undefined}
+            className={`min-w-9 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+              it === page
+                ? 'border-ws-purple bg-ws-purple text-white'
+                : 'border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple hover:border-ws-purple/30'
+            }`}
+          >
+            {it}
+          </button>
+        ),
+      )}
+      <button
+        onClick={() => onChange(page + 1)}
+        disabled={page >= totalPages}
+        className="px-3 py-1.5 text-sm rounded-lg border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple hover:border-ws-purple/30 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-ws-muted disabled:hover:border-ws-border transition-colors"
+        aria-label="Next page"
+      >
+        &rarr;
+      </button>
+    </nav>
   );
 }
 
@@ -91,7 +141,7 @@ export default function ProfilePage() {
 
   const pageSize = useViewportPageSize();
 
-  const emptyTab = (): WallpaperTab => ({ items: [], page: 1, cursors: [0], hasMore: false, loaded: false });
+  const emptyTab = (): WallpaperTab => ({ items: [], page: 1, cursors: [0], total: 0, loaded: false });
   const [tabs, setTabs] = useState<Record<WallpaperTabKey, WallpaperTab>>({
     wallpapers: emptyTab(),
     favorites: emptyTab(),
@@ -108,7 +158,7 @@ export default function ProfilePage() {
   const [txCursors, setTxCursors] = useState<number[]>([0]);
   const txCursorsRef = useRef(txCursors);
   txCursorsRef.current = txCursors;
-  const [txHasMore, setTxHasMore] = useState(false);
+  const [txTotal, setTxTotal] = useState(0);
   const [txLoading, setTxLoading] = useState(false);
   const [txLoaded, setTxLoaded] = useState(false);
 
@@ -133,7 +183,7 @@ export default function ProfilePage() {
       const nextCursor = data?.next_cursor ?? 0;
       setTransactions(items);
       setTxPage(targetPage);
-      setTxHasMore(hasMore);
+      setTxTotal(data?.total ?? 0);
       setTxCursors((prev) => {
         const next = prev.slice(0, targetPage);
         if (hasMore && nextCursor > 0) next[targetPage] = nextCursor;
@@ -170,6 +220,7 @@ export default function ProfilePage() {
       const items = data?.items ?? [];
       const hasMore = data?.has_more ?? false;
       const nextCursor = data?.next_cursor ?? 0;
+      const total = data?.total ?? 0;
       setTabs((prev) => {
         const prevTab = prev[key];
         const cursors = prevTab.cursors.slice(0, targetPage);
@@ -180,7 +231,7 @@ export default function ProfilePage() {
             items,
             page: targetPage,
             cursors,
-            hasMore,
+            total,
             loaded: true,
           },
         };
@@ -205,7 +256,7 @@ export default function ProfilePage() {
     setTransactions([]);
     setTxPage(1);
     setTxCursors([0]);
-    setTxHasMore(false);
+    setTxTotal(0);
     setTxLoaded(false);
 
     const own = currentUser?.username === username;
@@ -222,12 +273,13 @@ export default function ProfilePage() {
         const items = data?.items ?? [];
         const hasMore = data?.has_more ?? false;
         const nextCursor = data?.next_cursor ?? 0;
+        const total = data?.total ?? 0;
         setTabs((prev) => {
           const cursors: number[] = [0];
           if (hasMore && nextCursor > 0) cursors[1] = nextCursor;
           return {
             ...prev,
-            wallpapers: { items, page: 1, cursors, hasMore, loaded: true },
+            wallpapers: { items, page: 1, cursors, total, loaded: true },
           };
         });
         setCollections(colRes.data.data?.items || []);
@@ -350,7 +402,7 @@ export default function ProfilePage() {
 
           <Pagination
             page={txPage}
-            totalPages={txHasMore ? txPage + 1 : txPage}
+            totalPages={Math.max(1, Math.ceil(txTotal / pageSize))}
             onChange={(p) => fetchTransactionsPage(p)}
           />
         </div>
@@ -576,10 +628,11 @@ export default function ProfilePage() {
                 showStatus={activeTab === 'wallpapers' && isOwnProfile}
                 viewMode="grid"
                 sizeMode="md"
+                disableModal
               />
               <Pagination
                 page={currentTab.page}
-                totalPages={currentTab.hasMore ? currentTab.page + 1 : currentTab.page}
+                totalPages={Math.max(1, Math.ceil(currentTab.total / pageSize))}
                 onChange={(p) => fetchWallpaperPage(activeTab as WallpaperTabKey, p)}
               />
             </>

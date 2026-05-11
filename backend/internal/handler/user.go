@@ -156,6 +156,16 @@ func (h *UserHandler) GetWallpapers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	countOpts := opts
+	countOpts.Cursor = 0
+	countOpts.Limit = 0
+	total, err := h.wallpaperRepo.Count(r.Context(), countOpts)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to count user wallpapers", "error", err, "user_id", id)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
 	hasMore := len(items) == fetchLimit
 	if hasMore {
 		items = items[:len(items)-1]
@@ -172,6 +182,7 @@ func (h *UserHandler) GetWallpapers(w http.ResponseWriter, r *http.Request) {
 		"items":       h.enrichItems(r, items, currentUserID),
 		"next_cursor": nextCursor,
 		"has_more":    hasMore,
+		"total":       total,
 	})
 }
 
@@ -188,6 +199,13 @@ func (h *UserHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	total, err := h.interactionRepo.CountFavorites(r.Context(), userID)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to count favorites", "error", err, "user_id", userID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
 	hasMore := len(items) == fetchLimit
 	if hasMore {
 		items = items[:len(items)-1]
@@ -204,6 +222,7 @@ func (h *UserHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 		"items":       h.enrichItems(r, items, userID),
 		"next_cursor": nextCursor,
 		"has_more":    hasMore,
+		"total":       total,
 	})
 }
 
@@ -220,34 +239,9 @@ func (h *UserHandler) GetLikes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hasMore := len(items) == fetchLimit
-	if hasMore {
-		items = items[:len(items)-1]
-	}
-
-	var nextCursor int64
-	if hasMore && len(items) > 0 {
-		nextCursor = items[len(items)-1].ID
-	}
-
-	stripOriginalURLs(items, userID)
-
-	response.OK(w, map[string]any{
-		"items":       h.enrichItems(r, items, userID),
-		"next_cursor": nextCursor,
-		"has_more":    hasMore,
-	})
-}
-
-func (h *UserHandler) GetDownloads(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r.Context())
-	cursor, limit := parseCursorLimit(r)
-	fetchLimit := limit + 1
-
-	items, err := h.interactionRepo.ListDownloads(r.Context(), userID, cursor, fetchLimit)
+	total, err := h.interactionRepo.CountLikes(r.Context(), userID)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to list downloads",
-			"error", err, "user_id", userID)
+		slog.ErrorContext(r.Context(), "failed to count likes", "error", err, "user_id", userID)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
@@ -268,6 +262,47 @@ func (h *UserHandler) GetDownloads(w http.ResponseWriter, r *http.Request) {
 		"items":       h.enrichItems(r, items, userID),
 		"next_cursor": nextCursor,
 		"has_more":    hasMore,
+		"total":       total,
+	})
+}
+
+func (h *UserHandler) GetDownloads(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	cursor, limit := parseCursorLimit(r)
+	fetchLimit := limit + 1
+
+	items, err := h.interactionRepo.ListDownloads(r.Context(), userID, cursor, fetchLimit)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to list downloads",
+			"error", err, "user_id", userID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	total, err := h.interactionRepo.CountDownloads(r.Context(), userID)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to count downloads", "error", err, "user_id", userID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	hasMore := len(items) == fetchLimit
+	if hasMore {
+		items = items[:len(items)-1]
+	}
+
+	var nextCursor int64
+	if hasMore && len(items) > 0 {
+		nextCursor = items[len(items)-1].ID
+	}
+
+	stripOriginalURLs(items, userID)
+
+	response.OK(w, map[string]any{
+		"items":       h.enrichItems(r, items, userID),
+		"next_cursor": nextCursor,
+		"has_more":    hasMore,
+		"total":       total,
 	})
 }
 
@@ -295,6 +330,13 @@ func (h *UserHandler) GetCoinTransactions(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	total, err := h.coinRepo.CountTransactions(r.Context(), userID)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to count coin transactions", "error", err, "user_id", userID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
 	hasMore := len(items) == fetchLimit
 	if hasMore {
 		items = items[:len(items)-1]
@@ -309,6 +351,7 @@ func (h *UserHandler) GetCoinTransactions(w http.ResponseWriter, r *http.Request
 		"items":       items,
 		"next_cursor": nextCursor,
 		"has_more":    hasMore,
+		"total":       total,
 	})
 }
 

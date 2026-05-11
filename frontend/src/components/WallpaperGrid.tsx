@@ -30,6 +30,7 @@ interface Props {
   viewMode?: ViewMode;
   sizeMode?: SizeMode;
   staggerFrom?: number;
+  disableModal?: boolean;
 }
 
 function useContainerWidth(ref: React.RefObject<HTMLDivElement | null>) {
@@ -53,7 +54,7 @@ const GRID_COLS: Record<SizeMode, string> = {
   sm: 'grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10',
 };
 
-function GridLayout({ wallpapers, showStatus, sizeMode, staggerFrom = 0 }: { wallpapers: Wallpaper[]; showStatus?: boolean; sizeMode: SizeMode; staggerFrom?: number }) {
+function GridLayout({ wallpapers, showStatus, sizeMode, staggerFrom = 0, disableModal }: { wallpapers: Wallpaper[]; showStatus?: boolean; sizeMode: SizeMode; staggerFrom?: number; disableModal?: boolean }) {
   return (
     <div className={`grid ${GRID_COLS[sizeMode]} gap-4`}>
       {wallpapers.map((w, i) => (
@@ -63,6 +64,7 @@ function GridLayout({ wallpapers, showStatus, sizeMode, staggerFrom = 0 }: { wal
           showStatus={showStatus}
           fixedAspect
           animDelay={staggerDelay(i, staggerFrom)}
+          disableModal={disableModal}
         />
       ))}
     </div>
@@ -76,7 +78,7 @@ interface LayoutBox {
   top: number;
 }
 
-function JustifiedView({ wallpapers, showStatus, targetHeight, staggerFrom = 0 }: { wallpapers: Wallpaper[]; showStatus?: boolean; targetHeight: number; staggerFrom?: number }) {
+function JustifiedView({ wallpapers, showStatus, targetHeight, staggerFrom = 0, disableModal }: { wallpapers: Wallpaper[]; showStatus?: boolean; targetHeight: number; staggerFrom?: number; disableModal?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const containerWidth = useContainerWidth(containerRef);
 
@@ -114,6 +116,7 @@ function JustifiedView({ wallpapers, showStatus, targetHeight, staggerFrom = 0 }
             showStatus={showStatus}
             fillHeight
             animDelay={staggerDelay(i, staggerFrom)}
+            disableModal={disableModal}
             style={{
               position: 'absolute',
               left: box.left,
@@ -128,7 +131,7 @@ function JustifiedView({ wallpapers, showStatus, targetHeight, staggerFrom = 0 }
   );
 }
 
-export default function WallpaperGrid({ wallpapers, showStatus, viewMode = 'justified', sizeMode = 'md', staggerFrom = 0 }: Props) {
+export default function WallpaperGrid({ wallpapers, showStatus, viewMode = 'justified', sizeMode = 'md', staggerFrom = 0, disableModal }: Props) {
   if (wallpapers.length === 0) {
     return <EmptyState message="No wallpapers found." />;
   }
@@ -137,8 +140,8 @@ export default function WallpaperGrid({ wallpapers, showStatus, viewMode = 'just
 
   switch (viewMode) {
     case 'grid':
-      return <GridLayout wallpapers={wallpapers} showStatus={showStatus} sizeMode={sizeMode} staggerFrom={staggerFrom} />;
+      return <GridLayout wallpapers={wallpapers} showStatus={showStatus} sizeMode={sizeMode} staggerFrom={staggerFrom} disableModal={disableModal} />;
     default:
-      return <JustifiedView wallpapers={wallpapers} showStatus={showStatus} targetHeight={height} staggerFrom={staggerFrom} />;
+      return <JustifiedView wallpapers={wallpapers} showStatus={showStatus} targetHeight={height} staggerFrom={staggerFrom} disableModal={disableModal} />;
   }
 }

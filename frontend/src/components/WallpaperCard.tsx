@@ -27,9 +27,10 @@ interface Props {
   fillHeight?: boolean;
   style?: CSSProperties;
   animDelay?: number;
+  disableModal?: boolean;
 }
 
-export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0 }: Props) {
+export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0, disableModal = false }: Props) {
   const [loaded, setLoaded] = useState(false);
   const [liked, setLiked] = useState(wallpaper.is_liked ?? false);
   const [likeLoading, setLikeLoading] = useState(false);
@@ -155,8 +156,15 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
 
   const isPublished = wallpaper.status === STATUS_PUBLISHED;
   const Wrapper = isPublished ? Link : 'div';
+  // disableModal omits `background` so the route resolves to the full page instead of the overlay modal.
+  // initialWallpaper is still passed so the full-page detail view hydrates instantly from this card's data.
   const wrapperProps = isPublished
-    ? { to: `/wallpaper/${wallpaper.slug}`, state: { background: location, initialWallpaper: wallpaper } }
+    ? {
+        to: `/wallpaper/${wallpaper.slug}`,
+        state: disableModal
+          ? { initialWallpaper: wallpaper }
+          : { background: location, initialWallpaper: wallpaper },
+      }
     : { style: { cursor: 'default' } };
 
   return (

@@ -85,6 +85,7 @@ export interface PaginatedData<T> {
   items: T[];
   next_cursor: number;
   has_more: boolean;
+  total?: number;
 }
 
 export interface AuthResponse {

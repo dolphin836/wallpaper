@@ -79,6 +79,15 @@ func (r *CoinRepo) GetBalance(ctx context.Context, userID int64) (int64, error) 
 	return user.Coins, err
 }
 
+func (r *CoinRepo) CountTransactions(ctx context.Context, userID int64) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.CoinTransaction{}).
+		Where("user_id = ?", userID).
+		Count(&count).Error
+	return count, err
+}
+
 func (r *CoinRepo) ListTransactions(ctx context.Context, userID int64, cursor int64, limit int) ([]model.CoinTransaction, error) {
 	query := r.db.WithContext(ctx).
 		Where("user_id = ?", userID)

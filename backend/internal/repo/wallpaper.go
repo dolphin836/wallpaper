@@ -67,13 +67,9 @@ type ListOptions struct {
 	DynamicOnly      bool
 }
 
-func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wallpaper, error) {
-	query := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, created_at")
-
-	if opts.Cursor > 0 {
-		query = query.Where("id < ?", opts.Cursor)
-	}
+// applyListFilters applies every WHERE clause from ListOptions except the cursor.
+// Cursor is intentionally excluded so Count uses the full set, not just the current page slice.
+func (r *WallpaperRepo) applyListFilters(query *gorm.DB, opts ListOptions) *gorm.DB {
 	if opts.CategoryID > 0 {
 		query = query.Where("category_id = ?", opts.CategoryID)
 	}
@@ -101,6 +97,16 @@ func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wal
 				opts.DeviceWidth, opts.DeviceHeight)
 		}
 	}
+	return query
+}
+
+func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wallpaper, error) {
+	query := r.db.WithContext(ctx).
+		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, created_at")
+	query = r.applyListFilters(query, opts)
+	if opts.Cursor > 0 {
+		query = query.Where("id < ?", opts.Cursor)
+	}
 
 	switch opts.Sort {
 	case "popular":
@@ -117,6 +123,13 @@ func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wal
 	var wallpapers []model.Wallpaper
 	err := query.Limit(limit).Find(&wallpapers).Error
 	return wallpapers, err
+}
+
+func (r *WallpaperRepo) Count(ctx context.Context, opts ListOptions) (int64, error) {
+	query := r.applyListFilters(r.db.WithContext(ctx).Model(&model.Wallpaper{}), opts)
+	var count int64
+	err := query.Count(&count).Error
+	return count, err
 }
 
 func (r *WallpaperRepo) GetByIDs(ctx context.Context, ids []int64) ([]model.Wallpaper, error) {
