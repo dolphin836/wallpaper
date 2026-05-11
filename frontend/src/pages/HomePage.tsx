@@ -274,8 +274,12 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* Right: view + size + sort */}
-        <div className="flex items-center gap-4">
+        {/* Right: view + size + sort.
+            flex-wrap + min-w-0 so the three sub-controls re-flow on narrow
+            viewports — without these, on a ~390px phone the combined
+            ~384px content overflows the px-6 page wrapper (~342px content
+            area) and pushes the body wider than the viewport. */}
+        <div className="flex flex-wrap items-center gap-4 min-w-0">
           {/* View toggle */}
           <div className="flex items-center p-1 bg-ws-bg dark:bg-ws-dark-card rounded-lg border border-ws-border dark:border-white/10">
             <button

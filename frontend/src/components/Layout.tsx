@@ -234,7 +234,7 @@ export default function Layout() {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 bg-white dark:bg-ws-dark-bg relative">
+        <main className="flex-1 bg-white dark:bg-ws-dark-bg relative overflow-x-hidden">
           <DotPattern className="text-slate-300 dark:text-white/10" />
           <div className="relative z-[1]">
             <Outlet />
