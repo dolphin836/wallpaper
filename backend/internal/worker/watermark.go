@@ -7,15 +7,22 @@ import (
 )
 
 // addWatermark stamps a single "Wallpaper Exchange" mark in the bottom-right corner.
-// Previous version tiled the text diagonally across the whole image — that read as
-// noise and obscured the wallpaper. A single corner stamp is enough to attribute
-// the preview without ruining its appearance.
+// Stamp size scales with image width so the same logic produces a proportionate
+// mark on an 800px card preview and a 3840px detail preview alike.
 func addWatermark(img image.Image) *image.NRGBA {
 	bounds := img.Bounds()
 	out := image.NewNRGBA(bounds)
 	draw.Draw(out, bounds, img, bounds.Min, draw.Src)
 
-	stamp := renderStamp()
+	// Pixel-font scale targeting ~15-18% of image width for the whole stamp.
+	// The text is 18 chars × ~6 columns each ≈ 108 horizontal units, so
+	// `width / 250` gives a usable scale: ~3 at 800px, ~6 at 1600px, ~15 at 3840px.
+	scale := bounds.Dx() / 250
+	if scale < 2 {
+		scale = 2
+	}
+
+	stamp := renderStamp(scale)
 	stampW := stamp.Bounds().Dx()
 	stampH := stamp.Bounds().Dy()
 
@@ -71,7 +78,13 @@ func drawStamp(dst *image.NRGBA, stamp *image.NRGBA, ox, oy int) {
 // renderStamp creates a small image with "Wallpaper Exchange" text using a built-in pixel font.
 // Alpha is higher than the tiled-watermark era (35 → 130) since this is the only mark on
 // the image and needs to be legible at a glance without being overbearing.
-func renderStamp() *image.NRGBA {
+//
+// `scale` is the pixel-font multiplier — caller passes a value derived from the
+// target image size so the stamp stays proportionate across resolutions.
+func renderStamp(scale int) *image.NRGBA {
+	if scale < 1 {
+		scale = 1
+	}
 	glyphs := map[byte][]string{
 		'W': {"1   1", "1   1", "1 1 1", "1 1 1", " 1 1 "},
 		'a': {"   ", " 11", "1 1", "1 1", " 11"},
@@ -88,7 +101,6 @@ func renderStamp() *image.NRGBA {
 		'g': {"   ", " 11", "1 1", " 11", "  1"},
 	}
 	text := "Wallpaper Exchange"
-	scale := 3
 
 	totalW := 0
 	for _, ch := range []byte(text) {

@@ -260,17 +260,19 @@ func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Ima
 
 	bounds := img.Bounds()
 
-	// card: ~800px wide, no watermark, JPEG q=75. Sized for the home card on a
+	// card: ~800px wide, watermarked, JPEG q=75. Sized for the home card on a
 	// 2× retina display at the largest card size (~330px CSS), where 800px source
 	// renders crisp. Loading 24 of these for a homepage page is ~2 MB total vs
-	// 5-10 MB if we used the 1600px preview.
+	// 5-10 MB if we used the 1600px preview. Watermarked because it's a
+	// user-visible asset — anyone right-clicking saves a usable 800px image.
 	cardWidth := uint(800)
 	if bounds.Dx() < int(cardWidth) {
 		cardWidth = uint(bounds.Dx())
 	}
 	card := resize.Resize(cardWidth, 0, img, resize.Lanczos3)
+	cardWatermarked := addWatermark(card)
 	cardBuf := new(bytes.Buffer)
-	if err := jpeg.Encode(cardBuf, card, &jpeg.Options{Quality: 75}); err != nil {
+	if err := jpeg.Encode(cardBuf, cardWatermarked, &jpeg.Options{Quality: 75}); err != nil {
 		return fmt.Errorf("encode card: %w", err)
 	}
 	cardKey := fmt.Sprintf("cards/%s.jpg", uuid.New().String())
