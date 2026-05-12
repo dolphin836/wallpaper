@@ -115,6 +115,13 @@ struct PopoverContentView: View {
         .task {
             await loadAll()
         }
+        // Auth state can change at any time (Sign In / Sign Out / token invalidated by an
+        // API 401). Re-running loadAll wipes any state that's no longer authorized to be
+        // shown (e.g. the Downloaded list after a logout) and fetches fresh data once
+        // logged in again.
+        .onChange(of: auth.isLoggedIn) { _, _ in
+            Task { await loadAll() }
+        }
     }
 
     private func wallpaperColumn(
@@ -148,7 +155,7 @@ struct PopoverContentView: View {
                     ForEach(wallpapers) { wp in
                         WallpaperRow(
                             wallpaper: wp,
-                            isLocal: isLocal || manager.isDownloaded(wp.id),
+                            column: isLocal ? .downloaded : .latest,
                             isDownloading: manager.downloading.contains(wp.id),
                             onDownload: { Task { await download(wp) } },
                             onDownloadAndSet: { Task { await downloadAndSet(wp) } },

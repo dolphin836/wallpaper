@@ -1,8 +1,13 @@
 import SwiftUI
 
+enum WallpaperRowColumn {
+    case latest      // Discover list — hover reveals Download / Download & Set
+    case downloaded  // Local-only list — hover reveals Set Wallpaper
+}
+
 struct WallpaperRow: View {
     let wallpaper: Wallpaper
-    let isLocal: Bool
+    let column: WallpaperRowColumn
     let isDownloading: Bool
     let onDownload: () -> Void
     let onDownloadAndSet: () -> Void
@@ -48,11 +53,16 @@ struct WallpaperRow: View {
             // ZStack alongside the chips.
             if isHovering && !isDownloading {
                 VStack(spacing: 6) {
-                    if isLocal {
-                        iconButton(icon: "desktopcomputer", help: "Set wallpaper", action: onSetWallpaper)
-                    } else {
+                    // The button set is driven by the *column* the row appears in, not by
+                    // whether the file happens to be on disk. A wallpaper showing up in
+                    // Latest after a previous download still offers download — the user can
+                    // re-download, or just hover-click to see what they get.
+                    switch column {
+                    case .latest:
                         iconButton(icon: "arrow.down.circle", help: "Download", action: onDownload)
                         iconButton(icon: "desktopcomputer.and.arrow.down", help: "Download & set", action: onDownloadAndSet)
+                    case .downloaded:
+                        iconButton(icon: "desktopcomputer", help: "Set wallpaper", action: onSetWallpaper)
                     }
                 }
                 .padding(8)
