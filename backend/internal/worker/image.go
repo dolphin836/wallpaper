@@ -260,28 +260,10 @@ func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Ima
 
 	bounds := img.Bounds()
 
-	// card: ~800px wide, watermarked, JPEG q=75. Sized for the home card on a
-	// 2× retina display at the largest card size (~330px CSS), where 800px source
-	// renders crisp. Loading 24 of these for a homepage page is ~2 MB total vs
-	// 5-10 MB if we used the 1600px preview. Watermarked because it's a
-	// user-visible asset — anyone right-clicking saves a usable 800px image.
-	cardWidth := uint(800)
-	if bounds.Dx() < int(cardWidth) {
-		cardWidth = uint(bounds.Dx())
-	}
-	card := resize.Resize(cardWidth, 0, img, resize.Lanczos3)
-	cardWatermarked := addWatermark(card)
-	cardBuf := new(bytes.Buffer)
-	if err := jpeg.Encode(cardBuf, cardWatermarked, &jpeg.Options{Quality: 75}); err != nil {
-		return fmt.Errorf("encode card: %w", err)
-	}
-	cardKey := fmt.Sprintf("cards/%s.jpg", uuid.New().String())
-	if err := w.storage.Upload(ctx, cardKey, cardBuf, int64(cardBuf.Len()), "image/jpeg"); err != nil {
-		return fmt.Errorf("upload card: %w", err)
-	}
-
-	// preview: 1600px wide, watermarked, JPEG q=80. Used by the detail page hero
-	// and as a fallback wherever a higher-res shareable preview is needed.
+	// preview: 1600px wide, watermarked, JPEG q=80. Serves *both* the home card
+	// (loaded after the 400px thumb LQIP fades in) and the detail-page hero —
+	// loading it once on the home feed means the browser HTTP cache already has
+	// it when the user opens a detail page, so detail navigation is instant.
 	previewWidth := uint(1600)
 	if bounds.Dx() < 1600 {
 		previewWidth = uint(bounds.Dx())
@@ -298,7 +280,7 @@ func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Ima
 	}
 
 	if err := w.wpRepo.UpdateProcessed(ctx, wallpaperID,
-		w.storage.GetURL(thumbKey), w.storage.GetURL(cardKey), w.storage.GetURL(previewKey),
+		w.storage.GetURL(thumbKey), w.storage.GetURL(previewKey),
 		origW, origH, dominantColor, colorPalette); err != nil {
 		return fmt.Errorf("update processed: %w", err)
 	}

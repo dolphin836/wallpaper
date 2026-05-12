@@ -32,12 +32,13 @@ interface Props {
 
 export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0, disableModal = false }: Props) {
   // Two-stage progressive load: thumb (~30 KB, displayed immediately with a
-  // small blur) → card_url (~80 KB, fades in once loaded). card_url falls
-  // back to the legacy preview_url for wallpapers that pre-date the new
-  // variant. Saves 5-10× bandwidth on the home feed vs loading preview_url
-  // for every card.
+  // small blur) → preview_url (~250 KB watermarked 1600px, fades in once
+  // loaded). Loading the 1600px preview on the home feed means the browser
+  // HTTP cache already has it when the user opens a detail page, so detail
+  // navigation feels instant — that's the trade-off vs a smaller dedicated
+  // card-sized variant.
   const lowResSrc = wallpaper.thumb_url;
-  const highResSrc = wallpaper.card_url || wallpaper.preview_url || wallpaper.thumb_url;
+  const highResSrc = wallpaper.preview_url || wallpaper.thumb_url;
   const [highLoaded, setHighLoaded] = useState(false);
   const [liked, setLiked] = useState(wallpaper.is_liked ?? false);
   const [likeLoading, setLikeLoading] = useState(false);
@@ -212,7 +213,10 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
                 } as React.CSSProperties}
               />
             )}
-            {/* High-res card image fades in once loaded, replacing the blurred thumb. */}
+            {/* High-res preview fades in once loaded, replacing the blurred thumb.
+                Uses transition-all (not transition-opacity) so the group-hover:scale-105
+                transform animates smoothly over 500ms — opacity-only transition was
+                causing the scale to snap instantly on hover. */}
             <img
               src={highResSrc}
               alt=""
@@ -220,7 +224,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               onLoad={() => setHighLoaded(true)}
               onContextMenu={(e) => e.preventDefault()}
               draggable={false}
-              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 group-hover:scale-105 select-none ${highLoaded ? 'opacity-100' : 'opacity-0'}`}
+              className={`absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-105 select-none ${highLoaded ? 'opacity-100' : 'opacity-0'}`}
               style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
             />
             <div className="absolute inset-0 z-[1] bg-black/0 group-hover:bg-black/10 transition-colors duration-300" onContextMenu={(e) => e.preventDefault()} />
