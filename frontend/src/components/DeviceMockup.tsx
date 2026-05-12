@@ -489,13 +489,6 @@ export default function DeviceMockup({ imageUrl, platform, deviceName, deviceWid
         onClick={(e) => e.stopPropagation()}
         style={{ transform: `scale(${scale})`, transformOrigin: 'center center' }}
       >
-        <button
-          onClick={onClose}
-          className="absolute -top-5 -right-5 z-10 p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors duration-200"
-        >
-          <AiOutlineClose size={22} />
-        </button>
-
         <div className="transition-all duration-300 ease-in-out">
           {renderMockup()}
         </div>
@@ -515,6 +508,15 @@ export default function DeviceMockup({ imageUrl, platform, deviceName, deviceWid
           )}
         </div>
       </div>
+      {/* Close button at viewport corner, outside the scaled inner div so its
+          position and size don't change with the mockup scale. */}
+      <button
+        onClick={onClose}
+        className="fixed top-4 right-4 z-[60] p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors duration-200"
+        aria-label="Close"
+      >
+        <AiOutlineClose size={22} />
+      </button>
     </div>
   );
 }

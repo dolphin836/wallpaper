@@ -141,8 +141,10 @@ function VariantList({ variants, matchedId, onMockup, onDownload }: { variants: 
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {items.map((v) => {
-                const mockupOk = canShowMockup(v);
                 const isMatched = v.id === matchedId;
+                // Per-variant mockup preview is only meaningful for the user's own device;
+                // showing other devices' mockups in a list adds noise but no signal.
+                const mockupOk = isMatched && canShowMockup(v);
                 return (
                   <div
                     key={v.id}
@@ -181,7 +183,11 @@ function VariantList({ variants, matchedId, onMockup, onDownload }: { variants: 
                                 ? 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-gray-600'
                                 : 'text-gray-200 dark:text-gray-600 cursor-not-allowed'
                             }`}
-                            title={mockupOk ? 'Device mockup' : 'Screen too small'}
+                            title={
+                              !isMatched
+                                ? 'Only your matched device can be previewed here'
+                                : mockupOk ? 'Device mockup' : 'Screen too small'
+                            }
                           >
                             <MdPhoneIphone size={16} />
                           </button>
@@ -449,8 +455,9 @@ export default function WallpaperDetailPage() {
             style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
           />
           <button
-            onClick={() => setFullscreen(false)}
-            className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+            onClick={(e) => { e.stopPropagation(); setFullscreen(false); }}
+            className="fixed top-4 right-4 z-[60] p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+            aria-label="Close"
           >
             <AiOutlineClose size={24} />
           </button>
