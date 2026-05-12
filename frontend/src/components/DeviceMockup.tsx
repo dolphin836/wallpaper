@@ -17,7 +17,53 @@ interface Props {
   deviceName: string;
   deviceWidth: number;
   deviceHeight: number;
+  // Hex (#rrggbb) main color of the wallpaper; used to tint the backdrop
+  // gradient so the mockup feels visually connected to its content.
+  dominantColor?: string;
   onClose: () => void;
+}
+
+function hexToHsl(hex: string): { h: number; s: number; l: number } | null {
+  const m = hex.trim().replace(/^#/, '').match(/^([0-9a-fA-F]{6})$/);
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  const r = ((n >> 16) & 0xff) / 255;
+  const g = ((n >> 8) & 0xff) / 255;
+  const b = (n & 0xff) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let h = 0;
+  let s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return { h: h * 360, s: s * 100, l: l * 100 };
+}
+
+// Build the mockup backdrop gradient from the wallpaper's main color. Saturation
+// is capped so vibrant wallpapers don't produce neon backdrops; lightness stops
+// span dark (top) → mid (bottom) to keep the "premium showcase" feel.
+function backdropFromColor(hex: string | undefined): string {
+  const hsl = hex ? hexToHsl(hex) : null;
+  if (!hsl) {
+    // Fallback to the original navy/steel-blue gradient for missing or unparseable
+    // dominant colors (e.g. pre-color-extraction wallpapers).
+    return 'radial-gradient(ellipse at center, rgba(80,110,150,0.35) 0%, rgba(0,0,0,0) 60%), linear-gradient(180deg, #0a1626 0%, #16283f 30%, #2d4866 65%, #56789a 100%)';
+  }
+  const h = Math.round(hsl.h);
+  const s = Math.round(Math.min(hsl.s, 55));
+  return (
+    `radial-gradient(ellipse at center, hsla(${h}, ${s}%, 50%, 0.35) 0%, hsla(${h}, ${s}%, 50%, 0) 60%),` +
+    `linear-gradient(180deg, hsl(${h}, ${s}%, 8%) 0%, hsl(${h}, ${s}%, 18%) 30%, hsl(${h}, ${s}%, 32%) 65%, hsl(${h}, ${s}%, 50%) 100%)`
+  );
 }
 
 type MobileScene = 'lock' | 'home' | 'aod' | 'clean';
@@ -458,7 +504,7 @@ function SceneSwitcher<T extends string>({
 
 // --------------- Main component ---------------
 
-export default function DeviceMockup({ imageUrl, platform, deviceWidth, deviceHeight, onClose }: Props) {
+export default function DeviceMockup({ imageUrl, platform, deviceWidth, deviceHeight, dominantColor, onClose }: Props) {
   const isMobile = platform === 'phone' || platform === 'tablet';
   const [mobileScene, setMobileScene] = useState<MobileScene>('lock');
   const [deskScene, setDeskScene] = useState<DesktopScene>('desktop');
@@ -497,8 +543,7 @@ export default function DeviceMockup({ imageUrl, platform, deviceWidth, deviceHe
       className="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden"
       onClick={onClose}
       style={{
-        background:
-          'radial-gradient(ellipse at center, rgba(80,110,150,0.35) 0%, rgba(0,0,0,0) 60%), linear-gradient(180deg, #0a1626 0%, #16283f 30%, #2d4866 65%, #56789a 100%)',
+        background: backdropFromColor(dominantColor),
         touchAction: 'none',
       }}
     >

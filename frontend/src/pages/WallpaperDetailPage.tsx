@@ -441,6 +441,7 @@ export default function WallpaperDetailPage() {
           deviceName={`${mockupVariant.brand} ${mockupVariant.device_name}`}
           deviceWidth={mockupVariant.width}
           deviceHeight={mockupVariant.height}
+          dominantColor={wallpaper.dominant_color}
           onClose={() => setMockupVariant(null)}
         />
       )}
