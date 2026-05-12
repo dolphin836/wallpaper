@@ -9,7 +9,6 @@ import {
   MdBrightness2,
   MdWallpaper,
   MdDesktopWindows,
-  MdPhoneIphone,
 } from 'react-icons/md';
 
 interface Props {
@@ -459,7 +458,7 @@ function SceneSwitcher<T extends string>({
 
 // --------------- Main component ---------------
 
-export default function DeviceMockup({ imageUrl, platform, deviceName, deviceWidth, deviceHeight, onClose }: Props) {
+export default function DeviceMockup({ imageUrl, platform, deviceWidth, deviceHeight, onClose }: Props) {
   const isMobile = platform === 'phone' || platform === 'tablet';
   const [mobileScene, setMobileScene] = useState<MobileScene>('lock');
   const [deskScene, setDeskScene] = useState<DesktopScene>('desktop');
@@ -491,36 +490,40 @@ export default function DeviceMockup({ imageUrl, platform, deviceName, deviceWid
   // scroll the modal behind us.
   return createPortal(
     // z-[70] sits above the outer wallpaper-detail modal (z-50 + z-[60] close button).
-    // Frosted-glass look: dark + heavy backdrop blur. The underlying page is also
-    // scroll-locked so the blurred backdrop stays static.
+    // Backdrop is a deep navy → steel-blue vertical gradient (matches the "premium
+    // product showcase" aesthetic we want — the previous `bg-black/85 backdrop-blur-xl`
+    // read as flat dark grey). A subtle radial highlight at the center adds depth.
     <div
-      className="fixed inset-0 z-[70] bg-black/85 backdrop-blur-xl flex items-center justify-center overflow-hidden"
+      className="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden"
       onClick={onClose}
-      style={{ touchAction: 'none' }}
+      style={{
+        background:
+          'radial-gradient(ellipse at center, rgba(80,110,150,0.35) 0%, rgba(0,0,0,0) 60%), linear-gradient(180deg, #0a1626 0%, #16283f 30%, #2d4866 65%, #56789a 100%)',
+        touchAction: 'none',
+      }}
     >
-      {/* Scaled mockup — sits in the upper area, doesn't touch the bottom controls. */}
+      {/* Scaled mockup — sits in the upper area. drop-shadow gives it the floating-
+          product feel from the reference, scaled with the rest. */}
       <div
         className="relative"
         onClick={(e) => e.stopPropagation()}
-        style={{ transform: `scale(${scale})`, transformOrigin: 'center center' }}
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'center center',
+          filter: 'drop-shadow(0 30px 60px rgba(0, 10, 30, 0.55))',
+        }}
       >
         <div className="transition-all duration-300 ease-in-out">
           {renderMockup()}
         </div>
       </div>
 
-      {/* Bottom controls — NOT inside the scaled wrapper, so they render at their
-          natural pixel size regardless of how aggressively the mockup is downscaled. */}
+      {/* Bottom controls — scene switcher only, no device-name label (the device's
+          identity is already obvious from the rendered frame). */}
       <div
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 px-4"
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center px-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 text-white/70 text-sm">
-          <MdPhoneIphone size={16} />
-          <span>{deviceName}</span>
-          <span className="text-white/40">&middot;</span>
-          <span className="text-white/40">{deviceWidth}&times;{deviceHeight}</span>
-        </div>
         {isMobile ? (
           <SceneSwitcher scenes={mobileScenes} active={mobileScene} onChange={setMobileScene} />
         ) : (
