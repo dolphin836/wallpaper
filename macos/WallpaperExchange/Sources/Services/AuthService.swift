@@ -11,14 +11,19 @@ final class AuthService: NSObject {
     private(set) var user: User?
     var isLoggedIn: Bool { token != nil }
 
-    private let keychainService = "com.wallpaperexchange.mac"
-    private let keychainAccount = "jwt_token"
+    // JWT lives in UserDefaults rather than Keychain on purpose: Keychain access
+    // triggers a system authorization prompt for every binary that isn't covered
+    // by a stable code-signing ACL (i.e. every dev/local build), which was noisy.
+    // The token's authority is limited to the wallpaper app (download/upload/coin
+    // flows) and auto-expires in 24h, so plain-text persistence in this app's
+    // sandboxed defaults plist is an acceptable trade for UX.
+    private let tokenDefaultsKey = "auth.jwt_token"
 
     private let loginURL = "https://wallpaperexchange.com/login?desktop=1"
 
     private override init() {
         super.init()
-        token = loadTokenFromKeychain()
+        token = UserDefaults.standard.string(forKey: tokenDefaultsKey)
     }
 
     func login() {
@@ -43,7 +48,7 @@ final class AuthService: NSObject {
 
     func handleAuthCallback(token: String) {
         self.token = token
-        saveTokenToKeychain(token)
+        UserDefaults.standard.set(token, forKey: tokenDefaultsKey)
         Task {
             await refreshProfile()
         }
@@ -52,7 +57,7 @@ final class AuthService: NSObject {
     func logout() {
         token = nil
         user = nil
-        deleteTokenFromKeychain()
+        UserDefaults.standard.removeObject(forKey: tokenDefaultsKey)
     }
 
     func refreshProfile() async {
@@ -74,42 +79,6 @@ final class AuthService: NSObject {
         } catch {}
     }
 
-    // MARK: - Keychain
-
-    private func saveTokenToKeychain(_ token: String) {
-        deleteTokenFromKeychain()
-        let data = Data(token.utf8)
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: keychainAccount,
-            kSecValueData as String: data,
-        ]
-        SecItemAdd(query as CFDictionary, nil)
-    }
-
-    private func loadTokenFromKeychain() -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: keychainAccount,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess, let data = result as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
-    }
-
-    private func deleteTokenFromKeychain() {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: keychainAccount,
-        ]
-        SecItemDelete(query as CFDictionary)
-    }
 }
 
 extension AuthService: ASWebAuthenticationPresentationContextProviding {
