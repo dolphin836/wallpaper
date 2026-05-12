@@ -76,29 +76,19 @@ const platformIcons: Record<string, string> = {
 };
 
 
+// Exact-match the user's device: variants are pre-generated per device_profile, so the only
+// meaningful "match" is a variant whose pixel dimensions equal this screen's physical pixels.
+// No threshold, no nearest-neighbor — if there's no exact entry, the buttons stay disabled
+// rather than silently falling back to a wrong-orientation preview.
 function findBestMatch(variants: WallpaperVariant[]): WallpaperVariant | null {
-  const sw = window.screen.width * (window.devicePixelRatio || 1);
-  const sh = window.screen.height * (window.devicePixelRatio || 1);
-
-  let best: WallpaperVariant | null = null;
-  let bestDiff = Infinity;
-
+  const dpr = window.devicePixelRatio || 1;
+  const sw = Math.round(window.screen.width * dpr);
+  const sh = Math.round(window.screen.height * dpr);
   for (const v of variants) {
-    // Legacy data: some wallpaper_variants rows have metadata (width/height/device_id) but an
-    // empty `url`. If we match one, the fullscreen `<img>`'s `src` falls back to preview_url
-    // (landscape, watermarked) while the label still claims a phone variant — confusing.
-    // Treat URL-less variants as non-existent.
     if (!v.url) continue;
-    const diff = Math.abs(v.width - sw) + Math.abs(v.height - sh);
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      best = v;
-    }
+    if (v.width === sw && v.height === sh) return v;
   }
-
-  const threshold = Math.max(sw, sh) * 0.3;
-  if (best && bestDiff > threshold) return null;
-  return best;
+  return null;
 }
 
 function MetaItem({ label, value }: { label: string; value: string }) {
