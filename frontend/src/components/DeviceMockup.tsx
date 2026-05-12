@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { AiOutlineWifi, AiOutlineClose } from 'react-icons/ai';
 import {
   MdBatteryFull,
@@ -485,13 +486,17 @@ export default function DeviceMockup({ imageUrl, platform, deviceName, deviceWid
     return <PhoneFrame imageUrl={imageUrl} width={deviceWidth} height={deviceHeight} scene={mobileScene} />;
   };
 
-  return (
-    // z-[70] so we sit above the outer wallpaper-detail modal (z-50 with a z-[60] close
-    // button) and fully cover its scrollbar. Solid black, no transparency — preview UX,
-    // not a popover.
+  // Portal to document.body so the overlay isn't a descendant of the wallpaper-detail
+  // modal's overflow-y-auto container — otherwise wheel/touch events bubble up and
+  // scroll the modal behind us.
+  return createPortal(
+    // z-[70] sits above the outer wallpaper-detail modal (z-50 + z-[60] close button).
+    // Frosted-glass look: dark + heavy backdrop blur. The underlying page is also
+    // scroll-locked so the blurred backdrop stays static.
     <div
-      className="fixed inset-0 z-[70] bg-black flex items-center justify-center overflow-hidden"
+      className="fixed inset-0 z-[70] bg-black/85 backdrop-blur-xl flex items-center justify-center overflow-hidden"
       onClick={onClose}
+      style={{ touchAction: 'none' }}
     >
       {/* Scaled mockup — sits in the upper area, doesn't touch the bottom controls. */}
       <div
@@ -530,7 +535,8 @@ export default function DeviceMockup({ imageUrl, platform, deviceName, deviceWid
       >
         <AiOutlineClose size={22} />
       </button>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

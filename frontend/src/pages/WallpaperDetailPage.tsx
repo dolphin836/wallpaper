@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import usePageTitle from '../hooks/usePageTitle';
 import {
@@ -441,12 +442,15 @@ export default function WallpaperDetailPage() {
         />
       )}
 
-      {fullscreen && (
+      {fullscreen && createPortal(
         // z-[70] so we sit above the outer wallpaper-detail modal (z-50 + z-[60] close
-        // button) and cover any scrollbar/close-button on it.
+        // button) and cover any scrollbar/close-button on it. Rendered via portal to
+        // document.body so wheel/touch events here don't bubble to the wallpaper modal's
+        // overflow-y-auto scroller (we're not its DOM descendant).
         <div
           className="fixed inset-0 z-[70] bg-black flex items-center justify-center overflow-hidden"
           onClick={() => setFullscreen(false)}
+          style={{ touchAction: 'none' }}
         >
           <img
             src={matchedVariant?.url || wallpaper.preview_url || wallpaper.original_url}
@@ -469,7 +473,8 @@ export default function WallpaperDetailPage() {
               : <>{wallpaper.width} &times; {wallpaper.height}</>
             }
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       <div className="max-w-5xl mx-auto px-6 py-6">
