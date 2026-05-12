@@ -433,7 +433,10 @@ export default function WallpaperDetailPage() {
 
       {mockupVariant && wallpaper && (
         <DeviceMockup
-          imageUrl={wallpaper.preview_url || wallpaper.original_url}
+          // Prefer the device-specific variant (correct orientation + dimensions + no
+          // watermark). Fall back to the watermarked preview/original only for legacy
+          // wallpapers whose variants were never uploaded.
+          imageUrl={mockupVariant.url || wallpaper.preview_url || wallpaper.original_url}
           platform={mockupVariant.platform}
           deviceName={`${mockupVariant.brand} ${mockupVariant.device_name}`}
           deviceWidth={mockupVariant.width}
