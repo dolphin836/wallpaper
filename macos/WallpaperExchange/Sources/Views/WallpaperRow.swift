@@ -3,7 +3,9 @@ import SwiftUI
 struct WallpaperRow: View {
     let wallpaper: Wallpaper
     let isLocal: Bool
+    let isDownloading: Bool
     let onDownload: () -> Void
+    let onDownloadAndSet: () -> Void
     let onSetWallpaper: () -> Void
 
     @State private var isHovering = false
@@ -25,13 +27,17 @@ struct WallpaperRow: View {
             .frame(height: 120)
             .clipped()
 
-            if isHovering {
-                overlay
+            if isDownloading {
+                downloadingOverlay
+            } else if isHovering {
+                hoverOverlay
             }
         }
         .frame(height: 120)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .onHover { isHovering = $0 }
+        .animation(.easeInOut(duration: 0.15), value: isDownloading)
+        .animation(.easeInOut(duration: 0.15), value: isHovering)
     }
 
     private var placeholder: some View {
@@ -43,7 +49,25 @@ struct WallpaperRow: View {
             }
     }
 
-    private var overlay: some View {
+    // Shown while a download is in progress for this wallpaper. Always-on, not
+    // hover-gated, so the user sees the activity even when their cursor wanders off.
+    private var downloadingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.55)
+            VStack(spacing: 6) {
+                ProgressView()
+                    .controlSize(.small)
+                    .progressViewStyle(.circular)
+                    .tint(.white)
+                Text("Downloading…")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.white)
+            }
+        }
+        .transition(.opacity)
+    }
+
+    private var hoverOverlay: some View {
         ZStack {
             LinearGradient(
                 colors: [.clear, .black.opacity(0.7)],
@@ -80,18 +104,16 @@ struct WallpaperRow: View {
 
                 HStack(spacing: 6) {
                     if isLocal {
-                        actionButton("Set Wallpaper", icon: "desktopcomputer") {
-                            onSetWallpaper()
-                        }
+                        actionButton("Set Wallpaper", icon: "desktopcomputer", action: onSetWallpaper)
                     } else {
-                        actionButton("Download", icon: "arrow.down.circle") {
-                            onDownload()
-                        }
+                        actionButton("Download", icon: "arrow.down.circle", action: onDownload)
+                        actionButton("Download & Set", icon: "desktopcomputer.and.arrow.down", action: onDownloadAndSet)
                     }
                 }
             }
             .padding(8)
         }
+        .transition(.opacity)
     }
 
     private func actionButton(_ label: String, icon: String, action: @escaping () -> Void) -> some View {

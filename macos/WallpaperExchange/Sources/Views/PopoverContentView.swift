@@ -72,7 +72,7 @@ struct PopoverContentView: View {
 
             Divider()
 
-            HStack {
+            HStack(spacing: 12) {
                 Button {
                     NSApplication.shared.terminate(nil)
                 } label: {
@@ -85,6 +85,22 @@ struct PopoverContentView: View {
                     .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
+
+                Button {
+                    if let url = URL(string: "https://wallpaperexchange.com") {
+                        NSWorkspace.shared.open(url)
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "safari")
+                            .font(.system(size: 10))
+                        Text("Open Web")
+                            .font(.system(size: 11))
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Open wallpaperexchange.com in your browser")
 
                 Spacer()
 
@@ -133,7 +149,9 @@ struct PopoverContentView: View {
                         WallpaperRow(
                             wallpaper: wp,
                             isLocal: isLocal || manager.isDownloaded(wp.id),
+                            isDownloading: manager.downloading.contains(wp.id),
                             onDownload: { Task { await download(wp) } },
+                            onDownloadAndSet: { Task { await downloadAndSet(wp) } },
                             onSetWallpaper: { setWallpaper(wp.id) }
                         )
                     }
@@ -241,6 +259,26 @@ struct PopoverContentView: View {
         do {
             try await manager.download(wallpaper: wallpaper)
             await auth.refreshProfile()
+        } catch APIError.insufficientCoins {
+            errorMessage = "Insufficient coins. Upload wallpapers to earn more!"
+        } catch APIError.unauthorized {
+            auth.logout()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    // Download then immediately apply as desktop wallpaper. Errors during the apply
+    // step still surface but don't roll back the download (file stays on disk).
+    private func downloadAndSet(_ wallpaper: Wallpaper) async {
+        guard auth.isLoggedIn else {
+            auth.login()
+            return
+        }
+        do {
+            try await manager.download(wallpaper: wallpaper)
+            await auth.refreshProfile()
+            try manager.setAsWallpaper(wallpaper.id)
         } catch APIError.insufficientCoins {
             errorMessage = "Insufficient coins. Upload wallpapers to earn more!"
         } catch APIError.unauthorized {
