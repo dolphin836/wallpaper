@@ -11,7 +11,7 @@ struct WallpaperRow: View {
     @State private var isHovering = false
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: .topLeading) {
             AsyncImage(url: URL(string: wallpaper.displayURL)) { phase in
                 switch phase {
                 case .success(let image):
@@ -27,12 +27,55 @@ struct WallpaperRow: View {
             .frame(height: 120)
             .clipped()
 
+            // Top-left chips — always visible (matches web WallpaperCard).
+            HStack(spacing: 4) {
+                if !wallpaper.resolutionLabel.isEmpty {
+                    chip(text: wallpaper.resolutionLabel)
+                }
+                if wallpaper.isDynamic {
+                    chip(icon: "livephoto")
+                }
+            }
+            .padding(8)
+
+            // Bottom-right action stack — only on hover, hidden during download.
+            if isHovering && !isDownloading {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 6) {
+                            if isLocal {
+                                iconButton(icon: "desktopcomputer", help: "Set wallpaper", action: onSetWallpaper)
+                            } else {
+                                iconButton(icon: "arrow.down.circle", help: "Download", action: onDownload)
+                                iconButton(icon: "desktopcomputer.and.arrow.down", help: "Download & set", action: onDownloadAndSet)
+                            }
+                        }
+                    }
+                }
+                .padding(8)
+                .transition(.opacity)
+            }
+
+            // Downloading state — full dim + spinner, takes precedence over hover overlay.
             if isDownloading {
-                downloadingOverlay
-            } else if isHovering {
-                hoverOverlay
+                ZStack {
+                    Color.black.opacity(0.55)
+                    VStack(spacing: 6) {
+                        ProgressView()
+                            .controlSize(.small)
+                            .progressViewStyle(.circular)
+                            .tint(.white)
+                        Text("Downloading…")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .transition(.opacity)
             }
         }
+        .frame(maxWidth: .infinity)
         .frame(height: 120)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .onHover { isHovering = $0 }
@@ -49,93 +92,37 @@ struct WallpaperRow: View {
             }
     }
 
-    // Shown while a download is in progress for this wallpaper. Always-on, not
-    // hover-gated, so the user sees the activity even when their cursor wanders off.
-    private var downloadingOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.55)
-            VStack(spacing: 6) {
-                ProgressView()
-                    .controlSize(.small)
-                    .progressViewStyle(.circular)
-                    .tint(.white)
-                Text("Downloading…")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.white)
-            }
-        }
-        .transition(.opacity)
-    }
-
-    private var hoverOverlay: some View {
-        ZStack {
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.7)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-
-            VStack(spacing: 4) {
-                Spacer()
-                HStack(spacing: 4) {
-                    // Title was deprecated when the upload flow dropped its title/description
-                    // fields; every wallpaper now ships with an empty title. Only render it
-                    // if a value is actually present (older rows might still have one).
-                    if !wallpaper.title.isEmpty {
-                        Text(wallpaper.title)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                    }
-
-                    if !wallpaper.resolutionLabel.isEmpty {
-                        Text(wallpaper.resolutionLabel)
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.8))
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(.white.opacity(0.2))
-                            .clipShape(RoundedRectangle(cornerRadius: 3))
-                    }
-
-                    if wallpaper.isDynamic {
-                        Image(systemName: "livephoto")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.white.opacity(0.8))
-                    }
-
-                    Spacer()
-                }
-
-                HStack(spacing: 6) {
-                    if isLocal {
-                        actionButton("Set Wallpaper", icon: "desktopcomputer", action: onSetWallpaper)
-                    } else {
-                        actionButton("Download", icon: "arrow.down.circle", action: onDownload)
-                        actionButton("Download & Set", icon: "desktopcomputer.and.arrow.down", action: onDownloadAndSet)
-                    }
-                }
-            }
-            .padding(8)
-        }
-        .transition(.opacity)
-    }
-
-    private func actionButton(_ label: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 3) {
+    // Compact pill (text or icon) used for the top-left badges.
+    private func chip(text: String? = nil, icon: String? = nil) -> some View {
+        HStack(spacing: 3) {
+            if let icon {
                 Image(systemName: icon)
-                    .font(.system(size: 10))
-                Text(label)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 10, weight: .bold))
             }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(.white.opacity(0.2))
-            .clipShape(RoundedRectangle(cornerRadius: 5))
+            if let text {
+                Text(text)
+                    .font(.system(size: 9, weight: .bold))
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 2)
+        .background(.black.opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+    }
+
+    // Circular icon button used in the bottom-right hover stack.
+    private func iconButton(icon: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(.black.opacity(0.55))
+                .clipShape(Circle())
         }
         .buttonStyle(.plain)
+        .help(help)
     }
 }
 
