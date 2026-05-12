@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { register } from '../api';
@@ -15,9 +15,19 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const setAuth = useAuthStore((s) => s.setAuth);
+  const existingToken = useAuthStore((s) => s.token);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isDesktop = searchParams.get('desktop') === '1';
+
+  // Same shortcut as LoginPage: if the desktop client opened this URL but the user
+  // is already authenticated in the web session, hand the existing token to the Mac
+  // app via wallxch:// instead of forcing a fresh registration.
+  useEffect(() => {
+    if (isDesktop && existingToken) {
+      window.location.href = `wallxch://auth?token=${encodeURIComponent(existingToken)}`;
+    }
+  }, [isDesktop, existingToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

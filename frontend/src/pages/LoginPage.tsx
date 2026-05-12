@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { login } from '../api';
@@ -13,9 +13,21 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const setAuth = useAuthStore((s) => s.setAuth);
+  const existingToken = useAuthStore((s) => s.token);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isDesktop = searchParams.get('desktop') === '1';
+
+  // Desktop client opens /login?desktop=1 in ASWebAuthenticationSession. If the user is
+  // already signed in to the web (token in localStorage), don't make them re-enter
+  // credentials — hand the existing token to the Mac app via the wallxch:// callback
+  // immediately. Without this the Mac client just sits waiting for a callback that
+  // would never fire.
+  useEffect(() => {
+    if (isDesktop && existingToken) {
+      window.location.href = `wallxch://auth?token=${encodeURIComponent(existingToken)}`;
+    }
+  }, [isDesktop, existingToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
