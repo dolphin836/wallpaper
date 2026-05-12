@@ -52,9 +52,11 @@ func (h *DeviceHandler) ListVariants(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
-	for i := range variants {
-		variants[i].URL = ""
-	}
+	// URL is included so the detail page can render the matched variant for preview/mockup.
+	// The MinIO bucket already has a public-read policy (the same is true for original_url,
+	// preview_url, thumb_url which we expose freely), so blanking URL here was security
+	// theater — it just broke the preview UI. The /variants/{vid}/download endpoint stays
+	// as the authoritative path for counted, coin-gated downloads.
 	response.OK(w, variants)
 }
 
