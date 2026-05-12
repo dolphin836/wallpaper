@@ -7,7 +7,15 @@ to wrap it into a redistributable bundle.
 cd macos
 ./build-app.sh            # produces ./Wallpaper Exchange.app
 ./build-app.sh --dmg      # also produces ./Wallpaper Exchange.dmg
+./build-app.sh --release  # implies --dmg, also uploads to MinIO
 ```
+
+`--release` requires `mc` (`brew install minio/stable/mc`) and
+`MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`/`SITE_DOMAIN` in env (sourced from
+`../.env` if present). The DMG ends up at
+`https://${SITE_DOMAIN}/storage/${MINIO_BUCKET}/releases/mac/WallpaperExchange-<version>.dmg`,
+which is what `backend/internal/handler/mac_release.json` should point
+`current_dmg_url` at.
 
 What the script does, in order:
 
