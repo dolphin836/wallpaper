@@ -90,6 +90,10 @@ CREATE TABLE IF NOT EXISTS device_profiles (
 );
 
 CREATE INDEX IF NOT EXISTS idx_device_profiles_platform ON device_profiles(platform);
+-- `name` must be unique so the seed INSERT below can use `ON CONFLICT (name) DO NOTHING`
+-- to stay idempotent across repeated db-migrate runs (previously this was missing and the
+-- seed silently duplicated every device every time the script was re-run).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_device_profiles_name_unique ON device_profiles(name);
 
 CREATE TABLE IF NOT EXISTS wallpaper_variants (
     id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -263,4 +267,4 @@ INSERT INTO device_profiles (platform, brand, name, width, height, ppi, sort_ord
     ('phone',   'Xiaomi',    'Xiaomi 15 Pro',              1440,  3200,  521,  440),
     ('phone',   'Xiaomi',    'Xiaomi 15',                  1200,  2670,  460,  441),
     ('phone',   'Huawei',    'Mate 70 Pro',                1260,  2844,  458,  450)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (name) DO NOTHING;
