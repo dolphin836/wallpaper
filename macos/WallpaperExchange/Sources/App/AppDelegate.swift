@@ -20,8 +20,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
-            if let img = NSImage(named: "StatusBarIcon") {
-                img.isTemplate = true
+            // Brand logo from the SwiftPM resources bundle (Sources/Resources/StatusBarIcon.png,
+            // mirrored from frontend/public/logo-192.png so web + desktop share a single asset).
+            // Rendered in full color — isTemplate=false — because the web logo is colour-loaded.
+            if let url = Bundle.module.url(forResource: "StatusBarIcon", withExtension: "png"),
+               let img = NSImage(contentsOf: url) {
+                img.isTemplate = false
                 img.size = NSSize(width: 18, height: 18)
                 button.image = img
             } else {

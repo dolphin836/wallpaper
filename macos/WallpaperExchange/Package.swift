@@ -8,6 +8,11 @@ let package = Package(
         .executableTarget(
             name: "WallpaperExchange",
             path: "Sources",
+            resources: [
+                // Ship the web brand logo as `StatusBarIcon` (in Sources/Resources/).
+                // Accessed via `Bundle.module` from AppDelegate at startup.
+                .process("Resources"),
+            ],
             linkerSettings: [
                 .unsafeFlags([
                     "-Xlinker", "-sectcreate",
