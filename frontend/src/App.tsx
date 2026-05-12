@@ -12,6 +12,7 @@ import CollectionDetailPage from './pages/CollectionDetailPage';
 import UploadersPage from './pages/UploadersPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
+import DownloadMacPage from './pages/DownloadMacPage';
 import WallpaperDetailModal from './components/WallpaperDetailModal';
 
 function AppRoutes() {
@@ -33,6 +34,7 @@ function AppRoutes() {
           <Route path="/collections/:slug" element={<CollectionDetailPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/download/mac" element={<DownloadMacPage />} />
         </Route>
       </Routes>
 

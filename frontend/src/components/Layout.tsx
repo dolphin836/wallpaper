@@ -7,6 +7,7 @@ import {
   AiOutlineCompass,
   AiOutlineAppstore,
   AiOutlineTeam,
+  AiOutlineApple,
   AiOutlineLeft,
   AiOutlineRight,
   AiOutlineSearch,
@@ -57,6 +58,7 @@ export default function Layout() {
     { to: '/', label: 'Discover', icon: AiOutlineCompass },
     { to: '/collections', label: 'Collections', icon: AiOutlineAppstore },
     { to: '/uploaders', label: 'Uploaders', icon: AiOutlineTeam },
+    { to: '/download/mac', label: 'macOS App', icon: AiOutlineApple },
   ];
 
   const isActive = (path: string) => {

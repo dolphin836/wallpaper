@@ -19,6 +19,7 @@ type Deps struct {
 	UserHandler       *UserHandler
 	DeviceHandler     *DeviceHandler
 	CollectionHandler *CollectionHandler
+	ReleaseHandler    *ReleaseHandler
 	JWTSecret         string
 }
 
@@ -55,6 +56,7 @@ func NewRouter(deps Deps) *chi.Mux {
 		r.Get("/categories", deps.CategoryHandler.List)
 		r.Get("/tags", deps.TagHandler.Popular)
 		r.Get("/devices", deps.DeviceHandler.ListDevices)
+		r.Get("/mac/release", deps.ReleaseHandler.GetMacRelease)
 
 		r.Get("/users", deps.UserHandler.ListUsers)
 

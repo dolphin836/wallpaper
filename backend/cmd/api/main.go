@@ -97,6 +97,7 @@ func main() {
 	userHandler := handler.NewUserHandler(userRepo, wallpaperRepo, interactionRepo, coinRepo, store)
 	deviceHandler := handler.NewDeviceHandler(deviceRepo, eventRepo, wallpaperRepo, coinRepo, interactionRepo)
 	collectionHandler := handler.NewCollectionHandler(collectionSvc, interactionRepo, userRepo)
+	releaseHandler := handler.NewReleaseHandler()
 
 	router := handler.NewRouter(handler.Deps{
 		AuthHandler:       authHandler,
@@ -106,6 +107,7 @@ func main() {
 		UserHandler:       userHandler,
 		DeviceHandler:     deviceHandler,
 		CollectionHandler: collectionHandler,
+		ReleaseHandler:    releaseHandler,
 		JWTSecret:         cfg.JWT.Secret,
 	})
 

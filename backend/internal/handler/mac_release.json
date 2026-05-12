@@ -1,0 +1,19 @@
+{
+  "current_version": "1.0.0",
+  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.0.0.dmg",
+  "min_macos_version": "14.0",
+  "releases": [
+    {
+      "version": "1.0.0",
+      "released_at": "2026-05-12",
+      "notes": [
+        "Menubar status bar app for browsing the Wallpaper Exchange feed.",
+        "Single-sign-on against the web session via wallxch:// URL scheme.",
+        "Per-row hover actions: Download and Download & Set as Wallpaper on the discover list, Set Wallpaper on the local downloads list.",
+        "In-row progress indicator while a download is in flight.",
+        "Open Web shortcut in the footer for jumping back to the full site.",
+        "Brand logo as the menubar status item icon."
+      ]
+    }
+  ]
+}

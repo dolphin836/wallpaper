@@ -157,3 +157,16 @@ export interface Engagements {
   favoriters: EngagementUser[];
   downloaders: EngagementUser[];
 }
+
+export interface MacReleaseEntry {
+  version: string;
+  released_at: string;
+  notes: string[];
+}
+
+export interface MacRelease {
+  current_version: string;
+  current_dmg_url: string;
+  min_macos_version: string;
+  releases: MacReleaseEntry[];
+}
