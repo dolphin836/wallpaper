@@ -28,6 +28,8 @@ struct WallpaperRow: View {
             .clipped()
 
             // Top-left chips — always visible (matches web WallpaperCard).
+            // The outer .frame ensures this attaches to the topLeading corner of the
+            // image rather than collapsing to content size and floating mid-row.
             HStack(spacing: 4) {
                 if !wallpaper.resolutionLabel.isEmpty {
                     chip(text: wallpaper.resolutionLabel)
@@ -37,24 +39,24 @@ struct WallpaperRow: View {
                 }
             }
             .padding(8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             // Bottom-right action stack — only on hover, hidden during download.
+            // Without an explicit `maxWidth/maxHeight: .infinity` here, the inner
+            // Spacers have no room to push and the stack collapses to its content
+            // size, leaving the buttons pinned to the topLeading corner of the
+            // ZStack alongside the chips.
             if isHovering && !isDownloading {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        VStack(spacing: 6) {
-                            if isLocal {
-                                iconButton(icon: "desktopcomputer", help: "Set wallpaper", action: onSetWallpaper)
-                            } else {
-                                iconButton(icon: "arrow.down.circle", help: "Download", action: onDownload)
-                                iconButton(icon: "desktopcomputer.and.arrow.down", help: "Download & set", action: onDownloadAndSet)
-                            }
-                        }
+                VStack(spacing: 6) {
+                    if isLocal {
+                        iconButton(icon: "desktopcomputer", help: "Set wallpaper", action: onSetWallpaper)
+                    } else {
+                        iconButton(icon: "arrow.down.circle", help: "Download", action: onDownload)
+                        iconButton(icon: "desktopcomputer.and.arrow.down", help: "Download & set", action: onDownloadAndSet)
                     }
                 }
                 .padding(8)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 .transition(.opacity)
             }
 

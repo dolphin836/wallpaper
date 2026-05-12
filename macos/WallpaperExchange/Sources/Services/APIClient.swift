@@ -109,7 +109,7 @@ actor APIClient {
     }
 
     func fetchProfile() async throws -> User {
-        let resp: APIResponse<User> = try await request("/users/me/coins")
+        let resp: APIResponse<User> = try await request("/users/me")
         return resp.data
     }
 

@@ -43,6 +43,21 @@ func NewUserHandler(ur *repo.UserRepo, wr *repo.WallpaperRepo, ir *repo.Interact
 	}
 }
 
+func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	user, err := h.userRepo.GetByID(r.Context(), userID)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to get current user", "error", err, "user_id", userID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	if user == nil {
+		response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+		return
+	}
+	response.OK(w, user)
+}
+
 func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	param := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(param, 10, 64)
