@@ -420,6 +420,9 @@ const desktopScenes: { key: DesktopScene; label: string; icon: typeof MdLockOutl
   { key: 'clean', label: 'Clean', icon: MdWallpaper },
 ];
 
+// Button-row at the bottom of the mockup modal. Sized for fingertips on mobile —
+// previously these were stuck inside the scaled inner div and rendered at ~30-50% of
+// their natural size depending on device scale.
 function SceneSwitcher<T extends string>({
   scenes,
   active,
@@ -430,7 +433,7 @@ function SceneSwitcher<T extends string>({
   onChange: (k: T) => void;
 }) {
   return (
-    <div className="flex items-center gap-1 bg-white/10 backdrop-blur-md rounded-full p-1">
+    <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md rounded-full p-1.5">
       {scenes.map((s) => {
         const Icon = s.icon;
         const isActive = s.key === active;
@@ -438,14 +441,14 @@ function SceneSwitcher<T extends string>({
           <button
             key={s.key}
             onClick={() => onChange(s.key)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
               isActive
                 ? 'bg-white/20 text-white shadow-sm'
-                : 'text-white/50 hover:text-white/80'
+                : 'text-white/60 hover:text-white/90'
             }`}
           >
-            <Icon size={14} />
-            <span className="hidden sm:inline">{s.label}</span>
+            <Icon size={16} />
+            <span>{s.label}</span>
           </button>
         );
       })}
@@ -462,8 +465,11 @@ export default function DeviceMockup({ imageUrl, platform, deviceName, deviceWid
 
   const scale = useMemo(() => {
     const frameExtra = BEZEL * 2 + 60;
-    const maxW = window.innerWidth * 0.9;
-    const maxH = window.innerHeight * 0.82;
+    // Reserve ~140px at the bottom for the (now un-scaled) device label + scene switcher,
+    // and ~20px top padding. Computed once at mount — orientation/resize will need a refresh
+    // but that matches previous behaviour.
+    const maxW = window.innerWidth * 0.95;
+    const maxH = (window.innerHeight - 160) * 0.95;
     const totalW = deviceWidth + frameExtra;
     const totalH = deviceHeight + frameExtra;
     const sx = maxW / totalW;
@@ -480,39 +486,46 @@ export default function DeviceMockup({ imageUrl, platform, deviceName, deviceWid
   };
 
   return (
+    // z-[70] so we sit above the outer wallpaper-detail modal (z-50 with a z-[60] close
+    // button) and fully cover its scrollbar. Solid black, no transparency — preview UX,
+    // not a popover.
     <div
-      className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4"
+      className="fixed inset-0 z-[70] bg-black flex items-center justify-center overflow-hidden"
       onClick={onClose}
     >
+      {/* Scaled mockup — sits in the upper area, doesn't touch the bottom controls. */}
       <div
-        className="relative flex flex-col items-center gap-3"
+        className="relative"
         onClick={(e) => e.stopPropagation()}
         style={{ transform: `scale(${scale})`, transformOrigin: 'center center' }}
       >
         <div className="transition-all duration-300 ease-in-out">
           {renderMockup()}
         </div>
-
-        <div className="flex flex-col items-center gap-3 mt-1">
-          <div className="flex items-center gap-2 text-white/70 text-sm">
-            <MdPhoneIphone size={16} />
-            <span>{deviceName}</span>
-            <span className="text-white/40">&middot;</span>
-            <span className="text-white/40">{deviceWidth}&times;{deviceHeight}</span>
-          </div>
-
-          {isMobile ? (
-            <SceneSwitcher scenes={mobileScenes} active={mobileScene} onChange={setMobileScene} />
-          ) : (
-            <SceneSwitcher scenes={desktopScenes} active={deskScene} onChange={setDeskScene} />
-          )}
-        </div>
       </div>
-      {/* Close button at viewport corner, outside the scaled inner div so its
-          position and size don't change with the mockup scale. */}
+
+      {/* Bottom controls — NOT inside the scaled wrapper, so they render at their
+          natural pixel size regardless of how aggressively the mockup is downscaled. */}
+      <div
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 px-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 text-white/70 text-sm">
+          <MdPhoneIphone size={16} />
+          <span>{deviceName}</span>
+          <span className="text-white/40">&middot;</span>
+          <span className="text-white/40">{deviceWidth}&times;{deviceHeight}</span>
+        </div>
+        {isMobile ? (
+          <SceneSwitcher scenes={mobileScenes} active={mobileScene} onChange={setMobileScene} />
+        ) : (
+          <SceneSwitcher scenes={desktopScenes} active={deskScene} onChange={setDeskScene} />
+        )}
+      </div>
+
       <button
         onClick={onClose}
-        className="fixed top-4 right-4 z-[60] p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors duration-200"
+        className="fixed top-4 right-4 z-[80] p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors duration-200"
         aria-label="Close"
       >
         <AiOutlineClose size={22} />

@@ -442,8 +442,10 @@ export default function WallpaperDetailPage() {
       )}
 
       {fullscreen && (
+        // z-[70] so we sit above the outer wallpaper-detail modal (z-50 + z-[60] close
+        // button) and cover any scrollbar/close-button on it.
         <div
-          className="fixed inset-0 z-50 bg-black flex items-center justify-center"
+          className="fixed inset-0 z-[70] bg-black flex items-center justify-center overflow-hidden"
           onClick={() => setFullscreen(false)}
         >
           <img
@@ -456,7 +458,7 @@ export default function WallpaperDetailPage() {
           />
           <button
             onClick={(e) => { e.stopPropagation(); setFullscreen(false); }}
-            className="fixed top-4 right-4 z-[60] p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+            className="fixed top-4 right-4 z-[80] p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
             aria-label="Close"
           >
             <AiOutlineClose size={24} />
