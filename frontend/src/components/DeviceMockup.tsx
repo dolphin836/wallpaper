@@ -520,7 +520,13 @@ export default function DeviceMockup({ imageUrl, platform, deviceName, deviceWid
 }
 
 export function canShowMockup(v: { width: number; height: number }): boolean {
-  const sw = window.innerWidth;
-  const sh = window.innerHeight;
+  // Both sides in *physical* pixels: v.width/height come from device_profiles (physical),
+  // so the viewport check also needs × DPR. Previously this compared CSS-pixel viewport
+  // against physical-pixel variant, which made the threshold trivial on desktop and
+  // unreachable on phones (a phone reporting 402×800 CSS px would fail 30% × 1320×2868
+  // physical px for the Pro Max variant even though that's literally a phone-sized image).
+  const dpr = window.devicePixelRatio || 1;
+  const sw = window.innerWidth * dpr;
+  const sh = window.innerHeight * dpr;
   return sw >= v.width * 0.3 && sh >= v.height * 0.3;
 }
