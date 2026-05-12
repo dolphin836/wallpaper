@@ -29,3 +29,10 @@ minio_data/
 caddy_data/
 caddy_config/
 backend/sluggen
+
+# macOS packaging output (build-app.sh)
+macos/*.app/
+macos/*.dmg
+macos/*.zip
+macos/AppIcon.iconset/
+macos/AppIcon.icns

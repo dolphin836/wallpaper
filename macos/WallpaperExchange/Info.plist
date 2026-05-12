@@ -8,12 +8,16 @@
     <string>Wallpaper Exchange</string>
     <key>CFBundleDisplayName</key>
     <string>Wallpaper Exchange</string>
+    <key>CFBundleExecutable</key>
+    <string>WallpaperExchange</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>CFBundleShortVersionString</key>
     <string>1.0.0</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
     <key>CFBundleURLTypes</key>
