@@ -76,19 +76,36 @@ const platformIcons: Record<string, string> = {
 };
 
 
-// Exact-match the user's device: variants are pre-generated per device_profile, so the only
-// meaningful "match" is a variant whose pixel dimensions equal this screen's physical pixels.
-// No threshold, no nearest-neighbor — if there's no exact entry, the buttons stay disabled
-// rather than silently falling back to a wrong-orientation preview.
+// Pick the variant whose pixel dimensions best match this screen.
+// Two guards keep the match honest (avoiding the old 30%-of-max threshold that was so loose
+// it'd serve a 1920×1080 desktop preview to an iPhone):
+//   1. Same orientation only — never a landscape variant for a portrait screen, or vice versa.
+//   2. Within 5% of the larger screen dimension on L1 distance — handles slight reporting
+//      variance across iOS versions / display modes, while still rejecting wrong devices
+//      (e.g. iPhone 16 Pro at 1206×2622 vs Pro Max at 1320×2868 is ~360 apart, well outside).
+// `!v.url` filters out legacy rows whose file was never uploaded.
 function findBestMatch(variants: WallpaperVariant[]): WallpaperVariant | null {
   const dpr = window.devicePixelRatio || 1;
   const sw = Math.round(window.screen.width * dpr);
   const sh = Math.round(window.screen.height * dpr);
+  const portrait = sh >= sw;
+
+  let best: WallpaperVariant | null = null;
+  let bestDiff = Infinity;
   for (const v of variants) {
     if (!v.url) continue;
-    if (v.width === sw && v.height === sh) return v;
+    const vPortrait = v.height >= v.width;
+    if (vPortrait !== portrait) continue;
+    const diff = Math.abs(v.width - sw) + Math.abs(v.height - sh);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = v;
+    }
   }
-  return null;
+
+  const tolerance = Math.max(sw, sh) * 0.05;
+  if (best && bestDiff > tolerance) return null;
+  return best;
 }
 
 function MetaItem({ label, value }: { label: string; value: string }) {
