@@ -78,10 +78,15 @@ struct WallpaperRow: View {
             VStack(spacing: 4) {
                 Spacer()
                 HStack(spacing: 4) {
-                    Text(wallpaper.title.isEmpty ? "Untitled" : wallpaper.title)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
+                    // Title was deprecated when the upload flow dropped its title/description
+                    // fields; every wallpaper now ships with an empty title. Only render it
+                    // if a value is actually present (older rows might still have one).
+                    if !wallpaper.title.isEmpty {
+                        Text(wallpaper.title)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                    }
 
                     if !wallpaper.resolutionLabel.isEmpty {
                         Text(wallpaper.resolutionLabel)
