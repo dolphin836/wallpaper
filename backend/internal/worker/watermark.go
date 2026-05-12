@@ -4,11 +4,12 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
-	"math"
 )
 
-// addWatermark stamps a tiled diagonal "Wallpaper Exchange" text pattern onto img.
-// Uses a pixel-font approach — no external font files required.
+// addWatermark stamps a single "Wallpaper Exchange" mark in the bottom-right corner.
+// Previous version tiled the text diagonally across the whole image — that read as
+// noise and obscured the wallpaper. A single corner stamp is enough to attribute
+// the preview without ruining its appearance.
 func addWatermark(img image.Image) *image.NRGBA {
 	bounds := img.Bounds()
 	out := image.NewNRGBA(bounds)
@@ -17,16 +18,21 @@ func addWatermark(img image.Image) *image.NRGBA {
 	stamp := renderStamp()
 	stampW := stamp.Bounds().Dx()
 	stampH := stamp.Bounds().Dy()
-	spacingX := stampW + 80
-	spacingY := stampH + 100
 
-	for y := -bounds.Dy(); y < bounds.Dy()*2; y += spacingY {
-		for x := -bounds.Dx(); x < bounds.Dx()*2; x += spacingX {
-			rx := int(float64(x)*math.Cos(0.35) - float64(y)*math.Sin(0.35))
-			ry := int(float64(x)*math.Sin(0.35) + float64(y)*math.Cos(0.35))
-			drawStamp(out, stamp, bounds.Min.X+rx, bounds.Min.Y+ry)
-		}
+	// Inset from the right + bottom edges. Scale the inset with image size so the
+	// margin looks consistent on both a 800px card and a 3840px preview.
+	insetX := bounds.Dx() / 50
+	insetY := bounds.Dy() / 50
+	if insetX < 12 {
+		insetX = 12
 	}
+	if insetY < 12 {
+		insetY = 12
+	}
+
+	ox := bounds.Max.X - stampW - insetX
+	oy := bounds.Max.Y - stampH - insetY
+	drawStamp(out, stamp, ox, oy)
 
 	return out
 }
@@ -63,6 +69,8 @@ func drawStamp(dst *image.NRGBA, stamp *image.NRGBA, ox, oy int) {
 }
 
 // renderStamp creates a small image with "Wallpaper Exchange" text using a built-in pixel font.
+// Alpha is higher than the tiled-watermark era (35 → 130) since this is the only mark on
+// the image and needs to be legible at a glance without being overbearing.
 func renderStamp() *image.NRGBA {
 	glyphs := map[byte][]string{
 		'W': {"1   1", "1   1", "1 1 1", "1 1 1", " 1 1 "},
@@ -95,7 +103,7 @@ func renderStamp() *image.NRGBA {
 	h := 5 * scale
 	img := image.NewNRGBA(image.Rect(0, 0, totalW, h))
 
-	wm := color.NRGBA{R: 255, G: 255, B: 255, A: 35}
+	wm := color.NRGBA{R: 255, G: 255, B: 255, A: 130}
 
 	cx := 0
 	for _, ch := range []byte(text) {
