@@ -77,13 +77,12 @@ const platformIcons: Record<string, string> = {
 
 
 // Pick the variant whose pixel dimensions best match this screen.
-// Two guards keep the match honest (avoiding the old 30%-of-max threshold that was so loose
-// it'd serve a 1920×1080 desktop preview to an iPhone):
+// Two guards keep the match honest:
 //   1. Same orientation only — never a landscape variant for a portrait screen, or vice versa.
 //   2. Within 5% of the larger screen dimension on L1 distance — handles slight reporting
-//      variance across iOS versions / display modes, while still rejecting wrong devices
-//      (e.g. iPhone 16 Pro at 1206×2622 vs Pro Max at 1320×2868 is ~360 apart, well outside).
-// `!v.url` filters out legacy rows whose file was never uploaded.
+//      variance across iOS versions / display modes, while still rejecting wrong devices.
+// URL availability is a separate concern (the file may or may not have been uploaded yet);
+// matching is purely about dimensions.
 function findBestMatch(variants: WallpaperVariant[]): WallpaperVariant | null {
   const dpr = window.devicePixelRatio || 1;
   const sw = Math.round(window.screen.width * dpr);
@@ -93,7 +92,6 @@ function findBestMatch(variants: WallpaperVariant[]): WallpaperVariant | null {
   let best: WallpaperVariant | null = null;
   let bestDiff = Infinity;
   for (const v of variants) {
-    if (!v.url) continue;
     const vPortrait = v.height >= v.width;
     if (vPortrait !== portrait) continue;
     const diff = Math.abs(v.width - sw) + Math.abs(v.height - sh);
