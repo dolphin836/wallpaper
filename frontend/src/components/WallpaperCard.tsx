@@ -31,7 +31,14 @@ interface Props {
 }
 
 export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0, disableModal = false }: Props) {
-  const [loaded, setLoaded] = useState(false);
+  // Two-stage progressive load: thumb (~30 KB, displayed immediately with a
+  // small blur) → card_url (~80 KB, fades in once loaded). card_url falls
+  // back to the legacy preview_url for wallpapers that pre-date the new
+  // variant. Saves 5-10× bandwidth on the home feed vs loading preview_url
+  // for every card.
+  const lowResSrc = wallpaper.thumb_url;
+  const highResSrc = wallpaper.card_url || wallpaper.preview_url || wallpaper.thumb_url;
+  const [highLoaded, setHighLoaded] = useState(false);
   const [liked, setLiked] = useState(wallpaper.is_liked ?? false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [favorited, setFavorited] = useState(wallpaper.is_favorited ?? false);
@@ -42,7 +49,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   const navigate = useNavigate();
   const location = useLocation();
 
-  const imgSrc = wallpaper.preview_url || wallpaper.thumb_url;
+  const hasImage = lowResSrc.length > 0 || highResSrc.length > 0;
   const isProcessing = wallpaper.status === STATUS_PROCESSING;
   const isFailed = wallpaper.status === STATUS_FAILED;
   const canDownload = !wallpaper.is_dynamic || /Macintosh|Mac OS X/i.test(navigator.userAgent);
@@ -180,20 +187,40 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           aspectRatio: !fixedAspect && !fillHeight ? aspectRatio : undefined,
         }}
       >
-        {imgSrc && !loaded && (
+        {hasImage && !highLoaded && (
           <div className="absolute inset-0 z-[1] shimmer-overlay" />
         )}
 
-        {imgSrc ? (
+        {hasImage ? (
           <>
+            {/* Low-res thumb sits underneath; slightly blurred + scaled to hide
+                JPEG artifacts from being upscaled past its native size. Visible
+                until the high-res card image finishes loading. */}
+            {lowResSrc && (
+              <img
+                src={lowResSrc}
+                alt=""
+                aria-hidden
+                onContextMenu={(e) => e.preventDefault()}
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-cover select-none"
+                style={{
+                  filter: highLoaded ? 'none' : 'blur(12px)',
+                  transform: highLoaded ? 'none' : 'scale(1.06)',
+                  transition: 'filter 300ms ease, transform 300ms ease',
+                  WebkitUserDrag: 'none',
+                } as React.CSSProperties}
+              />
+            )}
+            {/* High-res card image fades in once loaded, replacing the blurred thumb. */}
             <img
-              src={imgSrc}
+              src={highResSrc}
               alt=""
               loading="lazy"
-              onLoad={() => setLoaded(true)}
+              onLoad={() => setHighLoaded(true)}
               onContextMenu={(e) => e.preventDefault()}
               draggable={false}
-              className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-105 select-none ${loaded ? 'opacity-100' : 'opacity-0'}`}
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 group-hover:scale-105 select-none ${highLoaded ? 'opacity-100' : 'opacity-0'}`}
               style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
             />
             <div className="absolute inset-0 z-[1] bg-black/0 group-hover:bg-black/10 transition-colors duration-300" onContextMenu={(e) => e.preventDefault()} />

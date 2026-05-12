@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS wallpapers (
     description    VARCHAR(1000)  NOT NULL DEFAULT '',
     original_url   VARCHAR(512)   NOT NULL,
     thumb_url      VARCHAR(512)   NOT NULL DEFAULT '',
+    card_url       VARCHAR(512)   NOT NULL DEFAULT '',
     preview_url    VARCHAR(512)   NOT NULL DEFAULT '',
     width          INT            NOT NULL DEFAULT 0,
     height         INT            NOT NULL DEFAULT 0,
@@ -168,6 +169,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_collections_slug ON collections(slug) WHER
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS is_dynamic BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS dynamic_type VARCHAR(16) NOT NULL DEFAULT '';
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS frame_urls TEXT NOT NULL DEFAULT '';
+ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS card_url VARCHAR(512) NOT NULL DEFAULT '';
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS coins BIGINT NOT NULL DEFAULT 0;
 

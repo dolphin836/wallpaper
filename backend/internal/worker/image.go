@@ -245,6 +245,9 @@ func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedE
 }
 
 func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Image, format string, wallpaperID int64, origW, origH int, dominantColor, colorPalette string) error {
+	// thumb: fits within 400×300, JPEG q≈85. Tiny file (~30KB), used as the
+	// first-paint placeholder in the home card so something appears instantly
+	// while the larger card image streams in.
 	thumb := resize.Thumbnail(400, 300, img, resize.Lanczos3)
 	thumbBuf := new(bytes.Buffer)
 	if err := encodeImage(thumbBuf, thumb, format); err != nil {
@@ -256,6 +259,27 @@ func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Ima
 	}
 
 	bounds := img.Bounds()
+
+	// card: ~800px wide, no watermark, JPEG q=75. Sized for the home card on a
+	// 2× retina display at the largest card size (~330px CSS), where 800px source
+	// renders crisp. Loading 24 of these for a homepage page is ~2 MB total vs
+	// 5-10 MB if we used the 1600px preview.
+	cardWidth := uint(800)
+	if bounds.Dx() < int(cardWidth) {
+		cardWidth = uint(bounds.Dx())
+	}
+	card := resize.Resize(cardWidth, 0, img, resize.Lanczos3)
+	cardBuf := new(bytes.Buffer)
+	if err := jpeg.Encode(cardBuf, card, &jpeg.Options{Quality: 75}); err != nil {
+		return fmt.Errorf("encode card: %w", err)
+	}
+	cardKey := fmt.Sprintf("cards/%s.jpg", uuid.New().String())
+	if err := w.storage.Upload(ctx, cardKey, cardBuf, int64(cardBuf.Len()), "image/jpeg"); err != nil {
+		return fmt.Errorf("upload card: %w", err)
+	}
+
+	// preview: 1600px wide, watermarked, JPEG q=80. Used by the detail page hero
+	// and as a fallback wherever a higher-res shareable preview is needed.
 	previewWidth := uint(1600)
 	if bounds.Dx() < 1600 {
 		previewWidth = uint(bounds.Dx())
@@ -272,7 +296,8 @@ func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Ima
 	}
 
 	if err := w.wpRepo.UpdateProcessed(ctx, wallpaperID,
-		w.storage.GetURL(thumbKey), w.storage.GetURL(previewKey), origW, origH, dominantColor, colorPalette); err != nil {
+		w.storage.GetURL(thumbKey), w.storage.GetURL(cardKey), w.storage.GetURL(previewKey),
+		origW, origH, dominantColor, colorPalette); err != nil {
 		return fmt.Errorf("update processed: %w", err)
 	}
 	return nil

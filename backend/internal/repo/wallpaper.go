@@ -25,7 +25,7 @@ func (r *WallpaperRepo) Create(ctx context.Context, w *model.Wallpaper) error {
 func (r *WallpaperRepo) GetByID(ctx context.Context, id int64) (*model.Wallpaper, error) {
 	var w model.Wallpaper
 	err := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, created_at, updated_at").
+		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, card_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, created_at, updated_at").
 		Where("id = ? AND status != ?", id, model.WallpaperStatusRemoved).
 		First(&w).Error
 	if err != nil {
@@ -40,7 +40,7 @@ func (r *WallpaperRepo) GetByID(ctx context.Context, id int64) (*model.Wallpaper
 func (r *WallpaperRepo) GetBySlug(ctx context.Context, slug string) (*model.Wallpaper, error) {
 	var w model.Wallpaper
 	err := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, created_at, updated_at").
+		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, card_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, created_at, updated_at").
 		Where("slug = ? AND status != ?", slug, model.WallpaperStatusRemoved).
 		First(&w).Error
 	if err != nil {
@@ -102,7 +102,7 @@ func (r *WallpaperRepo) applyListFilters(query *gorm.DB, opts ListOptions) *gorm
 
 func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wallpaper, error) {
 	query := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, created_at")
+		Select("id, slug, user_id, title, description, category_id, thumb_url, card_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, created_at")
 	query = r.applyListFilters(query, opts)
 	if opts.Cursor > 0 {
 		query = query.Where("id < ?", opts.Cursor)
@@ -138,7 +138,7 @@ func (r *WallpaperRepo) GetByIDs(ctx context.Context, ids []int64) ([]model.Wall
 	}
 	var wallpapers []model.Wallpaper
 	err := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, created_at").
+		Select("id, slug, user_id, title, description, category_id, thumb_url, card_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, created_at").
 		Where("id IN ? AND status = ?", ids, model.WallpaperStatusPublished).
 		Find(&wallpapers).Error
 	return wallpapers, err
@@ -151,12 +151,13 @@ func (r *WallpaperRepo) UpdateStatus(ctx context.Context, id int64, status int16
 		Update("status", status).Error
 }
 
-func (r *WallpaperRepo) UpdateProcessed(ctx context.Context, id int64, thumbURL, previewURL string, width, height int, dominantColor, colorPalette string) error {
+func (r *WallpaperRepo) UpdateProcessed(ctx context.Context, id int64, thumbURL, cardURL, previewURL string, width, height int, dominantColor, colorPalette string) error {
 	return r.db.WithContext(ctx).
 		Model(&model.Wallpaper{}).
 		Where("id = ?", id).
 		Updates(map[string]any{
 			"thumb_url":      thumbURL,
+			"card_url":       cardURL,
 			"preview_url":    previewURL,
 			"width":          width,
 			"height":         height,

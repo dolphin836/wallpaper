@@ -34,6 +34,7 @@ export interface Wallpaper {
   description: string;
   original_url: string;
   thumb_url: string;
+  card_url: string;
   preview_url: string;
   width: number;
   height: number;

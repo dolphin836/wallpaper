@@ -18,6 +18,7 @@ type Wallpaper struct {
 	Description   string    `gorm:"size:1000;not null;default:''" json:"description"`
 	OriginalURL   string    `gorm:"size:512;not null" json:"original_url"`
 	ThumbURL      string    `gorm:"size:512;not null;default:''" json:"thumb_url"`
+	CardURL       string    `gorm:"size:512;not null;default:''" json:"card_url"`
 	PreviewURL    string    `gorm:"size:512;not null;default:''" json:"preview_url"`
 	Width         int       `gorm:"not null;default:0" json:"width"`
 	Height        int       `gorm:"not null;default:0" json:"height"`
