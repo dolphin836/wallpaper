@@ -92,12 +92,25 @@ actor APIClient {
         return resp.data
     }
 
-    func fetchMyDownloads(cursor: Int? = nil, limit: Int = 20) async throws -> PaginatedData<Wallpaper> {
+    func fetchMyDownloads(
+        cursor: Int? = nil,
+        limit: Int = 20,
+        deviceWidth: Int? = nil,
+        deviceHeight: Int? = nil
+    ) async throws -> PaginatedData<Wallpaper> {
         var items: [URLQueryItem] = [
             .init(name: "limit", value: String(limit)),
         ]
         if let c = cursor {
             items.append(.init(name: "cursor", value: String(c)))
+        }
+        // The Mac client is always single-device, so when device dims are passed
+        // we also include dynamic wallpapers (macOS is the only platform that
+        // can use them) — same convention as fetchWallpapers.
+        if let w = deviceWidth, let h = deviceHeight, w > 0, h > 0 {
+            items.append(.init(name: "device_width", value: String(w)))
+            items.append(.init(name: "device_height", value: String(h)))
+            items.append(.init(name: "include_dynamic", value: "true"))
         }
         let resp: APIResponse<PaginatedData<Wallpaper>> = try await request("/users/me/downloads", queryItems: items)
         return resp.data

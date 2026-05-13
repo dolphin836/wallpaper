@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import usePageTitle from '../hooks/usePageTitle';
-import { AiOutlineHeart, AiOutlineEye, AiOutlinePicture, AiOutlineEdit, AiOutlineCamera, AiOutlineLock, AiOutlineCheck, AiOutlineClose } from 'react-icons/ai';
+import { AiOutlineHeart, AiOutlineEye, AiOutlinePicture, AiOutlineEdit, AiOutlineCamera, AiOutlineLock, AiOutlineCheck, AiOutlineClose, AiOutlineApple } from 'react-icons/ai';
+import { MdDevices } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import type { User, Wallpaper, Collection, CoinTransaction } from '../types';
 import { getUserProfile, getUserWallpapers, getUserCollections, getMyFavorites, getMyLikes, getMyDownloads, getMyCoins, getCoinTransactions, updateProfile, uploadAvatar, changePassword } from '../api';
@@ -128,6 +129,19 @@ function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleString();
 }
 
+// Physical pixel resolution of the user's primary screen. Same logic the home
+// feed uses for its My-Device filter; centralised here so the Downloads tab
+// filter pipes the exact same values to the API.
+function getScreenResolution() {
+  const dpr = window.devicePixelRatio || 1;
+  return {
+    width: Math.round(window.screen.width * dpr),
+    height: Math.round(window.screen.height * dpr),
+  };
+}
+
+const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent);
+
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
   const { user: currentUser, updateCoins } = useAuthStore();
@@ -153,6 +167,17 @@ export default function ProfilePage() {
   tabsRef.current = tabs;
 
   const [tabLoading, setTabLoading] = useState(false);
+
+  // Filters for the Downloads tab (parity with the home-feed My-Device / macOS
+  // toggles). Mutually exclusive: turning one on turns the other off, same as
+  // HomePage. Kept as refs too so fetchWallpaperPage doesn't need to re-create
+  // on every toggle.
+  const [dlDeviceFilter, setDlDeviceFilter] = useState(false);
+  const [dlMacFilter, setDlMacFilter] = useState(false);
+  const dlFiltersRef = useRef({ device: false, mac: false });
+  dlFiltersRef.current = { device: dlDeviceFilter, mac: dlMacFilter };
+  const screen = useMemo(() => getScreenResolution(), []);
+
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
   const [txPage, setTxPage] = useState(1);
   const [txCursors, setTxCursors] = useState<number[]>([0]);
@@ -212,7 +237,19 @@ export default function ProfilePage() {
       } else if (key === 'favorites') {
         res = await getMyFavorites(params);
       } else if (key === 'downloads') {
-        res = await getMyDownloads(params);
+        // Layer the resolution / macOS filters on top of cursor + limit.
+        // Mac wallpapers and resolution filters are mutually exclusive in the
+        // home UI, mirror the same constraint here.
+        const dlParams: Parameters<typeof getMyDownloads>[0] = { ...params };
+        const f = dlFiltersRef.current;
+        if (f.mac) {
+          dlParams.dynamic_only = true;
+        } else if (f.device) {
+          dlParams.device_width = screen.width;
+          dlParams.device_height = screen.height;
+          if (isMac) dlParams.include_dynamic = true;
+        }
+        res = await getMyDownloads(dlParams);
       } else {
         res = await getMyLikes(params);
       }
@@ -314,6 +351,29 @@ export default function ProfilePage() {
     // We intentionally don't include tabs/transactions in deps — we read fresh state via refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageSize, username, fetchWallpaperPage, fetchTransactionsPage]);
+
+  // Toggling either downloads filter resets that tab to page 1 with the new
+  // server-side filter applied. Only fires after the tab has been loaded once
+  // (no point hitting the API for a tab the user hasn't visited).
+  useEffect(() => {
+    if (!username || !tabsRef.current.downloads.loaded) return;
+    fetchWallpaperPage('downloads', 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dlDeviceFilter, dlMacFilter]);
+
+  const toggleDlDeviceFilter = () => {
+    setDlDeviceFilter((p) => {
+      if (!p) setDlMacFilter(false);
+      return !p;
+    });
+  };
+
+  const toggleDlMacFilter = () => {
+    setDlMacFilter((p) => {
+      if (!p) setDlDeviceFilter(false);
+      return !p;
+    });
+  };
 
   const handleTabChange = (tab: TabKey) => {
     setActiveTab(tab);
@@ -617,6 +677,33 @@ export default function ProfilePage() {
         </>
       ) : (
         <>
+          {activeTab === 'downloads' && (
+            <div className="flex items-center gap-2 mb-5">
+              <button
+                onClick={toggleDlDeviceFilter}
+                title={dlDeviceFilter ? `${screen.width}×${screen.height}` : 'Filter for your device'}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-full border transition-colors ${
+                  dlDeviceFilter
+                    ? 'bg-ws-purple text-white border-ws-purple shadow-sm'
+                    : 'text-slate-600 dark:text-ws-dark-muted border-ws-border dark:border-white/10 dark:bg-ws-dark-card hover:bg-ws-bg dark:hover:bg-white/5'
+                }`}
+              >
+                <MdDevices size={16} />
+                <span>{dlDeviceFilter ? `${screen.width}×${screen.height}` : 'My Device'}</span>
+              </button>
+              <button
+                onClick={toggleDlMacFilter}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-full border transition-colors ${
+                  dlMacFilter
+                    ? 'bg-ws-purple text-white border-ws-purple shadow-sm'
+                    : 'text-slate-600 dark:text-ws-dark-muted border-ws-border dark:border-white/10 dark:bg-ws-dark-card hover:bg-ws-bg dark:hover:bg-white/5'
+                }`}
+              >
+                <AiOutlineApple size={14} />
+                <span>macOS</span>
+              </button>
+            </div>
+          )}
           {tabLoading && !currentTab?.loaded ? (
             <div className="flex justify-center py-12">
               <div className="w-8 h-8 border-2 border-ws-purple/20 border-t-ws-purple rounded-full animate-spin" />

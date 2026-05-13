@@ -286,7 +286,16 @@ func (h *UserHandler) GetDownloads(w http.ResponseWriter, r *http.Request) {
 	cursor, limit := parseCursorLimit(r)
 	fetchLimit := limit + 1
 
-	items, err := h.interactionRepo.ListDownloads(r.Context(), userID, cursor, fetchLimit)
+	// Same resolution / dynamic filter contract as /wallpapers — lets the
+	// home feed and the My-Downloads list share UI affordances.
+	filters := repo.DownloadFilters{
+		DeviceWidth:    parseIntQuery(r, "device_width"),
+		DeviceHeight:   parseIntQuery(r, "device_height"),
+		DynamicOnly:    r.URL.Query().Get("dynamic_only") == "true",
+		IncludeDynamic: r.URL.Query().Get("include_dynamic") == "true",
+	}
+
+	items, err := h.interactionRepo.ListDownloads(r.Context(), userID, cursor, fetchLimit, filters)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to list downloads",
 			"error", err, "user_id", userID)
@@ -294,7 +303,7 @@ func (h *UserHandler) GetDownloads(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	total, err := h.interactionRepo.CountDownloads(r.Context(), userID)
+	total, err := h.interactionRepo.CountDownloads(r.Context(), userID, filters)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to count downloads", "error", err, "user_id", userID)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
@@ -551,6 +560,20 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		"page":  page,
 		"limit": limit,
 	})
+}
+
+// parseIntQuery returns the named query param as an int, or 0 if missing/unparseable.
+// Used for optional numeric filters (device_width, device_height, ...).
+func parseIntQuery(r *http.Request, name string) int {
+	raw := r.URL.Query().Get(name)
+	if raw == "" {
+		return 0
+	}
+	v, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0
+	}
+	return v
 }
 
 func parseCursorLimit(r *http.Request) (int64, int) {

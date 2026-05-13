@@ -238,9 +238,12 @@ struct PopoverContentView: View {
         defer { isLoadingDownloaded = false }
 
         do {
+            let size = screenSize
             let data = try await APIClient.shared.fetchMyDownloads(
                 cursor: reset ? nil : downloadedCursor,
-                limit: 20
+                limit: 20,
+                deviceWidth: size.width,
+                deviceHeight: size.height
             )
             if reset {
                 downloadedWallpapers = data.items

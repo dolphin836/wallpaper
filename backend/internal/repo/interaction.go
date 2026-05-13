@@ -156,7 +156,7 @@ func (r *InteractionRepo) RecordDownload(ctx context.Context, userID, wallpaperI
 		Create(&model.UserDownload{UserID: userID, WallpaperID: wallpaperID}).Error
 }
 
-func (r *InteractionRepo) ListDownloads(ctx context.Context, userID int64, cursor int64, limit int) ([]model.Wallpaper, error) {
+func (r *InteractionRepo) ListDownloads(ctx context.Context, userID int64, cursor int64, limit int, filters DownloadFilters) ([]model.Wallpaper, error) {
 	query := r.db.WithContext(ctx).
 		Table("wallpapers").
 		Select("wallpapers.id, wallpapers.slug, wallpapers.user_id, wallpapers.title, wallpapers.category_id, wallpapers.thumb_url, wallpapers.preview_url, wallpapers.status, wallpapers.view_count, wallpapers.like_count, wallpapers.download_count, wallpapers.favorite_count, wallpapers.width, wallpapers.height, wallpapers.file_size, wallpapers.file_type, wallpapers.is_dynamic, wallpapers.dynamic_type, wallpapers.created_at").
@@ -166,6 +166,7 @@ func (r *InteractionRepo) ListDownloads(ctx context.Context, userID int64, curso
 	if cursor > 0 {
 		query = query.Where("wallpapers.id < ?", cursor)
 	}
+	query = r.applyDownloadFilters(query, filters)
 
 	var wallpapers []model.Wallpaper
 	err := query.Order("wallpapers.id DESC").Limit(limit).Find(&wallpapers).Error
@@ -182,13 +183,46 @@ func (r *InteractionRepo) CountFavorites(ctx context.Context, userID int64) (int
 	return count, err
 }
 
-func (r *InteractionRepo) CountDownloads(ctx context.Context, userID int64) (int64, error) {
-	var count int64
-	err := r.db.WithContext(ctx).
+// DownloadFilters mirrors the resolution / dynamic-wallpaper filter knobs the
+// home feed already supports. Applied identically to the listing and the
+// total-count query so the pagination stays consistent under any filter.
+type DownloadFilters struct {
+	DeviceWidth    int
+	DeviceHeight   int
+	DynamicOnly    bool
+	IncludeDynamic bool
+}
+
+// applyDownloadFilters narrows a wallpapers/user_downloads join by the
+// resolution / dynamic-only knobs. Same WHERE clauses as WallpaperRepo.List
+// so the two listings filter identically.
+func (r *InteractionRepo) applyDownloadFilters(query *gorm.DB, f DownloadFilters) *gorm.DB {
+	if f.DynamicOnly {
+		return query.Where("wallpapers.is_dynamic = true")
+	}
+	if f.DeviceWidth > 0 && f.DeviceHeight > 0 {
+		if f.IncludeDynamic {
+			return query.Where(
+				"(wallpapers.id IN (SELECT wallpaper_id FROM wallpaper_variants WHERE width = ? AND height = ?) OR wallpapers.is_dynamic = true)",
+				f.DeviceWidth, f.DeviceHeight,
+			)
+		}
+		return query.Where(
+			"wallpapers.id IN (SELECT wallpaper_id FROM wallpaper_variants WHERE width = ? AND height = ?)",
+			f.DeviceWidth, f.DeviceHeight,
+		)
+	}
+	return query
+}
+
+func (r *InteractionRepo) CountDownloads(ctx context.Context, userID int64, filters DownloadFilters) (int64, error) {
+	query := r.db.WithContext(ctx).
 		Table("user_downloads").
 		Joins("JOIN wallpapers ON wallpapers.id = user_downloads.wallpaper_id").
-		Where("user_downloads.user_id = ? AND wallpapers.status = ?", userID, model.WallpaperStatusPublished).
-		Count(&count).Error
+		Where("user_downloads.user_id = ? AND wallpapers.status = ?", userID, model.WallpaperStatusPublished)
+	query = r.applyDownloadFilters(query, filters)
+	var count int64
+	err := query.Count(&count).Error
 	return count, err
 }
 
