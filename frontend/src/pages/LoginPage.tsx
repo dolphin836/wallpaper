@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { login } from '../api';
+import { resolveBaseURL } from '../api/client';
 import { useAuthStore } from '../store/auth';
 import usePageTitle from '../hooks/usePageTitle';
 
@@ -20,13 +21,35 @@ export default function LoginPage() {
 
   // Desktop client opens /login?desktop=1 in ASWebAuthenticationSession. If the user is
   // already signed in to the web (token in localStorage), don't make them re-enter
-  // credentials — hand the existing token to the Mac app via the wallxch:// callback
-  // immediately. Without this the Mac client just sits waiting for a callback that
-  // would never fire.
+  // credentials — hand the existing token to the Mac app via the wallxch:// callback.
+  //
+  // BUT: the localStorage token may be expired. Sending an expired token to the Mac
+  // client triggers a 401 on its first /users/me call, which calls logout() and lands
+  // the user back at "Not signed in" — the UX looks like the Sign-In window flashed
+  // and did nothing. Validate the token first by hitting an authenticated endpoint
+  // directly (bypassing the axios interceptor that would otherwise force-navigate on
+  // a 401 and strip our ?desktop=1 query param). If the token doesn't pass, clear it
+  // locally and let the user log in afresh via the form below — handleSubmit's
+  // wallxch:// redirect still fires after a successful new login.
   useEffect(() => {
-    if (isDesktop && existingToken) {
-      window.location.href = `wallxch://auth?token=${encodeURIComponent(existingToken)}`;
-    }
+    if (!isDesktop || !existingToken) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(`${resolveBaseURL()}/users/me`, {
+          headers: { Authorization: `Bearer ${existingToken}` },
+        });
+        if (cancelled) return;
+        if (resp.ok) {
+          window.location.href = `wallxch://auth?token=${encodeURIComponent(existingToken)}`;
+        } else {
+          useAuthStore.getState().logout();
+        }
+      } catch {
+        if (!cancelled) useAuthStore.getState().logout();
+      }
+    })();
+    return () => { cancelled = true; };
   }, [isDesktop, existingToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {

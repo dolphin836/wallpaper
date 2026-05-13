@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { register } from '../api';
+import { resolveBaseURL } from '../api/client';
 import { useAuthStore } from '../store/auth';
 import usePageTitle from '../hooks/usePageTitle';
 
@@ -22,11 +23,27 @@ export default function RegisterPage() {
 
   // Same shortcut as LoginPage: if the desktop client opened this URL but the user
   // is already authenticated in the web session, hand the existing token to the Mac
-  // app via wallxch:// instead of forcing a fresh registration.
+  // app via wallxch://. Validate first so we don't pass an expired token (would log
+  // the Mac client right back out — see LoginPage useEffect for the full reasoning).
   useEffect(() => {
-    if (isDesktop && existingToken) {
-      window.location.href = `wallxch://auth?token=${encodeURIComponent(existingToken)}`;
-    }
+    if (!isDesktop || !existingToken) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(`${resolveBaseURL()}/users/me`, {
+          headers: { Authorization: `Bearer ${existingToken}` },
+        });
+        if (cancelled) return;
+        if (resp.ok) {
+          window.location.href = `wallxch://auth?token=${encodeURIComponent(existingToken)}`;
+        } else {
+          useAuthStore.getState().logout();
+        }
+      } catch {
+        if (!cancelled) useAuthStore.getState().logout();
+      }
+    })();
+    return () => { cancelled = true; };
   }, [isDesktop, existingToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
