@@ -117,8 +117,17 @@ struct WallpaperRow: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 120)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        // Make the entire 120px rectangle hit-testable, including transparent
+        // areas. Without this, SwiftUI's default hover hit-test on a ZStack only
+        // counts the visible content (the image + chips + buttons). When the
+        // cursor crossed into a row's "empty" pixels — exactly where the buttons
+        // fade in — the hover-deepest-hit chain could re-evaluate and bounce
+        // hover state between this row and its neighbour, producing the
+        // "approach button on row 1, it disappears, row 2's button shows up"
+        // pattern reported by the user.
+        .contentShape(Rectangle())
         .onHover { isHovering = $0 }
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .animation(.easeInOut(duration: 0.15), value: isDownloading)
         .animation(.easeInOut(duration: 0.15), value: isHovering)
     }
