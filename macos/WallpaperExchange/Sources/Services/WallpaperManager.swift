@@ -51,8 +51,28 @@ final class WallpaperManager {
         downloadedIDs.insert(wallpaper.id)
     }
 
-    func setAsWallpaper(_ wallpaperID: Int) throws {
-        guard let url = localURL(for: wallpaperID) else { return }
+    enum WallpaperError: LocalizedError {
+        case fileUnavailable
+        var errorDescription: String? {
+            switch self {
+            case .fileUnavailable: return "Wallpaper file is not available locally."
+            }
+        }
+    }
+
+    /// Apply the wallpaper to every connected display. If the file is not yet on
+    /// disk locally (e.g. the wallpaper was downloaded on another device — the
+    /// "Downloaded" column is sourced from the server, not the local file scan),
+    /// download it first. The backend's `HasDownloaded` check skips the coin
+    /// charge when the user has already paid for this wallpaper, so re-fetching
+    /// a previously-downloaded item from another device is free.
+    func setAsWallpaper(_ wallpaper: Wallpaper) async throws {
+        if localURL(for: wallpaper.id) == nil {
+            try await download(wallpaper: wallpaper)
+        }
+        guard let url = localURL(for: wallpaper.id) else {
+            throw WallpaperError.fileUnavailable
+        }
         for screen in NSScreen.screens {
             try NSWorkspace.shared.setDesktopImageURL(url, for: screen, options: [
                 .imageScaling: NSImageScaling.scaleProportionallyUpOrDown.rawValue,

@@ -159,7 +159,7 @@ struct PopoverContentView: View {
                             isDownloading: manager.downloading.contains(wp.id),
                             onDownload: { Task { await download(wp) } },
                             onDownloadAndSet: { Task { await downloadAndSet(wp) } },
-                            onSetWallpaper: { setWallpaper(wp.id) }
+                            onSetWallpaper: { Task { await setWallpaper(wp) } }
                         )
                     }
 
@@ -293,7 +293,7 @@ struct PopoverContentView: View {
             try await manager.download(wallpaper: wallpaper)
             await auth.refreshProfile()
             await loadDownloaded(reset: true)
-            try manager.setAsWallpaper(wallpaper.id)
+            try await manager.setAsWallpaper(wallpaper)
         } catch APIError.insufficientCoins {
             errorMessage = "Insufficient coins. Upload wallpapers to earn more!"
         } catch APIError.unauthorized {
@@ -303,9 +303,20 @@ struct PopoverContentView: View {
         }
     }
 
-    private func setWallpaper(_ id: Int) {
+    // Apply a wallpaper to the desktop. Works whether the file is already on
+    // disk (local download) or only recorded server-side (downloaded via web or
+    // another device) — setAsWallpaper handles the on-demand fetch internally.
+    private func setWallpaper(_ wallpaper: Wallpaper) async {
         do {
-            try manager.setAsWallpaper(id)
+            try await manager.setAsWallpaper(wallpaper)
+            // If we just pulled the file locally, the local file scan now
+            // reports it as downloaded; re-load the downloads list so the row's
+            // state stays in sync.
+            await loadDownloaded(reset: true)
+        } catch APIError.insufficientCoins {
+            errorMessage = "Insufficient coins. Upload wallpapers to earn more!"
+        } catch APIError.unauthorized {
+            auth.logout()
         } catch {
             errorMessage = "Failed to set wallpaper: \(error.localizedDescription)"
         }
