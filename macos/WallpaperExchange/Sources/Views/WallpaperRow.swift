@@ -75,29 +75,28 @@ struct WallpaperRow: View {
             .padding(8)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
-            // Bottom-right action stack — only on hover, hidden during download.
-            // Without an explicit `maxWidth/maxHeight: .infinity` here, the inner
-            // Spacers have no room to push and the stack collapses to its content
-            // size, leaving the buttons pinned to the topLeading corner of the
-            // ZStack alongside the chips.
-            if isHovering && !isDownloading {
-                VStack(spacing: 6) {
-                    // The button set is driven by the *column* the row appears in, not by
-                    // whether the file happens to be on disk. A wallpaper showing up in
-                    // Latest after a previous download still offers download — the user can
-                    // re-download, or just hover-click to see what they get.
-                    switch column {
-                    case .latest:
-                        iconButton(icon: "arrow.down.circle", help: "Download", action: onDownload)
-                        iconButton(icon: "desktopcomputer.and.arrow.down", help: "Download & set", action: onDownloadAndSet)
-                    case .downloaded:
-                        iconButton(icon: "desktopcomputer", help: "Set wallpaper", action: onSetWallpaper)
-                    }
+            // Bottom-right action stack — always rendered, toggled via opacity +
+            // hit-testing. Conditionally rendering this on `isHovering` caused the
+            // SwiftUI hover-flicker bug on macOS: mounting the buttons triggered the
+            // parent's .onHover to fire `false` (mouse "enters" newly-inserted child),
+            // which unmounted them, which re-fired `true`, looping at ~60Hz so the
+            // buttons appeared to vanish under the cursor. Always-rendered avoids the
+            // mount/unmount cycle entirely; .animation on the ZStack root still gives
+            // a smooth fade.
+            let showButtons = isHovering && !isDownloading
+            VStack(spacing: 6) {
+                switch column {
+                case .latest:
+                    iconButton(icon: "arrow.down.circle", help: "Download", action: onDownload)
+                    iconButton(icon: "desktopcomputer.and.arrow.down", help: "Download & set", action: onDownloadAndSet)
+                case .downloaded:
+                    iconButton(icon: "desktopcomputer", help: "Set wallpaper", action: onSetWallpaper)
                 }
-                .padding(8)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                .transition(.opacity)
             }
+            .padding(8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .opacity(showButtons ? 1 : 0)
+            .allowsHitTesting(showButtons)
 
             // Downloading state — full dim + spinner, takes precedence over hover overlay.
             if isDownloading {
