@@ -14,23 +14,52 @@ struct WallpaperRow: View {
     let onSetWallpaper: () -> Void
 
     @State private var isHovering = false
+    @State private var highResLoaded = false
+
+    private var thumbURL: URL? {
+        wallpaper.thumbURL.isEmpty ? nil : URL(string: wallpaper.thumbURL)
+    }
+    private var previewURL: URL? {
+        wallpaper.previewURL.isEmpty ? nil : URL(string: wallpaper.previewURL)
+    }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            AsyncImage(url: URL(string: wallpaper.displayURL)) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                case .failure:
-                    placeholder
-                default:
-                    placeholder
-                }
+            // Bottom layer: low-res thumb. Slightly blurred until the preview
+            // covers it, so the upscaled 400×300 doesn't look pixelated. Falls
+            // back to the dominant-color placeholder if no thumb URL.
+            CachedAsyncImage(url: thumbURL) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
+                placeholder
             }
             .frame(height: 120)
             .clipped()
+            .blur(radius: highResLoaded ? 0 : 6)
+            .animation(.easeInOut(duration: 0.25), value: highResLoaded)
+
+            // Top layer: 1600px preview. Same image source the detail page
+            // uses — loading it here populates the browser cache (well, our
+            // ImageCacheStore + URLCache) so detail navigation is instant.
+            // Fades in over the blurred thumb once decoded.
+            if previewURL != nil {
+                CachedAsyncImage(
+                    url: previewURL,
+                    onLoad: { highResLoaded = true }
+                ) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color.clear
+                }
+                .frame(height: 120)
+                .clipped()
+                .opacity(highResLoaded ? 1 : 0)
+                .animation(.easeInOut(duration: 0.35), value: highResLoaded)
+            }
 
             // Top-left chips — always visible (matches web WallpaperCard).
             // The outer .frame ensures this attaches to the topLeading corner of the

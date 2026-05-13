@@ -266,6 +266,10 @@ struct PopoverContentView: View {
         do {
             try await manager.download(wallpaper: wallpaper)
             await auth.refreshProfile()
+            // The right-hand "Downloaded" column is sourced from /users/me/downloads,
+            // not from WallpaperManager's local file scan — so the freshly-recorded
+            // download won't appear until we re-fetch that list.
+            await loadDownloaded(reset: true)
         } catch APIError.insufficientCoins {
             errorMessage = "Insufficient coins. Upload wallpapers to earn more!"
         } catch APIError.unauthorized {
@@ -285,6 +289,7 @@ struct PopoverContentView: View {
         do {
             try await manager.download(wallpaper: wallpaper)
             await auth.refreshProfile()
+            await loadDownloaded(reset: true)
             try manager.setAsWallpaper(wallpaper.id)
         } catch APIError.insufficientCoins {
             errorMessage = "Insufficient coins. Upload wallpapers to earn more!"
