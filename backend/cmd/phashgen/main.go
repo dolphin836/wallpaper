@@ -23,6 +23,7 @@ import (
 	"log"
 	"math/bits"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -70,9 +71,21 @@ func main() {
 		log.Fatal("query: ", err)
 	}
 
-	fmt.Printf("Wallpapers to backfill: %d (concurrency=%d, timeout=%s)\n", len(rows), *concurrency, *timeout)
+	// Prefer the internal MinIO endpoint so we skip Caddy + TLS — public URL
+	// fetches were taking 30-60s per HEIC file and saturating the timeout.
+	publicPrefix := strings.TrimRight(cfg.MinIO.PublicURL, "/")
+	internalBase := "http://" + cfg.MinIO.Endpoint
+	rewriteForInternal := func(u string) string {
+		if publicPrefix == "" || !strings.HasPrefix(u, publicPrefix) {
+			return u
+		}
+		return internalBase + strings.TrimPrefix(u, publicPrefix)
+	}
 
-	// Shared transport so all workers re-use the connection pool to MinIO/Caddy.
+	fmt.Printf("Wallpapers to backfill: %d (concurrency=%d, timeout=%s, internal=%s)\n",
+		len(rows), *concurrency, *timeout, internalBase)
+
+	// Shared transport so all workers re-use the connection pool to MinIO.
 	transport := &http.Transport{
 		MaxIdleConns:        *concurrency * 2,
 		MaxIdleConnsPerHost: *concurrency * 2,
@@ -89,7 +102,7 @@ func main() {
 			defer wg.Done()
 			for r := range jobs {
 				ctx, cancel := context.WithTimeout(context.Background(), *timeout)
-				hash, err := computePhash(ctx, client, r.OriginalURL)
+				hash, err := computePhash(ctx, client, rewriteForInternal(r.OriginalURL))
 				cancel()
 				if err != nil {
 					log.Printf("  [FAIL] %d: %v", r.ID, err)
