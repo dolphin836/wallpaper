@@ -5,10 +5,9 @@ import toast from 'react-hot-toast';
 import type { Collection } from '../types';
 import { getCollections } from '../api';
 import Spinner from '../components/Spinner';
-import usePageTitle from '../hooks/usePageTitle';
+import PageMeta from '../components/PageMeta';
 
 export default function CollectionsPage() {
-  usePageTitle('Collections');
   const [collections, setCollections] = useState<Collection[]>([]);
   const [cursor, setCursor] = useState<number | undefined>();
   const [hasMore, setHasMore] = useState(false);
@@ -50,6 +49,10 @@ export default function CollectionsPage() {
 
   return (
     <div className="px-6 py-6">
+      <PageMeta
+        title="Collections"
+        description="Browse community-curated wallpaper collections — themed sets of HD and 4K wallpapers grouped by mood, color, and platform."
+      />
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Collections</h1>
       </div>

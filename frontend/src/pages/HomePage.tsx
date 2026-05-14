@@ -9,7 +9,7 @@ import { useAuthStore } from '../store/auth';
 import WallpaperGrid from '../components/WallpaperGrid';
 import { SIZE_HEIGHTS } from '../components/WallpaperGrid';
 import type { ViewMode, SizeMode } from '../components/WallpaperGrid';
-import usePageTitle from '../hooks/usePageTitle';
+import PageMeta from '../components/PageMeta';
 
 function getScreenResolution() {
   const dpr = window.devicePixelRatio || 1;
@@ -85,7 +85,6 @@ function AppleIcon({ size = 16 }: { size?: number }) {
 }
 
 export default function HomePage() {
-  usePageTitle('Discover');
   const { isAuthenticated, user } = useAuthStore();
 
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
@@ -244,6 +243,10 @@ export default function HomePage() {
 
   return (
     <div className="px-6 py-4">
+      <PageMeta
+        title="Discover"
+        description="Browse and download community-uploaded HD and 4K wallpapers — phone, desktop, and macOS dynamic wallpapers, sorted by latest and popular."
+      />
       {/* Control bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         {/* Left: filters */}

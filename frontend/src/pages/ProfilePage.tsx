@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import usePageTitle from '../hooks/usePageTitle';
+import PageMeta from '../components/PageMeta';
 import { AiOutlineHeart, AiOutlineEye, AiOutlinePicture, AiOutlineEdit, AiOutlineCamera, AiOutlineLock, AiOutlineCheck, AiOutlineClose, AiOutlineApple } from 'react-icons/ai';
 import { MdDevices } from 'react-icons/md';
 import toast from 'react-hot-toast';
@@ -146,7 +146,6 @@ export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
   const { user: currentUser, updateCoins } = useAuthStore();
   const [user, setUser] = useState<User | null>(null);
-  usePageTitle(user ? `${user.nickname || user.username}'s Profile` : 'Profile');
   const [loading, setLoading] = useState(true);
   const [collections, setCollections] = useState<Collection[]>([]);
 
@@ -528,6 +527,12 @@ export default function ProfilePage() {
 
   return (
     <div className="px-6 py-6">
+      <PageMeta
+        title={user ? `${user.nickname || user.username}'s Profile` : 'Profile'}
+        description={user ? `Wallpapers, collections, and uploads from ${user.nickname || user.username} on Wallpaper Exchange.` : undefined}
+        image={user?.avatar_url}
+        type="profile"
+      />
       {/* Password Modal */}
       {showPasswordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowPasswordModal(false)}>

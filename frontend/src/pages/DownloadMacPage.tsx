@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { AiOutlineApple, AiOutlineDownload, AiOutlineCheckCircle } from 'react-icons/ai';
 import { getMacRelease } from '../api';
 import type { MacRelease } from '../types';
-import usePageTitle from '../hooks/usePageTitle';
+import PageMeta from '../components/PageMeta';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 
@@ -15,7 +15,6 @@ function formatDate(iso: string): string {
 }
 
 export default function DownloadMacPage() {
-  usePageTitle('Download for macOS');
   const [release, setRelease] = useState<MacRelease | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -32,6 +31,10 @@ export default function DownloadMacPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
+      <PageMeta
+        title="Download for macOS"
+        description="Free menubar app for browsing and applying wallpapers on macOS. Auto-rotate, native dynamic wallpaper support, single sign-on with your web account."
+      />
       {/* Hero */}
       <div className="text-center mb-10">
         <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 dark:from-white/10 dark:to-white/5 mb-5 shadow-lg">

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import usePageTitle from '../hooks/usePageTitle';
+import PageMeta from '../components/PageMeta';
 import {
   AiFillHeart,
   AiOutlineHeart,
@@ -225,7 +225,31 @@ export default function WallpaperDetailPage() {
       ? ({ ...initialWallpaper, tags: [], uploader: undefined as unknown as User } as WallpaperDetail)
       : null
   );
-  usePageTitle(wallpaper ? `${wallpaper.width}×${wallpaper.height} Wallpaper` : 'Wallpaper');
+  const metaTitle = wallpaper ? `${wallpaper.width}×${wallpaper.height} Wallpaper` : 'Wallpaper';
+  const metaDescription = wallpaper
+    ? `Download this ${wallpaper.width}×${wallpaper.height}${wallpaper.is_dynamic ? ' dynamic' : ''} wallpaper for free on Wallpaper Exchange. HD and 4K wallpapers across multiple categories.`
+    : undefined;
+  const metaImage = wallpaper?.preview_url || wallpaper?.original_url;
+  const jsonLd = wallpaper
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'ImageObject',
+        name: metaTitle,
+        contentUrl: wallpaper.original_url,
+        thumbnailUrl: wallpaper.thumb_url || wallpaper.preview_url,
+        width: wallpaper.width,
+        height: wallpaper.height,
+        datePublished: wallpaper.created_at,
+        ...(wallpaper.uploader
+          ? {
+              author: {
+                '@type': 'Person',
+                name: wallpaper.uploader.nickname || wallpaper.uploader.username,
+              },
+            }
+          : {}),
+      }
+    : undefined;
   const [variants, setVariants] = useState<WallpaperVariant[]>([]);
   const [loading, setLoading] = useState(!initialWallpaper);
   const [likeLoading, setLikeLoading] = useState(false);
@@ -425,6 +449,13 @@ export default function WallpaperDetailPage() {
 
   return (
     <>
+      <PageMeta
+        title={metaTitle}
+        description={metaDescription}
+        image={metaImage}
+        type="article"
+        jsonLd={jsonLd}
+      />
       {showAddToCollection && wallpaper && (
         <AddToCollectionModal wallpaperId={wallpaper.id} onClose={() => setShowAddToCollection(false)} />
       )}

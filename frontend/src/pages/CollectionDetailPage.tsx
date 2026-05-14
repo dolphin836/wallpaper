@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import usePageTitle from '../hooks/usePageTitle';
+import PageMeta from '../components/PageMeta';
 import { AiFillHeart, AiOutlineHeart, AiOutlineDelete, AiOutlineEdit, AiOutlineClose, AiOutlineCheck } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { CollectionDetail as CollectionDetailType, Wallpaper } from '../types';
@@ -16,7 +16,6 @@ export default function CollectionDetailPage() {
   const { user } = useAuthStore();
 
   const [collection, setCollection] = useState<CollectionDetailType | null>(null);
-  usePageTitle(collection ? collection.title : 'Collection');
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
   const [cursor, setCursor] = useState<number | undefined>();
   const [hasMore, setHasMore] = useState(false);
@@ -127,6 +126,12 @@ export default function CollectionDetailPage() {
 
   return (
     <div className="px-6 py-6">
+      <PageMeta
+        title={collection ? collection.title : 'Collection'}
+        description={collection?.description || (collection ? `${collection.title} — a curated wallpaper collection on Wallpaper Exchange.` : undefined)}
+        image={wallpapers[0]?.preview_url}
+        type="article"
+      />
       <div className="mb-8">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">

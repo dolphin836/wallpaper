@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import type { UserListItem } from '../types';
 import { getUsers } from '../api';
 import Spinner from '../components/Spinner';
-import usePageTitle from '../hooks/usePageTitle';
+import PageMeta from '../components/PageMeta';
 
 type SortKey = 'recent' | 'uploads' | 'coins';
 
@@ -14,7 +14,6 @@ function formatDate(dateStr: string): string {
 }
 
 export default function UploadersPage() {
-  usePageTitle('Uploaders');
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -55,6 +54,10 @@ export default function UploadersPage() {
 
   return (
     <div className="px-6 py-4">
+      <PageMeta
+        title="Uploaders"
+        description="Discover top contributors on Wallpaper Exchange — browse user profiles and follow uploaders behind the wallpapers you love."
+      />
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-xl font-bold text-slate-900 dark:text-white">Uploaders</h1>
         <div className="flex items-center h-10 bg-ws-bg dark:bg-ws-dark-card rounded-lg overflow-hidden border border-ws-border dark:border-white/10">
