@@ -10,6 +10,7 @@ import {
   AiOutlineLoading3Quarters,
 } from 'react-icons/ai';
 import toast from 'react-hot-toast';
+import { track } from '../lib/track';
 import { useAuthStore } from '../store/auth';
 import usePageTitle from '../hooks/usePageTitle';
 
@@ -157,6 +158,7 @@ export default function UploadPage() {
     }
 
     setUploading(false);
+    track('upload_complete', { succeeded: success, failed });
     if (failed === 0) {
       toast.success(`${success} wallpaper(s) uploaded successfully`);
       setTimeout(() => navigate('/'), 1000);

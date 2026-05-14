@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
+import usePageView from '../hooks/usePageView';
 import {
   AiOutlineMenu,
   AiOutlineClose,
@@ -44,6 +45,7 @@ export default function Layout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dark, toggleDark] = useDarkMode();
+  usePageView();
 
   const handleLogout = () => {
     logout();

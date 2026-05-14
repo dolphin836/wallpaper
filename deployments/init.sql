@@ -185,6 +185,22 @@ CREATE TABLE IF NOT EXISTS reports (
 CREATE INDEX IF NOT EXISTS idx_reports_wallpaper ON reports(wallpaper_id);
 CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, created_at);
 
+CREATE TABLE IF NOT EXISTS analytics_events (
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    session_id VARCHAR(64)  NOT NULL,
+    user_id    BIGINT       NOT NULL DEFAULT 0,
+    event_type VARCHAR(64)  NOT NULL,
+    path       VARCHAR(512) NOT NULL DEFAULT '',
+    referrer   VARCHAR(512) NOT NULL DEFAULT '',
+    user_agent VARCHAR(512) NOT NULL DEFAULT '',
+    ip         VARCHAR(64)  NOT NULL DEFAULT '',
+    props      JSONB        NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ(6) NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_type_created ON analytics_events(event_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_user ON analytics_events(user_id) WHERE user_id <> 0;
+CREATE INDEX IF NOT EXISTS idx_analytics_events_session ON analytics_events(session_id);
+
 ALTER TABLE users ADD COLUMN IF NOT EXISTS coins BIGINT NOT NULL DEFAULT 0;
 
 INSERT INTO users (id, username, email, password_hash, nickname, coins, status)

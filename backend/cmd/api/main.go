@@ -86,6 +86,7 @@ func main() {
 	eventRepo := repo.NewEventRepo(db)
 	coinRepo := repo.NewCoinRepo(db)
 	reportRepo := repo.NewReportRepo(db)
+	analyticsRepo := repo.NewAnalyticsRepo(db)
 
 	authSvc := service.NewAuthService(userRepo, coinRepo, cfg.JWT.Secret, cfg.JWT.ExpireHour)
 	wallpaperSvc := service.NewWallpaperService(wallpaperRepo, tagRepo, interactionRepo, userRepo, eventRepo, coinRepo, collectionRepo, store, kafkaWriter)
@@ -101,6 +102,7 @@ func main() {
 	releaseHandler := handler.NewReleaseHandler()
 	seoHandler := handler.NewSEOHandler(wallpaperRepo, categoryRepo)
 	reportHandler := handler.NewReportHandler(reportRepo, wallpaperRepo)
+	analyticsHandler := handler.NewAnalyticsHandler(analyticsRepo)
 
 	router := handler.NewRouter(handler.Deps{
 		AuthHandler:       authHandler,
@@ -113,6 +115,7 @@ func main() {
 		ReleaseHandler:    releaseHandler,
 		SEOHandler:        seoHandler,
 		ReportHandler:     reportHandler,
+		AnalyticsHandler:  analyticsHandler,
 		JWTSecret:         cfg.JWT.Secret,
 	})
 

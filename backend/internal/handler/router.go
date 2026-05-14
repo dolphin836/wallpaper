@@ -22,6 +22,7 @@ type Deps struct {
 	ReleaseHandler    *ReleaseHandler
 	SEOHandler        *SEOHandler
 	ReportHandler     *ReportHandler
+	AnalyticsHandler  *AnalyticsHandler
 	JWTSecret         string
 }
 
@@ -68,6 +69,7 @@ func NewRouter(deps Deps) *chi.Mux {
 
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.OptionalAuth(deps.JWTSecret))
+			r.Post("/events", deps.AnalyticsHandler.Track)
 			r.Get("/wallpapers", deps.WallpaperHandler.List)
 			r.Get("/wallpapers/{id}", deps.WallpaperHandler.Get)
 			r.Get("/wallpapers/{id}/variants", deps.DeviceHandler.ListVariants)

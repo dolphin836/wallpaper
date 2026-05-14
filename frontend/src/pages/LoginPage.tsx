@@ -5,6 +5,7 @@ import { login } from '../api';
 import { resolveBaseURL } from '../api/client';
 import { useAuthStore } from '../store/auth';
 import usePageTitle from '../hooks/usePageTitle';
+import { track } from '../lib/track';
 
 const INPUT_CLS = 'w-full bg-ws-bg dark:bg-ws-dark-card border-none rounded-xl py-2.5 px-4 text-sm focus:ring-1 focus:ring-ws-purple outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-ws-dark-muted dark:text-white';
 
@@ -59,6 +60,7 @@ export default function LoginPage() {
       const res = await login({ email, password });
       const { token, user } = res.data.data;
       setAuth(token, user);
+      track('login_success', { desktop: isDesktop });
       if (isDesktop) {
         window.location.href = `wallxch://auth?token=${encodeURIComponent(token)}`;
         return;
