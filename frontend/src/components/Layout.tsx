@@ -102,8 +102,9 @@ export default function Layout() {
       {/* Footer */}
       <div className="p-6 mt-auto border-t border-slate-50 dark:border-white/5 text-xs text-ws-muted dark:text-ws-dark-muted space-y-3">
         <Link to="/terms" className="block hover:text-slate-900 dark:hover:text-white transition-colors">Terms of Service</Link>
+        <Link to="/privacy" className="block hover:text-slate-900 dark:hover:text-white transition-colors">Privacy Policy</Link>
         <div className="flex items-center justify-between">
-          <Link to="/privacy" className="hover:text-slate-900 dark:hover:text-white transition-colors">Privacy Policy</Link>
+          <Link to="/legal/dmca" className="hover:text-slate-900 dark:hover:text-white transition-colors">Copyright / DMCA</Link>
           <span className="w-2 h-2 rounded-full bg-ws-purple" />
         </div>
         <p className="text-[11px] opacity-60 pt-2">&copy; {new Date().getFullYear()} Wallpaper Exchange</p>

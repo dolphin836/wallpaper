@@ -10,6 +10,7 @@ import {
   AiOutlineDownload,
   AiOutlineCheckCircle,
   AiOutlineDelete,
+  AiOutlineFlag,
   AiOutlineFullscreen,
   AiOutlineClose,
   AiOutlineLoading3Quarters,
@@ -18,6 +19,7 @@ import { MdPhoneIphone, MdPlaylistAdd } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User } from '../types';
 import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
+import ReportModal from '../components/ReportModal';
 import {
   getWallpaper,
   likeWallpaper,
@@ -258,6 +260,7 @@ export default function WallpaperDetailPage() {
   const [fullscreen, setFullscreen] = useState(false);
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [dlLoading, setDlLoading] = useState(false);
   const [dlDone, setDlDone] = useState(false);
@@ -458,6 +461,10 @@ export default function WallpaperDetailPage() {
       />
       {showAddToCollection && wallpaper && (
         <AddToCollectionModal wallpaperId={wallpaper.id} onClose={() => setShowAddToCollection(false)} />
+      )}
+
+      {showReport && wallpaper && (
+        <ReportModal wallpaperId={wallpaper.id} onClose={() => setShowReport(false)} />
       )}
 
       {showGuide && <SetWallpaperGuide onClose={() => setShowGuide(false)} />}
@@ -785,6 +792,15 @@ export default function WallpaperDetailPage() {
                   >
                     <AiOutlineDelete size={16} />
                     Delete
+                  </button>
+                )}
+                {!isOwner && isAuthenticated && (
+                  <button
+                    onClick={() => setShowReport(true)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors duration-200"
+                  >
+                    <AiOutlineFlag size={16} />
+                    Report
                   </button>
                 )}
               </div>

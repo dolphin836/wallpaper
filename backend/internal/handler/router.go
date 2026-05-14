@@ -21,6 +21,7 @@ type Deps struct {
 	CollectionHandler *CollectionHandler
 	ReleaseHandler    *ReleaseHandler
 	SEOHandler        *SEOHandler
+	ReportHandler     *ReportHandler
 	JWTSecret         string
 }
 
@@ -90,6 +91,7 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Delete("/wallpapers/{id}/like", deps.WallpaperHandler.Unlike)
 			r.Post("/wallpapers/{id}/favorite", deps.WallpaperHandler.Favorite)
 			r.Delete("/wallpapers/{id}/favorite", deps.WallpaperHandler.Unfavorite)
+			r.Post("/wallpapers/{id}/report", deps.ReportHandler.Create)
 
 			r.Get("/users/me", deps.UserHandler.GetMe)
 			r.Put("/users/me/profile", deps.UserHandler.UpdateProfile)

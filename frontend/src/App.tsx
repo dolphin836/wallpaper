@@ -12,6 +12,7 @@ import CollectionDetailPage from './pages/CollectionDetailPage';
 import UploadersPage from './pages/UploadersPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
+import LegalDmcaPage from './pages/LegalDmcaPage';
 import DownloadMacPage from './pages/DownloadMacPage';
 import WallpaperDetailModal from './components/WallpaperDetailModal';
 
@@ -34,6 +35,7 @@ function AppRoutes() {
           <Route path="/collections/:slug" element={<CollectionDetailPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/legal/dmca" element={<LegalDmcaPage />} />
           <Route path="/download/mac" element={<DownloadMacPage />} />
         </Route>
       </Routes>

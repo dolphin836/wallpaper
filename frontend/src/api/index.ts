@@ -43,6 +43,9 @@ export const favoriteWallpaper = (id: number) =>
 export const unfavoriteWallpaper = (id: number) =>
   client.delete<ApiResponse<null>>(`/wallpapers/${id}/favorite`);
 
+export const reportWallpaper = (id: number, reason: string, note: string) =>
+  client.post<ApiResponse<null>>(`/wallpapers/${id}/report`, { reason, note });
+
 export const downloadWallpaper = (id: number) =>
   `${resolveBaseURL()}/wallpapers/${id}/download`;
 

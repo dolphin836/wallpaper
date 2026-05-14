@@ -172,6 +172,19 @@ ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS frame_urls TEXT NOT NULL DEFAULT
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS phash BIGINT NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_wallpapers_phash ON wallpapers(phash) WHERE phash <> 0 AND status = 1;
 
+CREATE TABLE IF NOT EXISTS reports (
+    id               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    wallpaper_id     BIGINT       NOT NULL,
+    reporter_user_id BIGINT       NOT NULL,
+    reason           VARCHAR(32)  NOT NULL,
+    note             TEXT         NOT NULL DEFAULT '',
+    status           SMALLINT     NOT NULL DEFAULT 0,
+    created_at       TIMESTAMPTZ(6) NOT NULL DEFAULT NOW(),
+    UNIQUE (wallpaper_id, reporter_user_id, reason)
+);
+CREATE INDEX IF NOT EXISTS idx_reports_wallpaper ON reports(wallpaper_id);
+CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, created_at);
+
 ALTER TABLE users ADD COLUMN IF NOT EXISTS coins BIGINT NOT NULL DEFAULT 0;
 
 INSERT INTO users (id, username, email, password_hash, nickname, coins, status)
