@@ -258,7 +258,7 @@ export default function WallpaperDetailPage() {
   const [loading, setLoading] = useState(!initialWallpaper);
   const [likeLoading, setLikeLoading] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
-  const [showVariants, setShowVariants] = useState(false);
+  const [detailTab, setDetailTab] = useState<'similar' | 'variants'>('similar');
   const [fullscreen, setFullscreen] = useState(false);
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
@@ -827,40 +827,64 @@ export default function WallpaperDetailPage() {
               </div>
             )}
 
-            {/* Device Variants (hidden for dynamic wallpapers — no variants generated) */}
-            {!wallpaper.is_dynamic && variants.length > 0 && (
-              <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
-                <button
-                  onClick={() => setShowVariants(!showVariants)}
-                  className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4 w-full"
-                >
-                  Available Devices ({variants.length})
-                  <svg
-                    className={`w-4 h-4 ml-auto transition-transform ${showVariants ? 'rotate-180' : ''}`}
-                    fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {showVariants && (
-                  <VariantList variants={variants} matchedId={matchedVariant?.id} onMockup={setMockupVariant} onDownload={(v) => handleDownload(v)} />
-                )}
-              </div>
-            )}
-
           </div>
         </div>
 
-        {similar.length > 0 && (
-          <div className="mt-12 pt-8 border-t border-gray-100 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">More like this</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {similar.map((s) => (
-                <WallpaperCard key={s.id} wallpaper={s} fixedAspect />
-              ))}
+        {(() => {
+          const hasSimilar = similar.length > 0;
+          const hasVariants = !wallpaper.is_dynamic && variants.length > 0;
+          if (!hasSimilar && !hasVariants) return null;
+          const activeTab = hasSimilar && hasVariants
+            ? detailTab
+            : (hasSimilar ? 'similar' : 'variants');
+          return (
+            <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="flex border-b border-gray-100 dark:border-gray-700">
+                {hasSimilar && (
+                  <button
+                    onClick={() => setDetailTab('similar')}
+                    className={`px-6 py-4 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                      activeTab === 'similar'
+                        ? 'border-ws-purple text-slate-900 dark:text-white'
+                        : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-ws-dark-muted dark:hover:text-white'
+                    }`}
+                  >
+                    More like this
+                  </button>
+                )}
+                {hasVariants && (
+                  <button
+                    onClick={() => setDetailTab('variants')}
+                    className={`px-6 py-4 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                      activeTab === 'variants'
+                        ? 'border-ws-purple text-slate-900 dark:text-white'
+                        : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-ws-dark-muted dark:hover:text-white'
+                    }`}
+                  >
+                    Available Devices ({variants.length})
+                  </button>
+                )}
+              </div>
+              <div className="p-6">
+                {activeTab === 'similar' && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                    {similar.map((s) => (
+                      <WallpaperCard key={s.id} wallpaper={s} fixedAspect />
+                    ))}
+                  </div>
+                )}
+                {activeTab === 'variants' && (
+                  <VariantList
+                    variants={variants}
+                    matchedId={matchedVariant?.id}
+                    onMockup={setMockupVariant}
+                    onDownload={(v) => handleDownload(v)}
+                  />
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </>
   );
