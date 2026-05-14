@@ -11,6 +11,7 @@ import (
 	"image/png"
 	"io"
 	"log/slog"
+	"math/bits"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/corona10/goimagehash"
 	_ "github.com/gen2brain/heic"
 	"github.com/google/uuid"
 	"github.com/nfnt/resize"
@@ -88,6 +90,44 @@ func (w *ImageWorker) Run(ctx context.Context) error {
 			slog.Error("commit message failed", "error", err)
 		}
 	}
+}
+
+// dupHammingThreshold is the max Hamming distance (out of 64 bits) below which
+// two perceptual hashes are considered the same image. 5 is the value used by
+// most pHash-based dedup implementations.
+const dupHammingThreshold = 5
+
+func (w *ImageWorker) isDuplicate(ctx context.Context, img image.Image, wallpaperID int64) bool {
+	h, err := goimagehash.PerceptionHash(img)
+	if err != nil {
+		slog.WarnContext(ctx, "phash compute failed (skipping dedup)", "wallpaper_id", wallpaperID, "error", err)
+		return false
+	}
+	hashVal := int64(h.GetHash())
+
+	entries, err := w.wpRepo.ListPublishedPhashes(ctx, wallpaperID)
+	if err != nil {
+		slog.WarnContext(ctx, "phash list failed (skipping dedup)", "wallpaper_id", wallpaperID, "error", err)
+		return false
+	}
+	for _, e := range entries {
+		if bits.OnesCount64(uint64(hashVal^e.Phash)) <= dupHammingThreshold {
+			slog.InfoContext(ctx, "duplicate wallpaper detected",
+				"wallpaper_id", wallpaperID,
+				"matches_id", e.ID,
+				"hamming", bits.OnesCount64(uint64(hashVal^e.Phash)),
+			)
+			if err := w.wpRepo.SetStatus(ctx, wallpaperID, model.WallpaperStatusDuplicate); err != nil {
+				slog.ErrorContext(ctx, "set duplicate status failed", "wallpaper_id", wallpaperID, "error", err)
+			}
+			return true
+		}
+	}
+
+	if err := w.wpRepo.SetPhash(ctx, wallpaperID, hashVal); err != nil {
+		slog.WarnContext(ctx, "set phash failed (non-fatal)", "wallpaper_id", wallpaperID, "error", err)
+	}
+	return false
 }
 
 func detectDynamicType(data []byte) string {
@@ -211,6 +251,12 @@ func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedE
 	origW, origH := bounds.Dx(), bounds.Dy()
 
 	dominantColor, colorPalette := extractColors(img)
+
+	if w.isDuplicate(ctx, img, event.WallpaperID) {
+		// Marked status=duplicate already; skip variants so the file
+		// never gets a public URL.
+		return nil
+	}
 
 	if err := w.generateThumbAndPreview(ctx, img, format, event.WallpaperID, origW, origH, dominantColor, colorPalette); err != nil {
 		return fmt.Errorf("thumb/preview: %w", err)

@@ -207,6 +207,35 @@ func (r *WallpaperRepo) Delete(ctx context.Context, id int64) error {
 		Update("status", model.WallpaperStatusRemoved).Error
 }
 
+type PhashEntry struct {
+	ID    int64
+	Phash int64
+}
+
+func (r *WallpaperRepo) ListPublishedPhashes(ctx context.Context, excludeID int64) ([]PhashEntry, error) {
+	var entries []PhashEntry
+	err := r.db.WithContext(ctx).
+		Model(&model.Wallpaper{}).
+		Select("id, phash").
+		Where("status = ? AND phash <> 0 AND id <> ?", model.WallpaperStatusPublished, excludeID).
+		Find(&entries).Error
+	return entries, err
+}
+
+func (r *WallpaperRepo) SetPhash(ctx context.Context, id int64, phash int64) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Wallpaper{}).
+		Where("id = ?", id).
+		Update("phash", phash).Error
+}
+
+func (r *WallpaperRepo) SetStatus(ctx context.Context, id int64, status int16) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Wallpaper{}).
+		Where("id = ?", id).
+		Update("status", status).Error
+}
+
 func (r *WallpaperRepo) ListPublishedForSitemap(ctx context.Context) ([]SitemapEntry, error) {
 	var entries []SitemapEntry
 	err := r.db.WithContext(ctx).

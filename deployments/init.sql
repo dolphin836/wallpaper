@@ -169,6 +169,9 @@ ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS is_dynamic BOOLEAN NOT NULL DEFA
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS dynamic_type VARCHAR(16) NOT NULL DEFAULT '';
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS frame_urls TEXT NOT NULL DEFAULT '';
 
+ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS phash BIGINT NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_wallpapers_phash ON wallpapers(phash) WHERE phash <> 0 AND status = 1;
+
 ALTER TABLE users ADD COLUMN IF NOT EXISTS coins BIGINT NOT NULL DEFAULT 0;
 
 INSERT INTO users (id, username, email, password_hash, nickname, coins, status)

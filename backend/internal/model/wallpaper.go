@@ -7,6 +7,7 @@ const (
 	WallpaperStatusPublished  int16 = 1
 	WallpaperStatusFailed     int16 = 2
 	WallpaperStatusRemoved    int16 = 3
+	WallpaperStatusDuplicate  int16 = 4
 )
 
 type Wallpaper struct {
@@ -33,6 +34,7 @@ type Wallpaper struct {
 	IsDynamic     bool      `gorm:"not null;default:false" json:"is_dynamic"`
 	DynamicType   string    `gorm:"size:16;not null;default:''" json:"dynamic_type"`
 	FrameURLs     string    `gorm:"type:text;not null;default:''" json:"frame_urls"`
+	Phash         int64     `gorm:"not null;default:0" json:"-"`
 	CreatedAt     time.Time `gorm:"not null;autoCreateTime;index:idx_wallpapers_status_created" json:"created_at"`
 	UpdatedAt     time.Time `gorm:"not null;autoUpdateTime" json:"updated_at"`
 }
