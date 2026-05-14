@@ -1,8 +1,24 @@
 {
-  "current_version": "1.0.0",
-  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.0.0.dmg",
+  "current_version": "1.1.0",
+  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.1.0.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "1.1.0",
+      "released_at": "2026-05-14",
+      "notes": [
+        "Auto-rotate desktop wallpaper from your downloads every 4 hours, persists across launches.",
+        "One-tap Download & Set as Wallpaper from the discover feed.",
+        "Real download progress bar for large dynamic HEIC files.",
+        "Per-column macOS dynamic-only filter for Latest and Downloaded.",
+        "Downloaded list filters to wallpapers matching this Mac's resolution.",
+        "Menubar status icon now uses the brand logo.",
+        "Progressive image loading and in-memory cache — rows don't flash a loading state when you scroll back up.",
+        "Set Wallpaper auto-downloads on demand for wallpapers downloaded on another device.",
+        "Auth token moved out of Keychain — no more system permission prompt at launch.",
+        "Many UI fixes: hover button stability, post-login user info, stale state after sign out."
+      ]
+    },
     {
       "version": "1.0.0",
       "released_at": "2026-05-12",
