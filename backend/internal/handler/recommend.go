@@ -152,8 +152,17 @@ func (h *RecommendHandler) ForYou(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(ids) == 0 {
-		// Cold-start: caller should ask /wallpapers (latest) instead. Returning
-		// an empty list lets the frontend make that decision.
+		// Cold-start: no interaction signals to score against. Fall back to
+		// most-engaged wallpapers (excluding any the user has touched) so
+		// the For-You feed always has content on first visit.
+		ids, err = h.wallpaperRepo.ListPopularIDs(r.Context(), userID, limit)
+		if err != nil {
+			slog.ErrorContext(r.Context(), "for-you: popular fallback failed", "error", err)
+			response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+			return
+		}
+	}
+	if len(ids) == 0 {
 		response.OK(w, []model.Wallpaper{})
 		return
 	}

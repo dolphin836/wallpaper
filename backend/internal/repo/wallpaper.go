@@ -227,11 +227,44 @@ func (r *WallpaperRepo) ListPublishedColors(ctx context.Context, excludeID int64
 	return entries, err
 }
 
+// ListPopularIDs returns top wallpapers by like+favorite+view weight,
+// excluding wallpapers the given user has already interacted with. Used as
+// a cold-start fallback when the user has no signals to score against.
+func (r *WallpaperRepo) ListPopularIDs(ctx context.Context, userID int64, limit int) ([]int64, error) {
+	type row struct {
+		ID int64
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).Raw(`
+		WITH user_signals AS (
+			SELECT wallpaper_id FROM user_likes WHERE user_id = ?
+			UNION
+			SELECT wallpaper_id FROM user_favorites WHERE user_id = ?
+			UNION
+			SELECT wallpaper_id FROM user_downloads WHERE user_id = ?
+		)
+		SELECT id
+		FROM wallpapers
+		WHERE status = ?
+		  AND id NOT IN (SELECT wallpaper_id FROM user_signals)
+		ORDER BY (like_count * 2 + favorite_count * 3 + view_count) DESC, created_at DESC
+		LIMIT ?
+	`, userID, userID, userID, model.WallpaperStatusPublished, limit).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]int64, len(rows))
+	for i, r := range rows {
+		ids[i] = r.ID
+	}
+	return ids, nil
+}
+
 // ListForYouIDs scores candidate wallpapers by the user's aggregate tag
 // affinity (sum of weighted interactions) and returns the top wallpaper IDs.
 // Favorites count for 2, likes and downloads for 1; wallpapers the user has
 // already interacted with are excluded. Falls back to the empty slice when
-// the user has no signals yet — the caller can show latest in that case.
+// the user has no signals yet — the caller can show popular in that case.
 func (r *WallpaperRepo) ListForYouIDs(ctx context.Context, userID int64, limit int) ([]int64, error) {
 	type row struct {
 		WallpaperID int64
