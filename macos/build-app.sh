@@ -9,12 +9,16 @@
 #   ./build-app.sh --sign "Developer ID Application: Your Name (TEAMID)"
 #                                 # signs with a real Developer ID cert
 #
-# `--release` requires `mc` (MinIO Client; `brew install minio/stable/mc`) and
-# these env vars (sourced from ../.env if present):
-#   MINIO_ROOT_USER       MinIO access key
-#   MINIO_ROOT_PASSWORD   MinIO secret key
-#   SITE_DOMAIN           e.g. wallpaper.haibing.site (endpoint = https://${SITE_DOMAIN}/storage)
-#   MINIO_BUCKET          optional, defaults to "wallpapers"
+# `--release` uploads via SSH to the deploy host (the public MinIO endpoint
+# is path-prefixed behind Caddy, so direct mc/AWS-CLI uploads from your Mac
+# don't work). Required env vars:
+#   SSH_HOST              deploy host, e.g. root@1.2.3.4 (or ~/.ssh/config alias)
+#   SITE_DOMAIN           public domain for HEAD check, e.g. wallpaper.haibing.site
+# Optional (with defaults):
+#   SSH_DEPLOY_PATH       compose project dir on server (default /opt/app/wallpaper)
+#   DOCKER_NETWORK        wallpaper docker network (default wallpaper_default)
+#   MINIO_BUCKET          bucket name (default "wallpapers")
+# MINIO_ROOT_USER/PASSWORD are read from the deploy host's .env, not yours.
 #
 # Output:
 #   ./Wallpaper Exchange.app/      .app bundle, ready to run / drag to /Applications
@@ -108,7 +112,8 @@ if [ "$DO_UPLOAD" -eq 1 ]; then
     # http://localhost:9000.
     : "${SSH_HOST:?SSH_HOST must be set — your deploy host. Example: SSH_HOST=root@your-server (or a host alias from ~/.ssh/config)}"
     : "${SITE_DOMAIN:?SITE_DOMAIN must be set (e.g. wallpaper.haibing.site)}"
-    SSH_DEPLOY_PATH="${SSH_DEPLOY_PATH:-/opt/wallpaper}"
+    SSH_DEPLOY_PATH="${SSH_DEPLOY_PATH:-/opt/app/wallpaper}"
+    DOCKER_NETWORK="${DOCKER_NETWORK:-wallpaper_default}"
     BUCKET="${MINIO_BUCKET:-wallpapers}"
 
     # Pull version from Info.plist so the uploaded filename always matches what
@@ -126,26 +131,28 @@ if [ "$DO_UPLOAD" -eq 1 ]; then
     echo "==> SCP $DMG_PATH → ${SSH_HOST}:${REMOTE_TMP}"
     scp "$DMG_PATH" "${SSH_HOST}:${REMOTE_TMP}"
 
-    echo "==> Uploading into MinIO via mc inside the minio container"
-    # Wrap in single-quoted heredoc so $VAR references stay literal until the
-    # remote shell expands them — but pre-substitute the values we already know
-    # locally via SSH env vars before the bash call.
+    echo "==> Uploading into MinIO via minio/mc sidecar on $DOCKER_NETWORK"
+    # We don't `docker compose exec` the minio container because newer
+    # minio/minio images no longer ship the mc binary. Instead spin up a
+    # one-shot minio/mc on the same docker network, mounting the DMG so
+    # we don't need a second host→container copy.
     ssh "$SSH_HOST" \
-        "DEPLOY_PATH='$SSH_DEPLOY_PATH' REMOTE_TMP='$REMOTE_TMP' BUCKET='$BUCKET' OBJECT_KEY='$OBJECT_KEY' bash -s" <<'REMOTE_EOF'
+        "DEPLOY_PATH='$SSH_DEPLOY_PATH' REMOTE_TMP='$REMOTE_TMP' BUCKET='$BUCKET' OBJECT_KEY='$OBJECT_KEY' NETWORK='$DOCKER_NETWORK' bash -s" <<'REMOTE_EOF'
 set -e
 cd "$DEPLOY_PATH"
 # shellcheck disable=SC1091
 set -a; source .env; set +a
-docker compose cp "$REMOTE_TMP" minio:/tmp/wpe-release.dmg
-docker compose exec -T \
+docker run --rm \
+    --network "$NETWORK" \
+    -v "$REMOTE_TMP:/upload.dmg:ro" \
     -e MC_USER="$MINIO_ROOT_USER" \
     -e MC_PASS="$MINIO_ROOT_PASSWORD" \
     -e BUCKET="$BUCKET" \
     -e OBJECT_KEY="$OBJECT_KEY" \
-    minio sh -c '
-        mc alias set local http://localhost:9000 "$MC_USER" "$MC_PASS" >/dev/null
-        mc cp /tmp/wpe-release.dmg "local/$BUCKET/$OBJECT_KEY"
-        rm -f /tmp/wpe-release.dmg
+    --entrypoint sh \
+    minio/mc -c '
+        mc alias set local http://minio:9000 "$MC_USER" "$MC_PASS" >/dev/null
+        mc cp /upload.dmg "local/$BUCKET/$OBJECT_KEY"
     '
 rm -f "$REMOTE_TMP"
 REMOTE_EOF
