@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -184,13 +185,21 @@ func (h *SEOHandler) OGWallpaper(w http.ResponseWriter, r *http.Request) {
 }
 
 func baseURL(r *http.Request) string {
-	scheme := "http"
-	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
 	host := r.Host
 	if h := r.Header.Get("X-Forwarded-Host"); h != "" {
 		host = h
+	}
+	// Prefer the X-Forwarded-Proto Caddy sets, but nginx in front of us
+	// overwrites it with its own $scheme (http on the docker network), so
+	// also assume https for any non-loopback host — this is a TLS-fronted
+	// service in every real deployment.
+	scheme := "https"
+	if r.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	} else if r.Header.Get("X-Forwarded-Proto") == "http" && (strings.HasPrefix(host, "localhost") || strings.HasPrefix(host, "127.0.0.1")) {
+		scheme = "http"
+	} else if r.TLS == nil && (strings.HasPrefix(host, "localhost") || strings.HasPrefix(host, "127.0.0.1")) {
+		scheme = "http"
 	}
 	return scheme + "://" + host
 }

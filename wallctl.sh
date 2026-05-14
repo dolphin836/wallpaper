@@ -240,24 +240,10 @@ cmd_sluggen() {
 }
 
 cmd_phashgen() {
-    local flag="${1:-}"
     log_info "Backfilling pHash for published wallpapers..."
-    case "$flag" in
-        --force)
-            log_warn "Force mode: ALL phashes will be recomputed."
-            compose exec api /bin/phashgen --force
-            ;;
-        --report-dupes)
-            compose exec api /bin/phashgen --report-dupes
-            ;;
-        "")
-            compose exec api /bin/phashgen
-            ;;
-        *)
-            log_error "unknown flag: $flag (use --force or --report-dupes)"
-            return 1
-            ;;
-    esac
+    # Pass through every arg so caller can tune --timeout / --concurrency /
+    # --force / --report-dupes without us having to enumerate combinations.
+    compose exec api /bin/phashgen "$@"
     log_info "pHash backfill complete."
 }
 
@@ -315,6 +301,6 @@ case "${1:-help}" in
     db-shell)   cmd_db_shell ;;
     db-migrate) cmd_db_migrate ;;
     sluggen)    cmd_sluggen "${2:-}" ;;
-    phashgen)   cmd_phashgen "${2:-}" ;;
+    phashgen)   shift; cmd_phashgen "$@" ;;
     help|*)     cmd_help ;;
 esac
