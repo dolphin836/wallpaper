@@ -75,6 +75,8 @@ struct PopoverContentView: View {
                     isLocal: true,
                     macOnly: downloadedMacOnly,
                     onMacOnlyToggle: { downloadedMacOnly.toggle() },
+                    autoRotate: manager.autoRotate,
+                    onAutoRotateToggle: { manager.setAutoRotate(!manager.autoRotate) },
                     onLoadMore: { Task { await loadDownloaded() } }
                 )
             }
@@ -151,6 +153,8 @@ struct PopoverContentView: View {
         isLocal: Bool,
         macOnly: Bool,
         onMacOnlyToggle: @escaping () -> Void,
+        autoRotate: Bool = false,
+        onAutoRotateToggle: (() -> Void)? = nil,
         onLoadMore: @escaping () -> Void
     ) -> some View {
         VStack(spacing: 0) {
@@ -162,6 +166,28 @@ struct PopoverContentView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
+                // Auto-rotate toggle — only the Downloaded column passes
+                // onAutoRotateToggle. When on, WallpaperManager picks a random
+                // locally-stored wallpaper and applies it immediately, then
+                // every 4 hours. Server-only entries (no local file) are
+                // skipped.
+                if let onAutoRotateToggle {
+                    Button(action: onAutoRotateToggle) {
+                        Image(systemName: "shuffle")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(autoRotate ? Color.white : Color.secondary)
+                            .frame(width: 18, height: 18)
+                            .background(autoRotate ? Color.accentColor : Color.clear)
+                            .overlay(
+                                Circle().stroke(autoRotate ? Color.clear : Color.secondary.opacity(0.3), lineWidth: 1)
+                            )
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(autoRotate
+                          ? "Auto-rotating downloads every 4 hours — click to stop"
+                          : "Randomly rotate your downloaded wallpapers every 4 hours")
+                }
                 // Small circular toggle for dynamic-only. Tinted when on, plain
                 // outline when off. Independent per column so users can filter
                 // Latest and Downloaded separately.

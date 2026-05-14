@@ -14,6 +14,14 @@ final class WallpaperManager {
     // instead of an indeterminate spinner. Cleared on completion/failure.
     private(set) var downloadProgress: [Int: Double] = [:]
 
+    // When true, a background task picks a random locally-downloaded wallpaper
+    // and applies it every 4 hours. State is persisted across launches via
+    // UserDefaults, so quitting + reopening the app preserves the rotation.
+    private(set) var autoRotate: Bool = false
+    private var rotationTask: Task<Void, Never>?
+    private let autoRotateDefaultsKey = "wallpaper.autoRotate"
+    private let rotationInterval: UInt64 = 4 * 3600 * 1_000_000_000  // 4 hours in nanoseconds
+
     private let storageDir: URL
 
     private init() {
@@ -21,6 +29,63 @@ final class WallpaperManager {
         storageDir = appSupport.appendingPathComponent("WallpaperExchange/Downloads", isDirectory: true)
         try? FileManager.default.createDirectory(at: storageDir, withIntermediateDirectories: true)
         scanLocalFiles()
+
+        // Resume rotation if the user had it on before quitting the app.
+        autoRotate = UserDefaults.standard.bool(forKey: autoRotateDefaultsKey)
+        if autoRotate {
+            startRotation()
+        }
+    }
+
+    // MARK: - Auto-rotate
+
+    func setAutoRotate(_ enabled: Bool) {
+        guard autoRotate != enabled else { return }
+        autoRotate = enabled
+        UserDefaults.standard.set(enabled, forKey: autoRotateDefaultsKey)
+        if enabled {
+            startRotation()
+        } else {
+            stopRotation()
+        }
+    }
+
+    private func startRotation() {
+        stopRotation()
+        // Apply once immediately so the user sees the rotation took effect,
+        // then sleep 4h between subsequent picks. WallpaperManager is
+        // @MainActor so the Task inherits that isolation.
+        rotationTask = Task { [weak self] in
+            guard let self else { return }
+            self.applyRandomLocalWallpaper()
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: self.rotationInterval)
+                guard !Task.isCancelled else { break }
+                self.applyRandomLocalWallpaper()
+            }
+        }
+    }
+
+    private func stopRotation() {
+        rotationTask?.cancel()
+        rotationTask = nil
+    }
+
+    /// Pick one of the locally-stored wallpaper files at random and apply it.
+    /// Server-only records (downloaded on another device but never pulled to
+    /// this Mac) are excluded — caller asked specifically that "没有下载到本地
+    /// 的不管". Silent no-op when nothing is available locally; the rotation
+    /// task keeps running so the next firing will pick up newly-downloaded
+    /// files automatically.
+    private func applyRandomLocalWallpaper() {
+        let candidates: [URL] = downloadedIDs.compactMap { localURL(for: $0) }
+        guard let url = candidates.randomElement() else { return }
+        for screen in NSScreen.screens {
+            try? NSWorkspace.shared.setDesktopImageURL(url, for: screen, options: [
+                .imageScaling: NSImageScaling.scaleProportionallyUpOrDown.rawValue,
+                .allowClipping: true,
+            ])
+        }
     }
 
     var storagePath: URL { storageDir }
