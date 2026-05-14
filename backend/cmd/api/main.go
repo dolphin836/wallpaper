@@ -103,6 +103,7 @@ func main() {
 	seoHandler := handler.NewSEOHandler(wallpaperRepo, categoryRepo)
 	reportHandler := handler.NewReportHandler(reportRepo, wallpaperRepo)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsRepo)
+	recommendHandler := handler.NewRecommendHandler(wallpaperRepo)
 
 	router := handler.NewRouter(handler.Deps{
 		AuthHandler:       authHandler,
@@ -116,6 +117,7 @@ func main() {
 		SEOHandler:        seoHandler,
 		ReportHandler:     reportHandler,
 		AnalyticsHandler:  analyticsHandler,
+		RecommendHandler:  recommendHandler,
 		JWTSecret:         cfg.JWT.Secret,
 	})
 

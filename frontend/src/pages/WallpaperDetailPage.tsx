@@ -20,6 +20,8 @@ import toast from 'react-hot-toast';
 import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User } from '../types';
 import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
 import ReportModal from '../components/ReportModal';
+import WallpaperCard from '../components/WallpaperCard';
+import { getSimilarWallpapers } from '../api';
 import {
   getWallpaper,
   likeWallpaper,
@@ -261,6 +263,7 @@ export default function WallpaperDetailPage() {
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [similar, setSimilar] = useState<Wallpaper[]>([]);
   const [showGuide, setShowGuide] = useState(false);
   const [dlLoading, setDlLoading] = useState(false);
   const [dlDone, setDlDone] = useState(false);
@@ -324,6 +327,24 @@ export default function WallpaperDetailPage() {
       document.body.style.overflow = '';
     };
   }, [fullscreen, mockupVariant]);
+
+  useEffect(() => {
+    if (!wallpaper?.id) {
+      setSimilar([]);
+      return;
+    }
+    let cancelled = false;
+    getSimilarWallpapers(wallpaper.id, 12)
+      .then((res) => {
+        if (!cancelled) setSimilar(res.data.data || []);
+      })
+      .catch(() => {
+        if (!cancelled) setSimilar([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [wallpaper?.id]);
 
   const handleLike = async () => {
     if (!isAuthenticated) { navigate('/login'); return; }
@@ -829,6 +850,19 @@ export default function WallpaperDetailPage() {
 
           </div>
         </div>
+
+        {similar.length > 0 && (
+          <div className="mt-12 pt-8 border-t border-gray-100 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">More like this</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {similar.map((s) => (
+                <div key={s.id} className="aspect-[3/4]">
+                  <WallpaperCard wallpaper={s} fillHeight />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

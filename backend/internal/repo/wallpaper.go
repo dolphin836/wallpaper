@@ -212,6 +212,46 @@ type PhashEntry struct {
 	Phash int64
 }
 
+type ColorEntry struct {
+	ID            int64
+	DominantColor string
+}
+
+func (r *WallpaperRepo) ListPublishedColors(ctx context.Context, excludeID int64) ([]ColorEntry, error) {
+	var entries []ColorEntry
+	err := r.db.WithContext(ctx).
+		Model(&model.Wallpaper{}).
+		Select("id, dominant_color").
+		Where("status = ? AND id <> ? AND dominant_color <> ''", model.WallpaperStatusPublished, excludeID).
+		Find(&entries).Error
+	return entries, err
+}
+
+// TagOverlapWith returns wallpaper_id → number of tags that wallpaper shares
+// with the target. Only includes wallpapers that share at least one tag.
+func (r *WallpaperRepo) TagOverlapWith(ctx context.Context, wallpaperID int64) (map[int64]int, error) {
+	type row struct {
+		WallpaperID int64
+		Overlap     int
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT wt.wallpaper_id, COUNT(*) AS overlap
+		FROM wallpaper_tags wt
+		WHERE wt.tag_id IN (SELECT tag_id FROM wallpaper_tags WHERE wallpaper_id = ?)
+		  AND wt.wallpaper_id <> ?
+		GROUP BY wt.wallpaper_id
+	`, wallpaperID, wallpaperID).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[int64]int, len(rows))
+	for _, r := range rows {
+		m[r.WallpaperID] = r.Overlap
+	}
+	return m, nil
+}
+
 func (r *WallpaperRepo) ListPublishedPhashes(ctx context.Context, excludeID int64) ([]PhashEntry, error) {
 	var entries []PhashEntry
 	err := r.db.WithContext(ctx).

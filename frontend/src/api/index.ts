@@ -46,6 +46,9 @@ export const unfavoriteWallpaper = (id: number) =>
 export const reportWallpaper = (id: number, reason: string, note: string) =>
   client.post<ApiResponse<null>>(`/wallpapers/${id}/report`, { reason, note });
 
+export const getSimilarWallpapers = (id: number, limit = 12) =>
+  client.get<ApiResponse<Wallpaper[]>>(`/wallpapers/${id}/similar`, { params: { limit } });
+
 export const downloadWallpaper = (id: number) =>
   `${resolveBaseURL()}/wallpapers/${id}/download`;
 

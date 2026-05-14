@@ -23,6 +23,7 @@ type Deps struct {
 	SEOHandler        *SEOHandler
 	ReportHandler     *ReportHandler
 	AnalyticsHandler  *AnalyticsHandler
+	RecommendHandler  *RecommendHandler
 	JWTSecret         string
 }
 
@@ -74,6 +75,7 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Get("/wallpapers/{id}", deps.WallpaperHandler.Get)
 			r.Get("/wallpapers/{id}/variants", deps.DeviceHandler.ListVariants)
 			r.Get("/wallpapers/{id}/engagements", deps.WallpaperHandler.GetEngagements)
+			r.Get("/wallpapers/{id}/similar", deps.RecommendHandler.Similar)
 
 			r.Get("/collections", deps.CollectionHandler.List)
 			r.Get("/collections/{id}", deps.CollectionHandler.Get)
