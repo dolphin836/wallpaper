@@ -15,14 +15,14 @@ set -euo pipefail
 : "${SSH_HOST:=root@139.224.49.94}"
 : "${SSH_DEPLOY_PATH:=/opt/app/wallpaper}"
 
-REMOTE_ARGS=("deploy")
 if [ $# -gt 0 ]; then
-    # `wallctl.sh deploy` doesn't take args today; treat extra args as a
-    # `restart <service>` shortcut so `./deploy.sh frontend` Just Works after
-    # a pure-frontend change without redeploying everything.
-    REMOTE_ARGS=("restart" "$@")
+    # Scoped deploy: pull the latest code first, then rebuild only the named
+    # service(s). Without `git pull` the container rebuild would just bake
+    # whatever was already on disk and silently drop your latest commits.
+    echo "==> Deploying via $SSH_HOST → git pull + wallctl.sh restart $*"
+    ssh "$SSH_HOST" "cd '$SSH_DEPLOY_PATH' && git pull --ff-only && ./wallctl.sh restart $*"
+else
+    echo "==> Deploying via $SSH_HOST → wallctl.sh deploy"
+    ssh "$SSH_HOST" "cd '$SSH_DEPLOY_PATH' && ./wallctl.sh deploy"
 fi
-
-echo "==> Deploying via $SSH_HOST → wallctl.sh ${REMOTE_ARGS[*]}"
-ssh "$SSH_HOST" "cd '$SSH_DEPLOY_PATH' && ./wallctl.sh ${REMOTE_ARGS[*]}"
 echo "==> Done."
