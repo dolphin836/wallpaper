@@ -20,6 +20,7 @@ type Deps struct {
 	DeviceHandler     *DeviceHandler
 	CollectionHandler *CollectionHandler
 	ReleaseHandler    *ReleaseHandler
+	SEOHandler        *SEOHandler
 	JWTSecret         string
 }
 
@@ -48,6 +49,9 @@ func NewRouter(deps Deps) *chi.Mux {
 
 	limiter := middleware.NewRateLimiter(10, 30)
 	r.Use(limiter.Handler)
+
+	r.Get("/robots.txt", deps.SEOHandler.RobotsTxt)
+	r.Get("/sitemap.xml", deps.SEOHandler.Sitemap)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/auth/register", deps.AuthHandler.Register)

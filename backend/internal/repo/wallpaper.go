@@ -4,11 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 
 	"github.com/wallpaper/backend/internal/model"
 )
+
+type SitemapEntry struct {
+	Slug      string
+	UpdatedAt time.Time
+}
 
 type WallpaperRepo struct {
 	db *gorm.DB
@@ -199,4 +205,15 @@ func (r *WallpaperRepo) Delete(ctx context.Context, id int64) error {
 		Model(&model.Wallpaper{}).
 		Where("id = ?", id).
 		Update("status", model.WallpaperStatusRemoved).Error
+}
+
+func (r *WallpaperRepo) ListPublishedForSitemap(ctx context.Context) ([]SitemapEntry, error) {
+	var entries []SitemapEntry
+	err := r.db.WithContext(ctx).
+		Model(&model.Wallpaper{}).
+		Select("slug, updated_at").
+		Where("status = ? AND slug <> ''", model.WallpaperStatusPublished).
+		Order("updated_at DESC").
+		Find(&entries).Error
+	return entries, err
 }
