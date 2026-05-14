@@ -10,12 +10,14 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /bin/api ./cmd/api
 RUN CGO_ENABLED=0 go build -o /bin/worker ./cmd/worker
 RUN CGO_ENABLED=0 go build -o /bin/sluggen ./cmd/sluggen
+RUN CGO_ENABLED=0 go build -o /bin/phashgen ./cmd/phashgen
 
 FROM alpine:3.19 AS api
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
     apk add --no-cache ca-certificates tzdata
 COPY --from=builder /bin/api /bin/api
 COPY --from=builder /bin/sluggen /bin/sluggen
+COPY --from=builder /bin/phashgen /bin/phashgen
 ENTRYPOINT ["/bin/api"]
 
 FROM alpine:3.19 AS worker

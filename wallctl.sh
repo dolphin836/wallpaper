@@ -239,6 +239,28 @@ cmd_sluggen() {
     log_info "Slug generation complete."
 }
 
+cmd_phashgen() {
+    local flag="${1:-}"
+    log_info "Backfilling pHash for published wallpapers..."
+    case "$flag" in
+        --force)
+            log_warn "Force mode: ALL phashes will be recomputed."
+            compose exec api /bin/phashgen --force
+            ;;
+        --report-dupes)
+            compose exec api /bin/phashgen --report-dupes
+            ;;
+        "")
+            compose exec api /bin/phashgen
+            ;;
+        *)
+            log_error "unknown flag: $flag (use --force or --report-dupes)"
+            return 1
+            ;;
+    esac
+    log_info "pHash backfill complete."
+}
+
 cmd_help() {
     cat <<EOF
 ${CYAN}wallctl.sh${NC} - WallShare Application Manager
@@ -259,6 +281,7 @@ ${YELLOW}Commands:${NC}
   ${GREEN}db-shell${NC}                Open psql shell to the database
   ${GREEN}db-migrate${NC}              Run deployments/init.sql on the database
   ${GREEN}sluggen${NC}   [--force]     Regenerate URL slugs (--force = all, default = empty only)
+  ${GREEN}phashgen${NC}  [flag]        Backfill pHash for old wallpapers (--force | --report-dupes)
   ${GREEN}help${NC}                    Show this help message
 
 ${YELLOW}Restart targets:${NC}
@@ -292,5 +315,6 @@ case "${1:-help}" in
     db-shell)   cmd_db_shell ;;
     db-migrate) cmd_db_migrate ;;
     sluggen)    cmd_sluggen "${2:-}" ;;
+    phashgen)   cmd_phashgen "${2:-}" ;;
     help|*)     cmd_help ;;
 esac
