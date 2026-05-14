@@ -9,6 +9,9 @@ struct WallpaperRow: View {
     let wallpaper: Wallpaper
     let column: WallpaperRowColumn
     let isDownloading: Bool
+    // nil → indeterminate spinner. Otherwise 0.0-1.0, render as a linear bar.
+    // Dynamic HEIC wallpapers can be tens of MB so feedback matters.
+    let downloadProgress: Double?
     let onDownload: () -> Void
     let onDownloadAndSet: () -> Void
     let onSetWallpaper: () -> Void
@@ -98,19 +101,34 @@ struct WallpaperRow: View {
             .opacity(showButtons ? 1 : 0)
             .allowsHitTesting(showButtons)
 
-            // Downloading state — full dim + spinner, takes precedence over hover overlay.
+            // Downloading state — full dim. Shows a determinate progress bar
+            // when the KVO observer has reported a value > 0; otherwise falls
+            // back to the indeterminate spinner (briefly, before the task
+            // starts reporting bytes).
             if isDownloading {
                 ZStack {
-                    Color.black.opacity(0.55)
-                    VStack(spacing: 6) {
-                        ProgressView()
-                            .controlSize(.small)
-                            .progressViewStyle(.circular)
-                            .tint(.white)
-                        Text("Downloading…")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.white)
+                    Color.black.opacity(0.6)
+                    VStack(spacing: 8) {
+                        if let p = downloadProgress, p > 0 {
+                            ProgressView(value: p)
+                                .progressViewStyle(.linear)
+                                .tint(.white)
+                                .frame(maxWidth: 160)
+                            Text("\(Int(p * 100))%")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .monospacedDigit()
+                        } else {
+                            ProgressView()
+                                .controlSize(.small)
+                                .progressViewStyle(.circular)
+                                .tint(.white)
+                            Text("Downloading…")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.white)
+                        }
                     }
+                    .padding(.horizontal, 16)
                 }
                 .transition(.opacity)
             }

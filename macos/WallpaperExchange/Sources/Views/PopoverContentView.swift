@@ -14,10 +14,12 @@ struct PopoverContentView: View {
     @State private var isLoadingLatest = false
     @State private var isLoadingDownloaded = false
     @State private var errorMessage: String?
-    // Shared filter — when on, both columns request `dynamic_only=true`. Static
-    // wallpapers can't be applied as macOS dynamic backgrounds anyway, so this
-    // is a useful narrow-down for users who specifically want the live ones.
-    @State private var macOnly = false
+    // Independent dynamic-only filters per column — toggling Latest's doesn't
+    // affect Downloaded and vice versa. Lets the user e.g. browse all-and-any
+    // wallpapers in the discover feed while pinning Downloaded to just the
+    // dynamic ones they've collected.
+    @State private var latestMacOnly = false
+    @State private var downloadedMacOnly = false
 
     private var screenSize: (width: Int, height: Int) {
         let screen = NSScreen.main ?? NSScreen.screens.first!
@@ -31,37 +33,6 @@ struct PopoverContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             UserBarView(auth: auth)
-
-            Divider()
-
-            // Compact filter row — single toggle for "show only macOS dynamic
-            // wallpapers". Applies to both Latest and Downloaded columns; static
-            // wallpapers are filtered out server-side via `dynamic_only=true`.
-            HStack(spacing: 6) {
-                Spacer()
-                Button {
-                    macOnly.toggle()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "livephoto")
-                            .font(.system(size: 10, weight: .semibold))
-                        Text("macOS dynamic only")
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .foregroundStyle(macOnly ? Color.white : Color.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(macOnly ? Color.accentColor : Color.clear)
-                    .overlay(
-                        Capsule().stroke(macOnly ? Color.clear : Color.secondary.opacity(0.3), lineWidth: 1)
-                    )
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .help(macOnly ? "Showing only macOS dynamic wallpapers" : "Filter for macOS dynamic wallpapers")
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 6)
 
             Divider()
 
@@ -88,6 +59,8 @@ struct PopoverContentView: View {
                     isLoading: isLoadingLatest,
                     hasMore: latestHasMore,
                     isLocal: false,
+                    macOnly: latestMacOnly,
+                    onMacOnlyToggle: { latestMacOnly.toggle() },
                     onLoadMore: { Task { await loadLatest() } }
                 )
 
@@ -100,6 +73,8 @@ struct PopoverContentView: View {
                     isLoading: isLoadingDownloaded,
                     hasMore: downloadedHasMore,
                     isLocal: true,
+                    macOnly: downloadedMacOnly,
+                    onMacOnlyToggle: { downloadedMacOnly.toggle() },
                     onLoadMore: { Task { await loadDownloaded() } }
                 )
             }
@@ -157,10 +132,13 @@ struct PopoverContentView: View {
         .onChange(of: auth.isLoggedIn) { _, _ in
             Task { await loadAll() }
         }
-        // Filter toggle reloads both columns from scratch — old cursors are no
-        // longer relevant once the filter set changes.
-        .onChange(of: macOnly) { _, _ in
-            Task { await loadAll() }
+        // Per-column filter toggles each invalidate their own cursor set and
+        // re-fetch from page 1. The other column is untouched.
+        .onChange(of: latestMacOnly) { _, _ in
+            Task { await loadLatest(reset: true) }
+        }
+        .onChange(of: downloadedMacOnly) { _, _ in
+            Task { await loadDownloaded(reset: true) }
         }
     }
 
@@ -171,6 +149,8 @@ struct PopoverContentView: View {
         isLoading: Bool,
         hasMore: Bool,
         isLocal: Bool,
+        macOnly: Bool,
+        onMacOnlyToggle: @escaping () -> Void,
         onLoadMore: @escaping () -> Void
     ) -> some View {
         VStack(spacing: 0) {
@@ -182,6 +162,22 @@ struct PopoverContentView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
+                // Small circular toggle for dynamic-only. Tinted when on, plain
+                // outline when off. Independent per column so users can filter
+                // Latest and Downloaded separately.
+                Button(action: onMacOnlyToggle) {
+                    Image(systemName: "livephoto")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(macOnly ? Color.white : Color.secondary)
+                        .frame(width: 18, height: 18)
+                        .background(macOnly ? Color.accentColor : Color.clear)
+                        .overlay(
+                            Circle().stroke(macOnly ? Color.clear : Color.secondary.opacity(0.3), lineWidth: 1)
+                        )
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help(macOnly ? "Showing only macOS dynamic wallpapers" : "Show only macOS dynamic wallpapers")
                 if isLoading {
                     ProgressView()
                         .controlSize(.mini)
@@ -197,6 +193,7 @@ struct PopoverContentView: View {
                             wallpaper: wp,
                             column: isLocal ? .downloaded : .latest,
                             isDownloading: manager.downloading.contains(wp.id),
+                            downloadProgress: manager.downloadProgress[wp.id],
                             onDownload: { Task { await download(wp) } },
                             onDownloadAndSet: { Task { await downloadAndSet(wp) } },
                             onSetWallpaper: { Task { await setWallpaper(wp) } }
@@ -258,7 +255,7 @@ struct PopoverContentView: View {
                 limit: 20,
                 deviceWidth: size.width,
                 deviceHeight: size.height,
-                dynamicOnly: macOnly
+                dynamicOnly: latestMacOnly
             )
             if reset {
                 latestWallpapers = data.items
@@ -285,7 +282,7 @@ struct PopoverContentView: View {
                 limit: 20,
                 deviceWidth: size.width,
                 deviceHeight: size.height,
-                dynamicOnly: macOnly
+                dynamicOnly: downloadedMacOnly
             )
             if reset {
                 downloadedWallpapers = data.items

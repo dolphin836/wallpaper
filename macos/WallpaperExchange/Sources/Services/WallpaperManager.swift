@@ -8,6 +8,11 @@ final class WallpaperManager {
 
     private(set) var downloadedIDs: Set<Int> = []
     private(set) var downloading: Set<Int> = []
+    // 0.0 → 1.0 per wallpaper currently being fetched. Populated only after the
+    // first KVO callback from URLSessionDownloadTask fires, so dynamic
+    // wallpapers (large multi-frame HEIC files) get a real progress bar
+    // instead of an indeterminate spinner. Cleared on completion/failure.
+    private(set) var downloadProgress: [Int: Double] = [:]
 
     private let storageDir: URL
 
@@ -34,11 +39,17 @@ final class WallpaperManager {
     func download(wallpaper: Wallpaper) async throws {
         guard !downloading.contains(wallpaper.id) else { return }
         downloading.insert(wallpaper.id)
-        defer { downloading.remove(wallpaper.id) }
+        downloadProgress[wallpaper.id] = 0
+        defer {
+            downloading.remove(wallpaper.id)
+            downloadProgress.removeValue(forKey: wallpaper.id)
+        }
 
         let remoteURL = try await APIClient.shared.getDownloadURL(wallpaperID: wallpaper.id)
 
-        let (tempURL, response) = try await URLSession.shared.download(from: remoteURL)
+        let (tempURL, response) = try await Self.downloadWithProgress(from: remoteURL) { [weak self] p in
+            self?.downloadProgress[wallpaper.id] = p
+        }
         let ext = Self.fileExtension(from: response, url: remoteURL, fallback: wallpaper.fileType)
         let dest = storageDir.appendingPathComponent("\(wallpaper.id).\(ext)")
 
@@ -49,6 +60,54 @@ final class WallpaperManager {
         try fm.moveItem(at: tempURL, to: dest)
 
         downloadedIDs.insert(wallpaper.id)
+    }
+
+    // Wraps URLSessionDownloadTask in async/await with progress reporting via KVO
+    // on task.progress.fractionCompleted. The async URLSession.download(from:) API
+    // doesn't expose progress; this is the standard workaround.
+    //
+    // The system deletes the temp file when the completion handler returns, so we
+    // immediately move it to a UUID-named temp location we control and hand that
+    // URL back to the caller — caller is responsible for moving it to its final
+    // destination.
+    private static func downloadWithProgress(
+        from url: URL,
+        onProgress: @escaping @MainActor (Double) -> Void
+    ) async throws -> (URL, URLResponse) {
+        // Box the observation so it survives until the completion handler runs.
+        // The closure-captured `holder` keeps it alive for the task's lifetime.
+        // `@unchecked Sendable` is safe here: we only write `observation` once
+        // before `task.resume()` and clear it once inside the completion handler,
+        // so there's no concurrent mutation in practice.
+        final class Holder: @unchecked Sendable { var observation: NSKeyValueObservation? }
+        let holder = Holder()
+
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(URL, URLResponse), Error>) in
+            let task = URLSession.shared.downloadTask(with: url) { tempURL, response, error in
+                holder.observation?.invalidate()
+                holder.observation = nil
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let tempURL, let response else {
+                    continuation.resume(throwing: URLError(.unknown))
+                    return
+                }
+                let keep = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                do {
+                    try FileManager.default.moveItem(at: tempURL, to: keep)
+                    continuation.resume(returning: (keep, response))
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+            holder.observation = task.progress.observe(\.fractionCompleted) { progress, _ in
+                let p = progress.fractionCompleted
+                Task { @MainActor in onProgress(p) }
+            }
+            task.resume()
+        }
     }
 
     enum WallpaperError: LocalizedError {
