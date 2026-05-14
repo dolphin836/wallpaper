@@ -12,6 +12,7 @@ type User struct {
 	Bio          string    `gorm:"size:500;not null;default:''" json:"bio"`
 	Coins        int64     `gorm:"not null;default:0" json:"coins"`
 	Status       int16     `gorm:"not null;default:1" json:"status"`
+	IsAdmin      bool      `gorm:"not null;default:false" json:"is_admin"`
 	CreatedAt    time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"not null;autoUpdateTime" json:"updated_at"`
 }

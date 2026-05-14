@@ -198,6 +198,15 @@ export default function Layout() {
 
             {isAuthenticated && user ? (
               <>
+                {user.is_admin && (
+                  <Link
+                    to="/admin"
+                    className="hidden sm:inline-block px-3 py-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-lg transition-colors"
+                    title="后台管理"
+                  >
+                    后台
+                  </Link>
+                )}
                 <button
                   onClick={handleLogout}
                   className="p-2.5 text-ws-muted dark:text-ws-dark-muted hover:text-red-500 bg-ws-bg dark:bg-white/5 rounded-xl transition-colors border border-transparent hover:border-red-100 dark:hover:border-red-900/30"

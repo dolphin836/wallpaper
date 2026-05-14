@@ -247,6 +247,16 @@ cmd_phashgen() {
     log_info "pHash backfill complete."
 }
 
+cmd_setadmin() {
+    # Toggle the is_admin flag on a user. Pass-through to /bin/setadmin inside
+    # the api container so we don't have to wire up another DB connection here.
+    if [ "$#" -eq 0 ]; then
+        log_warn "Usage: ./wallctl.sh setadmin -username <name>|-email <addr> -on|-off"
+        exit 2
+    fi
+    compose exec api /bin/setadmin "$@"
+}
+
 cmd_help() {
     cat <<EOF
 ${CYAN}wallctl.sh${NC} - WallShare Application Manager
@@ -268,6 +278,7 @@ ${YELLOW}Commands:${NC}
   ${GREEN}db-migrate${NC}              Run deployments/init.sql on the database
   ${GREEN}sluggen${NC}   [--force]     Regenerate URL slugs (--force = all, default = empty only)
   ${GREEN}phashgen${NC}  [flag]        Backfill pHash for old wallpapers (--force | --report-dupes)
+  ${GREEN}setadmin${NC}  [args]        Toggle is_admin on a user (e.g. -username eric -on)
   ${GREEN}help${NC}                    Show this help message
 
 ${YELLOW}Restart targets:${NC}
@@ -302,5 +313,6 @@ case "${1:-help}" in
     db-migrate) cmd_db_migrate ;;
     sluggen)    cmd_sluggen "${2:-}" ;;
     phashgen)   shift; cmd_phashgen "$@" ;;
+    setadmin)   shift; cmd_setadmin "$@" ;;
     help|*)     cmd_help ;;
 esac

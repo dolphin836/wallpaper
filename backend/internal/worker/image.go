@@ -34,10 +34,11 @@ type ImageWorker struct {
 	reader     *kafka.Reader
 	wpRepo     *repo.WallpaperRepo
 	deviceRepo *repo.DeviceRepo
+	jobRepo    *repo.WorkerJobRepo
 	storage    *storage.Storage
 }
 
-func NewImageWorker(brokers []string, wpRepo *repo.WallpaperRepo, deviceRepo *repo.DeviceRepo, st *storage.Storage) *ImageWorker {
+func NewImageWorker(brokers []string, wpRepo *repo.WallpaperRepo, deviceRepo *repo.DeviceRepo, jobRepo *repo.WorkerJobRepo, st *storage.Storage) *ImageWorker {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:  brokers,
 		Topic:    "wallpaper.uploaded",
@@ -45,7 +46,7 @@ func NewImageWorker(brokers []string, wpRepo *repo.WallpaperRepo, deviceRepo *re
 		MinBytes: 1,
 		MaxBytes: 10e6,
 	})
-	return &ImageWorker{reader: reader, wpRepo: wpRepo, deviceRepo: deviceRepo, storage: st}
+	return &ImageWorker{reader: reader, wpRepo: wpRepo, deviceRepo: deviceRepo, jobRepo: jobRepo, storage: st}
 }
 
 type WallpaperUploadedEvent struct {
@@ -76,6 +77,11 @@ func (w *ImageWorker) Run(ctx context.Context) error {
 			continue
 		}
 
+		jobID, jobErr := w.jobRepo.Start(ctx, "image", "wallpaper.uploaded", event.WallpaperID)
+		if jobErr != nil {
+			slog.WarnContext(ctx, "worker_jobs start failed (non-fatal)", "wallpaper_id", event.WallpaperID, "error", jobErr)
+		}
+
 		if err := w.processImage(ctx, event); err != nil {
 			slog.Error("process image failed",
 				"wallpaper_id", event.WallpaperID,
@@ -83,6 +89,13 @@ func (w *ImageWorker) Run(ctx context.Context) error {
 			)
 			if updateErr := w.wpRepo.UpdateStatus(ctx, event.WallpaperID, model.WallpaperStatusFailed); updateErr != nil {
 				slog.Error("update status failed", "error", updateErr)
+			}
+			if finErr := w.jobRepo.Finish(ctx, jobID, "failed", err.Error()); finErr != nil {
+				slog.WarnContext(ctx, "worker_jobs finish(failed) failed", "wallpaper_id", event.WallpaperID, "error", finErr)
+			}
+		} else {
+			if finErr := w.jobRepo.Finish(ctx, jobID, "done", ""); finErr != nil {
+				slog.WarnContext(ctx, "worker_jobs finish(done) failed", "wallpaper_id", event.WallpaperID, "error", finErr)
 			}
 		}
 

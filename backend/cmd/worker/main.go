@@ -40,9 +40,10 @@ func main() {
 
 	wallpaperRepo := repo.NewWallpaperRepo(db)
 	deviceRepo := repo.NewDeviceRepo(db)
+	jobRepo := repo.NewWorkerJobRepo(db)
 
-	imgWorker := worker.NewImageWorker(cfg.Kafka.Brokers, wallpaperRepo, deviceRepo, store)
-	statsWorker := worker.NewStatsWorker(cfg.Kafka.Brokers, wallpaperRepo)
+	imgWorker := worker.NewImageWorker(cfg.Kafka.Brokers, wallpaperRepo, deviceRepo, jobRepo, store)
+	statsWorker := worker.NewStatsWorker(cfg.Kafka.Brokers, wallpaperRepo, jobRepo)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

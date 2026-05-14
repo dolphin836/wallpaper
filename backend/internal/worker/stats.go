@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ import (
 type StatsWorker struct {
 	reader        *kafka.Reader
 	wallpaperRepo *repo.WallpaperRepo
+	jobRepo       *repo.WorkerJobRepo
 	mu            sync.Mutex
 	counters      map[counterKey]int64
 }
@@ -31,7 +33,7 @@ type WallpaperStatsEvent struct {
 	Timestamp   string `json:"timestamp"`
 }
 
-func NewStatsWorker(brokers []string, wallpaperRepo *repo.WallpaperRepo) *StatsWorker {
+func NewStatsWorker(brokers []string, wallpaperRepo *repo.WallpaperRepo, jobRepo *repo.WorkerJobRepo) *StatsWorker {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:  brokers,
 		Topic:    "wallpaper.stats",
@@ -42,6 +44,7 @@ func NewStatsWorker(brokers []string, wallpaperRepo *repo.WallpaperRepo) *StatsW
 	return &StatsWorker{
 		reader:        reader,
 		wallpaperRepo: wallpaperRepo,
+		jobRepo:       jobRepo,
 		counters:      make(map[counterKey]int64),
 	}
 }
@@ -128,6 +131,14 @@ func (w *StatsWorker) flush(ctx context.Context) {
 	w.counters = make(map[counterKey]int64)
 	w.mu.Unlock()
 
+	// Track the flush as one job so the admin dashboard can show batch size
+	// and timing instead of being silent during quiet periods.
+	jobID, jobErr := w.jobRepo.Start(ctx, "stats", "wallpaper.stats", 0)
+	if jobErr != nil {
+		slog.WarnContext(ctx, "worker_jobs start failed (non-fatal)", "worker", "stats", "error", jobErr)
+	}
+
+	var failed int
 	for key, count := range snapshot {
 		if err := w.wallpaperRepo.IncrementCounter(ctx, key.WallpaperID, key.Field, count); err != nil {
 			slog.Error("increment counter failed",
@@ -135,7 +146,18 @@ func (w *StatsWorker) flush(ctx context.Context) {
 				"field", key.Field,
 				"error", err,
 			)
+			failed++
 		}
+	}
+
+	status := "done"
+	msg := fmt.Sprintf("flushed %d counters", len(snapshot))
+	if failed > 0 {
+		status = "failed"
+		msg = fmt.Sprintf("flushed %d counters, %d failed", len(snapshot), failed)
+	}
+	if finErr := w.jobRepo.Finish(ctx, jobID, status, msg); finErr != nil {
+		slog.WarnContext(ctx, "worker_jobs finish failed", "worker", "stats", "error", finErr)
 	}
 
 	slog.Info("stats flushed", "counter_count", len(snapshot))

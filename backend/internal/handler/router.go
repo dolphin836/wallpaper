@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/cors"
 
 	"github.com/wallpaper/backend/internal/middleware"
+	"github.com/wallpaper/backend/internal/repo"
 )
 
 type Deps struct {
@@ -24,6 +25,8 @@ type Deps struct {
 	ReportHandler     *ReportHandler
 	AnalyticsHandler  *AnalyticsHandler
 	RecommendHandler  *RecommendHandler
+	AdminHandler      *AdminHandler
+	UserRepo          *repo.UserRepo
 	JWTSecret         string
 }
 
@@ -120,6 +123,33 @@ func NewRouter(deps Deps) *chi.Mux {
 		})
 
 		r.Get("/users/{id}", deps.UserHandler.GetProfile)
+
+		// ── Admin console ──
+		r.Route("/admin", func(r chi.Router) {
+			r.Use(middleware.AdminAuth(deps.JWTSecret, deps.UserRepo))
+
+			r.Get("/overview", deps.AdminHandler.GetOverview)
+			r.Get("/series", deps.AdminHandler.GetSeries)
+			r.Get("/tops", deps.AdminHandler.GetTops)
+
+			r.Get("/wallpapers", deps.AdminHandler.ListWallpapers)
+			r.Put("/wallpapers/{id}", deps.AdminHandler.UpdateWallpaper)
+			r.Delete("/wallpapers/{id}", deps.AdminHandler.DeleteWallpaper)
+
+			r.Get("/collections", deps.AdminHandler.ListCollections)
+			r.Put("/collections/{id}", deps.AdminHandler.UpdateCollection)
+			r.Delete("/collections/{id}", deps.AdminHandler.DeleteCollection)
+
+			r.Get("/users", deps.AdminHandler.ListUsers)
+			r.Put("/users/{id}/admin", deps.AdminHandler.SetUserAdmin)
+			r.Put("/users/{id}/status", deps.AdminHandler.SetUserStatus)
+
+			r.Get("/reports", deps.AdminHandler.ListReports)
+			r.Put("/reports/{id}/resolve", deps.AdminHandler.ResolveReport)
+
+			r.Get("/workers/summary", deps.AdminHandler.WorkerSummary)
+			r.Get("/workers/jobs", deps.AdminHandler.WorkerJobs)
+		})
 	})
 
 	return r

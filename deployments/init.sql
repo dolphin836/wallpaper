@@ -300,3 +300,30 @@ INSERT INTO device_profiles (platform, brand, name, width, height, ppi, sort_ord
     ('phone',   'Xiaomi',    'Xiaomi 15',                  1200,  2670,  460,  441),
     ('phone',   'Huawei',    'Mate 70 Pro',                1260,  2844,  458,  450)
 ON CONFLICT (name) DO NOTHING;
+
+-- ──────────────────────────────────────────────────────────────────────────
+-- Admin console support
+-- ──────────────────────────────────────────────────────────────────────────
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS idx_users_is_admin ON users(is_admin) WHERE is_admin = TRUE;
+
+-- Per-job lifecycle records for the Kafka workers. Workers insert a row when
+-- they start processing a message and update it on completion. The admin
+-- console reads from this table to show "what is the worker doing right now",
+-- "what failed last", and per-job duration.
+CREATE TABLE IF NOT EXISTS worker_jobs (
+    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    worker        VARCHAR(32)  NOT NULL,          -- image | stats | phash
+    topic         VARCHAR(64)  NOT NULL DEFAULT '',
+    ref_id        BIGINT       NOT NULL DEFAULT 0, -- wallpaper_id (or whatever the job key is)
+    status        VARCHAR(16)  NOT NULL DEFAULT 'running', -- running | done | failed | skipped
+    message       TEXT         NOT NULL DEFAULT '',
+    started_at    TIMESTAMPTZ(6) NOT NULL DEFAULT NOW(),
+    finished_at   TIMESTAMPTZ(6),
+    duration_ms   INT          NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_worker_jobs_worker_started ON worker_jobs(worker, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_worker_jobs_status_started ON worker_jobs(status, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_worker_jobs_ref ON worker_jobs(ref_id) WHERE ref_id <> 0;

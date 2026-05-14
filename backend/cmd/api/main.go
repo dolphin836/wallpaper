@@ -87,6 +87,8 @@ func main() {
 	coinRepo := repo.NewCoinRepo(db)
 	reportRepo := repo.NewReportRepo(db)
 	analyticsRepo := repo.NewAnalyticsRepo(db)
+	adminRepo := repo.NewAdminRepo(db)
+	workerJobRepo := repo.NewWorkerJobRepo(db)
 
 	authSvc := service.NewAuthService(userRepo, coinRepo, cfg.JWT.Secret, cfg.JWT.ExpireHour)
 	wallpaperSvc := service.NewWallpaperService(wallpaperRepo, tagRepo, interactionRepo, userRepo, eventRepo, coinRepo, collectionRepo, store, kafkaWriter)
@@ -104,6 +106,7 @@ func main() {
 	reportHandler := handler.NewReportHandler(reportRepo, wallpaperRepo)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsRepo)
 	recommendHandler := handler.NewRecommendHandler(wallpaperRepo)
+	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo)
 
 	router := handler.NewRouter(handler.Deps{
 		AuthHandler:       authHandler,
@@ -118,6 +121,8 @@ func main() {
 		ReportHandler:     reportHandler,
 		AnalyticsHandler:  analyticsHandler,
 		RecommendHandler:  recommendHandler,
+		AdminHandler:      adminHandler,
+		UserRepo:          userRepo,
 		JWTSecret:         cfg.JWT.Secret,
 	})
 

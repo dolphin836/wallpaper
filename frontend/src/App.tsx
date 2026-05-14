@@ -15,6 +15,13 @@ import PrivacyPage from './pages/PrivacyPage';
 import LegalDmcaPage from './pages/LegalDmcaPage';
 import DownloadMacPage from './pages/DownloadMacPage';
 import WallpaperDetailModal from './components/WallpaperDetailModal';
+import AdminLayout from './pages/admin/AdminLayout';
+import AdminDashboard from './pages/admin/DashboardPage';
+import AdminWallpapers from './pages/admin/WallpapersPage';
+import AdminCollections from './pages/admin/CollectionsPage';
+import AdminUsers from './pages/admin/UsersPage';
+import AdminReports from './pages/admin/ReportsPage';
+import AdminWorkers from './pages/admin/WorkersPage';
 
 function AppRoutes() {
   const location = useLocation();
@@ -37,6 +44,14 @@ function AppRoutes() {
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/legal/dmca" element={<LegalDmcaPage />} />
           <Route path="/download/mac" element={<DownloadMacPage />} />
+        </Route>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="wallpapers" element={<AdminWallpapers />} />
+          <Route path="collections" element={<AdminCollections />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="reports" element={<AdminReports />} />
+          <Route path="workers" element={<AdminWorkers />} />
         </Route>
       </Routes>
 
