@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/wallpaper/backend/internal/middleware"
 	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/pkg/errcode"
 	"github.com/wallpaper/backend/internal/pkg/response"
@@ -123,6 +124,53 @@ func (h *RecommendHandler) Similar(w http.ResponseWriter, r *http.Request) {
 	}
 	ordered := make([]model.Wallpaper, 0, len(topIDs))
 	for _, id := range topIDs {
+		if wp, ok := byID[id]; ok {
+			ordered = append(ordered, wp)
+		}
+	}
+	response.OK(w, ordered)
+}
+
+func (h *RecommendHandler) ForYou(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == 0 {
+		response.Error(w, http.StatusUnauthorized, errcode.ErrUnauthorized)
+		return
+	}
+
+	limit := 30
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 && v <= 60 {
+			limit = v
+		}
+	}
+
+	ids, err := h.wallpaperRepo.ListForYouIDs(r.Context(), userID, limit)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "for-you: scoring query failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	if len(ids) == 0 {
+		// Cold-start: caller should ask /wallpapers (latest) instead. Returning
+		// an empty list lets the frontend make that decision.
+		response.OK(w, []model.Wallpaper{})
+		return
+	}
+
+	results, err := h.wallpaperRepo.GetByIDs(r.Context(), ids)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "for-you: get by ids failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	byID := make(map[int64]model.Wallpaper, len(results))
+	for _, wp := range results {
+		byID[wp.ID] = wp
+	}
+	ordered := make([]model.Wallpaper, 0, len(ids))
+	for _, id := range ids {
 		if wp, ok := byID[id]; ok {
 			ordered = append(ordered, wp)
 		}

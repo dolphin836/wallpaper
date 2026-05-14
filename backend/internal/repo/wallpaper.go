@@ -227,6 +227,54 @@ func (r *WallpaperRepo) ListPublishedColors(ctx context.Context, excludeID int64
 	return entries, err
 }
 
+// ListForYouIDs scores candidate wallpapers by the user's aggregate tag
+// affinity (sum of weighted interactions) and returns the top wallpaper IDs.
+// Favorites count for 2, likes and downloads for 1; wallpapers the user has
+// already interacted with are excluded. Falls back to the empty slice when
+// the user has no signals yet — the caller can show latest in that case.
+func (r *WallpaperRepo) ListForYouIDs(ctx context.Context, userID int64, limit int) ([]int64, error) {
+	type row struct {
+		WallpaperID int64
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).Raw(`
+		WITH user_signals AS (
+			SELECT wallpaper_id, 1 AS weight FROM user_likes WHERE user_id = ?
+			UNION ALL
+			SELECT wallpaper_id, 2 AS weight FROM user_favorites WHERE user_id = ?
+			UNION ALL
+			SELECT wallpaper_id, 1 AS weight FROM user_downloads WHERE user_id = ?
+		),
+		tag_affinity AS (
+			SELECT wt.tag_id, SUM(us.weight) AS w
+			FROM user_signals us
+			JOIN wallpaper_tags wt ON wt.wallpaper_id = us.wallpaper_id
+			GROUP BY wt.tag_id
+		),
+		candidate_scores AS (
+			SELECT wt.wallpaper_id, SUM(ta.w) AS tag_score
+			FROM wallpaper_tags wt
+			JOIN tag_affinity ta ON ta.tag_id = wt.tag_id
+			WHERE wt.wallpaper_id NOT IN (SELECT wallpaper_id FROM user_signals)
+			GROUP BY wt.wallpaper_id
+		)
+		SELECT cs.wallpaper_id
+		FROM candidate_scores cs
+		JOIN wallpapers w ON w.id = cs.wallpaper_id
+		WHERE w.status = ?
+		ORDER BY cs.tag_score DESC, w.created_at DESC
+		LIMIT ?
+	`, userID, userID, userID, model.WallpaperStatusPublished, limit).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]int64, len(rows))
+	for i, r := range rows {
+		ids[i] = r.WallpaperID
+	}
+	return ids, nil
+}
+
 // TagOverlapWith returns wallpaper_id → number of tags that wallpaper shares
 // with the target. Only includes wallpapers that share at least one tag.
 func (r *WallpaperRepo) TagOverlapWith(ctx context.Context, wallpaperID int64) (map[int64]int, error) {

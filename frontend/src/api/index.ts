@@ -49,6 +49,9 @@ export const reportWallpaper = (id: number, reason: string, note: string) =>
 export const getSimilarWallpapers = (id: number, limit = 12) =>
   client.get<ApiResponse<Wallpaper[]>>(`/wallpapers/${id}/similar`, { params: { limit } });
 
+export const getForYouWallpapers = (limit = 30) =>
+  client.get<ApiResponse<Wallpaper[]>>('/wallpapers/for-you', { params: { limit } });
+
 export const downloadWallpaper = (id: number) =>
   `${resolveBaseURL()}/wallpapers/${id}/download`;
 

@@ -4,7 +4,7 @@ import { MdDevices } from 'react-icons/md';
 import { AiOutlineAppstore, AiOutlineBars } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { Wallpaper } from '../types';
-import { getWallpapers } from '../api';
+import { getWallpapers, getForYouWallpapers } from '../api';
 import { useAuthStore } from '../store/auth';
 import WallpaperGrid from '../components/WallpaperGrid';
 import { SIZE_HEIGHTS } from '../components/WallpaperGrid';
@@ -95,6 +95,7 @@ export default function HomePage() {
   const [macFilter, setMacFilter] = useState(false);
   const [sortTrending, setSortTrending] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
+  const [feed, setFeed] = useState<'latest' | 'for_you'>('latest');
   const sortRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef(cursor);
   const hasMoreRef = useRef(hasMore);
@@ -147,6 +148,22 @@ export default function HomePage() {
     if (reset) setLoading(true);
     else setLoadingMore(true);
     try {
+      // For-you is a single-shot top-N feed (no cursor). When it returns
+      // empty, fall back to latest so cold-start users still see content.
+      if (feed === 'for_you') {
+        if (!reset) return;
+        const res = await getForYouWallpapers(30);
+        const items = res.data.data || [];
+        if (items.length === 0) {
+          setFeed('latest');
+          return;
+        }
+        setStaggerFrom(0);
+        setWallpapers(items);
+        setCursor(undefined);
+        setHasMore(false);
+        return;
+      }
       const params: Parameters<typeof getWallpapers>[0] = {
         cursor: reset ? undefined : cursorRef.current,
         limit: calculatePageSize(viewModeRef.current, sizeModeRef.current),
@@ -177,7 +194,7 @@ export default function HomePage() {
       else setLoadingMore(false);
       busyRef.current = false;
     }
-  }, [screen, deviceFilter, macFilter, sortTrending]);
+  }, [screen, deviceFilter, macFilter, sortTrending, feed]);
 
   // Holds latest fetchWallpapers so the (stable) sentinel ref-callback always calls the latest closure.
   const fetchWallpapersRef = useRef(fetchWallpapers);
@@ -211,7 +228,7 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchWallpapers(true);
-  }, [deviceFilter, macFilter, sortTrending]);
+  }, [deviceFilter, macFilter, sortTrending, feed]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -251,6 +268,26 @@ export default function HomePage() {
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         {/* Left: filters */}
         <div className="flex items-center gap-2">
+          {isAuthenticated && (
+            <div className="flex items-center bg-ws-bg dark:bg-ws-dark-card border border-ws-border dark:border-white/10 rounded-full p-0.5 mr-1">
+              <button
+                onClick={() => setFeed('latest')}
+                className={`px-4 py-2 text-sm font-semibold rounded-full transition-colors ${
+                  feed === 'latest' ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-ws-dark-muted'
+                }`}
+              >
+                Latest
+              </button>
+              <button
+                onClick={() => setFeed('for_you')}
+                className={`px-4 py-2 text-sm font-semibold rounded-full transition-colors ${
+                  feed === 'for_you' ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-ws-dark-muted'
+                }`}
+              >
+                For You
+              </button>
+            </div>
+          )}
           <button
             onClick={toggleDeviceFilter}
             title={deviceFilter ? `${screen.width}×${screen.height}` : 'Filter for your device'}
