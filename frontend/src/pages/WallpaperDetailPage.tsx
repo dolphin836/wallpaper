@@ -856,9 +856,7 @@ export default function WallpaperDetailPage() {
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">More like this</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {similar.map((s) => (
-                <div key={s.id} className="aspect-[3/4]">
-                  <WallpaperCard wallpaper={s} fillHeight />
-                </div>
+                <WallpaperCard key={s.id} wallpaper={s} fixedAspect />
               ))}
             </div>
           </div>
