@@ -78,13 +78,26 @@ actor APIClient {
         }
     }
 
-    func fetchWallpapers(cursor: Int? = nil, limit: Int = 20, deviceWidth: Int, deviceHeight: Int) async throws -> PaginatedData<Wallpaper> {
+    func fetchWallpapers(
+        cursor: Int? = nil,
+        limit: Int = 20,
+        deviceWidth: Int,
+        deviceHeight: Int,
+        dynamicOnly: Bool = false
+    ) async throws -> PaginatedData<Wallpaper> {
         var items: [URLQueryItem] = [
             .init(name: "limit", value: String(limit)),
-            .init(name: "device_width", value: String(deviceWidth)),
-            .init(name: "device_height", value: String(deviceHeight)),
-            .init(name: "include_dynamic", value: "true"),
         ]
+        // dynamic_only and device_width/height are mutually exclusive on the
+        // backend (the latter is silently ignored when the former is true).
+        // Send only the relevant set to keep the request URL clean.
+        if dynamicOnly {
+            items.append(.init(name: "dynamic_only", value: "true"))
+        } else {
+            items.append(.init(name: "device_width", value: String(deviceWidth)))
+            items.append(.init(name: "device_height", value: String(deviceHeight)))
+            items.append(.init(name: "include_dynamic", value: "true"))
+        }
         if let c = cursor {
             items.append(.init(name: "cursor", value: String(c)))
         }
@@ -96,7 +109,8 @@ actor APIClient {
         cursor: Int? = nil,
         limit: Int = 20,
         deviceWidth: Int? = nil,
-        deviceHeight: Int? = nil
+        deviceHeight: Int? = nil,
+        dynamicOnly: Bool = false
     ) async throws -> PaginatedData<Wallpaper> {
         var items: [URLQueryItem] = [
             .init(name: "limit", value: String(limit)),
@@ -104,10 +118,11 @@ actor APIClient {
         if let c = cursor {
             items.append(.init(name: "cursor", value: String(c)))
         }
-        // The Mac client is always single-device, so when device dims are passed
-        // we also include dynamic wallpapers (macOS is the only platform that
-        // can use them) — same convention as fetchWallpapers.
-        if let w = deviceWidth, let h = deviceHeight, w > 0, h > 0 {
+        // Same mutual exclusion as fetchWallpapers — dynamic-only wins over
+        // resolution match when both are conceptually set.
+        if dynamicOnly {
+            items.append(.init(name: "dynamic_only", value: "true"))
+        } else if let w = deviceWidth, let h = deviceHeight, w > 0, h > 0 {
             items.append(.init(name: "device_width", value: String(w)))
             items.append(.init(name: "device_height", value: String(h)))
             items.append(.init(name: "include_dynamic", value: "true"))

@@ -14,6 +14,10 @@ struct PopoverContentView: View {
     @State private var isLoadingLatest = false
     @State private var isLoadingDownloaded = false
     @State private var errorMessage: String?
+    // Shared filter — when on, both columns request `dynamic_only=true`. Static
+    // wallpapers can't be applied as macOS dynamic backgrounds anyway, so this
+    // is a useful narrow-down for users who specifically want the live ones.
+    @State private var macOnly = false
 
     private var screenSize: (width: Int, height: Int) {
         let screen = NSScreen.main ?? NSScreen.screens.first!
@@ -27,6 +31,37 @@ struct PopoverContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             UserBarView(auth: auth)
+
+            Divider()
+
+            // Compact filter row — single toggle for "show only macOS dynamic
+            // wallpapers". Applies to both Latest and Downloaded columns; static
+            // wallpapers are filtered out server-side via `dynamic_only=true`.
+            HStack(spacing: 6) {
+                Spacer()
+                Button {
+                    macOnly.toggle()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "livephoto")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("macOS dynamic only")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundStyle(macOnly ? Color.white : Color.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(macOnly ? Color.accentColor : Color.clear)
+                    .overlay(
+                        Capsule().stroke(macOnly ? Color.clear : Color.secondary.opacity(0.3), lineWidth: 1)
+                    )
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .help(macOnly ? "Showing only macOS dynamic wallpapers" : "Filter for macOS dynamic wallpapers")
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
 
             Divider()
 
@@ -120,6 +155,11 @@ struct PopoverContentView: View {
         // shown (e.g. the Downloaded list after a logout) and fetches fresh data once
         // logged in again.
         .onChange(of: auth.isLoggedIn) { _, _ in
+            Task { await loadAll() }
+        }
+        // Filter toggle reloads both columns from scratch — old cursors are no
+        // longer relevant once the filter set changes.
+        .onChange(of: macOnly) { _, _ in
             Task { await loadAll() }
         }
     }
@@ -217,7 +257,8 @@ struct PopoverContentView: View {
                 cursor: reset ? nil : latestCursor,
                 limit: 20,
                 deviceWidth: size.width,
-                deviceHeight: size.height
+                deviceHeight: size.height,
+                dynamicOnly: macOnly
             )
             if reset {
                 latestWallpapers = data.items
@@ -243,7 +284,8 @@ struct PopoverContentView: View {
                 cursor: reset ? nil : downloadedCursor,
                 limit: 20,
                 deviceWidth: size.width,
-                deviceHeight: size.height
+                deviceHeight: size.height,
+                dynamicOnly: macOnly
             )
             if reset {
                 downloadedWallpapers = data.items
