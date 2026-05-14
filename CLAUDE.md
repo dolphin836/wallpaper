@@ -7,6 +7,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - All conversation with the user (explanations, replies, status updates) must be in **中文**. Code, comments, and commit messages stay in English. See `.cursor/rules/01-language.mdc`.
 - `.cursor/rules/auto-commit-push.mdc` applies to Claude Code too: after every completed change, `git add <specific files>` → `git commit` (Conventional Commits, with the Co-Authored-By trailer from the system prompt) → `git push`. Split unrelated changes into separate commits. Do not pause to ask. Still follow the system prompt's git safety rules — no `--no-verify`, no force-pushing `main`, no amending pushed commits.
 
+## Deploys & Releases
+
+There is **no CI-driven deploy**. `git push` only builds — it does not ship. Claude Code is expected to drive both flows from the local checkout via SSH (key auth is set up to `root@139.224.49.94`).
+
+- **Whenever the user asks to deploy / 更新服务 / 重启服务 / "push to prod"**, run `./deploy.sh` from the repo root. It SSHes to the prod host and runs `./wallctl.sh deploy` (git pull + rebuild + restart api/worker/frontend). Pass a service name (`./deploy.sh frontend`, `./deploy.sh backend`) to scope it down — that maps to `wallctl.sh restart <service>` on the host and is much faster than a full rebuild.
+- **Whenever the user asks to release the Mac client / 发布 mac 版本**, run `./release-mac.sh` from the repo root. It builds `.app` + `.dmg`, SCPs to the prod host, and uploads into MinIO via a `minio/mc` sidecar container on the `wallpaper_default` docker network (because the public MinIO endpoint is behind a `/storage` path-prefix proxy that breaks `mc alias` and AWS-CLI SigV4). Before running it, make sure `macos/WallpaperExchange/Info.plist` (CFBundleShortVersionString + CFBundleVersion), `macos/CHANGELOG.md`, and `backend/internal/handler/mac_release.json` are all bumped to the new version and committed — the script reads the version from Info.plist. After the upload, run `./deploy.sh backend` so the new manifest is served from `/download/mac`.
+
+Both scripts assume `SSH_HOST=root@139.224.49.94` and `SSH_DEPLOY_PATH=/opt/app/wallpaper`; override via env if either changes.
+
 ## Repository Layout
 
 This is a 3-surface monorepo for the WallShare / Wallpaper Exchange product:

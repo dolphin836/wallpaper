@@ -110,8 +110,8 @@ if [ "$DO_UPLOAD" -eq 1 ]; then
     # Caddy strips the prefix before forwarding. The reliable path is to
     # ssh in and run mc inside the minio container where the API is plain
     # http://localhost:9000.
-    : "${SSH_HOST:?SSH_HOST must be set — your deploy host. Example: SSH_HOST=root@your-server (or a host alias from ~/.ssh/config)}"
-    : "${SITE_DOMAIN:?SITE_DOMAIN must be set (e.g. wallpaper.haibing.site)}"
+    : "${SSH_HOST:=root@139.224.49.94}"
+    : "${SITE_DOMAIN:=wallpaper.haibing.site}"
     SSH_DEPLOY_PATH="${SSH_DEPLOY_PATH:-/opt/app/wallpaper}"
     DOCKER_NETWORK="${DOCKER_NETWORK:-wallpaper_default}"
     BUCKET="${MINIO_BUCKET:-wallpapers}"
