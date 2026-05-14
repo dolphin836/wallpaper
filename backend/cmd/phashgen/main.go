@@ -7,9 +7,8 @@
 //   /bin/phashgen --report-dupes     # after backfill, log near-duplicate pairs
 //
 // Runs inside the api container so it shares config/network with the API
-// (env-driven DB DSN, MinIO public URL reachable). For ~hundreds of
-// wallpapers the HTTP-GET-and-decode loop is fine; for tens of thousands
-// switch to internal MinIO with a parallel worker pool.
+// (env-driven DB DSN, MinIO public URL reachable). Downloads + decodes are
+// I/O- and CPU-bound, so we fan out across worker goroutines.
 package main
 
 import (
@@ -24,6 +23,8 @@ import (
 	"log"
 	"math/bits"
 	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/corona10/goimagehash"
@@ -45,6 +46,7 @@ func main() {
 	force := flag.Bool("force", false, "recompute even when phash is already set")
 	reportDupes := flag.Bool("report-dupes", false, "list near-duplicate pairs after the backfill")
 	timeout := flag.Duration("timeout", 60*time.Second, "per-wallpaper download+decode timeout")
+	concurrency := flag.Int("concurrency", 10, "number of parallel download+decode workers")
 	flag.Parse()
 
 	cfg, err := config.Load()
@@ -68,27 +70,51 @@ func main() {
 		log.Fatal("query: ", err)
 	}
 
-	fmt.Printf("Wallpapers to backfill: %d\n", len(rows))
-	client := &http.Client{Timeout: *timeout}
+	fmt.Printf("Wallpapers to backfill: %d (concurrency=%d, timeout=%s)\n", len(rows), *concurrency, *timeout)
 
-	var ok, fail int
-	for _, r := range rows {
-		ctx, cancel := context.WithTimeout(context.Background(), *timeout)
-		hash, err := computePhash(ctx, client, r.OriginalURL)
-		cancel()
-		if err != nil {
-			log.Printf("  [FAIL] %d %s: %v", r.ID, r.OriginalURL, err)
-			fail++
-			continue
-		}
-		if err := db.Table("wallpapers").Where("id = ?", r.ID).Update("phash", hash).Error; err != nil {
-			log.Printf("  [FAIL] %d save: %v", r.ID, err)
-			fail++
-			continue
-		}
-		fmt.Printf("  [OK] %d -> phash=%d\n", r.ID, hash)
-		ok++
+	// Shared transport so all workers re-use the connection pool to MinIO/Caddy.
+	transport := &http.Transport{
+		MaxIdleConns:        *concurrency * 2,
+		MaxIdleConnsPerHost: *concurrency * 2,
+		IdleConnTimeout:     90 * time.Second,
 	}
+	client := &http.Client{Timeout: *timeout, Transport: transport}
+
+	jobs := make(chan wallpaperRow)
+	var ok, fail int64
+	var wg sync.WaitGroup
+	for i := 0; i < *concurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for r := range jobs {
+				ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+				hash, err := computePhash(ctx, client, r.OriginalURL)
+				cancel()
+				if err != nil {
+					log.Printf("  [FAIL] %d: %v", r.ID, err)
+					atomic.AddInt64(&fail, 1)
+					continue
+				}
+				if err := db.Table("wallpapers").Where("id = ?", r.ID).Update("phash", hash).Error; err != nil {
+					log.Printf("  [FAIL] %d save: %v", r.ID, err)
+					atomic.AddInt64(&fail, 1)
+					continue
+				}
+				n := atomic.AddInt64(&ok, 1)
+				if n%25 == 0 {
+					log.Printf("  progress: %d ok / %d fail", n, atomic.LoadInt64(&fail))
+				}
+			}
+		}()
+	}
+
+	for _, r := range rows {
+		jobs <- r
+	}
+	close(jobs)
+	wg.Wait()
+
 	fmt.Printf("Backfill done. ok=%d fail=%d\n", ok, fail)
 
 	if *reportDupes {
