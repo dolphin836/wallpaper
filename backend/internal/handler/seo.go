@@ -3,8 +3,11 @@ package handler
 import (
 	"encoding/xml"
 	"fmt"
+	"html/template"
 	"log/slog"
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
 
 	"github.com/wallpaper/backend/internal/repo"
 )
@@ -83,6 +86,100 @@ func (h *SEOHandler) Sitemap(w http.ResponseWriter, r *http.Request) {
 		URLs:  urls,
 	}); err != nil {
 		slog.ErrorContext(ctx, "sitemap: encode failed", "error", err)
+	}
+}
+
+// ogPageTemplate is what JS-incapable bots (Twitter, Facebook, WeChat, Slack,
+// Telegram, Discord, etc.) see when they hit /wallpaper/:slug. nginx routes
+// requests with bot User-Agents to /__og/wallpaper/:slug; everyone else still
+// gets the SPA which fills the same meta via React 19's head hoisting.
+var ogPageTemplate = template.Must(template.New("og").Parse(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{.Title}}</title>
+<meta name="description" content="{{.Description}}">
+<link rel="canonical" href="{{.URL}}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Wallpaper Exchange">
+<meta property="og:title" content="{{.Title}}">
+<meta property="og:description" content="{{.Description}}">
+<meta property="og:url" content="{{.URL}}">
+<meta property="og:image" content="{{.Image}}">
+<meta property="og:image:width" content="{{.Width}}">
+<meta property="og:image:height" content="{{.Height}}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{.Title}}">
+<meta name="twitter:description" content="{{.Description}}">
+<meta name="twitter:image" content="{{.Image}}">
+<script type="application/ld+json">{
+"@context":"https://schema.org",
+"@type":"ImageObject",
+"name":"{{.Title}}",
+"contentUrl":"{{.OriginalURL}}",
+"thumbnailUrl":"{{.ThumbURL}}",
+"width":{{.Width}},
+"height":{{.Height}},
+"datePublished":"{{.DatePublished}}"
+}</script>
+</head>
+<body>
+<h1>{{.Title}}</h1>
+<p>{{.Description}}</p>
+<img src="{{.Image}}" alt="{{.Title}}" width="{{.Width}}" height="{{.Height}}">
+<p><a href="{{.URL}}">View on Wallpaper Exchange</a></p>
+</body>
+</html>`))
+
+type ogPageData struct {
+	Title         string
+	Description   string
+	URL           string
+	Image         string
+	OriginalURL   string
+	ThumbURL      string
+	Width         int
+	Height        int
+	DatePublished string
+}
+
+func (h *SEOHandler) OGWallpaper(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	wp, err := h.wallpaperRepo.GetBySlug(r.Context(), slug)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "og: lookup failed", "slug", slug, "error", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if wp == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	base := baseURL(r)
+	dynamic := ""
+	if wp.IsDynamic {
+		dynamic = " dynamic"
+	}
+	data := ogPageData{
+		Title:         fmt.Sprintf("%d×%d%s Wallpaper", wp.Width, wp.Height, dynamic),
+		Description:   fmt.Sprintf("Download this %d×%d%s wallpaper for free on Wallpaper Exchange.", wp.Width, wp.Height, dynamic),
+		URL:           base + "/wallpaper/" + wp.Slug,
+		Image:         wp.PreviewURL,
+		OriginalURL:   wp.OriginalURL,
+		ThumbURL:      wp.ThumbURL,
+		Width:         wp.Width,
+		Height:        wp.Height,
+		DatePublished: wp.CreatedAt.UTC().Format("2006-01-02"),
+	}
+	if data.Image == "" {
+		data.Image = wp.OriginalURL
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	if err := ogPageTemplate.Execute(w, data); err != nil {
+		slog.ErrorContext(r.Context(), "og: template execute failed", "error", err)
 	}
 }
 

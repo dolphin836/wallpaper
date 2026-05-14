@@ -52,6 +52,7 @@ func NewRouter(deps Deps) *chi.Mux {
 
 	r.Get("/robots.txt", deps.SEOHandler.RobotsTxt)
 	r.Get("/sitemap.xml", deps.SEOHandler.Sitemap)
+	r.Get("/__og/wallpaper/{slug}", deps.SEOHandler.OGWallpaper)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/auth/register", deps.AuthHandler.Register)
