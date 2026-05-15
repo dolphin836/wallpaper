@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -15,6 +16,7 @@ import (
 	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/pkg/errcode"
 	"github.com/wallpaper/backend/internal/pkg/response"
+	"github.com/wallpaper/backend/internal/pkg/storage"
 	"github.com/wallpaper/backend/internal/repo"
 )
 
@@ -26,6 +28,11 @@ type AdminHandler struct {
 	reportRepo     *repo.ReportRepo
 	workerJobRepo  *repo.WorkerJobRepo
 	categoryRepo   *repo.CategoryRepo
+	storage        *storage.Storage
+
+	storageCacheMu sync.Mutex
+	storageCache   *storage.BucketUsage
+	storageCacheAt time.Time
 }
 
 func NewAdminHandler(
@@ -36,6 +43,7 @@ func NewAdminHandler(
 	reportRepo *repo.ReportRepo,
 	workerJobRepo *repo.WorkerJobRepo,
 	categoryRepo *repo.CategoryRepo,
+	store *storage.Storage,
 ) *AdminHandler {
 	return &AdminHandler{
 		adminRepo:      adminRepo,
@@ -45,6 +53,7 @@ func NewAdminHandler(
 		reportRepo:     reportRepo,
 		workerJobRepo:  workerJobRepo,
 		categoryRepo:   categoryRepo,
+		storage:        store,
 	}
 }
 
@@ -447,6 +456,53 @@ func (h *AdminHandler) ResolveReport(w http.ResponseWriter, r *http.Request) {
 		_ = h.reportRepo.AdminResolveAllForWallpaper(r.Context(), rep.WallpaperID, req.Status)
 	}
 	response.OK(w, nil)
+}
+
+// ─── storage usage ───────────────────────────────────────────────────────
+
+// GetStorage returns MinIO bucket totals + per-prefix breakdown. Walking the
+// bucket is O(n) over objects (≈12k today), so we memoize the result for 5
+// minutes; pass ?refresh=1 to force a fresh scan.
+func (h *AdminHandler) GetStorage(w http.ResponseWriter, r *http.Request) {
+	const ttl = 5 * time.Minute
+	refresh := r.URL.Query().Get("refresh") == "1"
+
+	h.storageCacheMu.Lock()
+	if !refresh && h.storageCache != nil && time.Since(h.storageCacheAt) < ttl {
+		usage := h.storageCache
+		age := time.Since(h.storageCacheAt)
+		h.storageCacheMu.Unlock()
+		response.OK(w, map[string]any{
+			"usage":     usage,
+			"cached":    true,
+			"age_ms":    age.Milliseconds(),
+			"refreshed": h.storageCacheAt.UTC(),
+		})
+		return
+	}
+	h.storageCacheMu.Unlock()
+
+	// Walk the bucket outside the lock so concurrent reads aren't blocked.
+	// Bucket scans against the internal MinIO endpoint take a couple seconds.
+	usage, err := h.storage.Stats(r.Context())
+	if err != nil {
+		slog.ErrorContext(r.Context(), "storage stats failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	h.storageCacheMu.Lock()
+	h.storageCache = usage
+	h.storageCacheAt = time.Now()
+	at := h.storageCacheAt
+	h.storageCacheMu.Unlock()
+
+	response.OK(w, map[string]any{
+		"usage":     usage,
+		"cached":    false,
+		"age_ms":    0,
+		"refreshed": at.UTC(),
+	})
 }
 
 // ─── workers ─────────────────────────────────────────────────────────────

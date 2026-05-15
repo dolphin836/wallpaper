@@ -146,5 +146,28 @@ export const getWorkerJobs = (params: {
   worker?: string; status?: string; limit?: number; cursor?: number;
 }) => client.get<ApiResponse<{ items: WorkerJob[] }>>('/admin/workers/jobs', { params });
 
+export interface BucketUsage {
+  originals_bytes: number; originals_count: number;
+  thumbs_bytes: number; thumbs_count: number;
+  previews_bytes: number; previews_count: number;
+  variants_bytes: number; variants_count: number;
+  frames_bytes: number; frames_count: number;
+  other_bytes: number; other_count: number;
+  total_bytes: number; total_count: number;
+}
+export interface StorageResp {
+  usage: BucketUsage;
+  cached: boolean;
+  age_ms: number;
+  refreshed: string;
+}
+
+export const getStorage = (refresh = false) =>
+  client.get<ApiResponse<StorageResp>>('/admin/storage', {
+    params: refresh ? { refresh: 1 } : undefined,
+    // The first uncached call walks the whole bucket (~2s today, can grow).
+    timeout: 30_000,
+  });
+
 export const listAdminCategories = () =>
   client.get<ApiResponse<Category[]>>('/categories');

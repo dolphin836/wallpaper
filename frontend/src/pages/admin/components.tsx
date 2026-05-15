@@ -126,6 +126,18 @@ export function fmtNumber(n: number | undefined | null): string {
   return String(n);
 }
 
+export function fmtBytes(n: number | undefined | null): string {
+  if (!n || n <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let v = n;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${v.toFixed(v >= 100 || i === 0 ? 0 : v >= 10 ? 1 : 2)} ${units[i]}`;
+}
+
 export function fmtDate(iso: string): string {
   if (!iso) return '-';
   const d = new Date(iso);

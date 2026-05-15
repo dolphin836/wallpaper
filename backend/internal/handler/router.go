@@ -149,6 +149,8 @@ func NewRouter(deps Deps) *chi.Mux {
 
 			r.Get("/workers/summary", deps.AdminHandler.WorkerSummary)
 			r.Get("/workers/jobs", deps.AdminHandler.WorkerJobs)
+
+			r.Get("/storage", deps.AdminHandler.GetStorage)
 		})
 	})
 

@@ -1,8 +1,44 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import * as admin from '../../api/admin';
-import { Card, PageHeader, Spinner, StatCard, fmtNumber, fmtDate } from './components';
-import type { AdminOverview, AdminSeries, AdminTops, DailyPoint } from '../../api/admin';
+import { Card, PageHeader, Spinner, StatCard, fmtNumber, fmtDate, fmtBytes } from './components';
+import type { AdminOverview, AdminSeries, AdminTops, DailyPoint, StorageResp } from '../../api/admin';
+
+function StorageBar({ usage }: { usage: import('../../api/admin').BucketUsage }) {
+  const total = Math.max(1, usage.total_bytes);
+  const segments = [
+    { color: 'bg-purple-500',  v: usage.originals_bytes },
+    { color: 'bg-sky-500',     v: usage.variants_bytes },
+    { color: 'bg-emerald-500', v: usage.previews_bytes },
+    { color: 'bg-amber-500',   v: usage.thumbs_bytes },
+    { color: 'bg-rose-500',    v: usage.frames_bytes },
+    { color: 'bg-slate-400',   v: usage.other_bytes },
+  ];
+  return (
+    <div className="h-3 w-full rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 flex">
+      {segments.map((s, i) => (
+        <div key={i} className={s.color} style={{ width: `${(s.v / total) * 100}%` }} />
+      ))}
+    </div>
+  );
+}
+
+function StorageSegment({
+  color, label, bytes, count, total,
+}: { color: string; label: string; bytes: number; count: number; total: number }) {
+  const pct = total > 0 ? (bytes / total) * 100 : 0;
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 text-xs text-slate-500">
+        <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
+        {label}
+      </div>
+      <div className="text-lg font-semibold mt-0.5">{fmtBytes(bytes)}</div>
+      <div className="text-xs text-slate-400">{count.toLocaleString()} 个 · {pct.toFixed(1)}%</div>
+    </div>
+  );
+}
 
 function BarChart({ data, label, color = '#a855f7' }: { data: DailyPoint[]; label: string; color?: string }) {
   if (!data || data.length === 0) {
@@ -51,6 +87,8 @@ export default function DashboardPage() {
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [series, setSeries] = useState<AdminSeries | null>(null);
   const [tops, setTops] = useState<AdminTops | null>(null);
+  const [storage, setStorage] = useState<StorageResp | null>(null);
+  const [storageLoading, setStorageLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
 
@@ -65,6 +103,24 @@ export default function DashboardPage() {
       .catch((e) => setErr(e?.response?.data?.message || '加载失败'))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    // Loaded separately because the first call scans the bucket; we don't
+    // want to block the dashboard's other widgets behind it.
+    setStorageLoading(true);
+    admin.getStorage(false)
+      .then((r) => setStorage(r.data.data))
+      .catch((e) => toast.error(e?.response?.data?.message || '加载存储统计失败'))
+      .finally(() => setStorageLoading(false));
+  }, []);
+
+  const refreshStorage = () => {
+    setStorageLoading(true);
+    admin.getStorage(true)
+      .then((r) => { setStorage(r.data.data); toast.success('已刷新'); })
+      .catch((e) => toast.error(e?.response?.data?.message || '刷新失败'))
+      .finally(() => setStorageLoading(false));
+  };
 
   return (
     <>
@@ -93,6 +149,49 @@ export default function DashboardPage() {
             </div>
           </>
         )}
+
+        <Card
+          title="存储占用 (MinIO)"
+          action={
+            <div className="flex items-center gap-3 text-xs text-slate-400">
+              {storage && (
+                <span>
+                  更新于 {fmtDate(storage.refreshed)}
+                  {storage.cached ? ' · 缓存' : ' · 实时'}
+                </span>
+              )}
+              <button
+                onClick={refreshStorage}
+                disabled={storageLoading}
+                className="px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+              >
+                {storageLoading ? '扫描中…' : '刷新'}
+              </button>
+            </div>
+          }
+        >
+          {storageLoading && !storage ? (
+            <Spinner />
+          ) : !storage ? (
+            <div className="px-5 py-6 text-sm text-slate-400">无数据</div>
+          ) : (
+            <div className="p-5 space-y-4">
+              <StorageBar usage={storage.usage} />
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
+                <StorageSegment color="bg-purple-500"  label="原图"   bytes={storage.usage.originals_bytes} count={storage.usage.originals_count} total={storage.usage.total_bytes} />
+                <StorageSegment color="bg-sky-500"     label="设备适配" bytes={storage.usage.variants_bytes}  count={storage.usage.variants_count}  total={storage.usage.total_bytes} />
+                <StorageSegment color="bg-emerald-500" label="预览图"  bytes={storage.usage.previews_bytes}  count={storage.usage.previews_count}  total={storage.usage.total_bytes} />
+                <StorageSegment color="bg-amber-500"   label="缩略图"  bytes={storage.usage.thumbs_bytes}    count={storage.usage.thumbs_count}    total={storage.usage.total_bytes} />
+                <StorageSegment color="bg-rose-500"    label="动态帧"  bytes={storage.usage.frames_bytes}    count={storage.usage.frames_count}    total={storage.usage.total_bytes} />
+                <StorageSegment color="bg-slate-400"   label="其他"    bytes={storage.usage.other_bytes}     count={storage.usage.other_count}     total={storage.usage.total_bytes} />
+              </div>
+              <div className="flex justify-between text-sm pt-3 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-slate-500">总计 {storage.usage.total_count.toLocaleString()} 个对象</span>
+                <span className="font-semibold">{fmtBytes(storage.usage.total_bytes)}</span>
+              </div>
+            </div>
+          )}
+        </Card>
 
         {series && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

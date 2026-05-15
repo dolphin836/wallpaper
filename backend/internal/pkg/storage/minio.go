@@ -93,6 +93,63 @@ func (s *Storage) GetURL(objectName string) string {
 	return fmt.Sprintf("%s/%s/%s", s.client.EndpointURL(), s.bucket, objectName)
 }
 
+// BucketUsage breaks bucket storage down by the prefix the upload pipeline
+// stamps onto each object: originals/, thumbs/, previews/, variants/, frames/.
+// Anything that doesn't match (legacy keys, manual uploads) lands in Other.
+type BucketUsage struct {
+	OriginalsBytes int64 `json:"originals_bytes"`
+	OriginalsCount int64 `json:"originals_count"`
+	ThumbsBytes    int64 `json:"thumbs_bytes"`
+	ThumbsCount    int64 `json:"thumbs_count"`
+	PreviewsBytes  int64 `json:"previews_bytes"`
+	PreviewsCount  int64 `json:"previews_count"`
+	VariantsBytes  int64 `json:"variants_bytes"`
+	VariantsCount  int64 `json:"variants_count"`
+	FramesBytes    int64 `json:"frames_bytes"`
+	FramesCount    int64 `json:"frames_count"`
+	OtherBytes     int64 `json:"other_bytes"`
+	OtherCount     int64 `json:"other_count"`
+	TotalBytes     int64 `json:"total_bytes"`
+	TotalCount     int64 `json:"total_count"`
+}
+
+// Stats walks every object in the bucket and tallies bytes per prefix. Slow
+// for large buckets — callers must cache. Runs from inside the docker network
+// against the internal MinIO endpoint, so a 12k-object bucket takes ~2s.
+func (s *Storage) Stats(ctx context.Context) (*BucketUsage, error) {
+	u := &BucketUsage{}
+	objects := s.client.ListObjects(ctx, s.bucket, minio.ListObjectsOptions{Recursive: true})
+	for obj := range objects {
+		if obj.Err != nil {
+			return nil, fmt.Errorf("list objects: %w", obj.Err)
+		}
+		size := obj.Size
+		u.TotalBytes += size
+		u.TotalCount++
+		switch {
+		case strings.HasPrefix(obj.Key, "originals/"):
+			u.OriginalsBytes += size
+			u.OriginalsCount++
+		case strings.HasPrefix(obj.Key, "thumbs/"):
+			u.ThumbsBytes += size
+			u.ThumbsCount++
+		case strings.HasPrefix(obj.Key, "previews/"):
+			u.PreviewsBytes += size
+			u.PreviewsCount++
+		case strings.HasPrefix(obj.Key, "variants/"):
+			u.VariantsBytes += size
+			u.VariantsCount++
+		case strings.HasPrefix(obj.Key, "frames/"):
+			u.FramesBytes += size
+			u.FramesCount++
+		default:
+			u.OtherBytes += size
+			u.OtherCount++
+		}
+	}
+	return u, nil
+}
+
 // ObjectKeyFromURL extracts the object key from a full URL produced by GetURL.
 func (s *Storage) ObjectKeyFromURL(fullURL string) string {
 	prefix := fmt.Sprintf("%s/%s/", s.publicURL, s.bucket)
