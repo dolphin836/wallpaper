@@ -10,6 +10,7 @@ import { useAuthStore } from '../store/auth';
 import WallpaperGrid from '../components/WallpaperGrid';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
+import AvatarCropModal from '../components/AvatarCropModal';
 
 type TabKey = 'coins' | 'wallpapers' | 'collections' | 'favorites' | 'likes' | 'downloads';
 type WallpaperTabKey = 'wallpapers' | 'favorites' | 'likes' | 'downloads';
@@ -386,6 +387,7 @@ export default function ProfilePage() {
   };
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
   const [editNickname, setEditNickname] = useState('');
   const [editBio, setEditBio] = useState('');
@@ -469,20 +471,34 @@ export default function ProfilePage() {
     </div>
   );
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Two-step avatar flow: pick a file → open crop modal → user adjusts →
+  // upload the cropped JPEG. Keeps the upload step independent of file size
+  // since we always emit a 512² JPEG @ q=0.9 (~50-80 KB).
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file later
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error('Avatar must be under 5MB'); return; }
+    // 10 MB ceiling on the *source* image. The cropper would happily decode
+    // a 50 MB image but we save bandwidth and avoid Safari memory issues.
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('图片需小于 10MB');
+      return;
+    }
+    setCropFile(file);
+  };
+
+  const uploadCroppedAvatar = async (blob: Blob) => {
     const fd = new FormData();
-    fd.append('avatar', file);
+    fd.append('avatar', blob, 'avatar.jpg');
     try {
       const res = await uploadAvatar(fd);
       const url = res.data.data.avatar_url;
       setUser((prev) => prev ? { ...prev, avatar_url: url } : prev);
       useAuthStore.getState().updateUser({ avatar_url: url });
-      toast.success('Avatar updated');
+      setCropFile(null);
+      toast.success('头像已更新');
     } catch {
-      toast.error('Failed to upload avatar');
+      toast.error('上传失败');
     }
   };
 
@@ -493,16 +509,26 @@ export default function ProfilePage() {
   };
 
   const saveProfile = async () => {
+    const nickname = editNickname.trim();
+    if (!nickname) { toast.error('昵称不能为空'); return; }
+    if (nickname.length > 64) { toast.error('昵称最多 64 个字符'); return; }
+    const bio = editBio.trim();
+    if (bio.length > 500) { toast.error('简介最多 500 个字符'); return; }
+    // No-op if nothing actually changed — avoids a needless request.
+    if (nickname === (user?.nickname || '') && bio === (user?.bio || '')) {
+      setEditingProfile(false);
+      return;
+    }
     setSavingProfile(true);
     try {
-      const res = await updateProfile({ nickname: editNickname, bio: editBio });
+      const res = await updateProfile({ nickname, bio });
       const updated = res.data.data;
       setUser((prev) => prev ? { ...prev, nickname: updated.nickname, bio: updated.bio } : prev);
       useAuthStore.getState().updateUser({ nickname: updated.nickname });
       setEditingProfile(false);
-      toast.success('Profile updated');
+      toast.success('已保存');
     } catch {
-      toast.error('Failed to update profile');
+      toast.error('保存失败');
     } finally {
       setSavingProfile(false);
     }
@@ -533,6 +559,15 @@ export default function ProfilePage() {
         image={user?.avatar_url}
         type="profile"
       />
+      {/* Avatar crop modal — opened after user picks a file. */}
+      {cropFile && (
+        <AvatarCropModal
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onSave={uploadCroppedAvatar}
+        />
+      )}
+
       {/* Password Modal */}
       {showPasswordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowPasswordModal(false)}>
@@ -576,16 +611,52 @@ export default function ProfilePage() {
         </div>
         <div className="flex-1 min-w-0">
           {editingProfile ? (
-            <div className="space-y-3">
-              <input value={editNickname} onChange={(e) => setEditNickname(e.target.value)} placeholder="Nickname" maxLength={64} className="w-full max-w-xs bg-ws-bg dark:bg-ws-dark-card border border-ws-border dark:border-white/10 rounded-xl py-2 px-3.5 text-sm font-semibold outline-none focus:ring-1 focus:ring-ws-purple dark:text-white" />
-              <textarea value={editBio} onChange={(e) => setEditBio(e.target.value)} placeholder="Write something about yourself..." maxLength={500} rows={2} className="w-full max-w-md bg-ws-bg dark:bg-ws-dark-card border border-ws-border dark:border-white/10 rounded-xl py-2 px-3.5 text-sm outline-none focus:ring-1 focus:ring-ws-purple resize-none dark:text-white" />
+            <div className="space-y-3 max-w-md">
+              <div>
+                <div className="flex items-baseline justify-between mb-1">
+                  <label className="text-xs text-ws-muted dark:text-ws-dark-muted">昵称</label>
+                  <span className={`text-[11px] tabular-nums ${editNickname.length > 64 ? 'text-rose-500' : 'text-slate-400'}`}>{editNickname.length}/64</span>
+                </div>
+                <input
+                  autoFocus
+                  value={editNickname}
+                  onChange={(e) => setEditNickname(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); saveProfile(); }
+                    if (e.key === 'Escape') { setEditingProfile(false); }
+                  }}
+                  placeholder="给自己起个名字"
+                  maxLength={64}
+                  className="w-full bg-ws-bg dark:bg-ws-dark-card border border-ws-border dark:border-white/10 rounded-xl py-2 px-3.5 text-sm font-semibold outline-none focus:ring-1 focus:ring-ws-purple dark:text-white"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">用户名 <span className="font-mono">@{user.username}</span> 不可修改</p>
+              </div>
+              <div>
+                <div className="flex items-baseline justify-between mb-1">
+                  <label className="text-xs text-ws-muted dark:text-ws-dark-muted">个人简介</label>
+                  <span className={`text-[11px] tabular-nums ${editBio.length > 500 ? 'text-rose-500' : 'text-slate-400'}`}>{editBio.length}/500</span>
+                </div>
+                <textarea
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') { setEditingProfile(false); }
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); saveProfile(); }
+                  }}
+                  placeholder="介绍一下你自己…"
+                  maxLength={500}
+                  rows={3}
+                  className="w-full bg-ws-bg dark:bg-ws-dark-card border border-ws-border dark:border-white/10 rounded-xl py-2 px-3.5 text-sm outline-none focus:ring-1 focus:ring-ws-purple resize-none dark:text-white"
+                />
+              </div>
               <div className="flex gap-2">
-                <button onClick={saveProfile} disabled={savingProfile} className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-ws-purple hover:bg-ws-purple-hover rounded-lg transition-colors disabled:opacity-50">
-                  <AiOutlineCheck size={14} />{savingProfile ? 'Saving...' : 'Save'}
+                <button onClick={saveProfile} disabled={savingProfile || !editNickname.trim()} className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-ws-purple hover:bg-ws-purple-hover rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  <AiOutlineCheck size={14} />{savingProfile ? '保存中…' : '保存'}
                 </button>
                 <button onClick={() => setEditingProfile(false)} className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-ws-muted dark:text-ws-dark-muted border border-ws-border dark:border-white/10 rounded-lg hover:bg-ws-bg dark:hover:bg-white/5 transition-colors">
-                  <AiOutlineClose size={14} />Cancel
+                  <AiOutlineClose size={14} />取消
                 </button>
+                <span className="text-[11px] text-slate-400 self-center ml-1 hidden sm:inline">Enter 保存 · Esc 取消</span>
               </div>
             </div>
           ) : (
