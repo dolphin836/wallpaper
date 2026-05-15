@@ -75,7 +75,7 @@ export default function UploadersPage() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="p-2 rounded-lg border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-2 rounded-full border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <AiOutlineLeft size={16} />
               </button>
@@ -85,7 +85,7 @@ export default function UploadersPage() {
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="p-2 rounded-lg border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-2 rounded-full border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <AiOutlineRight size={16} />
               </button>
@@ -127,7 +127,7 @@ function UploaderRow({ user: u, rank, isLast }: { user: UserListItem; rank: numb
             {display}
           </Link>
           <p className="text-ws-muted dark:text-ws-dark-muted text-xs font-medium mt-0.5">
-            {u.wallpaper_count} 张壁纸
+            {u.wallpaper_count} {u.wallpaper_count === 1 ? 'upload' : 'uploads'}
           </p>
         </div>
       </div>
@@ -141,7 +141,7 @@ function UploaderRow({ user: u, rank, isLast }: { user: UserListItem; rank: numb
               key={i}
               to={`/user/${u.username}`}
               className="block h-12 w-20 rounded overflow-hidden bg-ws-bg dark:bg-ws-dark-bg"
-              title="查看主页"
+              title="View profile"
             >
               <img
                 src={src}
@@ -164,9 +164,9 @@ function UploaderRow({ user: u, rank, isLast }: { user: UserListItem; rank: numb
           — follow isn't implemented yet, profile link is the closest action). */}
       <Link
         to={`/user/${u.username}`}
-        className="px-4 py-1.5 rounded-lg border border-ws-purple text-ws-purple text-sm font-semibold hover:bg-ws-purple hover:text-white transition-colors w-[100px] text-center shrink-0"
+        className="px-4 py-1.5 rounded-full border border-ws-purple text-ws-purple text-sm font-semibold hover:bg-ws-purple hover:text-white transition-colors w-[110px] text-center shrink-0"
       >
-        查看主页
+        View profile
       </Link>
     </div>
   );
