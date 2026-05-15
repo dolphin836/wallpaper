@@ -554,6 +554,24 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Attach up to 3 recent thumbnails per uploader so the Uploaders page can
+	// render the small wallpaper strip beside each row. Non-fatal — listing
+	// still succeeds with empty thumbs if this fails.
+	if len(items) > 0 {
+		ids := make([]int64, len(items))
+		for i, it := range items {
+			ids[i] = it.ID
+		}
+		thumbs, err := h.userRepo.RecentThumbsForUsers(r.Context(), ids)
+		if err != nil {
+			slog.WarnContext(r.Context(), "recent thumbs lookup failed (non-fatal)", "error", err)
+		} else {
+			for i := range items {
+				items[i].RecentThumbs = thumbs[items[i].ID]
+			}
+		}
+	}
+
 	response.OK(w, map[string]any{
 		"items": items,
 		"total": total,

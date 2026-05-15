@@ -13,6 +13,7 @@ export interface User {
 
 export interface UserListItem extends User {
   wallpaper_count: number;
+  recent_thumbs?: string[];
 }
 
 export interface CoinTransaction {

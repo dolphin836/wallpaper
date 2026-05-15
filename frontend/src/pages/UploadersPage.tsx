@@ -1,30 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { AiOutlinePicture, AiOutlineLeft, AiOutlineRight } from 'react-icons/ai';
+import { AiOutlineLeft, AiOutlineRight } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { UserListItem } from '../types';
 import { getUsers } from '../api';
 import Spinner from '../components/Spinner';
 import PageMeta from '../components/PageMeta';
-
-type SortKey = 'recent' | 'uploads' | 'coins';
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-}
+import Avatar from '../components/Avatar';
 
 export default function UploadersPage() {
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [sort, setSort] = useState<SortKey>('recent');
   const limit = 24;
 
-  const fetchUsers = useCallback(async (p: number, s: SortKey) => {
+  const fetchUsers = useCallback(async (p: number) => {
     setLoading(true);
     try {
-      const res = await getUsers({ page: p, limit, sort: s === 'recent' ? '' : s });
+      // Hard-coded to `uploads` — we removed the sort toggle. Follow feature
+      // doesn't exist yet, so popularity by upload count is the only signal
+      // we have to rank contributors.
+      const res = await getUsers({ page: p, limit, sort: 'uploads' });
       setUsers(res.data.data.items ?? []);
       setTotal(res.data.data.total);
     } catch {
@@ -35,86 +32,41 @@ export default function UploadersPage() {
   }, []);
 
   useEffect(() => {
-    fetchUsers(page, sort);
-  }, [page, sort, fetchUsers]);
-
-  const handleSort = (key: SortKey) => {
-    if (key === sort) return;
-    setSort(key);
-    setPage(1);
-  };
+    fetchUsers(page);
+  }, [page, fetchUsers]);
 
   const totalPages = Math.ceil(total / limit);
 
-  const sortOptions: { key: SortKey; label: string }[] = [
-    { key: 'recent', label: 'Newest' },
-    { key: 'uploads', label: 'Most Uploads' },
-    { key: 'coins', label: 'Most Coins' },
-  ];
+  // Offset of the first row on the current page, so rank numbers continue
+  // across paginated pages (page 2 starts at 25, not 1).
+  const rankOffset = (page - 1) * limit;
 
   return (
-    <div className="px-6 py-4">
+    <div className="px-6 py-8 max-w-[1200px] mx-auto w-full">
       <PageMeta
         title="Uploaders"
-        description="Discover top contributors on Wallpaper Exchange — browse user profiles and follow uploaders behind the wallpapers you love."
+        description="Discover top contributors on Wallpaper Exchange — the creative minds behind the most popular wallpapers."
       />
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <h1 className="text-xl font-bold text-slate-900 dark:text-white">Uploaders</h1>
-        <div className="flex items-center h-10 bg-ws-bg dark:bg-ws-dark-card rounded-lg overflow-hidden border border-ws-border dark:border-white/10">
-          {sortOptions.map((opt) => (
-            <button
-              key={opt.key}
-              onClick={() => handleSort(opt.key)}
-              className={`px-4 h-full text-sm font-medium transition-colors ${
-                sort === opt.key
-                  ? 'bg-ws-purple text-white'
-                  : 'text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple dark:hover:text-white'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+
+      {/* Page header */}
+      <div className="flex flex-col gap-1.5 mb-8">
+        <h1 className="text-[28px] sm:text-[32px] font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
+          Top Uploaders
+        </h1>
+        <p className="text-sm sm:text-base text-ws-muted dark:text-ws-dark-muted">
+          Discover the creative minds behind the most popular wallpapers.
+        </p>
       </div>
 
-      {loading ? (
+      {loading && users.length === 0 ? (
         <Spinner />
       ) : users.length === 0 ? (
         <div className="text-center py-20 text-ws-muted dark:text-ws-dark-muted">No uploaders yet.</div>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {users.map((u) => (
-              <Link
-                key={u.id}
-                to={`/user/${u.username}`}
-                className="group flex flex-col items-center p-5 rounded-xl bg-white dark:bg-ws-dark-card border border-ws-border dark:border-white/5 hover:border-ws-purple/30 dark:hover:border-purple-800/30 hover:shadow-md transition-all duration-200"
-              >
-                {u.avatar_url ? (
-                  <img
-                    src={u.avatar_url}
-                    alt=""
-                    className="w-16 h-16 rounded-full object-cover ring-2 ring-white dark:ring-ws-dark-card shadow-sm group-hover:ring-ws-purple/30 transition-all"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-ws-purple-light to-purple-200 dark:from-ws-dark-active dark:to-purple-900/40 flex items-center justify-center text-xl font-bold text-ws-purple dark:text-purple-400 ring-2 ring-white dark:ring-ws-dark-card shadow-sm group-hover:ring-ws-purple/30 transition-all">
-                    {(u.nickname || u.username).charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <h3 className="mt-3 text-sm font-semibold text-slate-900 dark:text-white truncate max-w-full group-hover:text-ws-purple transition-colors">
-                  {u.nickname || u.username}
-                </h3>
-                <div className="flex items-center gap-3 mt-2 text-xs text-ws-muted dark:text-ws-dark-muted">
-                  <span className="flex items-center gap-1" title="Uploads">
-                    <AiOutlinePicture size={13} />
-                    {u.wallpaper_count}
-                  </span>
-                  <span title="Coins">💰 {u.coins}</span>
-                </div>
-                <p className="mt-1.5 text-[11px] text-ws-muted/60 dark:text-ws-dark-muted/60">
-                  Joined {formatDate(u.created_at)}
-                </p>
-              </Link>
+          <div className="flex flex-col bg-white dark:bg-ws-dark-card rounded-xl border border-ws-border dark:border-white/5 overflow-hidden">
+            {users.map((u, i) => (
+              <UploaderRow key={u.id} user={u} rank={rankOffset + i + 1} isLast={i === users.length - 1} />
             ))}
           </div>
 
@@ -141,6 +93,81 @@ export default function UploadersPage() {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function UploaderRow({ user: u, rank, isLast }: { user: UserListItem; rank: number; isLast: boolean }) {
+  const display = u.nickname || u.username;
+  const thumbs = (u.recent_thumbs || []).slice(0, 3);
+
+  return (
+    <div
+      className={`flex items-center justify-between p-4 md:px-6 md:py-4 min-h-[88px] hover:bg-ws-bg dark:hover:bg-white/[0.02] transition-colors ${
+        isLast ? '' : 'border-b border-ws-border dark:border-white/5'
+      }`}
+    >
+      {/* Left: rank + avatar + name + uploads */}
+      <div className="flex items-center gap-4 md:gap-6 min-w-0 flex-1">
+        <span className="text-[#a0a0ab] dark:text-ws-dark-muted text-sm font-semibold w-6 text-center tabular-nums shrink-0">
+          {String(rank).padStart(2, '0')}
+        </span>
+        <Avatar
+          src={u.avatar_url}
+          name={display}
+          size={48}
+          alt={display}
+          className="ring-1 ring-ws-border dark:ring-white/5 shadow-sm shrink-0"
+        />
+        <div className="flex flex-col min-w-0">
+          <Link
+            to={`/user/${u.username}`}
+            className="text-slate-900 dark:text-white text-base font-bold leading-tight truncate hover:text-ws-purple transition-colors"
+          >
+            {display}
+          </Link>
+          <p className="text-ws-muted dark:text-ws-dark-muted text-xs font-medium mt-0.5">
+            {u.wallpaper_count} 张壁纸
+          </p>
+        </div>
+      </div>
+
+      {/* Middle: 3-thumb preview strip — only on wide screens, hidden on
+          tablet/phone to keep the row compact. */}
+      <div className="hidden lg:flex items-center gap-2 mx-6 shrink-0">
+        {thumbs.length > 0 ? (
+          thumbs.map((src, i) => (
+            <Link
+              key={i}
+              to={`/user/${u.username}`}
+              className="block h-12 w-20 rounded overflow-hidden bg-ws-bg dark:bg-ws-dark-bg"
+              title="查看主页"
+            >
+              <img
+                src={src}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="w-full h-full object-cover"
+              />
+            </Link>
+          ))
+        ) : (
+          // Empty slots to keep the row height consistent across users
+          // that haven't uploaded yet, so the right-side button never
+          // visually jumps left.
+          <div className="h-12 w-[256px]" />
+        )}
+      </div>
+
+      {/* Right: view-profile button (replaces the follow CTA from the design
+          — follow isn't implemented yet, profile link is the closest action). */}
+      <Link
+        to={`/user/${u.username}`}
+        className="px-4 py-1.5 rounded-lg border border-ws-purple text-ws-purple text-sm font-semibold hover:bg-ws-purple hover:text-white transition-colors w-[100px] text-center shrink-0"
+      >
+        查看主页
+      </Link>
     </div>
   );
 }

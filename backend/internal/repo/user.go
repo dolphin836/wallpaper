@@ -99,7 +99,41 @@ func (r *UserRepo) UpdatePassword(ctx context.Context, id int64, hash string) er
 
 type UserListItem struct {
 	model.User
-	WallpaperCount int64 `json:"wallpaper_count"`
+	WallpaperCount int64    `json:"wallpaper_count"`
+	RecentThumbs   []string `gorm:"-" json:"recent_thumbs,omitempty"`
+}
+
+// RecentThumbsForUsers returns the 3 most recently published wallpaper thumb
+// URLs per user, keyed by user id. Empty slice for users with no published
+// wallpapers. One round-trip via window function — cheap up to ~50 users per
+// page (the api caps `limit` at 50 in the handler).
+func (r *UserRepo) RecentThumbsForUsers(ctx context.Context, ids []int64) (map[int64][]string, error) {
+	out := make(map[int64][]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	type row struct {
+		UserID   int64  `gorm:"column:user_id"`
+		ThumbURL string `gorm:"column:thumb_url"`
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT user_id, thumb_url FROM (
+			SELECT user_id, thumb_url,
+			       ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC, id DESC) AS rn
+			  FROM wallpapers
+			 WHERE user_id IN ? AND status = 1 AND thumb_url <> ''
+		) ranked
+		WHERE rn <= 3
+		ORDER BY user_id, rn
+	`, ids).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		out[r.UserID] = append(out[r.UserID], r.ThumbURL)
+	}
+	return out, nil
 }
 
 func (r *UserRepo) IsAdmin(ctx context.Context, id int64) (bool, error) {
