@@ -133,6 +133,7 @@ export interface Collection {
   view_count: number;
   like_count: number;
   is_liked?: boolean;
+  recent_thumbs?: string[];
   created_at: string;
   updated_at: string;
 }

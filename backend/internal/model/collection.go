@@ -15,6 +15,10 @@ type Collection struct {
 	LikeCount      int64     `gorm:"not null;default:0" json:"like_count"`
 	CreatedAt      time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
 	UpdatedAt      time.Time `gorm:"not null;autoUpdateTime" json:"updated_at"`
+	// RecentThumbs is populated by handlers that need a mini-preview strip for
+	// the collection (currently the public /collections list). gorm:"-" keeps
+	// it out of every read query that doesn't ask for it.
+	RecentThumbs []string `gorm:"-" json:"recent_thumbs,omitempty"`
 }
 
 type CollectionWallpaper struct {

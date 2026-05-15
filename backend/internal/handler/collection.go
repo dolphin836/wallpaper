@@ -97,6 +97,24 @@ func (h *CollectionHandler) List(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusInternalServerError, ec)
 		return
 	}
+
+	// Attach up to 3 preview thumbnails per collection so the public list
+	// can render a mosaic card without N+1 fetches from the SPA. Failure
+	// here is non-fatal — the list still renders with placeholders.
+	if len(resp.Items) > 0 {
+		ids := make([]int64, len(resp.Items))
+		for i, c := range resp.Items {
+			ids[i] = c.ID
+		}
+		thumbs, err := h.collectionSvc.RecentThumbs(r.Context(), ids)
+		if err != nil {
+			slog.WarnContext(r.Context(), "collection recent_thumbs lookup failed", "error", err)
+		} else {
+			for i := range resp.Items {
+				resp.Items[i].RecentThumbs = thumbs[resp.Items[i].ID]
+			}
+		}
+	}
 	response.OK(w, resp)
 }
 

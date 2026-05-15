@@ -254,6 +254,43 @@ func (r *CollectionRepo) RemoveWallpaperFromAll(ctx context.Context, wallpaperID
 	return nil
 }
 
+// RecentThumbsForCollections returns up to 3 wallpaper thumb URLs per
+// collection id, keyed by collection id. Ordered by the collection's own
+// sort_order, falling back to insertion id desc — same order ListWallpapers
+// uses, so the strip the UI shows matches the first page of the detail view.
+func (r *CollectionRepo) RecentThumbsForCollections(ctx context.Context, ids []int64) (map[int64][]string, error) {
+	out := make(map[int64][]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	type row struct {
+		CollectionID int64  `gorm:"column:collection_id"`
+		ThumbURL     string `gorm:"column:thumb_url"`
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT collection_id, thumb_url FROM (
+			SELECT cw.collection_id, w.thumb_url,
+			       ROW_NUMBER() OVER (PARTITION BY cw.collection_id
+			                          ORDER BY cw.sort_order ASC, cw.id DESC) AS rn
+			  FROM collection_wallpapers cw
+			  JOIN wallpapers w ON w.id = cw.wallpaper_id
+			 WHERE cw.collection_id IN ?
+			   AND w.status = 1
+			   AND w.thumb_url <> ''
+		) ranked
+		WHERE rn <= 3
+		ORDER BY collection_id, rn
+	`, ids).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		out[r.CollectionID] = append(out[r.CollectionID], r.ThumbURL)
+	}
+	return out, nil
+}
+
 func (r *CollectionRepo) ListUserCollections(ctx context.Context, userID int64) ([]CollectionBrief, error) {
 	var items []CollectionBrief
 	err := r.db.WithContext(ctx).
