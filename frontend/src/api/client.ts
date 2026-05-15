@@ -1,12 +1,12 @@
 import axios from 'axios';
 
 export function resolveBaseURL(): string {
+  // Every prod surface — wallpaperexchange.com (CF Pages with _redirects),
+  // wallpaper.haibing.site (Caddy with /api/* handle), and the dev Vite
+  // server (proxy to :8080) — exposes the API on the same origin under
+  // /api/v1. Relative paths just work everywhere; no per-host branching.
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL;
-  }
-  const host = window.location.hostname;
-  if (host === 'wallpaperexchange.com' || host === 'www.wallpaperexchange.com') {
-    return 'https://api.wallpaperexchange.com/api/v1';
   }
   return '/api/v1';
 }

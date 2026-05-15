@@ -5,6 +5,7 @@
 # wallpaperexchange.com/... while the bytes come from the backend. Search
 # engines see the SEO content under the apex domain, which is what we want.
 
+/api/*         https://api.wallpaperexchange.com/api/:splat    200
 /sitemap.xml   https://api.wallpaperexchange.com/sitemap.xml   200
 /robots.txt    https://api.wallpaperexchange.com/robots.txt    200
 

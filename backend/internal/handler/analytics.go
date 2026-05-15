@@ -72,14 +72,22 @@ func truncate(s string, max int) string {
 }
 
 func clientIP(r *http.Request) string {
+	// Cloudflare sets CF-Connecting-IP to the real client IP even after the
+	// request passes through CF Pages's _redirects 200 proxy on its way to
+	// the api subdomain — that's the only header guaranteed to survive the
+	// extra hop. X-Forwarded-For also works in most cases, but the chain
+	// gets longer (and harder to parse) with each proxy hop.
+	if v := r.Header.Get("CF-Connecting-IP"); v != "" {
+		return v
+	}
+	if v := r.Header.Get("X-Real-IP"); v != "" {
+		return v
+	}
 	if v := r.Header.Get("X-Forwarded-For"); v != "" {
 		if i := strings.Index(v, ","); i > 0 {
 			v = v[:i]
 		}
 		return strings.TrimSpace(v)
-	}
-	if v := r.Header.Get("X-Real-IP"); v != "" {
-		return v
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
