@@ -190,7 +190,10 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
     return (
       <Wrapper
         {...(wrapperProps as any)}
-        className={`tile-cell relative w-full h-full overflow-hidden border border-hair animate-fade-in ${isPublished ? '' : 'cursor-default'}`}
+        // `block` is essential: when isPublished, Wrapper is <Link> which renders
+        // as <a> — that's inline by default, so w-full / h-full are no-ops and
+        // the tile collapses to 0×0, hiding the (absolutely-positioned) image.
+        className={`tile-cell block relative w-full h-full overflow-hidden border border-hair animate-fade-in no-underline ${isPublished ? '' : 'cursor-default'}`}
         style={{
           ...style,
           animationDelay: `${animDelay}ms`,

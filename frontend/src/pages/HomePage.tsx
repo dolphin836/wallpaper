@@ -125,7 +125,7 @@ function FeedFooter({ state, count, onRetry }: { state: FooterState; count: numb
         <div className="feed-foot__inner">
           <span className="spinner" />
           <span className="mono text-[11px] tracking-[0.12em] uppercase text-muted">
-            Loading more specimens
+            Loading more wallpapers
           </span>
         </div>
       </div>
@@ -156,7 +156,7 @@ function FeedFooter({ state, count, onRetry }: { state: FooterState; count: numb
       <div className="feed-foot__inner">
         <span className="display italic-d text-[18px] text-ink-2">end of the archive</span>
         <span className="mono text-[10px] tracking-[0.14em] uppercase text-muted">
-          {count.toLocaleString()} specimens
+          {count.toLocaleString()} wallpapers
         </span>
       </div>
       <div className="feed-foot__rule" />
@@ -195,14 +195,17 @@ function DiscoverControls(p: DiscoverControlsProps) {
       {/* Left */}
       <div className="flex items-center gap-3 flex-wrap">
         {p.isAuthenticated && (
+          // Inner buttons h-[26px] so the wrapper (p-[3px]) lands at 32px
+          // outer height — matches the device chips and view/size toggles
+          // sitting next to it in this same row.
           <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-full">
             <button
               onClick={() => p.setFeed('latest')}
-              className={`px-4 py-2 text-[12px] font-medium rounded-full transition-colors ${p.feed === 'latest' ? segOn : segOff}`}
+              className={`h-[26px] px-3.5 text-[12px] font-medium rounded-full transition-colors ${p.feed === 'latest' ? segOn : segOff}`}
             >Latest</button>
             <button
               onClick={() => p.setFeed('for_you')}
-              className={`px-4 py-2 text-[12px] font-medium rounded-full transition-colors ${p.feed === 'for_you' ? segOn : segOff}`}
+              className={`h-[26px] px-3.5 text-[12px] font-medium rounded-full transition-colors ${p.feed === 'for_you' ? segOn : segOff}`}
             >For You</button>
           </div>
         )}

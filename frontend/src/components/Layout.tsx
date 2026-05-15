@@ -137,8 +137,15 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
           <li><Link to="/legal/dmca" className="text-inherit no-underline hover:text-ink">DMCA</Link></li>
         </ul>
         <hr className="border-t border-hair" />
-        <div className="mt-2.5 text-[11px] text-ink-2 leading-snug">
-          &copy; {new Date().getFullYear()} <span className="display italic-d text-[13px]">Wallpaper Exchange</span>
+        <div className="mt-2.5 text-[11px] text-ink-2 inline-flex items-center gap-1.5 leading-none">
+          <span>&copy; {new Date().getFullYear()}</span>
+          {/* leading-none on parent + matching leading-none here, plus a tiny
+              negative translateY, lines up the serif baseline with the sans
+              copyright row. Without it the italic descender pushes the cap
+              line ~2px below the © glyph. */}
+          <span className="display italic-d text-[13px] leading-none -translate-y-px">
+            Wallpaper Exchange
+          </span>
         </div>
       </div>
     </aside>
@@ -187,7 +194,7 @@ function ArchiveTopbar({
       {/* Masthead — counts left, date right */}
       <div className="px-8 py-2.5 flex justify-between items-center border-b border-hair mono text-[10px] tracking-[0.18em] uppercase text-muted">
         <span className="inline-flex items-center gap-3.5">
-          <span><strong className="text-ink-2 font-semibold">{stats ? stats.wallpapers.toLocaleString() : '—'}</strong> Specimens</span>
+          <span><strong className="text-ink-2 font-semibold">{stats ? stats.wallpapers.toLocaleString() : '—'}</strong> Wallpapers</span>
           <span className="opacity-40">·</span>
           <span><strong className="text-ink-2 font-semibold">{stats ? stats.collections.toLocaleString() : '—'}</strong> Collections</span>
         </span>
@@ -203,25 +210,27 @@ function ArchiveTopbar({
         <div className="flex-1 min-w-0" />
 
         <div className="flex items-center gap-2">
-          {/* 2-state segmented theme toggle */}
+          {/* 2-state segmented theme toggle. Sized to match the row's other
+              non-CTA controls (Login/Register ~28px, Admin ghost link ~30px)
+              rather than the larger 38px Logout/avatar circles next to it. */}
           <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-full">
             <button
               onClick={() => setDark(false)}
               title="Light mode"
-              className={`w-[30px] h-[30px] rounded-full inline-flex items-center justify-center transition-colors ${!dark
+              className={`w-[24px] h-[24px] rounded-full inline-flex items-center justify-center transition-colors ${!dark
                 ? 'bg-paper text-ink shadow-[0_1px_0_var(--color-hair),0_0_0_1px_var(--color-hair)]'
                 : 'bg-transparent text-muted'}`}
             >
-              <BsSun size={14} />
+              <BsSun size={12} />
             </button>
             <button
               onClick={() => setDark(true)}
               title="Dark mode"
-              className={`w-[30px] h-[30px] rounded-full inline-flex items-center justify-center transition-colors ${dark
+              className={`w-[24px] h-[24px] rounded-full inline-flex items-center justify-center transition-colors ${dark
                 ? 'bg-ink text-paper shadow-[0_1px_0_var(--color-hair),0_0_0_1px_var(--color-ink-2)]'
                 : 'bg-transparent text-muted'}`}
             >
-              <BsMoon size={14} />
+              <BsMoon size={12} />
             </button>
           </div>
 
