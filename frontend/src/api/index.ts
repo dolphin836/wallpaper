@@ -153,3 +153,6 @@ export const getCoinTransactions = (params: { cursor?: number; limit?: number })
 
 export const getMacRelease = () =>
   client.get<ApiResponse<MacRelease>>('/mac/release');
+
+export interface PublicStats { wallpapers: number; collections: number }
+export const getPublicStats = () => client.get<ApiResponse<PublicStats>>('/stats');

@@ -1,21 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import usePageView from '../hooks/usePageView';
 import {
   AiOutlineMenu,
   AiOutlineClose,
-  AiOutlineCompass,
-  AiOutlineAppstore,
-  AiOutlineTeam,
-  AiOutlineApple,
-  AiOutlineLeft,
-  AiOutlineRight,
-  AiOutlineSearch,
   AiOutlineLogout,
+  AiOutlinePlus,
 } from 'react-icons/ai';
 import { BsSun, BsMoon } from 'react-icons/bs';
-import DotPattern from './DotPattern';
+import { getPublicStats } from '../api';
 
 function useDarkMode() {
   const [dark, setDark] = useState(() => {
@@ -36,223 +30,297 @@ function useDarkMode() {
     }
   }, [dark]);
 
-  return [dark, () => setDark((d) => !d)] as const;
+  return [dark, setDark] as const;
 }
 
-export default function Layout() {
+/** Editorial wordmark: outer 60×60 thin stroke + small filled square top-left
+ *  + "W" centered in Instrument Serif. Inlined so it picks up the surrounding
+ *  text color via currentColor (works in both light + dark skins). */
+function Logomark({ size = 36 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="2" y="2" width="60" height="60" />
+      <rect x="8" y="8" width="6" height="6" fill="currentColor" stroke="none" />
+      <text x="32" y="44" textAnchor="middle" fontFamily="Instrument Serif, serif" fontSize="36" fill="currentColor" stroke="none">W</text>
+    </svg>
+  );
+}
+
+interface NavItem { label: string; sub: string; to: string; }
+
+function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
+  const { isAuthenticated, user } = useAuthStore();
+  const location = useLocation();
+
+  const items: NavItem[] = [
+    { label: 'Discover',    sub: 'Recent specimens',     to: '/' },
+    ...(isAuthenticated ? [{ label: 'Upload', sub: 'Earn +5 coins', to: '/upload' }] : []),
+    { label: 'Collections', sub: 'Curated & user lists', to: '/collections' },
+    { label: 'Uploaders',   sub: 'Contributing artists', to: '/uploaders' },
+    { label: 'macOS App',   sub: 'Menu-bar companion',   to: '/download/mac' },
+  ];
+
+  const isActive = (to: string) => to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
+
+  return (
+    <aside className="w-[232px] h-full flex flex-col bg-paper border-r border-hair font-sans">
+      {/* Brand */}
+      <Link
+        to="/"
+        onClick={onCloseDrawer}
+        className="flex items-center gap-3 px-6 pt-8 pb-6 text-ink no-underline"
+      >
+        <Logomark size={36} />
+        <div>
+          <div className="display text-[18px] leading-none">Wallpaper</div>
+          <div className="display italic-d text-[18px] leading-none mt-0.5">Exchange</div>
+        </div>
+      </Link>
+
+      <hr className="mx-6 border-t border-hair" />
+
+      <div className="kicker text-muted px-6 pt-4 pb-3">Sections</div>
+
+      <nav className="flex flex-col px-6">
+        {items.map((item, i) => {
+          const active = isActive(item.to);
+          const isUpload = item.label === 'Upload';
+          return (
+            <Link
+              key={item.label}
+              to={item.to}
+              onClick={onCloseDrawer}
+              className={`grid grid-cols-[20px_1fr_auto] items-baseline gap-2 py-3 ${i === 0 ? 'border-t border-hair' : ''} border-b border-hair no-underline ${active ? 'text-ink' : 'text-ink-2'}`}
+            >
+              <span className="mono text-[10px] text-muted">{String(i + 1).padStart(2, '0')}</span>
+              <div>
+                <div className={`display text-[18px] leading-tight ${isUpload && !active ? 'text-accent' : ''}`}>
+                  {item.label}
+                </div>
+                <div className="text-[11px] text-muted mt-0.5">{item.sub}</div>
+              </div>
+              {active
+                ? <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                : isUpload
+                  ? <AiOutlinePlus size={14} className="text-accent" />
+                  : <span className="w-1.5 h-1.5" />}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Balance card — only when signed in */}
+      {isAuthenticated && (
+        <Link to="/profile" onClick={onCloseDrawer} className="mx-6 mt-5 px-3.5 py-3 border border-hair bg-paper-2 no-underline block">
+          <div className="kicker text-muted">Your balance</div>
+          <div className="mt-1.5 flex items-baseline gap-1.5">
+            <span className="mono font-semibold text-[22px] text-accent inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-accent shadow-[inset_0_-2px_0_oklch(48%_0.16_42),inset_0_1px_0_oklch(80%_0.16_60)]" />
+              {user?.coins ?? 0}
+            </span>
+            <span className="mono text-[10px] text-muted">/ COINS</span>
+          </div>
+          <div className="mt-2 text-[11px] text-ink-2 leading-snug">
+            Upload to earn <span className="text-accent">+5</span>.
+          </div>
+        </Link>
+      )}
+
+      {/* Legal footer */}
+      <div className="mt-auto px-6 pb-6 pt-6">
+        <hr className="border-t border-dashed border-hair" />
+        <ul className="flex flex-wrap gap-x-3 gap-y-1.5 py-3 list-none p-0 mono text-[10px] tracking-[0.12em] uppercase text-muted">
+          <li><Link to="/terms" className="text-inherit no-underline hover:text-ink">Terms</Link></li>
+          <li className="text-hair" aria-hidden>·</li>
+          <li><Link to="/privacy" className="text-inherit no-underline hover:text-ink">Privacy</Link></li>
+          <li className="text-hair" aria-hidden>·</li>
+          <li><Link to="/legal/dmca" className="text-inherit no-underline hover:text-ink">DMCA</Link></li>
+        </ul>
+        <hr className="border-t border-hair" />
+        <div className="mt-2.5 text-[11px] text-ink-2 leading-snug">
+          &copy; {new Date().getFullYear()} <span className="display italic-d text-[13px]">Wallpaper Exchange</span>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function ArchiveTopbar({
+  onOpenDrawer,
+  dark,
+  setDark,
+}: {
+  onOpenDrawer: () => void;
+  dark: boolean;
+  setDark: (d: boolean) => void;
+}) {
   const { isAuthenticated, user, logout } = useAuthStore();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [dark, toggleDark] = useDarkMode();
-  usePageView();
+
+  const [stats, setStats] = useState<{ wallpapers: number; collections: number } | null>(null);
+  useEffect(() => {
+    // sessionStorage cache: the counts barely move between page loads, and
+    // backend caches for 60s anyway, so reusing within a tab is fine.
+    const cached = sessionStorage.getItem('wpe_stats');
+    if (cached) {
+      try { setStats(JSON.parse(cached)); } catch { /* ignore */ }
+    }
+    getPublicStats().then((r) => {
+      setStats(r.data.data);
+      sessionStorage.setItem('wpe_stats', JSON.stringify(r.data.data));
+    }).catch(() => { /* masthead falls back to em-dashes */ });
+  }, []);
+
+  const date = useMemo(() => {
+    return new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).toUpperCase();
+  }, []);
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [location.pathname]);
-
-  const navItems = [
-    { to: '/', label: 'Discover', icon: AiOutlineCompass },
-    { to: '/collections', label: 'Collections', icon: AiOutlineAppstore },
-    { to: '/uploaders', label: 'Uploaders', icon: AiOutlineTeam },
-    { to: '/download/mac', label: 'macOS App', icon: AiOutlineApple },
-  ];
-
-  const isActive = (path: string) => {
-    if (path === '/') return location.pathname === '/';
-    return location.pathname.startsWith(path);
-  };
-
-  const showBackForward = location.pathname !== '/';
-
-  const sidebarNav = (
-    <>
-      {/* Brand */}
-      <Link to="/" className="p-6 flex items-center gap-2.5 group">
-        <img src="/logo-192.png" alt="Wallpaper Exchange" className="w-9 h-9 rounded-lg border border-slate-200 dark:border-white/10 flex-shrink-0" />
-        <span className="text-base font-semibold tracking-wide leading-tight text-slate-800 dark:text-white">
-          Wallpaper<br />Exchange
-        </span>
-      </Link>
-
-      {/* Nav */}
-      <nav className="flex-1 mt-4 px-4 space-y-1">
-        {navItems.map(({ to, label, icon: Icon }) => {
-          const active = isActive(to);
-          return (
-            <Link
-              key={to}
-              to={to}
-              className={`flex items-center gap-3.5 px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-150 ${
-                active
-                  ? 'bg-ws-purple-light dark:bg-ws-dark-active text-ws-purple dark:text-purple-400 dark:border dark:border-purple-900'
-                  : 'text-ws-muted dark:text-ws-dark-muted hover:bg-slate-50 dark:hover:bg-white/5'
-              }`}
-            >
-              <Icon size={18} />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Footer */}
-      <div className="p-6 mt-auto border-t border-slate-50 dark:border-white/5 text-xs text-ws-muted dark:text-ws-dark-muted space-y-3">
-        <Link to="/terms" className="block hover:text-slate-900 dark:hover:text-white transition-colors">Terms of Service</Link>
-        <Link to="/privacy" className="block hover:text-slate-900 dark:hover:text-white transition-colors">Privacy Policy</Link>
-        <div className="flex items-center justify-between">
-          <Link to="/legal/dmca" className="hover:text-slate-900 dark:hover:text-white transition-colors">Copyright / DMCA</Link>
-          <span className="w-2 h-2 rounded-full bg-ws-purple" />
-        </div>
-        <p className="text-[11px] opacity-60 pt-2">&copy; {new Date().getFullYear()} Wallpaper Exchange</p>
-      </div>
-    </>
-  );
+  const initial = (user?.nickname || user?.username || '').charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-screen flex bg-ws-bg dark:bg-ws-dark-bg text-slate-900 dark:text-white font-sans transition-colors duration-200">
+    <div className="sticky top-0 z-30 bg-paper border-b border-hair">
+      {/* Masthead — counts left, date right */}
+      <div className="px-8 py-2.5 flex justify-between items-center border-b border-hair mono text-[10px] tracking-[0.18em] uppercase text-muted">
+        <span className="inline-flex items-center gap-3.5">
+          <span><strong className="text-ink-2 font-semibold">{stats ? stats.wallpapers.toLocaleString() : '—'}</strong> Specimens</span>
+          <span className="opacity-40">·</span>
+          <span><strong className="text-ink-2 font-semibold">{stats ? stats.collections.toLocaleString() : '—'}</strong> Collections</span>
+        </span>
+        <span>{date}</span>
+      </div>
+
+      {/* Toolbar row */}
+      <div className="px-4 sm:px-8 py-3 flex items-center gap-3 min-h-[64px]">
+        <button onClick={onOpenDrawer} className="md:hidden p-2 text-ink rounded-full hover:bg-paper-2" aria-label="Open menu">
+          <AiOutlineMenu size={22} />
+        </button>
+
+        <div className="flex-1 min-w-0" />
+
+        <div className="flex items-center gap-2">
+          {/* 2-state segmented theme toggle */}
+          <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-full">
+            <button
+              onClick={() => setDark(false)}
+              title="Light mode"
+              className={`w-[30px] h-[30px] rounded-full inline-flex items-center justify-center transition-colors ${!dark
+                ? 'bg-paper text-ink shadow-[0_1px_0_var(--color-hair),0_0_0_1px_var(--color-hair)]'
+                : 'bg-transparent text-muted'}`}
+            >
+              <BsSun size={14} />
+            </button>
+            <button
+              onClick={() => setDark(true)}
+              title="Dark mode"
+              className={`w-[30px] h-[30px] rounded-full inline-flex items-center justify-center transition-colors ${dark
+                ? 'bg-ink text-paper shadow-[0_1px_0_var(--color-hair),0_0_0_1px_var(--color-ink-2)]'
+                : 'bg-transparent text-muted'}`}
+            >
+              <BsMoon size={14} />
+            </button>
+          </div>
+
+          {isAuthenticated && user ? (
+            <>
+              {user.is_admin && (
+                <Link
+                  to="/admin"
+                  className="hidden sm:inline-flex items-center h-[38px] px-3 rounded-full border border-hair text-ink-2 text-[12px] font-medium hover:bg-paper-2 transition-colors"
+                  title="Admin console"
+                >
+                  Admin
+                </Link>
+              )}
+              <button
+                onClick={handleLogout}
+                title="Log out"
+                className="w-[38px] h-[38px] rounded-full bg-paper border border-hair text-ink hover:bg-paper-2 transition-colors inline-flex items-center justify-center"
+              >
+                <AiOutlineLogout size={15} />
+              </button>
+              <Link
+                to={`/user/${user.username}`}
+                title={user.nickname || user.username}
+                className="ml-1 inline-flex no-underline"
+              >
+                {user.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt=""
+                    className="w-[38px] h-[38px] rounded-full object-cover border border-hair"
+                  />
+                ) : (
+                  <div className="w-[38px] h-[38px] rounded-full bg-paper-2 border border-hair flex items-center justify-center display text-[18px] text-ink">
+                    {initial}
+                  </div>
+                )}
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="inline-flex items-center px-3.5 py-1.5 rounded-full border border-hair text-ink text-[12px] font-medium hover:bg-paper-2 transition-colors no-underline"
+              >Log in</Link>
+              <Link
+                to="/register"
+                className="inline-flex items-center px-3.5 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium hover:bg-ink-2 transition-colors no-underline"
+              >Register</Link>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Layout() {
+  const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [dark, setDark] = useDarkMode();
+  usePageView();
+
+  useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
+
+  return (
+    <div className="min-h-screen flex bg-paper text-ink font-sans transition-colors duration-200">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:flex-col w-60 fixed inset-y-0 left-0 bg-white dark:bg-ws-dark-sidebar border-r border-ws-border dark:border-white/5 z-40">
-        {sidebarNav}
+      <aside className="hidden md:flex md:flex-col w-[232px] fixed inset-y-0 left-0 z-40">
+        <ArchiveSidebar />
       </aside>
 
-      {/* Mobile sidebar drawer */}
+      {/* Mobile drawer */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
-          <aside className="relative w-64 h-full flex flex-col bg-white dark:bg-ws-dark-sidebar shadow-xl">
+          <div className="relative w-[232px] h-full bg-paper shadow-xl">
             <button
               onClick={() => setSidebarOpen(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-ws-muted hover:bg-slate-100 dark:hover:bg-white/10"
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-muted hover:bg-paper-2"
+              aria-label="Close menu"
             >
               <AiOutlineClose size={20} />
             </button>
-            {sidebarNav}
-          </aside>
+            <ArchiveSidebar onCloseDrawer={() => setSidebarOpen(false)} />
+          </div>
         </div>
       )}
 
       {/* Main column */}
-      <div className="flex-1 md:ml-60 flex flex-col min-h-screen">
-        {/* Top header bar */}
-        <header className="sticky top-0 z-30 h-[72px] dark:h-16 flex-shrink-0 flex items-center justify-between px-6 border-b border-ws-border dark:border-white/5 bg-white dark:bg-ws-dark-header">
-          {/* Left: hamburger (mobile) + back/forward + search */}
-          <div className="flex items-center gap-3 flex-1 max-w-2xl">
-            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 text-ws-muted dark:text-ws-dark-muted">
-              <AiOutlineMenu size={22} />
-            </button>
+      <div className="flex-1 md:ml-[232px] flex flex-col min-h-screen min-w-0">
+        <ArchiveTopbar
+          onOpenDrawer={() => setSidebarOpen(true)}
+          dark={dark}
+          setDark={setDark}
+        />
 
-            {showBackForward && (
-              <div className="flex items-center gap-1 mr-1">
-                <button
-                  onClick={() => navigate(-1)}
-                  className="p-2 text-ws-muted dark:text-ws-dark-muted hover:text-slate-900 dark:hover:text-white border border-ws-border dark:border-transparent dark:bg-white/5 rounded-lg transition-colors"
-                >
-                  <AiOutlineLeft size={16} />
-                </button>
-                <button
-                  onClick={() => navigate(1)}
-                  className="p-2 text-slate-300 dark:text-ws-dark-muted/50 border border-ws-border dark:border-transparent dark:bg-white/5 rounded-lg cursor-not-allowed opacity-50"
-                >
-                  <AiOutlineRight size={16} />
-                </button>
-              </div>
-            )}
-
-            <div className="relative flex-1 hidden sm:block">
-              <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                <AiOutlineSearch size={16} className="text-slate-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search..."
-                className="w-full bg-ws-bg dark:bg-ws-dark-card border-none rounded-xl py-2.5 pl-10 pr-4 text-sm focus:ring-1 focus:ring-ws-purple outline-none transition-all"
-              />
-            </div>
-
-            {isAuthenticated && (
-              <Link
-                to="/upload"
-                className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-ws-purple hover:bg-ws-purple-hover text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
-              >
-                <span className="text-lg font-light leading-none">+</span>
-                Upload
-              </Link>
-            )}
-          </div>
-
-          {/* Right: utilities */}
-          <div className="flex items-center gap-2 ml-4">
-            <button
-              onClick={toggleDark}
-              className="p-2.5 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple dark:hover:text-white bg-ws-bg dark:bg-white/5 rounded-xl transition-colors"
-              title={dark ? 'Light Mode' : 'Dark Mode'}
-            >
-              {dark ? <BsSun size={18} /> : <BsMoon size={18} />}
-            </button>
-
-            {isAuthenticated && user ? (
-              <>
-                {user.is_admin && (
-                  <Link
-                    to="/admin"
-                    className="hidden sm:inline-block px-3 py-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-lg transition-colors"
-                    title="后台管理"
-                  >
-                    后台
-                  </Link>
-                )}
-                <button
-                  onClick={handleLogout}
-                  className="p-2.5 text-ws-muted dark:text-ws-dark-muted hover:text-red-500 bg-ws-bg dark:bg-white/5 rounded-xl transition-colors border border-transparent hover:border-red-100 dark:hover:border-red-900/30"
-                  title="Logout"
-                >
-                  <AiOutlineLogout size={18} />
-                </button>
-                <Link to={`/user/${user.username}`} className="ml-1 flex-shrink-0" title={user.nickname || user.username}>
-                  {user.avatar_url ? (
-                    <img
-                      src={user.avatar_url}
-                      alt=""
-                      className="w-9 h-9 rounded-full dark:rounded-lg object-cover border-2 border-white dark:border-white/10 shadow-sm"
-                    />
-                  ) : (
-                    <div className="w-9 h-9 rounded-full dark:rounded-lg bg-ws-purple-light dark:bg-ws-dark-active text-ws-purple dark:text-purple-400 flex items-center justify-center font-semibold text-sm border-2 border-white dark:border-white/10 shadow-sm">
-                      {(user.nickname || user.username).charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  className="px-4 py-2 text-sm font-medium text-ws-purple hover:bg-ws-purple-light dark:hover:bg-ws-dark-active rounded-xl transition-colors"
-                >
-                  Login
-                </Link>
-                <Link
-                  to="/register"
-                  className="px-4 py-2 text-sm font-medium text-white bg-ws-purple hover:bg-ws-purple-hover rounded-xl transition-colors shadow-sm"
-                >
-                  Register
-                </Link>
-              </>
-            )}
-          </div>
-        </header>
-
-        {/* Page content */}
-        <main className="flex-1 bg-white dark:bg-ws-dark-bg relative overflow-x-hidden">
-          <DotPattern className="text-slate-300 dark:text-white/10" />
-          <div className="relative z-[1]">
-            <Outlet />
-          </div>
+        <main className="flex-1 bg-paper relative overflow-x-hidden">
+          <Outlet />
         </main>
       </div>
     </div>

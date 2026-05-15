@@ -106,6 +106,7 @@ func main() {
 	reportHandler := handler.NewReportHandler(reportRepo, wallpaperRepo)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsRepo)
 	recommendHandler := handler.NewRecommendHandler(wallpaperRepo)
+	statsHandler := handler.NewStatsHandler(wallpaperRepo, collectionRepo)
 	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo, store)
 
 	router := handler.NewRouter(handler.Deps{
@@ -121,6 +122,7 @@ func main() {
 		ReportHandler:     reportHandler,
 		AnalyticsHandler:  analyticsHandler,
 		RecommendHandler:  recommendHandler,
+		StatsHandler:      statsHandler,
 		AdminHandler:      adminHandler,
 		UserRepo:          userRepo,
 		JWTSecret:         cfg.JWT.Secret,

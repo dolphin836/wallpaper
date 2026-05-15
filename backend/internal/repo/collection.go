@@ -25,6 +25,15 @@ func NewCollectionRepo(db *gorm.DB) *CollectionRepo {
 	return &CollectionRepo{db: db}
 }
 
+// CountPublic returns the number of publicly-visible collections — used by
+// the public /stats endpoint (Discover masthead).
+func (r *CollectionRepo) CountPublic(ctx context.Context) (int64, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Model(&model.Collection{}).
+		Where("is_public = ?", true).Count(&n).Error
+	return n, err
+}
+
 func (r *CollectionRepo) Create(ctx context.Context, c *model.Collection) error {
 	return r.db.WithContext(ctx).Create(c).Error
 }

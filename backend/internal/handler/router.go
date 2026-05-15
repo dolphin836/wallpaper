@@ -25,6 +25,7 @@ type Deps struct {
 	ReportHandler     *ReportHandler
 	AnalyticsHandler  *AnalyticsHandler
 	RecommendHandler  *RecommendHandler
+	StatsHandler      *StatsHandler
 	AdminHandler      *AdminHandler
 	UserRepo          *repo.UserRepo
 	JWTSecret         string
@@ -68,6 +69,7 @@ func NewRouter(deps Deps) *chi.Mux {
 		r.Get("/tags", deps.TagHandler.Popular)
 		r.Get("/devices", deps.DeviceHandler.ListDevices)
 		r.Get("/mac/release", deps.ReleaseHandler.GetMacRelease)
+		r.Get("/stats", deps.StatsHandler.Get)
 
 		r.Get("/users", deps.UserHandler.ListUsers)
 
