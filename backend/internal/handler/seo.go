@@ -189,6 +189,15 @@ func baseURL(r *http.Request) string {
 	if h := r.Header.Get("X-Forwarded-Host"); h != "" {
 		host = h
 	}
+	// Strip the api. prefix because the SEO routes are reached two ways:
+	// (1) directly via api.wallpaperexchange.com and (2) via the CF Pages SPA's
+	// _redirects rule that proxies /sitemap.xml & /robots.txt to the api
+	// subdomain. In both cases the canonical browseable surface is the apex
+	// (wallpaperexchange.com), and sitemap entries must point there or Google
+	// will treat the entire api.* subdomain as the indexed property.
+	if strings.HasPrefix(host, "api.") {
+		host = strings.TrimPrefix(host, "api.")
+	}
 	// Prefer the X-Forwarded-Proto Caddy sets, but nginx in front of us
 	// overwrites it with its own $scheme (http on the docker network), so
 	// also assume https for any non-loopback host — this is a TLS-fronted
