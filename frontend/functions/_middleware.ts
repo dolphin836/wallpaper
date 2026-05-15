@@ -2,23 +2,25 @@
 // domain to the backend so the SPA, SEO endpoints, and API all live behind
 // the same origin (wallpaperexchange.com).
 //
-// Why a Function instead of _redirects?
-//   `_redirects` with status 200 (rewrite) is only reliable for same-origin
-//   destinations on CF Pages. Cross-origin rewrites are documented to work
-//   but in practice fall through to the SPA fallback for many setups,
-//   which is exactly what we observed for /api/*, /sitemap.xml, /robots.txt.
-//   A Functions middleware runs deterministically on every request and lets
-//   us forward headers cleanly.
-//
 // What we proxy
-//   /api/*         → https://api.wallpaperexchange.com/api/*
-//   /sitemap.xml   → https://api.wallpaperexchange.com/sitemap.xml
-//   /robots.txt    → https://api.wallpaperexchange.com/robots.txt
+//   /api/*         → ${API_ORIGIN}/api/*
+//   /sitemap.xml   → ${API_ORIGIN}/sitemap.xml
+//   /robots.txt    → ${API_ORIGIN}/robots.txt
+//
+// Why API_ORIGIN = wallpaper.haibing.site, not api.wallpaperexchange.com?
+//   api.wallpaperexchange.com is in the same Cloudflare zone as the apex.
+//   When a Pages Function fetches a hostname inside its own zone, CF routes
+//   the request through its internal proxy fabric and applies the zone's
+//   SSL/TLS settings end-to-end — which broke with a 525 "SSL handshake
+//   failed" against our origin. wallpaper.haibing.site points at the same
+//   server but is hosted on Aliyun DNS, so CF can't recognize it as
+//   in-zone and the fetch goes straight out over the public internet,
+//   bypassing all that. Same bytes, different routing path.
 //
 // Everything else (assets, SPA routes) passes through to the static build
 // via context.next().
 
-const API_ORIGIN = 'https://api.wallpaperexchange.com';
+const API_ORIGIN = 'https://wallpaper.haibing.site';
 
 export const onRequest: PagesFunction = async (context) => {
   const url = new URL(context.request.url);
