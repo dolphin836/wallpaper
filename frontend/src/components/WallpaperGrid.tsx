@@ -4,7 +4,7 @@ import type { Wallpaper } from '../types';
 import WallpaperCard from './WallpaperCard';
 import EmptyState from './EmptyState';
 
-export type ViewMode = 'justified' | 'grid';
+export type ViewMode = 'salon' | 'justified' | 'grid';
 export type SizeMode = 'lg' | 'md' | 'sm';
 
 export const SIZE_HEIGHTS: Record<SizeMode, number> = {
@@ -12,6 +12,38 @@ export const SIZE_HEIGHTS: Record<SizeMode, number> = {
   md: 260,
   sm: 100,
 };
+
+// Salon row height driven by the size toggle. Smaller values = more tiles
+// per page, more density; larger = poster-wall feel. Tuned to land in the
+// same ballpark as the SIZE_HEIGHTS values used by the justified view so
+// the page footprint per scroll is roughly comparable across modes.
+export const SALON_ROW_BY_SIZE: Record<SizeMode, number> = {
+  sm: 110,
+  md: 150,
+  lg: 200,
+};
+
+// 10-tile repeating mosaic across an 11-column grid. Items use `span`
+// rather than absolute lines so the grid auto-flow algorithm packs them
+// into the next available block. Pattern lengths add up to 27 column-slots
+// across 6 grid rows, repeating cleanly — visually it gives the salon-wall
+// asymmetry without leaving big gaps.
+const SALON_PATTERN: Array<{ colSpan: number; rowSpan: number }> = [
+  { colSpan: 4, rowSpan: 2 }, // wide hero
+  { colSpan: 3, rowSpan: 3 }, // tall column
+  { colSpan: 4, rowSpan: 2 }, // wide right
+  { colSpan: 3, rowSpan: 2 }, // medium tall
+  { colSpan: 5, rowSpan: 1 }, // letterbox
+  { colSpan: 3, rowSpan: 2 }, // medium
+  { colSpan: 4, rowSpan: 1 }, // short wide
+  { colSpan: 4, rowSpan: 2 }, // mid hero
+  { colSpan: 3, rowSpan: 1 }, // sm
+  { colSpan: 4, rowSpan: 1 }, // wide short
+];
+
+function salonSpanFor(i: number) {
+  return SALON_PATTERN[i % SALON_PATTERN.length];
+}
 
 const BOX_SPACING = 16;
 const STAGGER_MS = 40;
@@ -131,6 +163,46 @@ function JustifiedView({ wallpapers, showStatus, targetHeight, staggerFrom = 0, 
   );
 }
 
+function SalonLayout({ wallpapers, sizeMode, staggerFrom = 0, disableModal }: { wallpapers: Wallpaper[]; sizeMode: SizeMode; staggerFrom?: number; disableModal?: boolean }) {
+  const rowH = SALON_ROW_BY_SIZE[sizeMode];
+  return (
+    <div
+      // grid-auto-flow: dense lets the engine fill holes left behind by
+      // tall tiles with later items that fit, so the wall never has
+      // suspicious column gaps even when the pattern wraps onto a new row.
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(11, 1fr)',
+        gridAutoRows: `${rowH}px`,
+        gridAutoFlow: 'dense',
+        gap: 8,
+      }}
+    >
+      {wallpapers.map((w, i) => {
+        const span = salonSpanFor(i);
+        return (
+          <div
+            key={w.id}
+            style={{
+              gridColumn: `span ${span.colSpan}`,
+              gridRow: `span ${span.rowSpan}`,
+              position: 'relative',
+            }}
+          >
+            <WallpaperCard
+              wallpaper={w}
+              layout="salon"
+              fillHeight
+              animDelay={staggerDelay(i, staggerFrom)}
+              disableModal={disableModal}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function WallpaperGrid({ wallpapers, showStatus, viewMode = 'justified', sizeMode = 'md', staggerFrom = 0, disableModal }: Props) {
   if (wallpapers.length === 0) {
     return <EmptyState message="No wallpapers found." />;
@@ -139,6 +211,8 @@ export default function WallpaperGrid({ wallpapers, showStatus, viewMode = 'just
   const height = SIZE_HEIGHTS[sizeMode];
 
   switch (viewMode) {
+    case 'salon':
+      return <SalonLayout wallpapers={wallpapers} sizeMode={sizeMode} staggerFrom={staggerFrom} disableModal={disableModal} />;
     case 'grid':
       return <GridLayout wallpapers={wallpapers} showStatus={showStatus} sizeMode={sizeMode} staggerFrom={staggerFrom} disableModal={disableModal} />;
     default:

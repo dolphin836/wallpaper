@@ -1,8 +1,12 @@
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Geist:wght@300;400;500;600;700&display=swap");
+
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
+  /* Legacy purple tokens — still used by Layout shell, secondary pages,
+     and admin console. Don't remove until those surfaces are migrated. */
   --color-ws-purple: #7c5dfa;
   --color-ws-purple-light: #f0edff;
   --color-ws-purple-dark: #6d28d9;
@@ -17,7 +21,73 @@
   --color-ws-dark-active: #2a2135;
   --color-ws-dark-muted: #9ca3af;
   --color-ws-dark-border: rgba(255 255 255 / 0.05);
+
+  /* ── "The Archive" tokens — Discover redesign. ────────────────────
+     Editorial paper/ink palette + accent reserved for coin moments.
+     Use `bg-paper`, `text-ink`, `border-hair`, etc. */
+
+  /* Paper (light surfaces) */
+  --color-paper:     oklch(97.8% 0.008 80);
+  --color-paper-2:   oklch(95.5% 0.010 80);
+  --color-paper-3:   oklch(92.0% 0.012 80);
+  --color-hair:      oklch(86.0% 0.010 80);
+  --color-hair-soft: oklch(91.0% 0.008 80);
+
+  /* Ink */
+  --color-ink:    oklch(18.0% 0.012 80);
+  --color-ink-2:  oklch(28.0% 0.012 80);
+  --color-muted:  oklch(52.0% 0.012 80);
+  --color-muted-2:oklch(68.0% 0.012 80);
+
+  /* Accent — coin / exchange / urgent moments only */
+  --color-accent:      oklch(64% 0.21 42);
+  --color-accent-soft: oklch(94% 0.05 60);
+  --color-accent-ink:  oklch(38% 0.15 42);
+
+  /* Tile-action selected colors */
+  --color-like:       #e0463a;
+  --color-favorite:   #d8a23a;
+  --color-downloaded: #4a8a5a;
+
+  /* Type stacks */
+  --font-display: "Instrument Serif", "Times New Roman", serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-sans:    "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
+
+/* Archive dark skin — overrides ride on top of the existing `.dark` class
+   set by useDarkMode. Keep this scoped to the new tokens so the legacy
+   ws-dark-* values stay independent and other pages continue to render. */
+.dark {
+  --color-paper:     oklch(15% 0.012 80);
+  --color-paper-2:   oklch(20% 0.012 80);
+  --color-paper-3:   oklch(24% 0.013 80);
+  --color-hair:      oklch(28% 0.012 80);
+  --color-hair-soft: oklch(24% 0.012 80);
+  --color-ink:       oklch(95% 0.008 80);
+  --color-ink-2:     oklch(82% 0.010 80);
+  --color-muted:     oklch(62% 0.012 80);
+  --color-muted-2:   oklch(48% 0.012 80);
+  --color-accent-soft: oklch(28% 0.08 42);
+}
+
+/* Editorial type helpers used across the new Discover surface */
+.display   { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.01em; }
+.italic-d  { font-family: var(--font-display); font-style: italic; }
+.mono      { font-family: var(--font-mono); }
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.label-rule {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--color-muted);
+}
+.label-rule::after { content: ""; flex: 1; border-top: 1px solid var(--color-hair); }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
@@ -64,4 +134,115 @@
 
 .skeleton-card {
   animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* ── Salon mosaic tile interactions ─────────────────────────────────
+   Used by WallpaperCard's salon variant. Hover scales the image and
+   reveals an action rail; selected states for like/favorite/download
+   ride on the .t-act buttons. */
+
+.tile-cell {
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 220ms ease;
+}
+.tile-cell .tile-img {
+  transition: transform 700ms cubic-bezier(.22,.61,.36,1),
+              filter 400ms ease;
+  will-change: transform;
+}
+.tile-cell:hover .tile-img,
+.tile-cell:focus-within .tile-img {
+  transform: scale(1.045);
+  filter: brightness(1.04);
+}
+.tile-cell .tile-gradient { transition: opacity 280ms ease; }
+.tile-cell:hover .tile-gradient,
+.tile-cell:focus-within .tile-gradient { opacity: 1; }
+.tile-cell:hover,
+.tile-cell:focus-within { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18); }
+
+.tile-cell .tile-actions {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 200ms ease, transform 240ms ease;
+  pointer-events: none;
+}
+.tile-cell:hover .tile-actions,
+.tile-cell:focus-within .tile-actions {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.t-act {
+  width: 34px; height: 34px; border-radius: 9999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(15,12,8,0.45);
+  color: #fff;
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  transition: background 160ms ease, transform 120ms ease, border-color 160ms ease;
+}
+.t-act:hover  { background: rgba(15,12,8,0.65); }
+.t-act:active { transform: scale(0.94); }
+.t-act:disabled { opacity: 0.55; cursor: not-allowed; }
+.t-act.is-liked      { background: var(--color-like);       border-color: transparent; }
+.t-act.is-favorited  { background: var(--color-favorite);   border-color: transparent; }
+.t-act.is-downloaded { background: var(--color-downloaded); border-color: transparent; }
+
+/* ── Feed footer (loading / retry / end states) ────────────────── */
+
+.feed-foot {
+  display: flex; align-items: center; justify-content: center;
+  padding: 36px 16px 48px;
+  font-family: var(--font-sans);
+  color: var(--color-muted);
+}
+.feed-foot__rule {
+  flex: 1; max-width: 160px; height: 1px;
+  background: var(--color-hair);
+}
+.feed-foot__inner {
+  display: inline-flex; align-items: center; gap: 14px;
+  padding: 0 18px;
+}
+
+.spinner {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--color-hair);
+  border-top-color: var(--color-ink);
+  animation: spin 700ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.btn-load-more {
+  padding: 9px 22px;
+  border-radius: 999px;
+  border: 1px solid var(--color-hair);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex; align-items: center; gap: 10px;
+  transition: background 160ms ease, border-color 160ms ease;
+  cursor: pointer;
+}
+.btn-load-more:hover {
+  background: var(--color-paper-2);
+  border-color: var(--color-ink-2);
+}
+.btn-load-more__warn {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #d18a3a;
+  box-shadow: 0 0 0 3px oklch(94% 0.05 70);
 }

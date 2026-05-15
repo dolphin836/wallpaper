@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { MdDevices } from 'react-icons/md';
-import { AiOutlineAppstore, AiOutlineBars } from 'react-icons/ai';
+import { AiOutlineAppstore, AiOutlineBars, AiOutlineReload } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { Wallpaper } from '../types';
 import { getWallpapers, getForYouWallpapers } from '../api';
 import { useAuthStore } from '../store/auth';
 import WallpaperGrid from '../components/WallpaperGrid';
-import { SIZE_HEIGHTS } from '../components/WallpaperGrid';
+import { SIZE_HEIGHTS, SALON_ROW_BY_SIZE } from '../components/WallpaperGrid';
 import type { ViewMode, SizeMode } from '../components/WallpaperGrid';
 import PageMeta from '../components/PageMeta';
 
@@ -37,13 +37,7 @@ function calculatePageSize(
 
   let count: number;
 
-  if (viewMode === 'justified') {
-    const rowHeight = SIZE_HEIGHTS[sizeMode];
-    const avgAspect = 1.6;
-    const itemsPerRow = Math.max(1, Math.floor(containerWidth / (rowHeight * avgAspect + gap)));
-    const rowsPerScreen = Math.max(1, Math.floor(vh / (rowHeight + gap)));
-    count = itemsPerRow * rowsPerScreen * screens;
-  } else {
+  if (viewMode === 'grid') {
     const bp = GRID_BREAKPOINT_COLS[sizeMode];
     let cols: number;
     if (containerWidth >= 1024) cols = bp[3];
@@ -55,23 +49,24 @@ function calculatePageSize(
     const cardHeight = cardWidth * 0.75;
     const rowsPerScreen = Math.max(1, Math.floor(vh / (cardHeight + gap)));
     count = cols * rowsPerScreen * screens;
+  } else if (viewMode === 'salon') {
+    // Salon layout: 11-col CSS grid with mixed-span tiles, ~2.7 tiles per
+    // pattern row on average. Estimate using the row height and a tile-per-
+    // pattern-row coefficient instead of average aspect ratio.
+    const rowHeight = SALON_ROW_BY_SIZE[sizeMode];
+    const rowsPerScreen = Math.max(1, Math.floor(vh / (rowHeight + 8)));
+    // Each "pattern cycle" spans ~5 rows and holds 10 tiles → 2 tiles per row.
+    count = Math.round(rowsPerScreen * 2.5 * screens);
+  } else {
+    // justified (legacy)
+    const rowHeight = SIZE_HEIGHTS[sizeMode];
+    const avgAspect = 1.6;
+    const itemsPerRow = Math.max(1, Math.floor(containerWidth / (rowHeight * avgAspect + gap)));
+    const rowsPerScreen = Math.max(1, Math.floor(vh / (rowHeight + gap)));
+    count = itemsPerRow * rowsPerScreen * screens;
   }
 
   return Math.max(20, Math.min(200, count));
-}
-
-function SkeletonGrid() {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-      {Array.from({ length: 9 }).map((_, i) => (
-        <div
-          key={i}
-          className="aspect-[4/3] rounded-xl bg-slate-100 dark:bg-ws-dark-card skeleton-card"
-          style={{ animationDelay: `${i * 80}ms` }}
-        />
-      ))}
-    </div>
-  );
 }
 
 const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent);
@@ -81,6 +76,211 @@ function AppleIcon({ size = 16 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 384 512" fill="currentColor">
       <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/>
     </svg>
+  );
+}
+
+// Migrate any pre-redesign viewMode value. 'justified' was the legacy default
+// driven by the justified-layout library; it maps to the new 'salon' tile
+// mosaic so returning users see the redesign on first paint.
+function readSavedViewMode(): ViewMode {
+  const raw = localStorage.getItem('wallpaper_view_mode');
+  if (raw === 'salon' || raw === 'grid' || raw === 'justified') {
+    return raw === 'justified' ? 'salon' : (raw as ViewMode);
+  }
+  return 'salon';
+}
+
+function SkeletonSalon() {
+  // Approximation of the first 8 tiles of the salon pattern so the page
+  // doesn't pop layout when the API returns.
+  const tiles = [
+    { c: 4, r: 2 }, { c: 3, r: 3 }, { c: 4, r: 2 }, { c: 3, r: 2 },
+    { c: 5, r: 1 }, { c: 3, r: 2 }, { c: 4, r: 1 }, { c: 4, r: 2 },
+  ];
+  return (
+    <div
+      style={{
+        display: 'grid', gridTemplateColumns: 'repeat(11, 1fr)',
+        gridAutoRows: '150px', gridAutoFlow: 'dense', gap: 8,
+      }}
+    >
+      {tiles.map((t, i) => (
+        <div
+          key={i}
+          className="skeleton-card bg-paper-3 border border-hair-soft"
+          style={{ gridColumn: `span ${t.c}`, gridRow: `span ${t.r}`, animationDelay: `${i * 80}ms` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+type FooterState = 'idle' | 'loading' | 'retry' | 'end';
+
+function FeedFooter({ state, count, onRetry }: { state: FooterState; count: number; onRetry: () => void }) {
+  if (state === 'idle') return null;
+  if (state === 'loading') {
+    return (
+      <div className="feed-foot">
+        <div className="feed-foot__inner">
+          <span className="spinner" />
+          <span className="mono text-[11px] tracking-[0.12em] uppercase text-muted">
+            Loading more specimens
+          </span>
+        </div>
+      </div>
+    );
+  }
+  if (state === 'retry') {
+    return (
+      <div className="feed-foot">
+        <div className="feed-foot__inner" style={{ flexDirection: 'column', gap: 12 }}>
+          <div className="inline-flex items-center gap-2.5">
+            <span className="btn-load-more__warn" />
+            <span className="mono text-[11px] tracking-[0.12em] uppercase text-muted">
+              Couldn't auto-load · network hiccup
+            </span>
+          </div>
+          <button className="btn-load-more" onClick={onRetry}>
+            <AiOutlineReload size={13} />
+            Load more
+          </button>
+        </div>
+      </div>
+    );
+  }
+  // end
+  return (
+    <div className="feed-foot">
+      <div className="feed-foot__rule" />
+      <div className="feed-foot__inner">
+        <span className="display italic-d text-[18px] text-ink-2">end of the archive</span>
+        <span className="mono text-[10px] tracking-[0.14em] uppercase text-muted">
+          {count.toLocaleString()} specimens
+        </span>
+      </div>
+      <div className="feed-foot__rule" />
+    </div>
+  );
+}
+
+interface DiscoverControlsProps {
+  isAuthenticated: boolean;
+  feed: 'latest' | 'for_you';
+  setFeed: (f: 'latest' | 'for_you') => void;
+  deviceFilter: boolean;
+  toggleDeviceFilter: () => void;
+  macFilter: boolean;
+  toggleMacFilter: () => void;
+  screen: { width: number; height: number };
+  viewMode: ViewMode;
+  onView: (v: ViewMode) => void;
+  sizeMode: SizeMode;
+  onSize: (s: SizeMode) => void;
+  sortTrending: boolean;
+  setSortTrending: (b: boolean) => void;
+  sortOpen: boolean;
+  setSortOpen: (b: boolean) => void;
+  sortRef: React.RefObject<HTMLDivElement | null>;
+}
+
+function DiscoverControls(p: DiscoverControlsProps) {
+  const segOn = 'bg-paper text-ink shadow-[0_1px_0_var(--color-hair),0_0_0_1px_var(--color-hair)]';
+  const segOff = 'bg-transparent text-muted';
+  const chipOn = 'bg-accent text-white border-transparent';
+  const chipOff = 'bg-paper text-ink-2 border-hair';
+
+  return (
+    <div className="flex items-center justify-between gap-4 flex-wrap border-b border-hair bg-paper px-8 py-4">
+      {/* Left */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {p.isAuthenticated && (
+          <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-full">
+            <button
+              onClick={() => p.setFeed('latest')}
+              className={`px-4 py-2 text-[12px] font-medium rounded-full transition-colors ${p.feed === 'latest' ? segOn : segOff}`}
+            >Latest</button>
+            <button
+              onClick={() => p.setFeed('for_you')}
+              className={`px-4 py-2 text-[12px] font-medium rounded-full transition-colors ${p.feed === 'for_you' ? segOn : segOff}`}
+            >For You</button>
+          </div>
+        )}
+
+        <button
+          onClick={p.toggleDeviceFilter}
+          title={p.deviceFilter ? `${p.screen.width}×${p.screen.height}` : 'Filter for your device'}
+          className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium rounded-full border transition-colors ${p.deviceFilter ? chipOn : chipOff}`}
+        >
+          <MdDevices size={13} />
+          <span>{p.deviceFilter ? `${p.screen.width} × ${p.screen.height}` : 'My Device'}</span>
+        </button>
+
+        <button
+          onClick={p.toggleMacFilter}
+          className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium rounded-full border transition-colors ${p.macFilter ? chipOn : chipOff}`}
+        >
+          <AppleIcon size={12} />
+          macOS
+        </button>
+      </div>
+
+      {/* Right: view + size + sort */}
+      <div className="flex items-center gap-2.5">
+        {/* View toggle */}
+        <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-lg">
+          <button
+            onClick={() => p.onView('salon')}
+            title="Salon"
+            className={`w-[30px] h-[26px] rounded-[5px] flex items-center justify-center transition-colors ${p.viewMode === 'salon' ? 'bg-ink text-paper' : 'text-muted'}`}
+          ><AiOutlineAppstore size={13} /></button>
+          <button
+            onClick={() => p.onView('grid')}
+            title="Grid"
+            className={`w-[30px] h-[26px] rounded-[5px] flex items-center justify-center transition-colors ${p.viewMode === 'grid' ? 'bg-ink text-paper' : 'text-muted'}`}
+          ><AiOutlineBars size={13} /></button>
+        </div>
+
+        {/* Size toggle */}
+        <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-lg">
+          {(['sm', 'md', 'lg'] as SizeMode[]).map((k) => {
+            const on = p.sizeMode === k;
+            return (
+              <button
+                key={k}
+                onClick={() => p.onSize(k)}
+                title={`Size · ${k.toUpperCase()}`}
+                className={`min-w-[30px] h-[26px] px-[9px] rounded-[5px] mono text-[11px] tracking-[0.04em] transition-colors ${on ? 'bg-ink text-paper font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.18)]' : 'text-muted font-medium'}`}
+              >{k.toUpperCase()}</button>
+            );
+          })}
+        </div>
+
+        {/* Sort */}
+        <div className="relative" ref={p.sortRef}>
+          <button
+            onClick={() => p.setSortOpen(!p.sortOpen)}
+            className="inline-flex items-center gap-3 h-8 px-3.5 rounded-lg bg-paper-2 border border-hair text-[12px] text-ink-2"
+          >
+            <span className="mono text-[10px] tracking-[0.1em] text-muted">SORT</span>
+            {p.sortTrending ? 'Trending' : 'Latest'}
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 9l7 7 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+          {p.sortOpen && (
+            <div className="absolute right-0 mt-1 w-36 bg-paper border border-hair rounded-lg shadow-lg z-20 py-1">
+              <button
+                onClick={() => { if (p.sortTrending) p.setSortTrending(false); p.setSortOpen(false); }}
+                className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${!p.sortTrending ? 'text-accent-ink bg-accent-soft font-medium' : 'text-ink-2 hover:bg-paper-2'}`}
+              >Latest</button>
+              <button
+                onClick={() => { if (!p.sortTrending) p.setSortTrending(true); p.setSortOpen(false); }}
+                className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${p.sortTrending ? 'text-accent-ink bg-accent-soft font-medium' : 'text-ink-2 hover:bg-paper-2'}`}
+              >Trending</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -96,14 +296,13 @@ export default function HomePage() {
   const [sortTrending, setSortTrending] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [feed, setFeed] = useState<'latest' | 'for_you'>('latest');
+  const [loadError, setLoadError] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef(cursor);
   const hasMoreRef = useRef(hasMore);
   cursorRef.current = cursor;
   hasMoreRef.current = hasMore;
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    return (localStorage.getItem('wallpaper_view_mode') as ViewMode) || 'justified';
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>(readSavedViewMode);
   const [sizeMode, setSizeMode] = useState<SizeMode>(() => {
     return (localStorage.getItem('wallpaper_size_mode') as SizeMode) || 'md';
   });
@@ -162,6 +361,7 @@ export default function HomePage() {
         setWallpapers(items);
         setCursor(undefined);
         setHasMore(false);
+        setLoadError(false);
         return;
       }
       const params: Parameters<typeof getWallpapers>[0] = {
@@ -187,8 +387,13 @@ export default function HomePage() {
       });
       setCursor(next_cursor);
       setHasMore(has_more);
+      setLoadError(false);
     } catch {
-      toast.error('Failed to load wallpapers');
+      // Reset-time failures still surface a toast (they're catastrophic — no
+      // content at all on the page). Pagination failures are handled by the
+      // FeedFooter retry CTA instead of a transient toast.
+      if (reset) toast.error('Failed to load wallpapers');
+      setLoadError(true);
     } finally {
       if (reset) setLoading(false);
       else setLoadingMore(false);
@@ -205,7 +410,7 @@ export default function HomePage() {
 
   // Ref callback: attaches/recreates the IntersectionObserver whenever the sentinel mounts.
   // Bug fix: the previous useEffect-based attach ran when the sentinel was still null
-  // (initial load shows <SkeletonGrid/>, sentinel hadn't mounted yet) and never re-ran when
+  // (initial load shows <SkeletonSalon/>, sentinel hadn't mounted yet) and never re-ran when
   // loading flipped to false, so autoload was permanently broken on first paint.
   const attachSentinel = useCallback((el: HTMLDivElement | null) => {
     if (observerRef.current) {
@@ -256,186 +461,74 @@ export default function HomePage() {
     return () => cancelAnimationFrame(id);
   }, [wallpapers.length, loading, loadingMore, hasMore]);
 
-  const SIZE_KEYS: SizeMode[] = ['sm', 'md', 'lg'];
+  const footerState: FooterState =
+    loadError ? 'retry'
+    : loadingMore && hasMore ? 'loading'
+    : !hasMore && wallpapers.length > 0 ? 'end'
+    : 'idle';
 
   return (
-    <div className="px-6 py-4">
+    <div className="bg-paper-2 min-h-full">
       <PageMeta
         title="Discover"
         description="Browse and download community-uploaded HD and 4K wallpapers — phone, desktop, and macOS dynamic wallpapers, sorted by latest and popular."
       />
-      {/* Control bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        {/* Left: filters */}
-        <div className="flex items-center gap-2">
-          {isAuthenticated && (
-            <div className="flex items-center bg-ws-bg dark:bg-ws-dark-card border border-ws-border dark:border-white/10 rounded-full p-0.5 mr-1">
-              <button
-                onClick={() => setFeed('latest')}
-                className={`px-4 py-2 text-sm font-semibold rounded-full transition-colors ${
-                  feed === 'latest' ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-ws-dark-muted'
-                }`}
-              >
-                Latest
-              </button>
-              <button
-                onClick={() => setFeed('for_you')}
-                className={`px-4 py-2 text-sm font-semibold rounded-full transition-colors ${
-                  feed === 'for_you' ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-ws-dark-muted'
-                }`}
-              >
-                For You
-              </button>
-            </div>
-          )}
-          <button
-            onClick={toggleDeviceFilter}
-            title={deviceFilter ? `${screen.width}×${screen.height}` : 'Filter for your device'}
-            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-full border transition-colors ${
-              deviceFilter
-                ? 'bg-ws-purple text-white border-ws-purple shadow-sm'
-                : 'text-slate-600 dark:text-ws-dark-muted border-ws-border dark:border-white/10 dark:bg-ws-dark-card hover:bg-ws-bg dark:hover:bg-white/5'
-            }`}
+
+      <DiscoverControls
+        isAuthenticated={isAuthenticated}
+        feed={feed}
+        setFeed={setFeed}
+        deviceFilter={deviceFilter}
+        toggleDeviceFilter={toggleDeviceFilter}
+        macFilter={macFilter}
+        toggleMacFilter={toggleMacFilter}
+        screen={screen}
+        viewMode={viewMode}
+        onView={handleViewChange}
+        sizeMode={sizeMode}
+        onSize={handleSizeChange}
+        sortTrending={sortTrending}
+        setSortTrending={setSortTrending}
+        sortOpen={sortOpen}
+        setSortOpen={setSortOpen}
+        sortRef={sortRef}
+      />
+
+      <main className="p-6">
+        {isAuthenticated && user && user.coins <= 0 && (
+          <Link
+            to="/upload"
+            className="flex items-center gap-3 mb-6 px-5 py-3 rounded-xl bg-accent-soft border border-hair hover:border-accent transition-colors group"
           >
-            <MdDevices size={16} />
-            <span className="hidden sm:inline">{deviceFilter ? `${screen.width}×${screen.height}` : 'My Device'}</span>
-          </button>
+            <span className="text-lg">✨</span>
+            <span className="text-sm text-accent-ink">
+              You're out of coins. Share your wallpapers with the community to earn more and keep downloading.
+            </span>
+            <span className="ml-auto mono text-[10px] tracking-[0.12em] uppercase font-semibold text-accent group-hover:text-accent-ink whitespace-nowrap">
+              Upload now &rarr;
+            </span>
+          </Link>
+        )}
 
-          <button
-            onClick={toggleMacFilter}
-            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-full border transition-colors ${
-              macFilter
-                ? 'bg-ws-purple text-white border-ws-purple shadow-sm'
-                : 'text-slate-600 dark:text-ws-dark-muted border-ws-border dark:border-white/10 dark:bg-ws-dark-card hover:bg-ws-bg dark:hover:bg-white/5'
-            }`}
-          >
-            <AppleIcon size={14} />
-            <span className="hidden sm:inline">macOS</span>
-          </button>
-        </div>
-
-        {/* Right: view + size + sort.
-            flex-wrap + min-w-0 so the three sub-controls re-flow on narrow
-            viewports — without these, on a ~390px phone the combined
-            ~384px content overflows the px-6 page wrapper (~342px content
-            area) and pushes the body wider than the viewport. */}
-        <div className="flex flex-wrap items-center gap-4 min-w-0">
-          {/* View toggle */}
-          <div className="flex items-center p-1 bg-ws-bg dark:bg-ws-dark-card rounded-lg border border-ws-border dark:border-white/10">
-            <button
-              onClick={() => handleViewChange('justified')}
-              className={`p-2 rounded-md transition-colors ${
-                viewMode === 'justified'
-                  ? 'bg-ws-purple text-white shadow-sm'
-                  : 'text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple'
-              }`}
-              title="Grid"
-            >
-              <AiOutlineAppstore size={16} />
-            </button>
-            <button
-              onClick={() => handleViewChange('grid')}
-              className={`p-2 rounded-md transition-colors ${
-                viewMode === 'grid'
-                  ? 'bg-ws-purple text-white shadow-sm'
-                  : 'text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple'
-              }`}
-              title="List"
-            >
-              <AiOutlineBars size={16} />
-            </button>
-          </div>
-
-          {/* Size toggle */}
-          <div className="flex items-center h-10 bg-ws-bg dark:bg-ws-dark-card rounded-lg overflow-hidden border border-ws-border dark:border-white/10">
-            {SIZE_KEYS.map((k) => (
-              <button
-                key={k}
-                onClick={() => handleSizeChange(k)}
-                className={`px-4 h-full text-sm font-bold transition-colors ${
-                  sizeMode === k
-                    ? 'bg-ws-purple text-white'
-                    : 'text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple dark:hover:text-white'
-                }`}
-              >
-                {k.toUpperCase()}
-              </button>
-            ))}
-          </div>
-
-          {/* Sort dropdown */}
-          <div className="relative" ref={sortRef}>
-            <button
-              onClick={() => setSortOpen((p) => !p)}
-              className="flex items-center gap-5 px-4 py-2.5 bg-ws-bg dark:bg-ws-dark-card border border-ws-border dark:border-white/10 text-sm font-medium text-slate-700 dark:text-ws-dark-muted rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
-            >
-              {sortTrending ? 'Trending' : 'Latest'}
-              <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} /></svg>
-            </button>
-            {sortOpen && (
-              <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-ws-dark-card border border-ws-border dark:border-white/10 rounded-lg shadow-lg z-10 py-1">
-                <button
-                  onClick={() => { if (sortTrending) setSortTrending(false); setSortOpen(false); }}
-                  className={`w-full text-left px-4 py-2 text-sm transition-colors ${!sortTrending ? 'text-ws-purple font-semibold bg-ws-purple-light dark:bg-ws-dark-active' : 'text-slate-700 dark:text-ws-dark-muted hover:bg-ws-bg dark:hover:bg-white/5'}`}
-                >
-                  Latest
-                </button>
-                <button
-                  onClick={() => { if (!sortTrending) setSortTrending(true); setSortOpen(false); }}
-                  className={`w-full text-left px-4 py-2 text-sm transition-colors ${sortTrending ? 'text-ws-purple font-semibold bg-ws-purple-light dark:bg-ws-dark-active' : 'text-slate-700 dark:text-ws-dark-muted hover:bg-ws-bg dark:hover:bg-white/5'}`}
-                >
-                  Trending
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {isAuthenticated && user && user.coins <= 0 && (
-        <Link
-          to="/upload"
-          className="flex items-center gap-3 mb-5 px-5 py-3 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/10 dark:to-yellow-900/5 border border-amber-200/50 dark:border-amber-700/20 hover:border-amber-300 dark:hover:border-amber-600/30 transition-colors group"
-        >
-          <span className="text-lg">✨</span>
-          <span className="text-sm text-amber-800 dark:text-amber-300">
-            You're out of coins! Share your wallpapers with the community to earn coins and keep downloading.
-          </span>
-          <span className="ml-auto text-xs font-semibold text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300 whitespace-nowrap">
-            Upload now &rarr;
-          </span>
-        </Link>
-      )}
-
-      {/* Gallery */}
-      {loading ? (
-        <SkeletonGrid />
-      ) : (
-        <>
-          <WallpaperGrid wallpapers={wallpapers} viewMode={viewMode} sizeMode={sizeMode} staggerFrom={staggerFrom} />
-          <div ref={attachSentinel} className="flex justify-center py-10">
-            {hasMore && (
-              <button
-                onClick={() => fetchWallpapers(false)}
-                disabled={loadingMore}
-                className="px-6 py-2 text-sm font-medium rounded-full border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:bg-slate-50 dark:hover:bg-white/5 transition-colors disabled:opacity-50"
-              >
-                {loadingMore ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-3.5 h-3.5 border-2 border-slate-200 dark:border-white/10 border-t-ws-purple rounded-full animate-spin" />
-                    Loading...
-                  </span>
-                ) : (
-                  'Load more'
-                )}
-              </button>
-            )}
-            {!hasMore && wallpapers.length > 0 && (
-              <span className="text-xs text-ws-muted/60 dark:text-ws-dark-muted/40">You've reached the end</span>
-            )}
-          </div>
-        </>
-      )}
+        {loading ? (
+          <SkeletonSalon />
+        ) : (
+          <>
+            <WallpaperGrid
+              wallpapers={wallpapers}
+              viewMode={viewMode}
+              sizeMode={sizeMode}
+              staggerFrom={staggerFrom}
+            />
+            <div ref={attachSentinel} />
+            <FeedFooter
+              state={footerState}
+              count={wallpapers.length}
+              onRetry={() => fetchWallpapers(false)}
+            />
+          </>
+        )}
+      </main>
     </div>
   );
 }

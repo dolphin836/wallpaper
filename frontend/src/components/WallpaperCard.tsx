@@ -28,9 +28,13 @@ interface Props {
   style?: CSSProperties;
   animDelay?: number;
   disableModal?: boolean;
+  /** Visual variant. 'salon' = editorial Discover tile (minimal chips +
+   *  hover action rail); undefined = legacy purple card used everywhere
+   *  else. Keep both around until other pages are migrated. */
+  layout?: 'salon';
 }
 
-export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0, disableModal = false }: Props) {
+export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0, disableModal = false, layout }: Props) {
   // Two-stage progressive load: thumb (~30 KB, displayed immediately with a
   // small blur) → preview_url (~250 KB watermarked 1600px, fades in once
   // loaded). Loading the 1600px preview on the home feed means the browser
@@ -164,8 +168,9 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
 
   const isPublished = wallpaper.status === STATUS_PUBLISHED;
   const Wrapper = isPublished ? Link : 'div';
-  // disableModal omits `background` so the route resolves to the full page instead of the overlay modal.
-  // initialWallpaper is still passed so the full-page detail view hydrates instantly from this card's data.
+  // disableModal omits `background` so the route resolves to the full page
+  // instead of the overlay modal. initialWallpaper still hydrates the
+  // detail view from this card's data even on a full-page nav.
   const wrapperProps = isPublished
     ? {
         to: `/wallpaper/${wallpaper.slug}`,
@@ -174,6 +179,119 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           : { background: location, initialWallpaper: wallpaper },
       }
     : { style: { cursor: 'default' } };
+
+  // ── Salon variant (editorial Discover tile) ─────────────────────────
+  // Minimal chrome: top-left resolution + Mac chip only, hover reveals a
+  // 3-button rail at bottom-right with persisted selected states for
+  // liked/favorited/downloaded. Shares all action handlers + progressive
+  // image loading with the legacy card below. Falls back gracefully for
+  // unpublished items (skips the action rail).
+  if (layout === 'salon') {
+    return (
+      <Wrapper
+        {...(wrapperProps as any)}
+        className={`tile-cell relative w-full h-full overflow-hidden border border-hair animate-fade-in ${isPublished ? '' : 'cursor-default'}`}
+        style={{
+          ...style,
+          animationDelay: `${animDelay}ms`,
+          backgroundColor: wallpaper.dominant_color || 'var(--color-paper-3)',
+        }}
+      >
+        {hasImage ? (
+          <>
+            {lowResSrc && (
+              <img
+                src={lowResSrc}
+                alt=""
+                aria-hidden
+                onContextMenu={(e) => e.preventDefault()}
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-cover select-none"
+                style={{
+                  filter: highLoaded ? 'none' : 'blur(12px)',
+                  transform: highLoaded ? 'none' : 'scale(1.06)',
+                  transition: 'filter 300ms ease, transform 300ms ease',
+                  WebkitUserDrag: 'none',
+                } as React.CSSProperties}
+              />
+            )}
+            <img
+              src={highResSrc}
+              alt=""
+              loading="lazy"
+              onLoad={() => setHighLoaded(true)}
+              onContextMenu={(e) => e.preventDefault()}
+              draggable={false}
+              className={`tile-img absolute inset-0 w-full h-full object-cover select-none ${highLoaded ? 'opacity-100' : 'opacity-0'}`}
+              style={{ WebkitUserDrag: 'none', transition: highLoaded ? undefined : 'opacity 300ms ease' } as React.CSSProperties}
+            />
+            <div
+              className="tile-gradient absolute inset-0 opacity-0 pointer-events-none"
+              style={{
+                background: 'linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.28) 100%)',
+              }}
+            />
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            {isProcessing ? (
+              <AiOutlineLoading3Quarters size={28} className="text-white/70 animate-spin" />
+            ) : (
+              <AiOutlineWarning size={28} className="text-white/70" />
+            )}
+          </div>
+        )}
+
+        {/* Top-left chips: resolution + Mac only. */}
+        <div className="absolute top-3 left-3 z-[2] flex gap-1.5 flex-wrap max-w-[calc(100%-24px)]">
+          {resLabel && (
+            <span className="mono text-[10px] tracking-wider font-medium px-2 py-[3px] rounded-[3px] bg-black/55 text-white backdrop-blur-md">
+              {resLabel}
+            </span>
+          )}
+          {wallpaper.is_dynamic && (
+            <span className="mono text-[10px] tracking-wider font-medium px-2 py-[3px] rounded-[3px] bg-black/55 text-white backdrop-blur-md inline-flex items-center gap-1">
+              <svg width="10" height="10" viewBox="0 0 384 512" fill="currentColor"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+              Mac
+            </span>
+          )}
+        </div>
+
+        {/* Hover action rail. Order: favorite → like → download.
+            CSS handles fade-in via .tile-cell:hover .tile-actions. */}
+        {isPublished && (
+          <div className="tile-actions">
+            <button
+              onClick={(e) => handleAction(e, () => requireAuth(handleFavorite))}
+              disabled={favLoading}
+              className={`t-act ${favorited ? 'is-favorited' : ''}`}
+              title={favorited ? 'Unfavorite' : 'Favorite'}
+            >
+              {favLoading ? <AiOutlineLoading3Quarters size={15} className="animate-spin" /> : favorited ? <AiFillStar size={15} /> : <AiOutlineStar size={15} />}
+            </button>
+            <button
+              onClick={(e) => handleAction(e, () => requireAuth(handleLike))}
+              disabled={likeLoading}
+              className={`t-act ${liked ? 'is-liked' : ''}`}
+              title={liked ? 'Unlike' : 'Like'}
+            >
+              {likeLoading ? <AiOutlineLoading3Quarters size={15} className="animate-spin" /> : liked ? <AiFillHeart size={15} /> : <AiOutlineHeart size={15} />}
+            </button>
+            {canDownload && (
+              <button
+                onClick={(e) => handleAction(e, () => requireAuth(handleDownload))}
+                disabled={downloading}
+                className={`t-act ${downloaded ? 'is-downloaded' : ''}`}
+                title={downloaded ? 'Downloaded' : 'Download (1 coin)'}
+              >
+                {downloading ? <AiOutlineLoading3Quarters size={15} className="animate-spin" /> : downloaded ? <AiOutlineCheckCircle size={15} /> : <AiOutlineDownload size={15} />}
+              </button>
+            )}
+          </div>
+        )}
+      </Wrapper>
+    );
+  }
 
   return (
     <Wrapper
