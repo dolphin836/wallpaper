@@ -12,16 +12,44 @@ export default function WallpaperDetailModal() {
       if (e.key === 'Escape') close();
     };
     document.addEventListener('keydown', handleKey);
-    document.body.style.overflow = 'hidden';
+
+    // Lock body scroll while the modal is open. Just setting overflow: hidden
+    // removes the page's scrollbar — and since the viewport width measurement
+    // (window.innerWidth) jumps by the scrollbar's width, every component
+    // that watches `resize` (e.g. ProfilePage's useViewportPageSize) sees a
+    // bogus event, recomputes page size, and triggers a cascading re-render
+    // that visually flickers the controls underneath. We compensate by
+    // padding the body with the same width so the viewport metric stays
+    // stable across the lock/unlock cycle.
+    const body = document.body;
+    const prevOverflow = body.style.overflow;
+    const prevPadding = body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      body.style.paddingRight = `${scrollbarWidth}px`;
+    }
     return () => {
       document.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = '';
+      body.style.overflow = prevOverflow;
+      body.style.paddingRight = prevPadding;
     };
   }, [close]);
 
+  // Wrap close in a propagation stopper for the close button so the click
+  // doesn't *also* bubble up to the overlay's onClick — without this you'd
+  // get two navigate(-1) calls per click and pop two history entries,
+  // landing the user wherever they were *before* opening the previous page
+  // (typical symptom: closing kicks you out of /wallpaper/:slug all the way
+  // back to your profile page when you opened it from the home grid).
+  const onCloseClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    close();
+  };
+
   return (
-    // Outer overlay closes on any click that bubbles up to it. The white card below
-    // stops propagation so clicking inside (or on its buttons) keeps the modal open.
+    // Outer overlay closes on any click that bubbles up to it. The card and the
+    // close button below stopPropagation so clicking either doesn't double-fire.
     <div
       onClick={close}
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto"
@@ -37,7 +65,7 @@ export default function WallpaperDetailModal() {
       {/* Close button lives outside the card and is pinned to the viewport corner
           so it stays visible while the modal content scrolls. */}
       <button
-        onClick={close}
+        onClick={onCloseClick}
         className="fixed top-4 right-4 z-[60] p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors"
         aria-label="Close"
       >
