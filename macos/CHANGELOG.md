@@ -10,6 +10,16 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-05-16
+
+### Fixed
+
+- App now ships as a **universal binary** (arm64 + x86_64). Previous
+  builds were arm64-only and silently failed to launch on Intel Macs.
+- Bundle now carries an **app icon** in Finder / Launchpad / the DMG
+  window. Prior releases fell back to the generic macOS app icon
+  because no `AppIcon.icns` was included.
+
 ## [1.1.0] - 2026-05-14
 
 ### Added

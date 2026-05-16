@@ -1,8 +1,16 @@
 {
-  "current_version": "1.1.0",
-  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.1.0.dmg",
+  "current_version": "1.1.1",
+  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.1.1.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "1.1.1",
+      "released_at": "2026-05-16",
+      "notes": [
+        "Now ships as a universal binary — runs on both Apple Silicon and Intel Macs. Previous builds were arm64-only and silently failed to launch on Intel.",
+        "Bundle now carries a proper app icon in Finder, Launchpad and the DMG window."
+      ]
+    },
     {
       "version": "1.1.0",
       "released_at": "2026-05-14",

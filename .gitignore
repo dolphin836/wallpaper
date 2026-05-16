@@ -34,5 +34,7 @@ backend/sluggen
 macos/*.app/
 macos/*.dmg
 macos/*.zip
+# Intermediate iconset folder is throwaway, but AppIcon.icns is tracked —
+# it's the source-of-truth icon bundled into the .app. If it's not in the
+# repo, build-app.sh silently produces an icon-less .app.
 macos/AppIcon.iconset/
-macos/AppIcon.icns

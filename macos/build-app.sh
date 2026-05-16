@@ -31,7 +31,6 @@ cd "$SCRIPT_DIR/WallpaperExchange"
 readonly APP_NAME="Wallpaper Exchange"
 readonly EXECUTABLE="WallpaperExchange"
 readonly APP_DIR="../${APP_NAME}.app"
-readonly BUILD_DIR=".build/release"
 readonly INFO_PLIST="Info.plist"
 
 SIGN_IDENTITY="-"   # default: ad-hoc sign (any Mac can launch, but Gatekeeper warns)
@@ -60,20 +59,32 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-echo "==> Building release binary..."
-swift build -c release
+echo "==> Building release binary (universal: arm64 + x86_64)..."
+# Build each architecture separately and lipo them together. Intel Macs
+# can't run a thin-arm64 binary — they will silently fail to launch
+# (no Dock icon, no menu-bar icon) instead of showing an error, which
+# is indistinguishable from "double-click does nothing".
+swift build -c release --arch arm64
+swift build -c release --arch x86_64
+
+readonly ARM_BUILD_DIR=".build/arm64-apple-macosx/release"
+readonly X86_BUILD_DIR=".build/x86_64-apple-macosx/release"
 
 echo "==> Assembling ${APP_DIR}..."
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
 
-cp "$BUILD_DIR/$EXECUTABLE" "$APP_DIR/Contents/MacOS/$EXECUTABLE"
+lipo -create \
+    "$ARM_BUILD_DIR/$EXECUTABLE" \
+    "$X86_BUILD_DIR/$EXECUTABLE" \
+    -output "$APP_DIR/Contents/MacOS/$EXECUTABLE"
 cp "$INFO_PLIST" "$APP_DIR/Contents/Info.plist"
 
 readonly RESOURCE_BUNDLE="${EXECUTABLE}_${EXECUTABLE}.bundle"
-if [ -d "$BUILD_DIR/$RESOURCE_BUNDLE" ]; then
-    cp -R "$BUILD_DIR/$RESOURCE_BUNDLE" "$APP_DIR/Contents/Resources/$RESOURCE_BUNDLE"
+# Either arch's resource bundle is fine — they're identical PNGs/assets.
+if [ -d "$ARM_BUILD_DIR/$RESOURCE_BUNDLE" ]; then
+    cp -R "$ARM_BUILD_DIR/$RESOURCE_BUNDLE" "$APP_DIR/Contents/Resources/$RESOURCE_BUNDLE"
 fi
 
 if [ -f "../AppIcon.icns" ]; then
