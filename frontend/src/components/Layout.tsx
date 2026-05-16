@@ -100,9 +100,11 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
         })}
       </nav>
 
-      {/* Balance card — only when signed in */}
-      {isAuthenticated && (
-        <Link to="/profile" onClick={onCloseDrawer} className="mx-6 mt-5 px-3.5 py-3 border border-hair bg-paper-2 no-underline block">
+      {/* Balance card — only when signed in. Routes to /user/:username (the
+          owner's own profile, which is where the coin balance lives) rather
+          than a non-existent /profile alias. */}
+      {isAuthenticated && user && (
+        <Link to={`/user/${user.username}`} onClick={onCloseDrawer} className="mx-6 mt-5 px-3.5 py-3 border border-hair bg-paper-2 no-underline block">
           <div className="kicker text-muted">Your balance</div>
           <div className="mt-1.5 flex items-baseline gap-1.5">
             <span className="mono font-semibold text-[22px] text-accent inline-flex items-center gap-1.5">
