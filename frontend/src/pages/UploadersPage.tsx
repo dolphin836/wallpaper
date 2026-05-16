@@ -1,28 +1,50 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { AiOutlineLeft, AiOutlineRight } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { UserListItem } from '../types';
 import { getUsers } from '../api';
-import Spinner from '../components/Spinner';
 import PageMeta from '../components/PageMeta';
+import Pagination from '../components/Pagination';
+import Spinner from '../components/Spinner';
 import Avatar from '../components/Avatar';
 
+type Sort = 'recent' | 'uploads' | 'coins';
+const PAGE_SIZE = 12;
+
+const SORT_TO_LABEL: Record<Sort, string> = {
+  recent: 'Recently joined',
+  uploads: 'Most uploaded',
+  coins: 'Top this month',
+};
+
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(n >= 10_000 ? 0 : 1) + 'K';
+  return n.toLocaleString();
+}
+
+function formatJoined(iso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+
 export default function UploadersPage() {
-  const [users, setUsers] = useState<UserListItem[]>([]);
+  const [items, setItems] = useState<UserListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const limit = 24;
+  // The "Top this month" / "Most uploaded" / "Recently joined" chips map to
+  // the existing sort options. "Following" is in the design but the product
+  // has no follow feature yet, so we skip that chip.
+  const [sort, setSort] = useState<Sort>('uploads');
 
-  const fetchUsers = useCallback(async (p: number) => {
+  const fetchUsers = useCallback(async (p: number, s: Sort) => {
     setLoading(true);
     try {
-      // Hard-coded to `uploads` — we removed the sort toggle. Follow feature
-      // doesn't exist yet, so popularity by upload count is the only signal
-      // we have to rank contributors.
-      const res = await getUsers({ page: p, limit, sort: 'uploads' });
-      setUsers(res.data.data.items ?? []);
+      const apiSort = s === 'recent' ? '' : s;
+      const res = await getUsers({ page: p, limit: PAGE_SIZE, sort: apiSort });
+      setItems(res.data.data.items ?? []);
       setTotal(res.data.data.total);
     } catch {
       toast.error('Failed to load uploaders');
@@ -31,143 +53,125 @@ export default function UploadersPage() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchUsers(page);
-  }, [page, fetchUsers]);
+  useEffect(() => { fetchUsers(page, sort); }, [page, sort, fetchUsers]);
 
-  const totalPages = Math.ceil(total / limit);
-
-  // Offset of the first row on the current page, so rank numbers continue
-  // across paginated pages (page 2 starts at 25, not 1).
-  const rankOffset = (page - 1) * limit;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="px-6 py-8 max-w-[1200px] mx-auto w-full">
+    <div className="bg-paper text-ink min-h-full">
       <PageMeta
         title="Uploaders"
-        description="Discover top contributors on Wallpaper Exchange — the creative minds behind the most popular wallpapers."
+        description="The people behind Wallpaper Exchange — top contributors and recent arrivals."
       />
 
-      {/* Page header */}
-      <div className="flex flex-col gap-1.5 mb-8">
-        <h1 className="text-[28px] sm:text-[32px] font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
-          Top Uploaders
-        </h1>
-        <p className="text-sm sm:text-base text-ws-muted dark:text-ws-dark-muted">
-          Discover the creative minds behind the most popular wallpapers.
-        </p>
-      </div>
-
-      {loading && users.length === 0 ? (
-        <Spinner />
-      ) : users.length === 0 ? (
-        <div className="text-center py-20 text-ws-muted dark:text-ws-dark-muted">No uploaders yet.</div>
-      ) : (
-        <>
-          <div className="flex flex-col bg-white dark:bg-ws-dark-card rounded-xl border border-ws-border dark:border-white/5 overflow-hidden">
-            {users.map((u, i) => (
-              <UploaderRow key={u.id} user={u} rank={rankOffset + i + 1} isLast={i === users.length - 1} />
-            ))}
+      <div className="px-6 sm:px-10 pt-7">
+        {/* Header */}
+        <div className="flex items-end justify-between gap-6 flex-wrap mb-6">
+          <div>
+            <div className="kicker text-muted">Contributors · {total}</div>
+            <h1 className="display text-[40px] sm:text-[56px] leading-[0.96] mt-2 tracking-[-0.02em] text-ink">
+              The people behind <span className="italic-d">the wall.</span>
+            </h1>
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-8">
+          <div className="flex items-center gap-2 flex-wrap">
+            {(['coins', 'uploads', 'recent'] as Sort[]).map((key) => (
               <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="p-2 rounded-full border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                key={key}
+                onClick={() => { setSort(key); setPage(1); }}
+                className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-colors ${
+                  sort === key
+                    ? 'bg-ink text-paper border border-ink'
+                    : 'bg-paper text-ink-2 border border-hair hover:bg-paper-2 hover:border-ink-2'
+                }`}
               >
-                <AiOutlineLeft size={16} />
+                {SORT_TO_LABEL[key]}
               </button>
-              <span className="px-3 text-sm text-ws-muted dark:text-ws-dark-muted">
-                {page} / {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="p-2 rounded-full border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                <AiOutlineRight size={16} />
-              </button>
-            </div>
-          )}
-        </>
-      )}
+            ))}
+          </div>
+        </div>
+
+        {/* List */}
+        {loading && items.length === 0 ? (
+          <div className="py-16 flex justify-center"><Spinner /></div>
+        ) : items.length === 0 ? (
+          <div className="text-center py-20 text-muted text-sm">No uploaders yet.</div>
+        ) : (
+          <div>
+            {items.map((u) => <UploaderRow key={u.id} u={u} />)}
+          </div>
+        )}
+
+        <Pagination current={page} total={totalPages} onChange={setPage} />
+      </div>
     </div>
   );
 }
 
-function UploaderRow({ user: u, rank, isLast }: { user: UserListItem; rank: number; isLast: boolean }) {
+function UploaderRow({ u }: { u: UserListItem }) {
   const display = u.nickname || u.username;
-  const thumbs = (u.recent_thumbs || []).slice(0, 3);
+  // Real backend fields: wallpaper_count for "uploads". downloads/likes
+  // aren't aggregated per-user in our schema yet (only per-wallpaper), so
+  // the second + third stats slots show "—" when missing. The design's
+  // demo always populates both, but our truth surface stays honest.
+  const downloadsTotal: number | null = null;
+  const likesTotal: number | null = null;
+  const works = u.recent_thumbs ?? [];
 
   return (
-    <div
-      className={`flex items-center justify-between p-4 md:px-6 md:py-4 min-h-[88px] hover:bg-ws-bg dark:hover:bg-white/[0.02] transition-colors ${
-        isLast ? '' : 'border-b border-ws-border dark:border-white/5'
-      }`}
+    <Link
+      to={`/user/${u.username}`}
+      className="grid grid-cols-[68px_1fr] md:grid-cols-[68px_1fr_auto] lg:grid-cols-[68px_1fr_auto_280px] xl:grid-cols-[68px_1fr_auto_360px] gap-4 md:gap-5 lg:gap-6 items-center py-5 border-b border-hair no-underline text-ink hover:bg-paper-2 transition-colors"
     >
-      {/* Left: rank + avatar + name + uploads */}
-      <div className="flex items-center gap-4 md:gap-6 min-w-0 flex-1">
-        <span className="text-[#a0a0ab] dark:text-ws-dark-muted text-sm font-semibold w-6 text-center tabular-nums shrink-0">
-          {String(rank).padStart(2, '0')}
-        </span>
-        <Avatar
-          src={u.avatar_url}
-          name={display}
-          size={48}
-          alt={display}
-          className="ring-1 ring-ws-border dark:ring-white/5 shadow-sm shrink-0"
-        />
-        <div className="flex flex-col min-w-0">
-          <Link
-            to={`/user/${u.username}`}
-            className="text-slate-900 dark:text-white text-base font-bold leading-tight truncate hover:text-ws-purple transition-colors"
-          >
-            {display}
-          </Link>
-          <p className="text-ws-muted dark:text-ws-dark-muted text-xs font-medium mt-0.5">
-            {u.wallpaper_count} {u.wallpaper_count === 1 ? 'upload' : 'uploads'}
-          </p>
-        </div>
-      </div>
+      <Avatar
+        src={u.avatar_url}
+        name={display}
+        size={68}
+        className="border border-hair flex-shrink-0"
+      />
 
-      {/* Middle: 3-thumb preview strip — only on wide screens, hidden on
-          tablet/phone to keep the row compact. */}
-      <div className="hidden lg:flex items-center gap-2 mx-6 shrink-0">
-        {thumbs.length > 0 ? (
-          thumbs.map((src, i) => (
-            <Link
-              key={i}
-              to={`/user/${u.username}`}
-              className="block h-12 w-20 rounded overflow-hidden bg-ws-bg dark:bg-ws-dark-bg"
-              title="View profile"
-            >
-              <img
-                src={src}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                className="w-full h-full object-cover"
-              />
-            </Link>
-          ))
-        ) : (
-          // Empty slots to keep the row height consistent across users
-          // that haven't uploaded yet, so the right-side button never
-          // visually jumps left.
-          <div className="h-12 w-[256px]" />
+      <div className="min-w-0">
+        <div className="display text-[22px] sm:text-[24px] leading-tight">{display}</div>
+        <div className="mono text-[11px] tracking-[0.04em] text-muted mt-1">
+          @{u.username} <span className="mx-1.5">·</span> joined {formatJoined(u.created_at)}
+        </div>
+        {u.bio && (
+          <p className="text-[13px] text-ink-2 leading-snug mt-2 max-w-[460px] line-clamp-2">
+            {u.bio}
+          </p>
         )}
       </div>
 
-      {/* Right: view-profile button (replaces the follow CTA from the design
-          — follow isn't implemented yet, profile link is the closest action). */}
-      <Link
-        to={`/user/${u.username}`}
-        className="px-4 py-1.5 rounded-full border border-ws-purple text-ws-purple text-sm font-semibold hover:bg-ws-purple hover:text-white transition-colors w-[110px] text-center shrink-0"
-      >
-        View profile
-      </Link>
-    </div>
+      <div className="hidden md:grid grid-cols-3 gap-5 text-right mono">
+        {[
+          ['UPLOADS', formatNumber(u.wallpaper_count)],
+          ['DOWNLOADS', downloadsTotal !== null ? formatNumber(downloadsTotal) : '—'],
+          ['LIKES', likesTotal !== null ? formatNumber(likesTotal) : '—'],
+        ].map(([k, v]) => (
+          <div key={k}>
+            <div className="text-[9px] tracking-[0.14em] text-muted">{k}</div>
+            <div className="display text-[22px] leading-none mt-1">{v}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden lg:grid grid-cols-4 gap-1.5">
+        {works.length === 0
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="aspect-square bg-paper-2 border border-hair" />
+            ))
+          : works.slice(0, 4).map((thumb, i) => (
+              <div key={i} className="aspect-square border border-hair overflow-hidden bg-paper-3">
+                <img src={thumb} alt="" loading="lazy" className="w-full h-full object-cover" />
+              </div>
+            ))}
+        {/* Pad the rest if we have fewer than 4 thumbs (backend returns up
+            to 3 by default). Keep slot count visually consistent. */}
+        {works.length > 0 && works.length < 4 &&
+          Array.from({ length: 4 - works.length }).map((_, i) => (
+            <div key={`pad-${i}`} className="aspect-square bg-paper-2 border border-hair" />
+          ))}
+      </div>
+    </Link>
   );
 }

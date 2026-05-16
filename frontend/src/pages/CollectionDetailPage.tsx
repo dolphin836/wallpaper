@@ -1,14 +1,48 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
-import { AiFillHeart, AiOutlineHeart, AiOutlineDelete, AiOutlineEdit, AiOutlineClose, AiOutlineCheck } from 'react-icons/ai';
+import {
+  AiFillHeart,
+  AiOutlineHeart,
+  AiOutlineDelete,
+  AiOutlineEdit,
+  AiOutlineClose,
+  AiOutlineCheck,
+  AiOutlineArrowLeft,
+} from 'react-icons/ai';
 import toast from 'react-hot-toast';
-import type { CollectionDetail as CollectionDetailType, Wallpaper } from '../types';
-import { getCollection, getCollectionWallpapers, likeCollection, unlikeCollection, deleteCollection, updateCollection } from '../api';
+import type { CollectionDetail as CollectionDetailType, Wallpaper, User } from '../types';
+import {
+  getCollection,
+  getCollectionWallpapers,
+  likeCollection,
+  unlikeCollection,
+  deleteCollection,
+  updateCollection,
+  getUserProfile,
+} from '../api';
 import { useAuthStore } from '../store/auth';
-import WallpaperGrid from '../components/WallpaperGrid';
+import WallpaperCard from '../components/WallpaperCard';
+import Pagination from '../components/Pagination';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
+
+const PAGE_SIZE = 12;
+
+function relativeTime(iso: string): string {
+  const dt = new Date(iso).getTime();
+  if (!dt) return '';
+  const diff = (Date.now() - dt) / 1000;
+  if (diff < 60) return 'JUST NOW';
+  if (diff < 3600) return `${Math.floor(diff / 60)} MIN AGO`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} HR AGO`;
+  const days = Math.floor(diff / 86400);
+  if (days < 30) return `${days} ${days === 1 ? 'DAY' : 'DAYS'} AGO`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} ${months === 1 ? 'MONTH' : 'MONTHS'} AGO`;
+  const years = Math.floor(months / 12);
+  return `${years} ${years === 1 ? 'YEAR' : 'YEARS'} AGO`;
+}
 
 export default function CollectionDetailPage() {
   const { slug: id } = useParams<{ slug: string }>();
@@ -16,11 +50,14 @@ export default function CollectionDetailPage() {
   const { user } = useAuthStore();
 
   const [collection, setCollection] = useState<CollectionDetailType | null>(null);
-  const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
-  const [cursor, setCursor] = useState<number | undefined>();
-  const [hasMore, setHasMore] = useState(false);
+  const [curator, setCurator] = useState<User | null>(null);
+  const [pages, setPages] = useState<Record<number, Wallpaper[]>>({});
+  const [cursors, setCursors] = useState<Record<number, number | undefined>>({ 1: undefined });
+  const [hasMoreUpTo, setHasMoreUpTo] = useState<number | null>(null);
+  const [knownTotalPages, setKnownTotalPages] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(false);
   const [liking, setLiking] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
@@ -30,37 +67,54 @@ export default function CollectionDetailPage() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-
-    Promise.all([
-      getCollection(id!),
-      getCollectionWallpapers(id!, { limit: 20 }),
-    ])
-      .then(([colRes, wpRes]) => {
-        setCollection(colRes.data.data);
-        const { items, next_cursor, has_more } = wpRes.data.data;
-        setWallpapers(items);
-        setCursor(next_cursor);
-        setHasMore(has_more);
+    getCollection(id)
+      .then(async (res) => {
+        const c = res.data.data;
+        setCollection(c);
+        // Curator info isn't embedded in the collection response; fetch
+        // separately so the hero can show the @handle. Non-fatal if it
+        // fails — caption just falls back to "@user-{id}".
+        try {
+          const u = await getUserProfile(String(c.user_id));
+          setCurator(u.data.data);
+        } catch { /* curator info optional */ }
       })
       .catch(() => toast.error('Failed to load collection'))
       .finally(() => setLoading(false));
   }, [id]);
 
-  const loadMore = useCallback(async () => {
-    if (loadingMore || !id) return;
-    setLoadingMore(true);
+  // Reset page cache whenever the collection itself changes (different slug).
+  useEffect(() => {
+    setPages({});
+    setCursors({ 1: undefined });
+    setHasMoreUpTo(null);
+    setKnownTotalPages(null);
+    setCurrentPage(1);
+  }, [collection?.id]);
+
+  const fetchPage = useCallback(async (page: number) => {
+    if (!collection || pages[page]) return;
+    const cursor = cursors[page];
+    if (page > 1 && cursor === undefined) return;
+    setLoadingPage(true);
     try {
-      const res = await getCollectionWallpapers(id!, { cursor, limit: 20 });
+      const res = await getCollectionWallpapers(collection.slug, { cursor, limit: PAGE_SIZE });
       const { items, next_cursor, has_more } = res.data.data;
-      setWallpapers((prev) => [...prev, ...items]);
-      setCursor(next_cursor);
-      setHasMore(has_more);
+      setPages((prev) => ({ ...prev, [page]: items }));
+      if (has_more && next_cursor) {
+        setCursors((prev) => ({ ...prev, [page + 1]: next_cursor }));
+        setHasMoreUpTo(page);
+      } else {
+        setKnownTotalPages(page);
+      }
     } catch {
-      toast.error('Failed to load more');
+      toast.error('Failed to load wallpapers');
     } finally {
-      setLoadingMore(false);
+      setLoadingPage(false);
     }
-  }, [id, cursor, loadingMore]);
+  }, [collection, pages, cursors]);
+
+  useEffect(() => { fetchPage(currentPage); }, [currentPage, fetchPage]);
 
   const handleLike = async () => {
     if (!collection || liking) return;
@@ -114,135 +168,175 @@ export default function CollectionDetailPage() {
     }
   };
 
-  if (loading) {
-    return <Spinner />;
-  }
-
-  if (!collection) {
-    return <EmptyState message="Collection not found." />;
-  }
+  if (loading) return <Spinner />;
+  if (!collection) return <EmptyState message="Collection not found." />;
 
   const isOwner = user?.id === collection.user_id;
+  const visible = pages[currentPage] || [];
+  const total = knownTotalPages ?? (hasMoreUpTo ? hasMoreUpTo + 1 : 1);
+  const cover = visible[0]?.preview_url || visible[0]?.thumb_url || collection.cover_url;
+  const curatorInitial = (curator?.nickname || curator?.username || 'U').charAt(0).toUpperCase();
 
   return (
-    <div className="px-6 py-6">
+    <div className="bg-paper text-ink min-h-full">
       <PageMeta
-        title={collection ? collection.title : 'Collection'}
-        description={collection?.description || (collection ? `${collection.title} — a curated wallpaper collection on Wallpaper Exchange.` : undefined)}
-        image={wallpapers[0]?.preview_url}
-        type="article"
+        title={collection.title}
+        description={collection.description || `Collection of ${collection.wallpaper_count} wallpapers`}
+        image={cover}
       />
-      <div className="mb-8">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
+
+      {/* Back link */}
+      <div className="px-6 sm:px-10 pt-5">
+        <Link
+          to="/collections"
+          className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-hair text-ink text-[13px] no-underline hover:bg-paper-2 transition-colors"
+        >
+          <AiOutlineArrowLeft size={13} /> All collections
+        </Link>
+      </div>
+
+      {/* Hero spread */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 mt-5 border-b border-hair bg-paper">
+        <div className="relative aspect-[3/2] overflow-hidden bg-paper-3">
+          {cover ? (
+            <img src={cover} alt={collection.title} className="absolute inset-0 w-full h-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-muted text-sm">No cover yet</div>
+          )}
+          {/* Inset corner brackets — always visible on this editorial cover. */}
+          <span className="plate-brackets">
+            <span className="br-tl" style={{ top: 16, left: 16, borderColor: '#fff', opacity: 0.7 }} />
+            <span className="br-tr" style={{ top: 16, right: 16, borderColor: '#fff', opacity: 0.7 }} />
+            <span className="br-bl" style={{ bottom: 16, left: 16, borderColor: '#fff', opacity: 0.7 }} />
+            <span className="br-br" style={{ bottom: 16, right: 16, borderColor: '#fff', opacity: 0.7 }} />
+          </span>
+        </div>
+
+        <div className="px-6 sm:px-10 lg:px-12 py-8 lg:py-10 flex flex-col justify-between min-h-[280px] lg:min-h-[420px]">
+          <div>
+            <div className="kicker text-muted">
+              Collection №{String(collection.id).padStart(3, '0')} · {collection.wallpaper_count}{' '}
+              {collection.wallpaper_count === 1 ? 'wallpaper' : 'wallpapers'}
+              {!collection.is_public && ' · PRIVATE'}
+            </div>
+
             {editing ? (
-              <div className="space-y-3">
+              <div className="mt-3 space-y-3 max-w-[480px]">
                 <input
-                  type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full text-2xl font-bold bg-transparent border-b-2 border-indigo-500 text-gray-900 dark:text-white outline-none pb-1"
-                  autoFocus
+                  maxLength={100}
+                  className="w-full px-4 py-3 display text-[28px] leading-tight border border-hair bg-paper text-ink focus:outline-none focus:border-ink"
                 />
                 <textarea
                   value={editDesc}
                   onChange={(e) => setEditDesc(e.target.value)}
-                  rows={2}
-                  placeholder="Description (optional)"
-                  className="w-full text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                  rows={3}
+                  maxLength={500}
+                  placeholder="Optional description"
+                  className="w-full px-4 py-3 italic-d text-[16px] border border-hair bg-paper text-ink-2 focus:outline-none focus:border-ink resize-none"
                 />
                 <div className="flex gap-2">
                   <button
                     onClick={handleSave}
-                    disabled={saving}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50"
+                    disabled={saving || !editTitle.trim()}
+                    className="px-4 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium disabled:opacity-50"
                   >
-                    <AiOutlineCheck size={16} />
-                    Save
+                    <AiOutlineCheck className="inline mr-1" /> {saving ? 'Saving…' : 'Save'}
                   </button>
                   <button
                     onClick={() => setEditing(false)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                    className="px-4 py-1.5 rounded-full border border-hair text-ink-2 text-[12px] font-medium hover:bg-paper-2"
                   >
-                    <AiOutlineClose size={16} />
-                    Cancel
+                    <AiOutlineClose className="inline mr-1" /> Cancel
                   </button>
                 </div>
               </div>
             ) : (
               <>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{collection.title}</h1>
+                <h1 className="display text-[44px] sm:text-[64px] lg:text-[76px] leading-[0.92] mt-3 tracking-[-0.02em] text-ink">
+                  {collection.title}
+                </h1>
                 {collection.description && (
-                  <p className="text-gray-500 dark:text-gray-400 mb-3">{collection.description}</p>
+                  <p className="display italic-d text-[17px] sm:text-[19px] leading-[1.45] text-ink-2 mt-5 max-w-[520px]">
+                    “{collection.description}”
+                  </p>
                 )}
-                <div className="flex items-center gap-4 text-sm text-gray-400">
-                  <span>{collection.wallpaper_count} wallpapers</span>
-                  <span>{collection.view_count} views</span>
-                </div>
               </>
             )}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={handleLike}
-              disabled={liking}
-              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors duration-200 disabled:opacity-50 ${
-                collection.is_liked
-                  ? 'text-red-500 border-red-300'
-                  : 'text-gray-500 border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              {collection.is_liked ? <AiFillHeart size={18} /> : <AiOutlineHeart size={18} />}
-              {collection.like_count}
-            </button>
+          {/* Curator row */}
+          <div className="flex items-center gap-3 mt-7 flex-wrap">
+            <div className="w-9 h-9 rounded-full overflow-hidden border border-hair bg-paper-2 flex items-center justify-center display text-[16px] flex-shrink-0">
+              {curator?.avatar_url
+                ? <img src={curator.avatar_url} alt="" className="w-full h-full object-cover" />
+                : curatorInitial}
+            </div>
+            <div className="min-w-0 flex-1">
+              <Link
+                to={curator ? `/user/${curator.username}` : '#'}
+                className="display text-[17px] leading-tight no-underline text-ink hover:underline"
+              >
+                @{curator?.username || `user-${collection.user_id}`}
+              </Link>
+              <div className="mono text-[10px] tracking-[0.06em] uppercase text-muted mt-0.5">
+                Updated {relativeTime(collection.updated_at).toLowerCase()} · {collection.like_count} likes
+              </div>
+            </div>
 
-            {isOwner && !editing && (
-              <>
-                <button
-                  onClick={startEdit}
-                  className="p-2 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  title="Edit collection"
-                >
-                  <AiOutlineEdit size={20} />
-                </button>
-                <button
-                  onClick={handleDelete}
-                  className="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  title="Delete collection"
-                >
-                  <AiOutlineDelete size={20} />
-                </button>
-              </>
-            )}
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                onClick={handleLike}
+                disabled={liking}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-paper border border-hair text-ink text-[12px] font-medium hover:bg-paper-2 disabled:opacity-60 transition-colors"
+              >
+                {collection.is_liked ? <AiFillHeart size={13} className="text-rose-600" /> : <AiOutlineHeart size={13} />}
+                {collection.like_count}
+              </button>
+              {isOwner && (
+                <>
+                  <button
+                    onClick={startEdit}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-paper border border-hair text-ink text-[12px] font-medium hover:bg-paper-2 transition-colors"
+                    title="Edit"
+                  >
+                    <AiOutlineEdit size={13} /> Edit
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-hair text-rose-600 hover:bg-rose-50 transition-colors"
+                    title="Delete collection"
+                  >
+                    <AiOutlineDelete size={14} />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {wallpapers.length > 0 ? (
-        <WallpaperGrid wallpapers={wallpapers} viewMode="justified" />
-      ) : (
-        <EmptyState message="This collection is empty." />
-      )}
-
-      {hasMore && (
-        <div className="flex justify-center mt-8">
-          <button
-            onClick={loadMore}
-            disabled={loadingMore}
-            className="px-6 py-2.5 text-sm font-medium text-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-200 disabled:opacity-50"
-          >
-            {loadingMore ? (
-              <span className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-                Loading...
-              </span>
-            ) : (
-              'Load More'
-            )}
-          </button>
+      {/* Grid */}
+      <div className="bg-paper-2 px-6 sm:px-10 py-7">
+        <div className="label-rule mb-4">
+          Wallpapers · {visible.length} of {collection.wallpaper_count}
         </div>
-      )}
+
+        {loadingPage && visible.length === 0 ? (
+          <div className="flex justify-center py-12"><Spinner /></div>
+        ) : visible.length === 0 ? (
+          <div className="text-center py-20 text-muted text-sm">No wallpapers in this collection yet.</div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {visible.map((w) => (
+              <WallpaperCard key={w.id} wallpaper={w} fixedAspect hideActions />
+            ))}
+          </div>
+        )}
+
+        <Pagination current={currentPage} total={total} onChange={setCurrentPage} />
+      </div>
     </div>
   );
 }
