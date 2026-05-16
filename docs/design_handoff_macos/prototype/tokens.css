@@ -1,0 +1,785 @@
+/* Wallpaper Exchange — "The Archive" design language */
+
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Geist:wght@300;400;500;600;700&display=swap");
+
+:root {
+  /* Paper */
+  --paper: oklch(97.8% 0.008 80);
+  --paper-2: oklch(95.5% 0.01 80);
+  --paper-3: oklch(92% 0.012 80);
+  --hair: oklch(86% 0.01 80);
+  --hair-soft: oklch(91% 0.008 80);
+
+  /* Ink */
+  --ink: oklch(18% 0.012 80);
+  --ink-2: oklch(28% 0.012 80);
+  --muted: oklch(52% 0.012 80);
+  --muted-2: oklch(68% 0.012 80);
+
+  /* Accent — exchange / coin / urgent */
+  --accent: oklch(64% 0.21 42);
+  --accent-soft: oklch(94% 0.05 60);
+  --accent-ink: oklch(38% 0.15 42);
+
+  /* Secondary accents (used sparingly — categories, status) */
+  --leaf: oklch(58% 0.13 145);
+  --indigo: oklch(46% 0.15 270);
+
+  /* Type */
+  --display: "Instrument Serif", "Times New Roman", serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.dark-skin {
+  --paper: oklch(15% 0.012 80);
+  --paper-2: oklch(20% 0.012 80);
+  --paper-3: oklch(24% 0.013 80);
+  --hair: oklch(28% 0.012 80);
+  --hair-soft: oklch(24% 0.012 80);
+  --ink: oklch(95% 0.008 80);
+  --ink-2: oklch(82% 0.01 80);
+  --muted: oklch(62% 0.012 80);
+  --muted-2: oklch(48% 0.012 80);
+  --accent-soft: oklch(28% 0.08 42);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+
+/* Typography helpers used by artboards */
+.display { font-family: var(--display); font-weight: 400; letter-spacing: -0.01em; }
+.mono { font-family: var(--mono); }
+.sans { font-family: var(--sans); }
+.italic-d { font-family: var(--display); font-style: italic; }
+
+.kicker {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.spec-rule {
+  border: none;
+  border-top: 1px solid var(--hair);
+  margin: 0;
+}
+
+.coin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--accent);
+}
+.coin::before {
+  content: "";
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: inset 0 -2px 0 oklch(48% 0.16 42), inset 0 1px 0 oklch(80% 0.16 60);
+}
+
+/* Grain overlay applied to paper artboards for warmth */
+.grain { position: relative; }
+.grain::after {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  mix-blend-mode: multiply;
+  opacity: 0.7;
+}
+
+/* Hairline divider with mono label */
+.label-rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.label-rule::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--hair);
+}
+
+/* Reset button styles for use in cards */
+button { font: inherit; cursor: pointer; }
+
+/* Tile image placeholder — striped paper for unloaded slots */
+.tile-ph {
+  background:
+    repeating-linear-gradient(135deg,
+      oklch(90% 0.01 80) 0 6px,
+      oklch(94% 0.008 80) 6px 12px);
+}
+
+/* ─── Salon mosaic tile interactions ─────────────────────────────── */
+
+.tile-cell {
+  overflow: hidden;
+  cursor: pointer;
+}
+.tile-cell .tile-img {
+  transition: transform 700ms cubic-bezier(.22,.61,.36,1),
+              filter 400ms ease;
+  will-change: transform;
+}
+.tile-cell:hover .tile-img {
+  transform: scale(1.045);
+  filter: brightness(1.04);
+}
+.tile-cell .tile-gradient {
+  transition: opacity 280ms ease;
+}
+.tile-cell:hover .tile-gradient {
+  opacity: 1;
+}
+.tile-cell .tile-actions {
+  position: absolute;
+  right: 10px;
+  bottom: 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 200ms ease, transform 240ms ease;
+  pointer-events: none;
+}
+.tile-cell:hover .tile-actions,
+.tile-cell.is-pinned .tile-actions {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Outer hairline tint on hover — subtle ink-up */
+.tile-cell {
+  transition: box-shadow 220ms ease;
+}
+.tile-cell:hover {
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18);
+}
+
+/* Action buttons */
+.t-act {
+  width: 34px; height: 34px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(15,12,8,0.45);
+  color: #fff;
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  transition: background 160ms ease, transform 120ms ease, border-color 160ms ease;
+}
+.t-act:hover { background: rgba(15,12,8,0.65); }
+.t-act:active { transform: scale(0.94); }
+.t-act.is-liked    { background: #e0463a; border-color: transparent; }
+.t-act.is-favorited{ background: #d8a23a; border-color: transparent; }
+.t-act.is-downloaded{ background: #4a8a5a; border-color: transparent; }
+
+/* ─── Feed footer states (loading / load-more / end) ────────────── */
+
+.feed-foot {
+  display: flex; align-items: center; justify-content: center;
+  padding: 36px 16px 48px;
+  font-family: var(--sans);
+  font-size: 13;
+  color: var(--muted);
+}
+.feed-foot__rule {
+  flex: 1; max-width: 160px; height: 1px;
+  background: var(--hair);
+}
+.feed-foot__inner {
+  display: inline-flex; align-items: center; gap: 14px;
+  padding: 0 18px;
+}
+
+.spinner {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--hair);
+  border-top-color: var(--ink);
+  animation: spin 700ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Manual load-more button (shown on error / fallback) */
+.btn-load-more {
+  padding: 9px 22px;
+  border-radius: 999px;
+  border: 1px solid var(--hair);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13;
+  font-weight: 500;
+  display: inline-flex; align-items: center; gap: 10px;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+.btn-load-more:hover {
+  background: var(--paper-2);
+  border-color: var(--ink-2);
+}
+.btn-load-more__warn {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #d18a3a;
+  box-shadow: 0 0 0 3px oklch(94% 0.05 70);
+}
+
+/* ─── Detail page actions ─────────────────────────────────────────── */
+
+/* Pill buttons used in the detail page action grid.
+   Variants: default (.btn-pill), selected toggles (.is-liked / .is-favorited),
+   "action" tone for non-toggleable secondary buttons (.btn-pill--action). */
+
+.btn-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  justify-content: center;
+  padding: 12px 14px;
+  background: var(--paper);
+  border: 1px solid var(--hair);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease,
+              transform 80ms ease, box-shadow 160ms ease;
+}
+.btn-pill:hover {
+  background: var(--paper-2);
+  border-color: var(--ink-2);
+}
+.btn-pill:active { transform: scale(0.985); }
+
+.btn-pill .label { white-space: nowrap; }
+.btn-pill .count {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--muted);
+}
+
+/* Toggle-selected states */
+.btn-pill.is-liked {
+  background: oklch(95% 0.04 25);
+  border-color: #e0463a;
+  color: #b1311f;
+}
+.btn-pill.is-liked .count { color: #b1311f; }
+.btn-pill.is-favorited {
+  background: oklch(96% 0.04 80);
+  border-color: #d8a23a;
+  color: #8a611a;
+}
+.btn-pill.is-favorited .count { color: #8a611a; }
+.btn-pill.is-collected {
+  background: oklch(94% 0.06 150);
+  border-color: #4a8a5a;
+  color: #2f6b3e;
+}
+
+/* "Action" tone — flatter, paper-2 base, used for preview-style buttons.
+   Includes a trailing arrow that nudges right on hover. */
+.btn-pill--action {
+  background: var(--paper-2);
+  border-color: var(--hair);
+  color: var(--ink);
+  justify-content: space-between;
+  padding: 14px 18px;
+}
+.btn-pill--action:hover {
+  background: var(--paper);
+  border-color: var(--ink);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+}
+.btn-pill--action .arrow {
+  display: inline-flex;
+  transition: transform 220ms cubic-bezier(.22,.61,.36,1);
+}
+.btn-pill--action:hover .arrow { transform: translateX(3px); }
+
+.btn-pill--action .lhs {
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.btn-pill--action .lhs .glyph {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--paper); border: 1px solid var(--hair);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink-2);
+}
+
+/* Palette swatch */
+.swatch {
+  position: relative;
+  border: 1px solid rgba(0,0,0,0.08);
+  cursor: pointer;
+  transition: transform 180ms ease;
+}
+.swatch:hover { transform: translateY(-2px); }
+.swatch .swatch-hex {
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 6px;
+  display: block;
+  text-align: center;
+}
+
+/* Device-fit row */
+.dev-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center; gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--hair);
+  position: relative;
+  transition: background 160ms ease;
+}
+.dev-row:last-child { border-bottom: none; }
+.dev-row .dev-icon  { color: var(--ink-2); display: inline-flex; align-items: center; justify-content: center; }
+.dev-row .dev-meta  { min-width: 0; }
+.dev-row .dev-name-row { display: flex; align-items: center; gap: 8px; }
+.dev-row .dev-name  {
+  color: var(--ink);
+  font-family: var(--sans); font-size: 13px; font-weight: 500;
+}
+.dev-row .dev-spec  {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--muted); letter-spacing: 0.04em;
+  margin-top: 3px;
+  display: flex; gap: 8px; align-items: center;
+}
+.dev-row .dev-spec .sep { color: var(--hair); }
+.dev-row .dev-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.dev-row .dev-badge {
+  font-family: var(--mono); font-size: 9px;
+  background: var(--ink); color: var(--paper);
+  padding: 2px 6px; letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Highlighted "your device" row */
+.dev-row.is-current {
+  background: linear-gradient(90deg, var(--paper-2) 0%, transparent 75%);
+  box-shadow: inset 2px 0 0 var(--ink);
+  padding-left: 10px;
+  margin-left: -12px;
+  margin-right: -12px;
+  padding-right: 12px;
+}
+
+/* Buttons on device rows */
+.dev-btn {
+  padding: 6px 11px;
+  background: var(--paper);
+  border: 1px solid var(--hair);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 11px; font-weight: 500;
+  border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 5px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 100ms ease;
+}
+.dev-btn:hover {
+  background: var(--paper-2);
+  border-color: var(--ink-2);
+}
+.dev-btn:active { transform: scale(0.96); }
+
+.dev-btn--primary {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.dev-btn--primary:hover {
+  background: var(--ink-2);
+  border-color: var(--ink-2);
+}
+
+/* Accent variant used on the matching "current device" row's Download button */
+.dev-btn--accent {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.dev-btn--accent:hover {
+  background: oklch(58% 0.21 42);
+  border-color: oklch(58% 0.21 42);
+}
+
+/* Disabled state — used when preview is unavailable (resolution insufficient) */
+.dev-btn[disabled],
+.dev-btn.is-disabled {
+  color: var(--muted-2);
+  background: transparent;
+  border-color: var(--hair-soft);
+  border-style: dashed;
+  cursor: not-allowed;
+  text-decoration: line-through;
+  text-decoration-color: var(--muted-2);
+  text-decoration-thickness: 1px;
+}
+.dev-btn[disabled]:hover,
+.dev-btn.is-disabled:hover {
+  background: transparent;
+  border-color: var(--hair-soft);
+}
+
+/* ─── Pagination ──────────────────────────────────────────────── */
+
+.pager {
+  display: flex; align-items: center; justify-content: center;
+  gap: 18px;
+  padding: 32px 0 16px;
+  font-family: var(--sans);
+}
+.pager-nav {
+  padding: 9px 16px;
+  background: var(--paper);
+  border: 1px solid var(--hair);
+  font-family: var(--mono); font-size: 11px;
+  color: var(--ink-2);
+  border-radius: 999px;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: inline-flex; align-items: center; gap: 8px;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+.pager-nav:hover { background: var(--paper-2); border-color: var(--ink-2); }
+.pager-nav:disabled {
+  color: var(--muted-2);
+  background: transparent;
+  cursor: not-allowed;
+  border-color: var(--hair-soft);
+}
+.pager-pages { display: flex; gap: 4px; align-items: center; }
+.pager-pages button {
+  min-width: 32px; height: 32px; padding: 0 8px;
+  border: none; background: transparent;
+  color: var(--ink-2); cursor: pointer; border-radius: 999px;
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.pager-pages button:hover { background: var(--paper-2); color: var(--ink); }
+.pager-pages button.is-current {
+  background: var(--ink); color: var(--paper);
+  cursor: default;
+}
+.pager-pages .pager-ellipsis {
+  color: var(--muted); line-height: 32px;
+  font-family: var(--mono); font-size: 11px;
+}
+.pager-status {
+  text-align: center;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--muted); letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding-bottom: 32px;
+}
+
+/* ─── Profile tabs ───────────────────────────────────────────── */
+
+.ptabs {
+  display: flex; gap: 28px;
+  border-bottom: 1px solid var(--hair);
+}
+.ptabs button {
+  padding: 14px 0;
+  background: transparent; border: none;
+  color: var(--muted);
+  font-family: var(--sans); font-size: 14px; font-weight: 500;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+.ptabs button:hover { color: var(--ink-2); }
+.ptabs button.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+.ptabs .ptab-count {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--muted); letter-spacing: 0.06em;
+  padding: 1px 6px; border-radius: 3px;
+  background: var(--paper-2);
+}
+.ptabs .is-active .ptab-count { background: var(--ink); color: var(--paper); }
+
+/* ─── Privacy notice card ───────────────────────────────────── */
+
+.priv-notice {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  background: var(--paper-2);
+  border: 1px solid var(--hair);
+  border-left: 2px solid var(--ink);
+  font-family: var(--sans);
+}
+.priv-notice .priv-icon {
+  width: 36px; height: 36px; border-radius: 999px;
+  background: var(--paper); border: 1px solid var(--hair);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink);
+}
+.priv-notice .priv-title {
+  font-family: var(--display); font-size: 18px; line-height: 1.1;
+  color: var(--ink);
+}
+.priv-notice .priv-sub {
+  font-size: 12px; color: var(--muted); margin-top: 2px;
+}
+
+/* ─── Processing overlay (on uploads tile) ──────────────────── */
+
+.proc-overlay {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.5), rgba(0,0,0,0.7)),
+    repeating-linear-gradient(45deg, rgba(0,0,0,0.18) 0 8px, rgba(0,0,0,0.0) 8px 16px);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 10px;
+  color: #fff;
+  font-family: var(--sans);
+}
+.proc-overlay .spinner {
+  border-color: rgba(255,255,255,0.25);
+  border-top-color: #fff;
+}
+.proc-overlay .proc-label {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.16em; text-transform: uppercase;
+}
+.proc-overlay .proc-sub {
+  font-family: var(--mono); font-size: 9px;
+  color: rgba(255,255,255,0.7); letter-spacing: 0.08em;
+}
+
+/* ─── Collection card ────────────────────────────────────────── */
+
+.coll-card {
+  display: flex; flex-direction: column;
+  cursor: pointer;
+}
+
+/* 3-photo composition: 1 large main on the left, 2 stacked subs on the right.
+   The whole stack is a single grid; tiny gap separates the photos as paper edges. */
+.coll-stack {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 4px;
+  background: var(--hair);                /* shows through the 4px gaps as a hairline */
+  border: 1px solid var(--hair);
+  overflow: hidden;
+}
+.coll-stack .coll-main,
+.coll-stack .coll-sub {
+  position: relative;
+  overflow: hidden;
+  background: var(--paper-2);
+}
+.coll-stack .coll-main { grid-row: span 2; }
+.coll-stack img {
+  width: 100%; height: 100%; object-fit: cover;
+  display: block;
+  transition: transform 700ms cubic-bezier(.22,.61,.36,1), filter 400ms ease;
+}
+.coll-card:hover .coll-stack .coll-main img { transform: scale(1.04); }
+.coll-card:hover .coll-stack .coll-sub  img { transform: scale(1.06); }
+
+/* On hover, lift the whole card and ink-up the outer border */
+.coll-card .coll-stack { transition: transform 240ms cubic-bezier(.22,.61,.36,1), box-shadow 240ms ease, border-color 240ms ease; }
+.coll-card:hover .coll-stack {
+  transform: translateY(-3px);
+  border-color: var(--ink-2);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+}
+
+/* Featured corner brackets on the main photo, revealed on hover */
+.coll-stack .coll-main::before,
+.coll-stack .coll-main::after {
+  content: ""; position: absolute;
+  width: 14px; height: 14px;
+  border: 1px solid #fff;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  pointer-events: none;
+}
+.coll-stack .coll-main::before { top: 10px; left: 10px;  border-right: none; border-bottom: none; }
+.coll-stack .coll-main::after  { bottom: 10px; right: 10px; border-left: none;  border-top: none; }
+.coll-card:hover .coll-stack .coll-main::before,
+.coll-card:hover .coll-stack .coll-main::after { opacity: 0.85; }
+
+/* Photo count chip floating in the bottom-right of the second sub photo */
+.coll-stack .coll-more {
+  position: absolute;
+  right: 8px; bottom: 8px;
+  padding: 3px 8px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
+  backdrop-filter: blur(8px);
+  border-radius: 3px;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+
+/* ─── macOS menu-bar popover ─────────────────────────────────── */
+
+.mac-popover {
+  background: rgba(245,243,238,0.94);
+  backdrop-filter: blur(28px) saturate(1.4);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 14px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.6) inset,
+    0 18px 60px rgba(0,0,0,0.22),
+    0 4px 12px rgba(0,0,0,0.06);
+  overflow: hidden;
+  font-family: var(--sans);
+  color: var(--ink);
+}
+
+.mac-tail {
+  position: absolute;
+  top: -8px; left: 50%; transform: translateX(-50%);
+  width: 16px; height: 16px;
+  background: rgba(245,243,238,0.94);
+  backdrop-filter: blur(28px) saturate(1.4);
+  border-top: 1px solid rgba(0,0,0,0.08);
+  border-left: 1px solid rgba(0,0,0,0.08);
+  transform-origin: center;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+/* Menu-bar app tile */
+.mac-tile {
+  position: relative; overflow: hidden;
+  aspect-ratio: 16/10;
+  border-radius: 8px;
+  background: var(--paper-2);
+  cursor: pointer;
+}
+.mac-tile img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  transition: transform 600ms cubic-bezier(.22,.61,.36,1), filter 300ms ease;
+}
+.mac-tile:hover img { transform: scale(1.035); filter: brightness(1.04); }
+
+.mac-tile .mac-grad {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.78) 100%);
+  opacity: 0;
+  transition: opacity 220ms ease;
+  pointer-events: none;
+}
+.mac-tile:hover .mac-grad,
+.mac-tile.is-pinned .mac-grad { opacity: 1; }
+
+.mac-tile .mac-actions {
+  position: absolute; left: 10px; right: 10px; bottom: 10px;
+  display: flex; gap: 6px; justify-content: flex-end;
+  opacity: 0; transform: translateY(6px);
+  transition: opacity 200ms ease, transform 220ms ease;
+  pointer-events: none;
+}
+.mac-tile:hover .mac-actions,
+.mac-tile.is-pinned .mac-actions { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+.mac-btn {
+  padding: 7px 11px;
+  border-radius: 999px;
+  font-family: var(--sans); font-size: 11px; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.28);
+  color: #fff;
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: background 140ms ease, transform 100ms ease;
+}
+.mac-btn:hover { background: rgba(255,255,255,0.28); }
+.mac-btn:active { transform: scale(0.96); }
+.mac-btn--primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+}
+.mac-btn--primary:hover { background: oklch(58% 0.21 42); }
+
+/* Mac chip tags on tile — same vocabulary as the web salon tile */
+.mac-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; background: rgba(0,0,0,0.55); color: #fff;
+  border-radius: 3px;
+  font-family: var(--mono); font-size: 9.5px; font-weight: 500; letter-spacing: 0.04em;
+  backdrop-filter: blur(8px);
+}
+.mac-tag--live {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Filter toggle in column headers */
+.mac-toggle {
+  padding: 5px 8px;
+  background: transparent;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  color: var(--muted);
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.mac-toggle:hover { color: var(--ink-2); border-color: var(--ink-2); }
+.mac-toggle.is-on {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* Status banner shown when shuffle mode is on */
+.mac-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: var(--accent-soft);
+  border: 1px solid oklch(80% 0.08 60);
+  border-radius: 6px;
+  font-family: var(--sans); font-size: 12px;
+  color: var(--accent-ink);
+}
+.mac-banner .mac-banner-glyph {
+  width: 22px; height: 22px; border-radius: 999px;
+  background: var(--accent); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.mac-banner .mac-banner-time {
+  margin-left: auto;
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--accent-ink);
+}

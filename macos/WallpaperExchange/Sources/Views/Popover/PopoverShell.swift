@@ -1,0 +1,266 @@
+import SwiftUI
+import AppKit
+
+// MARK: - Header
+
+struct PopoverHeaderView: View {
+    let auth: AuthService
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            // ─── Identity cluster (left) ───
+            HStack(spacing: 12) {
+                avatar
+                if auth.isLoggedIn, let user = auth.user {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(user.nickname.isEmpty ? user.username : user.nickname)
+                            .font(.displayMd)
+                            .foregroundStyle(Color.ink)
+                            .lineLimit(1)
+                        Text("@\(user.username)")
+                            .font(.monoCaps)
+                            .tracking(0.6)
+                            .foregroundStyle(Color.muted)
+                    }
+                } else {
+                    Text("Not signed in")
+                        .font(.sans12)
+                        .foregroundStyle(Color.muted)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // ─── Coin pill (center) — only when logged in ───
+            if auth.isLoggedIn, let user = auth.user {
+                coinPill(coins: user.coins)
+            } else {
+                Button("Sign in") { auth.login() }
+                    .controlSize(.small)
+            }
+
+            // ─── Logout (right) ───
+            if auth.isLoggedIn {
+                Button(action: { auth.logout() }) {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.ink2)
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle().stroke(Color.hair, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .help("Sign out")
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+    }
+
+    @ViewBuilder private var avatar: some View {
+        if auth.isLoggedIn, let user = auth.user, !user.avatarURL.isEmpty,
+           let url = URL(string: user.avatarURL) {
+            CachedAsyncImage(url: url) { image in
+                image.resizable().aspectRatio(contentMode: .fill)
+            } placeholder: {
+                avatarFallback
+            }
+            .frame(width: 36, height: 36)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(Color.hair, lineWidth: 1))
+        } else {
+            avatarFallback
+                .frame(width: 36, height: 36)
+                .overlay(Circle().stroke(Color.hair, lineWidth: 1))
+                .clipShape(Circle())
+        }
+    }
+
+    private var avatarFallback: some View {
+        ZStack {
+            Color.paper2
+            Text(initial)
+                .font(.displayMd)
+                .foregroundStyle(Color.ink)
+        }
+    }
+
+    private var initial: String {
+        let name = auth.user?.nickname.isEmpty == false
+            ? auth.user!.nickname
+            : (auth.user?.username ?? "?")
+        return String(name.prefix(1)).uppercased()
+    }
+
+    // The only place accent-orange appears at rest in the popover — signals
+    // that this is the value/currency moment. Ink pill background with a
+    // minted-coin glyph to the left and a mono digit count.
+    private func coinPill(coins: Int) -> some View {
+        HStack(spacing: 6) {
+            ZStack {
+                Circle().fill(Color.accent)
+                // inset highlight + shadow approximate the minted-coin look
+                // described in the design ("inset 0 -2px ... 0 1px ...").
+                Circle()
+                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                    .padding(0.5)
+                    .blendMode(.plusLighter)
+            }
+            .frame(width: 18, height: 18)
+            Text("\(coins)")
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                .tracking(0.3)
+                .foregroundStyle(Color.paper)
+                .monospacedDigit()
+        }
+        .padding(.leading, 5)
+        .padding(.trailing, 11)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(Color.ink))
+    }
+}
+
+// MARK: - Footer
+
+struct PopoverFooterView: View {
+    let onOpenWeb: () -> Void
+
+    private var versionString: String {
+        let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        return "v \(short)"
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 16) {
+            Button(action: { NSApplication.shared.terminate(nil) }) {
+                Label {
+                    Text("Quit").font(.sans12)
+                } icon: {
+                    Image(systemName: "power").font(.system(size: 13))
+                }
+                .labelStyle(.titleAndIcon)
+                .foregroundStyle(Color.ink2)
+            }
+            .buttonStyle(.plain)
+
+            Button(action: onOpenWeb) {
+                Label {
+                    Text("Open in browser").font(.sans12)
+                } icon: {
+                    Image(systemName: "arrow.up.right.square").font(.system(size: 13))
+                }
+                .labelStyle(.titleAndIcon)
+                .foregroundStyle(Color.ink2)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            Text(versionString)
+                .font(.monoCaps)
+                .tracking(1.0)
+                .foregroundStyle(Color.muted)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 11)
+        .background(Color.white.opacity(0.45))
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.hair).frame(height: 1)
+        }
+    }
+}
+
+// MARK: - Filter toggle pill
+
+struct FilterTogglePill: View {
+    let icon: String
+    let label: String
+    let isOn: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .medium))
+                Text(label)
+                    .font(.monoCaps)
+                    .tracking(0.6)
+            }
+            .foregroundStyle(isOn ? Color.white : Color.muted)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(
+                Capsule().fill(isOn ? Color.accent : Color.clear)
+            )
+            .overlay(
+                Capsule().stroke(isOn ? Color.clear : Color.hair, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Shuffle status banner
+
+struct ShuffleStatusBanner: View {
+    // nil → never scheduled (shouldn't normally happen while the banner is
+    // visible, but defensive). Otherwise the absolute moment of the next
+    // rotation tick; the banner derives the H/M countdown from it.
+    let nextAt: Date?
+
+    // Re-render once a minute so the countdown stays roughly accurate
+    // without burning CPU. The underlying timer fires for the lifetime of
+    // the banner, which only exists while shuffle is on.
+    @State private var now: Date = Date()
+    private let tick = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle().fill(Color.accent)
+                Image(systemName: "shuffle")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 22, height: 22)
+
+            Text(message)
+                .font(.sans12)
+                .foregroundStyle(Color.accentInk)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 8)
+
+            Text(countdown)
+                .font(.monoCaps)
+                .tracking(0.6)
+                .foregroundStyle(Color.accentInk)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 6).fill(Color.accentSoft)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6).stroke(Color(red: 0.804, green: 0.671, blue: 0.388), lineWidth: 1)
+        )
+        .onReceive(tick) { now = $0 }
+    }
+
+    private var message: AttributedString {
+        var bold = AttributedString("Auto-shuffle is on. ")
+        bold.font = .system(size: 12, weight: .semibold)
+        var rest = AttributedString("Pulling from your downloads every 4 hours.")
+        rest.font = .sans12
+        return bold + rest
+    }
+
+    private var countdown: String {
+        guard let nextAt else { return "NEXT · —" }
+        let secs = max(0, Int(nextAt.timeIntervalSince(now)))
+        let h = secs / 3600
+        let m = (secs % 3600) / 60
+        return "NEXT · \(h) H \(m) M"
+    }
+}

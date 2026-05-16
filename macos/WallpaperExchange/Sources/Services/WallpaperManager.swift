@@ -18,9 +18,21 @@ final class WallpaperManager {
     // and applies it every 4 hours. State is persisted across launches via
     // UserDefaults, so quitting + reopening the app preserves the rotation.
     private(set) var autoRotate: Bool = false
+    // Absolute timestamp of the next rotation tick. Surfaced to the
+    // ShuffleStatusBanner so it can render a live "NEXT · 2 H 34 M"
+    // countdown. nil whenever autoRotate is off.
+    private(set) var nextRotationAt: Date?
     private var rotationTask: Task<Void, Never>?
     private let autoRotateDefaultsKey = "wallpaper.autoRotate"
-    private let rotationInterval: UInt64 = 4 * 3600 * 1_000_000_000  // 4 hours in nanoseconds
+    private let rotationInterval: TimeInterval = 4 * 3600
+    private var rotationIntervalNs: UInt64 { UInt64(rotationInterval * 1_000_000_000) }
+
+    // ID of the wallpaper most recently applied to the desktop, regardless
+    // of how it got there (Set Wallpaper from the popover, Set & download,
+    // or the rotation task). Drives the "Active" chip in the Downloaded
+    // column. Persisted so the chip survives a relaunch.
+    private(set) var currentWallpaperID: Int?
+    private let currentWallpaperIDDefaultsKey = "wallpaper.currentID"
 
     private let storageDir: URL
 
@@ -32,6 +44,8 @@ final class WallpaperManager {
 
         // Resume rotation if the user had it on before quitting the app.
         autoRotate = UserDefaults.standard.bool(forKey: autoRotateDefaultsKey)
+        let saved = UserDefaults.standard.integer(forKey: currentWallpaperIDDefaultsKey)
+        currentWallpaperID = saved > 0 ? saved : nil
         if autoRotate {
             startRotation()
         }
@@ -55,13 +69,15 @@ final class WallpaperManager {
         // Apply once immediately so the user sees the rotation took effect,
         // then sleep 4h between subsequent picks. WallpaperManager is
         // @MainActor so the Task inherits that isolation.
+        nextRotationAt = Date().addingTimeInterval(rotationInterval)
         rotationTask = Task { [weak self] in
             guard let self else { return }
             self.applyRandomLocalWallpaper()
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: self.rotationInterval)
+                try? await Task.sleep(nanoseconds: self.rotationIntervalNs)
                 guard !Task.isCancelled else { break }
                 self.applyRandomLocalWallpaper()
+                self.nextRotationAt = Date().addingTimeInterval(self.rotationInterval)
             }
         }
     }
@@ -69,6 +85,7 @@ final class WallpaperManager {
     private func stopRotation() {
         rotationTask?.cancel()
         rotationTask = nil
+        nextRotationAt = nil
     }
 
     /// Pick one of the locally-stored wallpaper files at random and apply it.
@@ -78,14 +95,21 @@ final class WallpaperManager {
     /// task keeps running so the next firing will pick up newly-downloaded
     /// files automatically.
     private func applyRandomLocalWallpaper() {
-        let candidates: [URL] = downloadedIDs.compactMap { localURL(for: $0) }
-        guard let url = candidates.randomElement() else { return }
+        // Pair each candidate URL with its wallpaper id so we can update
+        // currentWallpaperID after applying — the rotation tile should
+        // show the same Active chip as a manual Set Wallpaper does.
+        let pairs: [(Int, URL)] = downloadedIDs.compactMap { id in
+            guard let url = localURL(for: id) else { return nil }
+            return (id, url)
+        }
+        guard let pick = pairs.randomElement() else { return }
         for screen in NSScreen.screens {
-            try? NSWorkspace.shared.setDesktopImageURL(url, for: screen, options: [
+            try? NSWorkspace.shared.setDesktopImageURL(pick.1, for: screen, options: [
                 .imageScaling: NSImageScaling.scaleProportionallyUpOrDown.rawValue,
                 .allowClipping: true,
             ])
         }
+        markCurrent(pick.0)
     }
 
     var storagePath: URL { storageDir }
@@ -203,6 +227,15 @@ final class WallpaperManager {
                 .allowClipping: true,
             ])
         }
+        markCurrent(wallpaper.id)
+    }
+
+    // Record the wallpaper id that is currently on the desktop. Drives the
+    // Active chip on the corresponding tile and survives a relaunch via
+    // UserDefaults.
+    private func markCurrent(_ id: Int) {
+        currentWallpaperID = id
+        UserDefaults.standard.set(id, forKey: currentWallpaperIDDefaultsKey)
     }
 
     func deleteLocal(_ wallpaperID: Int) {
@@ -210,6 +243,10 @@ final class WallpaperManager {
             try? FileManager.default.removeItem(at: url)
         }
         downloadedIDs.remove(wallpaperID)
+        if currentWallpaperID == wallpaperID {
+            currentWallpaperID = nil
+            UserDefaults.standard.removeObject(forKey: currentWallpaperIDDefaultsKey)
+        }
     }
 
     private func scanLocalFiles() {

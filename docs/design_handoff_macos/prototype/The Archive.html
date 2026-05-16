@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Wallpaper Exchange — The Archive</title>
+<link rel="stylesheet" href="tokens.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="shared.jsx"></script>
+<script type="text/babel" src="brand.jsx"></script>
+<script type="text/babel" src="discover.jsx"></script>
+<script type="text/babel" src="detail.jsx"></script>
+<script type="text/babel" src="profile.jsx"></script>
+<script type="text/babel" src="collections.jsx"></script>
+<script type="text/babel" src="uploaders.jsx"></script>
+<script type="text/babel" src="auth.jsx"></script>
+<script type="text/babel" src="pages-misc.jsx"></script>
+<script type="text/babel" src="macos.jsx"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+
+<script type="text/babel">
+function App() {
+  return (
+    <DesignCanvas>
+      <DCSection id="discover" title="01 · Discover — Salon Wall"
+        subtitle="Editorial archive wall. Always-on: 4K + macOS chips top-left. Hover reveals image scale + 3-button action rail with selected states. Footer states for infinite scroll: loading / retry / end.">
+        <DCArtboard id="discover-in"    label="Signed in · footer = loading" width={1440} height={1040}><DiscoverSalon auth="in" footerState="loading" /></DCArtboard>
+        <DCArtboard id="discover-retry" label="Signed in · footer = retry"   width={1440} height={1040}><DiscoverSalon auth="in" footerState="retry" /></DCArtboard>
+        <DCArtboard id="discover-end"   label="Signed in · footer = end"     width={1440} height={1040}><DiscoverSalon auth="in" footerState="end" /></DCArtboard>
+        <DCArtboard id="discover-out"   label="Signed out"                    width={1440} height={1040}><DiscoverSalon auth="out" footerState="loading" /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="detail" title="02 · Wallpaper detail — Editorial Spread"
+        subtitle="Right column: uploader · palette · device-fit table with preview+download per device · specs · 5 interactive actions · coin CTA. Modal + full-page share the same body.">
+        <DCArtboard id="detail-modal"       label="Modal · liked"        width={1440} height={1040}><DetailModal auth="in" actionState={{ liked: true }} /></DCArtboard>
+        <DCArtboard id="detail-full"        label="Full page · favorited + in 2 lists" width={1440} height={1040}><DetailSpread auth="in" actionState={{ favorited: true, collected: true, collectedCount: 2 }} /></DCArtboard>
+        <DCArtboard id="detail-collections" label="Add-to-list popover open" width={1440} height={1040}><DetailSpread auth="in" actionState={{ showCollectionsPopover: true }} /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="download" title="03 · Download flow — coin exchange"
+        subtitle="Bottom CTA morphs through three states beyond default.">
+        <DCArtboard id="dl-confirm"      label="Confirm exchange"        width={1440} height={1040}><DetailSpread auth="in" downloadMode="confirm" balance={12} /></DCArtboard>
+        <DCArtboard id="dl-insufficient" label="Insufficient coins"      width={1440} height={1040}><DetailSpread auth="in" downloadMode="insufficient" balance={0} /></DCArtboard>
+        <DCArtboard id="dl-success"      label="Success · downloaded"    width={1440} height={1040}><DetailSpread auth="in" downloadMode="success" balance={12} /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="profile" title="04 · User profile"
+        subtitle="Header (avatar, identity, signature, coin balance) + tabbed lists with traditional pagination. Privacy notice on Likes/Downloads. Processing state on uploads in queue.">
+        <DCArtboard id="profile-uploads"     label="Uploads tab — incl. in-progress wallpapers (only owner sees these)" width={1440} height={1040}><ProfileUploadsPage /></DCArtboard>
+        <DCArtboard id="profile-collections" label="Collections tab — collections you've created"                       width={1440} height={1040}><ProfileCollectionsPage /></DCArtboard>
+        <DCArtboard id="profile-likes"       label="Likes tab — privacy notice (owner view, currently private)"         width={1440} height={1040}><ProfileLikesPrivatePage /></DCArtboard>
+        <DCArtboard id="profile-ledger"      label="Coin ledger — full transaction history with daily groupings"        width={1440} height={1040}><ProfileLedgerPage /></DCArtboard>
+        <DCArtboard id="profile-public"      label="Public view (someone else's profile, likes hidden)"                  width={1440} height={1040}><ProfilePublicViewPage /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="collections" title="05 · Collections"
+        subtitle="Browse + detail. Cards use a layered 3-photo stack that gently fans out on hover.">
+        <DCArtboard id="collections-browse" label="Browse all collections" width={1440} height={1040}><CollectionsBrowse /></DCArtboard>
+        <DCArtboard id="collections-detail" label="Collection detail"      width={1440} height={1040}><CollectionDetail /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="uploaders" title="06 · Uploaders" subtitle="Contributor directory. Each row: avatar, identity, stats, 4 recent works.">
+        <DCArtboard id="uploaders-browse" label="Uploaders browse" width={1440} height={1040}><UploadersBrowse /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="auth" title="07 · Auth — Login / Register"
+        subtitle="Centered card on paper. Sidebar + topbar stay in their signed-out state.">
+        <DCArtboard id="auth-login"    label="Login"    width={1440} height={1040}><AuthLogin /></DCArtboard>
+        <DCArtboard id="auth-register" label="Register" width={1440} height={1040}><AuthRegister /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="misc" title="08 · macOS download + legal"
+        subtitle="The macOS app landing page and the shared template for Terms / Privacy / DMCA.">
+        <DCArtboard id="mac-download" label="macOS app download"                width={1440} height={1040}><MacDownloadPage /></DCArtboard>
+        <DCArtboard id="legal"        label="Legal template (Terms shown)"      width={1440} height={1040}><LegalPage /></DCArtboard>
+      </DCSection>
+
+      <DCSection id="macapp" title="09 · macOS menu-bar app"
+        subtitle="Frosted-glass popover hanging from the menu bar. Header (avatar · coin balance · sign out) → 2 columns (Latest · Downloaded) → footer. Latest hover = Download + Set & download · Downloaded hover = Set as wallpaper (+ Re-download when local file missing). Dynamic filter on both columns; shuffle (auto-rotate every 4h) on Downloaded.">
+        <DCArtboard id="mac-default" label="Default — popover anchored to menu-bar icon · 2 tiles pinned-hovered" width={1440} height={1040}><MacPopoverDefault /></DCArtboard>
+        <DCArtboard id="mac-filter"  label="Dynamic filter active on both columns" width={1440} height={1040}><MacPopoverFiltered /></DCArtboard>
+        <DCArtboard id="mac-shuffle" label="Auto-shuffle on (Downloaded) — next change in 2 h 34 m" width={1440} height={1040}><MacPopoverShuffle /></DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

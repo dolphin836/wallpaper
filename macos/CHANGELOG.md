@@ -16,6 +16,27 @@ ship a release. The web `/download/mac` page reads from the JSON.
   file is missing — typically wallpapers paid for on another device, or
   files deleted out from under the app. Visible alongside Set Wallpaper
   in the hover stack.
+- An **Active** chip surfaces on whichever Downloaded wallpaper is
+  currently applied to the desktop, regardless of whether it was set
+  manually, via Set & download, or by the auto-shuffle rotation. The
+  chip persists across relaunches.
+- A live **shuffle status banner** appears under the Downloaded heading
+  whenever auto-shuffle is on, with a countdown to the next rotation
+  tick that refreshes once a minute.
+
+### Changed
+
+- **Popover redesign** to match the new editorial "Archive" aesthetic
+  used on the web — paper-tinted frosted-glass backdrop, 720 × 700 px
+  surface, hairline-divided 2-column body. Latest and Downloaded sit
+  side-by-side, each with its own filter pills (Dynamic / Shuffle).
+- Wallpaper rows became 16:10 **tiles** with hover-revealed pill
+  actions over a bottom-up gradient. Top-left chips show resolution
+  and Mac dynamic; top-right shows Active or Local missing state.
+- Header is now an editorial cluster: 36 px avatar + nickname + mono
+  handle, an accent-orange coin pill in the center, and a circular
+  logout button on the right.
+- Footer carries Quit · Open in browser links and a mono version label.
 
 ## [1.1.1] - 2026-05-16
 
