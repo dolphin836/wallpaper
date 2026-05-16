@@ -7,6 +7,7 @@ import {
   AiOutlineClose,
   AiOutlineLogout,
   AiOutlinePlus,
+  AiOutlineDashboard,
 } from 'react-icons/ai';
 import { BsSun, BsMoon } from 'react-icons/bs';
 import { getPublicStats } from '../api';
@@ -243,10 +244,15 @@ function ArchiveTopbar({
               {user.is_admin && (
                 <Link
                   to="/admin"
-                  className="hidden sm:inline-flex items-center h-[38px] px-3 rounded-full border border-hair text-ink-2 text-[12px] font-medium hover:bg-paper-2 transition-colors"
                   title="Admin console"
+                  // Match the Logout icon button right next to it: 38px
+                  // square, same paper/hair pill chrome. Used to read
+                  // "Admin" in text — we're tight on space and the icon
+                  // alone is unambiguous given title= surfaces the label
+                  // on hover.
+                  className="hidden sm:inline-flex w-[38px] h-[38px] rounded-full bg-paper border border-hair text-ink hover:bg-paper-2 transition-colors items-center justify-center"
                 >
-                  Admin
+                  <AiOutlineDashboard size={15} />
                 </Link>
               )}
               <button
