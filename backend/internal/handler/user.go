@@ -161,10 +161,13 @@ func (h *UserHandler) GetWallpapers(w http.ResponseWriter, r *http.Request) {
 	// ?status=<n> lets the owner split the profile Uploads tab into a
 	// "Published" + "In Progress" pair without two list endpoints.
 	// Strangers can't access non-published items, so the filter is ignored
-	// for them.
+	// for them. We use StatusFilter (a *int16) so status=0 / Processing
+	// actually filters; the plain Status int16 collides with the struct
+	// zero-value and would silently fall back to "published only".
 	if statusRaw := r.URL.Query().Get("status"); statusRaw != "" && isOwner {
 		if v, parseErr := strconv.Atoi(statusRaw); parseErr == nil {
-			opts.Status = int16(v)
+			s := int16(v)
+			opts.StatusFilter = &s
 		}
 	} else if isOwner {
 		opts.IncludeAllActive = true

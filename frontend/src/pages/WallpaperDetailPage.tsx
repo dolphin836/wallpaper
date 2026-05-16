@@ -810,7 +810,7 @@ export default function WallpaperDetailPage() {
                   </div>
                   <hr className="my-3.5 border-0" style={{ borderTop: '1px solid rgba(154,106,24,0.28)' }} />
                   <div className="flex flex-wrap gap-x-5 gap-y-1 text-[12px]" style={{ color: '#5e3f08' }}>
-                    <span><strong className="mono mr-1.5" style={{ color: '#9a6a18' }}>+5</strong>each upload</span>
+                    <span><strong className="mono mr-1.5" style={{ color: '#9a6a18' }}>+1</strong>each upload</span>
                     <span><strong className="mono mr-1.5" style={{ color: '#9a6a18' }}>+1</strong>others download yours</span>
                   </div>
                 </div>

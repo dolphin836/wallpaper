@@ -64,6 +64,11 @@ type ListOptions struct {
 	CategoryID       int64
 	UserID           int64
 	Status           int16
+	// StatusFilter overrides Status / IncludeAllActive when set, and is
+	// honored even when the value is 0 (Processing). Without this, callers
+	// can't ask for processing wallpapers because `Status: 0` collides with
+	// the struct zero-value and silently fell back to "published only".
+	StatusFilter     *int16
 	IncludeAllActive bool
 	Sort             string // "newest" or "popular"
 	Search           string
@@ -82,7 +87,9 @@ func (r *WallpaperRepo) applyListFilters(query *gorm.DB, opts ListOptions) *gorm
 	if opts.UserID > 0 {
 		query = query.Where("user_id = ?", opts.UserID)
 	}
-	if opts.IncludeAllActive {
+	if opts.StatusFilter != nil {
+		query = query.Where("status = ?", *opts.StatusFilter)
+	} else if opts.IncludeAllActive {
 		query = query.Where("status != ?", model.WallpaperStatusRemoved)
 	} else if opts.Status > 0 {
 		query = query.Where("status = ?", opts.Status)

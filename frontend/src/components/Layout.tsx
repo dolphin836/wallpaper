@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import usePageView from '../hooks/usePageView';
@@ -50,7 +50,14 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
     ...(isAuthenticated ? [{ label: 'Upload', sub: 'Share a wallpaper', to: '/upload' }] : []),
   ];
 
-  const isActive = (to: string) => to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
+  // Match the exact route, OR a nested child route (e.g. /collections/foo
+  // counts as active for /collections). Important to add the trailing slash
+  // — without it /uploaders falsely matches /upload because the latter is a
+  // prefix string of the former.
+  const isActive = (to: string) =>
+    to === '/'
+      ? location.pathname === '/'
+      : location.pathname === to || location.pathname.startsWith(to + '/');
 
   return (
     <aside className="w-[232px] h-full flex flex-col bg-paper border-r border-hair font-sans">
@@ -117,7 +124,7 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
             <span className="mono text-[10px] text-muted">/ COINS</span>
           </div>
           <div className="mt-2 text-[11px] text-ink-2 leading-snug">
-            Upload to earn <span className="text-accent">+5</span>.
+            Upload to earn <span className="text-accent">+1</span>.
           </div>
         </Link>
       )}
@@ -171,10 +178,6 @@ function ArchiveTopbar({
     }).catch(() => { /* masthead falls back to em-dashes */ });
   }, []);
 
-  const date = useMemo(() => {
-    return new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).toUpperCase();
-  }, []);
-
   const handleLogout = () => {
     logout();
     navigate('/');
@@ -184,23 +187,31 @@ function ArchiveTopbar({
 
   return (
     <div className="sticky top-0 z-30 bg-paper border-b border-hair">
-      {/* Masthead — counts left, date right */}
-      <div className="px-8 py-2.5 flex justify-between items-center border-b border-hair mono text-[10px] tracking-[0.18em] uppercase text-muted">
-        <span className="inline-flex items-center gap-3.5">
-          <span><strong className="text-ink-2 font-semibold">{stats ? stats.wallpapers.toLocaleString() : '—'}</strong> Wallpapers</span>
-          <span className="opacity-40">·</span>
-          <span><strong className="text-ink-2 font-semibold">{stats ? stats.collections.toLocaleString() : '—'}</strong> Collections</span>
-        </span>
-        <span>{date}</span>
-      </div>
-
-      {/* Toolbar row */}
+      {/* Toolbar row — counts inline on the left, theme + auth on the right.
+          The standalone masthead row got merged into this row so the shell
+          isn't carrying two header strips for what's essentially one strip
+          of metadata. */}
       <div className="px-4 sm:px-8 py-3 flex items-center gap-3 min-h-[64px]">
         <button onClick={onOpenDrawer} className="md:hidden p-2 text-ink rounded-full hover:bg-paper-2" aria-label="Open menu">
           <AiOutlineMenu size={22} />
         </button>
 
-        <div className="flex-1 min-w-0" />
+        <div className="flex-1 min-w-0 hidden sm:inline-flex items-center gap-3.5 mono text-[10px] tracking-[0.18em] uppercase text-muted">
+          <span>
+            <strong className="text-ink-2 font-semibold">
+              {stats ? stats.wallpapers.toLocaleString() : '—'}
+            </strong> Wallpapers
+          </span>
+          <span className="opacity-40">·</span>
+          <span>
+            <strong className="text-ink-2 font-semibold">
+              {stats ? stats.collections.toLocaleString() : '—'}
+            </strong> Collections
+          </span>
+        </div>
+        {/* Mobile filler — keep the right-side cluster flush to the edge
+            on phones where the inline stats are hidden. */}
+        <div className="flex-1 sm:hidden" />
 
         <div className="flex items-center gap-2">
           {/* 2-state segmented theme toggle. Sized to match the row's other

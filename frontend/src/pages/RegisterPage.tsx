@@ -96,7 +96,7 @@ export default function RegisterPage() {
         </h1>
         <p className="text-[13px] text-ink-2 leading-[1.55] mt-3">
           Free. Get <strong className="text-accent">10 coins</strong> on signup; earn{' '}
-          <strong className="text-accent">+5</strong> for every wallpaper you contribute.
+          <strong className="text-accent">+1</strong> for every wallpaper you contribute.
         </p>
 
         <hr className="my-6 border-t border-hair" />

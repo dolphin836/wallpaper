@@ -904,7 +904,7 @@ function LedgerPanel({ txs, page, total, loading, balance, onPage }: LedgerPanel
           ['BALANCE',  String(balance),                  'text-ink',     ''],
           ['EARNED',   `+${earned}`,                     'text-accent',  'this page'],
           ['SPENT',    `−${spent}`,                      'text-ink-2',   'this page'],
-          ['NEXT',     '+5',                             'text-ink',     'per upload'],
+          ['NEXT',     '+1',                             'text-ink',     'per upload'],
         ].map(([k, v, color, sub]) => (
           <div key={k} className="px-4 py-3.5 border-r border-b border-hair">
             <div className="kicker text-muted">{k}</div>
