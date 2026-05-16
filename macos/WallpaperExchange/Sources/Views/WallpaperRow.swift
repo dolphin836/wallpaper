@@ -12,9 +12,17 @@ struct WallpaperRow: View {
     // nil → indeterminate spinner. Otherwise 0.0-1.0, render as a linear bar.
     // Dynamic HEIC wallpapers can be tens of MB so feedback matters.
     let downloadProgress: Double?
+    // Only meaningful for `.downloaded` rows. The Downloaded list is sourced
+    // from /me/downloads (server history), so a row can refer to a wallpaper
+    // downloaded on another device — meaning the file isn't actually on this
+    // Mac. When false, we surface a Redownload action so the user can pull
+    // the file back without going through Set Wallpaper's silent on-demand
+    // fetch.
+    let localFileExists: Bool
     let onDownload: () -> Void
     let onDownloadAndSet: () -> Void
     let onSetWallpaper: () -> Void
+    let onRedownload: () -> Void
 
     @State private var isHovering = false
     @State private var highResLoaded = false
@@ -93,6 +101,12 @@ struct WallpaperRow: View {
                     iconButton(icon: "arrow.down.circle", help: "Download", action: onDownload)
                     iconButton(icon: "desktopcomputer.and.arrow.down", help: "Download & set", action: onDownloadAndSet)
                 case .downloaded:
+                    // File missing on this Mac (downloaded on another device,
+                    // or deleted out from under us). Offer an explicit pull
+                    // before Set Wallpaper so the action stays predictable.
+                    if !localFileExists {
+                        iconButton(icon: "arrow.down.circle", help: "Redownload", action: onRedownload)
+                    }
                     iconButton(icon: "desktopcomputer", help: "Set wallpaper", action: onSetWallpaper)
                 }
             }

@@ -220,9 +220,15 @@ struct PopoverContentView: View {
                             column: isLocal ? .downloaded : .latest,
                             isDownloading: manager.downloading.contains(wp.id),
                             downloadProgress: manager.downloadProgress[wp.id],
+                            // downloadedIDs is the in-memory mirror of files on
+                            // disk for this user — kept in sync by scanLocalFiles
+                            // at init and by every download/deleteLocal call.
+                            // Authoritative for "is the file on this Mac?".
+                            localFileExists: manager.downloadedIDs.contains(wp.id),
                             onDownload: { Task { await download(wp) } },
                             onDownloadAndSet: { Task { await downloadAndSet(wp) } },
-                            onSetWallpaper: { Task { await setWallpaper(wp) } }
+                            onSetWallpaper: { Task { await setWallpaper(wp) } },
+                            onRedownload: { Task { await download(wp) } }
                         )
                     }
 

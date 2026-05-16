@@ -10,6 +10,13 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+### Added
+
+- Downloaded list now shows a **Redownload** action on rows whose local
+  file is missing — typically wallpapers paid for on another device, or
+  files deleted out from under the app. Visible alongside Set Wallpaper
+  in the hover stack.
+
 ## [1.1.1] - 2026-05-16
 
 ### Fixed
