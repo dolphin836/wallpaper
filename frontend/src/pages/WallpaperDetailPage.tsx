@@ -15,7 +15,7 @@ import {
   AiOutlineClose,
   AiOutlineLoading3Quarters,
 } from 'react-icons/ai';
-import { MdPlaylistAdd, MdDesktopMac } from 'react-icons/md';
+import { MdPlaylistAdd, MdDesktopMac, MdLaptopMac, MdTabletMac, MdPhoneIphone, MdOutlineRemoveRedEye } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User } from '../types';
 import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
@@ -897,7 +897,7 @@ export default function WallpaperDetailPage() {
             {variants.length > 0 && (
               <section>
                 <div className="kicker text-muted">Available devices</div>
-                <div className="mt-2 border-t border-hair">
+                <div className="mt-3 border-t border-hair">
                   {[...variants]
                     // Pin the user's matched variant to the top; sort the rest
                     // by decreasing total pixels so the highest-fidelity
@@ -913,41 +913,73 @@ export default function WallpaperDetailPage() {
                       const isMatched = matchedVariant?.id === v.id;
                       const mockable = canShowMockup(v);
                       const deviceName = [v.brand, v.device_name].filter(Boolean).join(' ').trim() || 'Device';
+                      const PlatformIcon =
+                        v.platform === 'phone' ? MdPhoneIphone
+                        : v.platform === 'tablet' ? MdTabletMac
+                        : v.platform === 'laptop' ? MdLaptopMac
+                        : MdDesktopMac;
                       return (
                         <div
                           key={v.id}
-                          className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 border-b border-hair last:border-b-0"
+                          className={`relative grid grid-cols-[44px_1fr_auto] items-center gap-3 sm:gap-4 px-2 sm:px-3 py-3 border-b border-hair last:border-b-0 ${isMatched ? 'bg-paper-3' : ''}`}
                         >
-                          {/* Left: name + optional "Your device" pill */}
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <span className="text-[13px] text-ink truncate">{deviceName}</span>
-                            {isMatched && (
-                              <span className="mono text-[9px] tracking-[0.08em] uppercase px-1.5 py-0.5 rounded border border-accent text-accent-ink bg-accent-soft whitespace-nowrap">
-                                Your device
-                              </span>
-                            )}
-                          </div>
-                          {/* Middle: dims · size */}
-                          <span className="mono text-[10px] tracking-[0.04em] text-muted whitespace-nowrap">
-                            {v.width.toLocaleString()} × {v.height.toLocaleString()} px
-                            {v.file_size > 0 && <> · {formatFileSize(v.file_size)}</>}
+                          {/* Matched-row left rail — thick ink bar that
+                              identifies "Your device" at a glance even
+                              with the badge wrapped to the next line. */}
+                          {isMatched && (
+                            <span
+                              aria-hidden
+                              className="absolute left-0 top-0 bottom-0 w-[3px] bg-ink"
+                            />
+                          )}
+
+                          {/* Icon column */}
+                          <span className="text-ink-2 flex items-center justify-center">
+                            <PlatformIcon size={22} />
                           </span>
-                          {/* Right: action buttons */}
-                          <div className="flex items-center gap-1.5 ml-auto">
+
+                          {/* Info: name + YOUR DEVICE badge / dims · size */}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[15px] sm:text-[16px] font-medium text-ink truncate">
+                                {deviceName}
+                              </span>
+                              {isMatched && (
+                                <span className="mono text-[9px] tracking-[0.16em] font-semibold uppercase px-2 py-[3px] bg-ink text-paper whitespace-nowrap">
+                                  Your device
+                                </span>
+                              )}
+                            </div>
+                            <div className="mono text-[11px] tracking-[0.04em] text-muted mt-1">
+                              {v.width.toLocaleString()} × {v.height.toLocaleString()} px
+                              {v.file_size > 0 && <> · {formatFileSize(v.file_size)}</>}
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             <button
                               onClick={() => mockable && setMockupVariant(v)}
                               disabled={!mockable}
                               title={mockable ? 'Preview on device' : 'Mockup not available for this device'}
-                              className="mono text-[10px] tracking-[0.06em] uppercase px-2.5 py-1 rounded border border-hair text-ink-2 hover:bg-paper-2 hover:border-ink-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-paper text-[12px] sm:text-[13px] font-medium transition-colors ${
+                                mockable
+                                  ? 'border border-hair text-ink hover:bg-paper-2 hover:border-ink-2'
+                                  : 'border border-dashed border-hair text-muted-2 line-through cursor-not-allowed'
+                              }`}
                             >
+                              <MdOutlineRemoveRedEye size={15} />
                               Preview
                             </button>
                             <button
                               onClick={() => handleDownload(v)}
                               disabled={dlLoading}
                               title="Download this variant"
-                              className="mono text-[10px] tracking-[0.06em] uppercase px-2.5 py-1 rounded bg-ink text-paper hover:bg-ink-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-white text-[12px] sm:text-[13px] font-semibold disabled:opacity-60 transition-colors ${
+                                isMatched ? 'bg-accent hover:brightness-95' : 'bg-ink hover:bg-ink-2'
+                              }`}
                             >
+                              <AiOutlineDownload size={14} />
                               Download
                             </button>
                           </div>
