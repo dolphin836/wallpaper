@@ -79,37 +79,41 @@ function AppleIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-// Migrate any pre-redesign viewMode value. 'justified' was the legacy default
-// driven by the justified-layout library; it maps to the new 'salon' tile
-// mosaic so returning users see the redesign on first paint.
+// Default view mode = 'justified' (justified-layout library, uniform row
+// height) — what the page used to ship. 'salon' (mosaic) is implemented in
+// WallpaperGrid but no longer surfaced through the toggle; the saved value
+// still round-trips so anyone who explicitly picked it before keeps it.
 function readSavedViewMode(): ViewMode {
   const raw = localStorage.getItem('wallpaper_view_mode');
-  if (raw === 'salon' || raw === 'grid' || raw === 'justified') {
-    return raw === 'justified' ? 'salon' : (raw as ViewMode);
+  if (raw === 'salon' || raw === 'justified' || raw === 'grid') {
+    return raw;
   }
-  return 'salon';
+  return 'justified';
 }
 
-function SkeletonSalon() {
-  // Approximation of the first 8 tiles of the salon pattern so the page
-  // doesn't pop layout when the API returns.
-  const tiles = [
-    { c: 4, r: 2 }, { c: 3, r: 3 }, { c: 4, r: 2 }, { c: 3, r: 2 },
-    { c: 5, r: 1 }, { c: 3, r: 2 }, { c: 4, r: 1 }, { c: 4, r: 2 },
+function SkeletonRows({ rowHeight = 260 }: { rowHeight?: number }) {
+  // Loose approximation of the justified-layout output: three horizontal
+  // rows of mixed-width tiles at uniform row height. The widths don't have
+  // to match what the library will compute — once the data arrives the
+  // real grid replaces this in one tick — they just need to read as
+  // "things will land at this height."
+  const rows = [
+    [3, 4, 3],
+    [2, 3, 3, 3],
+    [4, 3, 4],
   ];
   return (
-    <div
-      style={{
-        display: 'grid', gridTemplateColumns: 'repeat(11, 1fr)',
-        gridAutoRows: '150px', gridAutoFlow: 'dense', gap: 8,
-      }}
-    >
-      {tiles.map((t, i) => (
-        <div
-          key={i}
-          className="skeleton-card bg-paper-3 border border-hair-soft"
-          style={{ gridColumn: `span ${t.c}`, gridRow: `span ${t.r}`, animationDelay: `${i * 80}ms` }}
-        />
+    <div className="flex flex-col gap-4">
+      {rows.map((row, ri) => (
+        <div key={ri} className="flex gap-4" style={{ height: rowHeight }}>
+          {row.map((flex, ci) => (
+            <div
+              key={ci}
+              className="skeleton-card bg-paper-3 border border-hair-soft rounded-lg"
+              style={{ flex, animationDelay: `${(ri * row.length + ci) * 80}ms` }}
+            />
+          ))}
+        </div>
       ))}
     </div>
   );
@@ -230,12 +234,14 @@ function DiscoverControls(p: DiscoverControlsProps) {
 
       {/* Right: view + size + sort */}
       <div className="flex items-center gap-2.5">
-        {/* View toggle */}
+        {/* View toggle — two options: uniform-height "justified" rows
+            (default) and the fixed-aspect grid. The third 'salon' mosaic
+            mode is intentionally not exposed in the toggle. */}
         <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-lg">
           <button
-            onClick={() => p.onView('salon')}
-            title="Salon"
-            className={`w-[30px] h-[26px] rounded-[5px] flex items-center justify-center transition-colors ${p.viewMode === 'salon' ? 'bg-ink text-paper' : 'text-muted'}`}
+            onClick={() => p.onView('justified')}
+            title="Justified"
+            className={`w-[30px] h-[26px] rounded-[5px] flex items-center justify-center transition-colors ${p.viewMode === 'justified' || p.viewMode === 'salon' ? 'bg-ink text-paper' : 'text-muted'}`}
           ><AiOutlineAppstore size={13} /></button>
           <button
             onClick={() => p.onView('grid')}
@@ -413,8 +419,9 @@ export default function HomePage() {
 
   // Ref callback: attaches/recreates the IntersectionObserver whenever the sentinel mounts.
   // Bug fix: the previous useEffect-based attach ran when the sentinel was still null
-  // (initial load shows <SkeletonSalon/>, sentinel hadn't mounted yet) and never re-ran when
-  // loading flipped to false, so autoload was permanently broken on first paint.
+  // (initial load shows the SkeletonRows placeholder, sentinel hadn't mounted yet) and
+  // never re-ran when loading flipped to false, so autoload was permanently broken on
+  // first paint.
   const attachSentinel = useCallback((el: HTMLDivElement | null) => {
     if (observerRef.current) {
       observerRef.current.disconnect();
@@ -514,7 +521,7 @@ export default function HomePage() {
         )}
 
         {loading ? (
-          <SkeletonSalon />
+          <SkeletonRows rowHeight={SIZE_HEIGHTS[sizeMode]} />
         ) : (
           <>
             <WallpaperGrid

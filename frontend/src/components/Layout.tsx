@@ -33,19 +33,6 @@ function useDarkMode() {
   return [dark, setDark] as const;
 }
 
-/** Editorial wordmark: outer 60×60 thin stroke + small filled square top-left
- *  + "W" centered in Instrument Serif. Inlined so it picks up the surrounding
- *  text color via currentColor (works in both light + dark skins). */
-function Logomark({ size = 36 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="2" y="2" width="60" height="60" />
-      <rect x="8" y="8" width="6" height="6" fill="currentColor" stroke="none" />
-      <text x="32" y="44" textAnchor="middle" fontFamily="Instrument Serif, serif" fontSize="36" fill="currentColor" stroke="none">W</text>
-    </svg>
-  );
-}
-
 interface NavItem { label: string; sub: string; to: string; }
 
 function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
@@ -70,7 +57,11 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
         onClick={onCloseDrawer}
         className="flex items-center gap-3 px-6 pt-8 pb-6 text-ink no-underline"
       >
-        <Logomark size={36} />
+        <img
+          src="/logo-192.png"
+          alt="Wallpaper Exchange"
+          className="w-9 h-9 rounded-lg border border-hair flex-shrink-0 object-cover"
+        />
         <div>
           <div className="display text-[18px] leading-none">Wallpaper</div>
           <div className="display italic-d text-[18px] leading-none mt-0.5">Exchange</div>
