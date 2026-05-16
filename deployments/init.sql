@@ -308,6 +308,13 @@ ON CONFLICT (name) DO NOTHING;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE INDEX IF NOT EXISTS idx_users_is_admin ON users(is_admin) WHERE is_admin = TRUE;
 
+-- Per-list privacy flags for the profile page. All default FALSE so existing
+-- accounts start with private lists; the owner opts each one in via the
+-- Profile-page toggle.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS likes_public     BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS favorites_public BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS downloads_public BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- Per-job lifecycle records for the Kafka workers. Workers insert a row when
 -- they start processing a message and update it on completion. The admin
 -- console reads from this table to show "what is the worker doing right now",

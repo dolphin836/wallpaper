@@ -1,391 +1,129 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import PageMeta from '../components/PageMeta';
-import { AiOutlineHeart, AiOutlineEye, AiOutlinePicture, AiOutlineEdit, AiOutlineCamera, AiOutlineLock, AiOutlineCheck, AiOutlineClose, AiOutlineApple } from 'react-icons/ai';
-import { MdDevices } from 'react-icons/md';
+import {
+  AiOutlineHeart,
+  AiOutlineStar,
+  AiOutlineDownload,
+  AiOutlineLock,
+  AiOutlineEdit,
+  AiOutlineCamera,
+  AiOutlineCheck,
+  AiOutlineClose,
+  AiOutlinePicture,
+  AiOutlineAppstore,
+  AiOutlineThunderbolt,
+  AiOutlineLoading3Quarters,
+  AiOutlinePlus,
+} from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { User, Wallpaper, Collection, CoinTransaction } from '../types';
-import { getUserProfile, getUserWallpapers, getUserCollections, getMyFavorites, getMyLikes, getMyDownloads, getMyCoins, getCoinTransactions, updateProfile, uploadAvatar, changePassword } from '../api';
+import {
+  getUserProfile,
+  getUserWallpapers,
+  getUserCollections,
+  getMyFavorites,
+  getMyLikes,
+  getMyDownloads,
+  getUserFavorites,
+  getUserLikes,
+  getUserDownloads,
+  getMyCoins,
+  getCoinTransactions,
+  updateProfile,
+  uploadAvatar,
+  changePassword,
+  updatePrivacy,
+} from '../api';
 import { useAuthStore } from '../store/auth';
-import WallpaperGrid from '../components/WallpaperGrid';
+import PageMeta from '../components/PageMeta';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
+import WallpaperCard from '../components/WallpaperCard';
+import CollectionCard from '../components/CollectionCard';
+import Pagination from '../components/Pagination';
 import AvatarCropModal from '../components/AvatarCropModal';
 
-type TabKey = 'coins' | 'wallpapers' | 'collections' | 'favorites' | 'likes' | 'downloads';
-type WallpaperTabKey = 'wallpapers' | 'favorites' | 'likes' | 'downloads';
+const PAGE_SIZE = 12;
 
-interface WallpaperTab {
+type ListKey = 'favorites' | 'likes' | 'downloads';
+type TabKey = 'uploads' | 'collections' | 'favorites' | 'likes' | 'downloads' | 'ledger';
+
+interface ListState {
   items: Wallpaper[];
   page: number;
-  // cursors[i] = the `cursor` value to send when fetching page i+1.
-  // cursors[0] is always 0. cursors[N] is set after page N is fetched, ready for page N+1.
-  cursors: number[];
+  cursors: number[]; // cursors[N] = cursor to fetch page N+1
   total: number;
+  hidden: boolean;   // viewer doesn't have permission to see the list
   loaded: boolean;
+  loading: boolean;
+}
+const emptyList = (): ListState => ({
+  items: [], page: 1, cursors: [0], total: 0, hidden: false, loaded: false, loading: false,
+});
+
+function formatJoined(iso: string): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
 }
 
-// Page size matches the grid layout used in WallpaperGrid (sizeMode="md"):
-//   grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6
-// Target ~4 rows per page based on the current viewport.
-function gridColsForWidth(width: number): number {
-  if (width >= 1024) return 6;
-  if (width >= 768) return 5;
-  if (width >= 640) return 4;
-  return 3;
+function relativeTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 60_000) return 'Just now';
+  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)} min ago`;
+  if (ms < 86_400_000) return `Today, ${new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+  const days = Math.floor(ms / 86_400_000);
+  if (days < 30) return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+  const months = Math.floor(days / 30);
+  return `${months} ${months === 1 ? 'month' : 'months'} ago`;
 }
 
-function computePageSize(width: number): number {
-  return gridColsForWidth(width) * 4;
+function dayLabel(iso: string): string {
+  // Mono uppercase "MAY 15" for ledger day groupings.
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
 }
 
-function useViewportPageSize(): number {
-  const [size, setSize] = useState(() =>
-    typeof window === 'undefined' ? 20 : computePageSize(window.innerWidth),
-  );
-  useEffect(() => {
-    let raf = 0;
-    const onResize = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => setSize(computePageSize(window.innerWidth)));
-    };
-    window.addEventListener('resize', onResize);
-    return () => {
-      window.removeEventListener('resize', onResize);
-      cancelAnimationFrame(raf);
-    };
-  }, []);
-  return size;
-}
-
-// Returns the page-number sequence with ellipses, e.g. for page=5, total=10: [1, '...', 4, 5, 6, '...', 10].
-// Always shows first + last + a small window around the current page.
-function paginationItems(page: number, total: number): (number | 'ellipsis')[] {
-  const set = new Set<number>([1, total]);
-  for (let i = page - 1; i <= page + 1; i++) {
-    if (i > 1 && i < total) set.add(i);
-  }
-  const sorted = Array.from(set).sort((a, b) => a - b);
-  const out: (number | 'ellipsis')[] = [];
-  let prev = 0;
-  for (const p of sorted) {
-    if (prev > 0 && p - prev > 1) out.push('ellipsis');
-    out.push(p);
-    prev = p;
-  }
-  return out;
-}
-
-function Pagination({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
-  if (totalPages <= 1) return null;
-  const items = paginationItems(page, totalPages);
-  return (
-    <nav className="flex items-center justify-center gap-1.5 mt-8" aria-label="Pagination">
-      <button
-        onClick={() => onChange(page - 1)}
-        disabled={page <= 1}
-        className="px-3 py-1.5 text-sm rounded-lg border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple hover:border-ws-purple/30 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-ws-muted disabled:hover:border-ws-border transition-colors"
-        aria-label="Previous page"
-      >
-        &larr;
-      </button>
-      {items.map((it, i) =>
-        it === 'ellipsis' ? (
-          <span key={`e${i}`} className="px-1 text-sm text-ws-muted dark:text-ws-dark-muted select-none">…</span>
-        ) : (
-          <button
-            key={it}
-            onClick={() => onChange(it)}
-            aria-current={it === page ? 'page' : undefined}
-            className={`min-w-9 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-              it === page
-                ? 'border-ws-purple bg-ws-purple text-white'
-                : 'border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple hover:border-ws-purple/30'
-            }`}
-          >
-            {it}
-          </button>
-        ),
-      )}
-      <button
-        onClick={() => onChange(page + 1)}
-        disabled={page >= totalPages}
-        className="px-3 py-1.5 text-sm rounded-lg border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:text-ws-purple hover:border-ws-purple/30 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-ws-muted disabled:hover:border-ws-border transition-colors"
-        aria-label="Next page"
-      >
-        &rarr;
-      </button>
-    </nav>
-  );
-}
-
-const TX_LABELS: Record<string, { label: string; color: string }> = {
-  register_bonus: { label: 'Registration Bonus', color: 'text-green-600' },
-  upload_reward: { label: 'Upload Reward', color: 'text-green-600' },
-  download_cost: { label: 'Download Cost', color: 'text-red-500' },
-  download_earned: { label: 'Download Earned', color: 'text-green-600' },
+// Friendly ledger label per transaction type. Falls back to the raw type
+// when it's not in the table so new types still render without code change.
+const LEDGER_LABELS: Record<string, string> = {
+  register_bonus:   'Signup bonus',
+  upload_reward:    'Uploaded a wallpaper',
+  download_cost:    'Downloaded a wallpaper',
+  download_earned:  'Someone downloaded yours',
 };
-
-function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleString();
-}
-
-// Physical pixel resolution of the user's primary screen. Same logic the home
-// feed uses for its My-Device filter; centralised here so the Downloads tab
-// filter pipes the exact same values to the API.
-function getScreenResolution() {
-  const dpr = window.devicePixelRatio || 1;
-  return {
-    width: Math.round(window.screen.width * dpr),
-    height: Math.round(window.screen.height * dpr),
-  };
-}
-
-const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent);
 
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
-  const { user: currentUser, updateCoins } = useAuthStore();
+  const { user: currentUser, updateCoins, updateUser } = useAuthStore();
+
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // ─── Tab state ───
+  const [activeTab, setActiveTab] = useState<TabKey>('uploads');
+  const isOwner = currentUser?.id === user?.id;
+
+  // Uploads — two sub-lists (in-progress vs published) for owner; stranger sees only published.
+  const [pubList, setPubList] = useState<ListState>(emptyList());
+  const [inProgress, setInProgress] = useState<ListState>(emptyList());
+
+  // Lists — favorites / likes / downloads
+  const [favList, setFavList] = useState<ListState>(emptyList());
+  const [likeList, setLikeList] = useState<ListState>(emptyList());
+  const [dlList, setDlList] = useState<ListState>(emptyList());
+
+  // Collections — single-page-load grab of the user's owned collections.
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [collectionsLoaded, setCollectionsLoaded] = useState(false);
 
-  const isOwnProfile = currentUser?.username === username;
-  const [activeTab, setActiveTab] = useState<TabKey>(isOwnProfile ? 'coins' : 'wallpapers');
-
-  const pageSize = useViewportPageSize();
-
-  const emptyTab = (): WallpaperTab => ({ items: [], page: 1, cursors: [0], total: 0, loaded: false });
-  const [tabs, setTabs] = useState<Record<WallpaperTabKey, WallpaperTab>>({
-    wallpapers: emptyTab(),
-    favorites: emptyTab(),
-    likes: emptyTab(),
-    downloads: emptyTab(),
-  });
-  // Loader callbacks read from tabs via this ref to avoid recreating on every state change.
-  const tabsRef = useRef(tabs);
-  tabsRef.current = tabs;
-
-  const [tabLoading, setTabLoading] = useState(false);
-
-  // Filters for the Downloads tab (parity with the home-feed My-Device / macOS
-  // toggles). Mutually exclusive: turning one on turns the other off, same as
-  // HomePage. Kept as refs too so fetchWallpaperPage doesn't need to re-create
-  // on every toggle.
-  const [dlDeviceFilter, setDlDeviceFilter] = useState(false);
-  const [dlMacFilter, setDlMacFilter] = useState(false);
-  const dlFiltersRef = useRef({ device: false, mac: false });
-  dlFiltersRef.current = { device: dlDeviceFilter, mac: dlMacFilter };
-  const screen = useMemo(() => getScreenResolution(), []);
-
-  const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
+  // Ledger — paginated transactions
+  const [txs, setTxs] = useState<CoinTransaction[]>([]);
   const [txPage, setTxPage] = useState(1);
   const [txCursors, setTxCursors] = useState<number[]>([0]);
-  const txCursorsRef = useRef(txCursors);
-  txCursorsRef.current = txCursors;
   const [txTotal, setTxTotal] = useState(0);
   const [txLoading, setTxLoading] = useState(false);
   const [txLoaded, setTxLoaded] = useState(false);
 
-  const loadCoins = useCallback(async () => {
-    try {
-      const res = await getMyCoins();
-      updateCoins(res.data.data.coins);
-    } catch {
-      // silent
-    }
-  }, [updateCoins]);
-
-  const fetchTransactionsPage = useCallback(async (targetPage: number) => {
-    setTxLoading(true);
-    try {
-      const cursors = txCursorsRef.current;
-      const cursor = cursors[targetPage - 1] ?? 0;
-      const res = await getCoinTransactions({ cursor: cursor > 0 ? cursor : undefined, limit: pageSize });
-      const data = res.data.data;
-      const items = data?.items ?? [];
-      const hasMore = data?.has_more ?? false;
-      const nextCursor = data?.next_cursor ?? 0;
-      setTransactions(items);
-      setTxPage(targetPage);
-      setTxTotal(data?.total ?? 0);
-      setTxCursors((prev) => {
-        const next = prev.slice(0, targetPage);
-        if (hasMore && nextCursor > 0) next[targetPage] = nextCursor;
-        return next;
-      });
-      setTxLoaded(true);
-    } catch {
-      toast.error('Failed to load transactions');
-    } finally {
-      setTxLoading(false);
-    }
-  }, [pageSize]);
-
-  const fetchWallpaperPage = useCallback(async (key: WallpaperTabKey, targetPage: number) => {
-    if (!username) return;
-    setTabLoading(true);
-    try {
-      const current = tabsRef.current[key];
-      const cursor = current.cursors[targetPage - 1] ?? 0;
-      const params: { cursor?: number; limit: number } = { limit: pageSize };
-      if (cursor > 0) params.cursor = cursor;
-
-      let res;
-      if (key === 'wallpapers') {
-        res = await getUserWallpapers(username, params);
-      } else if (key === 'favorites') {
-        res = await getMyFavorites(params);
-      } else if (key === 'downloads') {
-        // Layer the resolution / macOS filters on top of cursor + limit.
-        // Mac wallpapers and resolution filters are mutually exclusive in the
-        // home UI, mirror the same constraint here.
-        const dlParams: Parameters<typeof getMyDownloads>[0] = { ...params };
-        const f = dlFiltersRef.current;
-        if (f.mac) {
-          dlParams.dynamic_only = true;
-        } else if (f.device) {
-          dlParams.device_width = screen.width;
-          dlParams.device_height = screen.height;
-          if (isMac) dlParams.include_dynamic = true;
-        }
-        res = await getMyDownloads(dlParams);
-      } else {
-        res = await getMyLikes(params);
-      }
-      const data = res.data.data;
-      const items = data?.items ?? [];
-      const hasMore = data?.has_more ?? false;
-      const nextCursor = data?.next_cursor ?? 0;
-      const total = data?.total ?? 0;
-      setTabs((prev) => {
-        const prevTab = prev[key];
-        const cursors = prevTab.cursors.slice(0, targetPage);
-        if (hasMore && nextCursor > 0) cursors[targetPage] = nextCursor;
-        return {
-          ...prev,
-          [key]: {
-            items,
-            page: targetPage,
-            cursors,
-            total,
-            loaded: true,
-          },
-        };
-      });
-    } catch {
-      toast.error('Failed to load data');
-      setTabs((prev) => ({ ...prev, [key]: { ...prev[key], loaded: true } }));
-    } finally {
-      setTabLoading(false);
-    }
-  }, [username, pageSize]);
-
-  useEffect(() => {
-    if (!username) return;
-    setLoading(true);
-    setTabs({
-      wallpapers: emptyTab(),
-      favorites: emptyTab(),
-      likes: emptyTab(),
-      downloads: emptyTab(),
-    });
-    setTransactions([]);
-    setTxPage(1);
-    setTxCursors([0]);
-    setTxTotal(0);
-    setTxLoaded(false);
-
-    const own = currentUser?.username === username;
-    setActiveTab(own ? 'coins' : 'wallpapers');
-
-    Promise.all([
-      getUserProfile(username),
-      getUserWallpapers(username, { limit: pageSize }),
-      getUserCollections(username, { limit: 50 }),
-    ])
-      .then(([profileRes, wpRes, colRes]) => {
-        setUser(profileRes.data.data);
-        const data = wpRes.data.data;
-        const items = data?.items ?? [];
-        const hasMore = data?.has_more ?? false;
-        const nextCursor = data?.next_cursor ?? 0;
-        const total = data?.total ?? 0;
-        setTabs((prev) => {
-          const cursors: number[] = [0];
-          if (hasMore && nextCursor > 0) cursors[1] = nextCursor;
-          return {
-            ...prev,
-            wallpapers: { items, page: 1, cursors, total, loaded: true },
-          };
-        });
-        setCollections(colRes.data.data?.items || []);
-      })
-      .catch(() => toast.error('Failed to load profile'))
-      .finally(() => setLoading(false));
-
-    if (own) {
-      loadCoins();
-      fetchTransactionsPage(1);
-    }
-    // Intentionally only re-run when username changes. pageSize changes are handled by the dedicated effect below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [username]);
-
-  // When the viewport changes the page size, drop cached pages on loaded tabs and refetch page 1
-  // (cached cursors were sized for the old page size and are no longer valid offsets).
-  const prevPageSizeRef = useRef(pageSize);
-  useEffect(() => {
-    if (prevPageSizeRef.current === pageSize) return;
-    prevPageSizeRef.current = pageSize;
-    if (!username) return;
-
-    (Object.keys(tabsRef.current) as WallpaperTabKey[]).forEach((key) => {
-      if (tabsRef.current[key].loaded) {
-        fetchWallpaperPage(key, 1);
-      }
-    });
-    if (txLoaded) {
-      fetchTransactionsPage(1);
-    }
-    // We intentionally don't include tabs/transactions in deps — we read fresh state via refs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageSize, username, fetchWallpaperPage, fetchTransactionsPage]);
-
-  // Toggling either downloads filter resets that tab to page 1 with the new
-  // server-side filter applied. Only fires after the tab has been loaded once
-  // (no point hitting the API for a tab the user hasn't visited).
-  useEffect(() => {
-    if (!username || !tabsRef.current.downloads.loaded) return;
-    fetchWallpaperPage('downloads', 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dlDeviceFilter, dlMacFilter]);
-
-  const toggleDlDeviceFilter = () => {
-    setDlDeviceFilter((p) => {
-      if (!p) setDlMacFilter(false);
-      return !p;
-    });
-  };
-
-  const toggleDlMacFilter = () => {
-    setDlMacFilter((p) => {
-      if (!p) setDlDeviceFilter(false);
-      return !p;
-    });
-  };
-
-  const handleTabChange = (tab: TabKey) => {
-    setActiveTab(tab);
-    if ((tab === 'favorites' || tab === 'likes' || tab === 'downloads') && !tabs[tab].loaded) {
-      fetchWallpaperPage(tab, 1);
-    }
-    if (tab === 'coins' && !txLoaded) {
-      loadCoins();
-      fetchTransactionsPage(1);
-    }
-  };
-
+  // Profile edit modal state
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
@@ -397,96 +135,163 @@ export default function ProfilePage() {
   const [newPw, setNewPw] = useState('');
   const [savingPw, setSavingPw] = useState(false);
 
-  if (loading) return <Spinner />;
-  if (!user) return <EmptyState message="User not found." />;
+  // ─── Fetchers ───
 
-  const currentTab = (activeTab === 'coins' || activeTab === 'collections')
-    ? undefined
-    : tabs[activeTab];
-  const tabDefs: { key: TabKey; label: string; ownerOnly: boolean }[] = [
-    { key: 'coins', label: 'Coins', ownerOnly: true },
-    { key: 'wallpapers', label: 'Wallpapers', ownerOnly: false },
-    { key: 'collections', label: 'Collections', ownerOnly: false },
-    { key: 'downloads', label: 'Downloads', ownerOnly: true },
-    { key: 'favorites', label: 'Favorites', ownerOnly: true },
-    { key: 'likes', label: 'Likes', ownerOnly: true },
-  ];
-
-  const renderCoinsTab = () => (
-    <div className="max-w-2xl">
-      <div className="bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 rounded-2xl p-6 mb-8 text-white shadow-lg relative overflow-hidden">
-        <div className="absolute -right-4 -top-4 text-[120px] opacity-10 rotate-12 select-none">💰</div>
-        <p className="text-sm font-medium opacity-90 mb-1">My Coins</p>
-        <p className="text-4xl font-bold">{currentUser?.coins ?? 0}</p>
-        <p className="text-xs opacity-75 mt-2">
-          Upload wallpapers to earn coins. Each download costs 1 coin (your own wallpapers are free).
-        </p>
-      </div>
-
-      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Transaction History</h3>
-
-      {txLoading && transactions.length === 0 ? (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
-          ))}
-        </div>
-      ) : transactions.length === 0 ? (
-        <EmptyState message="No transactions yet." />
-      ) : (
-        <div className="space-y-2">
-          {transactions.map((tx) => {
-            const info = TX_LABELS[tx.tx_type] ?? { label: tx.tx_type, color: tx.amount > 0 ? 'text-green-600' : 'text-red-500' };
-            return (
-              <div
-                key={tx.id}
-                className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{info.label}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {formatTime(tx.created_at)}
-                    {tx.ref_id > 0 && (
-                      <> · <Link to={`/wallpaper/${tx.ref_id}`} className="text-indigo-500 hover:underline">Wallpaper #{tx.ref_id}</Link></>
-                    )}
-                  </p>
-                </div>
-                <div className="text-right ml-4">
-                  <p className={`text-sm font-bold ${info.color}`}>
-                    {tx.amount > 0 ? '+' : ''}{tx.amount}
-                  </p>
-                  <p className="text-xs text-gray-400">Balance: {tx.balance}</p>
-                </div>
-              </div>
-            );
-          })}
-
-          <Pagination
-            page={txPage}
-            totalPages={Math.max(1, Math.ceil(txTotal / pageSize))}
-            onChange={(p) => fetchTransactionsPage(p)}
-          />
-        </div>
-      )}
-    </div>
-  );
-
-  // Two-step avatar flow: pick a file → open crop modal → user adjusts →
-  // upload the cropped JPEG. Keeps the upload step independent of file size
-  // since we always emit a 512² JPEG @ q=0.9 (~50-80 KB).
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // allow re-selecting the same file later
-    if (!file) return;
-    // 10 MB ceiling on the *source* image. The cropper would happily decode
-    // a 50 MB image but we save bandwidth and avoid Safari memory issues.
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('图片需小于 10MB');
-      return;
-    }
-    setCropFile(file);
+  const setListFor = (key: 'pub' | 'inprogress' | ListKey, updater: (prev: ListState) => ListState) => {
+    if (key === 'pub') setPubList(updater);
+    else if (key === 'inprogress') setInProgress(updater);
+    else if (key === 'favorites') setFavList(updater);
+    else if (key === 'likes') setLikeList(updater);
+    else if (key === 'downloads') setDlList(updater);
   };
 
+  // Generic page-fetch helper that talks to whichever endpoint the tab maps to.
+  const fetchList = useCallback(async (
+    target: 'pub' | 'inprogress' | ListKey,
+    page: number,
+  ) => {
+    if (!user) return;
+    const isMe = currentUser?.id === user.id;
+    const stateGetter = (): ListState => {
+      if (target === 'pub')        return pubList;
+      if (target === 'inprogress') return inProgress;
+      if (target === 'favorites')  return favList;
+      if (target === 'likes')      return likeList;
+      return dlList;
+    };
+    const current = stateGetter();
+    const cursor = current.cursors[page - 1] ?? 0;
+    setListFor(target, (p) => ({ ...p, loading: true }));
+    try {
+      let res;
+      const params = cursor > 0 ? { cursor, limit: PAGE_SIZE } : { limit: PAGE_SIZE };
+      if (target === 'pub') {
+        res = await getUserWallpapers(user.username, { ...params, status: 1 });
+      } else if (target === 'inprogress') {
+        res = await getUserWallpapers(user.username, { ...params, status: 0 });
+      } else if (isMe) {
+        // Owner: use the /me/* endpoints (existing behavior — these don't
+        // 403 and don't apply privacy gates).
+        if (target === 'favorites') res = await getMyFavorites(params);
+        else if (target === 'likes') res = await getMyLikes(params);
+        else res = await getMyDownloads(params);
+      } else {
+        // Stranger: use the per-user endpoints which return `private: true`
+        // when the owner has hidden that list.
+        const fn = target === 'favorites' ? getUserFavorites
+                 : target === 'likes' ? getUserLikes
+                 : getUserDownloads;
+        res = await fn(user.username, params);
+      }
+      const data = res.data.data as { items: Wallpaper[]; next_cursor: number; has_more: boolean; total?: number; private?: boolean };
+      if (data.private) {
+        setListFor(target, () => ({ items: [], page, cursors: [0], total: 0, hidden: true, loaded: true, loading: false }));
+        return;
+      }
+      setListFor(target, (prev) => {
+        const cursors = prev.cursors.slice(0, page);
+        if (data.has_more && data.next_cursor > 0) cursors[page] = data.next_cursor;
+        return {
+          items: data.items || [],
+          page,
+          cursors,
+          total: data.total ?? 0,
+          hidden: false,
+          loaded: true,
+          loading: false,
+        };
+      });
+    } catch {
+      toast.error('Failed to load');
+      setListFor(target, (p) => ({ ...p, loading: false, loaded: true }));
+    }
+  // We intentionally don't depend on the list states themselves to avoid
+  // recreating fetchList on every page bump — the closure captures the
+  // current state via the setListFor + setter pair only.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, currentUser?.id]);
+
+  const fetchCollections = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await getUserCollections(user.username, { limit: 50 });
+      setCollections(res.data.data.items || []);
+    } catch {
+      toast.error('Failed to load collections');
+    } finally {
+      setCollectionsLoaded(true);
+    }
+  }, [user]);
+
+  const fetchLedger = useCallback(async (page: number) => {
+    setTxLoading(true);
+    try {
+      const cursor = txCursors[page - 1] ?? 0;
+      const res = await getCoinTransactions({ cursor: cursor > 0 ? cursor : undefined, limit: PAGE_SIZE });
+      const data = res.data.data;
+      setTxs(data?.items ?? []);
+      setTxTotal(data?.total ?? 0);
+      setTxPage(page);
+      setTxCursors((prev) => {
+        const next = prev.slice(0, page);
+        if (data?.has_more && data?.next_cursor) next[page] = data.next_cursor;
+        return next;
+      });
+      setTxLoaded(true);
+    } catch {
+      toast.error('Failed to load ledger');
+    } finally {
+      setTxLoading(false);
+    }
+  }, [txCursors]);
+
+  // ─── Initial load ───
+  useEffect(() => {
+    if (!username) return;
+    setLoading(true);
+    setPubList(emptyList()); setInProgress(emptyList());
+    setFavList(emptyList()); setLikeList(emptyList()); setDlList(emptyList());
+    setCollections([]); setCollectionsLoaded(false);
+    setTxs([]); setTxPage(1); setTxCursors([0]); setTxTotal(0); setTxLoaded(false);
+    setActiveTab('uploads');
+
+    getUserProfile(username)
+      .then((res) => setUser(res.data.data))
+      .catch(() => toast.error('Failed to load profile'))
+      .finally(() => setLoading(false));
+  }, [username]);
+
+  // Initial uploads page once we know the user.
+  useEffect(() => {
+    if (!user) return;
+    fetchList('pub', 1);
+    if (currentUser?.id === user.id) {
+      fetchList('inprogress', 1);
+      // Owner sees the ledger on the Coins tab — preload coins balance via
+      // /coins so the header card stays accurate.
+      getMyCoins().then((res) => updateCoins(res.data.data.coins)).catch(() => { /* silent */ });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Lazy-load each tab on first activation.
+  const onTabChange = (tab: TabKey) => {
+    setActiveTab(tab);
+    if (tab === 'collections' && !collectionsLoaded) fetchCollections();
+    if (tab === 'favorites'  && !favList.loaded)  fetchList('favorites', 1);
+    if (tab === 'likes'      && !likeList.loaded) fetchList('likes', 1);
+    if (tab === 'downloads'  && !dlList.loaded)   fetchList('downloads', 1);
+    if (tab === 'ledger'     && !txLoaded)        fetchLedger(1);
+  };
+
+  // ─── Avatar + profile edit handlers ───
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { toast.error('图片需小于 10MB'); return; }
+    setCropFile(file);
+  };
   const uploadCroppedAvatar = async (blob: Blob) => {
     const fd = new FormData();
     fd.append('avatar', blob, 'avatar.jpg');
@@ -494,72 +299,178 @@ export default function ProfilePage() {
       const res = await uploadAvatar(fd);
       const url = res.data.data.avatar_url;
       setUser((prev) => prev ? { ...prev, avatar_url: url } : prev);
-      useAuthStore.getState().updateUser({ avatar_url: url });
+      updateUser({ avatar_url: url });
       setCropFile(null);
-      toast.success('头像已更新');
-    } catch {
-      toast.error('上传失败');
-    }
+      toast.success('Avatar updated');
+    } catch { toast.error('Avatar upload failed'); }
   };
-
-  const startEditProfile = () => {
+  const startEdit = () => {
     setEditNickname(user?.nickname || '');
     setEditBio(user?.bio || '');
     setEditingProfile(true);
   };
-
   const saveProfile = async () => {
     const nickname = editNickname.trim();
-    if (!nickname) { toast.error('昵称不能为空'); return; }
-    if (nickname.length > 64) { toast.error('昵称最多 64 个字符'); return; }
+    if (!nickname) { toast.error('Nickname is required'); return; }
+    if (nickname.length > 64) { toast.error('Nickname too long (max 64)'); return; }
     const bio = editBio.trim();
-    if (bio.length > 500) { toast.error('简介最多 500 个字符'); return; }
-    // No-op if nothing actually changed — avoids a needless request.
+    if (bio.length > 500) { toast.error('Bio too long (max 500)'); return; }
     if (nickname === (user?.nickname || '') && bio === (user?.bio || '')) {
-      setEditingProfile(false);
-      return;
+      setEditingProfile(false); return;
     }
     setSavingProfile(true);
     try {
       const res = await updateProfile({ nickname, bio });
       const updated = res.data.data;
       setUser((prev) => prev ? { ...prev, nickname: updated.nickname, bio: updated.bio } : prev);
-      useAuthStore.getState().updateUser({ nickname: updated.nickname });
+      updateUser({ nickname: updated.nickname });
       setEditingProfile(false);
-      toast.success('已保存');
-    } catch {
-      toast.error('保存失败');
-    } finally {
-      setSavingProfile(false);
-    }
+      toast.success('Profile updated');
+    } catch { toast.error('Failed to save profile'); } finally { setSavingProfile(false); }
   };
-
   const handleChangePassword = async () => {
-    if (newPw.length < 8) { toast.error('New password must be at least 8 characters'); return; }
+    if (newPw.length < 8) { toast.error('Password must be at least 8 characters'); return; }
     setSavingPw(true);
     try {
       await changePassword({ old_password: oldPw, new_password: newPw });
       toast.success('Password changed');
-      setShowPasswordModal(false);
-      setOldPw('');
-      setNewPw('');
-    } catch (err: any) {
-      const msg = err.response?.data?.message;
+      setShowPasswordModal(false); setOldPw(''); setNewPw('');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      const msg = e?.response?.data?.message;
       toast.error(msg === 'wrong password' ? 'Current password is incorrect' : 'Failed to change password');
-    } finally {
-      setSavingPw(false);
-    }
+    } finally { setSavingPw(false); }
   };
 
+  // ─── Privacy toggle ───
+  const togglePrivacy = async (list: ListKey) => {
+    if (!user) return;
+    const key = `${list}_public` as 'likes_public' | 'favorites_public' | 'downloads_public';
+    const next = !user[key];
+    try {
+      const res = await updatePrivacy({ [key]: next });
+      setUser(res.data.data);
+      updateUser({ [key]: next });
+      toast.success(next ? `Your ${list} list is now public.` : `Your ${list} list is now private.`);
+    } catch { toast.error('Failed to update privacy'); }
+  };
+
+  if (loading) return <Spinner />;
+  if (!user) return <EmptyState message="User not found." />;
+
+  const display = user.nickname || user.username;
+  const balance = isOwner ? (currentUser?.coins ?? 0) : (user.coins ?? 0);
+
+  // ─── Counts shown in the tab pills ───
+  const counts = {
+    uploads:     pubList.loaded ? pubList.total : (isOwner && inProgress.loaded ? inProgress.total + pubList.total : undefined),
+    collections: collectionsLoaded ? collections.length : undefined,
+    favorites:   favList.loaded && !favList.hidden ? favList.total : undefined,
+    likes:       likeList.loaded && !likeList.hidden ? likeList.total : undefined,
+    downloads:   dlList.loaded && !dlList.hidden ? dlList.total : undefined,
+    ledger:      txLoaded ? txTotal : undefined,
+  };
+
+  const allTabs: { key: TabKey; label: string; ownerOnly?: boolean }[] = [
+    { key: 'uploads',     label: 'Uploads' },
+    { key: 'collections', label: 'Collections' },
+    { key: 'favorites',   label: 'Favorites' },
+    { key: 'likes',       label: 'Likes' },
+    { key: 'downloads',   label: 'Downloads',   ownerOnly: true },
+    { key: 'ledger',      label: 'Coin ledger', ownerOnly: true },
+  ];
+  const tabs = isOwner ? allTabs : allTabs.filter((t) => !t.ownerOnly);
+
   return (
-    <div className="px-6 py-6">
+    <div className="bg-paper text-ink min-h-full px-6 sm:px-10 pt-7 pb-10">
       <PageMeta
-        title={user ? `${user.nickname || user.username}'s Profile` : 'Profile'}
-        description={user ? `Wallpapers, collections, and uploads from ${user.nickname || user.username} on Wallpaper Exchange.` : undefined}
-        image={user?.avatar_url}
+        title={`${display}'s profile`}
+        description={`Wallpapers, collections, and uploads from ${display} on Wallpaper Exchange.`}
+        image={user.avatar_url}
         type="profile"
       />
-      {/* Avatar crop modal — opened after user picks a file. */}
+
+      <ProfileHeader
+        user={user}
+        isOwner={isOwner}
+        balance={balance}
+        editing={editingProfile}
+        editNickname={editNickname}
+        editBio={editBio}
+        savingProfile={savingProfile}
+        onEditNicknameChange={setEditNickname}
+        onEditBioChange={setEditBio}
+        onStartEdit={startEdit}
+        onCancelEdit={() => setEditingProfile(false)}
+        onSaveProfile={saveProfile}
+        onChangePassword={() => setShowPasswordModal(true)}
+        onAvatarPick={() => avatarInputRef.current?.click()}
+        avatarInputRef={avatarInputRef}
+        onAvatarChange={handleAvatarChange}
+      />
+
+      <ProfileTabs tabs={tabs} active={activeTab} counts={counts} onChange={onTabChange} />
+
+      <div className="mt-6">
+        {activeTab === 'uploads' && (
+          <UploadsPanel
+            isOwner={isOwner}
+            inProgress={inProgress}
+            pub={pubList}
+            onPubPage={(p) => fetchList('pub', p)}
+            onInProgressPage={(p) => fetchList('inprogress', p)}
+          />
+        )}
+        {activeTab === 'collections' && (
+          <CollectionsPanel
+            isOwner={isOwner}
+            user={user}
+            collections={collections}
+            loaded={collectionsLoaded}
+          />
+        )}
+        {activeTab === 'favorites' && (
+          <ListPanel
+            listKey="favorites"
+            state={favList}
+            isOwner={isOwner}
+            isPublic={!!user.favorites_public}
+            onPage={(p) => fetchList('favorites', p)}
+            onTogglePrivacy={() => togglePrivacy('favorites')}
+          />
+        )}
+        {activeTab === 'likes' && (
+          <ListPanel
+            listKey="likes"
+            state={likeList}
+            isOwner={isOwner}
+            isPublic={!!user.likes_public}
+            onPage={(p) => fetchList('likes', p)}
+            onTogglePrivacy={() => togglePrivacy('likes')}
+          />
+        )}
+        {activeTab === 'downloads' && (
+          <ListPanel
+            listKey="downloads"
+            state={dlList}
+            isOwner={isOwner}
+            isPublic={!!user.downloads_public}
+            onPage={(p) => fetchList('downloads', p)}
+            onTogglePrivacy={() => togglePrivacy('downloads')}
+          />
+        )}
+        {activeTab === 'ledger' && (
+          <LedgerPanel
+            txs={txs}
+            page={txPage}
+            total={txTotal}
+            loading={txLoading}
+            balance={currentUser?.coins ?? 0}
+            onPage={fetchLedger}
+          />
+        )}
+      </div>
+
       {cropFile && (
         <AvatarCropModal
           file={cropFile}
@@ -568,242 +479,509 @@ export default function ProfilePage() {
         />
       )}
 
-      {/* Password Modal */}
       {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowPasswordModal(false)}>
-          <div className="bg-white dark:bg-ws-dark-card rounded-2xl shadow-xl border border-ws-border dark:border-white/5 p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Change Password</h3>
-            <div className="space-y-3">
-              <input type="password" placeholder="Current password" value={oldPw} onChange={(e) => setOldPw(e.target.value)} className="w-full bg-ws-bg dark:bg-ws-dark-bg border border-ws-border dark:border-white/10 rounded-xl py-2.5 px-4 text-sm outline-none focus:ring-1 focus:ring-ws-purple dark:text-white" />
-              <input type="password" placeholder="New password (min 8 chars)" value={newPw} onChange={(e) => setNewPw(e.target.value)} className="w-full bg-ws-bg dark:bg-ws-dark-bg border border-ws-border dark:border-white/10 rounded-xl py-2.5 px-4 text-sm outline-none focus:ring-1 focus:ring-ws-purple dark:text-white" />
-            </div>
-            <div className="flex gap-2 mt-5">
-              <button onClick={() => setShowPasswordModal(false)} className="flex-1 py-2.5 text-sm font-medium rounded-xl border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:bg-ws-bg dark:hover:bg-white/5 transition-colors">Cancel</button>
-              <button onClick={handleChangePassword} disabled={savingPw} className="flex-1 py-2.5 text-sm font-semibold text-white bg-ws-purple hover:bg-ws-purple-hover rounded-xl transition-colors disabled:opacity-50">{savingPw ? 'Saving...' : 'Confirm'}</button>
+        <div
+          onClick={() => setShowPasswordModal(false)}
+          className="fixed inset-0 z-[60] flex items-start justify-center pt-[20vh] px-4"
+          style={{ background: 'rgba(15,12,8,0.55)' }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-paper border border-ink w-full max-w-[360px] p-5"
+            style={{ boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
+          >
+            <div className="kicker text-muted mb-3">Change password</div>
+            <input
+              type="password" placeholder="Current password"
+              value={oldPw} onChange={(e) => setOldPw(e.target.value)}
+              className="w-full px-3.5 py-3 bg-paper text-[14px] mb-2"
+              style={{ border: '1px solid var(--color-hair)' }}
+            />
+            <input
+              type="password" placeholder="New password (min 8 chars)"
+              value={newPw} onChange={(e) => setNewPw(e.target.value)}
+              className="w-full px-3.5 py-3 bg-paper text-[14px]"
+              style={{ border: '1px solid var(--color-hair)' }}
+            />
+            <div className="flex justify-end gap-2 mt-3">
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="px-3.5 py-1.5 rounded-full border border-hair text-ink-2 text-[12px] font-medium hover:bg-paper-2"
+              >Cancel</button>
+              <button
+                onClick={handleChangePassword}
+                disabled={savingPw}
+                className="px-3.5 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium disabled:opacity-50"
+              >{savingPw ? 'Saving…' : 'Confirm'}</button>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* Profile header */}
-      <div className="flex items-start gap-6 mb-10">
-        <div className="relative group flex-shrink-0">
-          <div className="w-24 h-24 rounded-2xl overflow-hidden ring-4 ring-ws-purple/20 dark:ring-purple-900/40 shadow-lg">
-            {user.avatar_url ? (
-              <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-ws-purple-light via-purple-200 to-purple-300 dark:from-ws-dark-active dark:via-purple-900/50 dark:to-purple-800/30 flex items-center justify-center text-3xl font-bold text-ws-purple dark:text-purple-400">
-                {(user.nickname || user.username).charAt(0).toUpperCase()}
-              </div>
-            )}
-          </div>
-          {isOwnProfile && (
-            <>
-              <button
-                onClick={() => avatarInputRef.current?.click()}
-                className="absolute inset-0 rounded-2xl bg-black/0 group-hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-              >
-                <AiOutlineCamera size={22} className="text-white" />
-              </button>
-              <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarChange} />
-            </>
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          {editingProfile ? (
-            <div className="space-y-3 max-w-md">
-              <div>
-                <div className="flex items-baseline justify-between mb-1">
-                  <label className="text-xs text-ws-muted dark:text-ws-dark-muted">昵称</label>
-                  <span className={`text-[11px] tabular-nums ${editNickname.length > 64 ? 'text-rose-500' : 'text-slate-400'}`}>{editNickname.length}/64</span>
-                </div>
-                <input
-                  autoFocus
-                  value={editNickname}
-                  onChange={(e) => setEditNickname(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); saveProfile(); }
-                    if (e.key === 'Escape') { setEditingProfile(false); }
-                  }}
-                  placeholder="给自己起个名字"
-                  maxLength={64}
-                  className="w-full bg-ws-bg dark:bg-ws-dark-card border border-ws-border dark:border-white/10 rounded-xl py-2 px-3.5 text-sm font-semibold outline-none focus:ring-1 focus:ring-ws-purple dark:text-white"
-                />
-                <p className="text-[11px] text-slate-400 mt-1">用户名 <span className="font-mono">@{user.username}</span> 不可修改</p>
-              </div>
-              <div>
-                <div className="flex items-baseline justify-between mb-1">
-                  <label className="text-xs text-ws-muted dark:text-ws-dark-muted">个人简介</label>
-                  <span className={`text-[11px] tabular-nums ${editBio.length > 500 ? 'text-rose-500' : 'text-slate-400'}`}>{editBio.length}/500</span>
-                </div>
-                <textarea
-                  value={editBio}
-                  onChange={(e) => setEditBio(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') { setEditingProfile(false); }
-                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); saveProfile(); }
-                  }}
-                  placeholder="介绍一下你自己…"
-                  maxLength={500}
-                  rows={3}
-                  className="w-full bg-ws-bg dark:bg-ws-dark-card border border-ws-border dark:border-white/10 rounded-xl py-2 px-3.5 text-sm outline-none focus:ring-1 focus:ring-ws-purple resize-none dark:text-white"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button onClick={saveProfile} disabled={savingProfile || !editNickname.trim()} className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-ws-purple hover:bg-ws-purple-hover rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                  <AiOutlineCheck size={14} />{savingProfile ? '保存中…' : '保存'}
-                </button>
-                <button onClick={() => setEditingProfile(false)} className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium text-ws-muted dark:text-ws-dark-muted border border-ws-border dark:border-white/10 rounded-lg hover:bg-ws-bg dark:hover:bg-white/5 transition-colors">
-                  <AiOutlineClose size={14} />取消
-                </button>
-                <span className="text-[11px] text-slate-400 self-center ml-1 hidden sm:inline">Enter 保存 · Esc 取消</span>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {user.nickname || user.username}
-                </h1>
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200/60 dark:border-amber-700/40 shadow-sm">
-                  <span className="text-base">💰</span>
-                  <span className="text-sm font-bold bg-gradient-to-r from-amber-600 to-yellow-500 bg-clip-text text-transparent">{isOwnProfile ? (currentUser?.coins ?? 0) : (user.coins ?? 0)}</span>
-                </span>
-              </div>
-              {user.bio && <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">{user.bio}</p>}
-              {isOwnProfile && (
-                <div className="flex items-center gap-2 mt-3">
-                  <button onClick={startEditProfile} className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-ws-muted dark:text-ws-dark-muted border border-ws-border dark:border-white/10 rounded-lg hover:text-ws-purple hover:border-ws-purple/30 transition-colors">
-                    <AiOutlineEdit size={14} />Edit Profile
-                  </button>
-                  <button onClick={() => setShowPasswordModal(true)} className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-ws-muted dark:text-ws-dark-muted border border-ws-border dark:border-white/10 rounded-lg hover:text-ws-purple hover:border-ws-purple/30 transition-colors">
-                    <AiOutlineLock size={14} />Password
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
+// ─── Sub-components ──────────────────────────────────────────────────
 
-      <div className="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-        {tabDefs
-          .filter((t) => !t.ownerOnly || isOwnProfile)
-          .map((t) => (
+interface ProfileHeaderProps {
+  user: User;
+  isOwner: boolean;
+  balance: number;
+  editing: boolean;
+  editNickname: string;
+  editBio: string;
+  savingProfile: boolean;
+  onEditNicknameChange: (v: string) => void;
+  onEditBioChange: (v: string) => void;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveProfile: () => void;
+  onChangePassword: () => void;
+  onAvatarPick: () => void;
+  avatarInputRef: React.RefObject<HTMLInputElement | null>;
+  onAvatarChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+function ProfileHeader(p: ProfileHeaderProps) {
+  const display = p.user.nickname || p.user.username;
+  const initial = display.charAt(0).toUpperCase();
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[120px_1fr_auto] gap-6 pb-6 border-b border-hair">
+      {/* Avatar */}
+      <div className="relative w-[120px] h-[120px]">
+        <div className="w-full h-full rounded-full overflow-hidden bg-paper-2 border border-hair flex items-center justify-center display text-[48px] text-ink">
+          {p.user.avatar_url
+            ? <img src={p.user.avatar_url} alt="" className="w-full h-full object-cover" />
+            : initial}
+        </div>
+        {p.isOwner && (
+          <>
             <button
-              key={t.key}
-              onClick={() => handleTabChange(t.key)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === t.key
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              onClick={p.onAvatarPick}
+              title="Change avatar"
+              className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-ink text-paper flex items-center justify-center border-2 border-paper hover:bg-ink-2 transition-colors"
             >
-              {t.key === 'coins' ? (
-                <span className="flex items-center gap-1.5">💰 {t.label}</span>
-              ) : (
-                t.label
-              )}
+              <AiOutlineCamera size={14} />
             </button>
-          ))}
+            <input
+              ref={p.avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={p.onAvatarChange}
+            />
+          </>
+        )}
       </div>
 
-      {activeTab === 'coins' ? (
-        renderCoinsTab()
-      ) : activeTab === 'collections' ? (
-        <>
-          {collections.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {collections.map((c) => (
-                <Link
-                  key={c.id}
-                  to={`/collections/${c.slug}`}
-                  className="group block rounded-2xl overflow-hidden bg-white dark:bg-gray-800 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 dark:border-gray-700"
-                >
-                  <div className="aspect-video bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 relative overflow-hidden">
-                    {c.cover_url ? (
-                      <img src={c.cover_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <AiOutlinePicture size={48} className="text-indigo-200 dark:text-indigo-700" />
-                      </div>
-                    )}
-                    <div className="absolute bottom-3 right-3 px-2.5 py-1 bg-black/50 backdrop-blur-sm text-white text-xs font-medium rounded-full">
-                      {c.wallpaper_count} wallpapers
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-indigo-600 transition-colors">
-                      {c.title}
-                    </h3>
-                    {c.description && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3">{c.description}</p>
-                    )}
-                    <div className="flex items-center gap-4 text-xs text-gray-400">
-                      <span className="flex items-center gap-1"><AiOutlineHeart size={14} />{c.like_count}</span>
-                      <span className="flex items-center gap-1"><AiOutlineEye size={14} />{c.view_count}</span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
+      {/* Identity */}
+      <div className="min-w-0">
+        <div className="kicker text-muted">
+          Contributor · Member since {formatJoined(p.user.created_at)}
+        </div>
+
+        {p.editing ? (
+          <div className="mt-3 space-y-3 max-w-[480px]">
+            <input
+              autoFocus
+              value={p.editNickname}
+              onChange={(e) => p.onEditNicknameChange(e.target.value)}
+              maxLength={64}
+              placeholder="Nickname"
+              className="w-full px-4 py-3 display text-[36px] leading-tight bg-paper text-ink focus:outline-none focus:border-ink"
+              style={{ border: '1px solid var(--color-hair)' }}
+            />
+            <textarea
+              value={p.editBio}
+              onChange={(e) => p.onEditBioChange(e.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Signature, motto, anything you want here"
+              className="w-full px-4 py-3 italic-d text-[16px] bg-paper text-ink-2 focus:outline-none focus:border-ink resize-none"
+              style={{ border: '1px solid var(--color-hair)' }}
+            />
+            <div className="flex gap-2">
+              <button onClick={p.onSaveProfile} disabled={p.savingProfile || !p.editNickname.trim()}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium disabled:opacity-50">
+                <AiOutlineCheck size={13} /> {p.savingProfile ? 'Saving…' : 'Save'}
+              </button>
+              <button onClick={p.onCancelEdit}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-hair text-ink-2 text-[12px] font-medium hover:bg-paper-2">
+                <AiOutlineClose size={13} /> Cancel
+              </button>
+              <span className="text-[11px] text-muted self-center ml-1">Username @{p.user.username} can't be changed</span>
             </div>
-          ) : (
-            <EmptyState message="No collections yet." />
-          )}
-        </>
+          </div>
+        ) : (
+          <>
+            <h1 className="display text-[40px] sm:text-[48px] leading-tight tracking-[-0.02em] mt-1 text-ink">
+              {display}
+            </h1>
+            <div className="mono text-[12px] text-muted tracking-[0.04em] mt-1.5">
+              @{p.user.username}{p.isOwner && p.user.email ? ` · ${p.user.email}` : ''}
+            </div>
+            {p.user.bio && (
+              <p className="display italic-d text-[18px] text-ink-2 mt-3 leading-[1.4]">
+                “{p.user.bio}”
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Right column — balance + actions (owner only) */}
+      <div className="flex flex-col items-stretch lg:items-end gap-3 min-w-[200px]">
+        {p.isOwner && !p.editing && (
+          <div className="bg-ink text-paper p-4 min-w-[200px]">
+            <div className="kicker" style={{ color: 'rgba(255,255,255,0.55)' }}>Your balance</div>
+            <div className="flex items-baseline gap-2 mt-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-accent inline-block" />
+              <span className="display text-[44px] sm:text-[56px] text-accent leading-none">{p.balance}</span>
+              <span className="mono text-[10px] tracking-[0.14em]" style={{ color: 'rgba(255,255,255,0.55)' }}>COINS</span>
+            </div>
+          </div>
+        )}
+        {p.isOwner && !p.editing && (
+          <div className="flex gap-2 flex-wrap lg:justify-end">
+            <button
+              onClick={p.onStartEdit}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-hair text-ink text-[12px] font-medium hover:bg-paper-2"
+            >
+              <AiOutlineEdit size={13} /> Edit profile
+            </button>
+            <button
+              onClick={p.onChangePassword}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-hair text-ink-2 text-[12px] font-medium hover:bg-paper-2"
+            >
+              Password
+            </button>
+            <Link
+              to="/upload"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium no-underline hover:bg-ink-2"
+            >
+              <AiOutlinePlus size={13} /> Upload
+            </Link>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface ProfileTabsProps {
+  tabs: { key: TabKey; label: string }[];
+  active: TabKey;
+  counts: Partial<Record<TabKey, number | undefined>>;
+  onChange: (k: TabKey) => void;
+}
+function ProfileTabs({ tabs, active, counts, onChange }: ProfileTabsProps) {
+  const icon: Record<TabKey, React.ElementType> = {
+    uploads: AiOutlinePicture,
+    collections: AiOutlineAppstore,
+    favorites: AiOutlineStar,
+    likes: AiOutlineHeart,
+    downloads: AiOutlineDownload,
+    ledger: AiOutlineThunderbolt,
+  };
+  return (
+    <div className="ptabs mt-6 overflow-x-auto">
+      {tabs.map((t) => {
+        const Icon = icon[t.key];
+        const c = counts[t.key];
+        return (
+          <button
+            key={t.key}
+            onClick={() => onChange(t.key)}
+            className={t.key === active ? 'is-active' : ''}
+          >
+            <Icon size={13} />
+            <span>{t.label}</span>
+            {c !== undefined && <span className="ptab-count">{c}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+interface UploadsPanelProps {
+  isOwner: boolean;
+  inProgress: ListState;
+  pub: ListState;
+  onPubPage: (p: number) => void;
+  onInProgressPage: (p: number) => void;
+}
+function UploadsPanel({ isOwner, inProgress, pub, onPubPage, onInProgressPage }: UploadsPanelProps) {
+  const showInProgress = isOwner && inProgress.loaded && inProgress.items.length > 0;
+  const inTotal = inProgress.total;
+  const pubTotal = pub.total;
+
+  return (
+    <div>
+      {showInProgress && (
+        <section className="mb-8">
+          <div className="label-rule mb-3">In progress · {inTotal}</div>
+          <p className="text-[12px] text-muted mb-4">
+            Generating device variants. Wallpapers appear in the public archive when processing finishes.
+          </p>
+          <Grid items={inProgress.items} showProcessing />
+          <Pagination
+            current={inProgress.page}
+            total={Math.max(1, Math.ceil(inTotal / PAGE_SIZE))}
+            onChange={onInProgressPage}
+          />
+        </section>
+      )}
+
+      <section>
+        <div className="label-rule mb-3">
+          Published · {pub.items.length === 0 && !pub.loaded ? '…' : `${pub.items.length} of ${pubTotal}`}
+        </div>
+        {!pub.loaded ? (
+          <div className="py-12 flex justify-center"><Spinner /></div>
+        ) : pub.items.length === 0 ? (
+          <div className="text-center py-20 text-muted text-sm">No published wallpapers yet.</div>
+        ) : (
+          <>
+            <Grid items={pub.items} />
+            <Pagination
+              current={pub.page}
+              total={Math.max(1, Math.ceil(pubTotal / PAGE_SIZE))}
+              onChange={onPubPage}
+            />
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
+
+interface CollectionsPanelProps {
+  isOwner: boolean;
+  user: User;
+  collections: Collection[];
+  loaded: boolean;
+}
+function CollectionsPanel({ isOwner, user, collections, loaded }: CollectionsPanelProps) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div className="label-rule flex-1">Created · {collections.length}</div>
+        {isOwner && (
+          <Link
+            to="/collections"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium no-underline hover:bg-ink-2"
+          >
+            <AiOutlinePlus size={13} /> New collection
+          </Link>
+        )}
+      </div>
+      {!loaded ? (
+        <div className="py-12 flex justify-center"><Spinner /></div>
+      ) : collections.length === 0 ? (
+        <div className="text-center py-20 text-muted text-sm">No collections yet.</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {collections.map((c) => (
+            <CollectionCard key={c.id} collection={c} curatorHandle={user.username} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ListPanelProps {
+  listKey: ListKey;
+  state: ListState;
+  isOwner: boolean;
+  isPublic: boolean;
+  onPage: (p: number) => void;
+  onTogglePrivacy: () => void;
+}
+function ListPanel({ listKey, state, isOwner, isPublic, onPage, onTogglePrivacy }: ListPanelProps) {
+  const heading = useMemo(() => `${listKey.charAt(0).toUpperCase() + listKey.slice(1)} · ${state.total}`, [listKey, state.total]);
+
+  if (state.hidden) {
+    return (
+      <div
+        className="text-center py-16 px-6"
+        style={{ background: 'var(--color-paper-2)', border: '1px dashed var(--color-hair)' }}
+      >
+        <AiOutlineLock size={28} className="mx-auto text-ink-2 mb-3" />
+        <div className="display text-[24px] leading-tight">Hidden from view</div>
+        <p className="text-[13px] text-muted mt-2 max-w-[420px] mx-auto">
+          The owner has set their {listKey} list to private.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {isOwner && (
+        <PrivacyNotice listName={`${listKey} list`} isPublic={isPublic} onToggle={onTogglePrivacy} />
+      )}
+
+      <div className="label-rule mt-5 mb-3">{heading}</div>
+
+      {!state.loaded ? (
+        <div className="py-12 flex justify-center"><Spinner /></div>
+      ) : state.items.length === 0 ? (
+        <div className="text-center py-20 text-muted text-sm">Nothing here yet.</div>
       ) : (
         <>
-          {activeTab === 'downloads' && (
-            <div className="flex items-center gap-2 mb-5">
-              <button
-                onClick={toggleDlDeviceFilter}
-                title={dlDeviceFilter ? `${screen.width}×${screen.height}` : 'Filter for your device'}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-full border transition-colors ${
-                  dlDeviceFilter
-                    ? 'bg-ws-purple text-white border-ws-purple shadow-sm'
-                    : 'text-slate-600 dark:text-ws-dark-muted border-ws-border dark:border-white/10 dark:bg-ws-dark-card hover:bg-ws-bg dark:hover:bg-white/5'
-                }`}
-              >
-                <MdDevices size={16} />
-                <span>{dlDeviceFilter ? `${screen.width}×${screen.height}` : 'My Device'}</span>
-              </button>
-              <button
-                onClick={toggleDlMacFilter}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-full border transition-colors ${
-                  dlMacFilter
-                    ? 'bg-ws-purple text-white border-ws-purple shadow-sm'
-                    : 'text-slate-600 dark:text-ws-dark-muted border-ws-border dark:border-white/10 dark:bg-ws-dark-card hover:bg-ws-bg dark:hover:bg-white/5'
-                }`}
-              >
-                <AiOutlineApple size={14} />
-                <span>macOS</span>
-              </button>
-            </div>
-          )}
-          {tabLoading && !currentTab?.loaded ? (
-            <div className="flex justify-center py-12">
-              <div className="w-8 h-8 border-2 border-ws-purple/20 border-t-ws-purple rounded-full animate-spin" />
-            </div>
-          ) : currentTab && currentTab.items.length > 0 ? (
-            <>
-              <WallpaperGrid
-                wallpapers={currentTab.items}
-                showStatus={activeTab === 'wallpapers' && isOwnProfile}
-                viewMode="grid"
-                sizeMode="md"
-                disableModal
-              />
-              <Pagination
-                page={currentTab.page}
-                totalPages={Math.max(1, Math.ceil(currentTab.total / pageSize))}
-                onChange={(p) => fetchWallpaperPage(activeTab as WallpaperTabKey, p)}
-              />
-            </>
-          ) : currentTab?.loaded ? (
-            <EmptyState message={`No ${activeTab} yet.`} />
-          ) : null}
+          <Grid items={state.items} />
+          <Pagination
+            current={state.page}
+            total={Math.max(1, Math.ceil(state.total / PAGE_SIZE))}
+            onChange={onPage}
+          />
         </>
       )}
+    </div>
+  );
+}
+
+function PrivacyNotice({ listName, isPublic, onToggle }: { listName: string; isPublic: boolean; onToggle: () => void }) {
+  return (
+    <div className="priv-notice">
+      <div className="priv-icon"><AiOutlineLock size={16} /></div>
+      <div>
+        <div className="priv-title">Your {listName} is {isPublic ? 'public' : 'private'}</div>
+        <div className="priv-sub">
+          {isPublic
+            ? 'Anyone visiting your profile can see this list.'
+            : 'Only you can see this list. Make it public to share what you collect.'}
+        </div>
+      </div>
+      <button
+        onClick={onToggle}
+        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-paper border border-ink text-ink text-[12px] font-medium hover:bg-paper-2 transition-colors whitespace-nowrap"
+      >
+        {isPublic ? 'Make private' : 'Make public'}
+      </button>
+    </div>
+  );
+}
+
+interface LedgerPanelProps {
+  txs: CoinTransaction[];
+  page: number;
+  total: number;
+  loading: boolean;
+  balance: number;
+  onPage: (p: number) => void;
+}
+function LedgerPanel({ txs, page, total, loading, balance, onPage }: LedgerPanelProps) {
+  // Aggregate stats over the visible transactions. Keeps the summary strip
+  // honest for the current page; a full-history aggregate would need a
+  // dedicated endpoint that we can add later.
+  const earned = txs.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+  const spent = txs.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+
+  // Group entries by day (mono caps month/day heading).
+  const grouped = useMemo(() => {
+    const out: Array<{ day: string; rows: CoinTransaction[] }> = [];
+    let last = '';
+    for (const tx of txs) {
+      const d = dayLabel(tx.created_at);
+      if (d !== last) {
+        out.push({ day: d, rows: [] });
+        last = d;
+      }
+      out[out.length - 1].rows.push(tx);
+    }
+    return out;
+  }, [txs]);
+
+  return (
+    <div>
+      {/* Summary strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 border-l border-t border-r border-hair">
+        {[
+          ['BALANCE',  String(balance),                  'text-ink',     ''],
+          ['EARNED',   `+${earned}`,                     'text-accent',  'this page'],
+          ['SPENT',    `−${spent}`,                      'text-ink-2',   'this page'],
+          ['NEXT',     '+5',                             'text-ink',     'per upload'],
+        ].map(([k, v, color, sub]) => (
+          <div key={k} className="px-4 py-3.5 border-r border-b border-hair">
+            <div className="kicker text-muted">{k}</div>
+            <div className={`display text-[32px] sm:text-[36px] leading-none mt-1 ${color}`}>{v}</div>
+            {sub && <div className="mono text-[10px] tracking-[0.06em] text-muted mt-1">{sub}</div>}
+          </div>
+        ))}
+      </div>
+
+      <div className="label-rule mt-7 mb-3">Recent entries</div>
+
+      {loading && txs.length === 0 ? (
+        <div className="py-12 flex justify-center"><Spinner /></div>
+      ) : txs.length === 0 ? (
+        <div className="text-center py-20 text-muted text-sm">No transactions yet.</div>
+      ) : (
+        <>
+          {grouped.map((g) => (
+            <div key={g.day} className="mb-4">
+              <div className="mono text-[10px] tracking-[0.14em] text-muted px-1 pb-2">{g.day}</div>
+              {g.rows.map((tx) => {
+                const label = LEDGER_LABELS[tx.tx_type] || tx.description || tx.tx_type;
+                const isEarn = tx.amount > 0;
+                return (
+                  <div
+                    key={tx.id}
+                    className="grid grid-cols-[60px_1fr_auto] gap-3 items-center py-3 border-b border-hair last:border-b-0"
+                  >
+                    <span
+                      className={`mono text-[15px] font-semibold tabular-nums ${isEarn ? 'text-accent' : 'text-ink-2'}`}
+                    >
+                      {isEarn ? '+' : ''}{tx.amount}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-[13px] text-ink truncate">
+                        {label}
+                        {tx.ref_id > 0 && (
+                          <> · <Link to={`/wallpaper/${tx.ref_id}`} className="text-ink-2 underline">№{String(tx.ref_id).padStart(3, '0')}</Link></>
+                        )}
+                      </div>
+                    </div>
+                    <span className="mono text-[10px] tracking-[0.06em] text-muted">
+                      {relativeTime(tx.created_at)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+          <Pagination
+            current={page}
+            total={Math.max(1, Math.ceil(total / PAGE_SIZE))}
+            onChange={onPage}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Grid (4-col, no hover actions; processing overlay opt-in) ───────
+
+function Grid({ items, showProcessing }: { items: Wallpaper[]; showProcessing?: boolean }) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      {items.map((w) => (
+        <div key={w.id} className="relative">
+          <WallpaperCard wallpaper={w} fixedAspect hideActions disableModal />
+          {showProcessing && w.status === 0 && (
+            <div className="proc-overlay pointer-events-none">
+              <AiOutlineLoading3Quarters size={18} className="animate-spin" />
+              <div className="proc-label">Processing</div>
+              <div className="proc-sub">Generating device variants</div>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

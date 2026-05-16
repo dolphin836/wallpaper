@@ -67,8 +67,30 @@ export const getUsers = (params: { page?: number; limit?: number; sort?: string 
 export const getUserProfile = (username: string) =>
   client.get<ApiResponse<User>>(`/users/${username}`);
 
-export const getUserWallpapers = (username: string, params: { cursor?: number; limit?: number }) =>
+export const getUserWallpapers = (username: string, params: { cursor?: number; limit?: number; status?: number }) =>
   client.get<ApiResponse<PaginatedData<Wallpaper>>>(`/users/${username}/wallpapers`, { params });
+
+// Public companions to /users/me/{likes,favorites,downloads}. Each returns
+// either the standard PaginatedData<Wallpaper> shape, or an empty payload
+// with `private: true` when the viewer isn't the owner and the list is set
+// to private — frontend keys off that flag to render the "Hidden" state.
+export interface PaginatedOrHidden<T> {
+  items: T[];
+  next_cursor: number;
+  has_more: boolean;
+  total?: number;
+  private?: boolean;
+}
+export const getUserLikes = (idOrUsername: string | number, params: { cursor?: number; limit?: number }) =>
+  client.get<ApiResponse<PaginatedOrHidden<Wallpaper>>>(`/users/${idOrUsername}/likes`, { params });
+export const getUserFavorites = (idOrUsername: string | number, params: { cursor?: number; limit?: number }) =>
+  client.get<ApiResponse<PaginatedOrHidden<Wallpaper>>>(`/users/${idOrUsername}/favorites`, { params });
+export const getUserDownloads = (idOrUsername: string | number, params: { cursor?: number; limit?: number }) =>
+  client.get<ApiResponse<PaginatedOrHidden<Wallpaper>>>(`/users/${idOrUsername}/downloads`, { params });
+
+export const updatePrivacy = (
+  data: { likes_public?: boolean; favorites_public?: boolean; downloads_public?: boolean }
+) => client.put<ApiResponse<User>>('/users/me/privacy', data);
 
 export const getMyFavorites = (params: { cursor?: number; limit?: number }) =>
   client.get<ApiResponse<PaginatedData<Wallpaper>>>('/users/me/favorites', { params });

@@ -87,6 +87,9 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Get("/collections/{id}/wallpapers", deps.CollectionHandler.ListWallpapers)
 			r.Get("/users/{id}/collections", deps.CollectionHandler.ListUserCollections)
 			r.Get("/users/{id}/wallpapers", deps.UserHandler.GetWallpapers)
+			r.Get("/users/{id}/likes", deps.UserHandler.GetUserLikes)
+			r.Get("/users/{id}/favorites", deps.UserHandler.GetUserFavorites)
+			r.Get("/users/{id}/downloads", deps.UserHandler.GetUserDownloads)
 		})
 
 		r.Group(func(r chi.Router) {
@@ -106,6 +109,7 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Put("/users/me/profile", deps.UserHandler.UpdateProfile)
 			r.Post("/users/me/avatar", deps.UserHandler.UploadAvatar)
 			r.Put("/users/me/password", deps.UserHandler.ChangePassword)
+			r.Put("/users/me/privacy", deps.UserHandler.UpdatePrivacy)
 			r.Get("/wallpapers/for-you", deps.RecommendHandler.ForYou)
 
 			r.Get("/users/me/coins", deps.UserHandler.GetCoins)

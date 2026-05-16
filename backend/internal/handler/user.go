@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -157,7 +158,15 @@ func (h *UserHandler) GetWallpapers(w http.ResponseWriter, r *http.Request) {
 		Limit:  fetchLimit,
 		UserID: id,
 	}
-	if isOwner {
+	// ?status=<n> lets the owner split the profile Uploads tab into a
+	// "Published" + "In Progress" pair without two list endpoints.
+	// Strangers can't access non-published items, so the filter is ignored
+	// for them.
+	if statusRaw := r.URL.Query().Get("status"); statusRaw != "" && isOwner {
+		if v, parseErr := strconv.Atoi(statusRaw); parseErr == nil {
+			opts.Status = int16(v)
+		}
+	} else if isOwner {
 		opts.IncludeAllActive = true
 	} else {
 		opts.Status = model.WallpaperStatusPublished
@@ -614,4 +623,160 @@ func parseCursorLimit(r *http.Request) (int64, int) {
 	}
 
 	return cursor, limit
+}
+
+// ─── Per-list privacy ─────────────────────────────────────────────────
+
+type privacyRequest struct {
+	LikesPublic     *bool `json:"likes_public"`
+	FavoritesPublic *bool `json:"favorites_public"`
+	DownloadsPublic *bool `json:"downloads_public"`
+}
+
+// UpdatePrivacy lets the owner toggle whether their likes / favorites /
+// downloads lists are visible to other users. Pointer fields so the client
+// can update one flag at a time without resending the whole object.
+func (h *UserHandler) UpdatePrivacy(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == 0 {
+		response.Error(w, http.StatusUnauthorized, errcode.ErrUnauthorized)
+		return
+	}
+	var req privacyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	if err := h.userRepo.UpdatePrivacy(r.Context(), userID, req.LikesPublic, req.FavoritesPublic, req.DownloadsPublic); err != nil {
+		slog.ErrorContext(r.Context(), "update privacy failed", "user_id", userID, "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	user, err := h.userRepo.GetByID(r.Context(), userID)
+	if err != nil || user == nil {
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, user)
+}
+
+// resolveUserParam returns the user identified by /users/{id} where {id}
+// can be either a numeric ID or a username. Returns nil + false if not
+// found (caller is expected to have already written the 404).
+func (h *UserHandler) resolveUserParam(w http.ResponseWriter, r *http.Request) (*model.User, bool) {
+	param := chi.URLParam(r, "id")
+	if id, err := strconv.ParseInt(param, 10, 64); err == nil {
+		u, lookupErr := h.userRepo.GetByID(r.Context(), id)
+		if lookupErr == nil && u != nil {
+			return u, true
+		}
+	}
+	u, err := h.userRepo.GetByUsername(r.Context(), param)
+	if err != nil || u == nil {
+		response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+		return nil, false
+	}
+	return u, true
+}
+
+// privacyEmptyResponse renders the standard empty paginated payload — used
+// when the viewer doesn't have permission to see this list and we want to
+// keep the client's logic flat (one response shape for every state).
+func privacyEmptyResponse(private bool) map[string]any {
+	return map[string]any{
+		"items":       []any{},
+		"next_cursor": 0,
+		"has_more":    false,
+		"total":       0,
+		"private":     private,
+	}
+}
+
+// listUserInteractions is the shared body for the three public list
+// endpoints. Resolves user → checks privacy → delegates to one of the
+// existing interaction repo methods → renders the standard envelope.
+func (h *UserHandler) listUserInteractions(
+	w http.ResponseWriter, r *http.Request,
+	isPublic func(*model.User) bool,
+	listFn func(ctx context.Context, userID int64, cursor int64, limit int) ([]model.Wallpaper, error),
+	countFn func(ctx context.Context, userID int64) (int64, error),
+) {
+	target, ok := h.resolveUserParam(w, r)
+	if !ok {
+		return
+	}
+	currentUserID := middleware.GetUserID(r.Context())
+	isOwner := currentUserID == target.ID
+	if !isOwner && !isPublic(target) {
+		// Strangers don't get to know counts on a private list either.
+		response.OK(w, privacyEmptyResponse(true))
+		return
+	}
+
+	cursor, limit := parseCursorLimit(r)
+	fetchLimit := limit + 1
+	items, err := listFn(r.Context(), target.ID, cursor, fetchLimit)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "list user interactions failed",
+			"target_id", target.ID, "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	total, err := countFn(r.Context(), target.ID)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "count user interactions failed",
+			"target_id", target.ID, "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	hasMore := len(items) == fetchLimit
+	if hasMore {
+		items = items[:len(items)-1]
+	}
+	var nextCursor int64
+	if hasMore && len(items) > 0 {
+		nextCursor = items[len(items)-1].ID
+	}
+	stripOriginalURLs(items, currentUserID)
+	response.OK(w, map[string]any{
+		"items":       h.enrichItems(r, items, currentUserID),
+		"next_cursor": nextCursor,
+		"has_more":    hasMore,
+		"total":       total,
+		"private":     false,
+	})
+}
+
+// GetUserFavorites — public companion to GetFavorites. Hidden unless the
+// target has favorites_public = true (or the viewer is the owner).
+func (h *UserHandler) GetUserFavorites(w http.ResponseWriter, r *http.Request) {
+	h.listUserInteractions(w, r,
+		func(u *model.User) bool { return u.FavoritesPublic },
+		h.interactionRepo.ListFavorites,
+		h.interactionRepo.CountFavorites,
+	)
+}
+
+// GetUserLikes — public companion to GetLikes.
+func (h *UserHandler) GetUserLikes(w http.ResponseWriter, r *http.Request) {
+	h.listUserInteractions(w, r,
+		func(u *model.User) bool { return u.LikesPublic },
+		h.interactionRepo.ListLikes,
+		h.interactionRepo.CountLikes,
+	)
+}
+
+// GetUserDownloads — public companion to GetDownloads. Doesn't accept the
+// device-filter query params the owner version takes; strangers viewing
+// the list don't get to slice it the way the owner does.
+func (h *UserHandler) GetUserDownloads(w http.ResponseWriter, r *http.Request) {
+	h.listUserInteractions(w, r,
+		func(u *model.User) bool { return u.DownloadsPublic },
+		func(ctx context.Context, userID int64, cursor int64, limit int) ([]model.Wallpaper, error) {
+			return h.interactionRepo.ListDownloads(ctx, userID, cursor, limit, repo.DownloadFilters{})
+		},
+		func(ctx context.Context, userID int64) (int64, error) {
+			return h.interactionRepo.CountDownloads(ctx, userID, repo.DownloadFilters{})
+		},
+	)
 }

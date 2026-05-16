@@ -13,6 +13,11 @@ type User struct {
 	Coins        int64     `gorm:"not null;default:0" json:"coins"`
 	Status       int16     `gorm:"not null;default:1" json:"status"`
 	IsAdmin      bool      `gorm:"not null;default:false" json:"is_admin"`
+	// Per-list privacy flags. Default false → list is private to the
+	// owner. Each one is toggled independently from the Profile page.
+	LikesPublic     bool `gorm:"not null;default:false" json:"likes_public"`
+	FavoritesPublic bool `gorm:"not null;default:false" json:"favorites_public"`
+	DownloadsPublic bool `gorm:"not null;default:false" json:"downloads_public"`
 	CreatedAt    time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"not null;autoUpdateTime" json:"updated_at"`
 }

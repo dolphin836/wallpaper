@@ -8,6 +8,9 @@ export interface User {
   coins: number;
   status: number;
   is_admin?: boolean;
+  likes_public?: boolean;
+  favorites_public?: boolean;
+  downloads_public?: boolean;
   created_at: string;
 }
 

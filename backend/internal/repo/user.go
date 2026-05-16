@@ -25,7 +25,7 @@ func (r *UserRepo) Create(ctx context.Context, user *model.User) error {
 func (r *UserRepo) GetByID(ctx context.Context, id int64) (*model.User, error) {
 	var user model.User
 	err := r.db.WithContext(ctx).
-		Select("id, username, email, nickname, avatar_url, bio, coins, status, is_admin, created_at").
+		Select("id, username, email, nickname, avatar_url, bio, coins, status, is_admin, likes_public, favorites_public, downloads_public, created_at").
 		Where("id = ?", id).
 		First(&user).Error
 	if err != nil {
@@ -95,6 +95,27 @@ func (r *UserRepo) UpdateAvatar(ctx context.Context, id int64, avatarURL string)
 func (r *UserRepo) UpdatePassword(ctx context.Context, id int64, hash string) error {
 	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).
 		Update("password_hash", hash).Error
+}
+
+// UpdatePrivacy sets the three per-list public flags for a user. Pass nil
+// for any flag the caller doesn't want to touch — the row update only
+// includes fields that are actually present in the map.
+func (r *UserRepo) UpdatePrivacy(ctx context.Context, id int64, likes, favorites, downloads *bool) error {
+	updates := map[string]any{}
+	if likes != nil {
+		updates["likes_public"] = *likes
+	}
+	if favorites != nil {
+		updates["favorites_public"] = *favorites
+	}
+	if downloads != nil {
+		updates["downloads_public"] = *downloads
+	}
+	if len(updates) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).
+		Updates(updates).Error
 }
 
 type UserListItem struct {
