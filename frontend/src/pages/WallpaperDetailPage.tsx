@@ -15,7 +15,7 @@ import {
   AiOutlineClose,
   AiOutlineLoading3Quarters,
 } from 'react-icons/ai';
-import { MdPhoneIphone, MdPlaylistAdd, MdDesktopMac } from 'react-icons/md';
+import { MdPlaylistAdd, MdDesktopMac } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User } from '../types';
 import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
@@ -52,21 +52,6 @@ function formatNumber(n: number): string {
   return n.toLocaleString();
 }
 
-const platformLabels: Record<string, string> = {
-  desktop: 'Desktop',
-  laptop: 'Laptop',
-  tablet: 'Tablet',
-  phone: 'Phone',
-};
-
-const platformIcons: Record<string, string> = {
-  desktop: '🖥',
-  laptop: '💻',
-  tablet: '📱',
-  phone: '📲',
-};
-
-
 // Pick the variant whose pixel dimensions best match this screen.
 // Two guards keep the match honest:
 //   1. Same orientation only — never a landscape variant for a portrait screen, or vice versa.
@@ -95,99 +80,6 @@ function findBestMatch(variants: WallpaperVariant[]): WallpaperVariant | null {
   const tolerance = Math.max(sw, sh) * 0.05;
   if (best && bestDiff > tolerance) return null;
   return best;
-}
-
-function VariantList({ variants, matchedId, onMockup, onDownload }: { variants: WallpaperVariant[]; matchedId?: number; onMockup: (v: WallpaperVariant) => void; onDownload: (v: WallpaperVariant) => void }) {
-  const grouped = variants.reduce<Record<string, WallpaperVariant[]>>((acc, v) => {
-    const key = v.platform;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(v);
-    return acc;
-  }, {});
-
-  const platformOrder = ['desktop', 'laptop', 'tablet', 'phone'];
-
-  return (
-    <div className="space-y-6">
-      {platformOrder.map((platform) => {
-        const items = grouped[platform];
-        if (!items || items.length === 0) return null;
-        return (
-          <div key={platform}>
-            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
-              {platformIcons[platform]} {platformLabels[platform] || platform}
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {items.map((v) => {
-                const isMatched = v.id === matchedId;
-                // Per-variant mockup preview is only meaningful for the user's own device;
-                // showing other devices' mockups in a list adds noise but no signal.
-                const mockupOk = isMatched && canShowMockup(v);
-                return (
-                  <div
-                    key={v.id}
-                    className={`relative rounded-xl border transition-colors ${
-                      isMatched
-                        ? 'border-indigo-300 bg-indigo-50/50 dark:border-indigo-500/40 dark:bg-indigo-950/20'
-                        : 'border-gray-100 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/50'
-                    }`}
-                  >
-                    {isMatched && (
-                      <span className="absolute -top-2.5 left-3 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-indigo-500 text-white rounded-full">
-                        Your Device
-                      </span>
-                    )}
-                    <div className="px-4 py-3.5">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                          {v.brand} {v.device_name}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 mb-3">
-                        <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Resolution</div>
-                          <div className="text-sm font-bold text-gray-700 dark:text-gray-200">{v.width}&times;{v.height}</div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Size</div>
-                          <div className="text-sm font-bold text-gray-700 dark:text-gray-200">{formatFileSize(v.file_size)}</div>
-                        </div>
-                        <div className="flex items-end justify-end gap-1">
-                          <button
-                            onClick={() => onMockup(v)}
-                            disabled={!mockupOk}
-                            className={`p-1.5 rounded-lg transition-colors ${
-                              mockupOk
-                                ? 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-gray-600'
-                                : 'text-gray-200 dark:text-gray-600 cursor-not-allowed'
-                            }`}
-                            title={
-                              !isMatched
-                                ? 'Only your matched device can be previewed here'
-                                : mockupOk ? 'Device mockup' : 'Screen too small'
-                            }
-                          >
-                            <MdPhoneIphone size={16} />
-                          </button>
-                          <button
-                            onClick={() => onDownload(v)}
-                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                            title="Download"
-                          >
-                            <AiOutlineDownload size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 export default function WallpaperDetailPage() {
@@ -998,23 +890,72 @@ export default function WallpaperDetailPage() {
 
             {/* Device-specific download list — sits right below the
                 Download CTA so users who already know which device they
-                want a perfect-fit crop for can grab it in one click. The
-                disclosure stays collapsed by default since most visitors
-                are happy with the original. */}
+                want a perfect-fit crop for can grab it in one click.
+                Inline flat list (no disclosure) with per-row Preview and
+                Download actions; the matched variant gets a "Your device"
+                pill so the user knows which row was tailored for them. */}
             {variants.length > 0 && (
-              <details className="border border-hair">
-                <summary className="px-4 py-3 mono text-[10px] tracking-[0.14em] uppercase text-ink-2 cursor-pointer hover:bg-paper-2">
-                  Device-specific downloads ({variants.length})
-                </summary>
-                <div className="p-4 border-t border-hair bg-paper-2">
-                  <VariantList
-                    variants={variants}
-                    matchedId={matchedVariant?.id}
-                    onMockup={(v) => setMockupVariant(v)}
-                    onDownload={(v) => handleDownload(v)}
-                  />
+              <section>
+                <div className="kicker text-muted">Available devices</div>
+                <div className="mt-2 border-t border-hair">
+                  {[...variants]
+                    // Pin the user's matched variant to the top; sort the rest
+                    // by decreasing total pixels so the highest-fidelity
+                    // options surface first.
+                    .sort((a, b) => {
+                      if (matchedVariant) {
+                        if (a.id === matchedVariant.id) return -1;
+                        if (b.id === matchedVariant.id) return 1;
+                      }
+                      return (b.width * b.height) - (a.width * a.height);
+                    })
+                    .map((v) => {
+                      const isMatched = matchedVariant?.id === v.id;
+                      const mockable = canShowMockup(v);
+                      const deviceName = [v.brand, v.device_name].filter(Boolean).join(' ').trim() || 'Device';
+                      return (
+                        <div
+                          key={v.id}
+                          className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 border-b border-hair last:border-b-0"
+                        >
+                          {/* Left: name + optional "Your device" pill */}
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="text-[13px] text-ink truncate">{deviceName}</span>
+                            {isMatched && (
+                              <span className="mono text-[9px] tracking-[0.08em] uppercase px-1.5 py-0.5 rounded border border-accent text-accent-ink bg-accent-soft whitespace-nowrap">
+                                Your device
+                              </span>
+                            )}
+                          </div>
+                          {/* Middle: dims · size */}
+                          <span className="mono text-[10px] tracking-[0.04em] text-muted whitespace-nowrap">
+                            {v.width.toLocaleString()} × {v.height.toLocaleString()} px
+                            {v.file_size > 0 && <> · {formatFileSize(v.file_size)}</>}
+                          </span>
+                          {/* Right: action buttons */}
+                          <div className="flex items-center gap-1.5 ml-auto">
+                            <button
+                              onClick={() => mockable && setMockupVariant(v)}
+                              disabled={!mockable}
+                              title={mockable ? 'Preview on device' : 'Mockup not available for this device'}
+                              className="mono text-[10px] tracking-[0.06em] uppercase px-2.5 py-1 rounded border border-hair text-ink-2 hover:bg-paper-2 hover:border-ink-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              Preview
+                            </button>
+                            <button
+                              onClick={() => handleDownload(v)}
+                              disabled={dlLoading}
+                              title="Download this variant"
+                              className="mono text-[10px] tracking-[0.06em] uppercase px-2.5 py-1 rounded bg-ink text-paper hover:bg-ink-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              Download
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
-              </details>
+              </section>
             )}
 
             {/* Owner / report actions */}
