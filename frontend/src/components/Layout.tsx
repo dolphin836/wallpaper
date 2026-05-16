@@ -41,10 +41,13 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
 
   const items: NavItem[] = [
     { label: 'Discover',    sub: 'Browse the gallery',     to: '/' },
-    ...(isAuthenticated ? [{ label: 'Upload', sub: 'Share a wallpaper', to: '/upload' }] : []),
     { label: 'Collections', sub: 'Themed wallpaper sets', to: '/collections' },
     { label: 'Uploaders',   sub: 'Top contributors',      to: '/uploaders' },
     { label: 'macOS App',   sub: 'Get the Mac app',       to: '/download/mac' },
+    // Upload pinned to the bottom so the "browse" items stay together at the
+    // top of the nav and the contributor action sits closer to the balance
+    // card just below it.
+    ...(isAuthenticated ? [{ label: 'Upload', sub: 'Share a wallpaper', to: '/upload' }] : []),
   ];
 
   const isActive = (to: string) => to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
