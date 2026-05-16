@@ -40,11 +40,11 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
   const location = useLocation();
 
   const items: NavItem[] = [
-    { label: 'Discover',    sub: 'Recent specimens',     to: '/' },
-    ...(isAuthenticated ? [{ label: 'Upload', sub: 'Earn +5 coins', to: '/upload' }] : []),
-    { label: 'Collections', sub: 'Curated & user lists', to: '/collections' },
-    { label: 'Uploaders',   sub: 'Contributing artists', to: '/uploaders' },
-    { label: 'macOS App',   sub: 'Menu-bar companion',   to: '/download/mac' },
+    { label: 'Discover',    sub: 'Browse the gallery',     to: '/' },
+    ...(isAuthenticated ? [{ label: 'Upload', sub: 'Share a wallpaper', to: '/upload' }] : []),
+    { label: 'Collections', sub: 'Themed wallpaper sets', to: '/collections' },
+    { label: 'Uploaders',   sub: 'Top contributors',      to: '/uploaders' },
+    { label: 'macOS App',   sub: 'Get the Mac app',       to: '/download/mac' },
   ];
 
   const isActive = (to: string) => to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
@@ -117,26 +117,23 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
         </Link>
       )}
 
-      {/* Legal footer */}
-      <div className="mt-auto px-6 pb-6 pt-6">
-        <hr className="border-t border-dashed border-hair" />
-        <ul className="flex flex-wrap gap-x-3 gap-y-1.5 py-3 list-none p-0 mono text-[10px] tracking-[0.12em] uppercase text-muted">
+      {/* Legal footer — both the link row and the copyright line center
+          horizontally inside the sidebar's content column. The copyright
+          spans use items-baseline so the sans © glyph and the serif italic
+          word "Wallpaper Exchange" share an optical baseline. */}
+      <div className="mt-auto px-6 pt-6 pb-6 flex flex-col items-center">
+        <hr className="border-t border-dashed border-hair w-full" />
+        <ul className="flex flex-wrap justify-center gap-x-3 gap-y-1.5 py-3 list-none m-0 p-0 mono text-[10px] tracking-[0.12em] uppercase text-muted">
           <li><Link to="/terms" className="text-inherit no-underline hover:text-ink">Terms</Link></li>
           <li className="text-hair" aria-hidden>·</li>
           <li><Link to="/privacy" className="text-inherit no-underline hover:text-ink">Privacy</Link></li>
           <li className="text-hair" aria-hidden>·</li>
           <li><Link to="/legal/dmca" className="text-inherit no-underline hover:text-ink">DMCA</Link></li>
         </ul>
-        <hr className="border-t border-hair" />
-        <div className="mt-2.5 text-[11px] text-ink-2 inline-flex items-center gap-1.5 leading-none">
+        <hr className="border-t border-hair w-full" />
+        <div className="mt-3 flex items-baseline justify-center gap-1.5 text-[11px] text-ink-2 text-center">
           <span>&copy; {new Date().getFullYear()}</span>
-          {/* leading-none on parent + matching leading-none here, plus a tiny
-              negative translateY, lines up the serif baseline with the sans
-              copyright row. Without it the italic descender pushes the cap
-              line ~2px below the © glyph. */}
-          <span className="display italic-d text-[13px] leading-none -translate-y-px">
-            Wallpaper Exchange
-          </span>
+          <span className="display italic-d text-[13px]">Wallpaper Exchange</span>
         </div>
       </div>
     </aside>
