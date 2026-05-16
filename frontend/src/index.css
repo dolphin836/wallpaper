@@ -246,3 +246,132 @@
   background: #d18a3a;
   box-shadow: 0 0 0 3px oklch(94% 0.05 70);
 }
+
+/* ── Detail page · action grid ────────────────────────────────────
+   Pill buttons in the right-column "Actions" section. Row 1 is three
+   toggleable buttons (like / favorite / collection) — selected states
+   use the colored variants below. Row 2 uses .btn-pill--action for the
+   flatter secondary tone (fullscreen preview, on-device mockup). */
+
+.btn-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  justify-content: center;
+  padding: 12px 14px;
+  background: var(--color-paper);
+  border: 1px solid var(--color-hair);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease,
+              transform 80ms ease, box-shadow 160ms ease;
+}
+.btn-pill:hover {
+  background: var(--color-paper-2);
+  border-color: var(--color-ink-2);
+}
+.btn-pill:active { transform: scale(0.985); }
+.btn-pill:disabled { cursor: not-allowed; opacity: 0.6; }
+.btn-pill .label { white-space: nowrap; }
+.btn-pill .count {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--color-muted);
+}
+
+.btn-pill.is-liked {
+  background: oklch(95% 0.04 25);
+  border-color: #e0463a;
+  color: #b1311f;
+}
+.btn-pill.is-liked .count { color: #b1311f; }
+.btn-pill.is-favorited {
+  background: oklch(96% 0.04 80);
+  border-color: #d8a23a;
+  color: #8a611a;
+}
+.btn-pill.is-favorited .count { color: #8a611a; }
+.btn-pill.is-collected {
+  background: oklch(94% 0.06 150);
+  border-color: #4a8a5a;
+  color: #2f6b3e;
+}
+
+.btn-pill--action {
+  background: var(--color-paper-2);
+  border-color: var(--color-hair);
+  color: var(--color-ink);
+  justify-content: space-between;
+  padding: 14px 18px;
+}
+.btn-pill--action:hover {
+  background: var(--color-paper);
+  border-color: var(--color-ink);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+}
+.btn-pill--action .arrow {
+  display: inline-flex;
+  transition: transform 220ms cubic-bezier(.22,.61,.36,1);
+}
+.btn-pill--action:hover .arrow { transform: translateX(3px); }
+.btn-pill--action .lhs {
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.btn-pill--action .lhs .glyph {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--color-paper); border: 1px solid var(--color-hair);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--color-ink-2);
+}
+
+/* Palette swatch */
+.swatch {
+  position: relative;
+  border: 1px solid rgba(0,0,0,0.08);
+  cursor: pointer;
+  transition: transform 180ms ease;
+}
+.swatch:hover { transform: translateY(-2px); }
+.swatch-hex {
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--color-muted);
+  margin-top: 6px;
+  display: block;
+  text-align: center;
+}
+
+/* Device-fit row */
+.dev-row {
+  display: grid;
+  grid-template-columns: 24px 1fr auto auto;
+  align-items: center; gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-hair);
+  font-family: var(--font-sans); font-size: 12.5px;
+}
+.dev-row:last-child { border-bottom: none; }
+.dev-row .dev-icon  { color: var(--color-ink-2); }
+.dev-row .dev-name  { color: var(--color-ink); }
+.dev-row .dev-spec  {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--color-muted); letter-spacing: 0.06em;
+}
+.dev-row .dev-fit {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
+  color: #2f6b3e;
+}
+.dev-row .dev-fit--upscale { color: #b07a1a; }
+
+/* Corner brackets used to frame the plate image. */
+.plate-brackets > span {
+  position: absolute; width: 18px; height: 18px;
+  border-color: var(--color-ink);
+  pointer-events: none;
+}
+.plate-brackets > .br-tl { top: -1px;    left: -1px;    border-top: 1px solid; border-left: 1px solid; }
+.plate-brackets > .br-tr { top: -1px;    right: -1px;   border-top: 1px solid; border-right: 1px solid; }
+.plate-brackets > .br-bl { bottom: -1px; left: -1px;    border-bottom: 1px solid; border-left: 1px solid; }
+.plate-brackets > .br-br { bottom: -1px; right: -1px;   border-bottom: 1px solid; border-right: 1px solid; }

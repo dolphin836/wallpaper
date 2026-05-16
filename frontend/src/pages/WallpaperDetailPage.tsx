@@ -15,7 +15,7 @@ import {
   AiOutlineClose,
   AiOutlineLoading3Quarters,
 } from 'react-icons/ai';
-import { MdPhoneIphone, MdPlaylistAdd } from 'react-icons/md';
+import { MdPhoneIphone, MdPlaylistAdd, MdDesktopMac } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User } from '../types';
 import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
@@ -38,13 +38,8 @@ import { useAuthStore } from '../store/auth';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 import AvatarStack from '../components/AvatarStack';
-import { MdDesktopMac } from 'react-icons/md';
 import AddToCollectionModal from '../components/AddToCollectionModal';
 import SetWallpaperGuide from '../components/SetWallpaperGuide';
-
-function isMacOS(): boolean {
-  return /Macintosh|Mac OS X/i.test(navigator.userAgent);
-}
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -56,14 +51,6 @@ function formatNumber(n: number): string {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
   if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K`;
   return n.toLocaleString();
-}
-
-function isLightColor(hex: string): boolean {
-  const c = hex.replace('#', '');
-  const r = parseInt(c.substring(0, 2), 16);
-  const g = parseInt(c.substring(2, 4), 16);
-  const b = parseInt(c.substring(4, 6), 16);
-  return (0.299 * r + 0.587 * g + 0.114 * b) > 150;
 }
 
 const platformLabels: Record<string, string> = {
@@ -109,19 +96,6 @@ function findBestMatch(variants: WallpaperVariant[]): WallpaperVariant | null {
   const tolerance = Math.max(sw, sh) * 0.05;
   if (best && bestDiff > tolerance) return null;
   return best;
-}
-
-function MetaItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
-        {label}
-      </div>
-      <div className="text-lg font-bold text-gray-900 dark:text-white">
-        {value}
-      </div>
-    </div>
-  );
 }
 
 function VariantList({ variants, matchedId, onMockup, onDownload }: { variants: WallpaperVariant[]; matchedId?: number; onMockup: (v: WallpaperVariant) => void; onDownload: (v: WallpaperVariant) => void }) {
@@ -258,7 +232,6 @@ export default function WallpaperDetailPage() {
   const [loading, setLoading] = useState(!initialWallpaper);
   const [likeLoading, setLikeLoading] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
-  const [detailTab, setDetailTab] = useState<'similar' | 'variants'>('similar');
   const [fullscreen, setFullscreen] = useState(false);
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
@@ -471,6 +444,52 @@ export default function WallpaperDetailPage() {
 
   const isOwner = user?.id === wallpaper.user_id;
 
+
+  // ─── Helpers derived from wallpaper for the editorial spread ─────────
+  const palette = (wallpaper.color_palette || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const daysAgo = Math.max(0, Math.floor((Date.now() - new Date(wallpaper.created_at).getTime()) / 86400000));
+  const resLabel = (() => {
+    const px = Math.max(wallpaper.width, wallpaper.height);
+    if (px >= 7680) return '8K';
+    if (px >= 3840) return '4K';
+    if (px >= 2560) return '2K';
+    if (px >= 1920) return '1080P';
+    return '';
+  })();
+  const RES_TIER: Record<string, number> = { '1080P': 1, '2K': 2, '3K': 2.5, '4K': 3, '5K': 4, '6K': 5, '8K': 7 };
+  type DeviceFit = { name: string; spec: string; icon: 'phone' | 'tablet' | 'laptop' | 'desktop'; fit: 'ok' | 'upscale' };
+  const tier = RES_TIER[resLabel] ?? 3;
+  const fit = (need: number): 'ok' | 'upscale' => (tier >= need ? 'ok' : 'upscale');
+  const portrait = wallpaper.height > wallpaper.width;
+  const deviceFits: DeviceFit[] = portrait
+    ? [
+        { name: 'iPhone 15',         spec: '1179 × 2556', icon: 'phone',  fit: fit(2)   },
+        { name: 'iPhone 15 Pro Max', spec: '1290 × 2796', icon: 'phone',  fit: fit(2.5) },
+        { name: 'iPad Pro 12.9″',    spec: '2048 × 2732', icon: 'tablet', fit: fit(3)   },
+      ]
+    : [
+        { name: 'MacBook Pro 14″',    spec: '3024 × 1964', icon: 'laptop',  fit: fit(3) },
+        { name: 'MacBook Pro 16″',    spec: '3456 × 2234', icon: 'laptop',  fit: fit(3) },
+        { name: 'Studio Display 5K',  spec: '5120 × 2880', icon: 'desktop', fit: fit(4) },
+        { name: 'Pro Display XDR 6K', spec: '6016 × 3384', icon: 'desktop', fit: fit(5) },
+      ];
+
+  const copyHex = async (hex: string) => {
+    try {
+      await navigator.clipboard.writeText(hex);
+      toast.success(`Copied ${hex.toUpperCase()}`);
+    } catch {
+      toast.error('Copy failed');
+    }
+  };
+
+  const uploaderInitial = (wallpaper.uploader?.nickname || wallpaper.uploader?.username || '').charAt(0).toUpperCase();
+  const heroImg = wallpaper.preview_url || wallpaper.original_url;
+  const fileSize = wallpaper.file_size > 0 ? formatFileSize(wallpaper.file_size) : '—';
+  const downloadCost = isOwner ? 0 : 1;
+  const userBalance = user?.coins ?? 0;
+  const insufficient = !isOwner && isAuthenticated && userBalance < downloadCost;
+
   return (
     <>
       <PageMeta
@@ -492,9 +511,6 @@ export default function WallpaperDetailPage() {
 
       {mockupVariant && wallpaper && (
         <DeviceMockup
-          // Prefer the device-specific variant (correct orientation + dimensions + no
-          // watermark). Fall back to the watermarked preview/original only for legacy
-          // wallpapers whose variants were never uploaded.
           imageUrl={mockupVariant.url || wallpaper.preview_url || wallpaper.original_url}
           platform={mockupVariant.platform}
           deviceName={`${mockupVariant.brand} ${mockupVariant.device_name}`}
@@ -506,10 +522,6 @@ export default function WallpaperDetailPage() {
       )}
 
       {fullscreen && createPortal(
-        // z-[70] so we sit above the outer wallpaper-detail modal (z-50 + z-[60] close
-        // button) and cover any scrollbar/close-button on it. Rendered via portal to
-        // document.body so wheel/touch events here don't bubble to the wallpaper modal's
-        // overflow-y-auto scroller (we're not its DOM descendant).
         <div
           className="fixed inset-0 z-[70] bg-black flex items-center justify-center overflow-hidden"
           onClick={() => setFullscreen(false)}
@@ -540,351 +552,366 @@ export default function WallpaperDetailPage() {
         document.body,
       )}
 
-      <div className="max-w-5xl mx-auto px-6 py-6">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          {/* Image / Dynamic Slideshow */}
-          <div className="relative">
-            <div
-              className="relative w-full flex items-center justify-center bg-gray-100 overflow-hidden mx-auto"
-              style={{
-                aspectRatio: wallpaper.width > 0 && wallpaper.height > 0
-                  ? `${wallpaper.width} / ${wallpaper.height}`
-                  : undefined,
-                maxHeight: '70vh',
-                backgroundColor: wallpaper.dominant_color || undefined,
-              }}
-            >
-              {frames.length > 1 ? (
-                <div className="relative w-full h-full">
-                  {frames.map((url, i) => (
+      <div className="bg-paper text-ink min-h-full">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 grid gap-9 lg:grid-cols-[1.4fr_1fr]">
+          {/* ── LEFT COLUMN — plate header, image, stats, more-like-this ── */}
+          <div className="min-w-0 flex flex-col">
+            <div className="flex justify-between items-baseline mb-3 mono text-[10px] tracking-[0.18em] uppercase text-muted">
+              <span>Plate №{String(wallpaper.id).padStart(3, '0')}</span>
+              <span className="hidden sm:inline">
+                {wallpaper.width}×{wallpaper.height}
+                {resLabel ? ` · ${resLabel}` : ''}
+                {wallpaper.dominant_color ? ` · dominant ${wallpaper.dominant_color.toUpperCase()}` : ''}
+              </span>
+            </div>
+
+            {/* Image with corner brackets */}
+            <div className="relative">
+              <div
+                className="relative w-full overflow-hidden bg-paper-3 border border-hair"
+                style={{
+                  aspectRatio: wallpaper.width > 0 && wallpaper.height > 0
+                    ? `${wallpaper.width} / ${wallpaper.height}`
+                    : undefined,
+                  maxHeight: '78vh',
+                  backgroundColor: wallpaper.dominant_color || undefined,
+                }}
+              >
+                {frames.length > 1 ? (
+                  <div className="relative w-full h-full">
+                    {frames.map((url, i) => (
+                      <img
+                        key={i}
+                        src={url}
+                        alt=""
+                        onContextMenu={(e) => e.preventDefault()}
+                        draggable={false}
+                        className={`absolute inset-0 w-full h-full object-contain select-none transition-opacity duration-500 ${frameIdx === i ? 'opacity-100' : 'opacity-0'}`}
+                        style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
+                      />
+                    ))}
+                    <button
+                      onClick={() => setFramePlaying((p) => !p)}
+                      className="absolute bottom-3 right-3 px-3 py-1 bg-black/60 text-white text-[11px] mono rounded backdrop-blur-sm"
+                    >{framePlaying ? 'PAUSE' : 'PLAY'} · {frameIdx + 1}/{frames.length}</button>
+                  </div>
+                ) : (
+                  heroImg && (
                     <img
-                      key={i}
-                      src={url}
+                      src={heroImg}
                       alt=""
                       onContextMenu={(e) => e.preventDefault()}
                       draggable={false}
-                      className={`absolute inset-0 w-full h-full object-contain select-none transition-opacity duration-1000 ${
-                        i === frameIdx ? 'opacity-100' : 'opacity-0'
-                      }`}
+                      className="w-full h-full object-contain select-none"
                       style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                     />
-                  ))}
-                </div>
-              ) : (
-                <img
-                  src={wallpaper.preview_url || wallpaper.original_url}
-                  alt=""
-                  onContextMenu={(e) => e.preventDefault()}
-                  draggable={false}
-                  className="w-full h-full object-contain select-none"
-                  style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
-                />
-              )}
-              <div className="absolute inset-0 z-[1]" onContextMenu={(e) => e.preventDefault()} />
+                  )
+                )}
+              </div>
+              <div className="plate-brackets pointer-events-none">
+                <span className="br-tl" />
+                <span className="br-tr" />
+                <span className="br-bl" />
+                <span className="br-br" />
+              </div>
             </div>
 
-            {wallpaper.is_dynamic && (
-              <span className="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-black/60 text-white backdrop-blur-sm shadow-lg">
-                <svg width="14" height="14" viewBox="0 0 384 512" fill="currentColor"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
-                macOS
-              </span>
-            )}
-
-            {frames.length > 1 && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-sm">
-                <button
-                  onClick={() => setFramePlaying((p) => !p)}
-                  className="text-white/80 hover:text-white transition-colors"
-                  title={framePlaying ? 'Pause' : 'Play'}
-                >
-                  {framePlaying ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
-                  )}
-                </button>
-                <div className="flex gap-1.5">
-                  {frames.map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => { setFrameIdx(i); setFramePlaying(false); }}
-                      className={`w-1.5 h-1.5 rounded-full transition-all ${
-                        i === frameIdx ? 'bg-white scale-125' : 'bg-white/40 hover:bg-white/60'
-                      }`}
-                    />
-                  ))}
+            {/* Stats strip */}
+            <div className="mt-3 grid grid-cols-4 border border-hair border-r-0">
+              {[
+                ['DOWNLOADS', wallpaper.download_count],
+                ['LIKES',     wallpaper.like_count],
+                ['FAVORITED', wallpaper.favorite_count],
+                ['VIEWS',     wallpaper.view_count],
+              ].map(([k, v]) => (
+                <div key={String(k)} className="px-3 py-2.5 sm:px-3.5 sm:py-3 border-r border-hair">
+                  <div className="mono text-[9px] tracking-[0.14em] uppercase text-muted">{k}</div>
+                  <div className="display text-[22px] sm:text-[24px] leading-none mt-1">{formatNumber(v as number)}</div>
                 </div>
-                <span className="text-[10px] text-white/60 font-mono ml-1">
-                  {frameIdx + 1}/{frames.length}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Info Panel */}
-          <div className="p-6 sm:p-8 space-y-8">
-
-            {/* Actions: Download + Like + Favorite + Preview + Mockup */}
-            <div className="flex items-center gap-3 flex-wrap">
-              {wallpaper.is_dynamic && !isMacOS() ? (
-                <div className="flex-1 sm:flex-none flex items-center gap-3 px-6 py-3 text-sm rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
-                  <MdDesktopMac size={20} />
-                  <span>Dynamic wallpapers are only supported on macOS</span>
-                </div>
-              ) : (
-                <button
-                  onClick={() => handleDownload()}
-                  disabled={dlLoading}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-3.5 text-base font-semibold rounded-full transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
-                    dlDone
-                      ? 'text-white bg-green-600 hover:bg-green-700'
-                      : 'text-white bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100'
-                  }`}
-                >
-                  {dlLoading ? <AiOutlineLoading3Quarters size={20} className="animate-spin" /> : dlDone ? <AiOutlineCheckCircle size={20} /> : <AiOutlineDownload size={20} />}
-                  <span>Download</span>
-                  <span className="text-sm font-normal opacity-70">
-                    {wallpaper.is_dynamic
-                      ? `${wallpaper.width}\u00D7${wallpaper.height} \u00B7 ${formatFileSize(wallpaper.file_size)}`
-                      : matchedVariant
-                        ? `${matchedVariant.width}\u00D7${matchedVariant.height}`
-                        : `${wallpaper.width}\u00D7${wallpaper.height} \u00B7 ${formatFileSize(wallpaper.file_size)}`
-                    }
-                  </span>
-                </button>
-              )}
-
-              <button
-                onClick={handleLike}
-                disabled={likeLoading}
-                className={`w-12 h-12 flex items-center justify-center rounded-full border-2 transition-colors duration-200 shrink-0 ${
-                  wallpaper.is_liked
-                    ? 'border-red-200 bg-red-50 text-red-500'
-                    : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500'
-                }`}
-              >
-                {wallpaper.is_liked ? <AiFillHeart size={22} /> : <AiOutlineHeart size={22} />}
-              </button>
-
-              <button
-                onClick={handleFavorite}
-                disabled={favLoading}
-                className={`w-12 h-12 flex items-center justify-center rounded-full border-2 transition-colors duration-200 shrink-0 ${
-                  wallpaper.is_favorited
-                    ? 'border-amber-200 bg-amber-50 text-amber-500'
-                    : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500'
-                }`}
-              >
-                {wallpaper.is_favorited ? <AiFillStar size={22} /> : <AiOutlineStar size={22} />}
-              </button>
-
-              {!wallpaper.is_dynamic && (
-                <>
-                  <button
-                    onClick={() => matchedVariant && setFullscreen(true)}
-                    disabled={!matchedVariant}
-                    title={matchedVariant ? `Fullscreen preview (${matchedVariant.brand} ${matchedVariant.device_name})` : 'No matching resolution for your device'}
-                    className={`w-12 h-12 flex items-center justify-center rounded-full border-2 transition-colors duration-200 shrink-0 ${
-                      matchedVariant
-                        ? 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500'
-                        : 'border-gray-100 text-gray-200 cursor-not-allowed'
-                    }`}
-                  >
-                    <AiOutlineFullscreen size={22} />
-                  </button>
-
-                  <button
-                    onClick={() => matchedVariant && setMockupVariant(matchedVariant)}
-                    disabled={!matchedVariant || !canMockupMatched}
-                    title={
-                      !matchedVariant
-                        ? 'No matching device'
-                        : !canMockupMatched
-                          ? 'Screen too small for device mockup'
-                          : `Device mockup (${matchedVariant.brand} ${matchedVariant.device_name})`
-                    }
-                    className={`w-12 h-12 flex items-center justify-center rounded-full border-2 transition-colors duration-200 shrink-0 ${
-                      matchedVariant && canMockupMatched
-                        ? 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500'
-                        : 'border-gray-100 text-gray-200 cursor-not-allowed'
-                    }`}
-                  >
-                    <MdPhoneIphone size={22} />
-                  </button>
-                </>
-              )}
-
-              {isAuthenticated && (
-                <button
-                  onClick={() => setShowAddToCollection(true)}
-                  title="Add to collection"
-                  className="w-12 h-12 flex items-center justify-center rounded-full border-2 border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500 transition-colors duration-200 shrink-0"
-                >
-                  <MdPlaylistAdd size={22} />
-                </button>
-              )}
+              ))}
             </div>
 
-            {isAuthenticated && user && !isOwner && user.coins <= 3 && (
-              <Link
-                to="/upload"
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200/60 dark:border-amber-700/30 text-sm text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-colors"
-              >
-                <span className="text-base">💡</span>
-                {user.coins <= 0
-                  ? 'No coins left — upload a wallpaper to earn coins and keep downloading.'
-                  : `Only ${user.coins} coin${user.coins === 1 ? '' : 's'} remaining. Share your wallpapers to earn more!`}
-              </Link>
-            )}
+            {/* Likers / favoriters avatars (kept from the old page — useful social proof) */}
+            {engagements && (engagements.likers?.length || engagements.favoriters?.length || engagements.downloaders?.length) ? (
+              <div className="mt-5 flex flex-col gap-2 text-[12px] text-ink-2">
+                {engagements.likers?.length > 0 && (
+                  <div className="flex items-center gap-3"><AvatarStack users={engagements.likers} total={wallpaper.like_count} /> <span className="mono text-[10px] tracking-wider uppercase text-muted">Liked by</span></div>
+                )}
+                {engagements.favoriters?.length > 0 && (
+                  <div className="flex items-center gap-3"><AvatarStack users={engagements.favoriters} total={wallpaper.favorite_count} /> <span className="mono text-[10px] tracking-wider uppercase text-muted">Favorited by</span></div>
+                )}
+              </div>
+            ) : null}
 
-            {/* Metadata Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-6">
-              <MetaItem label="Resolution" value={`${wallpaper.width}\u00D7${wallpaper.height}`} />
-              <MetaItem label="File Size" value={formatFileSize(wallpaper.file_size)} />
-              <div>
-                <MetaItem label="Likes" value={formatNumber(wallpaper.like_count)} />
-                {engagements && <AvatarStack users={engagements.likers} total={wallpaper.like_count} />}
-              </div>
-              <div>
-                <MetaItem label="Downloads" value={formatNumber(wallpaper.download_count)} />
-                {engagements && <AvatarStack users={engagements.downloaders} total={wallpaper.download_count} />}
-              </div>
-              <div>
-                <MetaItem label="Favorites" value={formatNumber(wallpaper.favorite_count)} />
-                {engagements && <AvatarStack users={engagements.favoriters} total={wallpaper.favorite_count} />}
-              </div>
-              <MetaItem label="Views" value={formatNumber(wallpaper.view_count)} />
-            </div>
-
-            {/* Color Palette */}
-            {wallpaper.color_palette && (
-              <div>
-                <h4 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
-                  Palette
-                </h4>
-                <div className="flex rounded-xl overflow-hidden h-14">
-                  {wallpaper.color_palette.split(',').map((hex) => (
-                    <div
-                      key={hex}
-                      className="flex-1 flex items-end justify-center pb-1.5 group relative cursor-pointer"
-                      style={{ backgroundColor: hex }}
-                      onClick={() => { navigator.clipboard.writeText(hex); toast.success(`Copied ${hex}`); }}
-                    >
-                      <span className="text-[10px] font-mono font-semibold opacity-80 drop-shadow-sm"
-                        style={{ color: isLightColor(hex) ? '#000' : '#fff' }}
-                      >
-                        {hex}
-                      </span>
-                    </div>
+            {/* More like this */}
+            {similar.length > 0 && (
+              <>
+                <div className="label-rule mt-7 mb-3">
+                  More like this · {similar.length}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {similar.slice(0, 8).map((s) => (
+                    <WallpaperCard key={s.id} wallpaper={s} fixedAspect />
                   ))}
                 </div>
-              </div>
+              </>
             )}
 
-            {/* Uploader */}
-            {wallpaper.uploader && (
-              <div className="flex items-center justify-between pt-6 border-t border-gray-100 dark:border-gray-700">
-                <Link to={`/user/${wallpaper.uploader.username}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                  {wallpaper.uploader.avatar_url ? (
-                    <img src={wallpaper.uploader.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-semibold text-sm">
-                      {(wallpaper.uploader.nickname || wallpaper.uploader.username).charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                        {wallpaper.uploader.nickname || wallpaper.uploader.username}
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200/50 dark:border-amber-700/30">
-                        <span className="text-xs">💰</span>
-                        <span className="text-xs font-bold bg-gradient-to-r from-amber-600 to-yellow-500 bg-clip-text text-transparent">{wallpaper.uploader.coins ?? 0}</span>
-                      </span>
-                    </div>
-                    <div className="text-xs text-gray-400">Uploader</div>
-                  </div>
-                </Link>
-
-                {isOwner && (
-                  <button
-                    onClick={handleDelete}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
-                  >
-                    <AiOutlineDelete size={16} />
-                    Delete
-                  </button>
-                )}
-                {!isOwner && isAuthenticated && (
-                  <button
-                    onClick={() => setShowReport(true)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors duration-200"
-                  >
-                    <AiOutlineFlag size={16} />
-                    Report
-                  </button>
-                )}
-              </div>
-            )}
-
-          </div>
-        </div>
-
-        {(() => {
-          const hasSimilar = similar.length > 0;
-          const hasVariants = !wallpaper.is_dynamic && variants.length > 0;
-          if (!hasSimilar && !hasVariants) return null;
-          const activeTab = hasSimilar && hasVariants
-            ? detailTab
-            : (hasSimilar ? 'similar' : 'variants');
-          return (
-            <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <div className="flex border-b border-gray-100 dark:border-gray-700">
-                {hasSimilar && (
-                  <button
-                    onClick={() => setDetailTab('similar')}
-                    className={`px-6 py-4 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-                      activeTab === 'similar'
-                        ? 'border-ws-purple text-slate-900 dark:text-white'
-                        : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-ws-dark-muted dark:hover:text-white'
-                    }`}
-                  >
-                    More like this
-                  </button>
-                )}
-                {hasVariants && (
-                  <button
-                    onClick={() => setDetailTab('variants')}
-                    className={`px-6 py-4 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-                      activeTab === 'variants'
-                        ? 'border-ws-purple text-slate-900 dark:text-white'
-                        : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-ws-dark-muted dark:hover:text-white'
-                    }`}
-                  >
-                    Available Devices ({variants.length})
-                  </button>
-                )}
-              </div>
-              <div className="p-6">
-                {activeTab === 'similar' && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                    {similar.map((s) => (
-                      <WallpaperCard key={s.id} wallpaper={s} fixedAspect />
-                    ))}
-                  </div>
-                )}
-                {activeTab === 'variants' && (
+            {/* Variants list — kept for users who need the device-specific
+                downloads. Hidden behind a disclosure so it doesn't clutter
+                the editorial spread. */}
+            {variants.length > 0 && (
+              <details className="mt-6 border border-hair">
+                <summary className="px-4 py-3 mono text-[10px] tracking-[0.14em] uppercase text-ink-2 cursor-pointer hover:bg-paper-2">
+                  Device-specific downloads ({variants.length})
+                </summary>
+                <div className="p-4 border-t border-hair bg-paper-2">
                   <VariantList
                     variants={variants}
                     matchedId={matchedVariant?.id}
-                    onMockup={setMockupVariant}
+                    onMockup={(v) => setMockupVariant(v)}
                     onDownload={(v) => handleDownload(v)}
                   />
-                )}
-              </div>
+                </div>
+              </details>
+            )}
+          </div>
+
+          {/* ── RIGHT COLUMN — metadata + actions + CoinCTA ── */}
+          <div className="flex flex-col gap-5 min-w-0">
+            {/* Eyebrow */}
+            <div className="kicker text-muted">
+              {wallpaper.tags?.length > 0 ? wallpaper.tags[0].name.toUpperCase() : 'WALLPAPER'} · ADDED {daysAgo}D AGO{wallpaper.is_dynamic ? ' · DYNAMIC' : ''}
             </div>
-          );
-        })()}
+
+            {/* Uploader row */}
+            {wallpaper.uploader && (
+              <Link
+                to={`/user/${wallpaper.uploader.username}`}
+                className="flex items-center gap-3 py-3 border-t border-b border-hair no-underline text-ink"
+              >
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-paper-2 border border-hair flex items-center justify-center display text-[18px] flex-shrink-0">
+                  {wallpaper.uploader.avatar_url
+                    ? <img src={wallpaper.uploader.avatar_url} alt="" className="w-full h-full object-cover" />
+                    : uploaderInitial}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="display text-[19px] leading-tight truncate">
+                    @{wallpaper.uploader.username}
+                  </div>
+                  {wallpaper.uploader.bio && (
+                    <div className="mono text-[10px] tracking-[0.08em] uppercase text-muted truncate">
+                      {wallpaper.uploader.bio}
+                    </div>
+                  )}
+                </div>
+                <span className="mono text-[10px] tracking-[0.1em] uppercase text-muted whitespace-nowrap">VIEW →</span>
+              </Link>
+            )}
+
+            {/* Palette */}
+            {palette.length > 0 && (
+              <section>
+                <div className="kicker text-muted">Palette · {palette.length} color{palette.length === 1 ? '' : 's'}</div>
+                <div className="grid mt-2.5 gap-2" style={{ gridTemplateColumns: `repeat(${palette.length}, 1fr)` }}>
+                  {palette.map((c, i) => (
+                    <button key={`${c}-${i}`} onClick={() => copyHex(c)} className="flex flex-col gap-0 bg-transparent border-0 p-0 cursor-pointer">
+                      <span className="swatch block h-[52px] rounded-[2px]" style={{ background: c }} title={`${c.toUpperCase()} — click to copy`} />
+                      <span className="swatch-hex">{c.toUpperCase()}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Devices */}
+            <section>
+              <div className="kicker text-muted">Available devices</div>
+              <div className="mt-2 border-t border-hair">
+                {deviceFits.map((d) => (
+                  <div key={d.name} className="dev-row">
+                    <span className="dev-icon">
+                      {d.icon === 'phone'   && <MdPhoneIphone size={17} />}
+                      {d.icon === 'tablet'  && <MdDesktopMac size={17} />}
+                      {d.icon === 'laptop'  && <MdDesktopMac size={17} />}
+                      {d.icon === 'desktop' && <MdDesktopMac size={17} />}
+                    </span>
+                    <span className="dev-name">{d.name}</span>
+                    <span className="dev-spec">{d.spec}</span>
+                    <span className={`dev-fit ${d.fit === 'upscale' ? 'dev-fit--upscale' : ''}`}>
+                      {d.fit === 'ok' ? <>✓ Fits</> : 'Upscale'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Specifications */}
+            <section>
+              <div className="kicker text-muted">Specifications</div>
+              <dl className="grid grid-cols-[90px_1fr] gap-y-2.5 mt-2.5 mono text-[13px]">
+                <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">DIM</dt>
+                <dd className="m-0 text-ink">{wallpaper.width.toLocaleString()} × {wallpaper.height.toLocaleString()} px</dd>
+                <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">RES</dt>
+                <dd className="m-0 text-ink">{resLabel || '—'}{wallpaper.is_dynamic && <span className="ml-2 text-accent">● Dynamic</span>}</dd>
+                <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">FILE</dt>
+                <dd className="m-0 text-ink">{(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}</dd>
+                {wallpaper.dominant_color && (
+                  <>
+                    <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">DOMINANT</dt>
+                    <dd className="m-0 text-ink inline-flex items-center gap-1.5">
+                      <span className="inline-block w-2.5 h-2.5 border border-hair" style={{ background: wallpaper.dominant_color }} />
+                      {wallpaper.dominant_color.toUpperCase()}
+                    </dd>
+                  </>
+                )}
+              </dl>
+            </section>
+
+            {/* Actions */}
+            <section>
+              <div className="kicker text-muted">Actions</div>
+
+              <div className="grid grid-cols-3 gap-2 mt-2.5">
+                <button
+                  onClick={handleLike}
+                  disabled={likeLoading}
+                  className={`btn-pill ${wallpaper.is_liked ? 'is-liked' : ''}`}
+                >
+                  {likeLoading
+                    ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
+                    : wallpaper.is_liked ? <AiFillHeart size={15} /> : <AiOutlineHeart size={15} />}
+                  <span className="label">{wallpaper.is_liked ? 'Liked' : 'Like'}</span>
+                  <span className="count">{formatNumber(wallpaper.like_count)}</span>
+                </button>
+                <button
+                  onClick={handleFavorite}
+                  disabled={favLoading}
+                  className={`btn-pill ${wallpaper.is_favorited ? 'is-favorited' : ''}`}
+                >
+                  {favLoading
+                    ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
+                    : wallpaper.is_favorited ? <AiFillStar size={15} /> : <AiOutlineStar size={15} />}
+                  <span className="label">{wallpaper.is_favorited ? 'Favorited' : 'Favorite'}</span>
+                </button>
+                <button
+                  onClick={() => { if (!isAuthenticated) { navigate('/login'); return; } setShowAddToCollection(true); }}
+                  className="btn-pill"
+                >
+                  <MdPlaylistAdd size={17} />
+                  <span className="label">Add to list</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <button
+                  onClick={() => setFullscreen(true)}
+                  className="btn-pill btn-pill--action"
+                >
+                  <span className="lhs">
+                    <span className="glyph"><AiOutlineFullscreen size={15} /></span>
+                    <span className="text-left">
+                      <div className="text-[13px] font-medium leading-tight">Fullscreen preview</div>
+                      <div className="mono text-[10px] tracking-[0.08em] uppercase text-muted mt-0.5">Watermarked · free</div>
+                    </span>
+                  </span>
+                  <span className="arrow">→</span>
+                </button>
+                <button
+                  onClick={() => matchedVariant && canMockupMatched && setMockupVariant(matchedVariant)}
+                  disabled={!canMockupMatched}
+                  className="btn-pill btn-pill--action"
+                >
+                  <span className="lhs">
+                    <span className="glyph"><MdDesktopMac size={15} /></span>
+                    <span className="text-left">
+                      <div className="text-[13px] font-medium leading-tight">On device</div>
+                      <div className="mono text-[10px] tracking-[0.08em] uppercase text-muted mt-0.5">Mockup preview</div>
+                    </span>
+                  </span>
+                  <span className="arrow">→</span>
+                </button>
+              </div>
+            </section>
+
+            {/* Coin CTA — default + insufficient states. Confirm/success
+                handled by the existing inline toast + dlDone flag rather
+                than a separate full state in V1; the rest of the design
+                doc's state machine is wired through the existing
+                handleDownload error paths. */}
+            <div className="mt-auto pt-1">
+              {insufficient ? (
+                <div className="p-5 border border-[#b07a1a]" style={{ background: 'oklch(96% 0.05 70)' }}>
+                  <div className="flex justify-between items-center gap-4 flex-wrap">
+                    <div className="min-w-0">
+                      <div className="kicker tracking-[0.14em]" style={{ color: '#9a6a18' }}>INSUFFICIENT COINS</div>
+                      <div className="display text-[28px] sm:text-[34px] leading-none mt-1.5" style={{ color: '#5e3f08' }}>
+                        Need <span style={{ color: '#9a6a18' }}>{downloadCost - userBalance}</span> more
+                      </div>
+                      <div className="mono text-[10px] tracking-[0.14em] mt-2" style={{ color: '#9a6a18' }}>
+                        YOUR BALANCE · {userBalance} COINS · COST · {downloadCost}
+                      </div>
+                    </div>
+                    <Link to="/upload" className="inline-flex items-center gap-2.5 px-5 py-3 rounded-full text-white font-medium text-[13px] no-underline whitespace-nowrap" style={{ background: '#9a6a18' }}>
+                      Upload to earn
+                    </Link>
+                  </div>
+                  <hr className="my-3.5 border-0" style={{ borderTop: '1px solid rgba(154,106,24,0.28)' }} />
+                  <div className="flex flex-wrap gap-x-5 gap-y-1 text-[12px]" style={{ color: '#5e3f08' }}>
+                    <span><strong className="mono mr-1.5" style={{ color: '#9a6a18' }}>+5</strong>each upload</span>
+                    <span><strong className="mono mr-1.5" style={{ color: '#9a6a18' }}>+1</strong>others download yours</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-ink text-paper border border-ink p-5 flex justify-between items-center gap-4 flex-wrap">
+                  <div className="min-w-0">
+                    <div className="mono text-[10px] tracking-[0.14em] uppercase" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                      {isOwner ? 'YOUR WALLPAPER' : 'EXCHANGE FOR'}
+                    </div>
+                    <div className="display text-[34px] sm:text-[40px] leading-none mt-1">
+                      {isOwner ? 'Free' : (
+                        <>{downloadCost} <span className="text-accent">coin{downloadCost > 1 ? 's' : ''}</span></>
+                      )}
+                    </div>
+                    <div className="mono text-[10px] tracking-[0.14em] uppercase mt-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                      {isAuthenticated
+                        ? <>YOUR BALANCE · {userBalance} COINS</>
+                        : <>SIGN IN TO DOWNLOAD</>}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDownload()}
+                    disabled={dlLoading}
+                    className="inline-flex items-center gap-2.5 px-5 py-3 rounded-full text-white font-semibold text-[13px] disabled:opacity-60 whitespace-nowrap"
+                    style={{ background: 'var(--color-accent)' }}
+                  >
+                    {dlLoading
+                      ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
+                      : dlDone
+                        ? <><AiOutlineCheckCircle size={15} /> Downloaded</>
+                        : <><AiOutlineDownload size={15} /> Download original</>}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Owner / report actions */}
+            <div className="flex justify-between items-center pt-3 text-[12px] text-muted">
+              {isOwner ? (
+                <button onClick={handleDelete} className="inline-flex items-center gap-1.5 hover:text-rose-500 transition-colors">
+                  <AiOutlineDelete size={14} /> Delete wallpaper
+                </button>
+              ) : isAuthenticated ? (
+                <button onClick={() => setShowReport(true)} className="inline-flex items-center gap-1.5 hover:text-ink transition-colors">
+                  <AiOutlineFlag size={14} /> Report
+                </button>
+              ) : <span />}
+              <span className="mono text-[10px] tracking-[0.14em] uppercase">
+                №{String(wallpaper.id).padStart(3, '0')}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </>
   );
