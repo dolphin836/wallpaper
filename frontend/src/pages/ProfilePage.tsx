@@ -12,7 +12,6 @@ import {
   AiOutlinePicture,
   AiOutlineAppstore,
   AiOutlineThunderbolt,
-  AiOutlineLoading3Quarters,
   AiOutlinePlus,
 } from 'react-icons/ai';
 import toast from 'react-hot-toast';
@@ -974,8 +973,11 @@ function Grid({ items, showProcessing }: { items: Wallpaper[]; showProcessing?: 
         <div key={w.id} className="relative">
           <WallpaperCard wallpaper={w} fixedAspect hideActions disableModal />
           {showProcessing && w.status === 0 && (
+            // WallpaperCard already renders its own spinner inside the
+            // empty-image slot when status=processing, so the overlay
+            // intentionally has no spinner of its own — otherwise the two
+            // stacked indicators competed for the same eye-fix point.
             <div className="proc-overlay pointer-events-none">
-              <AiOutlineLoading3Quarters size={18} className="animate-spin" />
               <div className="proc-label">Processing</div>
               <div className="proc-sub">Generating device variants</div>
             </div>
