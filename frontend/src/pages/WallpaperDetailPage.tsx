@@ -39,7 +39,6 @@ import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 import AvatarStack from '../components/AvatarStack';
 import AddToCollectionModal from '../components/AddToCollectionModal';
-import SetWallpaperGuide from '../components/SetWallpaperGuide';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -237,9 +236,14 @@ export default function WallpaperDetailPage() {
   const [showAddToCollection, setShowAddToCollection] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [similar, setSimilar] = useState<Wallpaper[]>([]);
-  const [showGuide, setShowGuide] = useState(false);
   const [dlLoading, setDlLoading] = useState(false);
   const [dlDone, setDlDone] = useState(false);
+  // Coin CTA state machine: default → confirm → (success | insufficient)
+  // 'insufficient' is computed from balance + cost rather than tracked
+  // separately so a fresh page-load with balance < cost lands directly
+  // on the warning state.
+  const [ctaMode, setCtaMode] = useState<'default' | 'confirm' | 'success'>('default');
+  const [confirmDontAsk, setConfirmDontAsk] = useState(false);
   const [frameIdx, setFrameIdx] = useState(0);
   const [framePlaying, setFramePlaying] = useState(true);
   const [engagements, setEngagements] = useState<Engagements | null>(null);
@@ -410,11 +414,12 @@ export default function WallpaperDetailPage() {
       if (!isOwnerDl && user) {
         const remaining = user.coins - 1;
         updateCoins(remaining);
-        if (remaining <= 3 && remaining > 0) {
-          toast(`${remaining} coin${remaining === 1 ? '' : 's'} left. Upload wallpapers to earn more!`, { icon: '💡' });
-        }
       }
-      setShowGuide(true);
+      // Promote the CTA to the success state. Replaces the old SetWallpaperGuide
+      // popup — the "now what?" message ("Show in Downloads", "Browse more",
+      // macOS app cross-promo) is rendered inline in the right column instead
+      // of as a separate modal that would compete with the open detail panel.
+      setCtaMode('success');
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 402) {
@@ -471,6 +476,50 @@ export default function WallpaperDetailPage() {
   const downloadCost = isOwner ? 0 : 1;
   const userBalance = user?.coins ?? 0;
   const insufficient = !isOwner && isAuthenticated && userBalance < downloadCost;
+  const isMacUA = /Macintosh|Mac OS X/i.test(navigator.userAgent);
+
+  // Resolve the visible CTA state. Order matters: success comes first because
+  // it should stick after a successful download even if we re-render with a
+  // newly-zero balance; insufficient is computed from the balance and forces
+  // the warning surface regardless of any explicit transition the user kicked
+  // off; confirm/default come from the explicit ctaMode state.
+  const ctaState: 'default' | 'confirm' | 'success' | 'insufficient' =
+    ctaMode === 'success' ? 'success'
+    : insufficient ? 'insufficient'
+    : ctaMode === 'confirm' ? 'confirm'
+    : 'default';
+
+  // Reset the state machine when the user navigates to a different wallpaper.
+  // Without this, opening another item right after a successful download
+  // would still show the green "Downloaded" card for it.
+  useEffect(() => {
+    setCtaMode('default');
+    setConfirmDontAsk(false);
+  }, [wallpaper.id]);
+
+  const handleDownloadClick = () => {
+    if (!isAuthenticated) { navigate('/login'); return; }
+    if (isOwner) { handleDownload(); return; }
+    // Skip-confirm flag respected per-session (set inside the confirm UI).
+    if (sessionStorage.getItem('wpe_skip_dl_confirm') === '1') {
+      handleDownload();
+      return;
+    }
+    setCtaMode('confirm');
+  };
+  const handleConfirmYes = () => {
+    if (confirmDontAsk) {
+      sessionStorage.setItem('wpe_skip_dl_confirm', '1');
+    }
+    handleDownload();
+  };
+  const handleConfirmCancel = () => {
+    setCtaMode('default');
+    setConfirmDontAsk(false);
+  };
+  const handleSuccessDismiss = () => {
+    setCtaMode('default');
+  };
 
   return (
     <>
@@ -489,7 +538,6 @@ export default function WallpaperDetailPage() {
         <ReportModal wallpaperId={wallpaper.id} onClose={() => setShowReport(false)} />
       )}
 
-      {showGuide && <SetWallpaperGuide onClose={() => setShowGuide(false)} />}
 
       {mockupVariant && wallpaper && (
         <DeviceMockup
@@ -808,14 +856,51 @@ export default function WallpaperDetailPage() {
               </div>
             </section>
 
-            {/* Coin CTA — sits directly under the action buttons so the
-                Download CTA is in the user's eyeline after they've parsed
-                Like / Favorite / Preview etc., not buried at the bottom
-                of the column. Confirm/success states from the spec are
-                covered by the existing handleDownload toast + dlDone
-                flag in V1. */}
+            {/* Coin CTA — four states from the design doc, all rendered
+                in the same height envelope so the right column doesn't
+                jump when the user clicks through default → confirm →
+                success. Insufficient is computed from balance + cost
+                and overrides default/confirm whenever balance < cost. */}
             <div className="pt-1">
-              {insufficient ? (
+              {ctaState === 'success' ? (
+                <div
+                  className="p-5"
+                  style={{ background: 'oklch(95% 0.05 150)', border: '1px solid #2f6b3e', color: 'var(--color-ink)' }}
+                >
+                  <div className="flex justify-between items-center gap-4 flex-wrap">
+                    <div className="min-w-0">
+                      <div className="kicker tracking-[0.14em] inline-flex items-center gap-1.5" style={{ color: '#2f6b3e' }}>
+                        <AiOutlineCheckCircle size={11} /> DOWNLOADED
+                      </div>
+                      <div className="display text-[24px] sm:text-[28px] leading-tight mt-1.5" style={{ color: '#1f4827' }}>
+                        wallpaper_<span className="mono text-[20px] sm:text-[24px]">{String(wallpaper.id).padStart(3, '0')}</span>.jpg
+                      </div>
+                      <div className="mono text-[10px] tracking-[0.14em] mt-2" style={{ color: '#2f6b3e' }}>
+                        {fileSize}  ·  {userBalance} COINS REMAINING
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 flex-shrink-0">
+                      <button
+                        onClick={handleSuccessDismiss}
+                        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-ink text-paper font-medium text-[12px] whitespace-nowrap hover:bg-ink-2 transition-colors"
+                      >Done</button>
+                      <Link
+                        to="/"
+                        className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full border border-hair text-ink text-[12px] no-underline whitespace-nowrap hover:bg-paper-2 transition-colors"
+                      >Browse more →</Link>
+                    </div>
+                  </div>
+                  {!isMacUA && (
+                    <>
+                      <hr className="my-3.5 border-0" style={{ borderTop: '1px solid rgba(47,107,62,0.25)' }} />
+                      <div className="flex flex-wrap gap-x-2 gap-y-1 items-center text-[12px]" style={{ color: '#1f4827' }}>
+                        <span>🍎 On macOS? Use the menu-bar app to set this as your wallpaper in one click.</span>
+                        <Link to="/download/mac" className="underline" style={{ color: '#2f6b3e' }}>Get it →</Link>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : ctaState === 'insufficient' ? (
                 <div className="p-5 border border-[#b07a1a]" style={{ background: 'oklch(96% 0.05 70)' }}>
                   <div className="flex justify-between items-center gap-4 flex-wrap">
                     <div className="min-w-0">
@@ -837,6 +922,47 @@ export default function WallpaperDetailPage() {
                     <span><strong className="mono mr-1.5" style={{ color: '#9a6a18' }}>+1</strong>others download yours</span>
                   </div>
                 </div>
+              ) : ctaState === 'confirm' ? (
+                <div className="bg-ink text-paper p-5" style={{ border: '2px solid var(--color-accent)' }}>
+                  <div className="flex justify-between items-center gap-4 flex-wrap">
+                    <div className="min-w-0">
+                      <div className="kicker tracking-[0.14em] text-accent">CONFIRM EXCHANGE</div>
+                      <div className="display text-[30px] sm:text-[36px] leading-none mt-1.5">
+                        −{downloadCost} <span className="text-accent">coin{downloadCost > 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="mono text-[10px] tracking-[0.14em] mt-2" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                        {userBalance} <span className="text-accent">→</span> {userBalance - downloadCost} COINS REMAINING
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 flex-shrink-0">
+                      <button
+                        onClick={handleConfirmYes}
+                        disabled={dlLoading}
+                        className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white font-semibold text-[13px] disabled:opacity-60 whitespace-nowrap"
+                        style={{ background: 'var(--color-accent)' }}
+                      >
+                        {dlLoading ? <AiOutlineLoading3Quarters size={14} className="animate-spin" /> : <><AiOutlineCheckCircle size={14} /> Yes, exchange</>}
+                      </button>
+                      <button
+                        onClick={handleConfirmCancel}
+                        disabled={dlLoading}
+                        className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full font-medium text-[12px] whitespace-nowrap transition-colors disabled:opacity-60"
+                        style={{ background: 'transparent', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.18)' }}
+                      >Cancel</button>
+                    </div>
+                  </div>
+                  <hr className="my-3.5 border-0" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }} />
+                  <label className="inline-flex items-center gap-2 text-[11px] cursor-pointer select-none" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                    <input
+                      type="checkbox"
+                      checked={confirmDontAsk}
+                      onChange={(e) => setConfirmDontAsk(e.target.checked)}
+                      className="appearance-none w-[13px] h-[13px] rounded-sm cursor-pointer checked:bg-accent transition-colors"
+                      style={{ border: '1px solid rgba(255,255,255,0.4)' }}
+                    />
+                    Don't ask again for this session
+                  </label>
+                </div>
               ) : (
                 <div className="bg-ink text-paper border border-ink p-5 flex justify-between items-center gap-4 flex-wrap">
                   <div className="min-w-0">
@@ -855,7 +981,7 @@ export default function WallpaperDetailPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => handleDownload()}
+                    onClick={handleDownloadClick}
                     disabled={dlLoading}
                     className="inline-flex items-center gap-2.5 px-5 py-3 rounded-full text-white font-semibold text-[13px] disabled:opacity-60 whitespace-nowrap"
                     style={{ background: 'var(--color-accent)' }}
