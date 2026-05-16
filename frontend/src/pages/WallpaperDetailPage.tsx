@@ -671,24 +671,6 @@ export default function WallpaperDetailPage() {
               </>
             )}
 
-            {/* Variants list — kept for users who need the device-specific
-                downloads. Hidden behind a disclosure so it doesn't clutter
-                the editorial spread. */}
-            {variants.length > 0 && (
-              <details className="mt-6 border border-hair">
-                <summary className="px-4 py-3 mono text-[10px] tracking-[0.14em] uppercase text-ink-2 cursor-pointer hover:bg-paper-2">
-                  Device-specific downloads ({variants.length})
-                </summary>
-                <div className="p-4 border-t border-hair bg-paper-2">
-                  <VariantList
-                    variants={variants}
-                    matchedId={matchedVariant?.id}
-                    onMockup={(v) => setMockupVariant(v)}
-                    onDownload={(v) => handleDownload(v)}
-                  />
-                </div>
-              </details>
-            )}
           </div>
 
           {/* ── RIGHT COLUMN — metadata + actions + CoinCTA ── */}
@@ -887,6 +869,27 @@ export default function WallpaperDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* Device-specific download list — sits right below the
+                Download CTA so users who already know which device they
+                want a perfect-fit crop for can grab it in one click. The
+                disclosure stays collapsed by default since most visitors
+                are happy with the original. */}
+            {variants.length > 0 && (
+              <details className="border border-hair">
+                <summary className="px-4 py-3 mono text-[10px] tracking-[0.14em] uppercase text-ink-2 cursor-pointer hover:bg-paper-2">
+                  Device-specific downloads ({variants.length})
+                </summary>
+                <div className="p-4 border-t border-hair bg-paper-2">
+                  <VariantList
+                    variants={variants}
+                    matchedId={matchedVariant?.id}
+                    onMockup={(v) => setMockupVariant(v)}
+                    onDownload={(v) => handleDownload(v)}
+                  />
+                </div>
+              </details>
+            )}
 
             {/* Owner / report actions */}
             <div className="flex justify-between items-center pt-3 text-[12px] text-muted">
