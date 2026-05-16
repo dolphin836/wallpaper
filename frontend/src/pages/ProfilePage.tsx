@@ -35,8 +35,12 @@ import {
 } from '../api';
 import { useAuthStore } from '../store/auth';
 import PageMeta from '../components/PageMeta';
-import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
+import {
+  ProfileSkeleton,
+  WallpaperGridSkeleton,
+  CollectionGridSkeleton,
+} from '../components/Skeletons';
 import WallpaperCard from '../components/WallpaperCard';
 import CollectionCard from '../components/CollectionCard';
 import Pagination from '../components/Pagination';
@@ -354,7 +358,13 @@ export default function ProfilePage() {
     } catch { toast.error('Failed to update privacy'); }
   };
 
-  if (loading) return <Spinner />;
+  if (loading) {
+    return (
+      <div className="bg-paper text-ink min-h-full">
+        <ProfileSkeleton />
+      </div>
+    );
+  }
   if (!user) return <EmptyState message="User not found." />;
 
   const display = user.nickname || user.username;
@@ -738,7 +748,7 @@ function UploadsPanel({ isOwner, inProgress, pub, onPubPage, onInProgressPage }:
           Published · {pub.items.length === 0 && !pub.loaded ? '…' : `${pub.items.length} of ${pubTotal}`}
         </div>
         {!pub.loaded ? (
-          <div className="py-12 flex justify-center"><Spinner /></div>
+          <WallpaperGridSkeleton count={8} cols="4" />
         ) : pub.items.length === 0 ? (
           <div className="text-center py-20 text-muted text-sm">No published wallpapers yet.</div>
         ) : (
@@ -777,7 +787,7 @@ function CollectionsPanel({ isOwner, user, collections, loaded }: CollectionsPan
         )}
       </div>
       {!loaded ? (
-        <div className="py-12 flex justify-center"><Spinner /></div>
+        <CollectionGridSkeleton count={8} />
       ) : collections.length === 0 ? (
         <div className="text-center py-20 text-muted text-sm">No collections yet.</div>
       ) : (
@@ -826,7 +836,7 @@ function ListPanel({ listKey, state, isOwner, isPublic, onPage, onTogglePrivacy 
       <div className="label-rule mt-5 mb-3">{heading}</div>
 
       {!state.loaded ? (
-        <div className="py-12 flex justify-center"><Spinner /></div>
+        <WallpaperGridSkeleton count={8} cols="4" />
       ) : state.items.length === 0 ? (
         <div className="text-center py-20 text-muted text-sm">Nothing here yet.</div>
       ) : (
@@ -873,6 +883,23 @@ interface LedgerPanelProps {
   balance: number;
   onPage: (p: number) => void;
 }
+function LedgerSkeleton() {
+  return (
+    <div>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div
+          key={i}
+          className="grid grid-cols-[60px_1fr_auto] gap-3 items-center py-3 border-b border-hair"
+        >
+          <div className="h-4 w-10 bg-paper-3 skeleton-card" style={{ animationDelay: `${i * 80}ms` }} />
+          <div className="h-3 bg-paper-3 skeleton-card" style={{ width: `${50 + (i % 3) * 15}%`, animationDelay: `${i * 80 + 40}ms` }} />
+          <div className="h-3 w-16 bg-paper-3 skeleton-card" style={{ animationDelay: `${i * 80 + 80}ms` }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function LedgerPanel({ txs, page, total, loading, balance, onPage }: LedgerPanelProps) {
   // Aggregate stats over the visible transactions. Keeps the summary strip
   // honest for the current page; a full-history aggregate would need a
@@ -916,7 +943,7 @@ function LedgerPanel({ txs, page, total, loading, balance, onPage }: LedgerPanel
       <div className="label-rule mt-7 mb-3">Recent entries</div>
 
       {loading && txs.length === 0 ? (
-        <div className="py-12 flex justify-center"><Spinner /></div>
+        <LedgerSkeleton />
       ) : txs.length === 0 ? (
         <div className="text-center py-20 text-muted text-sm">No transactions yet.</div>
       ) : (

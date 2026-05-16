@@ -5,8 +5,8 @@ import type { UserListItem } from '../types';
 import { getUsers } from '../api';
 import PageMeta from '../components/PageMeta';
 import Pagination from '../components/Pagination';
-import Spinner from '../components/Spinner';
 import Avatar from '../components/Avatar';
+import { UploaderListSkeleton } from '../components/Skeletons';
 
 type Sort = 'recent' | 'uploads' | 'coins';
 const PAGE_SIZE = 12;
@@ -93,7 +93,7 @@ export default function UploadersPage() {
 
         {/* List */}
         {loading && items.length === 0 ? (
-          <div className="py-16 flex justify-center"><Spinner /></div>
+          <UploaderListSkeleton count={6} />
         ) : items.length === 0 ? (
           <div className="text-center py-20 text-muted text-sm">No uploaders yet.</div>
         ) : (

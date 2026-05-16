@@ -24,8 +24,8 @@ import {
 import { useAuthStore } from '../store/auth';
 import WallpaperCard from '../components/WallpaperCard';
 import Pagination from '../components/Pagination';
-import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
+import { CollectionDetailSkeleton, WallpaperGridSkeleton } from '../components/Skeletons';
 
 const PAGE_SIZE = 12;
 
@@ -168,7 +168,13 @@ export default function CollectionDetailPage() {
     }
   };
 
-  if (loading) return <Spinner />;
+  if (loading) {
+    return (
+      <div className="bg-paper text-ink min-h-full">
+        <CollectionDetailSkeleton />
+      </div>
+    );
+  }
   if (!collection) return <EmptyState message="Collection not found." />;
 
   const isOwner = user?.id === collection.user_id;
@@ -324,7 +330,7 @@ export default function CollectionDetailPage() {
         </div>
 
         {loadingPage && visible.length === 0 ? (
-          <div className="flex justify-center py-12"><Spinner /></div>
+          <WallpaperGridSkeleton count={8} cols="4" />
         ) : visible.length === 0 ? (
           <div className="text-center py-20 text-muted text-sm">No wallpapers in this collection yet.</div>
         ) : (

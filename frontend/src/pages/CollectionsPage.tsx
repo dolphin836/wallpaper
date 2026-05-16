@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/auth';
 import PageMeta from '../components/PageMeta';
 import CollectionCard from '../components/CollectionCard';
 import Pagination from '../components/Pagination';
+import { CollectionGridSkeleton } from '../components/Skeletons';
 
 type Filter = 'all' | 'yours';
 
@@ -23,7 +24,9 @@ export default function CollectionsPage() {
   const [hasMoreUpTo, setHasMoreUpTo] = useState<number | null>(null); // last page that's confirmed not the end
   const [knownTotalPages, setKnownTotalPages] = useState<number | null>(null);
   const [current, setCurrent] = useState(1);
-  const [loading, setLoading] = useState(false);
+  // Start true so the skeleton paints on first render — the page-1 fetch
+  // is dispatched in useEffect, which doesn't run before the first paint.
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
   const [showCreate, setShowCreate] = useState(false);
 
@@ -108,7 +111,7 @@ export default function CollectionsPage() {
 
         {/* Grid */}
         {loading && visible.length === 0 ? (
-          <SkeletonGrid />
+          <CollectionGridSkeleton />
         ) : visible.length === 0 ? (
           <div className="text-center py-20 text-muted text-sm">
             {filter === 'yours' ? "You haven't created any collections yet." : 'No collections yet.'}
@@ -154,19 +157,6 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
     >
       {children}
     </button>
-  );
-}
-
-function SkeletonGrid() {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="flex flex-col gap-3">
-          <div className="aspect-[4/3] bg-paper-3 border border-hair skeleton-card" style={{ animationDelay: `${i * 80}ms` }} />
-          <div className="h-4 w-2/3 bg-paper-3 skeleton-card" />
-        </div>
-      ))}
-    </div>
   );
 }
 
