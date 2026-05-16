@@ -456,24 +456,6 @@ export default function WallpaperDetailPage() {
     if (px >= 1920) return '1080P';
     return '';
   })();
-  const RES_TIER: Record<string, number> = { '1080P': 1, '2K': 2, '3K': 2.5, '4K': 3, '5K': 4, '6K': 5, '8K': 7 };
-  type DeviceFit = { name: string; spec: string; icon: 'phone' | 'tablet' | 'laptop' | 'desktop'; fit: 'ok' | 'upscale' };
-  const tier = RES_TIER[resLabel] ?? 3;
-  const fit = (need: number): 'ok' | 'upscale' => (tier >= need ? 'ok' : 'upscale');
-  const portrait = wallpaper.height > wallpaper.width;
-  const deviceFits: DeviceFit[] = portrait
-    ? [
-        { name: 'iPhone 15',         spec: '1179 × 2556', icon: 'phone',  fit: fit(2)   },
-        { name: 'iPhone 15 Pro Max', spec: '1290 × 2796', icon: 'phone',  fit: fit(2.5) },
-        { name: 'iPad Pro 12.9″',    spec: '2048 × 2732', icon: 'tablet', fit: fit(3)   },
-      ]
-    : [
-        { name: 'MacBook Pro 14″',    spec: '3024 × 1964', icon: 'laptop',  fit: fit(3) },
-        { name: 'MacBook Pro 16″',    spec: '3456 × 2234', icon: 'laptop',  fit: fit(3) },
-        { name: 'Studio Display 5K',  spec: '5120 × 2880', icon: 'desktop', fit: fit(4) },
-        { name: 'Pro Display XDR 6K', spec: '6016 × 3384', icon: 'desktop', fit: fit(5) },
-      ];
-
   const copyHex = async (hex: string) => {
     try {
       await navigator.clipboard.writeText(hex);
@@ -552,8 +534,40 @@ export default function WallpaperDetailPage() {
         document.body,
       )}
 
-      <div className="bg-paper text-ink min-h-full">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 py-8 grid gap-9 lg:grid-cols-[1.4fr_1fr]">
+      {/* Whole detail surface fills the available height (the modal panel
+          in modal mode, or the Layout main slot in full-page mode) and
+          provides a fixed header at the top + a scrollable 2-col body
+          underneath. Body scroll lives on this inner container only —
+          the outer page never grows scrollbars. */}
+      <div className="bg-paper text-ink h-full flex flex-col min-h-0">
+        {/* Editorial header — title, keyboard hints, close ✕. Only rendered
+            when this page is being shown as a modal overlay (location has a
+            background route stashed in state); on the full-page route the
+            Layout topbar already provides chrome and a second header strip
+            would be redundant. */}
+        {Boolean((location.state as { background?: unknown } | null)?.background) && (
+          <div className="px-5 sm:px-6 py-2.5 border-b border-hair flex justify-between items-center bg-paper flex-shrink-0">
+            <span className="mono text-[10px] tracking-[0.18em] uppercase text-muted truncate">
+              SPECIMEN №{String(wallpaper.id).padStart(3, '0')}
+              <span className="ml-2 text-ink-2 hidden sm:inline">· OVERLAY VIEW</span>
+            </span>
+            <div className="flex items-center gap-3 sm:gap-4 mono text-[10px] tracking-[0.18em] uppercase text-muted">
+              <span className="hidden sm:inline-flex items-center gap-1.5">
+                <kbd className="inline-flex items-center justify-center min-w-[26px] h-[18px] px-1.5 border border-hair bg-paper-2 text-ink-2 rounded">ESC</kbd>
+                <span>CLOSE</span>
+              </span>
+              <button
+                onClick={() => navigate(-1)}
+                title="Close"
+                className="w-8 h-8 rounded-full border border-hair bg-paper hover:bg-paper-2 text-ink inline-flex items-center justify-center transition-colors"
+              >
+                <AiOutlineClose size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="mx-auto px-5 sm:px-6 lg:px-8 py-5 lg:py-6 grid gap-6 lg:gap-7 lg:grid-cols-[1.4fr_1fr]">
           {/* ── LEFT COLUMN — plate header, image, stats, more-like-this ── */}
           <div className="min-w-0 flex flex-col">
             <div className="flex justify-between items-baseline mb-3 mono text-[10px] tracking-[0.18em] uppercase text-muted">
@@ -651,7 +665,7 @@ export default function WallpaperDetailPage() {
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {similar.slice(0, 8).map((s) => (
-                    <WallpaperCard key={s.id} wallpaper={s} fixedAspect />
+                    <WallpaperCard key={s.id} wallpaper={s} fixedAspect hideActions />
                   ))}
                 </div>
               </>
@@ -723,28 +737,6 @@ export default function WallpaperDetailPage() {
                 </div>
               </section>
             )}
-
-            {/* Devices */}
-            <section>
-              <div className="kicker text-muted">Available devices</div>
-              <div className="mt-2 border-t border-hair">
-                {deviceFits.map((d) => (
-                  <div key={d.name} className="dev-row">
-                    <span className="dev-icon">
-                      {d.icon === 'phone'   && <MdPhoneIphone size={17} />}
-                      {d.icon === 'tablet'  && <MdDesktopMac size={17} />}
-                      {d.icon === 'laptop'  && <MdDesktopMac size={17} />}
-                      {d.icon === 'desktop' && <MdDesktopMac size={17} />}
-                    </span>
-                    <span className="dev-name">{d.name}</span>
-                    <span className="dev-spec">{d.spec}</span>
-                    <span className={`dev-fit ${d.fit === 'upscale' ? 'dev-fit--upscale' : ''}`}>
-                      {d.fit === 'ok' ? <>✓ Fits</> : 'Upscale'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
 
             {/* Specifications */}
             <section>
@@ -834,12 +826,13 @@ export default function WallpaperDetailPage() {
               </div>
             </section>
 
-            {/* Coin CTA — default + insufficient states. Confirm/success
-                handled by the existing inline toast + dlDone flag rather
-                than a separate full state in V1; the rest of the design
-                doc's state machine is wired through the existing
-                handleDownload error paths. */}
-            <div className="mt-auto pt-1">
+            {/* Coin CTA — sits directly under the action buttons so the
+                Download CTA is in the user's eyeline after they've parsed
+                Like / Favorite / Preview etc., not buried at the bottom
+                of the column. Confirm/success states from the spec are
+                covered by the existing handleDownload toast + dlDone
+                flag in V1. */}
+            <div className="pt-1">
               {insufficient ? (
                 <div className="p-5 border border-[#b07a1a]" style={{ background: 'oklch(96% 0.05 70)' }}>
                   <div className="flex justify-between items-center gap-4 flex-wrap">
@@ -910,6 +903,7 @@ export default function WallpaperDetailPage() {
                 №{String(wallpaper.id).padStart(3, '0')}
               </span>
             </div>
+          </div>
           </div>
         </div>
       </div>

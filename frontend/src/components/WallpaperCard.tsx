@@ -32,9 +32,14 @@ interface Props {
    *  hover action rail); undefined = legacy purple card used everywhere
    *  else. Keep both around until other pages are migrated. */
   layout?: 'salon';
+  /** Hide the hover action rail (like / favorite / download) entirely.
+   *  Used in places where the card is too small for them to be useful or
+   *  the surrounding layout already provides those actions — e.g. the
+   *  "More like this" strip on the detail page. */
+  hideActions?: boolean;
 }
 
-export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0, disableModal = false, layout }: Props) {
+export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0, disableModal = false, layout, hideActions = false }: Props) {
   // Two-stage progressive load: thumb (~30 KB, displayed immediately with a
   // small blur) → preview_url (~250 KB watermarked 1600px, fades in once
   // loaded). Loading the 1600px preview on the home feed means the browser
@@ -262,7 +267,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
 
         {/* Hover action rail. Order: favorite → like → download.
             CSS handles fade-in via .tile-cell:hover .tile-actions. */}
-        {isPublished && (
+        {isPublished && !hideActions && (
           <div className="tile-actions">
             <button
               onClick={(e) => handleAction(e, () => requireAuth(handleFavorite))}
@@ -390,7 +395,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         )}
 
         {/* Action buttons — appear on hover, only for published wallpapers */}
-        {isPublished && <div className="absolute right-0 top-0 bottom-0 z-[2] p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end">
+        {isPublished && !hideActions && <div className="absolute right-0 top-0 bottom-0 z-[2] p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end">
           <div className="flex flex-col gap-1.5">
             <button
               onClick={(e) => handleAction(e, () => requireAuth(handleLike))}

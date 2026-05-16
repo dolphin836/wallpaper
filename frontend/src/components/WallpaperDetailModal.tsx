@@ -1,8 +1,19 @@
 import { useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AiOutlineClose } from 'react-icons/ai';
 import WallpaperDetailPage from '../pages/WallpaperDetailPage';
 
+/**
+ * Modal frame around the wallpaper detail. Inset panel pinned 40px from
+ * top/bottom and 60px from left/right (per the design handoff), backed by a
+ * dim/blur scrim. The panel itself is `overflow: hidden` and lets the
+ * detail page's own inner column own the scrolling, so the page never grows
+ * a horizontal/vertical scrollbar on the browser viewport.
+ *
+ * The close affordance now lives *inside* the detail page (header strip
+ * with shortcuts + ✕). We still handle ESC + backdrop-click here so those
+ * paths don't bleed into the detail body and so body-scroll locks while
+ * the modal is up.
+ */
 export default function WallpaperDetailModal() {
   const navigate = useNavigate();
   const close = useCallback(() => navigate(-1), [navigate]);
@@ -13,22 +24,17 @@ export default function WallpaperDetailModal() {
     };
     document.addEventListener('keydown', handleKey);
 
-    // Lock body scroll while the modal is open. Just setting overflow: hidden
-    // removes the page's scrollbar — and since the viewport width measurement
-    // (window.innerWidth) jumps by the scrollbar's width, every component
-    // that watches `resize` (e.g. ProfilePage's useViewportPageSize) sees a
-    // bogus event, recomputes page size, and triggers a cascading re-render
-    // that visually flickers the controls underneath. We compensate by
-    // padding the body with the same width so the viewport metric stays
-    // stable across the lock/unlock cycle.
+    // Lock body scroll while open; pad away the gutter we steal so the
+    // viewport-width metric stays stable (otherwise the page behind shifts
+    // by the scrollbar width, which flickers any layout-dependent control
+    // on the underlying gallery).
     const body = document.body;
     const prevOverflow = body.style.overflow;
     const prevPadding = body.style.paddingRight;
     const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
     body.style.overflow = 'hidden';
-    if (scrollbarWidth > 0) {
-      body.style.paddingRight = `${scrollbarWidth}px`;
-    }
+    if (scrollbarWidth > 0) body.style.paddingRight = `${scrollbarWidth}px`;
+
     return () => {
       document.removeEventListener('keydown', handleKey);
       body.style.overflow = prevOverflow;
@@ -36,41 +42,22 @@ export default function WallpaperDetailModal() {
     };
   }, [close]);
 
-  // Wrap close in a propagation stopper for the close button so the click
-  // doesn't *also* bubble up to the overlay's onClick — without this you'd
-  // get two navigate(-1) calls per click and pop two history entries,
-  // landing the user wherever they were *before* opening the previous page
-  // (typical symptom: closing kicks you out of /wallpaper/:slug all the way
-  // back to your profile page when you opened it from the home grid).
-  const onCloseClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    close();
-  };
-
   return (
-    // Outer overlay closes on any click that bubbles up to it. The card and the
-    // close button below stopPropagation so clicking either doesn't double-fire.
     <div
       onClick={close}
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto"
+      className="fixed inset-0 z-50 backdrop-blur-[2px]"
+      style={{ background: 'rgba(15,12,8,0.55)' }}
     >
-      <div className="min-h-full flex justify-center py-8 px-4">
-        <div
-          className="relative w-full max-w-5xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <WallpaperDetailPage />
-        </div>
-      </div>
-      {/* Close button lives outside the card and is pinned to the viewport corner
-          so it stays visible while the modal content scrolls. */}
-      <button
-        onClick={onCloseClick}
-        className="fixed top-4 right-4 z-[60] p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors"
-        aria-label="Close"
+      {/* Inset panel — pinned to all four sides so the modal never scrolls
+          the underlying page. Inner detail body provides its own column
+          scroll. */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="absolute bg-paper border border-ink shadow-[0_24px_80px_rgba(0,0,0,0.25)] flex flex-col overflow-hidden"
+        style={{ top: 40, bottom: 40, left: 60, right: 60 }}
       >
-        <AiOutlineClose size={20} />
-      </button>
+        <WallpaperDetailPage />
+      </div>
     </div>
   );
 }
