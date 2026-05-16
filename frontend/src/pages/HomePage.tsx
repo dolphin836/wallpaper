@@ -313,7 +313,14 @@ export default function HomePage() {
   hasMoreRef.current = hasMore;
   const [viewMode, setViewMode] = useState<ViewMode>(readSavedViewMode);
   const [sizeMode, setSizeMode] = useState<SizeMode>(() => {
-    return (localStorage.getItem('wallpaper_size_mode') as SizeMode) || 'md';
+    // Honor any value the user has explicitly picked before; otherwise
+    // pick a default that matches their viewport class. Phones (<640px,
+    // the Tailwind `sm` breakpoint) get 'sm' so the gallery isn't
+    // dominated by 3 huge tiles per row; tablets/desktop stay on 'md'.
+    const saved = localStorage.getItem('wallpaper_size_mode') as SizeMode | null;
+    if (saved === 'sm' || saved === 'md' || saved === 'lg') return saved;
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+    return isMobile ? 'sm' : 'md';
   });
   const viewModeRef = useRef(viewMode);
   const sizeModeRef = useRef(sizeMode);
