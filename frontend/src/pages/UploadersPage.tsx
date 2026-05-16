@@ -110,12 +110,10 @@ export default function UploadersPage() {
 
 function UploaderRow({ u }: { u: UserListItem }) {
   const display = u.nickname || u.username;
-  // Real backend fields: wallpaper_count for "uploads". downloads/likes
-  // aren't aggregated per-user in our schema yet (only per-wallpaper), so
-  // the second + third stats slots show "—" when missing. The design's
-  // demo always populates both, but our truth surface stays honest.
-  const downloadsTotal: number | null = null;
-  const likesTotal: number | null = null;
+  // We don't aggregate per-user download / like totals in the schema yet
+  // (counts live on each wallpaper row), so the design's 3-column stats
+  // grid is reduced to just UPLOADS until we have honest numbers for the
+  // other two.
   const works = u.recent_thumbs ?? [];
 
   return (
@@ -142,17 +140,9 @@ function UploaderRow({ u }: { u: UserListItem }) {
         )}
       </div>
 
-      <div className="hidden md:grid grid-cols-3 gap-5 text-right mono">
-        {[
-          ['UPLOADS', formatNumber(u.wallpaper_count)],
-          ['DOWNLOADS', downloadsTotal !== null ? formatNumber(downloadsTotal) : '—'],
-          ['LIKES', likesTotal !== null ? formatNumber(likesTotal) : '—'],
-        ].map(([k, v]) => (
-          <div key={k}>
-            <div className="text-[9px] tracking-[0.14em] text-muted">{k}</div>
-            <div className="display text-[22px] leading-none mt-1">{v}</div>
-          </div>
-        ))}
+      <div className="hidden md:block text-right mono">
+        <div className="text-[9px] tracking-[0.14em] text-muted">UPLOADS</div>
+        <div className="display text-[22px] leading-none mt-1">{formatNumber(u.wallpaper_count)}</div>
       </div>
 
       {/* Show the 3 most recent thumbnails. Backend returns up to 3 per
