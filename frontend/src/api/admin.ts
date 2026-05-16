@@ -110,6 +110,9 @@ export const updateAdminWallpaper = (id: number, data: {
 export const deleteAdminWallpaper = (id: number) =>
   client.delete<ApiResponse<null>>(`/admin/wallpapers/${id}`);
 
+export const reprocessAdminWallpaper = (id: number) =>
+  client.post<ApiResponse<null>>(`/admin/wallpapers/${id}/reprocess`);
+
 export const listAdminCollections = (params: {
   page?: number; limit?: number; search?: string; is_public?: boolean; sort?: string;
 }) => client.get<ApiResponse<PaginatedAdmin<AdminCollectionRow>>>('/admin/collections', { params });

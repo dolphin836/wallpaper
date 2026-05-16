@@ -107,7 +107,7 @@ func main() {
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsRepo)
 	recommendHandler := handler.NewRecommendHandler(wallpaperRepo)
 	statsHandler := handler.NewStatsHandler(wallpaperRepo, collectionRepo)
-	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo, store)
+	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo, store, wallpaperSvc)
 
 	router := handler.NewRouter(handler.Deps{
 		AuthHandler:       authHandler,

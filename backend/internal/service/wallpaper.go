@@ -553,6 +553,34 @@ func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, user
 	return w.OriginalURL, nil
 }
 
+// Reprocess re-runs variant generation for a wallpaper that's stuck in
+// processing or got marked failed. Resets status to processing, then
+// re-publishes the wallpaper.uploaded Kafka event so the image worker
+// picks it back up. Returns ErrNotFound if the wallpaper is gone and
+// ErrInvalidParam if we can't recover the original object key from the
+// stored URL (legacy uploads where MINIO_PUBLIC_URL since changed).
+func (s *WallpaperService) Reprocess(ctx context.Context, id int64) *errcode.ErrCode {
+	w, err := s.wallpaperRepo.GetByID(ctx, id)
+	if err != nil {
+		slog.ErrorContext(ctx, "reprocess: get wallpaper failed", "id", id, "error", err)
+		return errcode.ErrInternal
+	}
+	if w == nil {
+		return errcode.ErrNotFound
+	}
+	objectKey := s.storage.ObjectKeyFromURL(w.OriginalURL)
+	if objectKey == "" {
+		slog.ErrorContext(ctx, "reprocess: cannot derive object key", "id", id, "original_url", w.OriginalURL)
+		return errcode.ErrInvalidParam
+	}
+	if err := s.wallpaperRepo.UpdateStatus(ctx, id, model.WallpaperStatusProcessing); err != nil {
+		slog.ErrorContext(ctx, "reprocess: status reset failed", "id", id, "error", err)
+		return errcode.ErrInternal
+	}
+	s.publishUploadedEvent(ctx, w, w.UserID, objectKey)
+	return nil
+}
+
 func (s *WallpaperService) publishUploadedEvent(ctx context.Context, w *model.Wallpaper, userID int64, objectKey string) {
 	event := WallpaperUploadedEvent{
 		WallpaperID: w.ID,

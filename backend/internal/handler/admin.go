@@ -18,6 +18,7 @@ import (
 	"github.com/wallpaper/backend/internal/pkg/response"
 	"github.com/wallpaper/backend/internal/pkg/storage"
 	"github.com/wallpaper/backend/internal/repo"
+	"github.com/wallpaper/backend/internal/service"
 )
 
 type AdminHandler struct {
@@ -29,6 +30,7 @@ type AdminHandler struct {
 	workerJobRepo  *repo.WorkerJobRepo
 	categoryRepo   *repo.CategoryRepo
 	storage        *storage.Storage
+	wallpaperSvc   *service.WallpaperService // needed for Reprocess (Kafka re-publish)
 
 	storageCacheMu sync.Mutex
 	storageCache   *storage.BucketUsage
@@ -44,6 +46,7 @@ func NewAdminHandler(
 	workerJobRepo *repo.WorkerJobRepo,
 	categoryRepo *repo.CategoryRepo,
 	store *storage.Storage,
+	wallpaperSvc *service.WallpaperService,
 ) *AdminHandler {
 	return &AdminHandler{
 		adminRepo:      adminRepo,
@@ -54,6 +57,7 @@ func NewAdminHandler(
 		workerJobRepo:  workerJobRepo,
 		categoryRepo:   categoryRepo,
 		storage:        store,
+		wallpaperSvc:   wallpaperSvc,
 	}
 }
 
@@ -221,6 +225,29 @@ func (h *AdminHandler) UpdateWallpaper(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		slog.ErrorContext(r.Context(), "admin wallpaper update failed", "id", id, "error", err)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, nil)
+}
+
+// ReprocessWallpaper re-queues a stuck or failed wallpaper through the
+// image worker. Flips status back to processing and re-publishes the
+// original wallpaper.uploaded Kafka event with the same object key, so
+// the next worker pick reruns variant generation + thumb/preview.
+func (h *AdminHandler) ReprocessWallpaper(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	if ec := h.wallpaperSvc.Reprocess(r.Context(), id); ec != nil {
+		status := http.StatusInternalServerError
+		if ec.Code == errcode.ErrNotFound.Code {
+			status = http.StatusNotFound
+		} else if ec.Code == errcode.ErrInvalidParam.Code {
+			status = http.StatusBadRequest
+		}
+		response.Error(w, status, ec)
 		return
 	}
 	response.OK(w, nil)

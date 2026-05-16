@@ -140,6 +140,7 @@ func NewRouter(deps Deps) *chi.Mux {
 
 			r.Get("/wallpapers", deps.AdminHandler.ListWallpapers)
 			r.Put("/wallpapers/{id}", deps.AdminHandler.UpdateWallpaper)
+			r.Post("/wallpapers/{id}/reprocess", deps.AdminHandler.ReprocessWallpaper)
 			r.Delete("/wallpapers/{id}", deps.AdminHandler.DeleteWallpaper)
 
 			r.Get("/collections", deps.AdminHandler.ListCollections)

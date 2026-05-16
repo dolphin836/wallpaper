@@ -70,6 +70,14 @@ export default function WallpapersPage() {
     }).catch((e) => toast.error(e?.response?.data?.message || '更新失败'));
   };
 
+  const onReprocess = (id: number) => {
+    if (!confirm('重新处理这张壁纸？将重置为"处理中"并重新发送给 image worker。')) return;
+    admin.reprocessAdminWallpaper(id).then(() => {
+      toast.success('已重新入队，刷新后查看状态');
+      fetchList();
+    }).catch((e) => toast.error(e?.response?.data?.message || '重处理失败'));
+  };
+
   return (
     <>
       <PageHeader title="壁纸管理" subtitle={`共 ${total} 张`} />
@@ -139,6 +147,12 @@ export default function WallpapersPage() {
                         <td className="px-4 py-2 text-xs text-slate-500 whitespace-nowrap">{fmtDate(w.created_at)}</td>
                         <td className="px-4 py-2 text-right whitespace-nowrap">
                           <button onClick={() => setEditing(w)} className="text-xs text-purple-600 hover:underline mr-3">编辑</button>
+                          {/* Reprocess: re-queue the wallpaper through the
+                              image worker. Available for failed (2) and
+                              stuck processing (0) rows. */}
+                          {(w.status === 0 || w.status === 2) && (
+                            <button onClick={() => onReprocess(w.id)} className="text-xs text-amber-600 hover:underline mr-3">重新处理</button>
+                          )}
                           {w.status === 1 && (
                             <button onClick={() => onDelete(w.id)} className="text-xs text-rose-500 hover:underline">下架</button>
                           )}
