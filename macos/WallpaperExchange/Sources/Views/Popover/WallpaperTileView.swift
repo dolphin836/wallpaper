@@ -42,73 +42,80 @@ struct WallpaperTileView: View {
 
     var body: some View {
         // Color.clear + aspectRatio is the canonical SwiftUI scaffold for
-        // "container of fixed aspect ratio that flexes with the parent's
-        // width." Putting aspectRatio on a ZStack instead — even with
-        // `.frame(maxWidth: .infinity)` — lets the loaded image's intrinsic
-        // ratio propagate up through `.aspectRatio(contentMode: .fill)`,
-        // making each tile size to its image rather than to 16:10. That's
-        // what produced the previous build's ragged heights.
+        // "fixed-aspect container that flexes with the parent's width."
+        // Each .overlay(alignment:) call attaches a layer at one of the
+        // four corners — far more predictable than .frame(maxWidth:
+        // maxHeight: alignment:), which mixes padding with stretch+align
+        // and was producing the "some tiles' chips drift above the top
+        // edge" symptom on certain renders.
         Color.clear
             .aspectRatio(16.0/10.0, contentMode: .fit)
-            .overlay {
-                ZStack(alignment: .topLeading) {
-                    imageStack
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .clipped()
-
-                    hoverGradient
-
-                    // Top-left chips
-                    HStack(spacing: 5) {
-                        if !wallpaper.resolutionLabel.isEmpty {
-                            Chip(text: wallpaper.resolutionLabel)
-                        }
-                        if wallpaper.isDynamic {
-                            Chip(text: "Mac", icon: "apple.logo")
-                        }
-                    }
-                    .padding(chipInset)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
-                    // Top-right state chip (Active / Local missing — mutually exclusive)
-                    HStack(spacing: 5) {
-                        if kind == .downloaded && isActive {
-                            Chip(text: "Active", icon: "checkmark", tone: .active)
-                        } else if showLocalMissing {
-                            Chip(text: "Local missing", icon: "lock", tone: .warn)
-                        }
-                    }
-                    .padding(chipInset)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-
-                    // Bottom-right hover actions
-                    HStack(spacing: 6) {
-                        switch kind {
-                        case .latest:
-                            PillButton(icon: "arrow.down", label: "Download", primary: false, action: onDownload)
-                            PillButton(icon: "display", label: "Set & download", primary: true, action: onDownloadAndSet)
-                        case .downloaded:
-                            if !localFileExists {
-                                PillButton(icon: "arrow.clockwise", label: "Re-download", primary: false, action: onRedownload)
-                            }
-                            PillButton(icon: "display", label: "Set as wallpaper", primary: true, action: onSetWallpaper)
-                        }
-                    }
-                    .padding(actionInset)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .opacity(showActions ? 1 : 0)
-                    .offset(y: showActions ? 0 : 6)
-                    .allowsHitTesting(showActions)
-
-                    if isDownloading { downloadingOverlay }
-                }
-            }
+            .overlay { imageStack.clipped() }
+            .overlay { hoverGradient }
+            .overlay(alignment: .topLeading) { topLeftChips }
+            .overlay(alignment: .topTrailing) { topRightChip }
+            .overlay(alignment: .bottomTrailing) { actionRow }
+            .overlay { downloadingOverlayIfActive }
             .background(Color.paper2)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-            .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
+            // contentShape on a Rectangle (not the rounded one) makes the
+            // *entire* 16:10 bounding rect hit-testable for hover, including
+            // the four corner triangles that the rounded-rect shape excludes.
+            // That was the source of "hover unreliably doesn't fire on some
+            // tiles" — the cursor entered through a corner that
+            // RoundedRectangle considered outside its hit region.
+            .contentShape(Rectangle())
             .onHover { isHovering = $0 }
             .animation(.easeOut(duration: 0.22), value: isHovering)
             .animation(.easeInOut(duration: 0.15), value: isDownloading)
+    }
+
+    // ─── Corner layers ───────────────────────────────────────────
+
+    @ViewBuilder private var topLeftChips: some View {
+        HStack(spacing: 5) {
+            // Always rendered now — Wallpaper.resolutionLabel falls back
+            // to "{w}×{h}" or "HD" when the backend hasn't backfilled
+            // dimensions, so the slot is never empty.
+            Chip(text: wallpaper.resolutionLabel)
+            if wallpaper.isDynamic {
+                Chip(text: "Mac", icon: "apple.logo")
+            }
+        }
+        .padding(chipInset)
+    }
+
+    @ViewBuilder private var topRightChip: some View {
+        if kind == .downloaded && isActive {
+            Chip(text: "Active", icon: "checkmark", tone: .active)
+                .padding(chipInset)
+        } else if showLocalMissing {
+            Chip(text: "Local missing", icon: "lock", tone: .warn)
+                .padding(chipInset)
+        }
+    }
+
+    @ViewBuilder private var actionRow: some View {
+        HStack(spacing: 6) {
+            switch kind {
+            case .latest:
+                PillButton(icon: "arrow.down", label: "Download", primary: false, action: onDownload)
+                PillButton(icon: "display", label: "Set & download", primary: true, action: onDownloadAndSet)
+            case .downloaded:
+                if !localFileExists {
+                    PillButton(icon: "arrow.clockwise", label: "Re-download", primary: false, action: onRedownload)
+                }
+                PillButton(icon: "display", label: "Set as wallpaper", primary: true, action: onSetWallpaper)
+            }
+        }
+        .padding(actionInset)
+        .opacity(showActions ? 1 : 0)
+        .offset(y: showActions ? 0 : 6)
+        .allowsHitTesting(showActions)
+    }
+
+    @ViewBuilder private var downloadingOverlayIfActive: some View {
+        if isDownloading { downloadingOverlay }
     }
 
     // ─── Layers ───────────────────────────────────────────────────
@@ -129,6 +136,12 @@ struct WallpaperTileView: View {
                 .opacity(previewLoaded ? 1 : 0)
             }
         }
+        // Force imageStack to take the overlay-proposed size rather than
+        // collapsing to the image's natural dimensions, which is what made
+        // a single tile occasionally render at the image's intrinsic ratio
+        // (chip then "drifts above" the visible rect because the rect is
+        // shorter than the surrounding tile-frame would imply).
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .scaleEffect(isHovering ? 1.035 : 1.0)
         .brightness(isHovering ? 0.04 : 0)
         .animation(.timingCurve(0.22, 0.61, 0.36, 1, duration: 0.6), value: isHovering)
