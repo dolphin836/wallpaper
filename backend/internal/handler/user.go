@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	_ "github.com/gen2brain/heic"
 	"github.com/go-chi/chi/v5"
@@ -463,7 +464,14 @@ func (h *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	avatarURL := h.storage.GetURL(objectKey)
+	// Avatars are uploaded to a deterministic object key (avatars/{id}.jpg)
+	// so re-uploads overwrite in place. Without a query-string cache
+	// buster the browser keeps the previous image cached against the same
+	// URL and the new avatar only appears on hard refresh. Append the
+	// upload timestamp so the URL stored in the DB is unique per upload,
+	// which invalidates the cache for every viewer (not just the
+	// uploader) the next time they fetch the user record.
+	avatarURL := fmt.Sprintf("%s?v=%d", h.storage.GetURL(objectKey), time.Now().Unix())
 	if err := h.userRepo.UpdateAvatar(r.Context(), userID, avatarURL); err != nil {
 		slog.ErrorContext(r.Context(), "failed to save avatar url", "error", err, "user_id", userID)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
