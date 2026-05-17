@@ -149,6 +149,7 @@ final class WallpaperManager {
         try fm.moveItem(at: tempURL, to: dest)
 
         downloadedIDs.insert(wallpaper.id)
+        recomputeTotalBytes()
     }
 
     // Wraps URLSessionDownloadTask in async/await with progress reporting via KVO
@@ -247,16 +248,53 @@ final class WallpaperManager {
             currentWallpaperID = nil
             UserDefaults.standard.removeObject(forKey: currentWallpaperIDDefaultsKey)
         }
+        recomputeTotalBytes()
     }
 
+    // Total size in bytes of every file in the downloads folder. Surfaced
+    // to the popover footer so the user can see at a glance how much disk
+    // the cached wallpapers are using. Recomputed whenever the local set
+    // changes — after download, deleteLocal, and on startup.
+    private(set) var totalLocalBytes: Int64 = 0
+
     private func scanLocalFiles() {
-        guard let contents = try? FileManager.default.contentsOfDirectory(at: storageDir, includingPropertiesForKeys: nil) else { return }
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: storageDir,
+            includingPropertiesForKeys: [.fileSizeKey]
+        ) else { return }
+        var bytes: Int64 = 0
         for url in contents {
             let name = url.deletingPathExtension().lastPathComponent
             if let id = Int(name) {
                 downloadedIDs.insert(id)
             }
+            if let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
+               let size = values.fileSize {
+                bytes += Int64(size)
+            }
         }
+        totalLocalBytes = bytes
+    }
+
+    // Lighter than scanLocalFiles — just re-tally the on-disk size without
+    // rebuilding downloadedIDs. Use after a single download/delete so the
+    // footer reflects the new total without re-scanning every filename.
+    private func recomputeTotalBytes() {
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: storageDir,
+            includingPropertiesForKeys: [.fileSizeKey]
+        ) else {
+            totalLocalBytes = 0
+            return
+        }
+        var bytes: Int64 = 0
+        for url in contents {
+            if let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
+               let size = values.fileSize {
+                bytes += Int64(size)
+            }
+        }
+        totalLocalBytes = bytes
     }
 
     private static func fileExtension(from response: URLResponse, url: URL, fallback: String) -> String {

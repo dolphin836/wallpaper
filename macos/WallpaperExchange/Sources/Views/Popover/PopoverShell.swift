@@ -124,11 +124,28 @@ struct PopoverHeaderView: View {
 
 struct PopoverFooterView: View {
     let onOpenWeb: () -> Void
+    // Total bytes occupied by the local downloads folder. Rendered as
+    // mono caps next to the version. 0 means a fresh install with no
+    // downloads yet — surface as "—" so the user sees the slot exists
+    // rather than being puzzled by "0 B".
+    let localStorageBytes: Int64
 
     private var versionString: String {
         let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
         return "v \(short)"
     }
+
+    private var storageString: String {
+        if localStorageBytes <= 0 { return "—" }
+        return Self.bytesFormatter.string(fromByteCount: localStorageBytes)
+    }
+
+    private static let bytesFormatter: ByteCountFormatter = {
+        let f = ByteCountFormatter()
+        f.allowedUnits = [.useKB, .useMB, .useGB]
+        f.countStyle = .file
+        return f
+    }()
 
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
@@ -156,10 +173,25 @@ struct PopoverFooterView: View {
 
             Spacer()
 
-            Text(versionString)
-                .font(.monoCaps)
-                .tracking(1.0)
-                .foregroundStyle(Color.muted)
+            // Storage indicator + version, separated by a vertical hairline
+            // so they read as two distinct facts rather than one long string.
+            HStack(spacing: 10) {
+                HStack(spacing: 5) {
+                    Image(systemName: "internaldrive")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color.muted)
+                    Text(storageString)
+                        .font(.monoCaps)
+                        .tracking(0.6)
+                        .foregroundStyle(Color.muted)
+                        .help("Local disk used by cached wallpapers")
+                }
+                Rectangle().fill(Color.hair).frame(width: 1, height: 12)
+                Text(versionString)
+                    .font(.monoCaps)
+                    .tracking(1.0)
+                    .foregroundStyle(Color.muted)
+            }
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 11)

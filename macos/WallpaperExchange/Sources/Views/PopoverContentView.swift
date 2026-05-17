@@ -103,7 +103,10 @@ struct PopoverContentView: View {
                 }
                 .frame(maxHeight: .infinity)
 
-                PopoverFooterView(onOpenWeb: openWeb)
+                PopoverFooterView(
+                    onOpenWeb: openWeb,
+                    localStorageBytes: manager.totalLocalBytes
+                )
             }
         }
         .frame(width: 720, height: 700)
