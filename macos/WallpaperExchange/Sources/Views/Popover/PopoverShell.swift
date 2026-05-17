@@ -170,34 +170,28 @@ struct PopoverFooterView: View {
     }
 }
 
-// MARK: - Filter toggle pill
+// MARK: - Filter toggle pill (icon only)
 
+// Per-column filter toggle, rendered as a 24px circular icon-only button.
+// Tooltip carries the human-readable label so accessibility + hover
+// affordance stay intact without taking horizontal space from the heading.
 struct FilterTogglePill: View {
     let icon: String
-    let label: String
+    let help: String
     let isOn: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: icon)
-                    .font(.system(size: 10, weight: .medium))
-                Text(label)
-                    .font(.monoCaps)
-                    .tracking(0.6)
-            }
-            .foregroundStyle(isOn ? Color.white : Color.muted)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(
-                Capsule().fill(isOn ? Color.accent : Color.clear)
-            )
-            .overlay(
-                Capsule().stroke(isOn ? Color.clear : Color.hair, lineWidth: 1)
-            )
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(isOn ? Color.white : Color.muted)
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(isOn ? Color.accent : Color.clear))
+                .overlay(Circle().stroke(isOn ? Color.clear : Color.hair, lineWidth: 1))
         }
         .buttonStyle(.plain)
+        .help(help)
     }
 }
 

@@ -30,45 +30,91 @@ struct WallpaperTileView: View {
     @State private var isHovering = false
     @State private var previewLoaded = false
 
+    // Constants for tile chrome. Single source so the chip and action-row
+    // insets always agree no matter what's rendered above them.
+    private let cornerRadius: CGFloat = 8
+    private let chipInset: CGFloat = 8
+    private let actionInset: CGFloat = 8
+
     private var thumbURL: URL? { wallpaper.thumbURL.isEmpty ? nil : URL(string: wallpaper.thumbURL) }
     private var previewURL: URL? { wallpaper.previewURL.isEmpty ? nil : URL(string: wallpaper.previewURL) }
     private var showActions: Bool { isHovering && !isDownloading }
     private var showLocalMissing: Bool { kind == .downloaded && !localFileExists }
 
     var body: some View {
-        GeometryReader { geo in
-            // 16:10 tile per the hand-off.
-            let h = geo.size.width * 10.0 / 16.0
-            ZStack {
-                imageStack
-                hoverGradient
-                chipsLayer
-                if isDownloading { downloadingOverlay }
-                actionsLayer
+        // Deterministic 16:10 frame. Putting aspectRatio directly on the
+        // ZStack (rather than wrapping a GeometryReader) means every child
+        // is laid out against the same fixed parent rect, so chip + action
+        // insets land at identical screen coordinates on every tile.
+        ZStack(alignment: .topLeading) {
+            imageStack
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+
+            hoverGradient
+
+            // Top-left chips
+            HStack(spacing: 5) {
+                if !wallpaper.resolutionLabel.isEmpty {
+                    Chip(text: wallpaper.resolutionLabel)
+                }
+                if wallpaper.isDynamic {
+                    Chip(text: "Mac", icon: "apple.logo")
+                }
             }
-            .frame(width: geo.size.width, height: h)
-            .background(Color.paper2)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .contentShape(Rectangle())
-            .onHover { isHovering = $0 }
-            .animation(.easeOut(duration: 0.22), value: isHovering)
-            .animation(.easeInOut(duration: 0.15), value: isDownloading)
+            .padding(chipInset)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+            // Top-right state chip (Active / Local missing — mutually exclusive)
+            HStack(spacing: 5) {
+                if kind == .downloaded && isActive {
+                    Chip(text: "Active", icon: "checkmark", tone: .active)
+                } else if showLocalMissing {
+                    Chip(text: "Local missing", icon: "lock", tone: .warn)
+                }
+            }
+            .padding(chipInset)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+
+            // Bottom-right hover actions
+            HStack(spacing: 6) {
+                switch kind {
+                case .latest:
+                    PillButton(icon: "arrow.down", label: "Download", primary: false, action: onDownload)
+                    PillButton(icon: "display", label: "Set & download", primary: true, action: onDownloadAndSet)
+                case .downloaded:
+                    if !localFileExists {
+                        PillButton(icon: "arrow.clockwise", label: "Re-download", primary: false, action: onRedownload)
+                    }
+                    PillButton(icon: "display", label: "Set as wallpaper", primary: true, action: onSetWallpaper)
+                }
+            }
+            .padding(actionInset)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .opacity(showActions ? 1 : 0)
+            .offset(y: showActions ? 0 : 6)
+            .allowsHitTesting(showActions)
+
+            if isDownloading { downloadingOverlay }
         }
-        // Reserve vertical space matching the 16:10 aspect so GeometryReader
-        // doesn't end up zero-sized inside a VStack.
         .aspectRatio(16.0/10.0, contentMode: .fit)
+        .frame(maxWidth: .infinity)
+        .background(Color.paper2)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .onHover { isHovering = $0 }
+        .animation(.easeOut(duration: 0.22), value: isHovering)
+        .animation(.easeInOut(duration: 0.15), value: isDownloading)
     }
 
     // ─── Layers ───────────────────────────────────────────────────
 
     @ViewBuilder private var imageStack: some View {
-        // Slight scale-up + brightness bump on hover, lifted from the
-        // web salon tile but at a gentler 600ms ease.
-        let img = ZStack {
+        ZStack {
             CachedAsyncImage(url: thumbURL) { image in
                 image.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
-                placeholderFill
+                Rectangle().fill(Color(hex: wallpaper.dominantColor ?? "#e5e7eb"))
             }
             .blur(radius: previewLoaded ? 0 : 6)
 
@@ -79,15 +125,9 @@ struct WallpaperTileView: View {
                 .opacity(previewLoaded ? 1 : 0)
             }
         }
-        img
-            .scaleEffect(isHovering ? 1.035 : 1.0)
-            .brightness(isHovering ? 0.04 : 0)
-            .animation(.timingCurve(0.22, 0.61, 0.36, 1, duration: 0.6), value: isHovering)
-            .clipped()
-    }
-
-    private var placeholderFill: some View {
-        Rectangle().fill(Color(hex: wallpaper.dominantColor ?? "#e5e7eb"))
+        .scaleEffect(isHovering ? 1.035 : 1.0)
+        .brightness(isHovering ? 0.04 : 0)
+        .animation(.timingCurve(0.22, 0.61, 0.36, 1, duration: 0.6), value: isHovering)
     }
 
     private var hoverGradient: some View {
@@ -100,57 +140,6 @@ struct WallpaperTileView: View {
         )
         .opacity(showActions ? 1 : 0)
         .allowsHitTesting(false)
-    }
-
-    private var chipsLayer: some View {
-        VStack {
-            HStack {
-                HStack(spacing: 5) {
-                    if !wallpaper.resolutionLabel.isEmpty {
-                        Chip(text: wallpaper.resolutionLabel)
-                    }
-                    if wallpaper.isDynamic {
-                        Chip(text: "Mac", icon: "apple.logo")
-                    }
-                }
-                Spacer()
-                HStack(spacing: 5) {
-                    if kind == .downloaded && isActive {
-                        Chip(text: "Active", icon: "checkmark", tone: .active)
-                    } else if showLocalMissing {
-                        Chip(text: "Local missing", icon: "lock", tone: .warn)
-                    }
-                }
-            }
-            .padding(9)
-            Spacer()
-        }
-        .allowsHitTesting(false)
-    }
-
-    private var actionsLayer: some View {
-        VStack {
-            Spacer()
-            HStack {
-                Spacer()
-                HStack(spacing: 6) {
-                    switch kind {
-                    case .latest:
-                        PillButton(icon: "arrow.down", label: "Download", primary: false, action: onDownload)
-                        PillButton(icon: "arrow.down.to.line", label: "Set & download", primary: true, action: onDownloadAndSet)
-                    case .downloaded:
-                        if !localFileExists {
-                            PillButton(icon: "arrow.clockwise", label: "Re-download", primary: false, action: onRedownload)
-                        }
-                        PillButton(icon: "display", label: "Set as wallpaper", primary: true, action: onSetWallpaper)
-                    }
-                }
-            }
-            .padding(10)
-        }
-        .opacity(showActions ? 1 : 0)
-        .offset(y: showActions ? 0 : 6)
-        .allowsHitTesting(showActions)
     }
 
     private var downloadingOverlay: some View {
@@ -198,10 +187,11 @@ private struct Chip: View {
                 .tracking(0.4)
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, 7)
+        .padding(.horizontal, 6)
         .padding(.vertical, 2)
         .background(background)
         .clipShape(RoundedRectangle(cornerRadius: 3))
+        .fixedSize()
     }
 
     @ViewBuilder private var background: some View {
@@ -223,24 +213,25 @@ private struct PillButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 10, weight: .medium))
                 Text(label)
-                    .font(.sans11)
+                    .font(.system(size: 11, weight: .medium))
+                    .lineLimit(1)
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
             .background(background)
             .overlay(
                 Capsule().stroke(primary ? Color.clear : Color.white.opacity(0.28), lineWidth: 1)
             )
             .clipShape(Capsule())
+            .fixedSize()
             .scaleEffect(pressed ? 0.96 : 1.0)
         }
         .buttonStyle(.plain)
-        .onHover { _ in } // suppress default plain-button hover noise
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in pressed = true }
@@ -252,13 +243,10 @@ private struct PillButton: View {
         if primary {
             Color.accent
         } else {
-            // Approximation of the design's `rgba(255,255,255,0.18)` glass
-            // pill with backdrop-filter blur. Layering a translucent white
-            // over a Material gives a similar frosted look against the
-            // hover gradient.
-            ZStack {
-                Color.white.opacity(0.18)
-            }
+            // Approximation of the design's rgba(255,255,255,0.18) glass
+            // pill. Layered over the bottom-up dark gradient so it reads
+            // as frosted glass against the image.
+            Color.white.opacity(0.20)
         }
     }
 }

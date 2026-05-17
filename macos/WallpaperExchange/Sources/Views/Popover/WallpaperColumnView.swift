@@ -104,14 +104,18 @@ struct WallpaperColumnView: View {
                 if hasShuffle, let onShuffleToggle {
                     FilterTogglePill(
                         icon: "shuffle",
-                        label: shuffleOn ? "Shuffle 4h" : "Shuffle",
+                        help: shuffleOn
+                            ? "Auto-shuffle on — click to stop"
+                            : "Auto-shuffle every 4 hours",
                         isOn: shuffleOn,
                         action: onShuffleToggle
                     )
                 }
                 FilterTogglePill(
                     icon: "apple.logo",
-                    label: "Dynamic",
+                    help: macOnly
+                        ? "Showing only macOS dynamic wallpapers"
+                        : "Show only macOS dynamic wallpapers",
                     isOn: macOnly,
                     action: onMacOnlyToggle
                 )
