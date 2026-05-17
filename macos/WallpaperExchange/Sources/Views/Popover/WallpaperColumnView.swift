@@ -54,7 +54,7 @@ struct WallpaperColumnView: View {
                         // the real tiles arrive.
                         ForEach(0..<3, id: \.self) { _ in skeletonTile }
                     } else {
-                        ForEach(wallpapers) { wp in
+                        ForEach(Array(wallpapers.enumerated()), id: \.element.id) { idx, wp in
                             WallpaperTileView(
                                 wallpaper: wp,
                                 kind: kind,
@@ -67,17 +67,21 @@ struct WallpaperColumnView: View {
                                 onSetWallpaper: { onSetWallpaper(wp) },
                                 onRedownload: { onRedownload(wp) }
                             )
+                            .onAppear {
+                                // Pre-fetch the next page once the user has
+                                // scrolled within three tiles of the end.
+                                // Three is enough lead time that on a normal
+                                // network the next batch is already there by
+                                // the time they hit the actual bottom — the
+                                // visible loading indicator below only ever
+                                // appears on slow networks.
+                                if hasMore, !isLoading, idx >= wallpapers.count - 3 {
+                                    onLoadMore()
+                                }
+                            }
                         }
-                    }
 
-                    if hasMore {
-                        Button(action: onLoadMore) {
-                            Text("Load more")
-                                .font(.sans11)
-                                .foregroundStyle(Color.muted)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.vertical, 8)
+                        listFooter
                     }
 
                     if !isLoading && wallpapers.isEmpty {
@@ -143,6 +147,54 @@ struct WallpaperColumnView: View {
         RoundedRectangle(cornerRadius: 8)
             .fill(Color.paper2)
             .aspectRatio(16.0/10.0, contentMode: .fit)
+    }
+
+    // Tri-state footer sitting under the last tile. Order matters:
+    //   - If we're actively fetching a follow-on page, show the spinner.
+    //     This only appears when the prefetch in .onAppear couldn't keep
+    //     up with the user's scroll speed; on normal networks the next
+    //     page is already in `wallpapers` by the time the user reaches
+    //     the bottom and the spinner is skipped entirely.
+    //   - Otherwise, if there's still more to load, render the manual
+    //     "Load more" affordance as a fallback (also lets the user
+    //     re-trigger after a network failure).
+    //   - Once the server reports has_more=false we draw a hairline-
+    //     flanked "End" mark so the user knows the list is exhausted
+    //     rather than wondering if it failed to load.
+    @ViewBuilder private var listFooter: some View {
+        if isLoading && !wallpapers.isEmpty {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Loading more…")
+                    .font(.sans11)
+                    .foregroundStyle(Color.muted)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+        } else if hasMore {
+            Button(action: onLoadMore) {
+                Text("Load more")
+                    .font(.sans11)
+                    .foregroundStyle(Color.ink2)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+        } else if !wallpapers.isEmpty {
+            HStack(spacing: 10) {
+                Rectangle().fill(Color.hair).frame(width: 32, height: 1)
+                Text("End")
+                    .font(.monoCaps)
+                    .tracking(1.4)
+                    .foregroundStyle(Color.muted)
+                Rectangle().fill(Color.hair).frame(width: 32, height: 1)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+        }
     }
 
     private var emptyState: some View {
