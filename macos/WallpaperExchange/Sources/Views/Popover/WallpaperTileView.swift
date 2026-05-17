@@ -99,8 +99,17 @@ struct WallpaperTileView: View {
         HStack(spacing: 6) {
             switch kind {
             case .latest:
-                PillButton(icon: "arrow.down", label: "Download", primary: false, action: onDownload)
-                PillButton(icon: "display", label: "Set & download", primary: true, action: onDownloadAndSet)
+                // If the file is already on this Mac (the user already paid
+                // and pulled it on this device), the Download / Set &
+                // download pair are both confusing — "download" implies the
+                // file isn't local, but it is. Collapse to a single Set as
+                // wallpaper button, matching .downloaded's hover row.
+                if localFileExists {
+                    PillButton(icon: "display", label: "Set as wallpaper", primary: true, action: onSetWallpaper)
+                } else {
+                    PillButton(icon: "arrow.down", label: "Download", primary: false, action: onDownload)
+                    PillButton(icon: "display", label: "Set & download", primary: true, action: onDownloadAndSet)
+                }
             case .downloaded:
                 if !localFileExists {
                     PillButton(icon: "arrow.clockwise", label: "Re-download", primary: false, action: onRedownload)

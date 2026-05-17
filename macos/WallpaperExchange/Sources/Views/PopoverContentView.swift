@@ -204,12 +204,14 @@ struct PopoverContentView: View {
         isLoadingDownloaded = true
         defer { isLoadingDownloaded = false }
         do {
-            let size = screenSize
+            // No device-resolution filter on Downloaded — the user expects
+            // every wallpaper they've downloaded to surface here. Filtering
+            // on `device_width` excluded items that don't have a variant
+            // matching this Mac's screen, which after a successful download
+            // looked like the just-downloaded wallpaper had vanished.
             let data = try await APIClient.shared.fetchMyDownloads(
                 cursor: reset ? nil : downloadedCursor,
                 limit: 20,
-                deviceWidth: size.width,
-                deviceHeight: size.height,
                 dynamicOnly: downloadedMacOnly
             )
             if reset {
