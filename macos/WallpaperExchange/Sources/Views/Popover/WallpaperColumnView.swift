@@ -134,11 +134,10 @@ struct WallpaperColumnView: View {
                         action: onOpenLocalFolder
                     )
                 }
-                if isLoading && !wallpapers.isEmpty {
-                    ProgressView()
-                        .controlSize(.mini)
-                        .padding(.leading, 4)
-                }
+                // Loading indicator lives in `listFooter` (bottom of the
+                // scroll view) instead of here — placing it in this HStack
+                // made the filter toggles jump leftward whenever a fetch
+                // kicked off, then snap back when it completed.
             }
         }
     }

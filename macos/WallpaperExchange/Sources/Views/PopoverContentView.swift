@@ -181,12 +181,9 @@ struct PopoverContentView: View {
         isLoadingLatest = true
         defer { isLoadingLatest = false }
         do {
-            let size = screenSize
             let data = try await APIClient.shared.fetchWallpapers(
                 cursor: reset ? nil : latestCursor,
                 limit: 20,
-                deviceWidth: size.width,
-                deviceHeight: size.height,
                 dynamicOnly: latestMacOnly
             )
             if reset {
