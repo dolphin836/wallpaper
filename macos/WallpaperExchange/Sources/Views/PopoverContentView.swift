@@ -65,6 +65,7 @@ struct PopoverContentView: View {
                         hasShuffle: false,
                         onShuffleToggle: nil,
                         shuffleNextAt: nil,
+                        onOpenLocalFolder: nil,
                         emptyTitle: "No wallpapers",
                         emptySubtitle: nil,
                         onDownload: { wp in Task { await download(wp) } },
@@ -90,6 +91,7 @@ struct PopoverContentView: View {
                         hasShuffle: true,
                         onShuffleToggle: { manager.setAutoRotate(!manager.autoRotate) },
                         shuffleNextAt: manager.nextRotationAt,
+                        onOpenLocalFolder: { revealDownloadsFolder() },
                         emptyTitle: "No downloads yet",
                         emptySubtitle: "Try a wallpaper from Latest. Use Set & download to apply it instantly.",
                         onDownload: { _ in },
@@ -148,6 +150,15 @@ struct PopoverContentView: View {
         if let url = URL(string: "https://wallpaperexchange.com") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    // Open the local downloads directory in a Finder window. activateFileViewer
+    // (vs. plain `open`) makes Finder surface the folder even if it's empty,
+    // which is the common case on a fresh install before the first download.
+    private func revealDownloadsFolder() {
+        let url = manager.storagePath
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
     // MARK: - Data loading

@@ -20,6 +20,9 @@ struct WallpaperColumnView: View {
     let hasShuffle: Bool
     let onShuffleToggle: (() -> Void)?
     let shuffleNextAt: Date?
+    // Optional folder-open action — only Downloaded column gets one,
+    // since Latest has no local-file concept.
+    let onOpenLocalFolder: (() -> Void)?
 
     let emptyTitle: String
     let emptySubtitle: String?
@@ -119,6 +122,14 @@ struct WallpaperColumnView: View {
                     isOn: macOnly,
                     action: onMacOnlyToggle
                 )
+                if let onOpenLocalFolder {
+                    FilterTogglePill(
+                        icon: "folder",
+                        help: "Reveal the downloads folder in Finder",
+                        isOn: false,
+                        action: onOpenLocalFolder
+                    )
+                }
                 if isLoading && !wallpapers.isEmpty {
                     ProgressView()
                         .controlSize(.mini)

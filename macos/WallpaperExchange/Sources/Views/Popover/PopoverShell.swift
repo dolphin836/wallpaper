@@ -172,26 +172,45 @@ struct PopoverFooterView: View {
 
 // MARK: - Filter toggle pill (icon only)
 
-// Per-column filter toggle, rendered as a 24px circular icon-only button.
-// Tooltip carries the human-readable label so accessibility + hover
-// affordance stay intact without taking horizontal space from the heading.
+// 24px circular icon-only button used for column-heading filters and
+// quick actions. Active state is accent-orange; resting state shows a
+// thin hairline ring. Hover state darkens the icon and fills the
+// background paper-2, so the user gets immediate visual feedback that
+// the icon is interactive in addition to the .help() tooltip.
 struct FilterTogglePill: View {
     let icon: String
     let help: String
     let isOn: Bool
     let action: () -> Void
 
+    @State private var isHovering = false
+
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(isOn ? Color.white : Color.muted)
+                .foregroundStyle(foregroundColor)
                 .frame(width: 24, height: 24)
-                .background(Circle().fill(isOn ? Color.accent : Color.clear))
-                .overlay(Circle().stroke(isOn ? Color.clear : Color.hair, lineWidth: 1))
+                .background(Circle().fill(backgroundFill))
+                .overlay(Circle().stroke(borderColor, lineWidth: 1))
         }
         .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: isHovering)
         .help(help)
+    }
+
+    private var foregroundColor: Color {
+        if isOn { return .white }
+        return isHovering ? Color.ink : Color.muted
+    }
+    private var backgroundFill: Color {
+        if isOn { return Color.accent }
+        return isHovering ? Color.paper2 : .clear
+    }
+    private var borderColor: Color {
+        if isOn { return .clear }
+        return isHovering ? Color.ink2 : Color.hair
     }
 }
 
