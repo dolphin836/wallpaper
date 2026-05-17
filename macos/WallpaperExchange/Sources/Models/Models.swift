@@ -99,7 +99,12 @@ struct Wallpaper: Decodable, Identifiable {
         if px >= 2560 { return "2K" }
         if px >= 1920 { return "1080P" }
         if px >= 1280 { return "720P" }
-        return ""
+        if px > 0    { return "\(width)×\(height)" }
+        // Wallpapers seeded before the variant-pipeline backfilled width
+        // and height columns can come back with zero. Fall back to a
+        // generic chip so every tile carries a label — the design spec
+        // calls for a resolution chip on every tile.
+        return "HD"
     }
 }
 

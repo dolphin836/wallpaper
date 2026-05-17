@@ -193,18 +193,31 @@ private struct Chip: View {
                 .tracking(0.4)
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 7)
         .padding(.vertical, 2)
         .background(background)
         .clipShape(RoundedRectangle(cornerRadius: 3))
         .fixedSize()
     }
 
+    // Per the design spec the neutral chip wants `rgba(0,0,0,0.55)` over a
+    // `backdrop-filter: blur(8px)`. The pure-black-at-55% approximation
+    // disappeared on bright images (cloudy skies, beaches) — chips looked
+    // "missing." Stacking a thin Material under the dark tint adds the
+    // backdrop blur the design called for, so the chip stays legible
+    // against any image without lifting the tint above the spec.
     @ViewBuilder private var background: some View {
         switch tone {
-        case .neutral: Color.black.opacity(0.55)
-        case .active:  Color.accent
-        case .warn:    Color.warn
+        case .neutral:
+            ZStack {
+                Rectangle().fill(.thinMaterial)
+                Color.black.opacity(0.45)
+            }
+            .environment(\.colorScheme, .dark)
+        case .active:
+            Color.accent
+        case .warn:
+            Color.warn
         }
     }
 }
