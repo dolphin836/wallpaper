@@ -10,33 +10,56 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-05-17
+
 ### Added
 
-- Downloaded list now shows a **Redownload** action on rows whose local
-  file is missing — typically wallpapers paid for on another device, or
-  files deleted out from under the app. Visible alongside Set Wallpaper
-  in the hover stack.
-- An **Active** chip surfaces on whichever Downloaded wallpaper is
-  currently applied to the desktop, regardless of whether it was set
-  manually, via Set & download, or by the auto-shuffle rotation. The
-  chip persists across relaunches.
-- A live **shuffle status banner** appears under the Downloaded heading
-  whenever auto-shuffle is on, with a countdown to the next rotation
-  tick that refreshes once a minute.
+- **Editorial Archive redesign** of the popover — paper-tinted
+  frosted-glass backdrop, 720 × 700 px surface, hairline-divided
+  two-column body. Latest and Downloaded sit side-by-side, each
+  with its own filter pills.
+- **Redownload** action on Downloaded rows whose local file is
+  missing — typically wallpapers paid for on another device, or
+  files deleted out from under the app.
+- **Active** chip on whichever Downloaded wallpaper is currently
+  applied to the desktop, regardless of whether it was set manually,
+  via Set & download, or by the auto-shuffle rotation. Persists
+  across relaunches.
+- Live **shuffle status banner** under the Downloaded heading
+  whenever auto-shuffle is on, with a countdown to the next
+  rotation tick.
+- **Reveal in Finder** button next to the Dynamic filter — opens
+  the local downloads folder.
+- **Infinite scroll** on both columns — the next page is prefetched
+  when you've scrolled within three tiles of the end, with a "Load
+  more" fallback and an "End" marker when the list is exhausted.
+- **Local disk usage** indicator in the footer next to the version
+  number — auto-updates after each download or delete.
+- Hover affordance on the filter toggles — icons darken on hover
+  and surface a system tooltip describing each action.
 
 ### Changed
 
-- **Popover redesign** to match the new editorial "Archive" aesthetic
-  used on the web — paper-tinted frosted-glass backdrop, 720 × 700 px
-  surface, hairline-divided 2-column body. Latest and Downloaded sit
-  side-by-side, each with its own filter pills (Dynamic / Shuffle).
-- Wallpaper rows became 16:10 **tiles** with hover-revealed pill
+- Wallpaper rows became **16:10 tiles** with hover-revealed pill
   actions over a bottom-up gradient. Top-left chips show resolution
   and Mac dynamic; top-right shows Active or Local missing state.
-- Header is now an editorial cluster: 36 px avatar + nickname + mono
-  handle, an accent-orange coin pill in the center, and a circular
-  logout button on the right.
-- Footer carries Quit · Open in browser links and a mono version label.
+- Latest tiles whose file is already on this Mac collapse to a
+  single Set as wallpaper button — the Download / Set & download
+  pair was misleading when the file was already local.
+- Header is now an editorial cluster: 36 px avatar + nickname +
+  mono handle, an accent-orange coin pill in the center, and a
+  circular logout button on the right.
+- Filter toggles are icon-only 24 px circular buttons. The
+  human-readable label moved to a hover tooltip.
+
+### Fixed
+
+- Latest list returns the full wallpaper catalogue. Previous builds
+  silently filtered by device resolution and excluded wallpapers
+  without a variant matching the user's screen.
+- Downloaded list shows wallpapers immediately after a successful
+  download. Same device-resolution filter was hiding new entries
+  whose resolution didn't match this Mac.
 
 ## [1.1.1] - 2026-05-16
 

@@ -1,8 +1,25 @@
 {
-  "current_version": "1.1.1",
-  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.1.1.dmg",
+  "current_version": "1.2.0",
+  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.2.0.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "1.2.0",
+      "released_at": "2026-05-17",
+      "notes": [
+        "Editorial Archive redesign of the popover — frosted-glass paper backdrop, 720×700 surface, hairline-divided two-column body.",
+        "Latest and Downloaded columns sit side-by-side with their own filter pills (Dynamic, Shuffle).",
+        "Wallpaper tiles redesigned to 16:10 with hover-revealed action pills over a bottom-up gradient.",
+        "Active chip surfaces on whichever Downloaded wallpaper is currently applied to the desktop.",
+        "Redownload action on Downloaded rows whose local file is missing.",
+        "Reveal-in-Finder button on Downloaded — opens the local downloads folder.",
+        "Live shuffle status banner with a countdown to the next rotation.",
+        "Infinite scroll on both columns — prefetches the next page before you hit the bottom, with a Load more fallback and End marker.",
+        "Local disk usage indicator in the footer next to the version.",
+        "Fix: Latest list now returns the full wallpaper catalogue (was silently filtering by device resolution).",
+        "Fix: Downloaded list shows wallpapers immediately after download (same filter was hiding new entries)."
+      ]
+    },
     {
       "version": "1.1.1",
       "released_at": "2026-05-16",
