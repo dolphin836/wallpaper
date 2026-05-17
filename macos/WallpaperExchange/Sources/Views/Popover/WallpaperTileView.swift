@@ -30,12 +30,10 @@ struct WallpaperTileView: View {
     @State private var isHovering = false
     @State private var previewLoaded = false
 
-    // Constants for tile chrome — lifted verbatim from the design hand-off
-    // (docs/design_handoff_macos/README.md → Tile composition → "top: 9px;
-    // left: 9px" for chips, "bottom: 10px; right: 10px" for actions).
+    // Constants for tile chrome. 12px on every side per user spec.
     private let cornerRadius: CGFloat = 8
-    private let chipInset: CGFloat = 9
-    private let actionInset: CGFloat = 10
+    private let chipInset: CGFloat = 12
+    private let actionInset: CGFloat = 12
 
     private var thumbURL: URL? { wallpaper.thumbURL.isEmpty ? nil : URL(string: wallpaper.thumbURL) }
     private var previewURL: URL? { wallpaper.previewURL.isEmpty ? nil : URL(string: wallpaper.previewURL) }
