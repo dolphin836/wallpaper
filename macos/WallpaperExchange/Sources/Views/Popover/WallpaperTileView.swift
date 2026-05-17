@@ -30,11 +30,12 @@ struct WallpaperTileView: View {
     @State private var isHovering = false
     @State private var previewLoaded = false
 
-    // Constants for tile chrome. Single source so the chip and action-row
-    // insets always agree no matter what's rendered above them.
+    // Constants for tile chrome — lifted verbatim from the design hand-off
+    // (docs/design_handoff_macos/README.md → Tile composition → "top: 9px;
+    // left: 9px" for chips, "bottom: 10px; right: 10px" for actions).
     private let cornerRadius: CGFloat = 8
-    private let chipInset: CGFloat = 8
-    private let actionInset: CGFloat = 8
+    private let chipInset: CGFloat = 9
+    private let actionInset: CGFloat = 10
 
     private var thumbURL: URL? { wallpaper.thumbURL.isEmpty ? nil : URL(string: wallpaper.thumbURL) }
     private var previewURL: URL? { wallpaper.previewURL.isEmpty ? nil : URL(string: wallpaper.previewURL) }
@@ -218,16 +219,16 @@ private struct PillButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 5) {
+            HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                 Text(label)
                     .font(.system(size: 11, weight: .medium))
                     .lineLimit(1)
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 7)
             .background(background)
             .overlay(
                 Capsule().stroke(primary ? Color.clear : Color.white.opacity(0.28), lineWidth: 1)
@@ -248,10 +249,10 @@ private struct PillButton: View {
         if primary {
             Color.accent
         } else {
-            // Approximation of the design's rgba(255,255,255,0.18) glass
-            // pill. Layered over the bottom-up dark gradient so it reads
-            // as frosted glass against the image.
-            Color.white.opacity(0.20)
+            // Design's rgba(255,255,255,0.18) glass pill. Layered over the
+            // bottom-up dark gradient so it reads as frosted glass against
+            // the image.
+            Color.white.opacity(0.18)
         }
     }
 }
