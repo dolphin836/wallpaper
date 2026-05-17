@@ -42,69 +42,74 @@ struct WallpaperTileView: View {
     private var showLocalMissing: Bool { kind == .downloaded && !localFileExists }
 
     var body: some View {
-        // Deterministic 16:10 frame. Putting aspectRatio directly on the
-        // ZStack (rather than wrapping a GeometryReader) means every child
-        // is laid out against the same fixed parent rect, so chip + action
-        // insets land at identical screen coordinates on every tile.
-        ZStack(alignment: .topLeading) {
-            imageStack
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
+        // Color.clear + aspectRatio is the canonical SwiftUI scaffold for
+        // "container of fixed aspect ratio that flexes with the parent's
+        // width." Putting aspectRatio on a ZStack instead — even with
+        // `.frame(maxWidth: .infinity)` — lets the loaded image's intrinsic
+        // ratio propagate up through `.aspectRatio(contentMode: .fill)`,
+        // making each tile size to its image rather than to 16:10. That's
+        // what produced the previous build's ragged heights.
+        Color.clear
+            .aspectRatio(16.0/10.0, contentMode: .fit)
+            .overlay {
+                ZStack(alignment: .topLeading) {
+                    imageStack
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
 
-            hoverGradient
+                    hoverGradient
 
-            // Top-left chips
-            HStack(spacing: 5) {
-                if !wallpaper.resolutionLabel.isEmpty {
-                    Chip(text: wallpaper.resolutionLabel)
-                }
-                if wallpaper.isDynamic {
-                    Chip(text: "Mac", icon: "apple.logo")
-                }
-            }
-            .padding(chipInset)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
-            // Top-right state chip (Active / Local missing — mutually exclusive)
-            HStack(spacing: 5) {
-                if kind == .downloaded && isActive {
-                    Chip(text: "Active", icon: "checkmark", tone: .active)
-                } else if showLocalMissing {
-                    Chip(text: "Local missing", icon: "lock", tone: .warn)
-                }
-            }
-            .padding(chipInset)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-
-            // Bottom-right hover actions
-            HStack(spacing: 6) {
-                switch kind {
-                case .latest:
-                    PillButton(icon: "arrow.down", label: "Download", primary: false, action: onDownload)
-                    PillButton(icon: "display", label: "Set & download", primary: true, action: onDownloadAndSet)
-                case .downloaded:
-                    if !localFileExists {
-                        PillButton(icon: "arrow.clockwise", label: "Re-download", primary: false, action: onRedownload)
+                    // Top-left chips
+                    HStack(spacing: 5) {
+                        if !wallpaper.resolutionLabel.isEmpty {
+                            Chip(text: wallpaper.resolutionLabel)
+                        }
+                        if wallpaper.isDynamic {
+                            Chip(text: "Mac", icon: "apple.logo")
+                        }
                     }
-                    PillButton(icon: "display", label: "Set as wallpaper", primary: true, action: onSetWallpaper)
+                    .padding(chipInset)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+                    // Top-right state chip (Active / Local missing — mutually exclusive)
+                    HStack(spacing: 5) {
+                        if kind == .downloaded && isActive {
+                            Chip(text: "Active", icon: "checkmark", tone: .active)
+                        } else if showLocalMissing {
+                            Chip(text: "Local missing", icon: "lock", tone: .warn)
+                        }
+                    }
+                    .padding(chipInset)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+
+                    // Bottom-right hover actions
+                    HStack(spacing: 6) {
+                        switch kind {
+                        case .latest:
+                            PillButton(icon: "arrow.down", label: "Download", primary: false, action: onDownload)
+                            PillButton(icon: "display", label: "Set & download", primary: true, action: onDownloadAndSet)
+                        case .downloaded:
+                            if !localFileExists {
+                                PillButton(icon: "arrow.clockwise", label: "Re-download", primary: false, action: onRedownload)
+                            }
+                            PillButton(icon: "display", label: "Set as wallpaper", primary: true, action: onSetWallpaper)
+                        }
+                    }
+                    .padding(actionInset)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .opacity(showActions ? 1 : 0)
+                    .offset(y: showActions ? 0 : 6)
+                    .allowsHitTesting(showActions)
+
+                    if isDownloading { downloadingOverlay }
                 }
             }
-            .padding(actionInset)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-            .opacity(showActions ? 1 : 0)
-            .offset(y: showActions ? 0 : 6)
-            .allowsHitTesting(showActions)
-
-            if isDownloading { downloadingOverlay }
-        }
-        .aspectRatio(16.0/10.0, contentMode: .fit)
-        .frame(maxWidth: .infinity)
-        .background(Color.paper2)
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-        .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
-        .onHover { isHovering = $0 }
-        .animation(.easeOut(duration: 0.22), value: isHovering)
-        .animation(.easeInOut(duration: 0.15), value: isDownloading)
+            .background(Color.paper2)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .onHover { isHovering = $0 }
+            .animation(.easeOut(duration: 0.22), value: isHovering)
+            .animation(.easeInOut(duration: 0.15), value: isDownloading)
     }
 
     // ─── Layers ───────────────────────────────────────────────────
