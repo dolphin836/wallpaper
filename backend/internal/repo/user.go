@@ -271,7 +271,7 @@ func (r *UserRepo) ListUploadersForSitemap(ctx context.Context) ([]SitemapUpload
 			FROM users u
 			JOIN wallpapers w ON w.user_id = u.id
 			WHERE u.id > 0
-			  AND u.status = 0
+			  AND u.status = 1
 			  AND w.status = 1
 			GROUP BY u.username
 			ORDER BY MAX(w.updated_at) DESC
