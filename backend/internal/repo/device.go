@@ -27,6 +27,34 @@ func (r *DeviceRepo) ListActive(ctx context.Context) ([]model.DeviceProfile, err
 	return devices, err
 }
 
+// DeviceWithCount mirrors DeviceProfile + a per-device tally of how many
+// published wallpapers have a variant for that device. Used by the
+// /devices listing so the hub page can show count badges without doing
+// one extra query per row.
+type DeviceWithCount struct {
+	model.DeviceProfile
+	WallpaperCount int64 `gorm:"column:wallpaper_count" json:"wallpaper_count"`
+}
+
+func (r *DeviceRepo) ListActiveWithCounts(ctx context.Context) ([]DeviceWithCount, error) {
+	var out []DeviceWithCount
+	err := r.db.WithContext(ctx).
+		Table("device_profiles AS d").
+		Select(`d.id, d.platform, d.brand, d.name, d.slug, d.width, d.height,
+		        d.ppi, d.sort_order, d.is_active, d.created_at,
+		        COALESCE(c.cnt, 0) AS wallpaper_count`).
+		Joins(`LEFT JOIN (
+		         SELECT wv.device_id, COUNT(DISTINCT wv.wallpaper_id) AS cnt
+		         FROM wallpaper_variants wv
+		         JOIN wallpapers w ON w.id = wv.wallpaper_id AND w.status = 1
+		         GROUP BY wv.device_id
+		       ) c ON c.device_id = d.id`).
+		Where("d.is_active = ?", true).
+		Order("d.platform ASC, d.sort_order ASC, d.id ASC").
+		Scan(&out).Error
+	return out, err
+}
+
 func (r *DeviceRepo) ListAll(ctx context.Context) ([]model.DeviceProfile, error) {
 	var devices []model.DeviceProfile
 	err := r.db.WithContext(ctx).

@@ -20,6 +20,18 @@ export interface AdminOverview {
   total_favorites: number;
   total_downloads: number;
   total_coins_circled: number;
+
+  // Marketing metrics. dau/wau/mau are distinct active user counts in
+  // their respective rolling windows; stickiness_ratio is dau/mau as a
+  // 0..1 float (display as a percent).
+  dau: number;
+  wau: number;
+  mau: number;
+  stickiness_ratio: number;
+  uploads_last_7_days: number;
+  downloads_last_7_days: number;
+  retention_d30_cohort: number;
+  retention_d30_active: number;
 }
 
 export interface DailyPoint { day: string; count: number }

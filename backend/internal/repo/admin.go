@@ -38,6 +38,21 @@ type OverviewStats struct {
 	TotalFavorites    int64 `json:"total_favorites"`
 	TotalDownloads    int64 `json:"total_downloads"`
 	TotalCoinsCircled int64 `json:"total_coins_circled"`
+
+	// Marketing-oriented metrics. All derived from analytics_events
+	// (any user_id with a tracked event in the window).
+	DAU                int64   `json:"dau"`                  // distinct users active in last 24h
+	WAU                int64   `json:"wau"`                  // last 7 days
+	MAU                int64   `json:"mau"`                  // last 30 days
+	StickinessRatio    float64 `json:"stickiness_ratio"`     // DAU / MAU, 0..1
+	UploadsLast7Days   int64   `json:"uploads_last_7_days"`  // published wallpapers created in last 7d
+	DownloadsLast7Days int64   `json:"downloads_last_7_days"`// rows from user_downloads in last 7d
+
+	// 30-day retention: of users registered between 30-37 days ago, how
+	// many had any tracked activity in the last 7 days. Two numerators
+	// so the dashboard can render "X / Y = Z%" without recomputing.
+	RetentionD30Cohort int64   `json:"retention_d30_cohort"`
+	RetentionD30Active int64   `json:"retention_d30_active"`
 }
 
 func (r *AdminRepo) Overview(ctx context.Context) (*OverviewStats, error) {
@@ -88,6 +103,46 @@ func (r *AdminRepo) Overview(ctx context.Context) (*OverviewStats, error) {
 
 	// Coin pool excluding the system user
 	db.Model(&model.User{}).Where("id > 0").Select("COALESCE(SUM(coins), 0)").Scan(&s.TotalCoinsCircled)
+
+	// ── Marketing metrics ─────────────────────────────────────────
+	// DAU / WAU / MAU: distinct user_id from analytics_events in the
+	// rolling window. user_id = 0 is the anonymous sentinel — exclude.
+	db.Raw(`SELECT COUNT(DISTINCT user_id) FROM analytics_events
+	         WHERE user_id <> 0 AND created_at >= NOW() - INTERVAL '1 day'`).Scan(&s.DAU)
+	db.Raw(`SELECT COUNT(DISTINCT user_id) FROM analytics_events
+	         WHERE user_id <> 0 AND created_at >= NOW() - INTERVAL '7 days'`).Scan(&s.WAU)
+	db.Raw(`SELECT COUNT(DISTINCT user_id) FROM analytics_events
+	         WHERE user_id <> 0 AND created_at >= NOW() - INTERVAL '30 days'`).Scan(&s.MAU)
+	if s.MAU > 0 {
+		s.StickinessRatio = float64(s.DAU) / float64(s.MAU)
+	}
+
+	// Weekly uploads + downloads
+	db.Model(&model.Wallpaper{}).
+		Where("status = ? AND created_at >= NOW() - INTERVAL '7 days'", model.WallpaperStatusPublished).
+		Count(&s.UploadsLast7Days)
+	db.Raw(`SELECT COUNT(*) FROM user_downloads
+	         WHERE created_at >= NOW() - INTERVAL '7 days'`).Scan(&s.DownloadsLast7Days)
+
+	// D30 retention. Cohort: users registered 30-37 days ago. Active:
+	// any of those users with an analytics event in the last 7 days.
+	// The 7-day window on the cohort smooths over single-day spikes
+	// (a launch day cohort of 1 user can't yield a meaningful %).
+	db.Raw(`SELECT COUNT(*) FROM users
+	         WHERE id > 0
+	           AND created_at >= NOW() - INTERVAL '37 days'
+	           AND created_at <  NOW() - INTERVAL '30 days'`).Scan(&s.RetentionD30Cohort)
+	if s.RetentionD30Cohort > 0 {
+		db.Raw(`
+			SELECT COUNT(DISTINCT u.id)
+			FROM users u
+			JOIN analytics_events e ON e.user_id = u.id
+			WHERE u.id > 0
+			  AND u.created_at >= NOW() - INTERVAL '37 days'
+			  AND u.created_at <  NOW() - INTERVAL '30 days'
+			  AND e.created_at >= NOW() - INTERVAL '7 days'
+		`).Scan(&s.RetentionD30Active)
+	}
 
 	return &s, nil
 }

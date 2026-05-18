@@ -44,6 +44,7 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
     { label: 'Discover',    sub: 'Browse the gallery',     to: '/' },
     { label: 'Collections', sub: 'Themed wallpaper sets', to: '/collections' },
     { label: 'Uploaders',   sub: 'Top contributors',      to: '/uploaders' },
+    { label: 'Devices',     sub: 'Wallpapers by screen',  to: '/wallpapers-for' },
     { label: 'macOS App',   sub: 'Get the Mac app',       to: '/download/mac' },
     // Upload pinned to the bottom so the "browse" items stay together at the
     // top of the nav and the contributor action sits closer to the balance

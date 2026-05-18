@@ -63,6 +63,7 @@ func (h *SEOHandler) Sitemap(w http.ResponseWriter, r *http.Request) {
 		{Loc: base + "/collections", ChangeFreq: "daily", Priority: "0.5"},
 		{Loc: base + "/about", ChangeFreq: "monthly", Priority: "0.4"},
 		{Loc: base + "/contribute", ChangeFreq: "monthly", Priority: "0.5"},
+		{Loc: base + "/wallpapers-for", ChangeFreq: "weekly", Priority: "0.7"},
 		{Loc: base + "/download/mac", ChangeFreq: "monthly", Priority: "0.5"},
 	}
 

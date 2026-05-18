@@ -147,6 +147,69 @@ export default function DashboardPage() {
               <StatCard label="已下架" value={fmtNumber(overview.wallpaper_removed)} tone="mute" />
               <StatCard label="金币流通量" value={fmtNumber(overview.total_coins_circled)} />
             </div>
+
+            {/* 运营指标。基于 analytics_events 的滚动窗口活跃，加 7 天上传/下载，加 D30 留存。 */}
+            <div className="text-xs uppercase tracking-wider text-slate-400 mt-2 mb-1">运营指标 · Growth</div>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <StatCard
+                label="日活 DAU"
+                value={fmtNumber(overview.dau)}
+                hint="过去 24 小时活跃用户数"
+                tone="info"
+              />
+              <StatCard
+                label="周活 WAU"
+                value={fmtNumber(overview.wau)}
+                hint="过去 7 天活跃用户数"
+              />
+              <StatCard
+                label="月活 MAU"
+                value={fmtNumber(overview.mau)}
+                hint="过去 30 天活跃用户数"
+              />
+              <StatCard
+                label="粘性 DAU/MAU"
+                value={overview.mau > 0 ? `${(overview.stickiness_ratio * 100).toFixed(1)}%` : '—'}
+                hint="20%+ 视为健康"
+                tone={overview.stickiness_ratio >= 0.2 ? 'good' : overview.stickiness_ratio >= 0.1 ? 'warn' : 'mute'}
+              />
+              <StatCard
+                label="本周新增上传"
+                value={fmtNumber(overview.uploads_last_7_days)}
+                hint="过去 7 天新增发布壁纸"
+                tone="good"
+              />
+              <StatCard
+                label="本周下载次数"
+                value={fmtNumber(overview.downloads_last_7_days)}
+                hint="过去 7 天 user_downloads 记录"
+              />
+              <StatCard
+                label="本周新增用户"
+                value={fmtNumber(overview.user_new_last_7_days)}
+                hint="过去 7 天注册"
+              />
+              <StatCard
+                label="30 天留存"
+                value={
+                  overview.retention_d30_cohort > 0
+                    ? `${((overview.retention_d30_active / overview.retention_d30_cohort) * 100).toFixed(0)}%`
+                    : '—'
+                }
+                hint={
+                  overview.retention_d30_cohort > 0
+                    ? `${overview.retention_d30_active} / ${overview.retention_d30_cohort} 月前用户本周仍活跃`
+                    : '当前还没有满 30 天的注册用户'
+                }
+                tone={
+                  overview.retention_d30_cohort === 0
+                    ? 'mute'
+                    : overview.retention_d30_active / overview.retention_d30_cohort >= 0.2
+                      ? 'good'
+                      : 'warn'
+                }
+              />
+            </div>
           </>
         )}
 
