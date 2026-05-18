@@ -10,6 +10,16 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-05-18
+
+### Changed
+
+- Installer DMG now opens as a standard drag-to-install window —
+  the app icon on the left, an Applications shortcut on the right.
+  Previous builds shipped a bare DMG that just listed the .app and
+  expected the user to know they had to move it into /Applications
+  themselves.
+
 ## [1.2.0] - 2026-05-17
 
 ### Added

@@ -102,10 +102,66 @@ if [ "$MAKE_DMG" -eq 1 ]; then
     DMG_PATH="../${APP_NAME}.dmg"
     echo "==> Creating DMG: $DMG_PATH"
     rm -f "$DMG_PATH"
+
+    # Build the standard Mac installer experience: a Finder window that
+    # opens on mount, with the .app icon on the left and an Applications
+    # shortcut on the right, so the user can drag-to-install instead of
+    # having to know to drop the bundle into /Applications themselves.
+    #
+    # The mechanics: stage the .app + an Applications symlink in a temp
+    # dir, build a writable HFS+ DMG from that staging dir, mount it,
+    # drive Finder via AppleScript to set window bounds + icon positions,
+    # detach, and convert to a compressed read-only UDZO image.
+    STAGING_DIR=$(mktemp -d)
+    cp -R "$APP_DIR" "$STAGING_DIR/"
+    ln -s /Applications "$STAGING_DIR/Applications"
+
+    TEMP_DMG=$(mktemp -u).dmg
     hdiutil create -volname "$APP_NAME" \
-        -srcfolder "$APP_DIR" \
-        -ov -format UDZO \
-        "$DMG_PATH" >/dev/null
+        -srcfolder "$STAGING_DIR" \
+        -fs HFS+ -format UDRW -ov \
+        "$TEMP_DMG" >/dev/null
+
+    # Detach any stale mount with the same volume name before attaching
+    # — otherwise the second mount lands on "/Volumes/<name> 1" and the
+    # AppleScript can't find the disk by name.
+    if [ -d "/Volumes/$APP_NAME" ]; then
+        hdiutil detach "/Volumes/$APP_NAME" -force >/dev/null 2>&1 || true
+    fi
+    MOUNT_INFO=$(hdiutil attach "$TEMP_DMG" -readwrite -noverify -noautoopen)
+    DEVICE=$(printf '%s\n' "$MOUNT_INFO" | head -1 | awk '{print $1}')
+    sleep 2 # let Finder notice the new volume before we script it
+
+    osascript <<APPLESCRIPT
+tell application "Finder"
+    tell disk "$APP_NAME"
+        open
+        set current view of container window to icon view
+        set toolbar visible of container window to false
+        set statusbar visible of container window to false
+        set the bounds of container window to {320, 200, 920, 500}
+        set theViewOptions to the icon view options of container window
+        set arrangement of theViewOptions to not arranged
+        set icon size of theViewOptions to 128
+        set text size of theViewOptions to 13
+        set position of item "${APP_NAME}.app" of container window to {160, 150}
+        set position of item "Applications" of container window to {440, 150}
+        close
+        open
+        update without registering applications
+        delay 1
+    end tell
+end tell
+APPLESCRIPT
+
+    sync
+    hdiutil detach "$DEVICE" -force >/dev/null
+    rm -rf "$STAGING_DIR"
+
+    hdiutil convert "$TEMP_DMG" -format UDZO -imagekey zlib-level=9 -ov \
+        -o "$DMG_PATH" >/dev/null
+    rm -f "$TEMP_DMG"
+
     echo "==> DMG ready: $DMG_PATH"
 fi
 

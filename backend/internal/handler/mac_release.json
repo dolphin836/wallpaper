@@ -1,8 +1,15 @@
 {
-  "current_version": "1.2.0",
-  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.2.0.dmg",
+  "current_version": "1.2.1",
+  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.2.1.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "1.2.1",
+      "released_at": "2026-05-18",
+      "notes": [
+        "Installer DMG now opens as the standard drag-to-install window — app icon on the left, Applications shortcut on the right. No more wondering where to put the .app."
+      ]
+    },
     {
       "version": "1.2.0",
       "released_at": "2026-05-17",
