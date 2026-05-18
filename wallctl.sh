@@ -239,6 +239,14 @@ cmd_sluggen() {
     log_info "Slug generation complete."
 }
 
+cmd_recompress() {
+    # Re-queues published wallpapers through the image worker so they pick
+    # up new variant encoding defaults. Defaults to dry-run; pass --commit
+    # (and optionally --limit N for a canary batch) to actually publish.
+    log_info "Recompress: re-queueing wallpapers through the image worker..."
+    compose exec api /bin/recompress "$@"
+}
+
 cmd_phashgen() {
     log_info "Backfilling pHash for published wallpapers..."
     # Pass through every arg so caller can tune --timeout / --concurrency /
@@ -278,6 +286,7 @@ ${YELLOW}Commands:${NC}
   ${GREEN}db-migrate${NC}              Run deployments/init.sql on the database
   ${GREEN}sluggen${NC}   [--force]     Regenerate URL slugs (--force = all, default = empty only)
   ${GREEN}phashgen${NC}  [flag]        Backfill pHash for old wallpapers (--force | --report-dupes)
+  ${GREEN}recompress${NC}[flags]       Re-queue wallpapers to rebuild variants (--commit, --limit N)
   ${GREEN}setadmin${NC}  [args]        Toggle is_admin on a user (e.g. -username eric -on)
   ${GREEN}help${NC}                    Show this help message
 
@@ -313,6 +322,7 @@ case "${1:-help}" in
     db-migrate) cmd_db_migrate ;;
     sluggen)    cmd_sluggen "${2:-}" ;;
     phashgen)   shift; cmd_phashgen "$@" ;;
+    recompress) shift; cmd_recompress "$@" ;;
     setadmin)   shift; cmd_setadmin "$@" ;;
     help|*)     cmd_help ;;
 esac
