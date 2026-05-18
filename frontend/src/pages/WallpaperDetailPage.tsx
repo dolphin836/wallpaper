@@ -286,7 +286,13 @@ export default function WallpaperDetailPage() {
       toast.error('Insufficient coins. Upload wallpapers to earn more!');
       return;
     }
-    const useVariant = wallpaper.is_dynamic ? null : (variant || matchedVariant);
+    // The top "Download" button is meant to deliver the original upload —
+    // designers, editors, and people archiving the file expect the source,
+    // not a re-encoded screen-sized JPEG. Variant downloads happen *only*
+    // when the user clicks a row in the variant list, which passes the
+    // variant in explicitly. Dynamic HEICs always come back as the
+    // original regardless (variants can't represent multi-frame HEIC).
+    const useVariant = wallpaper.is_dynamic ? null : variant;
     setDlLoading(true);
     try {
       let blobUrl: string;
