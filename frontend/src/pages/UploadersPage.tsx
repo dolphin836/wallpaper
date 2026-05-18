@@ -115,11 +115,17 @@ function UploaderRow({ u }: { u: UserListItem }) {
   // grid is reduced to just UPLOADS until we have honest numbers for the
   // other two.
   const works = u.recent_thumbs ?? [];
+  // Collapse the trailing thumbnail column when the uploader has no
+  // wallpapers — otherwise the UPLOADS block sits awkwardly far from
+  // the right edge with a 220–280px void next to it.
+  const gridCols = works.length > 0
+    ? 'grid-cols-[68px_1fr] md:grid-cols-[68px_1fr_auto] lg:grid-cols-[68px_1fr_auto_220px] xl:grid-cols-[68px_1fr_auto_280px]'
+    : 'grid-cols-[68px_1fr] md:grid-cols-[68px_1fr_auto]';
 
   return (
     <Link
       to={`/user/${u.username}`}
-      className="grid grid-cols-[68px_1fr] md:grid-cols-[68px_1fr_auto] lg:grid-cols-[68px_1fr_auto_220px] xl:grid-cols-[68px_1fr_auto_280px] gap-4 md:gap-5 lg:gap-6 items-center py-5 border-b border-hair no-underline text-ink hover:bg-paper-2 transition-colors"
+      className={`grid ${gridCols} gap-4 md:gap-5 lg:gap-6 items-center py-5 border-b border-hair no-underline text-ink hover:bg-paper-2 transition-colors`}
     >
       <Avatar
         src={u.avatar_url}
@@ -145,24 +151,19 @@ function UploaderRow({ u }: { u: UserListItem }) {
         <div className="display text-[22px] leading-none mt-1">{formatNumber(u.wallpaper_count)}</div>
       </div>
 
-      {/* Show the 3 most recent thumbnails. Backend returns up to 3 per
-          user via `recent_thumbs`, so the slot count exactly matches the
-          API contract — no padding logic needed for the common path. */}
-      <div className="hidden lg:grid grid-cols-3 gap-1.5">
-        {works.length === 0
-          ? Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="aspect-square bg-paper-2 border border-hair" />
-            ))
-          : works.slice(0, 3).map((thumb, i) => (
-              <div key={i} className="aspect-square border border-hair overflow-hidden bg-paper-3">
-                <img src={thumb} alt="" loading="lazy" className="w-full h-full object-cover" />
-              </div>
-            ))}
-        {works.length > 0 && works.length < 3 &&
-          Array.from({ length: 3 - works.length }).map((_, i) => (
-            <div key={`pad-${i}`} className="aspect-square bg-paper-2 border border-hair" />
+      {/* Show up to 3 most recent thumbnails. Uploaders with zero uploads
+          render no thumbnail strip at all (the column collapses); 1–2
+          uploads render only the slots that have content — no empty
+          placeholder squares. */}
+      {works.length > 0 && (
+        <div className="hidden lg:grid grid-cols-3 gap-1.5">
+          {works.slice(0, 3).map((thumb, i) => (
+            <div key={i} className="aspect-square border border-hair overflow-hidden bg-paper-3">
+              <img src={thumb} alt="" loading="lazy" className="w-full h-full object-cover" />
+            </div>
           ))}
-      </div>
+        </div>
+      )}
     </Link>
   );
 }
