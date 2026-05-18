@@ -82,10 +82,17 @@ lipo -create \
 cp "$INFO_PLIST" "$APP_DIR/Contents/Info.plist"
 
 readonly RESOURCE_BUNDLE="${EXECUTABLE}_${EXECUTABLE}.bundle"
+# SwiftPM's generated `Bundle.module` accessor looks for the resource bundle
+# at `Bundle.main.bundleURL.appendingPathComponent("<name>.bundle")` — i.e.
+# the .app root, NOT Contents/Resources/. Putting it under Resources/ makes
+# the accessor fall through to the hard-coded compile-time absolute path,
+# which works on the developer's machine and trap-traps everywhere else.
 # Either arch's resource bundle is fine — they're identical PNGs/assets.
-if [ -d "$ARM_BUILD_DIR/$RESOURCE_BUNDLE" ]; then
-    cp -R "$ARM_BUILD_DIR/$RESOURCE_BUNDLE" "$APP_DIR/Contents/Resources/$RESOURCE_BUNDLE"
+if [ ! -d "$ARM_BUILD_DIR/$RESOURCE_BUNDLE" ]; then
+    echo "==> ERROR: resource bundle not found at $ARM_BUILD_DIR/$RESOURCE_BUNDLE" >&2
+    exit 1
 fi
+cp -R "$ARM_BUILD_DIR/$RESOURCE_BUNDLE" "$APP_DIR/$RESOURCE_BUNDLE"
 
 if [ -f "../AppIcon.icns" ]; then
     cp ../AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns"

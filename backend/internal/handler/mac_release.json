@@ -1,8 +1,15 @@
 {
-  "current_version": "1.2.1",
-  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.2.1.dmg",
+  "current_version": "1.2.2",
+  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.2.2.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "1.2.2",
+      "released_at": "2026-05-18",
+      "notes": [
+        "Fix: app failed to launch on any Mac other than the build machine — the SwiftPM resource bundle was packaged at the wrong path inside the .app, so Bundle.module trapped at startup. The 1.2.1 build was effectively broken on every fresh install; please re-download."
+      ]
+    },
     {
       "version": "1.2.1",
       "released_at": "2026-05-18",

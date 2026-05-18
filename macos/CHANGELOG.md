@@ -10,6 +10,20 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-05-18
+
+### Fixed
+
+- App failed to launch on any Mac other than the build machine. The
+  SwiftPM-generated `Bundle.module` accessor looks for the resource
+  bundle at the `.app` root, but `build-app.sh` was copying it into
+  `Contents/Resources/` instead — so every fresh install fell through
+  to the hard-coded compile-time absolute path and trapped on startup
+  with "could not load resource bundle". The 1.2.1 build is effectively
+  broken on all non-developer machines; users should re-download.
+- `build-app.sh` now hard-fails if the resource bundle isn't where it
+  expects, instead of silently shipping an unrunnable .app.
+
 ## [1.2.1] - 2026-05-18
 
 ### Changed
