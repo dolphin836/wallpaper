@@ -138,9 +138,22 @@ actor APIClient {
         return resp.data
     }
 
-    /// Returns the redirect URL for the original file download (costs 1 coin).
-    func getDownloadURL(wallpaperID: Int) async throws -> URL {
-        let path = "/wallpapers/\(wallpaperID)/download"
+    /// Returns the redirect URL for the file download (costs 1 coin).
+    ///
+    /// `targetWidth` / `targetHeight` are an optional hint about the
+    /// resolution the caller actually needs to fill. When both are >0 the
+    /// backend hands back the smallest pre-rendered variant covering W×H
+    /// instead of the original — typically 1.5–3 MB instead of the often
+    /// 10–60 MB raw upload. Defaults of 0 keep the legacy behavior (always
+    /// returns the original) for callers that explicitly want the source
+    /// file. Dynamic HEIC wallpapers always come back as the original
+    /// regardless of these hints — variants can't represent a multi-frame
+    /// HEIC.
+    func getDownloadURL(wallpaperID: Int, targetWidth: Int = 0, targetHeight: Int = 0) async throws -> URL {
+        var path = "/wallpapers/\(wallpaperID)/download"
+        if targetWidth > 0 && targetHeight > 0 {
+            path += "?width=\(targetWidth)&height=\(targetHeight)"
+        }
         guard let url = URL(string: baseURL + path) else {
             throw APIError.invalidURL
         }

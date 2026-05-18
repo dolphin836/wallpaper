@@ -91,7 +91,7 @@ func main() {
 	workerJobRepo := repo.NewWorkerJobRepo(db)
 
 	authSvc := service.NewAuthService(userRepo, coinRepo, cfg.JWT.Secret, cfg.JWT.ExpireHour)
-	wallpaperSvc := service.NewWallpaperService(wallpaperRepo, tagRepo, interactionRepo, userRepo, eventRepo, coinRepo, collectionRepo, store, kafkaWriter)
+	wallpaperSvc := service.NewWallpaperService(wallpaperRepo, tagRepo, interactionRepo, userRepo, eventRepo, coinRepo, collectionRepo, deviceRepo, store, kafkaWriter)
 	collectionSvc := service.NewCollectionService(collectionRepo, interactionRepo)
 
 	authHandler := handler.NewAuthHandler(authSvc)

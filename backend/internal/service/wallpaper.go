@@ -27,6 +27,7 @@ type WallpaperService struct {
 	eventRepo       *repo.EventRepo
 	coinRepo        *repo.CoinRepo
 	collectionRepo  *repo.CollectionRepo
+	deviceRepo      *repo.DeviceRepo
 	storage         *storage.Storage
 	kafkaWriter     *kafka.Writer
 }
@@ -39,6 +40,7 @@ func NewWallpaperService(
 	er *repo.EventRepo,
 	cr *repo.CoinRepo,
 	colr *repo.CollectionRepo,
+	dr *repo.DeviceRepo,
 	st *storage.Storage,
 	kw *kafka.Writer,
 ) *WallpaperService {
@@ -50,6 +52,7 @@ func NewWallpaperService(
 		eventRepo:       er,
 		coinRepo:        cr,
 		collectionRepo:  colr,
+		deviceRepo:      dr,
 		storage:         st,
 		kafkaWriter:     kw,
 	}
@@ -509,7 +512,17 @@ func (s *WallpaperService) Unfavorite(ctx context.Context, userID, wallpaperID i
 	return nil
 }
 
-func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, userID int64) (string, *errcode.ErrCode) {
+// DownloadTarget describes the resolution the client actually needs to fill
+// its display. When set, Download returns the smallest pre-rendered variant
+// that covers W×H instead of the (often massively oversized) original. Zero
+// values mean "no preference, give me the original" — that's the legacy
+// behavior, kept for the web's "Download original" button and old clients.
+type DownloadTarget struct {
+	Width  int
+	Height int
+}
+
+func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, userID int64, target DownloadTarget) (string, *errcode.ErrCode) {
 	w, err := s.wallpaperRepo.GetByID(ctx, wallpaperID)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get wallpaper",
@@ -550,7 +563,45 @@ func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, user
 		slog.ErrorContext(ctx, "failed to record download event", "error", err, "wallpaper_id", wallpaperID)
 	}
 
+	if target.Width > 0 && target.Height > 0 && !w.IsDynamic {
+		if url := s.pickBestVariantURL(ctx, wallpaperID, target); url != "" {
+			return url, nil
+		}
+		// fall through to OriginalURL when no variant covers the target —
+		// e.g. wallpaper is smaller than every device profile.
+	}
 	return w.OriginalURL, nil
+}
+
+// pickBestVariantURL returns the smallest variant whose dimensions still
+// cover target.W × target.H. Smaller-than-target variants would force the
+// client to upscale (visible quality loss), so they're rejected. Dynamic
+// wallpapers skip this path entirely — their value is the multi-frame
+// HEIC, which can't be substituted by a static variant. Returns "" when
+// no variant qualifies; caller falls back to the original.
+func (s *WallpaperService) pickBestVariantURL(ctx context.Context, wallpaperID int64, target DownloadTarget) string {
+	variants, err := s.deviceRepo.ListVariantsByWallpaper(ctx, wallpaperID)
+	if err != nil {
+		slog.WarnContext(ctx, "variant lookup failed (falling back to original)", "wallpaper_id", wallpaperID, "error", err)
+		return ""
+	}
+	var best *model.VariantWithDevice
+	bestPixels := 0
+	for i := range variants {
+		v := &variants[i]
+		if v.Width < target.Width || v.Height < target.Height {
+			continue
+		}
+		p := v.Width * v.Height
+		if best == nil || p < bestPixels {
+			best = v
+			bestPixels = p
+		}
+	}
+	if best == nil {
+		return ""
+	}
+	return best.URL
 }
 
 // Reprocess re-runs variant generation for a wallpaper that's stuck in

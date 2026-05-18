@@ -125,6 +125,26 @@ final class WallpaperManager {
         return contents.first { $0.lastPathComponent.hasPrefix(prefix) }
     }
 
+    /// Largest pixel dimensions across all connected screens, accounting for
+    /// retina scale. This is the resolution we ask the backend to size the
+    /// download for — picking max(screen) lets the same file cover every
+    /// display without anyone needing to upscale. Returns (0, 0) when there
+    /// is no screen (unlikely, but better safe than asking for a 0×0 image).
+    private static func maxScreenPixels() -> (Int, Int) {
+        var maxW = 0
+        var maxH = 0
+        for screen in NSScreen.screens {
+            let scale = screen.backingScaleFactor
+            let w = Int(screen.frame.width * scale)
+            let h = Int(screen.frame.height * scale)
+            if w * h > maxW * maxH {
+                maxW = w
+                maxH = h
+            }
+        }
+        return (maxW, maxH)
+    }
+
     func download(wallpaper: Wallpaper) async throws {
         guard !downloading.contains(wallpaper.id) else { return }
         downloading.insert(wallpaper.id)
@@ -134,7 +154,8 @@ final class WallpaperManager {
             downloadProgress.removeValue(forKey: wallpaper.id)
         }
 
-        let remoteURL = try await APIClient.shared.getDownloadURL(wallpaperID: wallpaper.id)
+        let (tw, th) = Self.maxScreenPixels()
+        let remoteURL = try await APIClient.shared.getDownloadURL(wallpaperID: wallpaper.id, targetWidth: tw, targetHeight: th)
 
         let (tempURL, response) = try await Self.downloadWithProgress(from: remoteURL) { [weak self] p in
             self?.downloadProgress[wallpaper.id] = p
