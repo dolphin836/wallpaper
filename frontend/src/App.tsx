@@ -13,6 +13,8 @@ import UploadersPage from './pages/UploadersPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import LegalDmcaPage from './pages/LegalDmcaPage';
+import AboutPage from './pages/AboutPage';
+import ContributePage from './pages/ContributePage';
 import DownloadMacPage from './pages/DownloadMacPage';
 import WallpaperDetailModal from './components/WallpaperDetailModal';
 import AdminLayout from './pages/admin/AdminLayout';
@@ -43,6 +45,8 @@ function AppRoutes() {
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/legal/dmca" element={<LegalDmcaPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/contribute" element={<ContributePage />} />
           <Route path="/download/mac" element={<DownloadMacPage />} />
         </Route>
         <Route path="/admin" element={<AdminLayout />}>

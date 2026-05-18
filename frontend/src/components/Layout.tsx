@@ -137,6 +137,10 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
       <div className="mt-auto px-6 pt-6 pb-6 flex flex-col items-center">
         <hr className="border-t border-dashed border-hair w-full" />
         <ul className="flex flex-wrap justify-center gap-x-3 gap-y-1.5 py-3 list-none m-0 p-0 mono text-[10px] tracking-[0.12em] uppercase text-muted">
+          <li><Link to="/about" className="text-inherit no-underline hover:text-ink">About</Link></li>
+          <li className="text-hair" aria-hidden>·</li>
+          <li><Link to="/contribute" className="text-inherit no-underline hover:text-ink">Contribute</Link></li>
+          <li className="text-hair" aria-hidden>·</li>
           <li><Link to="/terms" className="text-inherit no-underline hover:text-ink">Terms</Link></li>
           <li className="text-hair" aria-hidden>·</li>
           <li><Link to="/privacy" className="text-inherit no-underline hover:text-ink">Privacy</Link></li>
