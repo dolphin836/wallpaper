@@ -14,13 +14,27 @@ import (
 )
 
 type SEOHandler struct {
-	wallpaperRepo *repo.WallpaperRepo
-	categoryRepo  *repo.CategoryRepo
-	deviceRepo    *repo.DeviceRepo
+	wallpaperRepo  *repo.WallpaperRepo
+	categoryRepo   *repo.CategoryRepo
+	deviceRepo     *repo.DeviceRepo
+	collectionRepo *repo.CollectionRepo
+	userRepo       *repo.UserRepo
 }
 
-func NewSEOHandler(wallpaperRepo *repo.WallpaperRepo, categoryRepo *repo.CategoryRepo, deviceRepo *repo.DeviceRepo) *SEOHandler {
-	return &SEOHandler{wallpaperRepo: wallpaperRepo, categoryRepo: categoryRepo, deviceRepo: deviceRepo}
+func NewSEOHandler(
+	wallpaperRepo *repo.WallpaperRepo,
+	categoryRepo *repo.CategoryRepo,
+	deviceRepo *repo.DeviceRepo,
+	collectionRepo *repo.CollectionRepo,
+	userRepo *repo.UserRepo,
+) *SEOHandler {
+	return &SEOHandler{
+		wallpaperRepo:  wallpaperRepo,
+		categoryRepo:   categoryRepo,
+		deviceRepo:     deviceRepo,
+		collectionRepo: collectionRepo,
+		userRepo:       userRepo,
+	}
 }
 
 const robotsTemplate = `User-agent: *
@@ -83,6 +97,41 @@ func (h *SEOHandler) Sitemap(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		slog.ErrorContext(ctx, "sitemap: list active devices failed", "error", derr)
+	}
+
+	// Public collection landing pages.
+	if cols, cerr := h.collectionRepo.ListPublicForSitemap(ctx); cerr == nil {
+		for _, c := range cols {
+			if c.Slug == "" {
+				continue
+			}
+			urls = append(urls, sitemapURL{
+				Loc:        base + "/collections/" + c.Slug,
+				LastMod:    c.UpdatedAt.UTC().Format("2006-01-02"),
+				ChangeFreq: "weekly",
+				Priority:   "0.5",
+			})
+		}
+	} else {
+		slog.ErrorContext(ctx, "sitemap: list public collections failed", "error", cerr)
+	}
+
+	// Uploader profile pages — only users with at least one published
+	// wallpaper, so empty profiles don't pad the index.
+	if uploaders, uerr := h.userRepo.ListUploadersForSitemap(ctx); uerr == nil {
+		for _, u := range uploaders {
+			if u.Username == "" {
+				continue
+			}
+			urls = append(urls, sitemapURL{
+				Loc:        base + "/user/" + u.Username,
+				LastMod:    u.UpdatedAt.UTC().Format("2006-01-02"),
+				ChangeFreq: "weekly",
+				Priority:   "0.4",
+			})
+		}
+	} else {
+		slog.ErrorContext(ctx, "sitemap: list uploaders failed", "error", uerr)
 	}
 
 	entries, err := h.wallpaperRepo.ListPublishedForSitemap(ctx)

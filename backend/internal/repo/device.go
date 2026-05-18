@@ -79,7 +79,7 @@ func (r *DeviceRepo) ListVariantsByWallpaper(ctx context.Context, wallpaperID in
 	var results []model.VariantWithDevice
 	err := r.db.WithContext(ctx).
 		Table("wallpaper_variants AS wv").
-		Select("wv.id, wv.wallpaper_id, wv.device_id, wv.url, wv.width, wv.height, wv.file_size, wv.created_at, dp.platform, dp.brand, dp.name AS dev_name").
+		Select("wv.id, wv.wallpaper_id, wv.device_id, wv.url, wv.width, wv.height, wv.file_size, wv.created_at, dp.platform, dp.brand, dp.name AS dev_name, dp.slug AS device_slug").
 		Joins("JOIN device_profiles dp ON dp.id = wv.device_id").
 		Where("wv.wallpaper_id = ?", wallpaperID).
 		Order("dp.sort_order ASC").

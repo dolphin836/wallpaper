@@ -38,7 +38,8 @@ func (WallpaperVariant) TableName() string {
 
 type VariantWithDevice struct {
 	WallpaperVariant
-	Platform string `json:"platform"`
-	Brand    string `json:"brand"`
-	DevName  string `json:"device_name"`
+	Platform   string `json:"platform"`
+	Brand      string `json:"brand"`
+	DevName    string `json:"device_name"`
+	DeviceSlug string `gorm:"column:device_slug" json:"device_slug"`
 }

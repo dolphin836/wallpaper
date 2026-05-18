@@ -123,6 +123,7 @@ export interface WallpaperVariant {
   platform: string;
   brand: string;
   device_name: string;
+  device_slug: string;
 }
 
 export interface Collection {

@@ -965,12 +965,25 @@ export default function WallpaperDetailPage() {
                             <PlatformIcon size={22} />
                           </span>
 
-                          {/* Info: name + YOUR DEVICE badge / dims · size */}
+                          {/* Info: name (linked to its device landing
+                              page so we feed internal-link weight to the
+                              /wallpapers-for/:slug pages) + YOUR DEVICE
+                              badge / dims · size */}
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-[15px] sm:text-[16px] font-medium text-ink truncate">
-                                {deviceName}
-                              </span>
+                              {v.device_slug ? (
+                                <Link
+                                  to={`/wallpapers-for/${v.device_slug}`}
+                                  className="text-[15px] sm:text-[16px] font-medium text-ink truncate no-underline hover:underline"
+                                  title={`More wallpapers for the ${deviceName}`}
+                                >
+                                  {deviceName}
+                                </Link>
+                              ) : (
+                                <span className="text-[15px] sm:text-[16px] font-medium text-ink truncate">
+                                  {deviceName}
+                                </span>
+                              )}
                               {isMatched && (
                                 <span className="mono text-[9px] tracking-[0.16em] font-semibold uppercase px-2 py-[3px] bg-ink text-paper whitespace-nowrap">
                                   Your device

@@ -254,3 +254,28 @@ func (r *UserRepo) ListUsers(ctx context.Context, sort string, offset, limit int
 	err := q.Offset(offset).Limit(limit).Find(&items).Error
 	return items, total, err
 }
+
+// ListUploadersForSitemap returns usernames + most recent update time
+// for users with at least one published wallpaper, used by SEO sitemap.
+// Excludes the system user (id <= 0) and accounts without uploads.
+type SitemapUploaderEntry struct {
+	Username  string
+	UpdatedAt time.Time
+}
+
+func (r *UserRepo) ListUploadersForSitemap(ctx context.Context) ([]SitemapUploaderEntry, error) {
+	var entries []SitemapUploaderEntry
+	err := r.db.WithContext(ctx).
+		Raw(`
+			SELECT u.username, MAX(w.updated_at) AS updated_at
+			FROM users u
+			JOIN wallpapers w ON w.user_id = u.id
+			WHERE u.id > 0
+			  AND u.status = 0
+			  AND w.status = 1
+			GROUP BY u.username
+			ORDER BY MAX(w.updated_at) DESC
+		`).
+		Scan(&entries).Error
+	return entries, err
+}

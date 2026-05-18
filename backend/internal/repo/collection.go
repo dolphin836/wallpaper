@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -309,4 +310,24 @@ func (r *CollectionRepo) ListUserCollections(ctx context.Context, userID int64) 
 		Order("id DESC").
 		Find(&items).Error
 	return items, err
+}
+
+// ListPublicForSitemap returns public collection slugs + updated_at for
+// sitemap generation. Filters to non-empty (wallpaper_count > 0) public
+// collections — empty ones aren't worth indexing.
+func (r *CollectionRepo) ListPublicForSitemap(ctx context.Context) ([]SitemapCollectionEntry, error) {
+	var entries []SitemapCollectionEntry
+	err := r.db.WithContext(ctx).
+		Model(&model.Collection{}).
+		Select("slug, updated_at").
+		Where("is_public = TRUE AND slug <> '' AND wallpaper_count > 0").
+		Order("updated_at DESC").
+		Find(&entries).Error
+	return entries, err
+}
+
+// SitemapCollectionEntry is the slim row shape returned to the SEO handler.
+type SitemapCollectionEntry struct {
+	Slug      string
+	UpdatedAt time.Time
 }
