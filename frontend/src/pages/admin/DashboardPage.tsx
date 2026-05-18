@@ -126,6 +126,24 @@ export default function DashboardPage() {
     <>
       <PageHeader title="总览" subtitle={`更新时间 ${fmtDate(new Date().toISOString())}`} />
       <div className="px-8 pb-12 space-y-6">
+        {/* Low-disk banner: once the host's free space drops below 2 GiB
+            we surface a loud red strip at the top of the dashboard, since
+            a near-full disk silently breaks Postgres writes and worker
+            image processing before any other indicator gets unhappy. */}
+        {storage?.disk && storage.disk.free_bytes < 2 * 1024 ** 3 && (
+          <div className="rounded-lg border border-rose-500/40 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-200 px-4 py-3 flex items-center gap-3">
+            <span className="text-xl leading-none">⚠️</span>
+            <div className="text-sm">
+              <div className="font-semibold">服务器磁盘空间不足</div>
+              <div className="text-xs mt-0.5 opacity-90">
+                根分区可用 <span className="font-mono">{fmtBytes(storage.disk.free_bytes)}</span> /
+                总 <span className="font-mono">{fmtBytes(storage.disk.total_bytes)}</span>
+                （已用 {((storage.disk.used_bytes / storage.disk.total_bytes) * 100).toFixed(1)}%）
+                — 立刻清理 Docker 缓存 / 旧镜像 / 日志，否则数据库写入和图片处理将很快失败。
+              </div>
+            </div>
+          </div>
+        )}
         {loading && <Spinner />}
         {err && <div className="text-rose-500 text-sm">{err}</div>}
         {overview && (
@@ -252,6 +270,37 @@ export default function DashboardPage() {
                 <span className="text-slate-500">总计 {storage.usage.total_count.toLocaleString()} 个对象</span>
                 <span className="font-semibold">{fmtBytes(storage.usage.total_bytes)}</span>
               </div>
+              {/* Host disk: rendered alongside MinIO usage because the
+                  two compete for the same physical bytes — MinIO bytes
+                  are a *subset* of disk-used bytes, plus Postgres,
+                  build cache, journal logs, etc. */}
+              {storage.disk && (() => {
+                const d = storage.disk;
+                const usedPct = (d.used_bytes / d.total_bytes) * 100;
+                const low = d.free_bytes < 2 * 1024 ** 3;
+                const barColor = low ? 'bg-rose-500'
+                  : usedPct > 80 ? 'bg-amber-500'
+                  : 'bg-emerald-500';
+                return (
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">服务器磁盘（根分区）</span>
+                      <span className={low ? 'text-rose-600 font-semibold' : 'text-slate-500'}>
+                        可用 <span className="font-mono">{fmtBytes(d.free_bytes)}</span>
+                        {' / '}
+                        总 <span className="font-mono">{fmtBytes(d.total_bytes)}</span>
+                      </span>
+                    </div>
+                    <div className="h-2 w-full rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+                      <div className={barColor} style={{ width: `${usedPct}%`, height: '100%' }} />
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      已用 {usedPct.toFixed(1)}%
+                      {low && <span className="ml-2 text-rose-600 font-semibold">⚠️ 低于 2 GB 阈值</span>}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </Card>

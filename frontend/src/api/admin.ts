@@ -175,8 +175,14 @@ export interface BucketUsage {
   other_bytes: number; other_count: number;
   total_bytes: number; total_count: number;
 }
+export interface DiskUsage {
+  total_bytes: number;
+  free_bytes: number;
+  used_bytes: number;
+}
 export interface StorageResp {
   usage: BucketUsage;
+  disk: DiskUsage | null;
   cached: boolean;
   age_ms: number;
   refreshed: string;

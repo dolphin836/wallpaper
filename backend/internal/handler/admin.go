@@ -562,6 +562,14 @@ func (h *AdminHandler) GetStorage(w http.ResponseWriter, r *http.Request) {
 	const ttl = 5 * time.Minute
 	refresh := r.URL.Query().Get("refresh") == "1"
 
+	// Disk usage is cheap (statfs, O(1)) and changes constantly, so we
+	// query it every call — never cached. Failure is non-fatal; we just
+	// omit the field and let the frontend hide the section.
+	disk, diskErr := storage.Disk("/")
+	if diskErr != nil {
+		slog.WarnContext(r.Context(), "disk stat failed", "error", diskErr)
+	}
+
 	h.storageCacheMu.Lock()
 	if !refresh && h.storageCache != nil && time.Since(h.storageCacheAt) < ttl {
 		usage := h.storageCache
@@ -569,6 +577,7 @@ func (h *AdminHandler) GetStorage(w http.ResponseWriter, r *http.Request) {
 		h.storageCacheMu.Unlock()
 		response.OK(w, map[string]any{
 			"usage":     usage,
+			"disk":      disk,
 			"cached":    true,
 			"age_ms":    age.Milliseconds(),
 			"refreshed": h.storageCacheAt.UTC(),
@@ -594,6 +603,7 @@ func (h *AdminHandler) GetStorage(w http.ResponseWriter, r *http.Request) {
 
 	response.OK(w, map[string]any{
 		"usage":     usage,
+		"disk":      disk,
 		"cached":    false,
 		"age_ms":    0,
 		"refreshed": at.UTC(),
