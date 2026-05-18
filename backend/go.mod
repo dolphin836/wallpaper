@@ -4,6 +4,7 @@ go 1.26.2
 
 require (
 	github.com/caarlos0/env/v11 v11.4.1
+	github.com/chai2010/webp v1.4.0
 	github.com/corona10/goimagehash v1.1.0
 	github.com/gen2brain/heic v0.4.9
 	github.com/go-chi/chi/v5 v5.2.5

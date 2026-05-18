@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
-	"image/jpeg"
-	"image/png"
+	_ "image/jpeg" // register JPEG decoder for image.Decode (originals are often JPEG)
+	_ "image/png"  // register PNG decoder for image.Decode
 	"io"
 	"log/slog"
 	"math/bits"
@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/chai2010/webp"
 	"github.com/corona10/goimagehash"
 	_ "github.com/gen2brain/heic"
 	"github.com/google/uuid"
@@ -213,12 +214,12 @@ func (w *ImageWorker) extractDynamicFrames(ctx context.Context, data []byte, wal
 		resized := resize.Resize(previewWidth, 0, fImg, resize.Lanczos3)
 
 		buf := new(bytes.Buffer)
-		if err := jpeg.Encode(buf, resized, &jpeg.Options{Quality: 80}); err != nil {
+		if err := webp.Encode(buf, resized, &webp.Options{Quality: 80}); err != nil {
 			continue
 		}
 
-		key := fmt.Sprintf("frames/%s.jpg", uuid.New().String())
-		if err := w.storage.Upload(ctx, key, buf, int64(buf.Len()), "image/jpeg"); err != nil {
+		key := fmt.Sprintf("frames/%s.webp", uuid.New().String())
+		if err := w.storage.Upload(ctx, key, buf, int64(buf.Len()), "image/webp"); err != nil {
 			slog.Error("upload frame failed", "wallpaper_id", wallpaperID, "frame", i, "error", err)
 			continue
 		}
@@ -313,25 +314,26 @@ func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedE
 }
 
 func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Image, format string, wallpaperID int64, origW, origH int, dominantColor, colorPalette string) error {
-	// thumb: fits within 400×300, JPEG q≈85. Tiny file (~30KB), used as the
-	// first-paint placeholder in the home card so something appears instantly
-	// while the larger card image streams in.
+	// All derived assets (thumb, preview, variants, dynamic frames) are
+	// encoded as WebP q=80 — the format is supported by every browser and
+	// macOS 11+ NSImage natively, and saves ~25–30% over equivalent-quality
+	// JPEG. Originals are kept in their uploaded format and never re-encoded.
 	thumb := resize.Thumbnail(400, 300, img, resize.Lanczos3)
 	thumbBuf := new(bytes.Buffer)
-	if err := encodeImage(thumbBuf, thumb, format); err != nil {
+	if err := webp.Encode(thumbBuf, thumb, &webp.Options{Quality: 80}); err != nil {
 		return fmt.Errorf("encode thumb: %w", err)
 	}
-	thumbKey := fmt.Sprintf("thumbs/%s.jpg", uuid.New().String())
-	if err := w.storage.Upload(ctx, thumbKey, thumbBuf, int64(thumbBuf.Len()), "image/jpeg"); err != nil {
+	thumbKey := fmt.Sprintf("thumbs/%s.webp", uuid.New().String())
+	if err := w.storage.Upload(ctx, thumbKey, thumbBuf, int64(thumbBuf.Len()), "image/webp"); err != nil {
 		return fmt.Errorf("upload thumb: %w", err)
 	}
 
 	bounds := img.Bounds()
 
-	// preview: 1600px wide, watermarked, JPEG q=80. Serves *both* the home card
-	// (loaded after the 400px thumb LQIP fades in) and the detail-page hero —
-	// loading it once on the home feed means the browser HTTP cache already has
-	// it when the user opens a detail page, so detail navigation is instant.
+	// preview: 1600px wide, watermarked. Serves *both* the home card (loaded
+	// after the 400px thumb LQIP fades in) and the detail-page hero — loading
+	// it once on the home feed means the browser HTTP cache already has it
+	// when the user opens a detail page, so detail navigation is instant.
 	previewWidth := uint(1600)
 	if bounds.Dx() < 1600 {
 		previewWidth = uint(bounds.Dx())
@@ -339,11 +341,11 @@ func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Ima
 	preview := resize.Resize(previewWidth, 0, img, resize.Lanczos3)
 	watermarked := addWatermark(preview)
 	previewBuf := new(bytes.Buffer)
-	if err := jpeg.Encode(previewBuf, watermarked, &jpeg.Options{Quality: 80}); err != nil {
+	if err := webp.Encode(previewBuf, watermarked, &webp.Options{Quality: 80}); err != nil {
 		return fmt.Errorf("encode preview: %w", err)
 	}
-	previewKey := fmt.Sprintf("previews/%s.jpg", uuid.New().String())
-	if err := w.storage.Upload(ctx, previewKey, previewBuf, int64(previewBuf.Len()), "image/jpeg"); err != nil {
+	previewKey := fmt.Sprintf("previews/%s.webp", uuid.New().String())
+	if err := w.storage.Upload(ctx, previewKey, previewBuf, int64(previewBuf.Len()), "image/webp"); err != nil {
 		return fmt.Errorf("upload preview: %w", err)
 	}
 
@@ -375,11 +377,11 @@ func (w *ImageWorker) generateDeviceVariants(ctx context.Context, img image.Imag
 
 		resized := coverResize(img, dev.Width, dev.Height)
 		buf := new(bytes.Buffer)
-		// q=85 is the industry standard "visually lossless" threshold
-		// (Apple Photos / Lightroom default exports sit at 80–85). The
-		// previous q=90 was making variants ~35% larger for no perceptible
-		// quality gain — variants dominate MinIO at ~86% of total bytes.
-		if err := jpeg.Encode(buf, resized, &jpeg.Options{Quality: 85}); err != nil {
+		// WebP q=80 is roughly visually equivalent to JPEG q=85 while
+		// saving another 25–30% on top — variants dominate MinIO storage,
+		// so the compounding effect matters here even if the per-image
+		// difference is small.
+		if err := webp.Encode(buf, resized, &webp.Options{Quality: 80}); err != nil {
 			slog.Error("encode variant failed",
 				"wallpaper_id", wallpaperID,
 				"device", dev.Name,
@@ -388,9 +390,9 @@ func (w *ImageWorker) generateDeviceVariants(ctx context.Context, img image.Imag
 			continue
 		}
 
-		objKey := fmt.Sprintf("variants/%s.jpg", uuid.New().String())
+		objKey := fmt.Sprintf("variants/%s.webp", uuid.New().String())
 		fileSize := int64(buf.Len())
-		if err := w.storage.Upload(ctx, objKey, buf, fileSize, "image/jpeg"); err != nil {
+		if err := w.storage.Upload(ctx, objKey, buf, fileSize, "image/webp"); err != nil {
 			slog.Error("upload variant failed",
 				"wallpaper_id", wallpaperID,
 				"device", dev.Name,
@@ -454,15 +456,6 @@ func coverResize(img image.Image, targetW, targetH int) image.Image {
 	draw.Draw(cropped, cropRect, scaled, image.Pt(scaledBounds.Min.X+offsetX, scaledBounds.Min.Y+offsetY), draw.Src)
 
 	return cropped
-}
-
-func encodeImage(buf *bytes.Buffer, img image.Image, format string) error {
-	switch format {
-	case "png":
-		return png.Encode(buf, img)
-	default:
-		return jpeg.Encode(buf, img, &jpeg.Options{Quality: 85})
-	}
 }
 
 func (w *ImageWorker) Close() error {
