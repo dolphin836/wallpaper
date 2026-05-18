@@ -239,6 +239,16 @@ export default function WallpaperDetailPage() {
     };
   }, [wallpaper?.id]);
 
+  // Reset the download CTA back to its default whenever the user navigates
+  // to a different wallpaper, so a stale "Downloaded" success state doesn't
+  // bleed across detail pages. Must live above the `if (!wallpaper) return`
+  // guard below — React's rules-of-hooks forbid a hook call from being
+  // skipped on any render (Error #310 if it is).
+  useEffect(() => {
+    setCtaMode('default');
+    setConfirmDontAsk(false);
+  }, [wallpaper?.id]);
+
   const handleLike = async () => {
     if (!isAuthenticated) { navigate('/login'); return; }
     if (!wallpaper || likeLoading) return;
@@ -410,14 +420,6 @@ export default function WallpaperDetailPage() {
     : insufficient ? 'insufficient'
     : ctaMode === 'confirm' ? 'confirm'
     : 'default';
-
-  // Reset the state machine when the user navigates to a different wallpaper.
-  // Without this, opening another item right after a successful download
-  // would still show the green "Downloaded" card for it.
-  useEffect(() => {
-    setCtaMode('default');
-    setConfirmDontAsk(false);
-  }, [wallpaper.id]);
 
   const handleDownloadClick = () => {
     if (!isAuthenticated) { navigate('/login'); return; }
