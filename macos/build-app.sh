@@ -81,18 +81,16 @@ lipo -create \
     -output "$APP_DIR/Contents/MacOS/$EXECUTABLE"
 cp "$INFO_PLIST" "$APP_DIR/Contents/Info.plist"
 
-readonly RESOURCE_BUNDLE="${EXECUTABLE}_${EXECUTABLE}.bundle"
-# SwiftPM's generated `Bundle.module` accessor looks for the resource bundle
-# at `Bundle.main.bundleURL.appendingPathComponent("<name>.bundle")` — i.e.
-# the .app root, NOT Contents/Resources/. Putting it under Resources/ makes
-# the accessor fall through to the hard-coded compile-time absolute path,
-# which works on the developer's machine and trap-traps everywhere else.
-# Either arch's resource bundle is fine — they're identical PNGs/assets.
-if [ ! -d "$ARM_BUILD_DIR/$RESOURCE_BUNDLE" ]; then
-    echo "==> ERROR: resource bundle not found at $ARM_BUILD_DIR/$RESOURCE_BUNDLE" >&2
-    exit 1
+# Resources are loaded via Bundle.main from Contents/Resources/ rather than
+# through SwiftPM's Bundle.module accessor — that accessor expects the
+# resource bundle to live at the .app root, which violates the macOS
+# bundle layout and trips `codesign --strict` ("unsealed contents present
+# in the bundle root"). Package.swift no longer declares `resources:`;
+# instead we copy Sources/Resources/ contents straight into the standard
+# Contents/Resources/ location.
+if [ -d "Sources/Resources" ]; then
+    cp -R Sources/Resources/. "$APP_DIR/Contents/Resources/"
 fi
-cp -R "$ARM_BUILD_DIR/$RESOURCE_BUNDLE" "$APP_DIR/$RESOURCE_BUNDLE"
 
 if [ -f "../AppIcon.icns" ]; then
     cp ../AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns"
