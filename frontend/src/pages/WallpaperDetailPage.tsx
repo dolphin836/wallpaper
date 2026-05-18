@@ -158,6 +158,30 @@ export default function WallpaperDetailPage() {
   const matchedVariant = useMemo(() => findBestMatch(variants), [variants]);
   const canMockupMatched = useMemo(() => matchedVariant ? canShowMockup(matchedVariant) : false, [matchedVariant]);
 
+  // Variants partitioned by platform, with the matched device pinned to
+  // the top of its own group and the rest sorted by total pixels desc.
+  // Backend now returns the four canonical platforms (desktop / laptop /
+  // tablet / phone) so an unknown value falls through to "other".
+  const groupedVariants = useMemo(() => {
+    const buckets: Record<string, WallpaperVariant[]> = {
+      desktop: [], laptop: [], tablet: [], phone: [], other: [],
+    };
+    for (const v of variants) {
+      const key = buckets[v.platform] !== undefined ? v.platform : 'other';
+      buckets[key].push(v);
+    }
+    for (const list of Object.values(buckets)) {
+      list.sort((a, b) => {
+        if (matchedVariant) {
+          if (a.id === matchedVariant.id) return -1;
+          if (b.id === matchedVariant.id) return 1;
+        }
+        return (b.width * b.height) - (a.width * a.height);
+      });
+    }
+    return buckets;
+  }, [variants, matchedVariant]);
+
   useEffect(() => {
     if (!id) return;
     getWallpaper(id)
@@ -570,32 +594,27 @@ export default function WallpaperDetailPage() {
               </div>
             </div>
 
-            {/* Stats strip */}
+            {/* Stats strip — label + count on top, avatar stack below so
+                the social-proof users are visually attached to their
+                metric instead of floating in a separate row. Up to 5
+                avatars per cell at 18px with overlap, the remainder
+                folds into AvatarStack's "+N" badge. */}
             <div className="mt-3 grid grid-cols-4 border border-hair border-r-0">
-              {[
-                ['DOWNLOADS', wallpaper.download_count],
-                ['LIKES',     wallpaper.like_count],
-                ['FAVORITED', wallpaper.favorite_count],
-                ['VIEWS',     wallpaper.view_count],
-              ].map(([k, v]) => (
-                <div key={String(k)} className="px-3 py-2.5 sm:px-3.5 sm:py-3 border-r border-hair">
+              {([
+                ['DOWNLOADS', wallpaper.download_count,  engagements?.downloaders ?? []],
+                ['LIKES',     wallpaper.like_count,      engagements?.likers      ?? []],
+                ['FAVORITED', wallpaper.favorite_count,  engagements?.favoriters  ?? []],
+                ['VIEWS',     wallpaper.view_count,      []                            ],
+              ] as const).map(([k, v, users]) => (
+                <div key={k} className="px-3 py-2.5 sm:px-3.5 sm:py-3 border-r border-hair">
                   <div className="mono text-[9px] tracking-[0.14em] uppercase text-muted">{k}</div>
-                  <div className="display text-[22px] sm:text-[24px] leading-none mt-1">{formatNumber(v as number)}</div>
+                  <div className="display text-[22px] sm:text-[24px] leading-none mt-1">{formatNumber(v)}</div>
+                  {users.length > 0 && (
+                    <AvatarStack users={users.slice(0, 5)} total={v} size={18} />
+                  )}
                 </div>
               ))}
             </div>
-
-            {/* Likers / favoriters avatars (kept from the old page — useful social proof) */}
-            {engagements && (engagements.likers?.length || engagements.favoriters?.length || engagements.downloaders?.length) ? (
-              <div className="mt-5 flex flex-col gap-2 text-[12px] text-ink-2">
-                {engagements.likers?.length > 0 && (
-                  <div className="flex items-center gap-3"><AvatarStack users={engagements.likers} total={wallpaper.like_count} /> <span className="mono text-[10px] tracking-wider uppercase text-muted">Liked by</span></div>
-                )}
-                {engagements.favoriters?.length > 0 && (
-                  <div className="flex items-center gap-3"><AvatarStack users={engagements.favoriters} total={wallpaper.favorite_count} /> <span className="mono text-[10px] tracking-wider uppercase text-muted">Favorited by</span></div>
-                )}
-              </div>
-            ) : null}
 
             {/* More like this */}
             {similar.length > 0 && (
@@ -897,19 +916,27 @@ export default function WallpaperDetailPage() {
             {variants.length > 0 && (
               <section>
                 <div className="kicker text-muted">Available devices</div>
-                <div className="mt-3 border-t border-hair">
-                  {[...variants]
-                    // Pin the user's matched variant to the top; sort the rest
-                    // by decreasing total pixels so the highest-fidelity
-                    // options surface first.
-                    .sort((a, b) => {
-                      if (matchedVariant) {
-                        if (a.id === matchedVariant.id) return -1;
-                        if (b.id === matchedVariant.id) return 1;
-                      }
-                      return (b.width * b.height) - (a.width * a.height);
-                    })
-                    .map((v) => {
+                {/* Grouped by platform. Render order is fixed (desktop →
+                    laptop → tablet → phone → other) so the page layout
+                    stays stable when the variant set shifts. Each group
+                    only renders if it has at least one variant. */}
+                {(['desktop', 'laptop', 'tablet', 'phone', 'other'] as const).map((platform) => {
+                  const list = groupedVariants[platform];
+                  if (!list || list.length === 0) return null;
+                  const platformLabel = {
+                    desktop: 'Desktop',
+                    laptop:  'Laptop',
+                    tablet:  'Tablet',
+                    phone:   'Phone',
+                    other:   'Other',
+                  }[platform];
+                  return (
+                    <div key={platform} className="mt-4">
+                      <div className="mono text-[10px] tracking-[0.14em] uppercase text-muted mb-2">
+                        {platformLabel} · {list.length}
+                      </div>
+                      <div className="border-t border-hair">
+                  {list.map((v) => {
                       const isMatched = matchedVariant?.id === v.id;
                       const mockable = canShowMockup(v);
                       const deviceName = [v.brand, v.device_name].filter(Boolean).join(' ').trim() || 'Device';
@@ -986,7 +1013,10 @@ export default function WallpaperDetailPage() {
                         </div>
                       );
                     })}
-                </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </section>
             )}
 
