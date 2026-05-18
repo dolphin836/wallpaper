@@ -103,6 +103,7 @@ export interface DeviceProfile {
   platform: string;
   brand: string;
   name: string;
+  slug: string;
   width: number;
   height: number;
   ppi: number;

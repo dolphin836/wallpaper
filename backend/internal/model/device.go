@@ -7,6 +7,7 @@ type DeviceProfile struct {
 	Platform  string    `gorm:"size:32;not null;index" json:"platform"`
 	Brand     string    `gorm:"size:64;not null" json:"brand"`
 	Name      string    `gorm:"size:128;not null" json:"name"`
+	Slug      string    `gorm:"size:160;->" json:"slug"`
 	Width     int       `gorm:"not null" json:"width"`
 	Height    int       `gorm:"not null" json:"height"`
 	PPI       int       `gorm:"not null;default:0" json:"ppi"`

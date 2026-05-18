@@ -125,3 +125,76 @@ func (h *DeviceHandler) DownloadVariant(w http.ResponseWriter, r *http.Request) 
 
 	response.OK(w, map[string]string{"url": variant.URL})
 }
+
+
+// GetDeviceBySlug returns the device profile + a total wallpaper count
+// for the device-specific landing page (/wallpapers-for/:slug).
+func (h *DeviceHandler) GetDeviceBySlug(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	if slug == "" {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	device, err := h.deviceRepo.GetBySlug(r.Context(), slug)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	if device == nil {
+		response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+		return
+	}
+	count, err := h.deviceRepo.CountWallpapersForDevice(r.Context(), device.ID)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, map[string]any{
+		"device":           device,
+		"wallpaper_count":  count,
+	})
+}
+
+// ListWallpapersForDevice paginates published wallpapers that have a
+// variant for the given device slug. Cursor is the last wallpaper id
+// from the previous page (newest-first ordering).
+func (h *DeviceHandler) ListWallpapersForDevice(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	if slug == "" {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	device, err := h.deviceRepo.GetBySlug(r.Context(), slug)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	if device == nil {
+		response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+		return
+	}
+
+	cursor, _ := strconv.ParseInt(r.URL.Query().Get("cursor"), 10, 64)
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	items, err := h.deviceRepo.ListWallpapersForDevice(r.Context(), device.ID, cursor, limit)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	var nextCursor int64
+	hasMore := len(items) == limit
+	if hasMore && len(items) > 0 {
+		nextCursor = items[len(items)-1].ID
+	}
+
+	response.OK(w, map[string]any{
+		"items":       items,
+		"next_cursor": nextCursor,
+		"has_more":    hasMore,
+	})
+}

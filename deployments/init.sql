@@ -95,6 +95,17 @@ CREATE INDEX IF NOT EXISTS idx_device_profiles_platform ON device_profiles(platf
 -- seed silently duplicated every device every time the script was re-run).
 CREATE UNIQUE INDEX IF NOT EXISTS idx_device_profiles_name_unique ON device_profiles(name);
 
+-- URL-safe slug derived from name, used in /wallpapers-for/:slug routes.
+-- Postgres GENERATED column so we never need to maintain it manually —
+-- inserts/updates to `name` automatically refresh the slug. Idempotent
+-- on existing databases because IF NOT EXISTS skips the ADD COLUMN once
+-- the column is in place.
+ALTER TABLE device_profiles
+    ADD COLUMN IF NOT EXISTS slug VARCHAR(160) GENERATED ALWAYS AS (
+        lower(regexp_replace(regexp_replace(name, '[^a-zA-Z0-9]+', '-', 'g'), '(^-+|-+$)', '', 'g'))
+    ) STORED;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_device_profiles_slug_unique ON device_profiles(slug);
+
 CREATE TABLE IF NOT EXISTS wallpaper_variants (
     id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     wallpaper_id BIGINT       NOT NULL,

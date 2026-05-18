@@ -16,10 +16,11 @@ import (
 type SEOHandler struct {
 	wallpaperRepo *repo.WallpaperRepo
 	categoryRepo  *repo.CategoryRepo
+	deviceRepo    *repo.DeviceRepo
 }
 
-func NewSEOHandler(wallpaperRepo *repo.WallpaperRepo, categoryRepo *repo.CategoryRepo) *SEOHandler {
-	return &SEOHandler{wallpaperRepo: wallpaperRepo, categoryRepo: categoryRepo}
+func NewSEOHandler(wallpaperRepo *repo.WallpaperRepo, categoryRepo *repo.CategoryRepo, deviceRepo *repo.DeviceRepo) *SEOHandler {
+	return &SEOHandler{wallpaperRepo: wallpaperRepo, categoryRepo: categoryRepo, deviceRepo: deviceRepo}
 }
 
 const robotsTemplate = `User-agent: *
@@ -63,6 +64,24 @@ func (h *SEOHandler) Sitemap(w http.ResponseWriter, r *http.Request) {
 		{Loc: base + "/about", ChangeFreq: "monthly", Priority: "0.4"},
 		{Loc: base + "/contribute", ChangeFreq: "monthly", Priority: "0.5"},
 		{Loc: base + "/download/mac", ChangeFreq: "monthly", Priority: "0.5"},
+	}
+
+	// Device-specific landing pages — one URL per active device profile.
+	// These are SEO long-tail entry points for searches like "iPhone 16
+	// Pro wallpaper", so we include them in sitemap.xml at decent priority.
+	if devices, derr := h.deviceRepo.ListActive(ctx); derr == nil {
+		for _, d := range devices {
+			if d.Slug == "" {
+				continue
+			}
+			urls = append(urls, sitemapURL{
+				Loc:        base + "/wallpapers-for/" + d.Slug,
+				ChangeFreq: "weekly",
+				Priority:   "0.6",
+			})
+		}
+	} else {
+		slog.ErrorContext(ctx, "sitemap: list active devices failed", "error", derr)
 	}
 
 	entries, err := h.wallpaperRepo.ListPublishedForSitemap(ctx)

@@ -15,6 +15,7 @@ import PrivacyPage from './pages/PrivacyPage';
 import LegalDmcaPage from './pages/LegalDmcaPage';
 import AboutPage from './pages/AboutPage';
 import ContributePage from './pages/ContributePage';
+import DeviceWallpapersPage from './pages/DeviceWallpapersPage';
 import DownloadMacPage from './pages/DownloadMacPage';
 import WallpaperDetailModal from './components/WallpaperDetailModal';
 import AdminLayout from './pages/admin/AdminLayout';
@@ -47,6 +48,7 @@ function AppRoutes() {
           <Route path="/legal/dmca" element={<LegalDmcaPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contribute" element={<ContributePage />} />
+          <Route path="/wallpapers-for/:slug" element={<DeviceWallpapersPage />} />
           <Route path="/download/mac" element={<DownloadMacPage />} />
         </Route>
         <Route path="/admin" element={<AdminLayout />}>

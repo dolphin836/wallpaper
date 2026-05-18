@@ -20,7 +20,7 @@ func NewDeviceRepo(db *gorm.DB) *DeviceRepo {
 func (r *DeviceRepo) ListActive(ctx context.Context) ([]model.DeviceProfile, error) {
 	var devices []model.DeviceProfile
 	err := r.db.WithContext(ctx).
-		Select("id, platform, brand, name, width, height, ppi, sort_order").
+		Select("id, platform, brand, name, slug, width, height, ppi, sort_order").
 		Where("is_active = ?", true).
 		Order("sort_order ASC, id ASC").
 		Find(&devices).Error
@@ -30,7 +30,7 @@ func (r *DeviceRepo) ListActive(ctx context.Context) ([]model.DeviceProfile, err
 func (r *DeviceRepo) ListAll(ctx context.Context) ([]model.DeviceProfile, error) {
 	var devices []model.DeviceProfile
 	err := r.db.WithContext(ctx).
-		Select("id, platform, brand, name, width, height, ppi, sort_order, is_active, created_at").
+		Select("id, platform, brand, name, slug, width, height, ppi, sort_order, is_active, created_at").
 		Order("platform ASC, sort_order ASC").
 		Find(&devices).Error
 	return devices, err
@@ -85,4 +85,56 @@ func (r *DeviceRepo) IncrementVariantDownload(ctx context.Context, variantID int
 		Model(&model.WallpaperVariant{}).
 		Where("id = ?", variantID).
 		Update("download_count", gorm.Expr("download_count + 1")).Error
+}
+
+// GetBySlug returns the active device profile with the given slug, or nil
+// when there's no match. Used by the /wallpapers-for/:slug landing pages.
+func (r *DeviceRepo) GetBySlug(ctx context.Context, slug string) (*model.DeviceProfile, error) {
+	var d model.DeviceProfile
+	err := r.db.WithContext(ctx).
+		Select("id, platform, brand, name, slug, width, height, ppi, sort_order, is_active, created_at").
+		Where("slug = ? AND is_active = ?", slug, true).
+		First(&d).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &d, nil
+}
+
+// CountWallpapersForDevice returns the total number of published wallpapers
+// that have at least one variant for the given device id.
+func (r *DeviceRepo) CountWallpapersForDevice(ctx context.Context, deviceID int64) (int64, error) {
+	var n int64
+	err := r.db.WithContext(ctx).
+		Table("wallpapers w").
+		Joins("JOIN wallpaper_variants wv ON wv.wallpaper_id = w.id").
+		Where("wv.device_id = ? AND w.status = ?", deviceID, 1). // 1 = published
+		Distinct("w.id").
+		Count(&n).Error
+	return n, err
+}
+
+// ListWallpapersForDevice returns a page of published wallpapers that have
+// at least one variant for the given device, ordered by newest first. The
+// cursor is the wallpaper id of the last row from the previous page.
+func (r *DeviceRepo) ListWallpapersForDevice(
+	ctx context.Context, deviceID int64, cursor int64, limit int,
+) ([]model.Wallpaper, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	q := r.db.WithContext(ctx).
+		Table("wallpapers w").
+		Select("DISTINCT w.*").
+		Joins("JOIN wallpaper_variants wv ON wv.wallpaper_id = w.id").
+		Where("wv.device_id = ? AND w.status = ?", deviceID, 1)
+	if cursor > 0 {
+		q = q.Where("w.id < ?", cursor)
+	}
+	var out []model.Wallpaper
+	err := q.Order("w.id DESC").Limit(limit).Find(&out).Error
+	return out, err
 }

@@ -111,6 +111,15 @@ export const getMyDownloads = (params: {
 export const getDevices = () =>
   client.get<ApiResponse<DeviceProfile[]>>('/devices');
 
+export const getDeviceBySlug = (slug: string) =>
+  client.get<ApiResponse<{ device: DeviceProfile; wallpaper_count: number }>>(`/devices/${slug}`);
+
+export const getWallpapersForDevice = (
+  slug: string,
+  params: { cursor?: number; limit?: number } = {}
+) =>
+  client.get<ApiResponse<PaginatedData<Wallpaper>>>(`/devices/${slug}/wallpapers`, { params });
+
 export const getWallpaperVariants = (wallpaperId: number) =>
   client.get<ApiResponse<WallpaperVariant[]>>(`/wallpapers/${wallpaperId}/variants`);
 

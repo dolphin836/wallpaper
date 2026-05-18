@@ -68,6 +68,8 @@ func NewRouter(deps Deps) *chi.Mux {
 		r.Get("/categories", deps.CategoryHandler.List)
 		r.Get("/tags", deps.TagHandler.Popular)
 		r.Get("/devices", deps.DeviceHandler.ListDevices)
+		r.Get("/devices/{slug}", deps.DeviceHandler.GetDeviceBySlug)
+		r.Get("/devices/{slug}/wallpapers", deps.DeviceHandler.ListWallpapersForDevice)
 		r.Get("/mac/release", deps.ReleaseHandler.GetMacRelease)
 		r.Get("/stats", deps.StatsHandler.Get)
 
