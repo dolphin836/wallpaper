@@ -2,7 +2,10 @@ package repo
 
 import (
 	"context"
+	"errors"
 	"strings"
+
+	"gorm.io/gorm"
 
 	"github.com/wallpaper/backend/internal/model"
 )
@@ -112,4 +115,49 @@ func (r *WallpaperRepo) AdminUpdate(ctx context.Context, id int64, u AdminWallpa
 		return nil
 	}
 	return r.db.WithContext(ctx).Model(&model.Wallpaper{}).Where("id = ?", id).Updates(updates).Error
+}
+
+// AdminHardDelete physically removes a wallpaper row and every child row that
+// references it. The caller is responsible for deleting the matching MinIO
+// objects (original / thumb / preview / dynamic frames) — those URLs are
+// returned via the resulting Wallpaper struct so the handler can issue the
+// storage deletes after the DB transaction commits.
+//
+// Returns gorm.ErrRecordNotFound when the row is gone. No FK constraints are
+// declared in init.sql, so child-table cleanup is done explicitly here in a
+// single transaction.
+func (r *WallpaperRepo) AdminHardDelete(ctx context.Context, id int64) (*model.Wallpaper, error) {
+	var w model.Wallpaper
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("id = ?", id).First(&w).Error; err != nil {
+			return err
+		}
+		// Order matters only insofar as child rows must go before the parent;
+		// the children are independent of one another.
+		children := []struct {
+			model any
+		}{
+			{&model.WallpaperTag{}},
+			{&model.WallpaperVariant{}},
+			{&model.WallpaperEvent{}},
+			{&model.UserLike{}},
+			{&model.UserFavorite{}},
+			{&model.UserDownload{}},
+			{&model.CollectionWallpaper{}},
+			{&model.Report{}},
+		}
+		for _, c := range children {
+			if err := tx.Where("wallpaper_id = ?", id).Delete(c.model).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Where("id = ?", id).Delete(&model.Wallpaper{}).Error
+	})
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+		return nil, err
+	}
+	return &w, nil
 }

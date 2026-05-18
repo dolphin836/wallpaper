@@ -63,6 +63,14 @@ export default function WallpapersPage() {
     }).catch((e) => toast.error(e?.response?.data?.message || '操作失败'));
   };
 
+  const onHardDelete = (id: number) => {
+    if (!confirm('永久删除该重复壁纸？此操作不可恢复，会同时删除数据库记录和 MinIO 原图文件。')) return;
+    admin.hardDeleteAdminWallpaper(id).then(() => {
+      toast.success('已永久删除');
+      fetchList();
+    }).catch((e) => toast.error(e?.response?.data?.message || '删除失败'));
+  };
+
   const onChangeStatus = (id: number, status: number) => {
     admin.updateAdminWallpaper(id, { status }).then(() => {
       toast.success('状态已更新');
@@ -158,6 +166,9 @@ export default function WallpapersPage() {
                           )}
                           {w.status === 3 && (
                             <button onClick={() => onChangeStatus(w.id, 1)} className="text-xs text-emerald-600 hover:underline">恢复</button>
+                          )}
+                          {w.status === 4 && (
+                            <button onClick={() => onHardDelete(w.id)} className="text-xs font-medium text-rose-600 hover:underline">永久删除</button>
                           )}
                         </td>
                       </tr>

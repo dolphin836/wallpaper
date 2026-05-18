@@ -122,6 +122,11 @@ export const updateAdminWallpaper = (id: number, data: {
 export const deleteAdminWallpaper = (id: number) =>
   client.delete<ApiResponse<null>>(`/admin/wallpapers/${id}`);
 
+// Physically removes the wallpaper row, all its children, and the MinIO
+// objects. Backend rejects this unless the row is in status=duplicate (4).
+export const hardDeleteAdminWallpaper = (id: number) =>
+  client.delete<ApiResponse<null>>(`/admin/wallpapers/${id}/hard`);
+
 export const reprocessAdminWallpaper = (id: number) =>
   client.post<ApiResponse<null>>(`/admin/wallpapers/${id}/reprocess`);
 

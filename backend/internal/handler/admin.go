@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -264,6 +265,67 @@ func (h *AdminHandler) DeleteWallpaper(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
+	response.OK(w, nil)
+}
+
+// HardDeleteWallpaper physically removes a wallpaper row, its children and
+// its MinIO objects. Restricted to status=duplicate rows — soft-delete is
+// the right tool for everything else, and a hardened guard here prevents
+// an admin from nuking a real wallpaper by clicking the wrong button.
+//
+// MinIO deletions are best-effort: if a key is missing or the storage
+// layer hiccups, we log and continue. The DB cleanup already committed,
+// so the row + children are gone either way; an orphaned object will
+// just sit in MinIO until the next cleanup sweep.
+func (h *AdminHandler) HardDeleteWallpaper(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+
+	existing, err := h.wallpaperRepo.GetByID(r.Context(), id)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "admin hard-delete lookup failed", "id", id, "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	if existing == nil {
+		response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+		return
+	}
+	if existing.Status != model.WallpaperStatusDuplicate {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+
+	deleted, err := h.wallpaperRepo.AdminHardDelete(r.Context(), id)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "admin hard-delete failed", "id", id, "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+
+	objectKeys := []string{deleted.OriginalURL, deleted.ThumbURL, deleted.PreviewURL}
+	if deleted.FrameURLs != "" {
+		for _, u := range strings.Split(deleted.FrameURLs, ",") {
+			if u = strings.TrimSpace(u); u != "" {
+				objectKeys = append(objectKeys, u)
+			}
+		}
+	}
+	for _, url := range objectKeys {
+		key := h.storage.ObjectKeyFromURL(url)
+		if key == "" {
+			continue
+		}
+		if err := h.storage.Delete(r.Context(), key); err != nil {
+			slog.WarnContext(r.Context(), "minio delete failed (continuing)", "key", key, "error", err)
+		}
+	}
+
+	slog.InfoContext(r.Context(), "wallpaper hard-deleted",
+		"id", id, "slug", deleted.Slug, "object_count", len(objectKeys))
 	response.OK(w, nil)
 }
 
