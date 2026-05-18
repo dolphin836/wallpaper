@@ -269,9 +269,12 @@ func (h *AdminHandler) DeleteWallpaper(w http.ResponseWriter, r *http.Request) {
 }
 
 // HardDeleteWallpaper physically removes a wallpaper row, its children and
-// its MinIO objects. Restricted to status=duplicate rows — soft-delete is
-// the right tool for everything else, and a hardened guard here prevents
-// an admin from nuking a real wallpaper by clicking the wrong button.
+// its MinIO objects. Restricted to rows that are already off the public
+// surface — status=removed (soft-deleted) or status=duplicate. Trying to
+// hard-delete a live (published / processing / failed) row is rejected,
+// so an admin has to soft-delete first if they really mean to nuke it.
+// The two-step path keeps an accidental click from atomically destroying
+// a live wallpaper plus every like/favorite/download attached to it.
 //
 // MinIO deletions are best-effort: if a key is missing or the storage
 // layer hiccups, we log and continue. The DB cleanup already committed,
@@ -284,7 +287,10 @@ func (h *AdminHandler) HardDeleteWallpaper(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	existing, err := h.wallpaperRepo.GetByID(r.Context(), id)
+	// GetByID filters out status=removed, so we need a raw lookup that sees
+	// every status — hard-delete operates on rows the public API has already
+	// hidden.
+	existing, err := h.wallpaperRepo.GetByIDAnyStatus(r.Context(), id)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "admin hard-delete lookup failed", "id", id, "error", err)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
@@ -294,7 +300,7 @@ func (h *AdminHandler) HardDeleteWallpaper(w http.ResponseWriter, r *http.Reques
 		response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
 		return
 	}
-	if existing.Status != model.WallpaperStatusDuplicate {
+	if existing.Status != model.WallpaperStatusRemoved && existing.Status != model.WallpaperStatusDuplicate {
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}

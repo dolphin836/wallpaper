@@ -63,8 +63,11 @@ export default function WallpapersPage() {
     }).catch((e) => toast.error(e?.response?.data?.message || '操作失败'));
   };
 
-  const onHardDelete = (id: number) => {
-    if (!confirm('永久删除该重复壁纸？此操作不可恢复，会同时删除数据库记录和 MinIO 原图文件。')) return;
+  const onHardDelete = (id: number, status: number) => {
+    const extra = status === 3
+      ? '注意：该壁纸曾经发布过，可能仍有用户收藏/点赞过它——所有这些关联记录都会一并清除。'
+      : '';
+    if (!confirm(`永久删除这张壁纸？此操作不可恢复，会同时删除数据库记录和 MinIO 原图文件。${extra}`)) return;
     admin.hardDeleteAdminWallpaper(id).then(() => {
       toast.success('已永久删除');
       fetchList();
@@ -165,10 +168,13 @@ export default function WallpapersPage() {
                             <button onClick={() => onDelete(w.id)} className="text-xs text-rose-500 hover:underline">下架</button>
                           )}
                           {w.status === 3 && (
-                            <button onClick={() => onChangeStatus(w.id, 1)} className="text-xs text-emerald-600 hover:underline">恢复</button>
+                            <>
+                              <button onClick={() => onChangeStatus(w.id, 1)} className="text-xs text-emerald-600 hover:underline mr-3">恢复</button>
+                              <button onClick={() => onHardDelete(w.id, w.status)} className="text-xs font-medium text-rose-600 hover:underline">永久删除</button>
+                            </>
                           )}
                           {w.status === 4 && (
-                            <button onClick={() => onHardDelete(w.id)} className="text-xs font-medium text-rose-600 hover:underline">永久删除</button>
+                            <button onClick={() => onHardDelete(w.id, w.status)} className="text-xs font-medium text-rose-600 hover:underline">永久删除</button>
                           )}
                         </td>
                       </tr>

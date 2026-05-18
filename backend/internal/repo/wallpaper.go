@@ -43,6 +43,21 @@ func (r *WallpaperRepo) GetByID(ctx context.Context, id int64) (*model.Wallpaper
 	return &w, nil
 }
 
+// GetByIDAnyStatus is GetByID without the status filter. Admin paths that
+// operate on already-hidden rows (hard-delete on removed/duplicate) need
+// to see them; the public GetByID hides removed rows by design.
+func (r *WallpaperRepo) GetByIDAnyStatus(ctx context.Context, id int64) (*model.Wallpaper, error) {
+	var w model.Wallpaper
+	err := r.db.WithContext(ctx).Where("id = ?", id).First(&w).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &w, nil
+}
+
 func (r *WallpaperRepo) GetBySlug(ctx context.Context, slug string) (*model.Wallpaper, error) {
 	var w model.Wallpaper
 	err := r.db.WithContext(ctx).
