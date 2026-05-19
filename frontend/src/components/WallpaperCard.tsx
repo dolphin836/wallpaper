@@ -176,12 +176,22 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   // disableModal omits `background` so the route resolves to the full page
   // instead of the overlay modal. initialWallpaper still hydrates the
   // detail view from this card's data even on a full-page nav.
+  //
+  // When the card itself sits inside a modal — i.e. the current route
+  // already carries a `background` state — we *inherit* that ancestor
+  // background and `replace` instead of `push`. Otherwise jumping from
+  // one detail card to a similar one would push a new history entry,
+  // so closing the modal would only step back one detail at a time
+  // instead of returning to the original gallery.
+  const existingBg = (location.state as { background?: Location } | null)?.background;
+  const insideModal = !!existingBg;
   const wrapperProps = isPublished
     ? {
         to: `/wallpaper/${wallpaper.slug}`,
         state: disableModal
           ? { initialWallpaper: wallpaper }
-          : { background: location, initialWallpaper: wallpaper },
+          : { background: existingBg || location, initialWallpaper: wallpaper },
+        ...(insideModal && !disableModal ? { replace: true } : {}),
       }
     : { style: { cursor: 'default' } };
 
