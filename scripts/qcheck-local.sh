@@ -4,12 +4,12 @@
 # What it does, in order:
 #   1. Opens an SSH tunnel to the prod postgres (localhost:15432 → :5432).
 #   2. Runs ./cmd/qcheck against unassessed wallpapers — Claude vision
-#      assigns each one a quality_flag. Flagged rows have their device
-#      variants removed from the DB.
-#   3. Calls scripts/sweep-orphan-variants.sh on the prod host to clean
-#      up the MinIO objects that the local DB cleanup couldn't reach
-#      (qcheck can't talk to the internal :9000 MinIO endpoint from
-#      outside the docker network).
+#      labels each one with a quality_flag (ok / blurry / watermark /
+#      ai_slop / text_overlay / low_aesthetic). Variants are NOT
+#      touched — flagged rows just show up in the admin "⚑ 已标记"
+#      queue for you to approve or hard-delete manually. Hard-delete
+#      in the admin already removes everything: DB rows, original,
+#      thumb / preview / frames, and every device variant.
 #
 # Usage:
 #   ./scripts/qcheck-local.sh                # dry-run: assess but don't write
@@ -72,7 +72,7 @@ done
 echo "==> Running qcheck..."
 qcheck_args=("--pause" "300ms")
 if [ "$commit" -eq 1 ]; then
-    qcheck_args+=("--commit" "--cleanup-flagged")
+    qcheck_args+=("--commit")
 fi
 qcheck_args+=("${extra_args[@]}")
 
@@ -86,10 +86,4 @@ env \
     ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
     go -C backend run ./cmd/qcheck "${qcheck_args[@]}"
 
-# ── Step 3: orphan sweep on prod (only when we actually wrote) ───────
-if [ "$commit" -eq 1 ]; then
-    echo "==> Sweeping orphan variant objects from MinIO (on prod host)..."
-    ssh "$SSH_HOST" "cd /opt/app/wallpaper && bash scripts/sweep-orphan-variants.sh --apply"
-fi
-
-echo "==> Done. Review the admin moderation queue if any rows were flagged."
+echo "==> Done. Open admin → Wallpapers → filter \"⚑ 已标记\" to review."

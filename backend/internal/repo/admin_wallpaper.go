@@ -136,19 +136,36 @@ func (r *WallpaperRepo) AdminUpdate(ctx context.Context, id int64, u AdminWallpa
 	return r.db.WithContext(ctx).Model(&model.Wallpaper{}).Where("id = ?", id).Updates(updates).Error
 }
 
-// AdminHardDelete physically removes a wallpaper row and every child row that
-// references it. The caller is responsible for deleting the matching MinIO
-// objects (original / thumb / preview / dynamic frames) — those URLs are
-// returned via the resulting Wallpaper struct so the handler can issue the
-// storage deletes after the DB transaction commits.
+// HardDeleteResult bundles everything the handler needs to fully purge a
+// wallpaper. Wallpaper carries the original/thumb/preview/frame URLs on
+// itself; VariantURLs is the URLs from the wallpaper_variants child rows
+// that were deleted in the same transaction. The handler joins them and
+// best-effort-deletes the matching MinIO objects.
+type HardDeleteResult struct {
+	Wallpaper   model.Wallpaper
+	VariantURLs []string
+}
+
+// AdminHardDelete physically removes a wallpaper row and every child row
+// that references it. The caller is responsible for deleting the matching
+// MinIO objects — the URLs are surfaced via HardDeleteResult so the
+// handler can issue the storage deletes after the DB transaction commits.
 //
-// Returns gorm.ErrRecordNotFound when the row is gone. No FK constraints are
-// declared in init.sql, so child-table cleanup is done explicitly here in a
-// single transaction.
-func (r *WallpaperRepo) AdminHardDelete(ctx context.Context, id int64) (*model.Wallpaper, error) {
-	var w model.Wallpaper
+// Returns gorm.ErrRecordNotFound when the row is gone. No FK constraints
+// are declared in init.sql, so child-table cleanup is done explicitly here
+// in a single transaction.
+func (r *WallpaperRepo) AdminHardDelete(ctx context.Context, id int64) (*HardDeleteResult, error) {
+	out := HardDeleteResult{}
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("id = ?", id).First(&w).Error; err != nil {
+		if err := tx.Where("id = ?", id).First(&out.Wallpaper).Error; err != nil {
+			return err
+		}
+		// Snapshot variant URLs before the child-row delete kills them —
+		// the handler needs these to remove the corresponding MinIO
+		// objects (the storage layer doesn't know about the DB rows).
+		if err := tx.Table("wallpaper_variants").
+			Where("wallpaper_id = ?", id).
+			Pluck("url", &out.VariantURLs).Error; err != nil {
 			return err
 		}
 		// Order matters only insofar as child rows must go before the parent;
@@ -178,5 +195,5 @@ func (r *WallpaperRepo) AdminHardDelete(ctx context.Context, id int64) (*model.W
 		}
 		return nil, err
 	}
-	return &w, nil
+	return &out, nil
 }
