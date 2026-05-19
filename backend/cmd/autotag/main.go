@@ -116,19 +116,36 @@ func main() {
 
 	var ok, skipped, failed int
 	for i, r := range rows {
-		// Prefer preview (sharper, but still small enough — ~1600px wide).
-		// Fall back to thumb when preview is missing (legacy rows).
-		img := r.PreviewURL
-		if img == "" {
-			img = r.ThumbURL
+		// Prefer thumb (smaller, faster for the Anthropic server-side
+		// fetcher — China-hosted MinIO is slow from outside, and the
+		// preview can be hundreds of KB which times out). Fall back to
+		// preview if thumb is missing, then preview if thumb errors.
+		candidates := []string{}
+		if r.ThumbURL != "" {
+			candidates = append(candidates, r.ThumbURL)
 		}
-		if img == "" {
-			fmt.Printf("[%d/%d] id=%d SKIP (no preview or thumb URL)\n", i+1, len(rows), r.ID)
+		if r.PreviewURL != "" {
+			candidates = append(candidates, r.PreviewURL)
+		}
+		if len(candidates) == 0 {
+			fmt.Printf("[%d/%d] id=%d SKIP (no thumb or preview URL)\n", i+1, len(rows), r.ID)
 			skipped++
 			continue
 		}
 
-		cls, err := llmClient.Classify(ctx, img)
+		var cls *llm.Classification
+		var err error
+		for _, img := range candidates {
+			cls, err = llmClient.Classify(ctx, img)
+			if err == nil {
+				break
+			}
+			// Only retry on Anthropic-side download timeout — anything
+			// else is unlikely to differ between thumb and preview.
+			if !strings.Contains(err.Error(), "timed out while trying to download") {
+				break
+			}
+		}
 		if err != nil {
 			fmt.Printf("[%d/%d] id=%d CLASSIFY ERR: %v\n", i+1, len(rows), r.ID, err)
 			failed++
