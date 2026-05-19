@@ -17,7 +17,7 @@ import {
 } from 'react-icons/ai';
 import { MdPlaylistAdd, MdDesktopMac, MdLaptopMac, MdTabletMac, MdPhoneIphone, MdOutlineRemoveRedEye } from 'react-icons/md';
 import toast from 'react-hot-toast';
-import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User } from '../types';
+import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User, Category } from '../types';
 import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
 import ReportModal from '../components/ReportModal';
 import WallpaperCard from '../components/WallpaperCard';
@@ -33,6 +33,7 @@ import {
   downloadVariant,
   getWallpaperVariants,
   getWallpaperEngagements,
+  getCategories,
 } from '../api';
 import { useAuthStore } from '../store/auth';
 import Spinner from '../components/Spinner';
@@ -128,6 +129,19 @@ export default function WallpaperDetailPage() {
   const [showAddToCollection, setShowAddToCollection] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [similar, setSimilar] = useState<Wallpaper[]>([]);
+  // Cache the full category list so we can map wallpaper.category_id (a
+  // number) to a display name without a per-detail fetch. List is tiny
+  // (10 rows) and stable across pages, so one fetch per mount is fine.
+  const [categories, setCategories] = useState<Category[]>([]);
+  useEffect(() => {
+    getCategories()
+      .then((r) => setCategories(r.data.data || []))
+      .catch(() => setCategories([]));
+  }, []);
+  const categoryName = useMemo(() => {
+    if (!wallpaper?.category_id) return '';
+    return categories.find((c) => c.id === wallpaper.category_id)?.name || '';
+  }, [categories, wallpaper?.category_id]);
   const [dlLoading, setDlLoading] = useState(false);
   const [dlDone, setDlDone] = useState(false);
   // Coin CTA state machine: default → confirm → (success | insufficient)
@@ -703,6 +717,29 @@ export default function WallpaperDetailPage() {
                     <dd className="m-0 text-ink inline-flex items-center gap-1.5">
                       <span className="inline-block w-2.5 h-2.5 border border-hair" style={{ background: wallpaper.dominant_color }} />
                       {wallpaper.dominant_color.toUpperCase()}
+                    </dd>
+                  </>
+                )}
+                {categoryName && (
+                  <>
+                    <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">CATEGORY</dt>
+                    <dd className="m-0 text-ink">{categoryName}</dd>
+                  </>
+                )}
+                {wallpaper.tags && wallpaper.tags.length > 0 && (
+                  <>
+                    <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">TAGS</dt>
+                    <dd className="m-0 text-ink">
+                      <div className="flex flex-wrap gap-1.5">
+                        {wallpaper.tags.map((t) => (
+                          <span
+                            key={t.id}
+                            className="inline-block px-2 py-0.5 text-[11px] border border-hair rounded bg-paper-2 text-ink-2"
+                          >
+                            {t.name}
+                          </span>
+                        ))}
+                      </div>
                     </dd>
                   </>
                 )}
