@@ -48,7 +48,7 @@ func main() {
 	)
 	flag.BoolVar(&commit, "commit", false, "actually persist quality assessments")
 	flag.IntVar(&limit, "limit", 0, "process at most N wallpapers (0 = unlimited)")
-	flag.BoolVar(&rescan, "rescan", false, "include rows that already have a quality_flag (default: skip)")
+	flag.BoolVar(&rescan, "rescan", false, "also re-evaluate rows that already carry a non-ok quality_flag (default: only unassessed). Approved rows (quality_flag='ok') are NEVER re-evaluated — admin approval is final.")
 	flag.DurationVar(&pause, "pause", 400*time.Millisecond, "delay between API calls (rate-limit cushion)")
 	flag.BoolVar(&cleanupFlagged, "cleanup-flagged", false, "when an assessment returns a non-ok flag, also delete that wallpaper's device variants (DB rows + MinIO objects) so the moderation queue and storage stay in sync")
 	cleanupOnly := flag.Bool("cleanup-only", false, "skip the LLM entirely and just drop variants for every row that is already flagged (quality_flag NOT IN ('', 'ok')). Useful for catching up after the first qcheck pass ran without --cleanup-flagged.")
@@ -107,6 +107,10 @@ func main() {
 		Table("wallpapers").
 		Select("id, thumb_url, preview_url").
 		Where("status = ?", model.WallpaperStatusPublished).
+		// Approved rows are sticky — once an admin has cleared a flag back
+		// to 'ok' we treat that as final and never let the LLM second-
+		// guess them, even when --rescan is set.
+		Where("quality_flag <> 'ok'").
 		Order("id ASC")
 	if !rescan {
 		q = q.Where("quality_flag = ''")

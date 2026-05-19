@@ -102,6 +102,7 @@ func (r *WallpaperRepo) AdminList(ctx context.Context, opts AdminWallpaperListOp
                      wallpapers.width, wallpapers.height, wallpapers.file_size, wallpapers.file_type,
                      wallpapers.dominant_color, wallpapers.status, wallpapers.view_count, wallpapers.like_count,
                      wallpapers.download_count, wallpapers.favorite_count, wallpapers.is_dynamic, wallpapers.dynamic_type,
+                     wallpapers.quality_flag, wallpapers.quality_notes,
                      wallpapers.created_at, wallpapers.updated_at,
                      COALESCE(u.username, '') AS uploader_username,
                      COALESCE(c.name, '')     AS category_name`).
