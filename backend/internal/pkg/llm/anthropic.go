@@ -154,6 +154,109 @@ func (c *Client) Classify(ctx context.Context, imageURL string) (*Classification
 	return &cls, nil
 }
 
+// TagInput is one row of the tag inventory fed into ProposeTagMerges. The
+// count is the number of wallpapers currently linked to the tag — Claude
+// uses it to pick which name in a synonym set becomes canonical (heaviest
+// wins).
+type TagInput struct {
+	Name  string
+	Count int
+}
+
+// TagMerge says "rewrite every link from `From` to `To`, then drop `From`."
+// From and To always differ. Tags that should stay as-is don't appear here.
+type TagMerge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+const proposeTagMergesPrompt = `You are cleaning up a tag taxonomy for a wallpaper-sharing site. Below is the full inventory of tags and how many wallpapers carry each. Return ONLY a JSON object (no markdown, no commentary):
+
+{
+  "renames": [{"from": "old-tag", "to": "canonical-tag"}, ...]
+}
+
+Rules:
+- Merge singular/plural variants (e.g. "mountain" + "mountains" → keep the more common form; usually the plural for countable things like mountains, trees, clouds; singular for mass nouns like fog, snow).
+- Merge spelling/separator variants ("blackandwhite" or "black_and_white" → "black-and-white"; "ai art" or "aiart" → "ai-art").
+- Merge clear typos and obvious synonyms ("skyscraper" + "skyscrapers" → "skyscrapers"; "monochrome" + "black-and-white" → "black-and-white" if both meaningfully overlap).
+- Be conservative on near-synonyms with distinct nuance. "city" vs "urban" vs "cityscape" — do NOT merge; they capture different things. "ocean" vs "sea" — do NOT merge. "minimal" vs "minimalist" — DO merge.
+- Lowercase only; words joined by hyphens, not spaces or underscores.
+- The "to" target may be either an existing tag or a new normalized form. Pick the form with the higher count when in doubt.
+- Output only renames where "from" != "to".
+
+Tags (one per line, "name | count", sorted by count desc):
+%s`
+
+// ProposeTagMerges asks Claude to look at the full tag inventory and
+// suggest a set of from→to renames that consolidate trivial variants
+// (singular/plural, hyphenation, typos, obvious synonyms). It does NOT
+// apply anything — the caller is expected to surface the proposals for
+// review and then run them through the merge SQL itself.
+func (c *Client) ProposeTagMerges(ctx context.Context, tags []TagInput) ([]TagMerge, error) {
+	if !c.Enabled() {
+		return nil, fmt.Errorf("anthropic api key not configured")
+	}
+	var b strings.Builder
+	for _, t := range tags {
+		fmt.Fprintf(&b, "%s | %d\n", t.Name, t.Count)
+	}
+
+	resp, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     c.model,
+		MaxTokens: 8000,
+		System: []anthropic.TextBlockParam{
+			{Text: fmt.Sprintf(proposeTagMergesPrompt, b.String())},
+		},
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock("Output the JSON now.")),
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("anthropic api: %w", err)
+	}
+
+	var raw string
+	for _, block := range resp.Content {
+		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
+			raw = strings.TrimSpace(t.Text)
+			break
+		}
+	}
+	if raw == "" {
+		return nil, fmt.Errorf("anthropic returned no text content")
+	}
+	raw = strings.TrimPrefix(raw, "```json")
+	raw = strings.TrimPrefix(raw, "```")
+	raw = strings.TrimSuffix(raw, "```")
+	raw = strings.TrimSpace(raw)
+
+	var out struct {
+		Renames []TagMerge `json:"renames"`
+	}
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil, fmt.Errorf("parse renames json: %w (first 300 chars: %q)", err, truncateLLM(raw, 300))
+	}
+	// Defensive: drop self-renames and empty entries.
+	cleaned := out.Renames[:0]
+	for _, m := range out.Renames {
+		from := strings.ToLower(strings.TrimSpace(m.From))
+		to := strings.ToLower(strings.TrimSpace(m.To))
+		if from == "" || to == "" || from == to {
+			continue
+		}
+		cleaned = append(cleaned, TagMerge{From: from, To: to})
+	}
+	return cleaned, nil
+}
+
+func truncateLLM(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n]
+}
+
 func contains(list []string, s string) bool {
 	for _, v := range list {
 		if v == s {
