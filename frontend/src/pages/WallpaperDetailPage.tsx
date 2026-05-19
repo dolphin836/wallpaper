@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
@@ -14,6 +14,10 @@ import {
   AiOutlineFullscreen,
   AiOutlineClose,
   AiOutlineLoading3Quarters,
+  AiOutlineZoomIn,
+  AiOutlineZoomOut,
+  AiOutlineRedo,
+  AiOutlineReload,
 } from 'react-icons/ai';
 import { MdPlaylistAdd, MdDesktopMac, MdLaptopMac, MdTabletMac, MdPhoneIphone, MdOutlineRemoveRedEye } from 'react-icons/md';
 import toast from 'react-hot-toast';
@@ -60,6 +64,22 @@ function formatNumber(n: number): string {
 //      variance across iOS versions / display modes, while still rejecting wrong devices.
 // URL availability is a separate concern (the file may or may not have been uploaded yet);
 // matching is purely about dimensions.
+function ToolbarBtn({
+  onClick, label, children,
+}: { onClick: () => void; label: string; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="w-9 h-9 flex items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/10 transition-colors"
+    >
+      {children}
+    </button>
+  );
+}
+
 function findBestMatch(variants: WallpaperVariant[]): WallpaperVariant | null {
   const dpr = window.devicePixelRatio || 1;
   const sw = Math.round(window.screen.width * dpr);
@@ -125,6 +145,23 @@ export default function WallpaperDetailPage() {
   const [likeLoading, setLikeLoading] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  // Fullscreen viewer transform state: scale (0.5–5), rotation in degrees
+  // (always a multiple of 90 here so the image doesn't end up tilted), and
+  // a translation offset for panning when zoomed in. Reset on each open
+  // via the useEffect below so the next time the user enters fullscreen
+  // they start at 1×, 0°, centered.
+  const [fsScale, setFsScale] = useState(1);
+  const [fsRotation, setFsRotation] = useState(0);
+  const [fsPan, setFsPan] = useState({ x: 0, y: 0 });
+  const fsDrag = useRef<{ down: boolean; sx: number; sy: number; px: number; py: number; moved: boolean }>({
+    down: false, sx: 0, sy: 0, px: 0, py: 0, moved: false,
+  });
+  useEffect(() => {
+    if (!fullscreen) return;
+    setFsScale(1);
+    setFsRotation(0);
+    setFsPan({ x: 0, y: 0 });
+  }, [fullscreen]);
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
   const [showReport, setShowReport] = useState(false);
@@ -492,17 +529,58 @@ export default function WallpaperDetailPage() {
       {fullscreen && createPortal(
         <div
           className="fixed inset-0 z-[70] bg-black flex items-center justify-center overflow-hidden"
-          onClick={() => setFullscreen(false)}
-          style={{ touchAction: 'none' }}
+          // Background click closes — but only when the user didn't drag.
+          // A drag-pan ends with a mouseup that browsers also report as
+          // click; the moved flag filters those out so panning doesn't
+          // accidentally exit the viewer.
+          onClick={() => {
+            if (fsDrag.current.moved) {
+              fsDrag.current.moved = false;
+              return;
+            }
+            setFullscreen(false);
+          }}
+          // Wheel handler at the container so it works over the whole
+          // viewport, not just the image rect. Scroll up = zoom in.
+          onWheel={(e) => {
+            const next = e.deltaY < 0 ? fsScale * 1.15 : fsScale / 1.15;
+            setFsScale(Math.max(0.5, Math.min(5, next)));
+          }}
+          onMouseDown={(e) => {
+            // Only allow dragging when zoomed in past 1× — at 1× the image
+            // is fit-to-viewport with no off-screen content, so panning
+            // would just slide a blank black band into view.
+            if (fsScale <= 1) return;
+            fsDrag.current = {
+              down: true, sx: e.clientX, sy: e.clientY,
+              px: fsPan.x, py: fsPan.y, moved: false,
+            };
+          }}
+          onMouseMove={(e) => {
+            if (!fsDrag.current.down) return;
+            const dx = e.clientX - fsDrag.current.sx;
+            const dy = e.clientY - fsDrag.current.sy;
+            if (Math.abs(dx) + Math.abs(dy) > 4) fsDrag.current.moved = true;
+            setFsPan({ x: fsDrag.current.px + dx, y: fsDrag.current.py + dy });
+          }}
+          onMouseUp={() => { fsDrag.current.down = false; }}
+          onMouseLeave={() => { fsDrag.current.down = false; }}
+          style={{ touchAction: 'none', cursor: fsScale > 1 ? (fsDrag.current.down ? 'grabbing' : 'grab') : 'default' }}
         >
           <img
             src={matchedVariant?.url || wallpaper.preview_url || wallpaper.original_url}
             alt=""
             onContextMenu={(e) => e.preventDefault()}
             draggable={false}
-            className="w-full h-full object-contain select-none"
-            style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
+            className="max-w-full max-h-full object-contain select-none"
+            style={{
+              WebkitUserDrag: 'none',
+              transform: `translate(${fsPan.x}px, ${fsPan.y}px) scale(${fsScale}) rotate(${fsRotation}deg)`,
+              transition: fsDrag.current.down ? 'none' : 'transform 120ms ease-out',
+              willChange: 'transform',
+            } as React.CSSProperties}
           />
+          {/* Top-right: close. */}
           <button
             onClick={(e) => { e.stopPropagation(); setFullscreen(false); }}
             className="fixed top-4 right-4 z-[80] p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
@@ -510,11 +588,35 @@ export default function WallpaperDetailPage() {
           >
             <AiOutlineClose size={24} />
           </button>
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 text-white text-sm rounded-lg">
+          {/* Bottom-center: dimensions readout. */}
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 text-white text-sm rounded-lg pointer-events-none">
             {matchedVariant
               ? <>{matchedVariant.brand} {matchedVariant.device_name} &middot; {matchedVariant.width} &times; {matchedVariant.height}</>
               : <>{wallpaper.width} &times; {wallpaper.height}</>
             }
+            <span className="ml-3 mono text-[11px] opacity-70">{Math.round(fsScale * 100)}%</span>
+          </div>
+          {/* Bottom-center: toolbar. stopPropagation on the whole bar so
+              tapping a button never bubbles to the backdrop and closes. */}
+          <div
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-1.5 bg-black/60 backdrop-blur-sm rounded-full"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <ToolbarBtn label="Zoom out" onClick={() => setFsScale((s) => Math.max(0.5, s / 1.25))}>
+              <AiOutlineZoomOut size={18} />
+            </ToolbarBtn>
+            <ToolbarBtn label="Zoom in" onClick={() => setFsScale((s) => Math.min(5, s * 1.25))}>
+              <AiOutlineZoomIn size={18} />
+            </ToolbarBtn>
+            <span className="w-px h-5 bg-white/20 mx-1" aria-hidden />
+            <ToolbarBtn label="Rotate 90°" onClick={() => setFsRotation((r) => (r + 90) % 360)}>
+              <AiOutlineRedo size={18} />
+            </ToolbarBtn>
+            <span className="w-px h-5 bg-white/20 mx-1" aria-hidden />
+            <ToolbarBtn label="Reset" onClick={() => { setFsScale(1); setFsRotation(0); setFsPan({ x: 0, y: 0 }); }}>
+              <AiOutlineReload size={18} />
+            </ToolbarBtn>
           </div>
         </div>,
         document.body,
