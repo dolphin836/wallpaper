@@ -62,7 +62,7 @@ export function CollectionGridSkeleton({ count = 8 }: { count?: number }) {
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="flex flex-col gap-3">
-          <Box i={i} className="aspect-[4/3] border border-hair" />
+          <Box i={i} className="aspect-[4/3] border border-hair rounded-lg" />
           <Line width="70%" i={i + 1} />
           <Line width="40%" i={i + 2} />
         </div>
@@ -92,9 +92,9 @@ export function UploaderListSkeleton({ count = 6 }: { count?: number }) {
             <Box i={i + 1} className="h-6 rounded-sm w-16 ml-auto mt-2" />
           </div>
           <div className="hidden lg:grid grid-cols-3 gap-1.5">
-            <Box i={i} className="aspect-square border border-hair" />
-            <Box i={i + 1} className="aspect-square border border-hair" />
-            <Box i={i + 2} className="aspect-square border border-hair" />
+            <Box i={i} className="aspect-square border border-hair rounded" />
+            <Box i={i + 1} className="aspect-square border border-hair rounded" />
+            <Box i={i + 2} className="aspect-square border border-hair rounded" />
           </div>
         </div>
       ))}
