@@ -131,13 +131,13 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
         </Link>
       )}
 
-      {/* Legal footer — both the link row and the copyright line center
-          horizontally inside the sidebar's content column. The copyright
-          spans use items-baseline so the sans © glyph and the serif italic
-          word "Wallpaper Exchange" share an optical baseline. */}
+      {/* Legal footer — the link row wraps from the left so a 2/3 split
+          across two lines stays left-aligned (centered wrapping looked
+          uneven). The copyright line below stays centered for the
+          stamp-style sign-off. */}
       <div className="mt-auto px-6 pt-6 pb-6 flex flex-col items-center">
         <hr className="border-t border-dashed border-hair w-full" />
-        <ul className="flex flex-wrap justify-center gap-x-3 gap-y-1.5 py-3 list-none m-0 p-0 mono text-[10px] tracking-[0.12em] uppercase text-muted">
+        <ul className="flex flex-wrap justify-start gap-x-3 gap-y-1.5 py-3 list-none m-0 p-0 mono text-[10px] tracking-[0.12em] uppercase text-muted self-stretch">
           <li><Link to="/about" className="text-inherit no-underline hover:text-ink">About</Link></li>
           <li className="text-hair" aria-hidden>·</li>
           <li><Link to="/contribute" className="text-inherit no-underline hover:text-ink">Contribute</Link></li>
