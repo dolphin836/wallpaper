@@ -106,6 +106,8 @@ func main() {
 	reportHandler := handler.NewReportHandler(reportRepo, wallpaperRepo)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsRepo)
 	recommendHandler := handler.NewRecommendHandler(wallpaperRepo)
+	weeklyPickRepo := repo.NewWeeklyPickRepo(db)
+	weeklyPickHandler := handler.NewWeeklyPickHandler(weeklyPickRepo, collectionRepo)
 	statsHandler := handler.NewStatsHandler(wallpaperRepo, collectionRepo)
 	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo, store, wallpaperSvc)
 
@@ -122,6 +124,7 @@ func main() {
 		ReportHandler:     reportHandler,
 		AnalyticsHandler:  analyticsHandler,
 		RecommendHandler:  recommendHandler,
+		WeeklyPickHandler: weeklyPickHandler,
 		StatsHandler:      statsHandler,
 		AdminHandler:      adminHandler,
 		UserRepo:          userRepo,

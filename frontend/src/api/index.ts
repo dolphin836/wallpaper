@@ -58,6 +58,32 @@ export const downloadWallpaper = (id: number) =>
 export const getCategories = () =>
   client.get<ApiResponse<Category[]>>('/categories');
 
+// ── Weekly Picks ────────────────────────────────────────────────────
+// The Home page reads `current` to render both the picks rail and the
+// theme-collection cards in one shot. `archive` powers the "past weeks"
+// listing page, and `byWeek` is the detail view for a specific slate.
+export interface WeeklyPicked extends Wallpaper {
+  sort_order: number;
+}
+export interface WeeklyArchiveEntry {
+  year: number;
+  week: number;
+  count: number;
+  cover_url: string;
+}
+export interface WeeklyCurrent {
+  year: number;
+  week: number;
+  picks: WeeklyPicked[];
+  themes: Collection[];
+}
+export const getWeeklyCurrent = () =>
+  client.get<ApiResponse<WeeklyCurrent>>('/weekly-picks/current');
+export const getWeeklyArchive = (limit = 50) =>
+  client.get<ApiResponse<WeeklyArchiveEntry[]>>('/weekly-picks/archive', { params: { limit } });
+export const getWeeklyByWeek = (year: number, week: number) =>
+  client.get<ApiResponse<{ year: number; week: number; picks: WeeklyPicked[] }>>(`/weekly-picks/${year}/${week}`);
+
 export const getTags = () =>
   client.get<ApiResponse<Tag[]>>('/tags');
 

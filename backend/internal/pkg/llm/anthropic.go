@@ -344,6 +344,101 @@ func (c *Client) ProposeTagMerges(ctx context.Context, tags []TagInput) ([]TagMe
 	return cleaned, nil
 }
 
+// ThemeCandidate is one wallpaper handed to ProposeWeeklyTheme — the
+// model sees the id, the existing tags/category, and the dominant
+// color so it can group by any combination of those dimensions.
+type ThemeCandidate struct {
+	ID         int64    `json:"id"`
+	CategoryID int64    `json:"category_id"`
+	Category   string   `json:"category"`
+	Tags       []string `json:"tags"`
+	Title      string   `json:"title"`
+	Dominant   string   `json:"dominant"`
+}
+
+// ThemePick is the LLM's answer for a weekly theme collection: a
+// human-readable theme name (used as the collection title), a short
+// description, and the 10 wallpaper IDs that should belong to it. The
+// caller validates that the IDs are a subset of what was offered.
+type ThemePick struct {
+	ThemeName    string  `json:"theme_name"`
+	Description  string  `json:"description"`
+	WallpaperIDs []int64 `json:"wallpaper_ids"`
+}
+
+const proposeWeeklyThemePrompt = `You are an editor curating a weekly themed wallpaper collection. From the catalog below, pick a SINGLE coherent theme and the 10 wallpapers that best embody it.
+
+The theme can be:
+- a SUBJECT (e.g. "Sunsets at the Horizon", "Quiet Mountain Mornings", "Neon Cyberpunk Streets")
+- a MOOD (e.g. "Dreamy Pastels", "Moody and Atmospheric", "Bold and Vibrant")
+- a STYLE (e.g. "Minimal Geometry", "Film Photography Aesthetic")
+- a DEVICE FIT (e.g. "Made for Mac Studio Displays" when the candidates share a portrait/ultrawide aspect)
+
+Rules:
+- The 10 wallpapers MUST be genuinely related to the theme. Better to have 7 strong picks than 10 loose ones.
+- If no clean theme exists for at least 6 wallpapers, return an empty wallpaper_ids array; the caller will skip generation this week.
+- The theme name should be short (≤50 chars), evocative, and Title Case.
+- Description is one sentence (≤140 chars) elaborating the theme — what unites these picks.
+- Output ONLY a JSON object — no markdown fence, no commentary:
+
+{
+  "theme_name": "...",
+  "description": "...",
+  "wallpaper_ids": [123, 456, ...]
+}
+
+Catalog (JSON array, one row per wallpaper):
+%s`
+
+// ProposeWeeklyTheme asks Claude to scan a candidate pool and propose
+// one coherent theme with 10 wallpapers that fit it. The caller
+// validates that wallpaper_ids ⊆ candidates and that there are at
+// least min_count of them; a "no clean theme this week" verdict comes
+// back as an empty wallpaper_ids slice.
+func (c *Client) ProposeWeeklyTheme(ctx context.Context, candidates []ThemeCandidate) (*ThemePick, error) {
+	if !c.Enabled() {
+		return nil, fmt.Errorf("anthropic api key not configured")
+	}
+	catalog, err := json.Marshal(candidates)
+	if err != nil {
+		return nil, fmt.Errorf("marshal catalog: %w", err)
+	}
+	resp, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     c.model,
+		MaxTokens: 1500,
+		System: []anthropic.TextBlockParam{
+			{Text: fmt.Sprintf(proposeWeeklyThemePrompt, string(catalog))},
+		},
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock("Output the JSON now.")),
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("anthropic api: %w", err)
+	}
+	var raw string
+	for _, block := range resp.Content {
+		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
+			raw = strings.TrimSpace(t.Text)
+			break
+		}
+	}
+	if raw == "" {
+		return nil, fmt.Errorf("anthropic returned no text content")
+	}
+	raw = strings.TrimPrefix(raw, "```json")
+	raw = strings.TrimPrefix(raw, "```")
+	raw = strings.TrimSuffix(raw, "```")
+	raw = strings.TrimSpace(raw)
+	var out ThemePick
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil, fmt.Errorf("parse theme json: %w (first 300 chars: %q)", err, truncateLLM(raw, 300))
+	}
+	out.ThemeName = strings.TrimSpace(out.ThemeName)
+	out.Description = strings.TrimSpace(out.Description)
+	return &out, nil
+}
+
 func truncateLLM(s string, n int) string {
 	if len(s) <= n {
 		return s

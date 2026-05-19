@@ -141,6 +141,9 @@ export interface Collection {
   like_count: number;
   is_liked?: boolean;
   recent_tiles?: CollectionTile[];
+  kind?: number;
+  year?: number;
+  week?: number;
   created_at: string;
   updated_at: string;
 }

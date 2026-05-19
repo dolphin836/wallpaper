@@ -13,6 +13,12 @@ type Collection struct {
 	WallpaperCount int       `gorm:"not null;default:0" json:"wallpaper_count"`
 	ViewCount      int64     `gorm:"not null;default:0" json:"view_count"`
 	LikeCount      int64     `gorm:"not null;default:0" json:"like_count"`
+	// Kind discriminates user collections (0) from editor-curated weekly
+	// theme collections (1). Year + Week tag the latter with their ISO
+	// week so the Home page can pull "latest 3 weekly themes" cheaply.
+	Kind int16 `gorm:"not null;default:0" json:"kind"`
+	Year int16 `gorm:"not null;default:0" json:"year,omitempty"`
+	Week int16 `gorm:"not null;default:0" json:"week,omitempty"`
 	CreatedAt      time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
 	UpdatedAt      time.Time `gorm:"not null;autoUpdateTime" json:"updated_at"`
 	// RecentTiles is populated by handlers that need a mini-preview strip for

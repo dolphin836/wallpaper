@@ -41,7 +41,8 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
   const location = useLocation();
 
   const items: NavItem[] = [
-    { label: 'Discover',    sub: 'Browse the gallery',     to: '/' },
+    { label: 'Home',        sub: 'This week\'s picks',     to: '/' },
+    { label: 'Discover',    sub: 'Browse the gallery',     to: '/discover' },
     { label: 'Collections', sub: 'Themed wallpaper sets', to: '/collections' },
     { label: 'Uploaders',   sub: 'Top contributors',      to: '/uploaders' },
     { label: 'Devices',     sub: 'Wallpapers by screen',  to: '/wallpapers-for' },

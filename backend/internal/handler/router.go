@@ -25,6 +25,7 @@ type Deps struct {
 	ReportHandler     *ReportHandler
 	AnalyticsHandler  *AnalyticsHandler
 	RecommendHandler  *RecommendHandler
+	WeeklyPickHandler *WeeklyPickHandler
 	StatsHandler      *StatsHandler
 	AdminHandler      *AdminHandler
 	UserRepo          *repo.UserRepo
@@ -83,6 +84,10 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Get("/wallpapers/{id}/variants", deps.DeviceHandler.ListVariants)
 			r.Get("/wallpapers/{id}/engagements", deps.WallpaperHandler.GetEngagements)
 			r.Get("/wallpapers/{id}/similar", deps.RecommendHandler.Similar)
+
+			r.Get("/weekly-picks/current", deps.WeeklyPickHandler.Current)
+			r.Get("/weekly-picks/archive", deps.WeeklyPickHandler.Archive)
+			r.Get("/weekly-picks/{year}/{week}", deps.WeeklyPickHandler.ByWeek)
 
 			r.Get("/collections", deps.CollectionHandler.List)
 			r.Get("/collections/{id}", deps.CollectionHandler.Get)

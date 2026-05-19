@@ -2,6 +2,9 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
+import DiscoverPage from './pages/DiscoverPage';
+import WeeklyArchivePage from './pages/WeeklyArchivePage';
+import WeeklyWeekPage from './pages/WeeklyWeekPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import WallpaperDetailPage from './pages/WallpaperDetailPage';
@@ -36,7 +39,10 @@ function AppRoutes() {
       <Routes location={background || location}>
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
-          <Route path="/category/:slug" element={<HomePage />} />
+          <Route path="/discover" element={<DiscoverPage />} />
+          <Route path="/category/:slug" element={<DiscoverPage />} />
+          <Route path="/weekly-picks" element={<WeeklyArchivePage />} />
+          <Route path="/weekly-picks/:year/:week" element={<WeeklyWeekPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/wallpaper/:slug" element={<WallpaperDetailPage />} />

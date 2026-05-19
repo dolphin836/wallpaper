@@ -339,3 +339,38 @@ type SitemapCollectionEntry struct {
 	Slug      string
 	UpdatedAt time.Time
 }
+
+// ListThemeCollections returns the most recent editor-curated weekly
+// theme collections (kind=1) — newest first. The Home page calls this
+// with limit=3 to render the "Weekly Theme Collections" rail. Each row
+// is hydrated with up to 3 recent_tiles so the card can render its
+// preview composition without a second round-trip.
+func (r *CollectionRepo) ListThemeCollections(ctx context.Context, limit int) ([]model.Collection, error) {
+	if limit <= 0 {
+		limit = 3
+	}
+	var cols []model.Collection
+	if err := r.db.WithContext(ctx).
+		Where("kind = ? AND is_public = ?", 1, true).
+		Order("year DESC, week DESC, created_at DESC").
+		Limit(limit).
+		Find(&cols).Error; err != nil {
+		return nil, err
+	}
+	if len(cols) == 0 {
+		return cols, nil
+	}
+	ids := make([]int64, len(cols))
+	for i, c := range cols {
+		ids[i] = c.ID
+	}
+	tiles, err := r.RecentTilesForCollections(ctx, ids)
+	if err != nil {
+		// Tiles are decorative — don't fail the whole call if they bail.
+		return cols, nil
+	}
+	for i := range cols {
+		cols[i].RecentTiles = tiles[cols[i].ID]
+	}
+	return cols, nil
+}
