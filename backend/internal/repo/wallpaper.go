@@ -249,6 +249,31 @@ func (r *WallpaperRepo) ListPublishedColors(ctx context.Context, excludeID int64
 	return entries, err
 }
 
+// SimilarCandidate is the lightweight projection of a published wallpaper
+// used to score "similar" rankings on the detail page. Includes all four
+// signals the ranker reads: dominant color, category, pHash, and (joined
+// later) tag overlap.
+type SimilarCandidate struct {
+	ID            int64
+	DominantColor string
+	CategoryID    int64
+	Phash         int64
+}
+
+// ListSimilarCandidates returns every published wallpaper except the
+// target as a SimilarCandidate. The ranker walks this slice in memory —
+// it's small enough (~1k rows at current scale) that a join-free pass is
+// simpler and faster than building the score in SQL.
+func (r *WallpaperRepo) ListSimilarCandidates(ctx context.Context, excludeID int64) ([]SimilarCandidate, error) {
+	var entries []SimilarCandidate
+	err := r.db.WithContext(ctx).
+		Model(&model.Wallpaper{}).
+		Select("id, dominant_color, category_id, phash").
+		Where("status = ? AND id <> ?", model.WallpaperStatusPublished, excludeID).
+		Find(&entries).Error
+	return entries, err
+}
+
 // ListPopularIDs returns top wallpapers by like+favorite+view weight,
 // excluding wallpapers the given user has already interacted with. Used as
 // a cold-start fallback when the user has no signals to score against.

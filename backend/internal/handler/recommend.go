@@ -3,6 +3,7 @@ package handler
 import (
 	"log/slog"
 	"math"
+	"math/bits"
 	"net/http"
 	"sort"
 	"strconv"
@@ -29,12 +30,21 @@ const (
 	similarMaxLimit     = 24
 	// Max possible distance between two 24-bit colors in linear RGB.
 	maxRGBDist = 441.673 // sqrt(255^2 * 3)
-	// Color and tag weights; sum to 1.0. Tag overlap is a stronger signal so it
-	// outweighs raw color similarity.
-	weightColor = 0.45
-	weightTag   = 0.55
+	// Score weights for the four signals; sum to 1.0. Categories were
+	// added by an LLM pass over the entire corpus so they're reliable
+	// enough to be a primary signal alongside tags. Color is the weakest
+	// signal — two unrelated wallpapers often share a dominant hue.
+	weightTag      = 0.40
+	weightCategory = 0.20
+	weightPhash    = 0.20
+	weightColor    = 0.20
 	// Beyond this many shared tags, additional overlap doesn't add much signal.
 	tagOverlapCap = 4
+	// Hamming distance threshold for the perceptual hash. Two images with
+	// Hamming distance <= dupHammingThreshold are considered duplicates
+	// elsewhere; here we treat anything within phashSimilarityWindow as
+	// "visually similar" and scale linearly toward 0 at the upper bound.
+	phashSimilarityWindow = 20
 )
 
 func (h *RecommendHandler) Similar(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +73,7 @@ func (h *RecommendHandler) Similar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	candidates, err := h.wallpaperRepo.ListPublishedColors(r.Context(), id)
+	candidates, err := h.wallpaperRepo.ListSimilarCandidates(r.Context(), id)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "similar: list candidates failed", "error", err)
 		response.OK(w, []model.Wallpaper{})
@@ -76,20 +86,47 @@ func (h *RecommendHandler) Similar(w http.ResponseWriter, r *http.Request) {
 
 	tagOverlap, err := h.wallpaperRepo.TagOverlapWith(r.Context(), id)
 	if err != nil {
-		// Tag enrichment is optional; color-only ranking still produces a useful result.
+		// Tag enrichment is optional; the other three signals still
+		// produce a useful ranking on their own.
 		slog.WarnContext(r.Context(), "similar: tag overlap failed", "error", err)
 		tagOverlap = map[int64]int{}
 	}
 
-	targetRGB, ok := parseHexColor(target.DominantColor)
+	targetRGB, haveColor := parseHexColor(target.DominantColor)
+	haveCategory := target.CategoryID > 0
+	havePhash := target.Phash != 0
 	type scored struct {
 		id    int64
 		score float64
 	}
 	scoredList := make([]scored, 0, len(candidates))
 	for _, c := range candidates {
+		// 1. Tag overlap (strongest signal — capped to avoid runaway from
+		//    over-tagged wallpapers).
+		tagScore := math.Min(float64(tagOverlap[c.ID])/tagOverlapCap, 1.0)
+
+		// 2. Same category — binary bonus. Reliable now that the whole
+		//    catalog has been LLM-classified.
+		categoryScore := 0.0
+		if haveCategory && c.CategoryID == target.CategoryID {
+			categoryScore = 1.0
+		}
+
+		// 3. pHash similarity — closer to "looks alike" than dominant
+		//    color is. Linear falloff from 1 at distance 0 to 0 at
+		//    phashSimilarityWindow.
+		phashScore := 0.0
+		if havePhash && c.Phash != 0 {
+			h := bits.OnesCount64(uint64(target.Phash ^ c.Phash))
+			if h < phashSimilarityWindow {
+				phashScore = 1 - float64(h)/float64(phashSimilarityWindow)
+			}
+		}
+
+		// 4. Dominant-color proximity in RGB — weakest signal, kept as
+		//    tiebreaker for wallpapers that share none of the above.
 		colorScore := 0.0
-		if ok {
+		if haveColor {
 			if cRGB, cok := parseHexColor(c.DominantColor); cok {
 				dist := rgbDistance(targetRGB, cRGB)
 				colorScore = 1 - dist/maxRGBDist
@@ -98,8 +135,11 @@ func (h *RecommendHandler) Similar(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		tagScore := math.Min(float64(tagOverlap[c.ID])/tagOverlapCap, 1.0)
-		score := weightColor*colorScore + weightTag*tagScore
+
+		score := weightTag*tagScore +
+			weightCategory*categoryScore +
+			weightPhash*phashScore +
+			weightColor*colorScore
 		scoredList = append(scoredList, scored{c.ID, score})
 	}
 	sort.Slice(scoredList, func(i, j int) bool { return scoredList[i].score > scoredList[j].score })
