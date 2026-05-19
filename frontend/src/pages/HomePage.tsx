@@ -77,7 +77,7 @@ export default function HomePage() {
         </section>
 
         {/* ── Themed collections ─────────────────────────────────── */}
-        {hasThemes && (
+        {(loading || hasThemes) && (
           <section className="mb-12">
             <div className="flex items-baseline justify-between mb-5">
               <div>
@@ -90,9 +90,21 @@ export default function HomePage() {
                 All themes →
               </Link>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {data!.themes.map((c) => <CollectionCard key={c.id} collection={c} />)}
-            </div>
+            {loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex flex-col gap-3">
+                    <div className="aspect-[4/3] border border-hair rounded-lg bg-paper-3 skeleton-card" />
+                    <div className="h-4 w-[70%] rounded-sm bg-paper-3 skeleton-card" />
+                    <div className="h-3 w-[40%] rounded-sm bg-paper-3 skeleton-card" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {data!.themes.map((c) => <CollectionCard key={c.id} collection={c} />)}
+              </div>
+            )}
           </section>
         )}
 
