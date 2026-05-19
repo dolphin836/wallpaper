@@ -38,3 +38,4 @@ macos/*.zip
 # it's the source-of-truth icon bundled into the .app. If it's not in the
 # repo, build-app.sh silently produces an icon-less .app.
 macos/AppIcon.iconset/
+scripts/.qcheck.env
