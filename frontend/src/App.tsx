@@ -36,6 +36,7 @@ function AppRoutes() {
       <Routes location={background || location}>
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/category/:slug" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/wallpaper/:slug" element={<WallpaperDetailPage />} />

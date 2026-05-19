@@ -138,9 +138,9 @@ export default function WallpaperDetailPage() {
       .then((r) => setCategories(r.data.data || []))
       .catch(() => setCategories([]));
   }, []);
-  const categoryName = useMemo(() => {
-    if (!wallpaper?.category_id) return '';
-    return categories.find((c) => c.id === wallpaper.category_id)?.name || '';
+  const currentCategory = useMemo(() => {
+    if (!wallpaper?.category_id) return undefined;
+    return categories.find((c) => c.id === wallpaper.category_id);
   }, [categories, wallpaper?.category_id]);
   const [dlLoading, setDlLoading] = useState(false);
   const [dlDone, setDlDone] = useState(false);
@@ -720,10 +720,17 @@ export default function WallpaperDetailPage() {
                     </dd>
                   </>
                 )}
-                {categoryName && (
+                {currentCategory && (
                   <>
                     <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">CATEGORY</dt>
-                    <dd className="m-0 text-ink">{categoryName}</dd>
+                    <dd className="m-0 text-ink">
+                      <Link
+                        to={`/category/${currentCategory.slug}`}
+                        className="text-ink hover:underline"
+                      >
+                        {currentCategory.name}
+                      </Link>
+                    </dd>
                   </>
                 )}
                 {wallpaper.tags && wallpaper.tags.length > 0 && (

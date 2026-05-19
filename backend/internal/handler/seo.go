@@ -81,6 +81,23 @@ func (h *SEOHandler) Sitemap(w http.ResponseWriter, r *http.Request) {
 		{Loc: base + "/download/mac", ChangeFreq: "monthly", Priority: "0.5"},
 	}
 
+	// Category landing pages — one URL per category. Stable, small set
+	// (10 today) of high-intent SEO entries (e.g. "nature wallpapers").
+	if cats, cerr := h.categoryRepo.List(ctx); cerr == nil {
+		for _, c := range cats {
+			if c.Slug == "" {
+				continue
+			}
+			urls = append(urls, sitemapURL{
+				Loc:        base + "/category/" + c.Slug,
+				ChangeFreq: "daily",
+				Priority:   "0.7",
+			})
+		}
+	} else {
+		slog.ErrorContext(ctx, "sitemap: list categories failed", "error", cerr)
+	}
+
 	// Device-specific landing pages — one URL per active device profile.
 	// These are SEO long-tail entry points for searches like "iPhone 16
 	// Pro wallpaper", so we include them in sitemap.xml at decent priority.

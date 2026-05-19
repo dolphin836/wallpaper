@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AiOutlineAppstore, AiOutlineBars, AiOutlineReload } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { Wallpaper, Category } from '../types';
@@ -285,15 +285,23 @@ export default function HomePage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const [loadError, setLoadError] = useState(false);
-  // null = "All categories" (no filter). On change, the gallery resets to
-  // page 1 — see the deps of the fetch effect below.
-  const [categoryFilter, setCategoryFilter] = useState<number | null>(null);
+  // URL is the source of truth for the category filter — `/` means "All",
+  // `/category/:slug` pins to that category. Chip clicks navigate; the
+  // categoryFilter id is derived (not state) from the URL slug + the
+  // loaded category list.
+  const { slug: categorySlug } = useParams<{ slug?: string }>();
+  const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);
   useEffect(() => {
     getCategories()
       .then((r) => setCategories(r.data.data || []))
       .catch(() => setCategories([]));
   }, []);
+  const currentCategory = useMemo(
+    () => (categorySlug ? categories.find((c) => c.slug === categorySlug) : undefined),
+    [categories, categorySlug],
+  );
+  const categoryFilter: number | null = currentCategory ? currentCategory.id : null;
   const cursorRef = useRef(cursor);
   const hasMoreRef = useRef(hasMore);
   cursorRef.current = cursor;
@@ -469,8 +477,12 @@ export default function HomePage() {
   return (
     <div className="bg-paper-2 min-h-full">
       <PageMeta
-        title="Discover"
-        description="Browse and download community-uploaded HD and 4K wallpapers — phone, desktop, and macOS dynamic wallpapers, sorted by latest and popular."
+        title={currentCategory ? `${currentCategory.name} wallpapers` : 'Discover'}
+        description={
+          currentCategory
+            ? `${currentCategory.name} wallpapers — community-curated HD, 4K, and macOS dynamic wallpapers in the ${currentCategory.name.toLowerCase()} category. Browse and download for free on Wallpaper Exchange.`
+            : 'Browse and download community-uploaded HD and 4K wallpapers — phone, desktop, and macOS dynamic wallpapers, sorted by latest and popular.'
+        }
       />
 
       {/* Unified discover toolbar: left half is the category strip (scrolls
@@ -483,14 +495,14 @@ export default function HomePage() {
             <CategoryChip
               label="All"
               active={categoryFilter === null}
-              onClick={() => setCategoryFilter(null)}
+              onClick={() => navigate('/')}
             />
             {categories.map((c) => (
               <CategoryChip
                 key={c.id}
                 label={c.name}
                 active={categoryFilter === c.id}
-                onClick={() => setCategoryFilter(c.id)}
+                onClick={() => navigate(`/category/${c.slug}`)}
               />
             ))}
           </div>
