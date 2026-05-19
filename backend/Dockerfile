@@ -16,6 +16,7 @@ RUN CGO_ENABLED=0 go build -o /bin/sluggen ./cmd/sluggen
 RUN CGO_ENABLED=0 go build -o /bin/phashgen ./cmd/phashgen
 RUN CGO_ENABLED=0 go build -o /bin/setadmin ./cmd/setadmin
 RUN CGO_ENABLED=0 go build -o /bin/recompress ./cmd/recompress
+RUN CGO_ENABLED=0 go build -o /bin/autotag ./cmd/autotag
 
 FROM alpine:3.19 AS api
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
@@ -25,6 +26,7 @@ COPY --from=builder /bin/sluggen /bin/sluggen
 COPY --from=builder /bin/phashgen /bin/phashgen
 COPY --from=builder /bin/setadmin /bin/setadmin
 COPY --from=builder /bin/recompress /bin/recompress
+COPY --from=builder /bin/autotag /bin/autotag
 ENTRYPOINT ["/bin/api"]
 
 FROM alpine:3.19 AS worker

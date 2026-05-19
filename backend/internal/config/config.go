@@ -7,12 +7,17 @@ import (
 )
 
 type Config struct {
-	Server ServerConfig
-	DB     DBConfig
-	Redis  RedisConfig
-	MinIO  MinIOConfig
-	Kafka  KafkaConfig
-	JWT    JWTConfig
+	Server    ServerConfig
+	DB        DBConfig
+	Redis     RedisConfig
+	MinIO     MinIOConfig
+	Kafka     KafkaConfig
+	JWT       JWTConfig
+	Anthropic AnthropicConfig
+}
+
+type AnthropicConfig struct {
+	APIKey string `env:"ANTHROPIC_API_KEY" envDefault:""`
 }
 
 type ServerConfig struct {
