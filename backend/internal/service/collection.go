@@ -90,10 +90,11 @@ func (s *CollectionService) Get(ctx context.Context, idOrSlug string, currentUse
 	return detail, nil
 }
 
-// RecentThumbs is a thin wrapper so the handler can attach mini-preview
-// thumbs without reaching past the service into the repo layer directly.
-func (s *CollectionService) RecentThumbs(ctx context.Context, ids []int64) (map[int64][]string, error) {
-	return s.collectionRepo.RecentThumbsForCollections(ctx, ids)
+// RecentTiles is a thin wrapper so the handler can attach mini-preview
+// tiles (thumb + preview + dominant color) without reaching past the
+// service into the repo layer directly.
+func (s *CollectionService) RecentTiles(ctx context.Context, ids []int64) (map[int64][]model.CollectionTile, error) {
+	return s.collectionRepo.RecentTilesForCollections(ctx, ids)
 }
 
 func (s *CollectionService) List(ctx context.Context, cursor int64, limit int, userID int64) (*CollectionListResponse, *errcode.ErrCode) {

@@ -106,12 +106,12 @@ func (h *CollectionHandler) List(w http.ResponseWriter, r *http.Request) {
 		for i, c := range resp.Items {
 			ids[i] = c.ID
 		}
-		thumbs, err := h.collectionSvc.RecentThumbs(r.Context(), ids)
+		tiles, err := h.collectionSvc.RecentTiles(r.Context(), ids)
 		if err != nil {
-			slog.WarnContext(r.Context(), "collection recent_thumbs lookup failed", "error", err)
+			slog.WarnContext(r.Context(), "collection recent_tiles lookup failed", "error", err)
 		} else {
 			for i := range resp.Items {
-				resp.Items[i].RecentThumbs = thumbs[resp.Items[i].ID]
+				resp.Items[i].RecentTiles = tiles[resp.Items[i].ID]
 			}
 		}
 	}

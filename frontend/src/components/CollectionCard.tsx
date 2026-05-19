@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AiOutlineLock } from 'react-icons/ai';
-import type { Collection } from '../types';
+import type { Collection, CollectionTile } from '../types';
 
 interface Props {
   collection: Collection;
@@ -15,16 +16,15 @@ interface Props {
  * 1.06, and reveals white corner brackets on the main photo. Caption
  * below the stack carries the mono № line + display title + curator.
  *
- * Reads `collection.recent_thumbs` (max 3) to populate the slots. If the
- * collection has fewer than 3 wallpapers the trailing slots fall back to
- * the cover_url or a soft paper-2 tile.
+ * Each tile loads progressively: dominant-color placeholder → blurred
+ * thumb → sharp preview. Matches the main wallpaper grid's behavior so
+ * the visual rhythm is consistent across the site.
  */
 export default function CollectionCard({ collection, curatorHandle }: Props) {
-  const thumbs = collection.recent_thumbs ?? [];
-  const fallback = collection.cover_url || '';
-  const main = thumbs[0] || fallback;
-  const sub1 = thumbs[1] || '';
-  const sub2 = thumbs[2] || '';
+  const tiles = collection.recent_tiles ?? [];
+  const main = tiles[0];
+  const sub1 = tiles[1];
+  const sub2 = tiles[2];
 
   const extra = Math.max(0, collection.wallpaper_count - 3);
 
@@ -32,13 +32,13 @@ export default function CollectionCard({ collection, curatorHandle }: Props) {
     <Link to={`/collections/${collection.slug}`} className="coll-card no-underline text-ink">
       <div className="coll-stack">
         <div className="coll-main">
-          {main && <img src={main} alt="" loading="lazy" />}
+          <Tile tile={main} />
         </div>
         <div className="coll-sub">
-          {sub1 && <img src={sub1} alt="" loading="lazy" />}
+          <Tile tile={sub1} />
         </div>
         <div className="coll-sub">
-          {sub2 && <img src={sub2} alt="" loading="lazy" />}
+          <Tile tile={sub2} />
           {extra > 0 && <span className="coll-more">+{extra}</span>}
         </div>
       </div>
@@ -66,5 +66,46 @@ export default function CollectionCard({ collection, curatorHandle }: Props) {
         )}
       </div>
     </Link>
+  );
+}
+
+// Tile is one of the three slots inside .coll-stack. Empty slots fall back
+// to a soft paper-2 tint so the grid never shows a gap. Loaded slots paint
+// the wallpaper's dominant color first, fade in the blurred thumb on
+// download, then crossfade to the sharp preview when it arrives.
+function Tile({ tile }: { tile?: CollectionTile }) {
+  const [highLoaded, setHighLoaded] = useState(false);
+  if (!tile || !tile.thumb_url) return null;
+
+  return (
+    <div
+      className="absolute inset-0"
+      style={{ backgroundColor: tile.dominant_color || 'var(--color-paper-2)' }}
+    >
+      <img
+        src={tile.thumb_url}
+        alt=""
+        aria-hidden
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{
+          filter: highLoaded ? 'none' : 'blur(12px)',
+          transform: highLoaded ? 'none' : 'scale(1.06)',
+          transition: 'filter 300ms ease, transform 300ms ease',
+        }}
+      />
+      {tile.preview_url && (
+        <img
+          src={tile.preview_url}
+          alt=""
+          loading="lazy"
+          onLoad={() => setHighLoaded(true)}
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{
+            opacity: highLoaded ? 1 : 0,
+            transition: 'opacity 300ms ease',
+          }}
+        />
+      )}
+    </div>
   );
 }

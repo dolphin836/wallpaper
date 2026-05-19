@@ -138,9 +138,15 @@ export interface Collection {
   view_count: number;
   like_count: number;
   is_liked?: boolean;
-  recent_thumbs?: string[];
+  recent_tiles?: CollectionTile[];
   created_at: string;
   updated_at: string;
+}
+
+export interface CollectionTile {
+  thumb_url: string;
+  preview_url: string;
+  dominant_color: string;
 }
 
 export interface CollectionDetail extends Collection {

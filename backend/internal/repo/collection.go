@@ -264,23 +264,27 @@ func (r *CollectionRepo) RemoveWallpaperFromAll(ctx context.Context, wallpaperID
 	return nil
 }
 
-// RecentThumbsForCollections returns up to 3 wallpaper thumb URLs per
-// collection id, keyed by collection id. Ordered by the collection's own
-// sort_order, falling back to insertion id desc — same order ListWallpapers
-// uses, so the strip the UI shows matches the first page of the detail view.
-func (r *CollectionRepo) RecentThumbsForCollections(ctx context.Context, ids []int64) (map[int64][]string, error) {
-	out := make(map[int64][]string, len(ids))
+// RecentTilesForCollections returns up to 3 wallpaper tiles per collection
+// id, keyed by collection id. Each tile carries thumb_url, preview_url and
+// dominant_color so the frontend can do dominant-color placeholder + thumb-
+// then-preview progressive load. Ordered by the collection's own sort_order,
+// falling back to insertion id desc — same order ListWallpapers uses, so the
+// strip the UI shows matches the first page of the detail view.
+func (r *CollectionRepo) RecentTilesForCollections(ctx context.Context, ids []int64) (map[int64][]model.CollectionTile, error) {
+	out := make(map[int64][]model.CollectionTile, len(ids))
 	if len(ids) == 0 {
 		return out, nil
 	}
 	type row struct {
-		CollectionID int64  `gorm:"column:collection_id"`
-		ThumbURL     string `gorm:"column:thumb_url"`
+		CollectionID  int64  `gorm:"column:collection_id"`
+		ThumbURL      string `gorm:"column:thumb_url"`
+		PreviewURL    string `gorm:"column:preview_url"`
+		DominantColor string `gorm:"column:dominant_color"`
 	}
 	var rows []row
 	err := r.db.WithContext(ctx).Raw(`
-		SELECT collection_id, thumb_url FROM (
-			SELECT cw.collection_id, w.thumb_url,
+		SELECT collection_id, thumb_url, preview_url, dominant_color FROM (
+			SELECT cw.collection_id, w.thumb_url, w.preview_url, w.dominant_color,
 			       ROW_NUMBER() OVER (PARTITION BY cw.collection_id
 			                          ORDER BY cw.sort_order ASC, cw.id DESC) AS rn
 			  FROM collection_wallpapers cw
@@ -296,7 +300,11 @@ func (r *CollectionRepo) RecentThumbsForCollections(ctx context.Context, ids []i
 		return nil, err
 	}
 	for _, r := range rows {
-		out[r.CollectionID] = append(out[r.CollectionID], r.ThumbURL)
+		out[r.CollectionID] = append(out[r.CollectionID], model.CollectionTile{
+			ThumbURL:      r.ThumbURL,
+			PreviewURL:    r.PreviewURL,
+			DominantColor: r.DominantColor,
+		})
 	}
 	return out, nil
 }

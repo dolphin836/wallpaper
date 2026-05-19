@@ -15,10 +15,19 @@ type Collection struct {
 	LikeCount      int64     `gorm:"not null;default:0" json:"like_count"`
 	CreatedAt      time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
 	UpdatedAt      time.Time `gorm:"not null;autoUpdateTime" json:"updated_at"`
-	// RecentThumbs is populated by handlers that need a mini-preview strip for
-	// the collection (currently the public /collections list). gorm:"-" keeps
-	// it out of every read query that doesn't ask for it.
-	RecentThumbs []string `gorm:"-" json:"recent_thumbs,omitempty"`
+	// RecentTiles is populated by handlers that need a mini-preview strip for
+	// the collection (currently the public /collections list). Each tile
+	// carries enough data for the frontend to do the same dominant-color +
+	// thumb-then-preview progressive load the main wallpaper grid does.
+	// gorm:"-" keeps it out of every read query that doesn't ask for it.
+	RecentTiles []CollectionTile `gorm:"-" json:"recent_tiles,omitempty"`
+}
+
+// CollectionTile is one slot in a collection card's preview composition.
+type CollectionTile struct {
+	ThumbURL      string `json:"thumb_url"`
+	PreviewURL    string `json:"preview_url"`
+	DominantColor string `json:"dominant_color"`
 }
 
 type CollectionWallpaper struct {
