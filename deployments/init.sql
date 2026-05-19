@@ -242,16 +242,16 @@ CREATE TABLE IF NOT EXISTS user_downloads (
 CREATE INDEX IF NOT EXISTS idx_user_downloads_user ON user_downloads(user_id, created_at DESC);
 
 INSERT INTO categories (name, slug, sort_order) VALUES
-    ('自然风光', 'nature', 1),
-    ('城市建筑', 'city', 2),
-    ('动漫插画', 'anime', 3),
-    ('抽象艺术', 'abstract', 4),
-    ('极简主义', 'minimal', 5),
-    ('科技数码', 'tech', 6),
-    ('动物萌宠', 'animal', 7),
-    ('太空宇宙', 'space', 8),
-    ('游戏', 'game', 9),
-    ('其他', 'other', 10)
+    ('Nature',   'nature',   1),
+    ('City',     'city',     2),
+    ('Anime',    'anime',    3),
+    ('Abstract', 'abstract', 4),
+    ('Minimal',  'minimal',  5),
+    ('Tech',     'tech',     6),
+    ('Animal',   'animal',   7),
+    ('Space',    'space',    8),
+    ('Game',     'game',     9),
+    ('Other',    'other',    10)
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO device_profiles (platform, brand, name, width, height, ppi, sort_order) VALUES
