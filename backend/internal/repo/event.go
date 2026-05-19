@@ -32,17 +32,29 @@ type TrendingItem struct {
 	Score       int64 `json:"score"`
 }
 
-func (r *EventRepo) GetTrending(ctx context.Context, since time.Time, limit int) ([]int64, error) {
+// GetTrending ranks wallpapers by an event-weighted score over the window
+// [since, now]. When categoryID > 0 the candidate set is narrowed to
+// published wallpapers in that category before scoring — without the JOIN
+// the "Trending in City" combo would silently fall back to global
+// trending and the downstream filter would just trim an already-mixed
+// top-N list.
+func (r *EventRepo) GetTrending(ctx context.Context, since time.Time, limit int, categoryID int64) ([]int64, error) {
 	var items []TrendingItem
-	err := r.db.WithContext(ctx).
-		Model(&model.WallpaperEvent{}).
-		Select(`wallpaper_id,
-			SUM(CASE WHEN event_type = 'download' THEN 3
-			         WHEN event_type = 'variant_download' THEN 3
-			         WHEN event_type = 'like' THEN 2
+	q := r.db.WithContext(ctx).
+		Table("wallpaper_events AS we").
+		Select(`we.wallpaper_id,
+			SUM(CASE WHEN we.event_type = 'download' THEN 3
+			         WHEN we.event_type = 'variant_download' THEN 3
+			         WHEN we.event_type = 'like' THEN 2
 			         ELSE 1 END) AS score`).
-		Where("created_at >= ?", since).
-		Group("wallpaper_id").
+		Where("we.created_at >= ?", since)
+	if categoryID > 0 {
+		q = q.Joins("JOIN wallpapers w ON w.id = we.wallpaper_id").
+			Where("w.category_id = ?", categoryID).
+			Where("w.status = ?", model.WallpaperStatusPublished)
+	}
+	err := q.
+		Group("we.wallpaper_id").
 		Order("score DESC").
 		Limit(limit).
 		Find(&items).Error
