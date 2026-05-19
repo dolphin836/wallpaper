@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { MdDevices } from 'react-icons/md';
 import { AiOutlineAppstore, AiOutlineBars, AiOutlineReload } from 'react-icons/ai';
 import toast from 'react-hot-toast';
-import type { Wallpaper } from '../types';
-import { getWallpapers, getForYouWallpapers } from '../api';
+import type { Wallpaper, Category } from '../types';
+import { getWallpapers, getForYouWallpapers, getCategories } from '../api';
 import { useAuthStore } from '../store/auth';
 import WallpaperGrid from '../components/WallpaperGrid';
 import { SIZE_HEIGHTS, SALON_ROW_BY_SIZE } from '../components/WallpaperGrid';
@@ -188,6 +188,21 @@ interface DiscoverControlsProps {
   sortRef: React.RefObject<HTMLDivElement | null>;
 }
 
+function CategoryChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center px-4 py-1.5 text-[12px] font-medium rounded-full border whitespace-nowrap transition-colors ${
+        active
+          ? 'bg-ink text-paper border-ink'
+          : 'bg-paper text-ink-2 border-hair hover:border-ink-2 hover:text-ink'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 function DiscoverControls(p: DiscoverControlsProps) {
   const segOn = 'bg-paper text-ink shadow-[0_1px_0_var(--color-hair),0_0_0_1px_var(--color-hair)]';
   const segOff = 'bg-transparent text-muted';
@@ -306,6 +321,15 @@ export default function HomePage() {
   const [sortOpen, setSortOpen] = useState(false);
   const [feed, setFeed] = useState<'latest' | 'for_you'>('latest');
   const [loadError, setLoadError] = useState(false);
+  // null = "All categories" (no filter). On change, the gallery resets to
+  // page 1 — see the deps of the fetch effect below.
+  const [categoryFilter, setCategoryFilter] = useState<number | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  useEffect(() => {
+    getCategories()
+      .then((r) => setCategories(r.data.data || []))
+      .catch(() => setCategories([]));
+  }, []);
   const sortRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef(cursor);
   const hasMoreRef = useRef(hasMore);
@@ -394,6 +418,9 @@ export default function HomePage() {
       if (sortTrending) {
         params.sort = 'trending';
       }
+      if (categoryFilter !== null) {
+        params.category_id = categoryFilter;
+      }
       const res = await getWallpapers(params);
       const { items, next_cursor, has_more } = res.data.data;
       setWallpapers((prev) => {
@@ -415,7 +442,7 @@ export default function HomePage() {
       else setLoadingMore(false);
       busyRef.current = false;
     }
-  }, [screen, deviceFilter, macFilter, sortTrending, feed]);
+  }, [screen, deviceFilter, macFilter, sortTrending, feed, categoryFilter]);
 
   // Holds latest fetchWallpapers so the (stable) sentinel ref-callback always calls the latest closure.
   const fetchWallpapersRef = useRef(fetchWallpapers);
@@ -510,6 +537,31 @@ export default function HomePage() {
         setSortOpen={setSortOpen}
         sortRef={sortRef}
       />
+
+      {/* Category strip. Sticky-ish horizontal scroller of pills — first
+          chip is "All", rest are categories in sort order. Selecting any
+          chip resets the gallery (fetchWallpapers depends on
+          categoryFilter). Hidden until categories load to avoid layout
+          shift. */}
+      {categories.length > 0 && (
+        <nav className="border-b border-hair bg-paper">
+          <div className="flex items-center gap-2 overflow-x-auto px-6 py-3 no-scrollbar">
+            <CategoryChip
+              label="All"
+              active={categoryFilter === null}
+              onClick={() => setCategoryFilter(null)}
+            />
+            {categories.map((c) => (
+              <CategoryChip
+                key={c.id}
+                label={c.name}
+                active={categoryFilter === c.id}
+                onClick={() => setCategoryFilter(c.id)}
+              />
+            ))}
+          </div>
+        </nav>
+      )}
 
       <main className="p-6">
         {isAuthenticated && user && user.coins <= 0 && (
