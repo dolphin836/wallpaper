@@ -5,6 +5,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-wallpaper}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wallpaper}
       POSTGRES_DB: ${POSTGRES_DB:-wallpaper}
+    # Bind to host loopback only — lets the operator SSH-tunnel in for
+    # one-off CLI work (e.g. running cmd/autotag from outside-China to
+    # reach Anthropic's API while still hitting the prod DB). The 0.0.0.0
+    # interface is intentionally not exposed.
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./deployments/init.sql:/docker-entrypoint-initdb.d/init.sql
