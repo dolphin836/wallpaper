@@ -54,7 +54,11 @@ export default function Avatar({ src, name, size = 48, className = '', alt = '' 
         <img
           src={src!}
           alt={alt}
-          loading="lazy"
+          // Avatars are tiny (a few KB) and rendered in lists of ~10. Native
+          // `loading="lazy"` was occasionally deciding "not in viewport yet"
+          // even for rows that *were* visible, leaving onLoad un-fired and
+          // the image stuck at opacity 0 behind the initial. Always eager-
+          // load — the bandwidth cost is negligible.
           decoding="async"
           onLoad={() => setLoaded(true)}
           onError={() => setErrored(true)}
