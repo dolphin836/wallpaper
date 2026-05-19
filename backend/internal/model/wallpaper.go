@@ -35,6 +35,8 @@ type Wallpaper struct {
 	DynamicType   string    `gorm:"size:16;not null;default:''" json:"dynamic_type"`
 	FrameURLs     string    `gorm:"type:text;not null;default:''" json:"frame_urls"`
 	Phash         int64     `gorm:"not null;default:0" json:"-"`
+	QualityFlag   string    `gorm:"size:32;not null;default:''" json:"quality_flag,omitempty"`
+	QualityNotes  string    `gorm:"type:text;not null;default:''" json:"quality_notes,omitempty"`
 	CreatedAt     time.Time `gorm:"not null;autoCreateTime;index:idx_wallpapers_status_created" json:"created_at"`
 	UpdatedAt     time.Time `gorm:"not null;autoUpdateTime" json:"updated_at"`
 }

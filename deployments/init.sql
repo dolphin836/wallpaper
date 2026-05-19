@@ -183,6 +183,13 @@ ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS frame_urls TEXT NOT NULL DEFAULT
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS phash BIGINT NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_wallpapers_phash ON wallpapers(phash) WHERE phash <> 0 AND status = 1;
 
+-- LLM-assigned quality assessment. Empty string = unassessed; "ok" = passed
+-- review; anything else is a moderation hint for the admin queue.
+-- Notes hold a one-line reason from the model for the flag.
+ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS quality_flag  VARCHAR(32) NOT NULL DEFAULT '';
+ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS quality_notes TEXT        NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_wallpapers_quality_flag ON wallpapers(quality_flag) WHERE quality_flag <> '' AND quality_flag <> 'ok';
+
 CREATE TABLE IF NOT EXISTS reports (
     id               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     wallpaper_id     BIGINT       NOT NULL,

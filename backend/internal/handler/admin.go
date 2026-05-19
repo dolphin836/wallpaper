@@ -182,13 +182,14 @@ func (h *AdminHandler) ListWallpapers(w http.ResponseWriter, r *http.Request) {
 	userID := parseInt64Default(q.Get("user_id"), 0)
 
 	rows, total, err := h.wallpaperRepo.AdminList(r.Context(), repo.AdminWallpaperListOpts{
-		Search:     q.Get("search"),
-		Status:     status,
-		CategoryID: categoryID,
-		UserID:     userID,
-		Offset:     (page - 1) * limit,
-		Limit:      limit,
-		Sort:       q.Get("sort"),
+		Search:      q.Get("search"),
+		Status:      status,
+		CategoryID:  categoryID,
+		UserID:      userID,
+		QualityFlag: q.Get("quality_flag"),
+		Offset:      (page - 1) * limit,
+		Limit:       limit,
+		Sort:        q.Get("sort"),
 	})
 	if err != nil {
 		slog.ErrorContext(r.Context(), "admin wallpapers list failed", "error", err)

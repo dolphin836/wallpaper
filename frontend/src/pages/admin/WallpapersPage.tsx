@@ -25,6 +25,9 @@ export default function WallpapersPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<number | -1>(-1);
   const [categoryFilter, setCategoryFilter] = useState<number>(0);
+  // '' = no filter, 'flagged' / 'unassessed' = synthetic buckets,
+  // anything else = exact match on quality_flag column.
+  const [qualityFilter, setQualityFilter] = useState<string>('');
   const [sort, setSort] = useState<string>('newest');
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -43,6 +46,7 @@ export default function WallpapersPage() {
         search: search || undefined,
         status: statusFilter >= 0 ? statusFilter : undefined,
         category_id: categoryFilter || undefined,
+        quality_flag: qualityFilter || undefined,
         sort,
       })
       .then((r) => {
@@ -51,7 +55,7 @@ export default function WallpapersPage() {
       })
       .catch((e) => toast.error(e?.response?.data?.message || '加载失败'))
       .finally(() => setLoading(false));
-  }, [page, limit, search, statusFilter, categoryFilter, sort]);
+  }, [page, limit, search, statusFilter, categoryFilter, qualityFilter, sort]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
 
@@ -113,6 +117,17 @@ export default function WallpapersPage() {
               <option value={0}>全部分类</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+            <select value={qualityFilter} onChange={(e) => { setQualityFilter(e.target.value); setPage(1); }} className="px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+              <option value="">全部质量</option>
+              <option value="flagged">⚑ 已标记（待审核）</option>
+              <option value="ok">通过</option>
+              <option value="unassessed">未评估</option>
+              <option value="low_aesthetic">低美感</option>
+              <option value="watermark">水印</option>
+              <option value="text_overlay">叠加文字</option>
+              <option value="ai_slop">AI 残次</option>
+              <option value="blurry">模糊</option>
+            </select>
             <select value={sort} onChange={(e) => setSort(e.target.value)} className="px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
               <option value="newest">最新</option>
               <option value="views">浏览最多</option>
@@ -146,7 +161,17 @@ export default function WallpapersPage() {
                           </div>
                         </td>
                         <td className="px-4 py-2 max-w-xs">
-                          <Link to={`/wallpaper/${w.slug}`} className="block font-medium truncate hover:underline">{w.title || `#${w.id}`}</Link>
+                          <div className="flex items-center gap-2">
+                            <Link to={`/wallpaper/${w.slug}`} className="font-medium truncate hover:underline">{w.title || `#${w.id}`}</Link>
+                            {w.quality_flag && w.quality_flag !== 'ok' && (
+                              <span
+                                title={w.quality_notes || w.quality_flag}
+                                className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 text-[10px] rounded border border-rose-300 bg-rose-50 text-rose-700 dark:bg-rose-950 dark:border-rose-800 dark:text-rose-300 whitespace-nowrap"
+                              >
+                                ⚑ {w.quality_flag.replace('_', ' ')}
+                              </span>
+                            )}
+                          </div>
                           <div className="text-xs text-slate-400 truncate">@{w.uploader_username || '?'} · {w.width}×{w.height}{w.is_dynamic ? ` · ${w.dynamic_type}` : ''}</div>
                         </td>
                         <td className="px-4 py-2 text-slate-500">{w.category_name || '-'}</td>

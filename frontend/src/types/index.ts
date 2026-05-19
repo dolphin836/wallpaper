@@ -57,6 +57,8 @@ export interface Wallpaper {
   is_dynamic: boolean;
   dynamic_type: string;
   frame_urls: string;
+  quality_flag?: string;
+  quality_notes?: string;
   created_at: string;
   updated_at: string;
 }

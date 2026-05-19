@@ -154,6 +154,100 @@ func (c *Client) Classify(ctx context.Context, imageURL string) (*Classification
 	return &cls, nil
 }
 
+// QualityAssessment is the moderation hint Claude returns for a single
+// wallpaper image. Flag is the bucket (see AllowedQualityFlags); Notes
+// is a one-line human-readable reason that goes into wallpapers.quality_notes
+// so an admin can scan the queue without re-opening every image.
+type QualityAssessment struct {
+	Flag  string `json:"flag"`
+	Notes string `json:"notes"`
+}
+
+// AllowedQualityFlags is the closed vocabulary AssessQuality emits.
+// Anything else is coerced to "ok" — better to under-report than to write
+// a free-form flag the admin UI doesn't know how to filter on.
+var AllowedQualityFlags = []string{
+	"ok",
+	"blurry",         // out of focus, motion blur, low sharpness
+	"watermark",      // visible watermark, photo-stock logo, signature
+	"ai_slop",        // obvious AI artifacts (mangled hands, garbled text)
+	"text_overlay",   // screenshots, memes, large overlaid text — not wallpaper material
+	"low_aesthetic",  // bad composition, heavy noise, blown highlights, dim/dull
+}
+
+const assessQualityPrompt = `You are moderating wallpaper uploads on a wallpaper-sharing site. Look at the image and decide whether it is suitable as a desktop or mobile wallpaper. Respond with ONLY a JSON object (no markdown, no commentary):
+
+{
+  "flag": one of "ok" | "blurry" | "watermark" | "ai_slop" | "text_overlay" | "low_aesthetic",
+  "notes": one short English sentence (≤120 chars) explaining the flag. For "ok", a brief positive note (composition, mood, subject). For non-ok, explain what is wrong concretely.
+}
+
+Flag definitions (be conservative — when uncertain, prefer "ok"):
+- ok: A reasonable wallpaper. Sharp enough at viewing distance, no overlay text, no watermark, no clear AI artifacts, decent composition.
+- blurry: Out of focus, motion blur, or so soft that the main subject lacks definition. Intentional shallow depth-of-field with a sharp subject is NOT blurry.
+- watermark: A visible photographer logo, stock-site watermark, signature, or printed URL that the user would want removed.
+- ai_slop: Obvious AI-generation artifacts — mangled hands, garbled text, melted faces, impossible anatomy. Stylized AI illustrations without such defects are NOT ai_slop.
+- text_overlay: Screenshots, memes, posters, or images with prominent overlaid text that dominate the frame. A small caption or signature corner does not count.
+- low_aesthetic: Wallpaper-unfriendly — heavy compression noise, blown-out highlights, very dim/dull subject filling the frame, casual snapshot quality.
+
+Return ONLY the JSON object.`
+
+// AssessQuality asks Claude to look at one wallpaper image and return a
+// moderation flag + a short notes line. Errors and unknown flags coerce
+// to "ok" — failing safe so a hiccup in the assessor doesn't flag good
+// content. Caller is responsible for storing the result.
+func (c *Client) AssessQuality(ctx context.Context, imageURL string) (*QualityAssessment, error) {
+	if !c.Enabled() {
+		return nil, fmt.Errorf("anthropic api key not configured")
+	}
+
+	resp, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     c.model,
+		MaxTokens: 200,
+		System: []anthropic.TextBlockParam{
+			{Text: assessQualityPrompt},
+		},
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(
+				anthropic.NewImageBlock(anthropic.URLImageSourceParam{URL: imageURL}),
+				anthropic.NewTextBlock("Assess this wallpaper."),
+			),
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("anthropic api: %w", err)
+	}
+
+	var raw string
+	for _, block := range resp.Content {
+		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
+			raw = strings.TrimSpace(t.Text)
+			break
+		}
+	}
+	if raw == "" {
+		return nil, fmt.Errorf("anthropic returned no text content")
+	}
+	raw = strings.TrimPrefix(raw, "```json")
+	raw = strings.TrimPrefix(raw, "```")
+	raw = strings.TrimSuffix(raw, "```")
+	raw = strings.TrimSpace(raw)
+
+	var q QualityAssessment
+	if err := json.Unmarshal([]byte(raw), &q); err != nil {
+		return nil, fmt.Errorf("parse quality json: %w (raw=%q)", err, raw)
+	}
+	q.Flag = strings.ToLower(strings.TrimSpace(q.Flag))
+	if !contains(AllowedQualityFlags, q.Flag) {
+		q.Flag = "ok"
+	}
+	q.Notes = strings.TrimSpace(q.Notes)
+	if len(q.Notes) > 240 {
+		q.Notes = q.Notes[:240]
+	}
+	return &q, nil
+}
+
 // TagInput is one row of the tag inventory fed into ProposeTagMerges. The
 // count is the number of wallpapers currently linked to the tag — Claude
 // uses it to pick which name in a synonym set becomes canonical (heaviest

@@ -21,9 +21,14 @@ type AdminWallpaperListOpts struct {
 	Status     int16 // -1 means any
 	CategoryID int64
 	UserID     int64
-	Offset     int
-	Limit      int
-	Sort       string // newest | views | likes | downloads
+	// QualityFlag accepts the literal flag values stored in wallpapers
+	// (`ok`, `low_aesthetic`, `watermark`, ...) plus three synthetic
+	// values: `""` = no filter, `"unassessed"` = empty string,
+	// `"flagged"` = anything that isn't `''` or `'ok'`.
+	QualityFlag string
+	Offset      int
+	Limit       int
+	Sort        string // newest | views | likes | downloads
 }
 
 // AdminList returns wallpapers with uploader + category eagerly joined and
@@ -48,6 +53,20 @@ func (r *WallpaperRepo) AdminList(ctx context.Context, opts AdminWallpaperListOp
 	if opts.UserID > 0 {
 		q = q.Where("wallpapers.user_id = ?", opts.UserID)
 		cq = cq.Where("user_id = ?", opts.UserID)
+	}
+	switch opts.QualityFlag {
+	case "":
+		// no filter
+	case "unassessed":
+		q = q.Where("wallpapers.quality_flag = ''")
+		cq = cq.Where("quality_flag = ''")
+	case "flagged":
+		q = q.Where("wallpapers.quality_flag NOT IN ('', 'ok')")
+		cq = cq.Where("quality_flag NOT IN ('', 'ok')")
+	default:
+		// exact match against a specific flag like 'ok' or 'low_aesthetic'.
+		q = q.Where("wallpapers.quality_flag = ?", opts.QualityFlag)
+		cq = cq.Where("quality_flag = ?", opts.QualityFlag)
 	}
 	if s := strings.TrimSpace(opts.Search); s != "" {
 		like := "%" + s + "%"
