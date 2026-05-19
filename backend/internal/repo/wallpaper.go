@@ -372,6 +372,16 @@ func (r *WallpaperRepo) SetPhash(ctx context.Context, id int64, phash int64) err
 		Update("phash", phash).Error
 }
 
+func (r *WallpaperRepo) SetQualityFlag(ctx context.Context, id int64, flag, notes string) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Wallpaper{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"quality_flag":  flag,
+			"quality_notes": notes,
+		}).Error
+}
+
 func (r *WallpaperRepo) SetStatus(ctx context.Context, id int64, status int16) error {
 	return r.db.WithContext(ctx).
 		Model(&model.Wallpaper{}).

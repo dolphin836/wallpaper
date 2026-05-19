@@ -131,6 +131,12 @@ export const hardDeleteAdminWallpaper = (id: number) =>
 export const reprocessAdminWallpaper = (id: number) =>
   client.post<ApiResponse<null>>(`/admin/wallpapers/${id}/reprocess`);
 
+// Clears a flagged wallpaper's quality_flag back to 'ok' and triggers a
+// reprocess so device variants (which qcheck dropped when it first
+// flagged the row) get regenerated.
+export const approveAdminWallpaperQuality = (id: number) =>
+  client.post<ApiResponse<null>>(`/admin/wallpapers/${id}/approve-quality`);
+
 export const listAdminCollections = (params: {
   page?: number; limit?: number; search?: string; is_public?: boolean; sort?: string;
 }) => client.get<ApiResponse<PaginatedAdmin<AdminCollectionRow>>>('/admin/collections', { params });

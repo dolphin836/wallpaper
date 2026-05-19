@@ -18,6 +18,7 @@ RUN CGO_ENABLED=0 go build -o /bin/setadmin ./cmd/setadmin
 RUN CGO_ENABLED=0 go build -o /bin/recompress ./cmd/recompress
 RUN CGO_ENABLED=0 go build -o /bin/autotag ./cmd/autotag
 RUN CGO_ENABLED=0 go build -o /bin/tagclean ./cmd/tagclean
+RUN CGO_ENABLED=0 go build -o /bin/qcheck ./cmd/qcheck
 
 FROM alpine:3.19 AS api
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
@@ -29,6 +30,7 @@ COPY --from=builder /bin/setadmin /bin/setadmin
 COPY --from=builder /bin/recompress /bin/recompress
 COPY --from=builder /bin/autotag /bin/autotag
 COPY --from=builder /bin/tagclean /bin/tagclean
+COPY --from=builder /bin/qcheck /bin/qcheck
 ENTRYPOINT ["/bin/api"]
 
 FROM alpine:3.19 AS worker

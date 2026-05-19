@@ -232,6 +232,32 @@ func (h *AdminHandler) UpdateWallpaper(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, nil)
 }
 
+// ApproveQuality clears a wallpaper's quality_flag back to 'ok' (the
+// admin reviewed the LLM's call and disagreed) and triggers a reprocess
+// so the device variants — which qcheck dropped when it first flagged
+// the row — get regenerated. Cleanup of the previously-dropped variants
+// is a no-op since they were already removed; the worker's
+// cleanupOldArtifacts at the top of processImage just runs against an
+// empty set.
+func (h *AdminHandler) ApproveQuality(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	if err := h.wallpaperRepo.SetQualityFlag(r.Context(), id, "ok", "approved by admin"); err != nil {
+		slog.ErrorContext(r.Context(), "approve quality: set flag failed", "id", id, "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	if ec := h.wallpaperSvc.Reprocess(r.Context(), id); ec != nil {
+		slog.ErrorContext(r.Context(), "approve quality: reprocess failed", "id", id, "error", ec)
+		response.Error(w, http.StatusInternalServerError, ec)
+		return
+	}
+	response.OK(w, nil)
+}
+
 // ReprocessWallpaper re-queues a stuck or failed wallpaper through the
 // image worker. Flips status back to processing and re-publishes the
 // original wallpaper.uploaded Kafka event with the same object key, so

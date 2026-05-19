@@ -93,6 +93,14 @@ export default function WallpapersPage() {
     }).catch((e) => toast.error(e?.response?.data?.message || '重处理失败'));
   };
 
+  const onApproveQuality = (id: number) => {
+    if (!confirm('将此壁纸标记为正常质量？将清除 quality flag 并重新生成设备变体。')) return;
+    admin.approveAdminWallpaperQuality(id).then(() => {
+      toast.success('已批准，正在重新生成变体');
+      fetchList();
+    }).catch((e) => toast.error(e?.response?.data?.message || '批准失败'));
+  };
+
   return (
     <>
       <PageHeader title="壁纸管理" subtitle={`共 ${total} 张`} />
@@ -188,6 +196,9 @@ export default function WallpapersPage() {
                               stuck processing (0) rows. */}
                           {(w.status === 0 || w.status === 2) && (
                             <button onClick={() => onReprocess(w.id)} className="text-xs text-amber-600 hover:underline mr-3">重新处理</button>
+                          )}
+                          {w.quality_flag && w.quality_flag !== 'ok' && w.status === 1 && (
+                            <button onClick={() => onApproveQuality(w.id)} className="text-xs text-emerald-600 hover:underline mr-3">标为正常</button>
                           )}
                           {w.status === 1 && (
                             <button onClick={() => onDelete(w.id)} className="text-xs text-rose-500 hover:underline">下架</button>
