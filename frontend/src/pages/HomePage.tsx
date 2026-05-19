@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { MdDevices } from 'react-icons/md';
 import { AiOutlineAppstore, AiOutlineBars, AiOutlineReload } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { Wallpaper, Category } from '../types';
@@ -71,13 +70,17 @@ function calculatePageSize(
 
 const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent);
 
-function AppleIcon({ size = 16 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 384 512" fill="currentColor">
-      <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/>
-    </svg>
-  );
-}
+// Single discovery filter. Each option fully specifies *what* gets fetched
+// and *how* it's sorted — there is no separate sort toggle.
+type FilterMode = 'latest' | 'trending' | 'for_you' | 'my_device' | 'mac_dynamic';
+
+const FILTER_LABELS: Record<FilterMode, string> = {
+  latest:      'Latest',
+  trending:    'Trending',
+  for_you:     'For You',
+  my_device:   'My Device',
+  mac_dynamic: 'macOS Dynamic',
+};
 
 // Default view mode = 'justified' (justified-layout library, uniform row
 // height) — what the page used to ship. 'salon' (mosaic) is implemented in
@@ -168,26 +171,6 @@ function FeedFooter({ state, count, onRetry }: { state: FooterState; count: numb
   );
 }
 
-interface DiscoverControlsProps {
-  isAuthenticated: boolean;
-  feed: 'latest' | 'for_you';
-  setFeed: (f: 'latest' | 'for_you') => void;
-  deviceFilter: boolean;
-  toggleDeviceFilter: () => void;
-  macFilter: boolean;
-  toggleMacFilter: () => void;
-  screen: { width: number; height: number };
-  viewMode: ViewMode;
-  onView: (v: ViewMode) => void;
-  sizeMode: SizeMode;
-  onSize: (s: SizeMode) => void;
-  sortTrending: boolean;
-  setSortTrending: (b: boolean) => void;
-  sortOpen: boolean;
-  setSortOpen: (b: boolean) => void;
-  sortRef: React.RefObject<HTMLDivElement | null>;
-}
-
 function CategoryChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
@@ -203,108 +186,87 @@ function CategoryChip({ label, active, onClick }: { label: string; active: boole
   );
 }
 
-function DiscoverControls(p: DiscoverControlsProps) {
-  const segOn = 'bg-paper text-ink shadow-[0_1px_0_var(--color-hair),0_0_0_1px_var(--color-hair)]';
-  const segOff = 'bg-transparent text-muted';
-  const chipOn = 'bg-accent text-white border-transparent';
-  const chipOff = 'bg-paper text-ink-2 border-hair';
+interface FilterDropdownProps {
+  mode: FilterMode;
+  setMode: (m: FilterMode) => void;
+  open: boolean;
+  setOpen: (b: boolean) => void;
+  ddRef: React.RefObject<HTMLDivElement | null>;
+  isAuthenticated: boolean;
+}
+
+function FilterDropdown(p: FilterDropdownProps) {
+  // For-you is only meaningful for signed-in users — hide it for guests
+  // so the dropdown doesn't surface an option that immediately falls
+  // back to Latest.
+  const options: FilterMode[] = p.isAuthenticated
+    ? ['latest', 'trending', 'for_you', 'my_device', 'mac_dynamic']
+    : ['latest', 'trending', 'my_device', 'mac_dynamic'];
 
   return (
-    <div className="flex items-center justify-between gap-4 flex-wrap border-b border-hair bg-paper px-8 py-4">
-      {/* Left */}
-      <div className="flex items-center gap-3 flex-wrap">
-        {p.isAuthenticated && (
-          // Inner buttons h-[26px] so the wrapper (p-[3px]) lands at 32px
-          // outer height — matches the device chips and view/size toggles
-          // sitting next to it in this same row.
-          <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-full">
+    <div className="relative" ref={p.ddRef}>
+      <button
+        onClick={() => p.setOpen(!p.open)}
+        className="inline-flex items-center gap-3 h-8 px-3.5 rounded-lg bg-paper-2 border border-hair text-[12px] text-ink-2"
+      >
+        <span className="mono text-[10px] tracking-[0.1em] text-muted">FILTER</span>
+        {FILTER_LABELS[p.mode]}
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 9l7 7 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </button>
+      {p.open && (
+        <div className="absolute right-0 mt-1 w-44 bg-paper border border-hair rounded-lg shadow-lg z-20 py-1">
+          {options.map((opt) => (
             <button
-              onClick={() => p.setFeed('latest')}
-              className={`h-[26px] px-3.5 text-[12px] font-medium rounded-full transition-colors ${p.feed === 'latest' ? segOn : segOff}`}
-            >Latest</button>
-            <button
-              onClick={() => p.setFeed('for_you')}
-              className={`h-[26px] px-3.5 text-[12px] font-medium rounded-full transition-colors ${p.feed === 'for_you' ? segOn : segOff}`}
-            >For You</button>
-          </div>
-        )}
-
-        <button
-          onClick={p.toggleDeviceFilter}
-          title={p.deviceFilter ? `${p.screen.width}×${p.screen.height}` : 'Filter for your device'}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium rounded-full border transition-colors ${p.deviceFilter ? chipOn : chipOff}`}
-        >
-          <MdDevices size={13} />
-          <span>{p.deviceFilter ? `${p.screen.width} × ${p.screen.height}` : 'My Device'}</span>
-        </button>
-
-        <button
-          onClick={p.toggleMacFilter}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium rounded-full border transition-colors ${p.macFilter ? chipOn : chipOff}`}
-        >
-          <AppleIcon size={12} />
-          macOS
-        </button>
-      </div>
-
-      {/* Right: view + size + sort */}
-      <div className="flex items-center gap-2.5">
-        {/* View toggle — two options: uniform-height "justified" rows
-            (default) and the fixed-aspect grid. The third 'salon' mosaic
-            mode is intentionally not exposed in the toggle. */}
-        <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-lg">
-          <button
-            onClick={() => p.onView('justified')}
-            title="Justified"
-            className={`w-[30px] h-[26px] rounded-[5px] flex items-center justify-center transition-colors ${p.viewMode === 'justified' || p.viewMode === 'salon' ? 'bg-ink text-paper' : 'text-muted'}`}
-          ><AiOutlineAppstore size={13} /></button>
-          <button
-            onClick={() => p.onView('grid')}
-            title="Grid"
-            className={`w-[30px] h-[26px] rounded-[5px] flex items-center justify-center transition-colors ${p.viewMode === 'grid' ? 'bg-ink text-paper' : 'text-muted'}`}
-          ><AiOutlineBars size={13} /></button>
+              key={opt}
+              onClick={() => { p.setMode(opt); p.setOpen(false); }}
+              className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${p.mode === opt ? 'text-accent-ink bg-accent-soft font-medium' : 'text-ink-2 hover:bg-paper-2'}`}
+            >{FILTER_LABELS[opt]}</button>
+          ))}
         </div>
-
-        {/* Size toggle */}
-        <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-lg">
-          {(['sm', 'md', 'lg'] as SizeMode[]).map((k) => {
-            const on = p.sizeMode === k;
-            return (
-              <button
-                key={k}
-                onClick={() => p.onSize(k)}
-                title={`Size · ${k.toUpperCase()}`}
-                className={`min-w-[30px] h-[26px] px-[9px] rounded-[5px] mono text-[11px] tracking-[0.04em] transition-colors ${on ? 'bg-ink text-paper font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.18)]' : 'text-muted font-medium'}`}
-              >{k.toUpperCase()}</button>
-            );
-          })}
-        </div>
-
-        {/* Sort */}
-        <div className="relative" ref={p.sortRef}>
-          <button
-            onClick={() => p.setSortOpen(!p.sortOpen)}
-            className="inline-flex items-center gap-3 h-8 px-3.5 rounded-lg bg-paper-2 border border-hair text-[12px] text-ink-2"
-          >
-            <span className="mono text-[10px] tracking-[0.1em] text-muted">SORT</span>
-            {p.sortTrending ? 'Trending' : 'Latest'}
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 9l7 7 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </button>
-          {p.sortOpen && (
-            <div className="absolute right-0 mt-1 w-36 bg-paper border border-hair rounded-lg shadow-lg z-20 py-1">
-              <button
-                onClick={() => { if (p.sortTrending) p.setSortTrending(false); p.setSortOpen(false); }}
-                className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${!p.sortTrending ? 'text-accent-ink bg-accent-soft font-medium' : 'text-ink-2 hover:bg-paper-2'}`}
-              >Latest</button>
-              <button
-                onClick={() => { if (!p.sortTrending) p.setSortTrending(true); p.setSortOpen(false); }}
-                className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${p.sortTrending ? 'text-accent-ink bg-accent-soft font-medium' : 'text-ink-2 hover:bg-paper-2'}`}
-              >Trending</button>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </div>
+  );
+}
+
+interface ViewSizeControlsProps {
+  viewMode: ViewMode;
+  onView: (v: ViewMode) => void;
+  sizeMode: SizeMode;
+  onSize: (s: SizeMode) => void;
+}
+
+function ViewSizeControls(p: ViewSizeControlsProps) {
+  return (
+    <>
+      {/* View toggle — uniform-height "justified" rows vs fixed-aspect
+          grid. The third 'salon' mosaic mode is intentionally not
+          exposed (it's selectable from a deeper menu elsewhere). */}
+      <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-lg">
+        <button
+          onClick={() => p.onView('justified')}
+          title="Justified"
+          className={`w-[30px] h-[26px] rounded-[5px] flex items-center justify-center transition-colors ${p.viewMode === 'justified' || p.viewMode === 'salon' ? 'bg-ink text-paper' : 'text-muted'}`}
+        ><AiOutlineAppstore size={13} /></button>
+        <button
+          onClick={() => p.onView('grid')}
+          title="Grid"
+          className={`w-[30px] h-[26px] rounded-[5px] flex items-center justify-center transition-colors ${p.viewMode === 'grid' ? 'bg-ink text-paper' : 'text-muted'}`}
+        ><AiOutlineBars size={13} /></button>
+      </div>
+      <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-lg">
+        {(['sm', 'md', 'lg'] as SizeMode[]).map((k) => {
+          const on = p.sizeMode === k;
+          return (
+            <button
+              key={k}
+              onClick={() => p.onSize(k)}
+              title={`Size · ${k.toUpperCase()}`}
+              className={`min-w-[30px] h-[26px] px-[9px] rounded-[5px] mono text-[11px] tracking-[0.04em] transition-colors ${on ? 'bg-ink text-paper font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.18)]' : 'text-muted font-medium'}`}
+            >{k.toUpperCase()}</button>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -315,11 +277,13 @@ export default function HomePage() {
   const [cursor, setCursor] = useState<number | undefined>();
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [deviceFilter, setDeviceFilter] = useState(false);
-  const [macFilter, setMacFilter] = useState(false);
-  const [sortTrending, setSortTrending] = useState(false);
-  const [sortOpen, setSortOpen] = useState(false);
-  const [feed, setFeed] = useState<'latest' | 'for_you'>('latest');
+  // Unified filter mode replaces the four separate toggles (feed,
+  // device, mac, sort). Each option fully describes both the data
+  // source and the sort order — see fetchWallpapers below for the
+  // mapping to backend params.
+  const [filterMode, setFilterMode] = useState<FilterMode>('latest');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
   const [loadError, setLoadError] = useState(false);
   // null = "All categories" (no filter). On change, the gallery resets to
   // page 1 — see the deps of the fetch effect below.
@@ -330,7 +294,6 @@ export default function HomePage() {
       .then((r) => setCategories(r.data.data || []))
       .catch(() => setCategories([]));
   }, []);
-  const sortRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef(cursor);
   const hasMoreRef = useRef(hasMore);
   cursorRef.current = cursor;
@@ -363,20 +326,6 @@ export default function HomePage() {
     localStorage.setItem('wallpaper_size_mode', size);
   };
 
-  const toggleDeviceFilter = () => {
-    setDeviceFilter((p) => {
-      if (!p) setMacFilter(false);
-      return !p;
-    });
-  };
-
-  const toggleMacFilter = () => {
-    setMacFilter((p) => {
-      if (!p) setDeviceFilter(false);
-      return !p;
-    });
-  };
-
   const busyRef = useRef(false);
   const [staggerFrom, setStaggerFrom] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -389,12 +338,12 @@ export default function HomePage() {
     try {
       // For-you is a single-shot top-N feed (no cursor). When it returns
       // empty, fall back to latest so cold-start users still see content.
-      if (feed === 'for_you') {
+      if (filterMode === 'for_you') {
         if (!reset) return;
         const res = await getForYouWallpapers(30);
         const items = res.data.data || [];
         if (items.length === 0) {
-          setFeed('latest');
+          setFilterMode('latest');
           return;
         }
         setStaggerFrom(0);
@@ -408,15 +357,21 @@ export default function HomePage() {
         cursor: reset ? undefined : cursorRef.current,
         limit: calculatePageSize(viewModeRef.current, sizeModeRef.current),
       };
-      if (macFilter) {
-        params.dynamic_only = true;
-      } else if (deviceFilter) {
-        params.device_width = screen.width;
-        params.device_height = screen.height;
-        if (isMac) params.include_dynamic = true;
-      }
-      if (sortTrending) {
-        params.sort = 'trending';
+      switch (filterMode) {
+        case 'trending':
+          params.sort = 'trending';
+          break;
+        case 'my_device':
+          params.device_width = screen.width;
+          params.device_height = screen.height;
+          if (isMac) params.include_dynamic = true;
+          break;
+        case 'mac_dynamic':
+          params.dynamic_only = true;
+          break;
+        case 'latest':
+          // No special params — default backend behavior is latest first.
+          break;
       }
       if (categoryFilter !== null) {
         params.category_id = categoryFilter;
@@ -442,7 +397,7 @@ export default function HomePage() {
       else setLoadingMore(false);
       busyRef.current = false;
     }
-  }, [screen, deviceFilter, macFilter, sortTrending, feed, categoryFilter]);
+  }, [screen, filterMode, categoryFilter]);
 
   // Holds latest fetchWallpapers so the (stable) sentinel ref-callback always calls the latest closure.
   const fetchWallpapersRef = useRef(fetchWallpapers);
@@ -477,11 +432,11 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchWallpapers(true);
-  }, [deviceFilter, macFilter, sortTrending, feed]);
+  }, [filterMode, categoryFilter]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false);
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -518,34 +473,13 @@ export default function HomePage() {
         description="Browse and download community-uploaded HD and 4K wallpapers — phone, desktop, and macOS dynamic wallpapers, sorted by latest and popular."
       />
 
-      <DiscoverControls
-        isAuthenticated={isAuthenticated}
-        feed={feed}
-        setFeed={setFeed}
-        deviceFilter={deviceFilter}
-        toggleDeviceFilter={toggleDeviceFilter}
-        macFilter={macFilter}
-        toggleMacFilter={toggleMacFilter}
-        screen={screen}
-        viewMode={viewMode}
-        onView={handleViewChange}
-        sizeMode={sizeMode}
-        onSize={handleSizeChange}
-        sortTrending={sortTrending}
-        setSortTrending={setSortTrending}
-        sortOpen={sortOpen}
-        setSortOpen={setSortOpen}
-        sortRef={sortRef}
-      />
-
-      {/* Category strip. Sticky-ish horizontal scroller of pills — first
-          chip is "All", rest are categories in sort order. Selecting any
-          chip resets the gallery (fetchWallpapers depends on
-          categoryFilter). Hidden until categories load to avoid layout
-          shift. */}
-      {categories.length > 0 && (
-        <nav className="border-b border-hair bg-paper">
-          <div className="flex items-center gap-2 overflow-x-auto px-6 py-3 no-scrollbar">
+      {/* Unified discover toolbar: left half is the category strip (scrolls
+          horizontally when it overflows), right half is the Filter dropdown
+          plus view/size controls. The strip itself is hidden until
+          categories load to avoid layout shift on first paint. */}
+      <div className="flex items-center gap-4 border-b border-hair bg-paper px-6 py-3">
+        <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-2">
             <CategoryChip
               label="All"
               active={categoryFilter === null}
@@ -560,8 +494,24 @@ export default function HomePage() {
               />
             ))}
           </div>
-        </nav>
-      )}
+        </div>
+        <div className="flex items-center gap-2.5 flex-shrink-0">
+          <FilterDropdown
+            mode={filterMode}
+            setMode={setFilterMode}
+            open={filterOpen}
+            setOpen={setFilterOpen}
+            ddRef={filterRef}
+            isAuthenticated={isAuthenticated}
+          />
+          <ViewSizeControls
+            viewMode={viewMode}
+            onView={handleViewChange}
+            sizeMode={sizeMode}
+            onSize={handleSizeChange}
+          />
+        </div>
+      </div>
 
       <main className="p-6">
         {isAuthenticated && user && user.coins <= 0 && (
