@@ -80,9 +80,9 @@ func (r *CollectionRepo) Delete(ctx context.Context, id int64) error {
 	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.Collection{}).Error
 }
 
-func (r *CollectionRepo) List(ctx context.Context, cursor int64, limit int, userID int64) ([]model.Collection, error) {
+func (r *CollectionRepo) List(ctx context.Context, cursor int64, limit int, userID int64, kind int) ([]model.Collection, error) {
 	query := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, created_at, updated_at")
+		Select("id, slug, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, kind, year, week, created_at, updated_at")
 
 	if cursor > 0 {
 		query = query.Where("id < ?", cursor)
@@ -92,6 +92,12 @@ func (r *CollectionRepo) List(ctx context.Context, cursor int64, limit int, user
 		query = query.Where("is_public = ? OR user_id = ?", true, userID)
 	} else {
 		query = query.Where("is_public = ?", true)
+	}
+
+	if kind >= 0 {
+		// kind == 0 (regular) and kind == 1 (editor theme) are both
+		// legitimate filters; -1 means "no filter" (the default).
+		query = query.Where("kind = ?", kind)
 	}
 
 	var collections []model.Collection

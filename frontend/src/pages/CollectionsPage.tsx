@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { AiOutlinePlus } from 'react-icons/ai';
 import type { Collection } from '../types';
@@ -15,6 +16,12 @@ const PAGE_SIZE = 12;
 
 export default function CollectionsPage() {
   const { isAuthenticated, user } = useAuthStore();
+  const [searchParams] = useSearchParams();
+  // ?kind=1 limits to editor themes. We parse once per render and treat
+  // anything non-numeric as "no filter" so junk values don't 400 the API.
+  const kindParam = searchParams.get('kind');
+  const kind = kindParam !== null && /^\d+$/.test(kindParam) ? Number(kindParam) : undefined;
+  const isThemes = kind === 1;
 
   // Paginated cursor walk — collect into pages so the editorial Pagination
   // can do prev/next moves. We discover total at the end (when has_more
@@ -30,14 +37,15 @@ export default function CollectionsPage() {
   const [filter, setFilter] = useState<Filter>('all');
   const [showCreate, setShowCreate] = useState(false);
 
-  // Reset cache when the filter changes so the next fetch starts from page 1.
+  // Reset cache when the filter or kind changes so the next fetch starts
+  // from page 1 cleanly.
   useEffect(() => {
     setPages({});
     setCursors({ 1: undefined });
     setHasMoreUpTo(null);
     setKnownTotalPages(null);
     setCurrent(1);
-  }, [filter]);
+  }, [filter, kind]);
 
   const fetchPage = useCallback(async (page: number) => {
     if (pages[page]) return;
@@ -45,7 +53,7 @@ export default function CollectionsPage() {
     if (page > 1 && cursor === undefined) return; // need previous page first
     setLoading(true);
     try {
-      const res = await getCollections({ cursor, limit: PAGE_SIZE });
+      const res = await getCollections({ cursor, limit: PAGE_SIZE, kind });
       let items = res.data.data.items || [];
       const nextCursor = res.data.data.next_cursor;
       const hasMore = res.data.data.has_more;
@@ -64,7 +72,7 @@ export default function CollectionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [pages, cursors, filter, user]);
+  }, [pages, cursors, filter, user, kind]);
 
   useEffect(() => { fetchPage(current); }, [current, fetchPage]);
 
@@ -76,17 +84,26 @@ export default function CollectionsPage() {
   return (
     <div className="bg-paper-2 min-h-full">
       <PageMeta
-        title="Collections"
-        description="Curated wallpaper selections from the community on Wallpaper Exchange."
+        title={isThemes ? 'Editor Themes' : 'Collections'}
+        description={isThemes
+          ? 'Every editor-curated weekly theme collection on Wallpaper Exchange.'
+          : 'Curated wallpaper selections from the community on Wallpaper Exchange.'}
       />
 
       <div className="px-6 sm:px-10 pt-7">
         {/* Header */}
         <div className="flex items-end justify-between gap-6 flex-wrap mb-6">
           <div>
-            <div className="kicker text-muted">Collections{knownTotalPages !== null ? ` · ${visible.length === 0 && current === 1 ? 0 : '∞'}` : ''}</div>
+            <div className="kicker text-muted">
+              {isThemes ? 'Editor themes' : 'Collections'}
+              {knownTotalPages !== null ? ` · ${visible.length === 0 && current === 1 ? 0 : '∞'}` : ''}
+            </div>
             <h1 className="display text-[40px] sm:text-[56px] leading-[0.96] mt-2 tracking-[-0.02em] text-ink">
-              Curated <span className="italic-d">selections.</span>
+              {isThemes ? (
+                <>One theme, <span className="italic-d">every week.</span></>
+              ) : (
+                <>Curated <span className="italic-d">selections.</span></>
+              )}
             </h1>
           </div>
 

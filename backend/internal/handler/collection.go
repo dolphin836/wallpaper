@@ -91,8 +91,20 @@ func (h *CollectionHandler) List(w http.ResponseWriter, r *http.Request) {
 		limit = v
 	}
 
+	// kind: omit query param → -1 (all). Pass kind=1 to limit to editor
+	// themes, kind=0 to limit to user-made.
+	kind := -1
+	if raw := q.Get("kind"); raw != "" {
+		v, err := strconv.Atoi(raw)
+		if err != nil {
+			response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+			return
+		}
+		kind = v
+	}
+
 	userID := middleware.GetUserID(r.Context())
-	resp, ec := h.collectionSvc.List(r.Context(), cursor, limit, userID)
+	resp, ec := h.collectionSvc.List(r.Context(), cursor, limit, userID, kind)
 	if ec != nil {
 		response.Error(w, http.StatusInternalServerError, ec)
 		return

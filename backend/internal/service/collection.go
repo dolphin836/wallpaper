@@ -97,12 +97,12 @@ func (s *CollectionService) RecentTiles(ctx context.Context, ids []int64) (map[i
 	return s.collectionRepo.RecentTilesForCollections(ctx, ids)
 }
 
-func (s *CollectionService) List(ctx context.Context, cursor int64, limit int, userID int64) (*CollectionListResponse, *errcode.ErrCode) {
+func (s *CollectionService) List(ctx context.Context, cursor int64, limit int, userID int64, kind int) (*CollectionListResponse, *errcode.ErrCode) {
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
 	fetchLimit := limit + 1
-	items, err := s.collectionRepo.List(ctx, cursor, fetchLimit, userID)
+	items, err := s.collectionRepo.List(ctx, cursor, fetchLimit, userID, kind)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to list collections", "error", err)
 		return nil, errcode.ErrInternal
