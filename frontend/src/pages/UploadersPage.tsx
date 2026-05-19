@@ -158,7 +158,7 @@ function UploaderRow({ u }: { u: UserListItem }) {
       {works.length > 0 && (
         <div className="hidden lg:grid grid-cols-3 gap-1.5">
           {works.slice(0, 3).map((thumb, i) => (
-            <div key={i} className="aspect-square border border-hair overflow-hidden bg-paper-3">
+            <div key={i} className="aspect-square border border-hair overflow-hidden bg-paper-3 rounded">
               <img src={thumb} alt="" loading="lazy" className="w-full h-full object-cover" />
             </div>
           ))}
