@@ -179,7 +179,7 @@ func (r *AnalyticsRepo) TopReferrerHosts(ctx context.Context, days, limit int, o
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT
 			COALESCE(
-				NULLIF(substring(referrer FROM '^https?://([^/]+)'), ''),
+				NULLIF(split_part(split_part(referrer, '//', 2), '/', 1), ''),
 				''
 			) AS host,
 			COUNT(*) AS count
@@ -188,7 +188,7 @@ func (r *AnalyticsRepo) TopReferrerHosts(ctx context.Context, days, limit int, o
 		  AND created_at >= ?
 		  AND `+botUAClause+`
 		GROUP BY host
-		HAVING COALESCE(NULLIF(substring(referrer FROM '^https?://([^/]+)'), ''), '') NOT IN (`+placeholders+`)
+		HAVING COALESCE(NULLIF(split_part(split_part(referrer, '//', 2), '/', 1), ''), '') NOT IN (`+placeholders+`)
 		ORDER BY count DESC
 		LIMIT ?
 	`, args...).Scan(&rows).Error
