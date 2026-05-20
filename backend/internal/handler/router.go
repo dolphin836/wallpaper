@@ -30,6 +30,9 @@ type Deps struct {
 	AdminHandler      *AdminHandler
 	UserRepo          *repo.UserRepo
 	JWTSecret         string
+	// IndexNowKey, when non-empty, registers /{IndexNowKey}.txt to serve
+	// the verification file required by Bing/Yandex/IndexNow.
+	IndexNowKey string
 }
 
 func NewRouter(deps Deps) *chi.Mux {
@@ -60,7 +63,14 @@ func NewRouter(deps Deps) *chi.Mux {
 
 	r.Get("/robots.txt", deps.SEOHandler.RobotsTxt)
 	r.Get("/sitemap.xml", deps.SEOHandler.Sitemap)
+	r.Get("/feed.xml", deps.SEOHandler.Feed)
 	r.Get("/__og/wallpaper/{slug}", deps.SEOHandler.OGWallpaper)
+	if deps.IndexNowKey != "" {
+		// Bing/Yandex fetch the key file at /{key}.txt to vouch that we
+		// own the host before accepting our submissions. Registering the
+		// exact path here avoids a generic .txt catch-all.
+		r.Get("/"+deps.IndexNowKey+".txt", deps.SEOHandler.IndexNowKey)
+	}
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/auth/register", deps.AuthHandler.Register)

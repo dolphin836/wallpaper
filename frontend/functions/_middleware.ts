@@ -1,11 +1,13 @@
-// Cloudflare Pages Function: proxy three classes of requests from the apex
-// domain to the backend so the SPA, SEO endpoints, and API all live behind
-// the same origin (wallpaperexchange.com).
+// Cloudflare Pages Function: proxy a handful of paths from the apex domain
+// to the backend so the SPA, SEO endpoints, and API all live behind the
+// same origin (wallpaperexchange.com).
 //
 // What we proxy
-//   /api/*         → ${API_ORIGIN}/api/*
-//   /sitemap.xml   → ${API_ORIGIN}/sitemap.xml
-//   /robots.txt    → ${API_ORIGIN}/robots.txt
+//   /api/*               → ${API_ORIGIN}/api/*
+//   /sitemap.xml         → ${API_ORIGIN}/sitemap.xml
+//   /robots.txt          → ${API_ORIGIN}/robots.txt
+//   /feed.xml            → ${API_ORIGIN}/feed.xml          (RSS)
+//   /{indexnowKey}.txt   → ${API_ORIGIN}/{indexnowKey}.txt (Bing/Yandex verification)
 //
 // Why API_ORIGIN = wallpaper.haibing.site, not api.wallpaperexchange.com?
 //   api.wallpaperexchange.com is in the same Cloudflare zone as the apex.
@@ -26,10 +28,17 @@ export const onRequest: PagesFunction = async (context) => {
   const url = new URL(context.request.url);
   const path = url.pathname;
 
+  // IndexNow key file: 16+ hex chars then ".txt" at the root. We pattern-
+  // match instead of hardcoding the key so we don't have to redeploy the
+  // worker every time the key rotates.
+  const isIndexNowKeyFile = /^\/[a-f0-9]{16,128}\.txt$/i.test(path);
+
   const shouldProxy =
     path.startsWith('/api/') ||
     path === '/sitemap.xml' ||
-    path === '/robots.txt';
+    path === '/robots.txt' ||
+    path === '/feed.xml' ||
+    isIndexNowKeyFile;
 
   if (!shouldProxy) {
     return context.next();

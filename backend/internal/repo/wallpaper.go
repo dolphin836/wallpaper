@@ -16,6 +16,20 @@ type SitemapEntry struct {
 	UpdatedAt time.Time
 }
 
+// FeedEntry is the slim row the RSS handler needs — slug for the link,
+// title + description + preview thumbnail for the entry body, created_at
+// for pubDate. Sorted newest first.
+type FeedEntry struct {
+	Slug        string
+	Title       string
+	Description string
+	PreviewURL  string
+	ThumbURL    string
+	Width       int
+	Height      int
+	CreatedAt   time.Time
+}
+
 type WallpaperRepo struct {
 	db *gorm.DB
 }
@@ -421,6 +435,24 @@ func (r *WallpaperRepo) ListPublishedForSitemap(ctx context.Context) ([]SitemapE
 		Select("slug, updated_at").
 		Where("status = ? AND slug <> ''", model.WallpaperStatusPublished).
 		Order("updated_at DESC").
+		Find(&entries).Error
+	return entries, err
+}
+
+// ListRecentForFeed returns the N newest published wallpapers in the
+// shape the RSS handler needs. Capped at 100 — feed readers don't read
+// more than that, and the response is cached for 5 minutes anyway.
+func (r *WallpaperRepo) ListRecentForFeed(ctx context.Context, limit int) ([]FeedEntry, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	var entries []FeedEntry
+	err := r.db.WithContext(ctx).
+		Model(&model.Wallpaper{}).
+		Select("slug, title, description, preview_url, thumb_url, width, height, created_at").
+		Where("status = ? AND slug <> ''", model.WallpaperStatusPublished).
+		Order("created_at DESC").
+		Limit(limit).
 		Find(&entries).Error
 	return entries, err
 }

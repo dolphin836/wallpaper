@@ -102,7 +102,7 @@ func main() {
 	deviceHandler := handler.NewDeviceHandler(deviceRepo, eventRepo, wallpaperRepo, coinRepo, interactionRepo)
 	collectionHandler := handler.NewCollectionHandler(collectionSvc, interactionRepo, userRepo)
 	releaseHandler := handler.NewReleaseHandler()
-	seoHandler := handler.NewSEOHandler(wallpaperRepo, categoryRepo, deviceRepo, collectionRepo, userRepo)
+	seoHandler := handler.NewSEOHandler(wallpaperRepo, categoryRepo, deviceRepo, collectionRepo, userRepo, cfg.IndexNow.Key)
 	reportHandler := handler.NewReportHandler(reportRepo, wallpaperRepo)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsRepo)
 	recommendHandler := handler.NewRecommendHandler(wallpaperRepo)
@@ -128,6 +128,7 @@ func main() {
 		StatsHandler:      statsHandler,
 		AdminHandler:      adminHandler,
 		UserRepo:          userRepo,
+		IndexNowKey:       cfg.IndexNow.Key,
 		JWTSecret:         cfg.JWT.Secret,
 	})
 

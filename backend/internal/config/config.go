@@ -14,10 +14,21 @@ type Config struct {
 	Kafka     KafkaConfig
 	JWT       JWTConfig
 	Anthropic AnthropicConfig
+	IndexNow  IndexNowConfig
 }
 
 type AnthropicConfig struct {
 	APIKey string `env:"ANTHROPIC_API_KEY" envDefault:""`
+}
+
+// IndexNowConfig drives the IndexNow notifier (Bing/Yandex instant
+// indexing). Key is a random hex string we share with the search
+// engines; SiteURL is the canonical browseable origin (no trailing
+// slash, no "api." prefix) — submitted URLs and keyLocation are
+// computed off of it.
+type IndexNowConfig struct {
+	Key     string `env:"INDEXNOW_KEY" envDefault:""`
+	SiteURL string `env:"INDEXNOW_SITE_URL" envDefault:"https://wallpaperexchange.com"`
 }
 
 type ServerConfig struct {

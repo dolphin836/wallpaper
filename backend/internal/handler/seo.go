@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -19,6 +20,7 @@ type SEOHandler struct {
 	deviceRepo     *repo.DeviceRepo
 	collectionRepo *repo.CollectionRepo
 	userRepo       *repo.UserRepo
+	indexNowKey    string // served as text from /{key}.txt for verification
 }
 
 func NewSEOHandler(
@@ -27,6 +29,7 @@ func NewSEOHandler(
 	deviceRepo *repo.DeviceRepo,
 	collectionRepo *repo.CollectionRepo,
 	userRepo *repo.UserRepo,
+	indexNowKey string,
 ) *SEOHandler {
 	return &SEOHandler{
 		wallpaperRepo:  wallpaperRepo,
@@ -34,6 +37,7 @@ func NewSEOHandler(
 		deviceRepo:     deviceRepo,
 		collectionRepo: collectionRepo,
 		userRepo:       userRepo,
+		indexNowKey:    indexNowKey,
 	}
 }
 
@@ -175,6 +179,129 @@ func (h *SEOHandler) Sitemap(w http.ResponseWriter, r *http.Request) {
 		URLs:  urls,
 	}); err != nil {
 		slog.ErrorContext(ctx, "sitemap: encode failed", "error", err)
+	}
+}
+
+// IndexNowKey serves the verification file. Bing/Yandex GET
+// /{key}.txt during URL submission and expect the response body to
+// exactly match the key. We expose a single fixed path so the CF Pages
+// middleware (and nginx) can proxy by exact match — easier than a
+// catch-all dynamic txt route.
+func (h *SEOHandler) IndexNowKey(w http.ResponseWriter, r *http.Request) {
+	if h.indexNowKey == "" {
+		http.NotFound(w, r)
+		return
+	}
+	// Guard against accidental path mismatch — the search engine fetches
+	// /{KEY}.txt and we want a 404 (not the key) if a curious crawler
+	// pokes around a different filename.
+	want := h.indexNowKey + ".txt"
+	if got := strings.TrimPrefix(r.URL.Path, "/"); got != want {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	_, _ = w.Write([]byte(h.indexNowKey))
+}
+
+// Feed serves /feed.xml — RSS 2.0 of the 50 most recent published
+// wallpapers. Pinterest, Pocket, IFTTT, and a long tail of aggregators
+// poll this for free, so it's worth the ~1ms a request costs.
+type rssGUID struct {
+	Value       string `xml:",chardata"`
+	IsPermaLink bool   `xml:"isPermaLink,attr"`
+}
+
+type rssEnclosure struct {
+	URL    string `xml:"url,attr"`
+	Length int    `xml:"length,attr,omitempty"`
+	Type   string `xml:"type,attr"`
+}
+
+type rssItem struct {
+	Title       string       `xml:"title"`
+	Link        string       `xml:"link"`
+	Description string       `xml:"description"`
+	GUID        rssGUID      `xml:"guid"`
+	PubDate     string       `xml:"pubDate"`
+	Enclosure   rssEnclosure `xml:"enclosure,omitempty"`
+}
+
+type rssChannel struct {
+	Title         string    `xml:"title"`
+	Link          string    `xml:"link"`
+	Description   string    `xml:"description"`
+	Language      string    `xml:"language"`
+	LastBuildDate string    `xml:"lastBuildDate"`
+	Items         []rssItem `xml:"item"`
+}
+
+type rssDoc struct {
+	XMLName xml.Name   `xml:"rss"`
+	Version string     `xml:"version,attr"`
+	Channel rssChannel `xml:"channel"`
+}
+
+func (h *SEOHandler) Feed(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	base := baseURL(r)
+
+	entries, err := h.wallpaperRepo.ListRecentForFeed(ctx, 50)
+	if err != nil {
+		slog.ErrorContext(ctx, "feed: list recent failed", "error", err)
+		// still return a valid empty feed so subscribed readers don't
+		// drop the subscription on a transient error.
+		entries = nil
+	}
+
+	items := make([]rssItem, 0, len(entries))
+	for _, e := range entries {
+		link := base + "/wallpaper/" + e.Slug
+		title := strings.TrimSpace(e.Title)
+		if title == "" {
+			title = "Untitled wallpaper"
+		}
+		desc := strings.TrimSpace(e.Description)
+		if desc == "" {
+			desc = fmt.Sprintf("%dx%d wallpaper", e.Width, e.Height)
+		}
+		img := e.PreviewURL
+		if img == "" {
+			img = e.ThumbURL
+		}
+		items = append(items, rssItem{
+			Title:       title,
+			Link:        link,
+			Description: desc,
+			GUID:        rssGUID{Value: link, IsPermaLink: true},
+			PubDate:     e.CreatedAt.UTC().Format(time.RFC1123Z),
+			Enclosure: rssEnclosure{
+				URL:  img,
+				Type: "image/webp",
+			},
+		})
+	}
+
+	doc := rssDoc{
+		Version: "2.0",
+		Channel: rssChannel{
+			Title:         "Wallpaper Exchange — Latest Wallpapers",
+			Link:          base,
+			Description:   "The newest wallpapers shared on Wallpaper Exchange.",
+			Language:      "en",
+			LastBuildDate: time.Now().UTC().Format(time.RFC1123Z),
+			Items:         items,
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/rss+xml; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	_, _ = w.Write([]byte(xml.Header))
+	enc := xml.NewEncoder(w)
+	enc.Indent("", "  ")
+	if err := enc.Encode(doc); err != nil {
+		slog.ErrorContext(ctx, "feed: encode failed", "error", err)
 	}
 }
 

@@ -27,6 +27,7 @@ import (
 	"github.com/segmentio/kafka-go"
 
 	"github.com/wallpaper/backend/internal/model"
+	"github.com/wallpaper/backend/internal/pkg/indexnow"
 	"github.com/wallpaper/backend/internal/pkg/storage"
 	"github.com/wallpaper/backend/internal/repo"
 )
@@ -37,9 +38,11 @@ type ImageWorker struct {
 	deviceRepo *repo.DeviceRepo
 	jobRepo    *repo.WorkerJobRepo
 	storage    *storage.Storage
+	indexNow   *indexnow.Client // optional; nil means no notifier
+	siteURL    string           // canonical origin used to build feed/sitemap URLs
 }
 
-func NewImageWorker(brokers []string, wpRepo *repo.WallpaperRepo, deviceRepo *repo.DeviceRepo, jobRepo *repo.WorkerJobRepo, st *storage.Storage) *ImageWorker {
+func NewImageWorker(brokers []string, wpRepo *repo.WallpaperRepo, deviceRepo *repo.DeviceRepo, jobRepo *repo.WorkerJobRepo, st *storage.Storage, idx *indexnow.Client, siteURL string) *ImageWorker {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:  brokers,
 		Topic:    "wallpaper.uploaded",
@@ -47,7 +50,7 @@ func NewImageWorker(brokers []string, wpRepo *repo.WallpaperRepo, deviceRepo *re
 		MinBytes: 1,
 		MaxBytes: 10e6,
 	})
-	return &ImageWorker{reader: reader, wpRepo: wpRepo, deviceRepo: deviceRepo, jobRepo: jobRepo, storage: st}
+	return &ImageWorker{reader: reader, wpRepo: wpRepo, deviceRepo: deviceRepo, jobRepo: jobRepo, storage: st, indexNow: idx, siteURL: siteURL}
 }
 
 type WallpaperUploadedEvent struct {
@@ -98,6 +101,10 @@ func (w *ImageWorker) Run(ctx context.Context) error {
 			if finErr := w.jobRepo.Finish(ctx, jobID, "done", ""); finErr != nil {
 				slog.WarnContext(ctx, "worker_jobs finish(done) failed", "wallpaper_id", event.WallpaperID, "error", finErr)
 			}
+			// Newly-published wallpaper → ping IndexNow so Bing/Yandex
+			// don't have to wait for a crawl to discover it. No-op if
+			// the client isn't configured.
+			w.notifyIndexNow(ctx, event.WallpaperID)
 		}
 
 		if err := w.reader.CommitMessages(ctx, msg); err != nil {
@@ -508,4 +515,18 @@ func (w *ImageWorker) cleanupOldArtifacts(ctx context.Context, wallpaperID int64
 			slog.WarnContext(ctx, "cleanup: db variant delete failed", "wallpaper_id", wallpaperID, "error", err)
 		}
 	}
+}
+
+// notifyIndexNow looks up the published wallpaper's slug and posts the
+// detail URL to IndexNow asynchronously. Best-effort: any error is
+// logged inside the indexnow client and never propagated.
+func (w *ImageWorker) notifyIndexNow(ctx context.Context, wallpaperID int64) {
+	if w.indexNow == nil || !w.indexNow.Enabled() || w.siteURL == "" {
+		return
+	}
+	wp, err := w.wpRepo.GetByIDAnyStatus(ctx, wallpaperID)
+	if err != nil || wp == nil || wp.Slug == "" {
+		return
+	}
+	w.indexNow.SubmitAsync([]string{w.siteURL + "/wallpaper/" + wp.Slug})
 }

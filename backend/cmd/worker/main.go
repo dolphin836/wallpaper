@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/wallpaper/backend/internal/config"
+	"github.com/wallpaper/backend/internal/pkg/indexnow"
 	"github.com/wallpaper/backend/internal/pkg/storage"
 	"github.com/wallpaper/backend/internal/repo"
 	"github.com/wallpaper/backend/internal/worker"
@@ -42,7 +43,13 @@ func main() {
 	deviceRepo := repo.NewDeviceRepo(db)
 	jobRepo := repo.NewWorkerJobRepo(db)
 
-	imgWorker := worker.NewImageWorker(cfg.Kafka.Brokers, wallpaperRepo, deviceRepo, jobRepo, store)
+	indexClient, err := indexnow.New(cfg.IndexNow.Key, cfg.IndexNow.SiteURL)
+	if err != nil {
+		slog.Warn("indexnow disabled (config invalid)", "error", err)
+		indexClient = nil
+	}
+
+	imgWorker := worker.NewImageWorker(cfg.Kafka.Brokers, wallpaperRepo, deviceRepo, jobRepo, store, indexClient, cfg.IndexNow.SiteURL)
 	statsWorker := worker.NewStatsWorker(cfg.Kafka.Brokers, wallpaperRepo, jobRepo)
 
 	ctx, cancel := context.WithCancel(context.Background())
