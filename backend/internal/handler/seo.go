@@ -356,6 +356,17 @@ var ogPageTemplate = template.Must(template.New("og").Parse(`<!doctype html>
 "height":{{.Height}},
 "datePublished":"{{.DatePublished}}"
 }</script>
+<script type="application/ld+json">{
+"@context":"https://schema.org",
+"@type":"BreadcrumbList",
+"itemListElement":[
+  {"@type":"ListItem","position":1,"name":"Home","item":"{{.SiteURL}}/"},
+  {"@type":"ListItem","position":2,"name":"Browse","item":"{{.SiteURL}}/discover"}{{if .CategoryName}},
+  {"@type":"ListItem","position":3,"name":"{{.CategoryName}}","item":"{{.SiteURL}}/category/{{.CategorySlug}}"},
+  {"@type":"ListItem","position":4,"name":"{{.Title}}","item":"{{.URL}}"}{{else}},
+  {"@type":"ListItem","position":3,"name":"{{.Title}}","item":"{{.URL}}"}{{end}}
+]
+}</script>
 </head>
 <body>
 <h1>{{.Title}}</h1>
@@ -375,6 +386,9 @@ type ogPageData struct {
 	Width         int
 	Height        int
 	DatePublished string
+	SiteURL       string // canonical apex, used for breadcrumb itemListElement.item
+	CategoryName  string // optional; when empty, breadcrumb skips the category step
+	CategorySlug  string
 }
 
 func (h *SEOHandler) OGWallpaper(w http.ResponseWriter, r *http.Request) {
@@ -405,9 +419,19 @@ func (h *SEOHandler) OGWallpaper(w http.ResponseWriter, r *http.Request) {
 		Width:         wp.Width,
 		Height:        wp.Height,
 		DatePublished: wp.CreatedAt.UTC().Format("2006-01-02"),
+		SiteURL:       base,
 	}
 	if data.Image == "" {
 		data.Image = wp.OriginalURL
+	}
+	// Best-effort category lookup for the BreadcrumbList step. A missing
+	// category (or a transient DB error) just collapses the breadcrumb to
+	// Home > Browse > Title — never blocks the prerender.
+	if wp.CategoryID > 0 {
+		if cat, cerr := h.categoryRepo.GetByID(r.Context(), wp.CategoryID); cerr == nil && cat != nil {
+			data.CategoryName = cat.Name
+			data.CategorySlug = cat.Slug
+		}
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

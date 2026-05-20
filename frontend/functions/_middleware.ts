@@ -24,6 +24,17 @@
 
 const API_ORIGIN = 'https://wallpaper.haibing.site';
 
+// User agents that benefit from a server-rendered HTML response instead
+// of the SPA. Two reasons one might be on this list:
+//   - Doesn't run JS at all (Facebook/Twitter/WhatsApp scrapers)
+//   - Runs JS but slower than first-paint HTML (Googlebot, Bingbot)
+// Either way we serve the same prerendered detail page the origin nginx
+// would serve in identical conditions, so there's no cloaking divergence.
+const BOT_UA_RE =
+  /(facebookexternalhit|Facebot|Twitterbot|WhatsApp|TelegramBot|LinkedInBot|Discordbot|Slackbot|Pinterest|Applebot|WeChat|MicroMessenger|Weibo|Bytespider|Bingbot|Googlebot|Google-InspectionTool|AdsBot-Google|DuckDuckBot|YandexBot|Baiduspider)/i;
+
+const WALLPAPER_DETAIL_RE = /^\/wallpaper\/([^/]+)\/?$/;
+
 export const onRequest: PagesFunction = async (context) => {
   const url = new URL(context.request.url);
   const path = url.pathname;
@@ -33,18 +44,29 @@ export const onRequest: PagesFunction = async (context) => {
   // worker every time the key rotates.
   const isIndexNowKeyFile = /^\/[a-f0-9]{16,128}\.txt$/i.test(path);
 
+  // Bot prerender path: a recognised crawler asking for /wallpaper/{slug}
+  // gets served the backend's __og prerender (rich title/desc/JSON-LD)
+  // instead of the empty SPA index.html.
+  const ua = context.request.headers.get('user-agent') || '';
+  const wpMatch = path.match(WALLPAPER_DETAIL_RE);
+  const isBotDetail = wpMatch && BOT_UA_RE.test(ua);
+
   const shouldProxy =
     path.startsWith('/api/') ||
     path === '/sitemap.xml' ||
     path === '/robots.txt' ||
     path === '/feed.xml' ||
-    isIndexNowKeyFile;
+    isIndexNowKeyFile ||
+    isBotDetail;
 
   if (!shouldProxy) {
     return context.next();
   }
 
-  const target = API_ORIGIN + path + url.search;
+  const proxyPath = isBotDetail
+    ? `/__og/wallpaper/${wpMatch[1]}`
+    : path;
+  const target = API_ORIGIN + proxyPath + url.search;
 
   // Preserve method, body, and most headers. We intentionally do NOT forward
   // Host (the backend reads r.Host to build sitemap URLs and seeing the api
