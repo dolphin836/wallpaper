@@ -201,8 +201,10 @@ export default function CollectionDetailPage() {
         </Link>
       </div>
 
-      {/* Hero spread */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 mt-5 border-b border-hair bg-paper">
+      {/* Hero spread — px-6/sm:px-10 mirrors the wallpaper grid below
+          so the cover image + meta column don't bleed flush to the
+          viewport edges while everything underneath is inset. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 mt-5 border-b border-hair bg-paper px-6 sm:px-10">
         <div className="relative aspect-[3/2] overflow-hidden bg-paper-3">
           {cover ? (
             <img src={cover} alt={collection.title} className="absolute inset-0 w-full h-full object-cover" />
@@ -218,7 +220,10 @@ export default function CollectionDetailPage() {
           </span>
         </div>
 
-        <div className="px-6 sm:px-10 lg:px-12 py-8 lg:py-10 flex flex-col justify-between min-h-[280px] lg:min-h-[420px]">
+        {/* Right column: vertical padding only — horizontal breathing
+            comes from the outer container. lg:pl-10 puts a gap between
+            the cover and the meta text on desktop. */}
+        <div className="py-8 lg:py-10 lg:pl-10 flex flex-col justify-between min-h-[280px] lg:min-h-[420px]">
           <div>
             <div className="kicker text-muted">
               Collection №{String(collection.id).padStart(3, '0')} · {collection.wallpaper_count}{' '}
