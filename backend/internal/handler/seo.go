@@ -21,6 +21,12 @@ type SEOHandler struct {
 	collectionRepo *repo.CollectionRepo
 	userRepo       *repo.UserRepo
 	indexNowKey    string // served as text from /{key}.txt for verification
+	// canonicalURL overrides the request-derived base in sitemap/feed/
+	// robots output. CF Pages proxies wallpaperexchange.com requests to
+	// the wallpaper.haibing.site origin, which would otherwise leak the
+	// origin hostname into <loc> tags and confuse search engines about
+	// the canonical site.
+	canonicalURL string
 }
 
 func NewSEOHandler(
@@ -30,6 +36,7 @@ func NewSEOHandler(
 	collectionRepo *repo.CollectionRepo,
 	userRepo *repo.UserRepo,
 	indexNowKey string,
+	canonicalURL string,
 ) *SEOHandler {
 	return &SEOHandler{
 		wallpaperRepo:  wallpaperRepo,
@@ -38,7 +45,18 @@ func NewSEOHandler(
 		collectionRepo: collectionRepo,
 		userRepo:       userRepo,
 		indexNowKey:    indexNowKey,
+		canonicalURL:   strings.TrimSuffix(canonicalURL, "/"),
 	}
+}
+
+// base returns the canonical origin for sitemap/feed entries. Uses the
+// configured canonicalURL when set, otherwise falls back to whatever
+// the request itself indicates.
+func (h *SEOHandler) base(r *http.Request) string {
+	if h.canonicalURL != "" {
+		return h.canonicalURL
+	}
+	return baseURL(r)
 }
 
 const robotsTemplate = `User-agent: *
@@ -55,7 +73,7 @@ Sitemap: %s/sitemap.xml
 func (h *SEOHandler) RobotsTxt(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=3600")
-	fmt.Fprintf(w, robotsTemplate, baseURL(r))
+	fmt.Fprintf(w, robotsTemplate, h.base(r))
 }
 
 type sitemapURL struct {
@@ -73,7 +91,7 @@ type sitemapDoc struct {
 
 func (h *SEOHandler) Sitemap(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	base := baseURL(r)
+	base := h.base(r)
 
 	urls := []sitemapURL{
 		{Loc: base + "/", ChangeFreq: "daily", Priority: "1.0"},
@@ -245,7 +263,7 @@ type rssDoc struct {
 
 func (h *SEOHandler) Feed(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	base := baseURL(r)
+	base := h.base(r)
 
 	entries, err := h.wallpaperRepo.ListRecentForFeed(ctx, 50)
 	if err != nil {
@@ -372,7 +390,7 @@ func (h *SEOHandler) OGWallpaper(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	base := baseURL(r)
+	base := h.base(r)
 	dynamic := ""
 	if wp.IsDynamic {
 		dynamic = " dynamic"

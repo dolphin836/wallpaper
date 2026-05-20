@@ -102,7 +102,7 @@ func main() {
 	deviceHandler := handler.NewDeviceHandler(deviceRepo, eventRepo, wallpaperRepo, coinRepo, interactionRepo)
 	collectionHandler := handler.NewCollectionHandler(collectionSvc, interactionRepo, userRepo)
 	releaseHandler := handler.NewReleaseHandler()
-	seoHandler := handler.NewSEOHandler(wallpaperRepo, categoryRepo, deviceRepo, collectionRepo, userRepo, cfg.IndexNow.Key)
+	seoHandler := handler.NewSEOHandler(wallpaperRepo, categoryRepo, deviceRepo, collectionRepo, userRepo, cfg.IndexNow.Key, cfg.IndexNow.SiteURL)
 	reportHandler := handler.NewReportHandler(reportRepo, wallpaperRepo)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsRepo)
 	recommendHandler := handler.NewRecommendHandler(wallpaperRepo)
