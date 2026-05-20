@@ -10,6 +10,20 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-05-20
+
+### Added
+
+- **Self-update.** The app now checks for new releases on every launch
+  and offers a one-click upgrade. A right-click on the status-bar icon
+  opens a menu with **Check for Updates…** and **Quit**. When an
+  update is found you'll be shown a prompt at most once per discovered
+  version — clicking "Later" silences the alert until the next release
+  ships.
+- When you accept an update, the new build downloads, replaces the
+  running app in place, and relaunches automatically. No more dragging
+  a .dmg into /Applications by hand to get the latest version.
+
 ## [1.2.2] - 2026-05-18
 
 ### Fixed
