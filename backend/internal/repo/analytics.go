@@ -62,7 +62,7 @@ func (r *AnalyticsRepo) DailyTimeseries(ctx context.Context, days int) ([]DayBuc
 		FROM days d
 		LEFT JOIN analytics_events e
 		  ON date_trunc('day', e.created_at)::date = d.day
-		 AND e.event_type = 'pageview'
+		 AND e.event_type = 'page_view'
 		 AND `+botUAClause+`
 		GROUP BY d.day
 		ORDER BY d.day ASC
@@ -86,7 +86,7 @@ func (r *AnalyticsRepo) Totals(ctx context.Context, from, to time.Time) (Totals,
 			COUNT(DISTINCT session_id) AS sessions,
 			COUNT(DISTINCT ip)         AS unique_ips
 		FROM analytics_events
-		WHERE event_type = 'pageview'
+		WHERE event_type = 'page_view'
 		  AND created_at >= ? AND created_at < ?
 		  AND `+botUAClause+`
 	`, from, to).Scan(&t).Error
@@ -111,7 +111,7 @@ func (r *AnalyticsRepo) TopCountries(ctx context.Context, days, limit int) ([]La
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT country AS label, COUNT(*) AS count
 		FROM analytics_events
-		WHERE event_type = 'pageview'
+		WHERE event_type = 'page_view'
 		  AND created_at >= ?
 		  AND country <> ''
 		  AND `+botUAClause+`
@@ -133,7 +133,7 @@ func (r *AnalyticsRepo) TopPaths(ctx context.Context, days, limit int) ([]LabelC
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT path AS label, COUNT(*) AS count
 		FROM analytics_events
-		WHERE event_type = 'pageview'
+		WHERE event_type = 'page_view'
 		  AND created_at >= ?
 		  AND path <> ''
 		  AND `+botUAClause+`
@@ -184,7 +184,7 @@ func (r *AnalyticsRepo) TopReferrerHosts(ctx context.Context, days, limit int, o
 			) AS host,
 			COUNT(*) AS count
 		FROM analytics_events
-		WHERE event_type = 'pageview'
+		WHERE event_type = 'page_view'
 		  AND created_at >= ?
 		  AND `+botUAClause+`
 		GROUP BY host
