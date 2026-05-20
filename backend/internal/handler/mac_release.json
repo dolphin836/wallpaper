@@ -1,8 +1,16 @@
 {
-  "current_version": "1.3.1",
-  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.3.1.dmg",
+  "current_version": "1.3.2",
+  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.3.2.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "1.3.2",
+      "released_at": "2026-05-20",
+      "notes": [
+        "Self-update now shows real download progress — a floating panel with bytes / percentage / a working Cancel button, plus an 'Installing…' stage while the new bundle is being moved into place.",
+        "Fix: updater no longer feels frozen on slow networks. The previous build ran the download inside a modal alert with no visible feedback."
+      ]
+    },
     {
       "version": "1.3.1",
       "released_at": "2026-05-20",

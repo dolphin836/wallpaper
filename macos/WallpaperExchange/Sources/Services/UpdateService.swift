@@ -115,59 +115,61 @@ final class UpdateService {
     // MARK: - Install pipeline
 
     private func installUpdate(release: MacRelease) {
-        // Spin up an indeterminate progress sheet by way of a third
-        // alert. Not the prettiest but avoids pulling SwiftUI into the
-        // updater path. The user will quickly see the helper take over.
-        let progress = NSAlert()
-        progress.messageText = "Downloading \(release.currentVersion)…"
-        progress.informativeText = "The app will restart automatically when the update is ready."
-        progress.alertStyle = .informational
-        progress.addButton(withTitle: "Cancel")
+        let panel = UpdateProgressPanel(version: release.currentVersion)
+        panel.show()
 
         Task { @MainActor in
-            await self.downloadAndInstall(release: release, progressAlert: progress)
+            await self.downloadAndInstall(release: release, panel: panel)
         }
-        progress.runModal()
     }
 
-    private func downloadAndInstall(release: MacRelease, progressAlert: NSAlert) async {
+    private func downloadAndInstall(release: MacRelease, panel: UpdateProgressPanel) async {
         guard let url = URL(string: release.currentDmgURL) else {
-            await dismissAndFail(alert: progressAlert, message: "Bad download URL.")
+            panel.close()
+            showAlert(title: "Update failed", message: "Bad download URL.", style: .warning)
             return
         }
         let dmgPath = NSTemporaryDirectory() + "wxch-update-\(release.currentVersion).dmg"
         let dmgURL = URL(fileURLWithPath: dmgPath)
 
+        // Real progress download. The custom delegate streams
+        // didWriteData callbacks into the panel so the user can see
+        // bytes flow in instead of staring at a static "Downloading…"
+        // for what could be 5–30 seconds on a slow link.
         do {
-            let (downloadedTmp, _) = try await URLSession.shared.download(from: url)
-            try? FileManager.default.removeItem(at: dmgURL)
-            try FileManager.default.moveItem(at: downloadedTmp, to: dmgURL)
+            try await downloadWithProgress(from: url, to: dmgURL, panel: panel)
+        } catch is CancellationError {
+            panel.close()
+            return
         } catch {
-            await dismissAndFail(alert: progressAlert, message: "Download failed: \(error.localizedDescription)")
+            panel.close()
+            showAlert(title: "Update failed", message: "Download failed: \(error.localizedDescription)", style: .warning)
             return
         }
 
-        // Mount the dmg headlessly so Finder doesn't pop up a window.
+        // Switch the bar to indeterminate while we mount + stage. The
+        // hdiutil + cp steps are fast (sub-second on a 1.3 MiB DMG) but
+        // we still want a visible signal that something is happening.
+        panel.setStage("Installing…")
+
         let mountPoint: String
         do {
             mountPoint = try attachDMG(at: dmgPath)
         } catch {
-            await dismissAndFail(alert: progressAlert, message: "Couldn't mount the installer: \(error.localizedDescription)")
+            panel.close()
+            showAlert(title: "Update failed", message: "Couldn't mount the installer: \(error.localizedDescription)", style: .warning)
             return
         }
 
-        // Find the .app inside the mounted volume.
         guard let sourceAppPath = locateAppBundle(in: mountPoint) else {
             _ = try? detachDMG(mountPoint: mountPoint)
-            await dismissAndFail(alert: progressAlert, message: "The installer didn't contain an app bundle.")
+            panel.close()
+            showAlert(title: "Update failed", message: "The installer didn't contain an app bundle.", style: .warning)
             return
         }
 
         let myBundlePath = Bundle.main.bundleURL.path
 
-        // Hand off to a tiny shell helper — we can't safely replace our
-        // own bundle while we're still running, so the helper waits for
-        // our PID to die before doing the cp.
         spawnInstallHelper(
             ourPID: ProcessInfo.processInfo.processIdentifier,
             sourceApp: sourceAppPath,
@@ -176,18 +178,41 @@ final class UpdateService {
             dmgFile: dmgPath
         )
 
-        // Close the progress alert and quit. The helper will mv the new
-        // app into place and re-open us.
-        await MainActor.run {
-            NSApp.abortModal()
-            NSApp.terminate(nil)
-        }
+        panel.setStage("Restarting…")
+
+        // Brief beat so the user reads the "Restarting…" status before
+        // the window closes.
+        try? await Task.sleep(nanoseconds: 600_000_000)
+        panel.close()
+        NSApp.terminate(nil)
     }
 
-    private func dismissAndFail(alert: NSAlert, message: String) async {
-        await MainActor.run {
-            NSApp.abortModal()
-            showAlert(title: "Update failed", message: message, style: .warning)
+    /// Streams a URLSessionDownloadTask through a delegate so the panel
+    /// can show real progress. Cancellation flows through the panel's
+    /// onCancel callback — when the user clicks Cancel we throw a
+    /// CancellationError out of the awaiter.
+    private func downloadWithProgress(from url: URL, to dest: URL, panel: UpdateProgressPanel) async throws {
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            let delegate = DownloadProgressDelegate(destURL: dest)
+            delegate.onProgress = { [weak panel] written, total in
+                Task { @MainActor in panel?.update(written: written, total: total) }
+            }
+            delegate.onComplete = { result in
+                switch result {
+                case .success:                cont.resume()
+                case .failure(let e):         cont.resume(throwing: e)
+                }
+            }
+            let config = URLSessionConfiguration.default
+            config.timeoutIntervalForRequest = 60
+            config.timeoutIntervalForResource = 300
+            let session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
+            let task = session.downloadTask(with: url)
+
+            panel.onCancel = { [weak task] in
+                task?.cancel()
+            }
+            task.resume()
         }
     }
 
@@ -327,5 +352,208 @@ final class UpdateService {
         alert.alertStyle = style
         alert.addButton(withTitle: "OK")
         alert.runModal()
+    }
+}
+
+// MARK: - Progress panel
+
+/// A small floating panel showing download progress + bytes + a Cancel
+/// button. NSPanel (not NSAlert) so it can update in real time without
+/// blocking a modal run loop, and so .floating level keeps it on top
+/// even for LSUIElement (no Dock icon) menu-bar apps.
+@MainActor
+private final class UpdateProgressPanel {
+    private let panel: NSPanel
+    private let titleLabel: NSTextField
+    private let progressBar: NSProgressIndicator
+    private let detailLabel: NSTextField
+    private let cancelButton: NSButton
+
+    /// Invoked when the user clicks Cancel. UpdateService wires this to
+    /// task.cancel() so the in-flight download gets torn down.
+    var onCancel: (() -> Void)?
+
+    init(version: String) {
+        // 460×140 keeps the panel small enough to live alongside the
+        // status bar popover but wide enough to read the progress text
+        // without truncation.
+        panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 140),
+            styleMask: [.titled, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.title = "Wallpaper Exchange Update"
+        panel.level = .floating
+        panel.isReleasedWhenClosed = false
+        panel.hidesOnDeactivate = false
+
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 8
+        stack.edgeInsets = NSEdgeInsets(top: 16, left: 20, bottom: 16, right: 20)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        titleLabel = NSTextField(labelWithString: "Downloading version \(version)…")
+        titleLabel.font = .systemFont(ofSize: 13, weight: .medium)
+
+        progressBar = NSProgressIndicator()
+        progressBar.style = .bar
+        progressBar.isIndeterminate = true
+        progressBar.minValue = 0
+        progressBar.maxValue = 100
+        progressBar.translatesAutoresizingMaskIntoConstraints = false
+        progressBar.startAnimation(nil)
+
+        detailLabel = NSTextField(labelWithString: "Connecting…")
+        detailLabel.font = .systemFont(ofSize: 11)
+        detailLabel.textColor = .secondaryLabelColor
+
+        let footer = NSStackView()
+        footer.orientation = .horizontal
+        footer.distribution = .equalSpacing
+        footer.alignment = .centerY
+        footer.translatesAutoresizingMaskIntoConstraints = false
+
+        let spacer = NSView()
+        spacer.translatesAutoresizingMaskIntoConstraints = false
+
+        cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
+        cancelButton.bezelStyle = .rounded
+        cancelButton.keyEquivalent = "\u{1b}" // Escape
+        footer.addArrangedSubview(spacer)
+        footer.addArrangedSubview(cancelButton)
+
+        stack.addArrangedSubview(titleLabel)
+        stack.addArrangedSubview(progressBar)
+        stack.addArrangedSubview(detailLabel)
+        stack.addArrangedSubview(footer)
+
+        let content = NSView()
+        content.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: content.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+            progressBar.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: 20),
+            progressBar.trailingAnchor.constraint(equalTo: stack.trailingAnchor, constant: -20),
+            progressBar.heightAnchor.constraint(equalToConstant: 10),
+            footer.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: 20),
+            footer.trailingAnchor.constraint(equalTo: stack.trailingAnchor, constant: -20),
+        ])
+        panel.contentView = content
+
+        cancelButton.target = self
+        cancelButton.action = #selector(handleCancel)
+    }
+
+    func show() {
+        panel.center()
+        panel.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func close() {
+        progressBar.stopAnimation(nil)
+        panel.orderOut(nil)
+    }
+
+    /// Update progress mid-download. Flips the bar from indeterminate
+    /// to determinate on the first call so the user gets a real % as
+    /// soon as the server reports a Content-Length.
+    func update(written: Int64, total: Int64) {
+        if total > 0 {
+            if progressBar.isIndeterminate {
+                progressBar.stopAnimation(nil)
+                progressBar.isIndeterminate = false
+            }
+            let pct = Double(written) / Double(total) * 100.0
+            progressBar.doubleValue = pct
+            detailLabel.stringValue = String(
+                format: "%.1f MB / %.1f MB · %.0f%%",
+                Double(written) / 1024 / 1024,
+                Double(total) / 1024 / 1024,
+                pct
+            )
+        } else {
+            // Server didn't send Content-Length — keep the bar
+            // indeterminate but at least show the running total.
+            detailLabel.stringValue = String(format: "%.1f MB downloaded", Double(written) / 1024 / 1024)
+        }
+    }
+
+    /// Switch from download mode to a generic "doing the install" mode.
+    /// Bar goes back to indeterminate; title + cancel button hide so
+    /// the user understands the operation is past the point of no
+    /// return.
+    func setStage(_ text: String) {
+        titleLabel.stringValue = text
+        detailLabel.stringValue = ""
+        progressBar.isIndeterminate = true
+        progressBar.startAnimation(nil)
+        cancelButton.isEnabled = false
+    }
+
+    @objc private func handleCancel() {
+        onCancel?()
+    }
+}
+
+// MARK: - Download delegate
+
+/// URLSessionDownloadDelegate adapter that bridges the URLSession
+/// callback queue into the @MainActor world. Keeps UpdateService's
+/// awaiter alive via the onComplete closure until the move succeeds
+/// (or any error has bubbled up).
+private final class DownloadProgressDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+    private let destURL: URL
+
+    var onProgress: ((_ written: Int64, _ total: Int64) -> Void)?
+    var onComplete: ((Result<Void, Error>) -> Void)?
+
+    private var completed = false
+
+    init(destURL: URL) {
+        self.destURL = destURL
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        onProgress?(totalBytesWritten, totalBytesExpectedToWrite)
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        // didFinishDownloadingTo fires on the URLSession's delegate
+        // queue. Whatever we do here must happen before the function
+        // returns — the system deletes `location` immediately after.
+        do {
+            try? FileManager.default.removeItem(at: destURL)
+            try FileManager.default.moveItem(at: location, to: destURL)
+            completed = true
+            onComplete?(.success(()))
+        } catch {
+            completed = true
+            onComplete?(.failure(error))
+        }
+        session.finishTasksAndInvalidate()
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        // didFinishDownloadingTo already fired for the success path; only
+        // signal here if we ended up with an error (e.g. cancellation
+        // before the move ran).
+        guard !completed else { return }
+        if let error = error {
+            // URLSession surfaces a user cancel as code .cancelled — map
+            // it to Swift's CancellationError so the UpdateService can
+            // distinguish from a genuine failure and skip the alert.
+            if (error as NSError).code == NSURLErrorCancelled {
+                onComplete?(.failure(CancellationError()))
+            } else {
+                onComplete?(.failure(error))
+            }
+        }
+        session.finishTasksAndInvalidate()
     }
 }

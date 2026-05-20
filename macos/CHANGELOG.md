@@ -10,6 +10,22 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-05-20
+
+### Changed
+
+- **Self-update now shows real download progress.** Replaced the static
+  "Downloading…" alert with a floating panel that streams real bytes
+  + percentage as the .dmg comes in, plus a working Cancel button.
+  Also surfaces an "Installing…" stage while the new bundle is being
+  moved into place.
+
+### Fixed
+
+- Updater no longer feels frozen on slow networks — the previous build
+  ran the download inside a modal alert with no visible feedback, so
+  users couldn't tell whether the transfer was making progress.
+
 ## [1.3.1] - 2026-05-20
 
 ### Added
