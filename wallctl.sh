@@ -124,6 +124,13 @@ cmd_deploy() {
     log_info "Pulling latest code..."
     (cd "$SCRIPT_DIR" && git pull --ff-only)
 
+    # Trim the docker build cache before rebuilding. The cache otherwise
+    # grows to 15-20GB and twice now has filled the 40GB root volume
+    # mid-build with "no space left on device". Keeping a 4GB working
+    # set means most layers still hit cache, just not ancient ones.
+    log_info "Pruning docker build cache (keeping 4GB)..."
+    docker builder prune -f --keep-storage=4GB >/dev/null 2>&1 || true
+
     log_info "Rebuilding and restarting app services..."
     compose up -d --build api worker frontend
 
