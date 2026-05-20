@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -163,10 +164,18 @@ func (r *AnalyticsRepo) TopReferrerHosts(ctx context.Context, days, limit int, o
 	if len(ownHosts) == 0 {
 		ownHosts = []string{""}
 	}
+
+	// GORM Raw does NOT expand slices into IN lists — the query-builder
+	// DSL does, but Raw treats every `?` as exactly one parameter. Build
+	// the `?, ?, ?` placeholder list by hand and bind one arg per host.
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(ownHosts)), ",")
+	args := []any{since}
+	for _, h := range ownHosts {
+		args = append(args, h)
+	}
+	args = append(args, limit)
+
 	var rows []ReferrerRow
-	// gorm.io Raw expands slice arguments only inside `IN (?)` — bare
-	// `IN ?` (the GORM DSL form) won't substitute at the Raw layer and
-	// trips a Postgres parse error. Hence the explicit parens.
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT
 			COALESCE(
@@ -179,9 +188,9 @@ func (r *AnalyticsRepo) TopReferrerHosts(ctx context.Context, days, limit int, o
 		  AND created_at >= ?
 		  AND `+botUAClause+`
 		GROUP BY host
-		HAVING COALESCE(NULLIF(substring(referrer FROM '^https?://([^/]+)'), ''), '') NOT IN (?)
+		HAVING COALESCE(NULLIF(substring(referrer FROM '^https?://([^/]+)'), ''), '') NOT IN (`+placeholders+`)
 		ORDER BY count DESC
 		LIMIT ?
-	`, since, ownHosts, limit).Scan(&rows).Error
+	`, args...).Scan(&rows).Error
 	return rows, err
 }
