@@ -29,7 +29,11 @@ import (
 	"github.com/wallpaper/backend/internal/repo"
 )
 
-const batchSize = 1000
+// Bing throttles freshly-onboarded domains harder than the spec implies —
+// large first batches return 403 even when the key file verifies cleanly.
+// 100 URLs per call is conservative and matches the size most production
+// IndexNow clients use.
+const batchSize = 100
 
 func main() {
 	var commit bool
