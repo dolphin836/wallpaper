@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -60,23 +61,52 @@ Pick the single best-fitting category. Return ONLY the JSON object, no preamble,
 
 // Client wraps the Anthropic SDK with the wallpaper-specific Classify call.
 type Client struct {
-	client  anthropic.Client
-	model   anthropic.Model
-	enabled bool
+	client   anthropic.Client
+	model    anthropic.Model
+	enabled  bool
+	recorder Recorder
 }
 
 // New constructs a Client. Pass an empty apiKey to disable LLM calls — the
 // returned client's Classify will always error, which callers (the worker
 // hook in particular) interpret as "skip auto-tagging, leave fields blank".
-func New(apiKey string) *Client {
+//
+// recorder is optional; pass nil to skip per-call usage logging. The
+// API server and the CLI tools wire in repo.LLMUsageRepo so every call's
+// token count + USD cost lands in the llm_usage table and powers the
+// admin dashboard's "LLM 消费" card.
+func New(apiKey string, recorder Recorder) *Client {
 	c := anthropic.NewClient(option.WithAPIKey(apiKey))
+	if recorder == nil {
+		recorder = noopRecorder{}
+	}
 	return &Client{
 		client: c,
 		// Opus 4.7 is the latest model. For high-volume classification
 		// you may want to switch to claude-sonnet-4-6 (3x cheaper) or
 		// claude-haiku-4-5 (5x cheaper) — change this constant.
-		model:   anthropic.ModelClaudeOpus4_7,
-		enabled: apiKey != "",
+		model:    anthropic.ModelClaudeOpus4_7,
+		enabled:  apiKey != "",
+		recorder: recorder,
+	}
+}
+
+// recordUsage extracts token counts from the Anthropic response, computes
+// the USD cost from the local pricing table, and writes one row to the
+// usage ledger. Logged-only failures — billing accuracy should never
+// block a successful LLM result.
+func (c *Client) recordUsage(purpose string, usage anthropic.Usage) {
+	if c.recorder == nil {
+		return
+	}
+	in := int(usage.InputTokens)
+	out := int(usage.OutputTokens)
+	cacheRead := int(usage.CacheReadInputTokens)
+	cacheCreate := int(usage.CacheCreationInputTokens)
+	if err := c.recorder.Record(purpose, string(c.model), in, out, cacheRead, cacheCreate); err != nil {
+		// Intentionally noisy on every failure so a missing migration
+		// can't silently swallow weeks of accounting.
+		slog.Warn("llm: record usage failed", "purpose", purpose, "error", err)
 	}
 }
 
@@ -111,6 +141,7 @@ func (c *Client) Classify(ctx context.Context, imageURL string) (*Classification
 	if err != nil {
 		return nil, fmt.Errorf("anthropic api: %w", err)
 	}
+	c.recordUsage("classify", resp.Usage)
 
 	// First text block in the response is the JSON object. The system
 	// prompt asks for no preamble, but defensively trim any markdown
@@ -217,6 +248,7 @@ func (c *Client) AssessQuality(ctx context.Context, imageURL string) (*QualityAs
 	if err != nil {
 		return nil, fmt.Errorf("anthropic api: %w", err)
 	}
+	c.recordUsage("quality", resp.Usage)
 
 	var raw string
 	for _, block := range resp.Content {
@@ -309,6 +341,7 @@ func (c *Client) ProposeTagMerges(ctx context.Context, tags []TagInput) ([]TagMe
 	if err != nil {
 		return nil, fmt.Errorf("anthropic api: %w", err)
 	}
+	c.recordUsage("tag_merge", resp.Usage)
 
 	var raw string
 	for _, block := range resp.Content {
@@ -416,6 +449,7 @@ func (c *Client) ProposeWeeklyTheme(ctx context.Context, candidates []ThemeCandi
 	if err != nil {
 		return nil, fmt.Errorf("anthropic api: %w", err)
 	}
+	c.recordUsage("weekly_theme", resp.Usage)
 	var raw string
 	for _, block := range resp.Content {
 		if t, ok := block.AsAny().(anthropic.TextBlock); ok {

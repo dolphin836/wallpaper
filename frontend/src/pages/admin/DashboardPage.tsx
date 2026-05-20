@@ -54,18 +54,6 @@ function LLMCostCard({ data }: { data: LLMCostResp | null }) {
       </div>
     );
   }
-  if (!data.configured) {
-    return (
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 px-5 py-4 text-sm text-slate-500">
-        <div className="font-semibold text-slate-700 dark:text-slate-300">LLM 消费数据未启用</div>
-        <div className="mt-1.5">
-          需要在 console.anthropic.com → Settings → Admin Keys 创建一个 Admin API key，加到服务器 .env 的{' '}
-          <code className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">ANTHROPIC_ADMIN_API_KEY</code>{' '}
-          后重启 api。{data.message && <span className="text-slate-400">（{data.message}）</span>}
-        </div>
-      </div>
-    );
-  }
   const s = data.summary!;
   // Single-color sparkline of the last 30 days. Stretches to card width
   // so spend spikes are visually proportional regardless of magnitude.
@@ -79,6 +67,8 @@ function LLMCostCard({ data }: { data: LLMCostResp | null }) {
     padX + (s.daily.length <= 1 ? innerW / 2 : (i / (s.daily.length - 1)) * innerW);
   const yAt = (v: number) => 4 + innerH - (v / max) * innerH;
   const polyline = s.daily.map((d, i) => `${xAt(i)},${yAt(d.usd)}`).join(' ');
+
+  const purposeTotal = (s.by_purpose ?? []).reduce((a, b) => a + b.usd, 0);
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 px-5 py-4">
@@ -94,7 +84,9 @@ function LLMCostCard({ data }: { data: LLMCostResp | null }) {
         <div>
           <div className="text-xs text-slate-500 uppercase tracking-wide">过去 30 天</div>
           <div className="text-2xl font-semibold mt-1.5">{fmtUSD(s.last_30d_usd)}</div>
-          <div className="text-[11px] text-slate-400 mt-0.5">用预充值额减这个 ≈ 剩余</div>
+          <div className="text-[11px] text-slate-400 mt-0.5">
+            {(s.total_calls ?? 0).toLocaleString()} 次调用 · 充值额减此值 ≈ 剩余
+          </div>
         </div>
         <div className="overflow-hidden">
           <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">30d sparkline</div>
@@ -103,6 +95,33 @@ function LLMCostCard({ data }: { data: LLMCostResp | null }) {
           </svg>
         </div>
       </div>
+      {/* Per-purpose breakdown — shows which CLI / hook is burning the
+          budget. autotag is image-heavy and almost always the biggest
+          line item; weekly_theme is a once-a-week tiny call. */}
+      {(s.by_purpose ?? []).length > 0 && (
+        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="text-[11px] text-slate-400 uppercase tracking-wide mb-2">按用途 · 30 天</div>
+          <div className="space-y-1.5">
+            {(s.by_purpose ?? []).map((p) => {
+              const pct = purposeTotal > 0 ? (p.usd / purposeTotal) * 100 : 0;
+              return (
+                <div key={p.label} className="text-xs">
+                  <div className="flex items-baseline justify-between mb-0.5">
+                    <span className="font-mono text-slate-600 dark:text-slate-300">{p.label}</span>
+                    <span className="text-slate-500">
+                      <span className="font-semibold">{fmtUSD(p.usd)}</span>
+                      <span className="text-slate-400 ml-2">{p.count.toLocaleString()} 次</span>
+                    </span>
+                  </div>
+                  <div className="h-1 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                    <div className="h-full bg-purple-500" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

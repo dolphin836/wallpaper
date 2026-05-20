@@ -111,7 +111,7 @@ func main() {
 		return
 	}
 
-	llmClient := llm.New(cfg.Anthropic.APIKey)
+	llmClient := llm.New(cfg.Anthropic.APIKey, repo.NewLLMUsageRepo(db))
 	tagRepo := repo.NewTagRepo(db)
 
 	var ok, skipped, failed int

@@ -29,6 +29,7 @@ import (
 	"github.com/wallpaper/backend/internal/config"
 	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/pkg/llm"
+	"github.com/wallpaper/backend/internal/repo"
 	"github.com/wallpaper/backend/internal/pkg/storage"
 )
 
@@ -129,7 +130,7 @@ func main() {
 		return
 	}
 
-	llmClient := llm.New(cfg.Anthropic.APIKey)
+	llmClient := llm.New(cfg.Anthropic.APIKey, repo.NewLLMUsageRepo(db))
 
 	// Storage handle only needed if we're going to delete variant objects
 	// for flagged rows. Built lazily so a dry-run never has to talk to

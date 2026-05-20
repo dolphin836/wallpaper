@@ -87,7 +87,7 @@ func main() {
 	ctx := context.Background()
 	weeklyRepo := repo.NewWeeklyPickRepo(db)
 	collectionRepo := repo.NewCollectionRepo(db)
-	llmClient := llm.New(cfg.Anthropic.APIKey)
+	llmClient := llm.New(cfg.Anthropic.APIKey, repo.NewLLMUsageRepo(db))
 
 	fmt.Printf("==> Generating Weekly Drop for ISO %d-W%02d\n", year, week)
 

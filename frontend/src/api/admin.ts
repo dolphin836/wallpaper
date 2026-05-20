@@ -235,12 +235,18 @@ export interface AnalyticsOverview {
 export const getAnalytics = (days: number) =>
   client.get<ApiResponse<AnalyticsOverview>>('/admin/analytics', { params: { days } });
 
-// ─── LLM Cost (Anthropic Admin API) ──────────────────────────────────
+// ─── LLM Cost (local llm_usage ledger) ───────────────────────────────
+// Backed by the llm_usage table: pkg/llm.Client writes one row per
+// Anthropic API call with computed USD cost. The dashboard rolls those
+// up — no Admin API key required.
 export interface LLMDailyCost { day: string; usd: number }
+export interface LLMPurposeCost { label: string; usd: number; count: number }
 export interface LLMCostSummary {
   last_7d_usd: number;
   last_30d_usd: number;
   today_usd: number;
+  total_calls: number;
+  by_purpose: LLMPurposeCost[];
   daily: LLMDailyCost[];
   updated_at: string;
 }

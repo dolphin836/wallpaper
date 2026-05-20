@@ -30,6 +30,7 @@ import (
 
 	"github.com/wallpaper/backend/internal/config"
 	"github.com/wallpaper/backend/internal/pkg/llm"
+	"github.com/wallpaper/backend/internal/repo"
 )
 
 func main() {
@@ -78,7 +79,7 @@ func main() {
 	tags := loadTags(ctx, db)
 	fmt.Printf("loaded %d tags from DB\n", len(tags))
 
-	llmClient := llm.New(cfg.Anthropic.APIKey)
+	llmClient := llm.New(cfg.Anthropic.APIKey, repo.NewLLMUsageRepo(db))
 	fmt.Println("asking Claude for rename proposals (may take 20-60s)...")
 	merges, err := llmClient.ProposeTagMerges(ctx, tags)
 	if err != nil {

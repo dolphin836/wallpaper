@@ -208,28 +208,21 @@ func (h *AdminHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetLLMCost surfaces the Anthropic Admin API's cost report so the
-// dashboard can show how much we've spent on Claude this week / month.
-// Returns 503 (with a clear message) when the admin key isn't
-// configured — the SPA renders that as a "Set ANTHROPIC_ADMIN_API_KEY"
-// hint instead of a generic error.
+// GetLLMCost summarises the local llm_usage ledger — every Anthropic
+// API call writes one row with token counts + computed USD cost, so
+// SUM(cost_usd) over a window is our running spend. This sidesteps the
+// Anthropic Admin API entirely (which requires an Org Owner key we
+// don't have).
 func (h *AdminHandler) GetLLMCost(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	if !h.llmAdmin.Enabled() {
-		response.JSON(w, http.StatusServiceUnavailable, errcode.Success, map[string]any{
-			"configured": false,
-			"message":    "ANTHROPIC_ADMIN_API_KEY not set",
-		})
-		return
-	}
-	summary, err := h.llmAdmin.CostSummary(ctx)
+	summary, err := h.llmUsageRepo.Summary(ctx)
 	if err != nil {
-		slog.ErrorContext(ctx, "llm cost: fetch failed", "error", err)
-		response.Error(w, http.StatusBadGateway, errcode.ErrInternal)
+		slog.ErrorContext(ctx, "llm cost: summary failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
 	response.OK(w, map[string]any{
-		"configured": true,
+		"configured": true, // local ledger is always available
 		"summary":    summary,
 	})
 }

@@ -244,6 +244,23 @@ CREATE INDEX IF NOT EXISTS idx_analytics_events_type_created ON analytics_events
 CREATE INDEX IF NOT EXISTS idx_analytics_events_user ON analytics_events(user_id) WHERE user_id <> 0;
 CREATE INDEX IF NOT EXISTS idx_analytics_events_session ON analytics_events(session_id);
 
+-- Per-call ledger for Anthropic Claude API usage. We can't query the
+-- Admin API without an Org Owner Admin key, so instead the LLM client
+-- records token usage + computed USD cost after every successful call.
+-- The dashboard aggregates this for the running 7d / 30d spend view.
+CREATE TABLE IF NOT EXISTS llm_usage (
+    id                    BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    purpose               VARCHAR(64)   NOT NULL,     -- "autotag", "qcheck", "weekly_theme", etc.
+    model                 VARCHAR(64)   NOT NULL,
+    input_tokens          INTEGER       NOT NULL DEFAULT 0,
+    output_tokens         INTEGER       NOT NULL DEFAULT 0,
+    cache_read_tokens     INTEGER       NOT NULL DEFAULT 0,
+    cache_creation_tokens INTEGER       NOT NULL DEFAULT 0,
+    cost_usd              NUMERIC(12,6) NOT NULL DEFAULT 0,  -- computed at insert
+    created_at            TIMESTAMPTZ(6) NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_created_at ON llm_usage(created_at DESC);
+
 -- ISO-3166 alpha-2 derived from the CF-IPCountry header at insert time.
 -- 8 chars is enough for the standard 2-letter code (defensive — CF
 -- occasionally emits "XX"/"T1" for tor/unknown).
