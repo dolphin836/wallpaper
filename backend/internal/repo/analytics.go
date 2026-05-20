@@ -164,6 +164,9 @@ func (r *AnalyticsRepo) TopReferrerHosts(ctx context.Context, days, limit int, o
 		ownHosts = []string{""}
 	}
 	var rows []ReferrerRow
+	// gorm.io Raw expands slice arguments only inside `IN (?)` — bare
+	// `IN ?` (the GORM DSL form) won't substitute at the Raw layer and
+	// trips a Postgres parse error. Hence the explicit parens.
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT
 			COALESCE(
@@ -176,7 +179,7 @@ func (r *AnalyticsRepo) TopReferrerHosts(ctx context.Context, days, limit int, o
 		  AND created_at >= ?
 		  AND `+botUAClause+`
 		GROUP BY host
-		HAVING COALESCE(NULLIF(substring(referrer FROM '^https?://([^/]+)'), ''), '') NOT IN ?
+		HAVING COALESCE(NULLIF(substring(referrer FROM '^https?://([^/]+)'), ''), '') NOT IN (?)
 		ORDER BY count DESC
 		LIMIT ?
 	`, since, ownHosts, limit).Scan(&rows).Error
