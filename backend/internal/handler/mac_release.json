@@ -1,8 +1,16 @@
 {
-  "current_version": "1.3.0",
-  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.3.0.dmg",
+  "current_version": "1.3.1",
+  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.3.1.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "1.3.1",
+      "released_at": "2026-05-20",
+      "notes": [
+        "New: Launch at Login toggle in the status-bar right-click menu. Wallpaper Exchange can now start with your Mac so the wallpaper rotation never falls behind a reboot.",
+        "If you've moved the app outside /Applications the toggle will explain why macOS refused to register it."
+      ]
+    },
     {
       "version": "1.3.0",
       "released_at": "2026-05-20",

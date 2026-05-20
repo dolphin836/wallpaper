@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -55,6 +56,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
+        // Launch-at-login toggle. SMAppService.mainApp reports the live
+        // state directly — no UserDefaults gymnastics needed; macOS owns
+        // the registration. .requiresApproval lands in System Settings →
+        // Login Items waiting for the user, so we render it as "on" with
+        // a hint so they don't think the toggle silently failed.
+        let launchStatus = SMAppService.mainApp.status
+        let launchItem = NSMenuItem(
+            title: launchStatus == .requiresApproval
+                ? "Launch at Login (needs approval in System Settings)"
+                : "Launch at Login",
+            action: #selector(toggleLaunchAtLogin),
+            keyEquivalent: ""
+        )
+        launchItem.target = self
+        launchItem.state = (launchStatus == .enabled || launchStatus == .requiresApproval) ? .on : .off
+        menu.addItem(launchItem)
+
         let checkItem = NSMenuItem(title: "Check for Updates…", action: #selector(menuCheckForUpdates), keyEquivalent: "")
         checkItem.target = self
         menu.addItem(checkItem)
@@ -72,6 +90,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // outside the actor-isolated context, so hop on explicitly.
         Task { @MainActor in
             UpdateService.shared.checkManually()
+        }
+    }
+
+    @objc private func toggleLaunchAtLogin() {
+        // SMAppService is the modern API (macOS 13+). It tracks the
+        // registration in the system database keyed off our bundle id,
+        // so no plist or LaunchAgent file to manage. Register fails if
+        // the app lives somewhere the system considers transient (e.g.
+        // ~/Downloads) — surface the error so the user knows to move
+        // the bundle to /Applications.
+        let service = SMAppService.mainApp
+        do {
+            if service.status == .enabled || service.status == .requiresApproval {
+                try service.unregister()
+            } else {
+                try service.register()
+            }
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Couldn't update launch-at-login setting"
+            alert.informativeText = """
+                \(error.localizedDescription)
+
+                Make sure Wallpaper Exchange lives in /Applications and try again.
+                """
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
         }
     }
 

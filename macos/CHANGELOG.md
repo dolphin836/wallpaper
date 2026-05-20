@@ -10,6 +10,16 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-05-20
+
+### Added
+
+- **Launch at Login** toggle in the status-bar right-click menu. Uses
+  the modern ServiceManagement framework — no LaunchAgent plist files
+  to clean up if you change your mind. If you've moved the app
+  somewhere transient (e.g. ~/Downloads) the toggle will surface a
+  warning explaining why the system refused.
+
 ## [1.3.0] - 2026-05-20
 
 ### Added
