@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupPopover()
         setupEventMonitor()
         registerURLScheme()
+        UpdateService.shared.checkAtLaunch()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -33,8 +34,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 button.image = NSImage(systemSymbolName: "photo.on.rectangle", accessibilityDescription: "Wallpaper Exchange")
             }
-            button.action = #selector(togglePopover)
+            button.action = #selector(handleStatusItemClick)
             button.target = self
+            // Receive both kinds of clicks so we can show the popover on
+            // primary click and the right-click menu on secondary click.
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        }
+    }
+
+    // Right-click menu: surfaces "Check for Updates…" and Quit alongside
+    // the popover. Built lazily on each invocation so the version label
+    // always shows the running app's current version, not a stale cache.
+    private func buildStatusMenu() -> NSMenu {
+        let menu = NSMenu()
+
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let versionItem = NSMenuItem(title: "Wallpaper Exchange \(version)", action: nil, keyEquivalent: "")
+        versionItem.isEnabled = false
+        menu.addItem(versionItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let checkItem = NSMenuItem(title: "Check for Updates…", action: #selector(menuCheckForUpdates), keyEquivalent: "")
+        checkItem.target = self
+        menu.addItem(checkItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let quitItem = NSMenuItem(title: "Quit Wallpaper Exchange", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(quitItem)
+
+        return menu
+    }
+
+    @objc private func menuCheckForUpdates() {
+        // UpdateService is @MainActor; AppDelegate's @objc selectors run
+        // outside the actor-isolated context, so hop on explicitly.
+        Task { @MainActor in
+            UpdateService.shared.checkManually()
         }
     }
 
@@ -77,7 +114,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc private func togglePopover() {
+    @objc private func handleStatusItemClick() {
+        // Right click (or Ctrl-left-click) → menu. Anything else → popover.
+        let event = NSApp.currentEvent
+        let isSecondary = event?.type == .rightMouseUp
+            || (event?.modifierFlags.contains(.control) ?? false)
+        if isSecondary {
+            showStatusMenu()
+        } else {
+            togglePopover()
+        }
+    }
+
+    private func showStatusMenu() {
+        // Temporarily attach the menu so AppKit pops it from the correct
+        // anchor (right below the status item). Detach immediately after
+        // so single left clicks keep firing the action and not the menu.
+        statusItem.menu = buildStatusMenu()
+        statusItem.button?.performClick(nil)
+        statusItem.menu = nil
+    }
+
+    private func togglePopover() {
         guard let button = statusItem.button else { return }
         if popover.isShown {
             popover.performClose(nil)

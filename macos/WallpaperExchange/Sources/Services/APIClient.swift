@@ -133,6 +133,14 @@ actor APIClient {
         return resp.data.coins
     }
 
+    // Powers UpdateService — pulls the current release manifest off the
+    // API so the client can compare against its own Info.plist version
+    // and self-upgrade when a new build ships.
+    func fetchMacRelease() async throws -> MacRelease {
+        let resp: APIResponse<MacRelease> = try await request("/mac/release")
+        return resp.data
+    }
+
     func fetchProfile() async throws -> User {
         let resp: APIResponse<User> = try await request("/users/me")
         return resp.data
