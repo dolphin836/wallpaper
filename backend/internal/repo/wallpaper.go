@@ -208,6 +208,29 @@ func (r *WallpaperRepo) UpdateProcessed(ctx context.Context, id int64, thumbURL,
 		}).Error
 }
 
+// SetAutoTagged writes the LLM-chosen category onto a published wallpaper,
+// and optionally fills in the title when the uploader didn't supply one.
+// Caller passes the title to set; pass empty string to leave the existing
+// title untouched. No-op transaction overhead is acceptable — autotag
+// runs once per upload, far off the hot path.
+func (r *WallpaperRepo) SetAutoTagged(ctx context.Context, id int64, categoryID int64, titleIfEmpty string) error {
+	updates := map[string]any{"category_id": categoryID}
+	if titleIfEmpty != "" {
+		// Only overwrite when the current title is blank — guard via SQL
+		// so a concurrent user title edit doesn't get clobbered.
+		if err := r.db.WithContext(ctx).
+			Model(&model.Wallpaper{}).
+			Where("id = ? AND (title = '' OR title IS NULL)", id).
+			Update("title", titleIfEmpty).Error; err != nil {
+			return err
+		}
+	}
+	return r.db.WithContext(ctx).
+		Model(&model.Wallpaper{}).
+		Where("id = ?", id).
+		Updates(updates).Error
+}
+
 func (r *WallpaperRepo) UpdateDynamic(ctx context.Context, id int64, isDynamic bool, dynamicType, frameURLs string) error {
 	return r.db.WithContext(ctx).
 		Model(&model.Wallpaper{}).

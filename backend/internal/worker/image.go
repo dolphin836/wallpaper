@@ -28,6 +28,7 @@ import (
 
 	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/pkg/indexnow"
+	"github.com/wallpaper/backend/internal/pkg/llm"
 	"github.com/wallpaper/backend/internal/pkg/storage"
 	"github.com/wallpaper/backend/internal/repo"
 )
@@ -37,12 +38,31 @@ type ImageWorker struct {
 	wpRepo     *repo.WallpaperRepo
 	deviceRepo *repo.DeviceRepo
 	jobRepo    *repo.WorkerJobRepo
+	tagRepo    *repo.TagRepo
 	storage    *storage.Storage
 	indexNow   *indexnow.Client // optional; nil means no notifier
+	llmClient  *llm.Client      // optional; nil / disabled = skip autotag
 	siteURL    string           // canonical origin used to build feed/sitemap URLs
+
+	// category slug → id, cached at startup from CategoryRepo.List. The
+	// autotag prompt asks Claude to pick from a fixed slug list so a
+	// runtime map is enough — admins adding categories need a worker
+	// restart for the new slug to land.
+	categorySlugMap map[string]int64
 }
 
-func NewImageWorker(brokers []string, wpRepo *repo.WallpaperRepo, deviceRepo *repo.DeviceRepo, jobRepo *repo.WorkerJobRepo, st *storage.Storage, idx *indexnow.Client, siteURL string) *ImageWorker {
+func NewImageWorker(
+	brokers []string,
+	wpRepo *repo.WallpaperRepo,
+	deviceRepo *repo.DeviceRepo,
+	jobRepo *repo.WorkerJobRepo,
+	tagRepo *repo.TagRepo,
+	categorySlugMap map[string]int64,
+	st *storage.Storage,
+	idx *indexnow.Client,
+	llmClient *llm.Client,
+	siteURL string,
+) *ImageWorker {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:  brokers,
 		Topic:    "wallpaper.uploaded",
@@ -50,7 +70,18 @@ func NewImageWorker(brokers []string, wpRepo *repo.WallpaperRepo, deviceRepo *re
 		MinBytes: 1,
 		MaxBytes: 10e6,
 	})
-	return &ImageWorker{reader: reader, wpRepo: wpRepo, deviceRepo: deviceRepo, jobRepo: jobRepo, storage: st, indexNow: idx, siteURL: siteURL}
+	return &ImageWorker{
+		reader:          reader,
+		wpRepo:          wpRepo,
+		deviceRepo:      deviceRepo,
+		jobRepo:         jobRepo,
+		tagRepo:         tagRepo,
+		storage:         st,
+		indexNow:        idx,
+		llmClient:       llmClient,
+		siteURL:         siteURL,
+		categorySlugMap: categorySlugMap,
+	}
 }
 
 type WallpaperUploadedEvent struct {
@@ -317,7 +348,79 @@ func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedE
 		)
 	}
 
+	// LLM autotag — runs after publish so the wallpaper has a fully
+	// formed preview URL Claude can fetch. Non-fatal: any failure here
+	// is logged and the wallpaper stays untagged, which the autotag CLI
+	// can sweep up later as a fallback.
+	w.autotagPublished(ctx, event.WallpaperID)
+
 	return nil
+}
+
+// autotagPublished asks Claude to classify the wallpaper image and
+// writes category + tags + title back to the DB. No-op when the LLM
+// client isn't configured, the wallpaper already has a category set
+// (user manually picked one at upload), or the preview URL is missing.
+// Errors are logged but never propagated — autotag is best-effort.
+func (w *ImageWorker) autotagPublished(ctx context.Context, wallpaperID int64) {
+	if w.llmClient == nil || !w.llmClient.Enabled() {
+		return
+	}
+	wp, err := w.wpRepo.GetByID(ctx, wallpaperID)
+	if err != nil || wp == nil {
+		return
+	}
+	if wp.Status != model.WallpaperStatusPublished {
+		return
+	}
+	if wp.CategoryID != 0 {
+		// User picked a category at upload time — don't overwrite.
+		return
+	}
+	img := wp.PreviewURL
+	if img == "" {
+		img = wp.ThumbURL
+	}
+	if img == "" {
+		return
+	}
+
+	cls, err := w.llmClient.Classify(ctx, img)
+	if err != nil {
+		slog.WarnContext(ctx, "autotag: classify failed", "wallpaper_id", wallpaperID, "error", err)
+		return
+	}
+	catID, ok := w.categorySlugMap[cls.CategorySlug]
+	if !ok {
+		slog.WarnContext(ctx, "autotag: unknown category slug", "wallpaper_id", wallpaperID, "slug", cls.CategorySlug)
+		return
+	}
+
+	if err := w.wpRepo.SetAutoTagged(ctx, wallpaperID, catID, cls.TitleSuggestion); err != nil {
+		slog.WarnContext(ctx, "autotag: db update failed", "wallpaper_id", wallpaperID, "error", err)
+		return
+	}
+
+	tagIDs := make([]int64, 0, len(cls.Tags))
+	for _, name := range cls.Tags {
+		t, terr := w.tagRepo.GetOrCreate(ctx, name)
+		if terr != nil {
+			slog.WarnContext(ctx, "autotag: tag get-or-create failed", "tag", name, "error", terr)
+			continue
+		}
+		tagIDs = append(tagIDs, t.ID)
+	}
+	if len(tagIDs) > 0 {
+		if err := w.tagRepo.SetWallpaperTags(ctx, wallpaperID, tagIDs); err != nil {
+			slog.WarnContext(ctx, "autotag: link tags failed", "wallpaper_id", wallpaperID, "error", err)
+		}
+	}
+	slog.InfoContext(ctx, "autotag: classified",
+		"wallpaper_id", wallpaperID,
+		"category", cls.CategorySlug,
+		"tags", len(cls.Tags),
+		"title_suggested", cls.TitleSuggestion != "",
+	)
 }
 
 func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Image, format string, wallpaperID int64, origW, origH int, dominantColor, colorPalette string) error {
