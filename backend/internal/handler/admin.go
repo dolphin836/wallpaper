@@ -16,6 +16,7 @@ import (
 	"github.com/wallpaper/backend/internal/middleware"
 	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/pkg/errcode"
+	"github.com/wallpaper/backend/internal/pkg/llm"
 	"github.com/wallpaper/backend/internal/pkg/response"
 	"github.com/wallpaper/backend/internal/pkg/storage"
 	"github.com/wallpaper/backend/internal/repo"
@@ -31,6 +32,7 @@ type AdminHandler struct {
 	workerJobRepo  *repo.WorkerJobRepo
 	categoryRepo   *repo.CategoryRepo
 	analyticsRepo  *repo.AnalyticsRepo
+	llmAdmin       *llm.AdminClient
 	storage        *storage.Storage
 	wallpaperSvc   *service.WallpaperService // needed for Reprocess (Kafka re-publish)
 
@@ -48,6 +50,7 @@ func NewAdminHandler(
 	workerJobRepo *repo.WorkerJobRepo,
 	categoryRepo *repo.CategoryRepo,
 	analyticsRepo *repo.AnalyticsRepo,
+	llmAdmin *llm.AdminClient,
 	store *storage.Storage,
 	wallpaperSvc *service.WallpaperService,
 ) *AdminHandler {
@@ -60,6 +63,7 @@ func NewAdminHandler(
 		workerJobRepo:  workerJobRepo,
 		categoryRepo:   categoryRepo,
 		analyticsRepo:  analyticsRepo,
+		llmAdmin:       llmAdmin,
 		storage:        store,
 		wallpaperSvc:   wallpaperSvc,
 	}

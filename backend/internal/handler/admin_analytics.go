@@ -207,3 +207,29 @@ func (h *AdminHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 		Paths:     paths,
 	})
 }
+
+// GetLLMCost surfaces the Anthropic Admin API's cost report so the
+// dashboard can show how much we've spent on Claude this week / month.
+// Returns 503 (with a clear message) when the admin key isn't
+// configured — the SPA renders that as a "Set ANTHROPIC_ADMIN_API_KEY"
+// hint instead of a generic error.
+func (h *AdminHandler) GetLLMCost(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if !h.llmAdmin.Enabled() {
+		response.JSON(w, http.StatusServiceUnavailable, errcode.Success, map[string]any{
+			"configured": false,
+			"message":    "ANTHROPIC_ADMIN_API_KEY not set",
+		})
+		return
+	}
+	summary, err := h.llmAdmin.CostSummary(ctx)
+	if err != nil {
+		slog.ErrorContext(ctx, "llm cost: fetch failed", "error", err)
+		response.Error(w, http.StatusBadGateway, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, map[string]any{
+		"configured": true,
+		"summary":    summary,
+	})
+}

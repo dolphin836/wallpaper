@@ -234,3 +234,20 @@ export interface AnalyticsOverview {
 
 export const getAnalytics = (days: number) =>
   client.get<ApiResponse<AnalyticsOverview>>('/admin/analytics', { params: { days } });
+
+// ─── LLM Cost (Anthropic Admin API) ──────────────────────────────────
+export interface LLMDailyCost { day: string; usd: number }
+export interface LLMCostSummary {
+  last_7d_usd: number;
+  last_30d_usd: number;
+  today_usd: number;
+  daily: LLMDailyCost[];
+  updated_at: string;
+}
+export interface LLMCostResp {
+  configured: boolean;
+  message?: string;
+  summary?: LLMCostSummary;
+}
+export const getLLMCost = () =>
+  client.get<ApiResponse<LLMCostResp>>('/admin/llm-cost');

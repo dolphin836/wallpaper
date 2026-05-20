@@ -18,7 +18,8 @@ type Config struct {
 }
 
 type AnthropicConfig struct {
-	APIKey string `env:"ANTHROPIC_API_KEY" envDefault:""`
+	APIKey      string `env:"ANTHROPIC_API_KEY" envDefault:""`
+	AdminAPIKey string `env:"ANTHROPIC_ADMIN_API_KEY" envDefault:""` // separate key, console → Settings → Admin Keys
 }
 
 // IndexNowConfig drives the IndexNow notifier (Bing/Yandex instant

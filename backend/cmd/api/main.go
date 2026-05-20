@@ -17,6 +17,7 @@ import (
 	"github.com/wallpaper/backend/internal/cache"
 	"github.com/wallpaper/backend/internal/config"
 	"github.com/wallpaper/backend/internal/handler"
+	"github.com/wallpaper/backend/internal/pkg/llm"
 	"github.com/wallpaper/backend/internal/pkg/storage"
 	"github.com/wallpaper/backend/internal/repo"
 	"github.com/wallpaper/backend/internal/service"
@@ -109,7 +110,8 @@ func main() {
 	weeklyPickRepo := repo.NewWeeklyPickRepo(db)
 	weeklyPickHandler := handler.NewWeeklyPickHandler(weeklyPickRepo, collectionRepo)
 	statsHandler := handler.NewStatsHandler(wallpaperRepo, collectionRepo)
-	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo, analyticsRepo, store, wallpaperSvc)
+	llmAdmin := llm.NewAdminClient(cfg.Anthropic.AdminAPIKey)
+	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo, analyticsRepo, llmAdmin, store, wallpaperSvc)
 
 	router := handler.NewRouter(handler.Deps{
 		AuthHandler:       authHandler,

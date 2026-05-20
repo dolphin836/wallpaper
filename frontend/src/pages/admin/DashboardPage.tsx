@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import * as admin from '../../api/admin';
 import { Card, PageHeader, Spinner, StatCard, fmtNumber, fmtDate, fmtBytes } from './components';
-import type { AdminOverview, AdminSeries, AdminTops, DailyPoint, StorageResp } from '../../api/admin';
+import type { AdminOverview, AdminSeries, AdminTops, DailyPoint, StorageResp, LLMCostResp } from '../../api/admin';
 
 function StorageBar({ usage }: { usage: import('../../api/admin').BucketUsage }) {
   const total = Math.max(1, usage.total_bytes);
@@ -36,6 +36,73 @@ function StorageSegment({
       </div>
       <div className="text-lg font-semibold mt-0.5">{fmtBytes(bytes)}</div>
       <div className="text-xs text-slate-400">{count.toLocaleString()} 个 · {pct.toFixed(1)}%</div>
+    </div>
+  );
+}
+
+function fmtUSD(n: number): string {
+  // Anthropic costs run from sub-cent to single-dollar per day. Always
+  // show 2 decimals so "$0.01" doesn't render as "$0".
+  return `$${n.toFixed(2)}`;
+}
+
+function LLMCostCard({ data }: { data: LLMCostResp | null }) {
+  if (!data) {
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 px-5 py-4">
+        <Spinner />
+      </div>
+    );
+  }
+  if (!data.configured) {
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 px-5 py-4 text-sm text-slate-500">
+        <div className="font-semibold text-slate-700 dark:text-slate-300">LLM 消费数据未启用</div>
+        <div className="mt-1.5">
+          需要在 console.anthropic.com → Settings → Admin Keys 创建一个 Admin API key，加到服务器 .env 的{' '}
+          <code className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">ANTHROPIC_ADMIN_API_KEY</code>{' '}
+          后重启 api。{data.message && <span className="text-slate-400">（{data.message}）</span>}
+        </div>
+      </div>
+    );
+  }
+  const s = data.summary!;
+  // Single-color sparkline of the last 30 days. Stretches to card width
+  // so spend spikes are visually proportional regardless of magnitude.
+  const max = Math.max(0.0001, ...s.daily.map((d) => d.usd));
+  const w = 600;
+  const h = 50;
+  const padX = 4;
+  const innerW = w - padX * 2;
+  const innerH = h - 8;
+  const xAt = (i: number) =>
+    padX + (s.daily.length <= 1 ? innerW / 2 : (i / (s.daily.length - 1)) * innerW);
+  const yAt = (v: number) => 4 + innerH - (v / max) * innerH;
+  const polyline = s.daily.map((d, i) => `${xAt(i)},${yAt(d.usd)}`).join(' ');
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 px-5 py-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+        <div>
+          <div className="text-xs text-slate-500 uppercase tracking-wide">今天</div>
+          <div className="text-2xl font-semibold mt-1.5 text-emerald-600 dark:text-emerald-400">{fmtUSD(s.today_usd)}</div>
+        </div>
+        <div>
+          <div className="text-xs text-slate-500 uppercase tracking-wide">过去 7 天</div>
+          <div className="text-2xl font-semibold mt-1.5">{fmtUSD(s.last_7d_usd)}</div>
+        </div>
+        <div>
+          <div className="text-xs text-slate-500 uppercase tracking-wide">过去 30 天</div>
+          <div className="text-2xl font-semibold mt-1.5">{fmtUSD(s.last_30d_usd)}</div>
+          <div className="text-[11px] text-slate-400 mt-0.5">用预充值额减这个 ≈ 剩余</div>
+        </div>
+        <div className="overflow-hidden">
+          <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">30d sparkline</div>
+          <svg viewBox={`0 0 ${w} ${h}`} className="w-full" preserveAspectRatio="none">
+            <polyline points={polyline} fill="none" stroke="#a855f7" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      </div>
     </div>
   );
 }
@@ -89,6 +156,7 @@ export default function DashboardPage() {
   const [tops, setTops] = useState<AdminTops | null>(null);
   const [storage, setStorage] = useState<StorageResp | null>(null);
   const [storageLoading, setStorageLoading] = useState(true);
+  const [llmCost, setLLMCost] = useState<LLMCostResp | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
 
@@ -112,6 +180,16 @@ export default function DashboardPage() {
       .then((r) => setStorage(r.data.data))
       .catch((e) => toast.error(e?.response?.data?.message || '加载存储统计失败'))
       .finally(() => setStorageLoading(false));
+  }, []);
+
+  useEffect(() => {
+    // LLM cost is independently best-effort — when ANTHROPIC_ADMIN_API_KEY
+    // isn't set the endpoint returns a 503 carrying a "configured: false"
+    // payload, which the card renders as a setup hint. Catching here keeps
+    // a 503 from spawning a global toast.
+    admin.getLLMCost()
+      .then((r) => setLLMCost(r.data.data))
+      .catch((e) => setLLMCost(e?.response?.data?.data ?? { configured: false }));
   }, []);
 
   const refreshStorage = () => {
@@ -165,6 +243,12 @@ export default function DashboardPage() {
               <StatCard label="已下架" value={fmtNumber(overview.wallpaper_removed)} tone="mute" />
               <StatCard label="金币流通量" value={fmtNumber(overview.total_coins_circled)} />
             </div>
+
+            {/* Anthropic Claude API 消费。Admin API 不提供"余额"端点，只有累计花费 —
+                所以这里展示 today / 7d / 30d 的实际 USD 支出，你拿"上次充值额" 减去
+                这个累计就大致知道剩余。1 小时本地缓存，避免频繁 Admin API 调用。 */}
+            <div className="text-xs uppercase tracking-wider text-slate-400 mt-2 mb-1">LLM 消费 · Claude API</div>
+            <LLMCostCard data={llmCost} />
 
             {/* 运营指标。基于 analytics_events 的滚动窗口活跃，加 7 天上传/下载，加 D30 留存。 */}
             <div className="text-xs uppercase tracking-wider text-slate-400 mt-2 mb-1">运营指标 · Growth</div>

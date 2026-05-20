@@ -111,6 +111,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-random-string}
       JWT_EXPIRE_HOUR: ${JWT_EXPIRE_HOUR:-24}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_ADMIN_API_KEY: ${ANTHROPIC_ADMIN_API_KEY:-}
       INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       INDEXNOW_SITE_URL: ${INDEXNOW_SITE_URL:-https://wallpaperexchange.com}
     depends_on:
