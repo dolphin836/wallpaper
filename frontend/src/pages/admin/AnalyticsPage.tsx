@@ -176,7 +176,21 @@ export default function AnalyticsPage() {
     let alive = true;
     setLoading(true);
     getAnalytics(days)
-      .then((r) => { if (alive) setData(r.data.data); })
+      .then((r) => {
+        if (!alive) return;
+        // Defensive coalesce — backend may return null for any of these
+        // slices when a query happens to return zero rows (Go nil slice
+        // → JSON null). Normalising once here means the render path can
+        // assume arrays everywhere.
+        const d = r.data.data;
+        setData({
+          ...d,
+          daily:     d.daily     ?? [],
+          countries: d.countries ?? [],
+          sources:   d.sources   ?? [],
+          paths:     d.paths     ?? [],
+        });
+      })
       .catch(() => { toast.error('加载流量数据失败'); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };

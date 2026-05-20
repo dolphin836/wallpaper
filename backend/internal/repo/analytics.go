@@ -49,7 +49,7 @@ func (r *AnalyticsRepo) DailyTimeseries(ctx context.Context, days int) ([]DayBuc
 	}
 	since := time.Now().UTC().AddDate(0, 0, -days+1).Truncate(24 * time.Hour)
 
-	var rows []DayBucket
+	rows := []DayBucket{}
 	err := r.db.WithContext(ctx).Raw(`
 		WITH days AS (
 			SELECT generate_series(?::date, CURRENT_DATE, '1 day'::interval)::date AS day
@@ -107,7 +107,7 @@ func (r *AnalyticsRepo) TopCountries(ctx context.Context, days, limit int) ([]La
 	if limit <= 0 {
 		limit = 10
 	}
-	var rows []LabelCount
+	rows := []LabelCount{}
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT country AS label, COUNT(*) AS count
 		FROM analytics_events
@@ -129,7 +129,7 @@ func (r *AnalyticsRepo) TopPaths(ctx context.Context, days, limit int) ([]LabelC
 	if limit <= 0 {
 		limit = 10
 	}
-	var rows []LabelCount
+	rows := []LabelCount{}
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT path AS label, COUNT(*) AS count
 		FROM analytics_events
@@ -175,7 +175,7 @@ func (r *AnalyticsRepo) TopReferrerHosts(ctx context.Context, days, limit int, o
 	}
 	args = append(args, limit)
 
-	var rows []ReferrerRow
+	rows := []ReferrerRow{}
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT
 			COALESCE(
