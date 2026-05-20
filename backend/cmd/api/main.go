@@ -109,7 +109,7 @@ func main() {
 	weeklyPickRepo := repo.NewWeeklyPickRepo(db)
 	weeklyPickHandler := handler.NewWeeklyPickHandler(weeklyPickRepo, collectionRepo)
 	statsHandler := handler.NewStatsHandler(wallpaperRepo, collectionRepo)
-	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo, store, wallpaperSvc)
+	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo, analyticsRepo, store, wallpaperSvc)
 
 	router := handler.NewRouter(handler.Deps{
 		AuthHandler:       authHandler,

@@ -54,6 +54,7 @@ func (h *AnalyticsHandler) Track(w http.ResponseWriter, r *http.Request) {
 		Referrer:  truncate(req.Referrer, 512),
 		UserAgent: truncate(r.UserAgent(), 512),
 		IP:        clientIP(r),
+		Country:   strings.ToUpper(truncate(r.Header.Get("CF-IPCountry"), 8)),
 		Props:     req.Props,
 	}
 

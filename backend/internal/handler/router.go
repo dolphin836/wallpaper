@@ -154,6 +154,7 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Get("/overview", deps.AdminHandler.GetOverview)
 			r.Get("/series", deps.AdminHandler.GetSeries)
 			r.Get("/tops", deps.AdminHandler.GetTops)
+			r.Get("/analytics", deps.AdminHandler.GetAnalytics)
 
 			r.Get("/wallpapers", deps.AdminHandler.ListWallpapers)
 			r.Put("/wallpapers/{id}", deps.AdminHandler.UpdateWallpaper)

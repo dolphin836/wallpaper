@@ -24,6 +24,7 @@ import DownloadMacPage from './pages/DownloadMacPage';
 import WallpaperDetailModal from './components/WallpaperDetailModal';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/DashboardPage';
+import AdminAnalytics from './pages/admin/AnalyticsPage';
 import AdminWallpapers from './pages/admin/WallpapersPage';
 import AdminCollections from './pages/admin/CollectionsPage';
 import AdminUsers from './pages/admin/UsersPage';
@@ -62,6 +63,7 @@ function AppRoutes() {
         </Route>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
+          <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="wallpapers" element={<AdminWallpapers />} />
           <Route path="collections" element={<AdminCollections />} />
           <Route path="users" element={<AdminUsers />} />

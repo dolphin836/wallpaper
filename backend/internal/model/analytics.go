@@ -14,6 +14,7 @@ type AnalyticsEvent struct {
 	Referrer  string          `gorm:"size:512;not null;default:''" json:"referrer"`
 	UserAgent string          `gorm:"size:512;not null;default:''" json:"user_agent"`
 	IP        string          `gorm:"size:64;not null;default:''" json:"ip"`
+	Country   string          `gorm:"size:8;not null;default:''" json:"country"`
 	Props     json.RawMessage `gorm:"type:jsonb;not null;default:'{}'::jsonb" json:"props"`
 	CreatedAt time.Time       `gorm:"not null;autoCreateTime" json:"created_at"`
 }

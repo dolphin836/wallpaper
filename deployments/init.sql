@@ -244,6 +244,13 @@ CREATE INDEX IF NOT EXISTS idx_analytics_events_type_created ON analytics_events
 CREATE INDEX IF NOT EXISTS idx_analytics_events_user ON analytics_events(user_id) WHERE user_id <> 0;
 CREATE INDEX IF NOT EXISTS idx_analytics_events_session ON analytics_events(session_id);
 
+-- ISO-3166 alpha-2 derived from the CF-IPCountry header at insert time.
+-- 8 chars is enough for the standard 2-letter code (defensive — CF
+-- occasionally emits "XX"/"T1" for tor/unknown).
+ALTER TABLE analytics_events ADD COLUMN IF NOT EXISTS country VARCHAR(8) NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_analytics_events_created_country
+  ON analytics_events(created_at DESC) WHERE country <> '';
+
 ALTER TABLE users ADD COLUMN IF NOT EXISTS coins BIGINT NOT NULL DEFAULT 0;
 
 INSERT INTO users (id, username, email, password_hash, nickname, coins, status)

@@ -204,3 +204,33 @@ export const getStorage = (refresh = false) =>
 
 export const listAdminCategories = () =>
   client.get<ApiResponse<Category[]>>('/categories');
+
+// ─── Analytics ───────────────────────────────────────────────────────
+// Powered by the analytics_events table — the admin Analytics page reads
+// this one bundle and renders every section without further round-trips.
+export interface AnalyticsDay {
+  day: string;       // ISO date, UTC
+  page_views: number;
+  sessions: number;
+  unique_ips: number;
+}
+export interface AnalyticsTotals {
+  page_views: number;
+  sessions: number;
+  unique_ips: number;
+}
+export interface AnalyticsLabel { label: string; count: number }
+export interface AnalyticsSource { source: string; count: number; hosts?: string[] }
+
+export interface AnalyticsOverview {
+  days: number;
+  daily: AnalyticsDay[];
+  totals: AnalyticsTotals;
+  previous: AnalyticsTotals;
+  countries: AnalyticsLabel[];
+  sources: AnalyticsSource[];
+  paths: AnalyticsLabel[];
+}
+
+export const getAnalytics = (days: number) =>
+  client.get<ApiResponse<AnalyticsOverview>>('/admin/analytics', { params: { days } });
