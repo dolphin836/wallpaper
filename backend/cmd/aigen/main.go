@@ -100,6 +100,21 @@ const (
 		"marks, watermarks, the smooth/flawless AI-slop look, melted-edge " +
 		"artifacts, garbled fine details."
 
+	// collectionQualitySuffix is appended to every collection-mode variant
+	// prompt instead of compositionAndSafety. Collection variants must
+	// preserve the reference image's own composition and subject — so we
+	// can't impose wallpaper-specific framing rules ("subject lower-right,
+	// negative space upper-left") or the AVOID-people clause that would
+	// erase a portrait reference. We only reinforce render fidelity.
+	collectionQualitySuffix = " Octane Render production quality, 8K UHD " +
+		"textures, ray-traced specular highlights, subsurface scattering " +
+		"where applicable, anisotropic reflections on metals, cinematic " +
+		"color grading, ultra-sharp focus on the focal subject, intricate " +
+		"fine detail at every viewing distance. " +
+		"AVOID: text, words, captions, signage, logos, brand marks, " +
+		"watermarks, melted-edge artifacts, garbled fine details, " +
+		"the smooth/flawless AI-slop look."
+
 	openaiImagesURL = "https://api.openai.com/v1/images/generations"
 )
 
@@ -882,7 +897,7 @@ func runCollection(name string, count int) {
 	var totalCost float64
 	for i, prompt := range variants {
 		n := i + 1
-		fullPrompt := prompt + compositionAndSafety
+		fullPrompt := prompt + collectionQualitySuffix
 
 		fmt.Printf("\n── variant %d/%d ──\n", n, len(variants))
 		fmt.Printf("    prompt: %s\n", truncate(prompt, 200))
@@ -979,7 +994,7 @@ func runFinalizeCollection(name string) {
 
 		fmt.Printf("\n[%s] rendering 4K (gpt-image-2 edit @ %s)…\n", e.Name(), finalSize)
 		t0 := time.Now()
-		fullPrompt := vm.Prompt + compositionAndSafety
+		fullPrompt := vm.Prompt + collectionQualitySuffix
 		pngData, usage, err := openaiEdit(ctx, openAIKey, finalModel, fullPrompt,
 			finalSize, refData, refMIME, cm.ReferencePath)
 		if err != nil {

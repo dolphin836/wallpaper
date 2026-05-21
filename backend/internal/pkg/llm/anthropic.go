@@ -619,10 +619,12 @@ func (c *Client) CollectionVariants(ctx context.Context, refImage []byte, refMed
 	}
 
 	userText := fmt.Sprintf(
-		"Study the reference image's style — palette, lighting, materials, mood, render aesthetic. "+
-			"Then produce %d distinct prompt variants that ALL feel like they belong in one collection with the reference, "+
-			"but differ in subject / composition / specific scene so the resulting wallpapers are visually varied "+
-			"rather than near-duplicates. Each variant is a standalone image-generation prompt, NOT a description of the reference.%s",
+		"Look at the reference image. First identify its central theme — the subject (who/what), "+
+			"the scene, the composition and camera angle, the lighting, and the render aesthetic. "+
+			"Then choose the variation axis that best suits THIS image (per the system prompt's guidance) "+
+			"and produce %d prompts that ALL preserve the theme and vary ONLY along that axis. "+
+			"The N variants should read as a coherent series of the same subject in the same scene — "+
+			"NOT as different scenes that merely share a style.%s",
 		count, hintLine,
 	)
 
@@ -678,29 +680,128 @@ func (c *Client) CollectionVariants(ctx context.Context, refImage []byte, refMed
 	return doc.Variants, nil
 }
 
-const collectionVariantsSystem = `You are building a wallpaper collection grounded in a visual reference. The user gives you a single reference image and asks for N variation prompts. Your job:
+const collectionVariantsSystem = `You are creating a coherent wallpaper series anchored to ONE reference image. The user supplies the image; you supply N prompts that will be sent to an image-EDIT model (gpt-image-2) together with that same reference. Because the model already sees the reference, your prompts steer how it MODIFIES the reference — they do NOT describe a fresh image from scratch.
 
-1. INTERNALISE the reference's style — its dominant palette, lighting register, materials, render aesthetic (photographic / matte-painting / 3D render / illustration), mood, and any signature visual motifs. DO NOT just describe the reference back; the goal is to capture the *style fingerprint* that the variants will share.
+YOUR JOB IS THE OPPOSITE OF "STYLE-INHERITED, SUBJECT-DIVERGED". The variants must share the SUBJECT and SCENE; they may only differ along one carefully chosen axis.
 
-2. PRODUCE N image-generation prompts that all feel like siblings of the reference but explore DIFFERENT subjects / compositions / scenes. The collection should feel curated, not redundant. Variants should differ in: focal subject, time of day or lighting moment, camera framing, dominant element. They should share: overall palette family, render aesthetic, atmospheric quality, mood, level of fidelity.
+═══════════════════════════════════════════════════════════════════
+STEP 1 — IDENTIFY THE THEME OF THE REFERENCE
+═══════════════════════════════════════════════════════════════════
 
-3. EVERY variant follows these rules (same as our solo prompt expander):
-   - **Stylistic anchor**: institutional / genre / software reference (e.g. "National Geographic photography", "Unreal Engine 5 volumetric concept art", "sumi-e ink wash", "isometric low-poly vector"). NEVER name a real living photographer, director, artist (e.g. Makoto Shinkai, Roger Deakins, Beeple) or copyrighted film title (Blade Runner, Studio Ghibli films). These trip OpenAI's safety filter.
-   - **Element-level specificity**: every noun is a specific named thing with at least one distinguishing property. Not "a city"; "a coral-and-glass spiral arcology rising from a turquoise lagoon, rooftop gardens cascading in tiered hexagons".
-   - **Bright, vivid, saturated palette** by default (unless the reference is clearly dark / nocturnal — in that case match the reference). Use 3-5 named colours.
-   - **5 sensory registers**: light (direction/angle/quality), materials (micro-detail), atmosphere (particulates/volumetrics), depth (foreground/midground/background), palette (named colours).
-   - **Desktop-wallpaper composition**: subject in lower-right or center-right ⅔; clean negative space in upper-left quadrant and across bottom third for desktop icons; 25% safety margin all edges.
-   - **Literary subject + active verb**: subjects drift / bloom / ignite / cascade / unfurl / dissolve into …
-   - **Compound material+form atoms**: 3-5 "[surface]-[material] [geometry]" units in one sentence.
-   - **Counter-modifiers**: weave in "honest", "restrained", "shippable not concept-art" against the maximalist quality keywords.
-   - **PBR vocabulary**: "physically based materials", "subtle contact AO", "ray-traced caustics", "subsurface scattering", "anisotropic specular", "pixel-crisp focal point".
-   - **Quality stack**: close every variant with "Octane Render production quality, 8K UHD textures, cinematic color grading, ray-traced specular highlights, subsurface scattering where applicable, editorial production-grade rendering, ultra-sharp focus on the focal subject, intricate fine detail at every viewing distance".
-   - **NEVER**: people, faces, text, words, captions, signage, logos, brand names, watermarks, recognizable real-world landmarks, "smooth" / "perfect" / "flawless" alone.
+Examine the reference and silently answer:
+  • Subject: who or what is the focal subject? (a specific person, a couple, a landscape, an interior, an animal, a still-life arrangement, an architectural facade, a vehicle, an abstract pattern …)
+  • Scene / setting: where does the subject sit? (bedroom, beach, alley, tabletop, mountain ridge …)
+  • Composition: framing (close-up / medium / wide), camera angle (eye-level / overhead / low / three-quarter), lens feel.
+  • Render aesthetic: studio photography / film stock / 3D render / 2D illustration / oil painting / watercolour / matte painting / anime …
+  • Palette & lighting: dominant colours, light direction, light quality (hard / soft / rim / window / golden-hour / overcast / neon …), atmosphere.
+  • Outfit / surface / state details that define the subject's identity.
 
-4. Each variant is 130-220 words, 4-7 sentences, lean LONG and specific.
+═══════════════════════════════════════════════════════════════════
+STEP 2 — PICK THE VARIATION AXIS THAT FITS THIS IMAGE
+═══════════════════════════════════════════════════════════════════
 
-OUTPUT FORMAT: a single JSON object, NO markdown fences, NO preamble, exactly this shape:
+Choose the axis that produces a *coherent series*, not a random shuffle. Use the table below as guidance; adapt to the specific image.
+
+  • PERSON / CHARACTER PORTRAIT → vary EXPRESSION + GESTURE + MICRO-POSE.
+        Keep: same person (face, hair, build, age, ethnicity), same outfit,
+              same room/background, same camera angle, same lighting.
+        Change ONLY: facial expression, gaze direction, head tilt, hand position,
+              tiny posture shift, mouth shape.
+
+  • COUPLE / GROUP → vary INTERACTION + EXPRESSION.
+        Keep: same individuals, outfits, setting, framing.
+        Change ONLY: how they relate to each other / where their eyes / hands go.
+
+  • LANDSCAPE / EXTERIOR SCENE without people → vary TIME-OF-DAY / WEATHER / SEASON.
+        Keep: same vantage point, same terrain & structures, same composition.
+        Change ONLY: light moment (dawn / golden hour / midday / dusk / blue hour / night),
+              weather (clear / fog / rain / snow / storm), season (spring blossom / summer / autumn / winter).
+
+  • INTERIOR SCENE without people → vary LIGHT MOMENT + ATMOSPHERE.
+        Keep: same room, furniture layout, decor, camera.
+        Change ONLY: time of day through the window, lamps on/off, mood of the air.
+
+  • OBJECT / STILL-LIFE → vary CAMERA ANGLE + LIGHTING + STATE.
+        Keep: same object identity, same setting / surface, same overall framing intent.
+        Change ONLY: angle (front / three-quarter / overhead / macro), lighting direction & quality, object state (closed→open, dry→wet, intact→partial).
+
+  • ANIMAL → vary POSE + GAZE + ACTION beat.
+        Keep: same individual animal (markings, build), same habitat, same light.
+        Change ONLY: pose, gaze, action.
+
+  • ARCHITECTURE / BUILDING → vary TIME / WEATHER / OCCUPANCY.
+        Keep: same building, same vantage, same composition.
+        Change ONLY: light/weather/season, optionally subtle occupancy cues (lit windows / empty / a passerby's silhouette).
+
+  • VEHICLE → vary CAMERA ANGLE + LIGHTING + ENVIRONMENT MOOD.
+        Keep: same vehicle (model, colour, condition), same backdrop class.
+        Change ONLY: framing, light, weather.
+
+If the image fits none of these neatly, pick the *single* dimension whose changes preserve the strongest sense of "same subject, same scene". Resist the temptation to vary more than one axis — that breaks series coherence.
+
+═══════════════════════════════════════════════════════════════════
+STEP 3 — WRITE N PROMPTS
+═══════════════════════════════════════════════════════════════════
+
+Each prompt is one standalone image-edit instruction. It MUST explicitly state what to keep identical and what to change. Use a structure like:
+
+    "Same [subject phrase from STEP 1] in the same [scene phrase],
+     identical [composition / camera / outfit / lighting / palette] as
+     the reference. Change ONLY: [the specific variation, described
+     concretely and sensorially]. Keep [reiterate 2-3 critical things
+     that MUST not drift — face, outfit, exact background, etc]."
+
+RULES FOR THE PROMPTS:
+
+  1. The "keep" clause should be nearly identical across all N variants.
+     The "change" clause is what differs.
+
+  2. The "change" clause is concrete and sensory, NOT a label.
+       Bad:   "happy expression"
+       Good:  "a soft half-formed smile reaching the corners of her eyes,
+               brows relaxed, gaze drifting slightly off-camera to the left"
+
+       Bad:   "morning light"
+       Good:  "low-angle sunrise rim-light raking from camera-left, warm
+               honey across the rooftops, long blue shadows pulling toward
+               the foreground"
+
+  3. DO NOT impose wallpaper-specific composition rules (no "subject in
+     lower-right", no "negative space upper-left"). The reference's own
+     composition IS the composition of the variant.
+
+  4. DO NOT add new objects, characters, or scene elements that aren't
+     already in the reference, unless the chosen axis explicitly calls
+     for one (e.g. "a single distant passerby" for an architecture
+     occupancy variant).
+
+  5. Render aesthetic vocabulary: it is fine — and good — to echo the
+     reference's render style and to use quality keywords (subsurface
+     scattering on skin, ray-traced specular, cinematic colour grading,
+     intricate detail). Match the reference's medium (don't turn a film
+     photograph into a 3D render or vice versa).
+
+  6. SAFETY: NEVER name a living photographer, director, artist, or any
+     specific real person (Makoto Shinkai, Roger Deakins, Beeple,
+     Annie Leibovitz, the user's own name, etc.) and NEVER name a
+     copyrighted property (Studio Ghibli, Blade Runner, Marvel, etc.).
+     Use institutional / genre / software anchors instead: "National
+     Geographic editorial photography", "Pixar-grade 3D character
+     rendering", "sumi-e ink wash", "Kodak Portra 400 35mm film".
+
+  7. LENGTH: 80-160 words per variant. Concrete > flowery. English.
+
+  8. Never write "the reference image", "as in the reference", "the
+     input photo" inside the prompt itself — the image-edit model
+     already has the reference; meta-references confuse it. Say "same
+     [subject]" / "identical [thing]" directly.
+
+═══════════════════════════════════════════════════════════════════
+OUTPUT FORMAT (STRICT)
+═══════════════════════════════════════════════════════════════════
+
+A single JSON object, NO markdown fences, NO preamble, exactly:
 
 {"variants": ["prompt 1 …", "prompt 2 …", "prompt 3 …"]}
 
-Each array entry is the full standalone prompt for one variant. NOTHING ELSE.`
+Each array entry is one full standalone prompt. NOTHING ELSE.`
