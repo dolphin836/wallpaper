@@ -43,25 +43,25 @@ export DB_NAME="${DB_NAME:-wallpaper}"
 
 case "${1:-}" in
     "" | -h | --help)
-        exec go run ./backend/cmd/aigen
+        exec go -C backend run ./cmd/aigen
         ;;
     --finalize)
         shift
-        exec go run ./backend/cmd/aigen finalize "$@"
+        exec go -C backend run ./cmd/aigen finalize "$@"
         ;;
     --reject)
         shift
-        exec go run ./backend/cmd/aigen reject "$@"
+        exec go -C backend run ./cmd/aigen reject "$@"
         ;;
     --list)
         shift
-        exec go run ./backend/cmd/aigen list "$@"
+        exec go -C backend run ./cmd/aigen list "$@"
         ;;
     *)
         # Default: first positional arg is treated as the idea. Quote it
         # in the shell to keep spaces intact, otherwise aigen will join
         # the remaining args with spaces (which is fine for idiomatic
         # multi-word prompts too).
-        exec go run ./backend/cmd/aigen preview "$@"
+        exec go -C backend run ./cmd/aigen preview "$@"
         ;;
 esac

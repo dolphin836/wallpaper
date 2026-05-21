@@ -36,4 +36,4 @@ export DB_USER="${DB_USER:-wallpaper}"
 export DB_PASSWORD="${DB_PASSWORD:-wallpaper}"
 export DB_NAME="${DB_NAME:-wallpaper}"
 
-exec go run ./backend/cmd/aigen publish "$@"
+exec go -C backend run ./cmd/aigen publish "$@"
