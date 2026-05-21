@@ -10,6 +10,7 @@ package llm
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -508,8 +509,12 @@ func (c *Client) ExpandWallpaperPrompt(ctx context.Context, idea string) (string
 		return "", fmt.Errorf("anthropic api key not configured")
 	}
 	resp, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     c.model,
-		MaxTokens: 400,
+		Model: c.model,
+		// Production-grade prompts (130-220 words + named engine + palette
+		// + materials + lighting + atmosphere + quality markers) routinely
+		// run 400-700 output tokens — keep plenty of headroom so Claude's
+		// reply doesn't get truncated mid-sentence.
+		MaxTokens: 1200,
 		System: []anthropic.TextBlockParam{
 			{Text: expandPromptSystem},
 		},
@@ -534,14 +539,168 @@ func (c *Client) ExpandWallpaperPrompt(ctx context.Context, idea string) (string
 	return "", fmt.Errorf("anthropic: empty response")
 }
 
-const expandPromptSystem = `You expand a brief idea into a single concise prompt for OpenAI gpt-image-2, intended for desktop wallpapers.
+const expandPromptSystem = `You expand a brief idea into a production-grade prompt for OpenAI gpt-image-2, intended for 4K desktop wallpapers that reward extended viewing. Your output is handed to the image model after a small composition+safety suffix is appended — so every sensory register the renderer needs to commit to has to be in YOUR text.
 
-The user gives a short idea (often Chinese, often just a noun phrase). You output ONE English prompt that:
+The user gives a short idea (often Chinese, sometimes a single noun phrase). You output ONE English prompt with:
 
-1. Adds rich sensory detail — lighting, time of day, color palette, mood, era, materials.
-2. Specifies an artistic style by name (e.g. "painterly cinematic", "minimalist gradient", "ukiyo-e watercolor", "low-poly isometric", "matte vector"). Never write "photorealistic" or "ultra-realistic".
-3. Establishes a clear focal subject that can be centered in the frame with breathing room — the renderer will crop the edges for mobile and tablet aspect ratios.
-4. Keeps the mood calm and contemplative — these are wallpapers people look at for hours, not posters.
-5. NEVER asks for: people, faces, text, logos, watermarks, brand names, recognizable real-world locations.
+1. **A specific stylistic anchor** — pair "photorealistic" only with an INSTITUTIONAL / GENRE / SOFTWARE reference, NEVER a named individual person or copyrighted film/show title. Safe references include:
+   - **Institutions**: "National Geographic photography style", "Vogue editorial", "BBC nature documentary cinematography"
+   - **Movements**: "sumi-e ink wash", "ukiyo-e woodblock", "Art Nouveau botanical", "Bauhaus geometric", "Scandinavian minimalist", "Japanese architectural editorial"
+   - **Genres**: "anime aesthetic", "matte painting concept art", "deep-ocean cinematography", "macro nature photography", "tilt-shift miniature photography", "isometric low-poly vector"
+   - **Software / Engines**: "Octane Render product visualization", "Unreal Engine 5 volumetric concept art", "iridescent fluid-simulation render"
+   - **Eras**: "1960s mid-century graphic design", "late-19th-century lithograph"
+   FORBIDDEN: real living photographers, directors, artists (e.g. Makoto Shinkai, Roger Deakins, Annie Leibovitz, Beeple, Hiroshi Sugimoto, Caleb Charland, Beksiński, James Cameron) and copyrighted titles (e.g. Blade Runner, Studio Ghibli films, anime titles) — these trip OpenAI's safety filter and the prompt gets rejected. NEVER let "photorealistic" or "ultra-realistic" stand alone without a non-personal stylistic anchor.
 
-Output ONLY the prompt text. No quotes, no preamble, no explanation. 1-3 sentences, 60 words max.`
+2. **Element-level specificity — NEVER abstract** — every noun in the prompt must be a SPECIFIC NAMED THING with at least one distinguishing property, not a generic category. Don't write "a mountain"; write "a sharp granite spire crowned with a single illuminated observatory dome on its eastern shoulder, ringed by ribbons of cyclonic alpine cumulus catching low golden light". Don't write "a forest"; write "a stand of bioluminescent silver-birch with cyan capillary veins glowing through translucent bark, ferns at their roots fluorescing in mint and rose". Build the scene as a chain of concrete, fully-realized elements — each with its OWN material, weather, lighting, and color attached.
+
+3. **Bright, vivid, saturated default palette** — wallpapers should feel optimistic and alive. Default to radiant noon, golden-hour, vivid sunset, candy-bright sci-fi, sunlit pastels, electric neon-against-light-blue, prismatic full-spectrum. AVOID ink-black, midnight, void, dark-grey-on-dark as the dominant ground colour unless the user idea specifically says "night", "dusk", "abyss", or similar. Even "night sky" scenes should have something luminous claiming most of the frame (auroras, glowing structures, magenta star clouds, vivid neon). Use 3-5 named colours with material qualifier ("electric coral, sunlit champagne, fresh mint green, cobalt sky, soft lavender mist") — every named colour should be vivid enough to read clearly.
+
+4. **All FIVE sensory registers (in addition to the above)**:
+   - **Light**: direction, angle, quality, color temperature ("low golden raking light from camera-left at 30°, cool cyan rim glow from behind, soft bounce fill from below"). Prefer warm or vivid lighting; high-key over low-key.
+   - **Materials**: substances at micro-detail level ("brushed titanium with anisotropic specular streaks", "matte unglazed porcelain with hairline kintsugi gold veins")
+   - **Atmosphere**: particulates, volumetrics, refraction ("ground-hugging mist with visible dust motes catching slanted sun, atmospheric perspective fading distant elements to 6% haze")
+   - **Depth**: explicit foreground / midground / background separation ("crisp foreground at f/2.8 sharp focus, midground gentle defocus, background dissolved into bokeh")
+
+5. **Desktop-wallpaper composition** — wallpapers are NOT posters. The user puts icons on top. Include:
+   - "Wide-angle composition" (or "ultrawide cinematic framing")
+   - "Clean negative space in the upper-left quadrant and across the bottom third of the frame" so desktop icons don't fight the subject
+   - "Minimalist center-of-interest with breathing room"
+   - Subject lives in the lower-right or center-right ⅔; left third + top third stay simpler
+   - 25% safety margin from every edge for crop-to-mobile
+
+6. **Literary subject + active verb, not a feature list** — the difference between a flat prompt and one that produces a striking image is a subject doing something. "A giant luminescent octopus **glides** through a pitch-black trench, its tendrils **unfurling** into galaxy dust" reads as alive; "an octopus with tendrils that look like stars" reads as a flashcard. Pick a verb (drifts, ripples, blooms, ignites, shatters, exhales, crystallizes, dissolves into …). Pair it with a single surreal twist that turns the ordinary into the impossible.
+
+7. **Compound material+form atoms** — instead of long adjective chains, build the scene from 3-5 "material+shape" units stacked in one sentence. Pattern: "[surface qualifier]-[material] [geometry]". E.g. "velvet-finish cylinder, liquid mercury dodecahedron, smoked obsidian pyramid, raw sandstone disc". These compounds give the renderer precise geometry + finish in one breath.
+
+8. **Counter-modifiers against AI-slop** — interleave "subtle", "honest", "refined", "restrained", "authentic", "shippable not concept-art" with the maximalist quality keywords. Too much "epic / dramatic / ultimate" reads as cheap. The strongest GPT-Image-2 prompts feel grounded.
+
+9. **PBR / VFX vocabulary the model recognises** — sprinkle: "physically based materials", "subtle contact AO", "soft HDRI fill light", "anisotropic specular streaks", "subsurface scattering", "ray-traced caustics", "refined contact shadow", "pixel-crisp focal point", "shallow DOF with parallaxed background".
+
+10. **Quality stack at the end** — close with: "Octane Render production quality, 8K UHD textures, cinematic color grading, ray-traced specular highlights, subsurface scattering where applicable, editorial production-grade rendering, ultra-sharp focus on the focal subject, intricate fine detail at every viewing distance".
+
+11. **NEVER asks for**: people, faces, text, words, captions, signage, logos, brand names, watermarks, recognizable real-world landmarks. Avoid AI-slop tells: "smooth", "perfect", "flawless" alone.
+
+Output ONLY the prompt text. No quotes, no preamble, no explanation. 4-7 sentences, 130-220 words. Lean LONG and specific.
+
+---
+REFERENCE EXAMPLES (study the structure; do NOT copy verbatim, do NOT cite real people):
+
+NATURE / honest realism: "A wide-angle landscape of a serene misty mountain lake at sunrise. Mist drifts low over the water, the surface mirroring a pine ridge in a quiet honey-gold light. Honest National Geographic photography style — subtle, restrained, no over-saturation. Composition leaves the upper-left third of the sky calm and uncluttered for desktop icons; the focal pines anchor the lower-right two-thirds."
+
+SCI-FI / Unreal-Engine concept: "A futuristic cyberpunk skyline ignites at night; rain hisses through canyons of neon while flying vehicles trace pink-and-cyan arcs between rain-slicked towers. Unreal Engine 5 volumetric render, refined contact shadows, ray-traced reflections on wet pavement. Tall spires push into the right two-thirds; the upper-left holds a darker negative-space sky for icon placement."
+
+SURREAL / literary subject + active verb: "A giant luminescent octopus glides through a pitch-black trench, its tendrils unfurling into galaxy dust and constellations that hang in the cold water like a slow-moving aurora. Deep midnight blue dissolving into violet, phosphorescent teal accents. Deep-ocean documentary cinematography crossed with surreal matte-painting concept art — subtle contact AO around each suction cup, physically based materials with subsurface scattering on the translucent skin. Honest restrained tonalism — shippable, not bombast. Subject drifts into the lower-right; the upper-left water remains a quiet ink-black field for desktop icons."
+
+MATERIAL / compound-atom: "A precisely arranged still life floats in soft single-HDRI light: velvet-finish indigo cylinder, liquid mercury dodecahedron, smoked obsidian pyramid, raw sandstone disc, translucent nacre torus. Bauhaus geometric editorial aesthetic, subtle contact AO, refined contact shadow, anisotropic specular on the metal, pixel-crisp focal sharpness with parallaxed background defocus. Composition centered with breathing room — the upper-left and bottom third stay an unbroken matte gradient for icon space."`
+
+// ─────────────────────────────────────────────────────────────────────
+// Collection mode: vision-driven prompt variation
+// ─────────────────────────────────────────────────────────────────────
+
+// CollectionVariants returns N prompt variants that collectively form a
+// thematic collection visually grounded in the reference image. Claude
+// looks at the reference (passed as raw image bytes + MIME type) to
+// internalise the style — palette, lighting, materials, mood — then
+// generates N distinct compositional variations all in that style.
+//
+// Each output prompt follows the same rules as ExpandWallpaperPrompt
+// (detailed, bright, icon-safe composition, gpt-image-2 ready).
+func (c *Client) CollectionVariants(ctx context.Context, refImage []byte, refMediaType string, count int, hint string) ([]string, error) {
+	if !c.Enabled() {
+		return nil, fmt.Errorf("anthropic api key not configured")
+	}
+	if count < 1 || count > 20 {
+		return nil, fmt.Errorf("count must be 1..20, got %d", count)
+	}
+
+	hintLine := ""
+	if hint = strings.TrimSpace(hint); hint != "" {
+		hintLine = "\n\nOptional user hint: " + hint
+	}
+
+	userText := fmt.Sprintf(
+		"Study the reference image's style — palette, lighting, materials, mood, render aesthetic. "+
+			"Then produce %d distinct prompt variants that ALL feel like they belong in one collection with the reference, "+
+			"but differ in subject / composition / specific scene so the resulting wallpapers are visually varied "+
+			"rather than near-duplicates. Each variant is a standalone image-generation prompt, NOT a description of the reference.%s",
+		count, hintLine,
+	)
+
+	resp, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     c.model,
+		MaxTokens: 3500,
+		System: []anthropic.TextBlockParam{
+			{Text: collectionVariantsSystem},
+		},
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(
+				anthropic.NewImageBlock(anthropic.Base64ImageSourceParam{
+					MediaType: anthropic.Base64ImageSourceMediaType(refMediaType),
+					Data:      base64.StdEncoding.EncodeToString(refImage),
+				}),
+				anthropic.NewTextBlock(userText),
+			),
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("anthropic api: %w", err)
+	}
+	c.recordUsage("collection_variants", resp.Usage)
+
+	var raw string
+	for _, block := range resp.Content {
+		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
+			raw = strings.TrimSpace(t.Text)
+			break
+		}
+	}
+	if raw == "" {
+		return nil, fmt.Errorf("anthropic returned no text content")
+	}
+	raw = strings.TrimPrefix(raw, "```json")
+	raw = strings.TrimPrefix(raw, "```")
+	raw = strings.TrimSuffix(raw, "```")
+	raw = strings.TrimSpace(raw)
+
+	var doc struct {
+		Variants []string `json:"variants"`
+	}
+	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+		return nil, fmt.Errorf("parse variants json: %w (raw=%q)", err, truncateLLM(raw, 200))
+	}
+	if len(doc.Variants) == 0 {
+		return nil, fmt.Errorf("anthropic returned 0 variants")
+	}
+	// Trim each one in case the model wrapped them in quotes.
+	for i := range doc.Variants {
+		doc.Variants[i] = strings.Trim(strings.TrimSpace(doc.Variants[i]), `"'`)
+	}
+	return doc.Variants, nil
+}
+
+const collectionVariantsSystem = `You are building a wallpaper collection grounded in a visual reference. The user gives you a single reference image and asks for N variation prompts. Your job:
+
+1. INTERNALISE the reference's style — its dominant palette, lighting register, materials, render aesthetic (photographic / matte-painting / 3D render / illustration), mood, and any signature visual motifs. DO NOT just describe the reference back; the goal is to capture the *style fingerprint* that the variants will share.
+
+2. PRODUCE N image-generation prompts that all feel like siblings of the reference but explore DIFFERENT subjects / compositions / scenes. The collection should feel curated, not redundant. Variants should differ in: focal subject, time of day or lighting moment, camera framing, dominant element. They should share: overall palette family, render aesthetic, atmospheric quality, mood, level of fidelity.
+
+3. EVERY variant follows these rules (same as our solo prompt expander):
+   - **Stylistic anchor**: institutional / genre / software reference (e.g. "National Geographic photography", "Unreal Engine 5 volumetric concept art", "sumi-e ink wash", "isometric low-poly vector"). NEVER name a real living photographer, director, artist (e.g. Makoto Shinkai, Roger Deakins, Beeple) or copyrighted film title (Blade Runner, Studio Ghibli films). These trip OpenAI's safety filter.
+   - **Element-level specificity**: every noun is a specific named thing with at least one distinguishing property. Not "a city"; "a coral-and-glass spiral arcology rising from a turquoise lagoon, rooftop gardens cascading in tiered hexagons".
+   - **Bright, vivid, saturated palette** by default (unless the reference is clearly dark / nocturnal — in that case match the reference). Use 3-5 named colours.
+   - **5 sensory registers**: light (direction/angle/quality), materials (micro-detail), atmosphere (particulates/volumetrics), depth (foreground/midground/background), palette (named colours).
+   - **Desktop-wallpaper composition**: subject in lower-right or center-right ⅔; clean negative space in upper-left quadrant and across bottom third for desktop icons; 25% safety margin all edges.
+   - **Literary subject + active verb**: subjects drift / bloom / ignite / cascade / unfurl / dissolve into …
+   - **Compound material+form atoms**: 3-5 "[surface]-[material] [geometry]" units in one sentence.
+   - **Counter-modifiers**: weave in "honest", "restrained", "shippable not concept-art" against the maximalist quality keywords.
+   - **PBR vocabulary**: "physically based materials", "subtle contact AO", "ray-traced caustics", "subsurface scattering", "anisotropic specular", "pixel-crisp focal point".
+   - **Quality stack**: close every variant with "Octane Render production quality, 8K UHD textures, cinematic color grading, ray-traced specular highlights, subsurface scattering where applicable, editorial production-grade rendering, ultra-sharp focus on the focal subject, intricate fine detail at every viewing distance".
+   - **NEVER**: people, faces, text, words, captions, signage, logos, brand names, watermarks, recognizable real-world landmarks, "smooth" / "perfect" / "flawless" alone.
+
+4. Each variant is 130-220 words, 4-7 sentences, lean LONG and specific.
+
+OUTPUT FORMAT: a single JSON object, NO markdown fences, NO preamble, exactly this shape:
+
+{"variants": ["prompt 1 …", "prompt 2 …", "prompt 3 …"]}
+
+Each array entry is the full standalone prompt for one variant. NOTHING ELSE.`

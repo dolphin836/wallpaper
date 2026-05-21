@@ -63,6 +63,19 @@ case "${1:-}" in
         shift
         exec go -C backend run ./cmd/aigen list "$@"
         ;;
+    --collection)
+        # Reference-image-driven batch.
+        #   ./scripts/wallpaper-gen.sh --collection collection-001 5
+        # Reads ai-wallpapers/collection-001/<any image> as the reference,
+        # generates 5 variant previews into variants/01..05/mini.png.
+        shift
+        exec go -C backend run ./cmd/aigen collection "$@"
+        ;;
+    --finalize-collection)
+        # Render 4K full.png for every variant subdir in the collection.
+        shift
+        exec go -C backend run ./cmd/aigen finalize-collection "$@"
+        ;;
     *)
         # Default: first positional arg is treated as the idea. Quote it
         # in the shell to keep spaces intact, otherwise aigen will join

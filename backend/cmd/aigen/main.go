@@ -50,8 +50,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"mime/multipart"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -69,16 +71,28 @@ import (
 // no need to touch Claude's system prompt.
 const (
 	finalSize   = "3840x2160" // 16:9 desktop 4K
-	previewSize = "1024x1024" // square — cheapest size for a vibe check
+	previewSize = "1536x1024" // 3:2 landscape — closest mini-supported size to 16:9, ~$0.013/preview
 	finalModel  = "gpt-image-2"
 	miniModel   = "gpt-image-1-mini"
 
-	compositionAndSafety = ". The main subject is centered in the frame with " +
-		"at least 25% margin from every edge so the image can be cropped to " +
-		"phone (9:19.5) and tablet (3:4) aspect ratios without losing key " +
-		"content. No people, no faces, no text, no logos, no brand marks, no " +
-		"watermarks. Cinematic light, rich tonal depth, contemplative mood — " +
-		"suitable as a long-stare desktop wallpaper."
+	compositionAndSafety = ". Wide-angle widescreen composition optimised for " +
+		"a 16:9 desktop wallpaper. Reserve clean negative space in the " +
+		"upper-left quadrant and across the bottom third of the frame so " +
+		"the user's desktop icons don't fight the focal subject; subject " +
+		"lives in the lower-right or center-right of the canvas with " +
+		"breathing room and at least 25% safety margin from every edge " +
+		"(image will be re-cropped to phone 9:19.5 and tablet 3:4). " +
+		"Quality stack: Octane Render production quality, 8K UHD textures, " +
+		"ray-traced specular highlights, volumetric lighting with god-rays " +
+		"where appropriate, subsurface scattering on translucent materials, " +
+		"anisotropic reflections on metals, atmospheric perspective with " +
+		"parallaxed foreground / midground / background depth, chromatic " +
+		"aberration at frame edges, subtle 35mm film grain, cinematic color " +
+		"grading, ultra-sharp focus on the focal subject, intricate fine " +
+		"detail at every viewing distance. " +
+		"AVOID: people, faces, text, words, captions, signage, logos, brand " +
+		"marks, watermarks, the smooth/flawless AI-slop look, melted-edge " +
+		"artifacts, garbled fine details."
 
 	openaiImagesURL = "https://api.openai.com/v1/images/generations"
 )
@@ -150,6 +164,20 @@ func main() {
 		runList(filter)
 	case "publish":
 		runPublish(rest)
+	case "collection":
+		if len(rest) < 2 {
+			fail("aigen collection requires <name> <count>\n  e.g. aigen collection collection-001 5")
+		}
+		count, err := strconv.Atoi(rest[1])
+		if err != nil || count < 1 {
+			fail("collection count must be a positive integer, got %q", rest[1])
+		}
+		runCollection(rest[0], count)
+	case "finalize-collection":
+		if len(rest) == 0 {
+			fail("aigen finalize-collection requires <name>\n  e.g. aigen finalize-collection collection-001")
+		}
+		runFinalizeCollection(rest[0])
 	default:
 		fail("unknown subcommand %q\n", cmd)
 	}
@@ -478,6 +506,67 @@ type openaiUsage struct {
 	out int
 }
 
+// openaiEdit calls /v1/images/edits with a reference image + a prompt
+// using gpt-image-1-mini (cheap mini variant). Response shape is the
+// same as generations — single b64_json under data[0].
+func openaiEdit(ctx context.Context, key, model, prompt, size string, refData []byte, refMIME, refFilename string) ([]byte, openaiUsage, error) {
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	// `image[]` so future multi-reference uploads (gpt-image-2 supports
+	// up to 4 reference images) work without rewriting the wire format.
+	part, err := mw.CreateFormFile("image[]", refFilename)
+	if err != nil {
+		return nil, openaiUsage{}, err
+	}
+	if _, err := part.Write(refData); err != nil {
+		return nil, openaiUsage{}, err
+	}
+	_ = mw.WriteField("model", model)
+	_ = mw.WriteField("prompt", prompt)
+	_ = mw.WriteField("size", size)
+	_ = mw.WriteField("n", "1")
+	mw.Close()
+	_ = refMIME // currently unused — server detects from filename, but keeping the arg makes the API symmetric and lets future callers force a MIME
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/images/edits", &body)
+	if err != nil {
+		return nil, openaiUsage{}, err
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+
+	client := &http.Client{Timeout: 5 * time.Minute}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, openaiUsage{}, fmt.Errorf("http: %w", err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		return nil, openaiUsage{}, fmt.Errorf("openai edit %d: %s", resp.StatusCode, snippet(raw, 400))
+	}
+	var out struct {
+		Data []struct {
+			B64JSON string `json:"b64_json"`
+		} `json:"data"`
+		Usage struct {
+			InputTokens  int `json:"input_tokens"`
+			OutputTokens int `json:"output_tokens"`
+		} `json:"usage"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, openaiUsage{}, fmt.Errorf("decode: %w", err)
+	}
+	if len(out.Data) == 0 || out.Data[0].B64JSON == "" {
+		return nil, openaiUsage{}, fmt.Errorf("no b64_json in response: %s", snippet(raw, 200))
+	}
+	img, err := base64.StdEncoding.DecodeString(out.Data[0].B64JSON)
+	if err != nil {
+		return nil, openaiUsage{}, fmt.Errorf("b64 decode: %w", err)
+	}
+	return img, openaiUsage{in: out.Usage.InputTokens, out: out.Usage.OutputTokens}, nil
+}
+
 func openaiGenerate(ctx context.Context, key, model, prompt, size string) ([]byte, openaiUsage, error) {
 	payload, _ := json.Marshal(map[string]any{
 		"model":  model,
@@ -583,6 +672,11 @@ func readMeta(dir string) (*meta, error) {
 }
 
 func openLocally(path string) error {
+	// Batch runs (the "generate 10 in a row" workflow) suppress the
+	// auto-open so we don't spam ten Preview windows over ten minutes.
+	if os.Getenv("WPE_AIGEN_NO_OPEN") != "" {
+		return nil
+	}
 	if runtime.GOOS != "darwin" {
 		return fmt.Errorf("auto-open only implemented for macOS")
 	}
@@ -631,23 +725,326 @@ func printUsage() {
 aigen — AI wallpaper generation pipeline
 
 USAGE:
-  aigen preview "<idea>"        Refine + render mini preview
-  aigen finalize <id>           Render 4K final from approved pending
-  aigen reject <id>             Discard a pending preview
+  aigen preview "<idea>"                 Refine + render mini preview
+  aigen finalize <id>                    Render 4K final from approved pending
+  aigen reject <id>                      Discard a pending preview
   aigen list [pending|approved|uploaded]
-  aigen publish [<id>] [--all]  Upload approved → remote
+  aigen publish [<id>] [--all]           Upload approved → remote
+  aigen collection <name> <count>        Reference-image-driven batch — drop a
+                                         photo in ai-wallpapers/<name>/ first
+  aigen finalize-collection <name>       Render 4K full.png for each variant
 
-Typical flow:
+Typical flow (solo):
   aigen preview "雾气山脉日出"
   aigen finalize 2026-05-21-184530-a7f3
   aigen publish 2026-05-21-184530-a7f3
 
+Typical flow (collection):
+  mkdir -p ai-wallpapers/collection-001
+  cp ~/Desktop/reference.jpg ai-wallpapers/collection-001/
+  aigen collection collection-001 5      # 5 mini variants beside the reference
+  aigen finalize-collection collection-001
+
 ENV:
-  OPENAI_API_KEY      preview/finalize
-  ANTHROPIC_API_KEY   preview (prompt expansion)
+  OPENAI_API_KEY      preview/finalize/collection
+  ANTHROPIC_API_KEY   preview (prompt expansion) + collection (variant ideation)
   WPE_ADMIN_TOKEN     publish
 `))
 
 	// Add log import if needed.
 	_ = log.Default
+}
+
+// ─────────── collection: reference-image-driven batch ───────────
+
+// collectionMeta is the parent record for a reference-image-driven
+// collection. Lives at <storeRoot>/collection-XXX/meta.json. Each
+// variant has its own meta.json under variants/NN/.
+type collectionMeta struct {
+	Name            string    `json:"name"`
+	Hint            string    `json:"hint,omitempty"`
+	ReferencePath   string    `json:"reference_path"` // relative to the collection dir
+	ReferenceMIME   string    `json:"reference_mime"`
+	VariantCount    int       `json:"variant_count"`
+	PreviewModel    string    `json:"preview_model"`
+	PreviewSize     string    `json:"preview_size"`
+	PreviewCostUSD  float64   `json:"preview_cost_usd"`
+	FinalModel      string    `json:"final_model,omitempty"`
+	FinalSize       string    `json:"final_size,omitempty"`
+	FinalCostUSD    float64   `json:"final_cost_usd,omitempty"`
+	ExpandCostUSD   float64   `json:"expand_cost_usd"`
+	CreatedAt       time.Time `json:"created_at"`
+	FinalizedAt     *time.Time `json:"finalized_at,omitempty"`
+}
+
+// variantMeta is per-variant; one of these in variants/NN/.
+type variantMeta struct {
+	N             int       `json:"n"`
+	Prompt        string    `json:"prompt"`
+	PreviewSize   string    `json:"preview_size"`
+	PreviewCostUSD float64  `json:"preview_cost_usd"`
+	FinalSize     string    `json:"final_size,omitempty"`
+	FinalCostUSD  float64   `json:"final_cost_usd,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
+	FinalizedAt   *time.Time `json:"finalized_at,omitempty"`
+	RemoteID      int64     `json:"remote_id,omitempty"`
+	RemoteSlug    string    `json:"remote_slug,omitempty"`
+}
+
+func runCollection(name string, count int) {
+	openAIKey := mustEnv("OPENAI_API_KEY")
+	anthropicKey := mustEnv("ANTHROPIC_API_KEY")
+
+	dir := filepath.Join(storeRoot(), name)
+	fi, err := os.Stat(dir)
+	if err != nil || !fi.IsDir() {
+		fail("collection dir not found: %s", dir)
+	}
+	if !strings.HasPrefix(filepath.Base(dir), "collection") {
+		fail("collection name must start with 'collection' (got %q)", filepath.Base(dir))
+	}
+
+	// Find the first image at the top level — that's the reference.
+	// User may name it whatever; we accept any common image extension.
+	refPath, refMIME := locateReference(dir)
+	if refPath == "" {
+		fail("no reference image found in %s — drop a .jpg/.png/.webp at the top level", dir)
+	}
+	refData, err := os.ReadFile(refPath)
+	if err != nil {
+		fail("read reference: %v", err)
+	}
+	fmt.Printf("==> Reference: %s (%.1f KB, %s)\n",
+		filepath.Base(refPath), float64(len(refData))/1024, refMIME)
+
+	usageRepo := tryDBConnect()
+	llmClient := llm.New(anthropicKey, usageRepo)
+
+	ctx := context.Background()
+	fmt.Printf("==> Asking Claude for %d collection variants…\n", count)
+	t0 := time.Now()
+	variants, err := llmClient.CollectionVariants(ctx, refData, refMIME, count, "")
+	if err != nil {
+		fail("collection variants failed: %v", err)
+	}
+	if len(variants) != count {
+		fmt.Printf("    (warn) requested %d, got %d — proceeding with what Claude returned\n", count, len(variants))
+	}
+	fmt.Printf("    %.1fs\n", time.Since(t0).Seconds())
+
+	// Persist the collection-level meta + each variant prompt before any
+	// OpenAI call, so a crash partway through still leaves a recoverable
+	// state on disk.
+	variantsDir := filepath.Join(dir, "variants")
+	if err := os.MkdirAll(variantsDir, 0755); err != nil {
+		fail("mkdir variants: %v", err)
+	}
+
+	cm := &collectionMeta{
+		Name:          name,
+		ReferencePath: filepath.Base(refPath),
+		ReferenceMIME: refMIME,
+		VariantCount:  len(variants),
+		PreviewModel:  miniModel,
+		PreviewSize:   previewSize,
+		CreatedAt:     time.Now().UTC(),
+	}
+	if err := writeJSON(filepath.Join(dir, "meta.json"), cm); err != nil {
+		fail("write collection meta: %v", err)
+	}
+
+	// Render each preview sequentially — easier to debug than concurrent
+	// + we're rate-limited on the OpenAI side anyway.
+	var totalCost float64
+	for i, prompt := range variants {
+		n := i + 1
+		fullPrompt := prompt + compositionAndSafety
+
+		fmt.Printf("\n── variant %d/%d ──\n", n, len(variants))
+		fmt.Printf("    prompt: %s\n", truncate(prompt, 200))
+
+		vDir := filepath.Join(variantsDir, fmt.Sprintf("%02d", n))
+		if err := os.MkdirAll(vDir, 0755); err != nil {
+			fmt.Printf("    skip: mkdir failed: %v\n", err)
+			continue
+		}
+		vm := &variantMeta{
+			N:           n,
+			Prompt:      prompt,
+			PreviewSize: previewSize,
+			CreatedAt:   time.Now().UTC(),
+		}
+		_ = writeJSON(filepath.Join(vDir, "meta.json"), vm)
+
+		t0 := time.Now()
+		pngData, usage, err := openaiEdit(ctx, openAIKey, miniModel, fullPrompt,
+			previewSize, refData, refMIME, filepath.Base(refPath))
+		if err != nil {
+			fmt.Printf("    FAILED: %v\n", err)
+			continue
+		}
+		cost := llm.CostUSD(miniModel, usage.in, usage.out, 0, 0)
+		totalCost += cost
+		fmt.Printf("    %.1fs, %d/%d tokens, ≈ $%.4f\n",
+			time.Since(t0).Seconds(), usage.in, usage.out, cost)
+
+		if usageRepo != nil {
+			_ = usageRepo.Record("aigen_collection_preview", miniModel, usage.in, usage.out, 0, 0)
+		}
+		if err := os.WriteFile(filepath.Join(vDir, "mini.png"), pngData, 0644); err != nil {
+			fmt.Printf("    write failed: %v\n", err)
+			continue
+		}
+		vm.PreviewCostUSD = cost
+		_ = writeJSON(filepath.Join(vDir, "meta.json"), vm)
+	}
+
+	cm.PreviewCostUSD = totalCost
+	_ = writeJSON(filepath.Join(dir, "meta.json"), cm)
+
+	fmt.Printf(`
+==> Done. %d previews in %s/variants/
+    open %s/variants
+    ✓ keep all + render 4K:  ./scripts/wallpaper-gen.sh --finalize-collection %s
+    ✗ reject:  delete unwanted variant subdirs (NN/) and re-run finalize
+    cost so far: $%.4f
+`, len(variants), dir, dir, name, totalCost)
+}
+
+func runFinalizeCollection(name string) {
+	openAIKey := mustEnv("OPENAI_API_KEY")
+	usageRepo := tryDBConnect()
+
+	dir := filepath.Join(storeRoot(), name)
+	cm := &collectionMeta{}
+	if err := readJSON(filepath.Join(dir, "meta.json"), cm); err != nil {
+		fail("read collection meta: %v", err)
+	}
+	refPath := filepath.Join(dir, cm.ReferencePath)
+	refData, err := os.ReadFile(refPath)
+	if err != nil {
+		fail("read reference: %v", err)
+	}
+	refMIME := cm.ReferenceMIME
+
+	variantsDir := filepath.Join(dir, "variants")
+	entries, err := os.ReadDir(variantsDir)
+	if err != nil {
+		fail("read variants: %v", err)
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+
+	ctx := context.Background()
+	var totalCost float64
+	rendered := 0
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		vDir := filepath.Join(variantsDir, e.Name())
+		vm := &variantMeta{}
+		if err := readJSON(filepath.Join(vDir, "meta.json"), vm); err != nil {
+			fmt.Printf("[%s] skip: no meta.json\n", e.Name())
+			continue
+		}
+		fullPath := filepath.Join(vDir, "full.png")
+		if _, err := os.Stat(fullPath); err == nil {
+			fmt.Printf("[%s] already has full.png — skipping\n", e.Name())
+			continue
+		}
+
+		fmt.Printf("\n[%s] rendering 4K (gpt-image-2 edit @ %s)…\n", e.Name(), finalSize)
+		t0 := time.Now()
+		fullPrompt := vm.Prompt + compositionAndSafety
+		pngData, usage, err := openaiEdit(ctx, openAIKey, finalModel, fullPrompt,
+			finalSize, refData, refMIME, cm.ReferencePath)
+		if err != nil {
+			fmt.Printf("    FAILED: %v\n", err)
+			continue
+		}
+		cost := llm.CostUSD(finalModel, usage.in, usage.out, 0, 0)
+		totalCost += cost
+		fmt.Printf("    %.1fs, %d/%d tokens, ≈ $%.4f\n",
+			time.Since(t0).Seconds(), usage.in, usage.out, cost)
+
+		if usageRepo != nil {
+			_ = usageRepo.Record("aigen_collection_final", finalModel, usage.in, usage.out, 0, 0)
+		}
+		if err := os.WriteFile(fullPath, pngData, 0644); err != nil {
+			fmt.Printf("    write failed: %v\n", err)
+			continue
+		}
+		now := time.Now().UTC()
+		vm.FinalSize = finalSize
+		vm.FinalCostUSD = cost
+		vm.FinalizedAt = &now
+		_ = writeJSON(filepath.Join(vDir, "meta.json"), vm)
+		rendered++
+	}
+
+	now := time.Now().UTC()
+	cm.FinalModel = finalModel
+	cm.FinalSize = finalSize
+	cm.FinalCostUSD = totalCost
+	cm.FinalizedAt = &now
+	_ = writeJSON(filepath.Join(dir, "meta.json"), cm)
+
+	fmt.Printf(`
+==> Finalized %d variants, cost $%.4f.
+    open %s/variants
+    full.png next to each mini.png. Publish path: TBD (collection publish not yet wired).
+`, rendered, totalCost, dir)
+}
+
+// locateReference returns (absolutePath, mimeType) for the first image
+// at the top level of dir. Skips meta.json and the variants/ subdir.
+func locateReference(dir string) (string, string) {
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if name == "meta.json" {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(name))
+		switch ext {
+		case ".jpg", ".jpeg":
+			return filepath.Join(dir, name), "image/jpeg"
+		case ".png":
+			return filepath.Join(dir, name), "image/png"
+		case ".webp":
+			return filepath.Join(dir, name), "image/webp"
+		case ".gif":
+			return filepath.Join(dir, name), "image/gif"
+		}
+	}
+	return "", ""
+}
+
+// writeJSON / readJSON are tiny helpers for the typed metadata files.
+// Kept generic so the variant + collection meta types share the same
+// path-then-marshal plumbing.
+func writeJSON(path string, v any) error {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
+func readJSON(path string, into any) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, into)
+}
+
+func truncate(s string, n int) string {
+	if len(s) > n {
+		return s[:n] + "…"
+	}
+	return s
 }
