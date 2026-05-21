@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -77,7 +78,14 @@ type Client struct {
 // admin dashboard's "LLM 消费" card.
 func New(apiKey string, recorder Recorder) *Client {
 	c := anthropic.NewClient(option.WithAPIKey(apiKey))
+	// Defend against the classic Go gotcha where the caller passes
+	// `var r *repo.LLMUsageRepo` (which is nil) into an interface
+	// parameter — `recorder == nil` is FALSE there because the
+	// interface value carries a non-nil type descriptor. Reflect
+	// catches the typed-nil case so we don't NPE in recordUsage.
 	if recorder == nil {
+		recorder = noopRecorder{}
+	} else if v := reflect.ValueOf(recorder); v.Kind() == reflect.Ptr && v.IsNil() {
 		recorder = noopRecorder{}
 	}
 	return &Client{

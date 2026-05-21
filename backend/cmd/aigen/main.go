@@ -57,6 +57,7 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 
 	"github.com/wallpaper/backend/internal/config"
 	"github.com/wallpaper/backend/internal/pkg/llm"
@@ -515,15 +516,31 @@ func openaiGenerate(ctx context.Context, key, model, prompt, size string) ([]byt
 
 // ─────────── helpers ───────────
 
+// tryDBConnect returns an LLMUsageRepo bound to a live prod-Postgres
+// connection, or nil if anything between config.Load() and a Ping
+// fails. Returning a "looks-fine but unreachable" repo would crash later
+// inside Record — gorm.Open is lazy, so it doesn't surface a dial
+// failure on its own. The Ping closes that gap.
 func tryDBConnect() *repo.LLMUsageRepo {
 	cfg, err := config.Load()
 	if err != nil {
 		return nil
 	}
+	// Silence GORM's default logger so the script's first line isn't a
+	// noisy stack trace when the SSH tunnel happens to be down.
 	db, err := gorm.Open(postgres.Open(cfg.DB.DSN()), &gorm.Config{
-		Logger: nil,
+		Logger: gormlogger.Discard,
 	})
 	if err != nil {
+		return nil
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := sqlDB.PingContext(ctx); err != nil {
 		return nil
 	}
 	return repo.NewLLMUsageRepo(db)
