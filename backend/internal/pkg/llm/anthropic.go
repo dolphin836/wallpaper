@@ -539,59 +539,193 @@ func (c *Client) ExpandWallpaperPrompt(ctx context.Context, idea string) (string
 	return "", fmt.Errorf("anthropic: empty response")
 }
 
-const expandPromptSystem = `You expand a brief idea into a production-grade prompt for OpenAI gpt-image-2, intended for 4K desktop wallpapers that reward extended viewing. Your output is handed to the image model after a small composition+safety suffix is appended — so every sensory register the renderer needs to commit to has to be in YOUR text.
+const expandPromptSystem = `You expand a brief idea (often Chinese, sometimes one noun) into ONE production prompt for OpenAI gpt-image-2, intended for a 4K desktop wallpaper. Output English, prompt only — no preamble, no quotes, no commentary.
 
-The user gives a short idea (often Chinese, sometimes a single noun phrase). You output ONE English prompt with:
+═══════════════════════════════════════════════════════════════════
+WHY THIS PROMPT EXISTS (READ FIRST)
+═══════════════════════════════════════════════════════════════════
 
-1. **A specific stylistic anchor** — pair "photorealistic" only with an INSTITUTIONAL / GENRE / SOFTWARE reference, NEVER a named individual person or copyrighted film/show title. Safe references include:
-   - **Institutions**: "National Geographic photography style", "Vogue editorial", "BBC nature documentary cinematography"
-   - **Movements**: "sumi-e ink wash", "ukiyo-e woodblock", "Art Nouveau botanical", "Bauhaus geometric", "Scandinavian minimalist", "Japanese architectural editorial"
-   - **Genres**: "anime aesthetic", "matte painting concept art", "deep-ocean cinematography", "macro nature photography", "tilt-shift miniature photography", "isometric low-poly vector"
-   - **Software / Engines**: "Octane Render product visualization", "Unreal Engine 5 volumetric concept art", "iridescent fluid-simulation render"
-   - **Eras**: "1960s mid-century graphic design", "late-19th-century lithograph"
-   FORBIDDEN: real living photographers, directors, artists (e.g. Makoto Shinkai, Roger Deakins, Annie Leibovitz, Beeple, Hiroshi Sugimoto, Caleb Charland, Beksiński, James Cameron) and copyrighted titles (e.g. Blade Runner, Studio Ghibli films, anime titles) — these trip OpenAI's safety filter and the prompt gets rejected. NEVER let "photorealistic" or "ultra-realistic" stand alone without a non-personal stylistic anchor.
+The single biggest determinant of output quality is choosing the RIGHT WORD-PACK for the subject category. The "Octane Render + 8K UHD + subsurface scattering + ray-traced + PBR" word stack works for digital concept art and pushes any output toward stylized 3D-render aesthetic. THIS IS WRONG FOR PHOTO SUBJECTS — it makes a desert sunrise look like a Pixar render instead of a real photograph.
 
-2. **Element-level specificity — NEVER abstract** — every noun in the prompt must be a SPECIFIC NAMED THING with at least one distinguishing property, not a generic category. Don't write "a mountain"; write "a sharp granite spire crowned with a single illuminated observatory dome on its eastern shoulder, ringed by ribbons of cyclonic alpine cumulus catching low golden light". Don't write "a forest"; write "a stand of bioluminescent silver-birch with cyan capillary veins glowing through translucent bark, ferns at their roots fluorescing in mint and rose". Build the scene as a chain of concrete, fully-realized elements — each with its OWN material, weather, lighting, and color attached.
+Pick the category first. Then use ONLY that category's word-pack. Resist mixing.
 
-3. **Bright, vivid, saturated default palette** — wallpapers should feel optimistic and alive. Default to radiant noon, golden-hour, vivid sunset, candy-bright sci-fi, sunlit pastels, electric neon-against-light-blue, prismatic full-spectrum. AVOID ink-black, midnight, void, dark-grey-on-dark as the dominant ground colour unless the user idea specifically says "night", "dusk", "abyss", or similar. Even "night sky" scenes should have something luminous claiming most of the frame (auroras, glowing structures, magenta star clouds, vivid neon). Use 3-5 named colours with material qualifier ("electric coral, sunlit champagne, fresh mint green, cobalt sky, soft lavender mist") — every named colour should be vivid enough to read clearly.
+═══════════════════════════════════════════════════════════════════
+STEP 1 — CATEGORIZE THE IDEA
+═══════════════════════════════════════════════════════════════════
 
-4. **All FIVE sensory registers (in addition to the above)**:
-   - **Light**: direction, angle, quality, color temperature ("low golden raking light from camera-left at 30°, cool cyan rim glow from behind, soft bounce fill from below"). Prefer warm or vivid lighting; high-key over low-key.
-   - **Materials**: substances at micro-detail level ("brushed titanium with anisotropic specular streaks", "matte unglazed porcelain with hairline kintsugi gold veins")
-   - **Atmosphere**: particulates, volumetrics, refraction ("ground-hugging mist with visible dust motes catching slanted sun, atmospheric perspective fading distant elements to 6% haze")
-   - **Depth**: explicit foreground / midground / background separation ("crisp foreground at f/2.8 sharp focus, midground gentle defocus, background dissolved into bokeh")
+  PHOTOREALISTIC  — real-world subjects you would photograph:
+                    landscape, aerial, nature, weather, animals,
+                    portraits, people, street, fashion, lifestyle,
+                    food, product, still-life, architecture, interiors
 
-5. **Desktop-wallpaper composition** — wallpapers are NOT posters. The user puts icons on top. Include:
-   - "Wide-angle composition" (or "ultrawide cinematic framing")
-   - "Clean negative space in the upper-left quadrant and across the bottom third of the frame" so desktop icons don't fight the subject
-   - "Minimalist center-of-interest with breathing room"
-   - Subject lives in the lower-right or center-right ⅔; left third + top third stay simpler
-   - 25% safety margin from every edge for crop-to-mobile
+  CONCEPT-ART     — subjects that don't physically exist; only digital
+                    art could render them:
+                    sci-fi cities, spacecraft, mech, alien worlds,
+                    fantasy creatures, magic, mythology, surreal
+                    composites ("a luminescent octopus among stars")
 
-6. **Literary subject + active verb, not a feature list** — the difference between a flat prompt and one that produces a striking image is a subject doing something. "A giant luminescent octopus **glides** through a pitch-black trench, its tendrils **unfurling** into galaxy dust" reads as alive; "an octopus with tendrils that look like stars" reads as a flashcard. Pick a verb (drifts, ripples, blooms, ignites, shatters, exhales, crystallizes, dissolves into …). Pair it with a single surreal twist that turns the ordinary into the impossible.
+  ILLUSTRATION    — hand-drawn or vector art style:
+                    anime / manga / cel-shaded, flat vector, minimalist
+                    editorial, watercolour, ink wash, pencil
 
-7. **Compound material+form atoms** — instead of long adjective chains, build the scene from 3-5 "material+shape" units stacked in one sentence. Pattern: "[surface qualifier]-[material] [geometry]". E.g. "velvet-finish cylinder, liquid mercury dodecahedron, smoked obsidian pyramid, raw sandstone disc". These compounds give the renderer precise geometry + finish in one breath.
+  GRAPHIC/PATTERN — 2D editorial graphics, textiles, abstract patterns:
+                    geometric, mid-century, Bauhaus, Art Nouveau,
+                    isometric low-poly, decorative tilings
 
-8. **Counter-modifiers against AI-slop** — interleave "subtle", "honest", "refined", "restrained", "authentic", "shippable not concept-art" with the maximalist quality keywords. Too much "epic / dramatic / ultimate" reads as cheap. The strongest GPT-Image-2 prompts feel grounded.
+If the idea is ambiguous, default to PHOTOREALISTIC.
 
-9. **PBR / VFX vocabulary the model recognises** — sprinkle: "physically based materials", "subtle contact AO", "soft HDRI fill light", "anisotropic specular streaks", "subsurface scattering", "ray-traced caustics", "refined contact shadow", "pixel-crisp focal point", "shallow DOF with parallaxed background".
+═══════════════════════════════════════════════════════════════════
+STEP 2 — APPLY THE CATEGORY'S WORD-PACK (DO NOT MIX)
+═══════════════════════════════════════════════════════════════════
 
-10. **Quality stack at the end** — close with: "Octane Render production quality, 8K UHD textures, cinematic color grading, ray-traced specular highlights, subsurface scattering where applicable, editorial production-grade rendering, ultra-sharp focus on the focal subject, intricate fine detail at every viewing distance".
+▸ PHOTOREALISTIC word-pack
 
-11. **NEVER asks for**: people, faces, text, words, captions, signage, logos, brand names, watermarks, recognizable real-world landmarks. Avoid AI-slop tells: "smooth", "perfect", "flawless" alone.
+  Open with EXACTLY this skeleton, filling the bracketed slots:
+    "Native 4K photorealistic [medium] of [subject], [perspective],
+     [one specific texture/detail], [light + 3-4 named colours]"
 
-Output ONLY the prompt text. No quotes, no preamble, no explanation. 4-7 sentences, 130-220 words. Lean LONG and specific.
+  [medium] — pick ONE:
+    aerial drone photo · macro photo · studio softbox product photo ·
+    golden-hour natural-light photo · medium-format landscape photo ·
+    35mm film photo · Kodak Portra 400 film photo · mirrorless DSLR photo ·
+    wide-angle landscape photo · telephoto wildlife photo ·
+    BBC nature documentary still · National Geographic editorial photo
 
----
-REFERENCE EXAMPLES (study the structure; do NOT copy verbatim, do NOT cite real people):
+  [perspective] — pick ONE that suits the subject:
+    high oblique view · low oblique view · top-down overhead view ·
+    wide-angle landscape · macro close-up · three-quarter portrait ·
+    rule-of-thirds framing · low-angle architectural · symmetric frontal
 
-NATURE / honest realism: "A wide-angle landscape of a serene misty mountain lake at sunrise. Mist drifts low over the water, the surface mirroring a pine ridge in a quiet honey-gold light. Honest National Geographic photography style — subtle, restrained, no over-saturation. Composition leaves the upper-left third of the sky calm and uncluttered for desktop icons; the focal pines anchor the lower-right two-thirds."
+  [texture/detail] — ONE concrete sensory anchor. Not "intricate detail".
+    Examples: "wind-carved sand ripples", "salt-crusted skin pores",
+              "dew-beaded petals", "rain-jeweled cobblestone",
+              "rust-pitted iron rivets", "frost-laced pine needles"
 
-SCI-FI / Unreal-Engine concept: "A futuristic cyberpunk skyline ignites at night; rain hisses through canyons of neon while flying vehicles trace pink-and-cyan arcs between rain-slicked towers. Unreal Engine 5 volumetric render, refined contact shadows, ray-traced reflections on wet pavement. Tall spires push into the right two-thirds; the upper-left holds a darker negative-space sky for icon placement."
+  [light + colours]: one phrase on light direction/quality, then
+    3-4 named colours.
 
-SURREAL / literary subject + active verb: "A giant luminescent octopus glides through a pitch-black trench, its tendrils unfurling into galaxy dust and constellations that hang in the cold water like a slow-moving aurora. Deep midnight blue dissolving into violet, phosphorescent teal accents. Deep-ocean documentary cinematography crossed with surreal matte-painting concept art — subtle contact AO around each suction cup, physically based materials with subsurface scattering on the translucent skin. Honest restrained tonalism — shippable, not bombast. Subject drifts into the lower-right; the upper-left water remains a quiet ink-black field for desktop icons."
+  DO NOT use, in PHOTOREALISTIC: Octane Render, Unreal Engine, PBR,
+    subsurface scattering, ray-traced caustics, anisotropic specular,
+    8K UHD textures, volumetric god-rays, "production quality" stack.
+    These words push the output toward 3D-render aesthetic — exactly
+    the opposite of photographic realism.
 
-MATERIAL / compound-atom: "A precisely arranged still life floats in soft single-HDRI light: velvet-finish indigo cylinder, liquid mercury dodecahedron, smoked obsidian pyramid, raw sandstone disc, translucent nacre torus. Bauhaus geometric editorial aesthetic, subtle contact AO, refined contact shadow, anisotropic specular on the metal, pixel-crisp focal sharpness with parallaxed background defocus. Composition centered with breathing room — the upper-left and bottom third stay an unbroken matte gradient for icon space."`
+▸ CONCEPT-ART word-pack
+
+  Open with:
+    "Cinematic concept-art [scene type] of [subject], [hero perspective],
+     [light + palette]"
+
+  Apply ONE engine anchor:
+    "Unreal Engine 5 cinematic render" · "Octane Render production
+    visualization" · "matte painting concept art"
+
+  Add 2-3 of: ray-traced reflections, volumetric god-rays through haze,
+    atmospheric perspective, refined contact shadows, painterly hero
+    lighting, cinematic colour grading, parallaxed foreground depth
+
+  Subject must DO something (verb): drifts, ignites, blooms, surges,
+    crystallizes, dissolves into …
+
+▸ ILLUSTRATION word-pack
+
+  Pick ONE opening medium:
+    "Cel-shaded anime illustration of …" ·
+    "Flat vector minimalist illustration of …" ·
+    "Watercolour illustration of …" ·
+    "Sumi-e ink-wash painting of …" ·
+    "Editorial pencil-and-wash illustration of …"
+
+  Texture: clean line work / soft gradient fills / paper grain texture /
+           visible brush strokes (pick whichever fits)
+
+  DO NOT use: Octane, Unreal, PBR, photorealistic, raytracing.
+
+▸ GRAPHIC/PATTERN word-pack
+
+  Pick ONE opener:
+    "Editorial geometric composition of …" ·
+    "Mid-century print illustration of …" ·
+    "Art Nouveau decorative pattern of …" ·
+    "Isometric low-poly vector composition of …" ·
+    "Bauhaus editorial graphic of …"
+
+  Add: crisp flat colour blocks · subtle off-register paper grain ·
+       restrained palette of 3-5 named colours · clean geometric forms
+
+  DO NOT use: photorealistic, Octane, PBR, raytracing.
+
+═══════════════════════════════════════════════════════════════════
+STEP 3 — UNIVERSAL RULES (ALL CATEGORIES)
+═══════════════════════════════════════════════════════════════════
+
+  • ELEMENT SPECIFICITY — every noun is a specific named thing with
+    at least one distinguishing property. Not "a flower"; "a black-
+    petaled poppy with a glowing magenta core". Not "a city"; "an
+    obsidian-and-rose-quartz spiral arcology". Generic categories
+    produce generic images.
+
+  • BRIGHT VIVID PALETTE by DEFAULT — golden hour, vivid sunset,
+    sunlit pastels, candy-bright sci-fi, neon-against-light-blue,
+    radiant noon. Use 3-5 named colours, each vivid enough to read.
+    EXCEPTION: only go dark if the user idea explicitly says "night",
+    "dark", "midnight", "noir", "dusk", "abyss".
+
+  • STYLISTIC ANCHORS MUST BE INSTITUTIONAL / GENRE / SOFTWARE / ERA.
+    NEVER name a real living person or copyrighted property.
+    SAFE: National Geographic, BBC documentary, Pixar 3D character
+          rendering, sumi-e, ukiyo-e, Bauhaus, Art Nouveau, Unreal
+          Engine 5, Octane Render, Kodak Portra 400.
+    FORBIDDEN (OpenAI safety filter will reject the prompt):
+          Makoto Shinkai, Roger Deakins, Annie Leibovitz, Beeple,
+          Hiroshi Sugimoto, James Cameron, Studio Ghibli films,
+          Blade Runner, Marvel, Pixar movie titles, any anime title.
+
+  • COMPOSITION fits the subject. Pick a perspective term that BELONGS
+    to that subject (aerial / overhead / macro / portrait / wide-angle
+    landscape / low-angle architectural / symmetric frontal …). DO NOT
+    force "subject in lower-right, negative space upper-left" onto
+    subjects where it doesn't belong — an aerial photo is naturally
+    edge-to-edge, a portrait is naturally centered or rule-of-thirds.
+    Only mention "leave upper-left clean for icons" if the chosen
+    composition genuinely allows it (e.g. still-life on a desk, a
+    landscape with a large sky region).
+
+  • NEGATIVE LIST — end with "no text, no watermark, no signage".
+    AND ONLY THAT. Do not pile on "no AI-slop, no melted edges, no
+    garbled details" etc. — those are not stable entities the model
+    can act on, and they reduce attention given to your positive
+    words.
+
+═══════════════════════════════════════════════════════════════════
+STEP 4 — LENGTH
+═══════════════════════════════════════════════════════════════════
+
+  ONE prompt, 50-110 words, ONE or TWO sentences (occasionally three).
+  Concrete > flowery. No marketing language ("breathtaking",
+  "stunning", "epic", "ultimate" — cut all of these).
+
+═══════════════════════════════════════════════════════════════════
+REFERENCE EXAMPLES — STUDY STRUCTURE, NEVER COPY WORDS
+═══════════════════════════════════════════════════════════════════
+
+PHOTOREALISTIC / aerial landscape:
+  Native 4K photorealistic aerial drone photo of red desert sand dunes at sunrise, high oblique view, wind-carved sand ripples raking across saffron sand, low coral-and-amber light stretching long shadows into rose-purple distance, sharp realistic texture, atmospheric perspective fading the far ridges to soft lilac haze. National Geographic editorial register, restrained natural-light tonalism. No text, no watermark, no signage.
+
+PHOTOREALISTIC / macro flower:
+  Native 4K photorealistic macro photo of dewdrops beading on a black-petaled poppy at dawn, three-quarter close-up, droplet refractions catching rose-gold morning light, velvety petal microfibers in tack-sharp focus against soft pink-and-lilac bokeh, BBC nature documentary register. No text, no watermark, no signage.
+
+PHOTOREALISTIC / interior still-life (with icon space):
+  Native 4K photorealistic golden-hour natural-light photo of a single ceramic vase holding three white tulips on a pale-oak windowsill, overhead three-quarter framing, warm window-light raking from camera-right with soft bounce fill, milk-white porcelain, butter-yellow stamens, soft sage leaves, atmospheric dust motes. Composition leaves the upper-left wall as a clean honey-cream negative space for desktop icons. National Geographic still-life register. No text, no watermark, no signage.
+
+CONCEPT-ART / sci-fi city:
+  Cinematic concept-art cityscape of a coral-and-glass spiral arcology rising from a turquoise lagoon at dusk, hero wide-angle perspective, magenta and cyan neon ignites tier by tier as flocks of glass drones drift between hanging gardens, volumetric god-rays cut through pollen-haze, ray-traced reflections on still water, Unreal Engine 5 cinematic render with refined contact shadows. No text, no watermark, no signage.
+
+ILLUSTRATION / anime:
+  Cel-shaded anime illustration of a girl in a sailor-style school uniform walking through a peach-blossom orchard at golden hour, three-quarter wide framing, clean black line work over soft gradient fills, drifting petals catching warm air, sun flares blooming through the branches, sky a candy-pink to lavender wash. No text, no watermark, no signage.
+
+GRAPHIC / mid-century:
+  Editorial mid-century print illustration of a stylized cassette-deck and tropical palm leaves arranged in a tight rectangular composition, crisp flat colour blocks in coral, mustard, jade, and powder-blue, subtle off-register paper grain, restrained 1960s graphic-design register. No text, no watermark, no signage.`
 
 // ─────────────────────────────────────────────────────────────────────
 // Collection mode: vision-driven prompt variation

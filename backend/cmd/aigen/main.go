@@ -81,24 +81,15 @@ const (
 	finalModel  = "gpt-image-2"
 	miniModel   = "gpt-image-1-mini"
 
-	compositionAndSafety = ". Wide-angle widescreen composition optimised for " +
-		"a 16:9 desktop wallpaper. Reserve clean negative space in the " +
-		"upper-left quadrant and across the bottom third of the frame so " +
-		"the user's desktop icons don't fight the focal subject; subject " +
-		"lives in the lower-right or center-right of the canvas with " +
-		"breathing room and at least 25% safety margin from every edge " +
-		"(image will be re-cropped to phone 9:19.5 and tablet 3:4). " +
-		"Quality stack: Octane Render production quality, 8K UHD textures, " +
-		"ray-traced specular highlights, volumetric lighting with god-rays " +
-		"where appropriate, subsurface scattering on translucent materials, " +
-		"anisotropic reflections on metals, atmospheric perspective with " +
-		"parallaxed foreground / midground / background depth, chromatic " +
-		"aberration at frame edges, subtle 35mm film grain, cinematic color " +
-		"grading, ultra-sharp focus on the focal subject, intricate fine " +
-		"detail at every viewing distance. " +
-		"AVOID: people, faces, text, words, captions, signage, logos, brand " +
-		"marks, watermarks, the smooth/flawless AI-slop look, melted-edge " +
-		"artifacts, garbled fine details."
+	// compositionAndSafety is a tiny universal tail appended by runPreview
+	// AFTER Claude has already produced a category-tuned prompt. We
+	// deliberately keep this short: Claude already chose the perspective
+	// (aerial / macro / portrait / overhead …) and emitted its own short
+	// negative list based on the subject category. Adding a long
+	// wallpaper-composition spec or a long AVOID list here would
+	// (a) push photo subjects toward stylized 3D-render look, and
+	// (b) dilute attention away from Claude's positive terms.
+	compositionAndSafety = " 16:9 widescreen aspect, no text, no watermark, no signage."
 
 	// collectionQualitySuffix is appended to every collection-mode variant
 	// prompt instead of compositionAndSafety. Collection variants must
