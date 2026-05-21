@@ -81,9 +81,19 @@ const (
 		"suitable as a long-stare desktop wallpaper."
 
 	openaiImagesURL = "https://api.openai.com/v1/images/generations"
-
-	storeRoot = "ai-wallpapers"
 )
+
+// storeRoot resolves the directory holding pending / approved /
+// uploaded buckets. Prefers WPE_AIGEN_STORE_DIR (set by the shell
+// wrappers to an absolute path) so it works regardless of the binary's
+// cwd — go -C backend run shifts cwd into backend/, which would
+// otherwise stash everything under backend/ai-wallpapers/.
+func storeRoot() string {
+	if dir := os.Getenv("WPE_AIGEN_STORE_DIR"); dir != "" {
+		return dir
+	}
+	return "ai-wallpapers"
+}
 
 type meta struct {
 	ID             string    `json:"id"`
@@ -180,7 +190,7 @@ func runPreview(idea string) {
 		time.Since(t0).Seconds(), usage.in, usage.out, cost)
 
 	id := newID()
-	dir := filepath.Join(storeRoot, "pending", id)
+	dir := filepath.Join(storeRoot(), "pending", id)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		fail("mkdir: %v", err)
 	}
@@ -223,7 +233,7 @@ func runFinalize(id string) {
 	openAIKey := mustEnv("OPENAI_API_KEY")
 	usageRepo := tryDBConnect()
 
-	pendingDir := filepath.Join(storeRoot, "pending", id)
+	pendingDir := filepath.Join(storeRoot(), "pending", id)
 	m, err := readMeta(pendingDir)
 	if err != nil {
 		fail("read pending meta: %v", err)
@@ -247,7 +257,7 @@ func runFinalize(id string) {
 		time.Since(t0).Seconds(), usage.in, usage.out, cost)
 
 	// Move pending → approved, then write the new full.png.
-	approvedDir := filepath.Join(storeRoot, "approved", id)
+	approvedDir := filepath.Join(storeRoot(), "approved", id)
 	if err := os.MkdirAll(filepath.Dir(approvedDir), 0755); err != nil {
 		fail("mkdir approved parent: %v", err)
 	}
@@ -281,7 +291,7 @@ func runFinalize(id string) {
 // ─────────── reject ───────────
 
 func runReject(id string) {
-	pendingDir := filepath.Join(storeRoot, "pending", id)
+	pendingDir := filepath.Join(storeRoot(), "pending", id)
 	if _, err := os.Stat(pendingDir); err != nil {
 		fail("no such pending id: %s", id)
 	}
@@ -299,7 +309,7 @@ func runList(filter string) {
 		buckets = []string{filter}
 	}
 	for _, b := range buckets {
-		dir := filepath.Join(storeRoot, b)
+		dir := filepath.Join(storeRoot(), b)
 		entries, _ := os.ReadDir(dir)
 		// Sort newest first by name (IDs start with timestamp).
 		sort.Slice(entries, func(i, j int) bool { return entries[i].Name() > entries[j].Name() })
@@ -335,7 +345,7 @@ func runPublish(args []string) {
 	composeFile := envOrDefault("SSH_DEPLOY_COMPOSE", "/opt/app/wallpaper/docker-compose.yml")
 	uploaderUserID := envOrDefault("WPE_AI_UPLOADER_ID", "1")
 
-	approvedDir := filepath.Join(storeRoot, "approved")
+	approvedDir := filepath.Join(storeRoot(), "approved")
 	entries, _ := os.ReadDir(approvedDir)
 	if len(entries) == 0 {
 		fmt.Println("No approved wallpapers to publish.")
@@ -384,7 +394,7 @@ func runPublish(args []string) {
 		if err := writeMeta(dir, m); err != nil {
 			fmt.Printf("    (warn) couldn't update meta: %v\n", err)
 		}
-		dest := filepath.Join(storeRoot, "uploaded", id)
+		dest := filepath.Join(storeRoot(), "uploaded", id)
 		if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 			fmt.Printf("    (warn) mkdir uploaded: %v\n", err)
 		}

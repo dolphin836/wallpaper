@@ -23,6 +23,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
+# `go -C backend run` cd's into backend/ for compilation AND for the
+# running binary's cwd, so a relative ai-wallpapers/ would land at
+# backend/ai-wallpapers/. Pin the store to an absolute path under
+# repo root so generated files always go where the user expects.
+export WPE_AIGEN_STORE_DIR="$REPO_ROOT/ai-wallpapers"
+
 # Load .env so OPENAI_API_KEY + ANTHROPIC_API_KEY are visible without
 # the user having to export them in their shell.
 if [ -f .env ]; then

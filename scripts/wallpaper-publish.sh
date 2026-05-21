@@ -16,6 +16,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
+# Same store-pinning as wallpaper-gen.sh — see that script for context.
+export WPE_AIGEN_STORE_DIR="$REPO_ROOT/ai-wallpapers"
+
 if [ -f .env ]; then
     set -a
     # shellcheck disable=SC1091
