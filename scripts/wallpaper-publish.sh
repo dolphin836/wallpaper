@@ -6,8 +6,10 @@
 #   ./scripts/wallpaper-publish.sh <id>           publish one specific
 #   ./scripts/wallpaper-publish.sh --all          (same as no arg)
 #
-# Requires WPE_ADMIN_TOKEN in .env (your admin JWT — extract once from
-# the web app's localStorage after logging in).
+# Auth: this script SSHes into the prod host using the same key
+# deploy.sh uses (root@139.224.49.94 by default) and runs
+# /bin/wallpaper-import inside the api container — no admin JWT needed.
+# Override SSH_HOST in your shell env if the prod address changes.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,18 +23,9 @@ if [ -f .env ]; then
     set +a
 fi
 
-if [ -z "${WPE_ADMIN_TOKEN:-}" ]; then
-    cat <<'MSG' >&2
-WPE_ADMIN_TOKEN is not set.
-
-Get one by:
-  1. Open https://wallpaperexchange.com in your browser, log in as admin.
-  2. DevTools → Application → Local Storage → key "token" → copy.
-  3. Add to .env (gitignored):
-       WPE_ADMIN_TOKEN=ey...
-MSG
-    exit 1
-fi
+# Default to the same prod address deploy.sh uses. The user can
+# override SSH_HOST in their environment to point at a staging box.
+export SSH_HOST="${SSH_HOST:-root@139.224.49.94}"
 
 # llm_usage logging is optional here (publish doesn't make LLM calls
 # itself), but keep the same DB defaults as wallpaper-gen.sh so users

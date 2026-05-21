@@ -46,7 +46,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"os/exec"
@@ -325,9 +324,15 @@ func runList(filter string) {
 
 // ─────────── publish ───────────
 
+// Publish goes through SSH + `docker exec /bin/wallpaper-import` rather
+// than the HTTP API: we already have prod root access for ops, so
+// burning an admin JWT into a developer's .env just to publish from
+// the same machine is friction we don't need. The CLI inside the api
+// container talks straight to MinIO + Postgres + Kafka.
 func runPublish(args []string) {
-	apiBase := envOrDefault("WPE_API_BASE_URL", "https://api.wallpaperexchange.com/api/v1")
-	token := mustEnv("WPE_ADMIN_TOKEN")
+	sshHost := envOrDefault("SSH_HOST", "root@139.224.49.94")
+	composeFile := envOrDefault("SSH_DEPLOY_COMPOSE", "/opt/app/wallpaper/docker-compose.yml")
+	uploaderUserID := envOrDefault("WPE_AI_UPLOADER_ID", "1")
 
 	approvedDir := filepath.Join(storeRoot, "approved")
 	entries, _ := os.ReadDir(approvedDir)
@@ -351,9 +356,6 @@ func runPublish(args []string) {
 		}
 	}
 
-	ctx := context.Background()
-	httpClient := &http.Client{Timeout: 120 * time.Second}
-
 	for i, id := range ids {
 		fmt.Printf("\n[%d/%d] %s\n", i+1, len(ids), id)
 		dir := filepath.Join(approvedDir, id)
@@ -367,8 +369,8 @@ func runPublish(args []string) {
 			fmt.Printf("    skip: missing full.png\n")
 			continue
 		}
-		fmt.Printf("    uploading…\n")
-		remoteID, remoteSlug, err := uploadAIWallpaper(ctx, httpClient, apiBase, token, fullPath, m)
+		fmt.Printf("    streaming → %s via ssh + docker exec…\n", sshHost)
+		remoteID, remoteSlug, err := uploadViaSSH(sshHost, composeFile, uploaderUserID, fullPath, m)
 		if err != nil {
 			fmt.Printf("    FAILED: %v\n", err)
 			continue
@@ -381,7 +383,6 @@ func runPublish(args []string) {
 		if err := writeMeta(dir, m); err != nil {
 			fmt.Printf("    (warn) couldn't update meta: %v\n", err)
 		}
-		// Move to uploaded/ so the approved/ directory shows the queue.
 		dest := filepath.Join(storeRoot, "uploaded", id)
 		if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 			fmt.Printf("    (warn) mkdir uploaded: %v\n", err)
@@ -393,6 +394,70 @@ func runPublish(args []string) {
 	}
 
 	fmt.Println("\nDone.")
+}
+
+// uploadViaSSH pipes the file bytes through `ssh + docker compose exec
+// -T api /bin/wallpaper-import`, parses the "OK id=N slug=…" line off
+// stdout, and returns the new wallpaper's id + slug.
+//
+// docker compose exec rather than docker exec keeps the call portable
+// across compose v1/v2 container naming.
+func uploadViaSSH(sshHost, composeFile, userID, localPath string, m *meta) (int64, string, error) {
+	f, err := os.Open(localPath)
+	if err != nil {
+		return 0, "", fmt.Errorf("open file: %w", err)
+	}
+	defer f.Close()
+
+	desc := "AI-generated. Prompt: " + truncateRunes(m.Idea, 500)
+	if m.RefinedPrompt != "" {
+		desc += " // " + truncateRunes(m.RefinedPrompt, 500)
+	}
+
+	// -T disables TTY allocation so stdin can stream raw bytes without
+	// the terminal doing line-buffering tricks on the PNG payload.
+	remoteCmd := fmt.Sprintf(
+		"docker compose -f %s exec -T api /bin/wallpaper-import "+
+			"--user-id %s --ai "+
+			"--filename %q "+
+			"--content-type image/png "+
+			"--description %q",
+		shellQuote(composeFile),
+		shellQuote(userID),
+		"ai-"+m.ID+".png",
+		desc,
+	)
+
+	cmd := exec.Command("ssh", sshHost, remoteCmd)
+	cmd.Stdin = f
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return 0, "", fmt.Errorf("ssh exec: %w\nstderr: %s", err, stderr.String())
+	}
+
+	// Expect a single line like: "OK id=896 slug=foo-bar-1234". Tolerate
+	// trailing newlines from ssh.
+	line := strings.TrimSpace(stdout.String())
+	for _, candidate := range strings.Split(line, "\n") {
+		candidate = strings.TrimSpace(candidate)
+		if strings.HasPrefix(candidate, "OK id=") {
+			var id int64
+			var slug string
+			if _, err := fmt.Sscanf(candidate, "OK id=%d slug=%s", &id, &slug); err == nil {
+				return id, slug, nil
+			}
+		}
+	}
+	return 0, "", fmt.Errorf("unexpected output: %s\nstderr: %s", stdout.String(), stderr.String())
+}
+
+// shellQuote wraps a string in single quotes for safe inclusion in the
+// SSH-remote shell command. ssh runs whatever we pass through /bin/sh,
+// so spaces or odd chars in the description would otherwise leak.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // ─────────── OpenAI ───────────
@@ -446,55 +511,6 @@ func openaiGenerate(ctx context.Context, key, model, prompt, size string) ([]byt
 		return nil, openaiUsage{}, fmt.Errorf("b64 decode: %w", err)
 	}
 	return img, openaiUsage{in: out.Usage.InputTokens, out: out.Usage.OutputTokens}, nil
-}
-
-// ─────────── upload to remote ───────────
-
-func uploadAIWallpaper(ctx context.Context, client *http.Client, apiBase, token, path string, m *meta) (int64, string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return 0, "", err
-	}
-	defer f.Close()
-
-	var body bytes.Buffer
-	w := multipart.NewWriter(&body)
-	part, _ := w.CreateFormFile("file", "aigen.png")
-	if _, err := io.Copy(part, f); err != nil {
-		return 0, "", err
-	}
-	// Description carries the prompt for future debuggability — no title,
-	// the worker's autotag step will write a clean one based on the
-	// finished image rather than the prompt.
-	_ = w.WriteField("description", "AI-generated. Prompt: "+truncateRunes(m.Idea, 500))
-	w.Close()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiBase+"/admin/wallpapers/ai-upload", &body)
-	if err != nil {
-		return 0, "", err
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", w.FormDataContentType())
-	resp, err := client.Do(req)
-	if err != nil {
-		return 0, "", err
-	}
-	defer resp.Body.Close()
-	raw, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode >= 300 {
-		return 0, "", fmt.Errorf("upload %d: %s", resp.StatusCode, snippet(raw, 400))
-	}
-	var out struct {
-		Code int `json:"code"`
-		Data struct {
-			ID   int64  `json:"id"`
-			Slug string `json:"slug"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return 0, "", fmt.Errorf("parse upload response: %w", err)
-	}
-	return out.Data.ID, out.Data.Slug, nil
 }
 
 // ─────────── helpers ───────────

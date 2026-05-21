@@ -21,6 +21,7 @@ RUN CGO_ENABLED=0 go build -o /bin/tagclean ./cmd/tagclean
 RUN CGO_ENABLED=0 go build -o /bin/qcheck ./cmd/qcheck
 RUN CGO_ENABLED=0 go build -o /bin/indexnow-backfill ./cmd/indexnow-backfill
 RUN CGO_ENABLED=0 go build -o /bin/weekly-drop ./cmd/weekly-drop
+RUN CGO_ENABLED=0 go build -o /bin/wallpaper-import ./cmd/wallpaper-import
 
 FROM alpine:3.19 AS api
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
@@ -35,6 +36,7 @@ COPY --from=builder /bin/tagclean /bin/tagclean
 COPY --from=builder /bin/qcheck /bin/qcheck
 COPY --from=builder /bin/indexnow-backfill /bin/indexnow-backfill
 COPY --from=builder /bin/weekly-drop /bin/weekly-drop
+COPY --from=builder /bin/wallpaper-import /bin/wallpaper-import
 ENTRYPOINT ["/bin/api"]
 
 FROM alpine:3.19 AS worker
