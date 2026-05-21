@@ -14,12 +14,21 @@ type price struct {
 }
 
 var modelPricing = map[string]price{
+	// Anthropic Claude.
 	"claude-opus-4-7":   {Input: 5.00, Output: 25.00, CacheRead: 0.50, CacheCreation: 6.25},
 	"claude-opus-4-6":   {Input: 5.00, Output: 25.00, CacheRead: 0.50, CacheCreation: 6.25},
 	"claude-opus-4-5":   {Input: 5.00, Output: 25.00, CacheRead: 0.50, CacheCreation: 6.25},
 	"claude-sonnet-4-6": {Input: 3.00, Output: 15.00, CacheRead: 0.30, CacheCreation: 3.75},
 	"claude-sonnet-4-5": {Input: 3.00, Output: 15.00, CacheRead: 0.30, CacheCreation: 3.75},
 	"claude-haiku-4-5":  {Input: 1.00, Output: 5.00, CacheRead: 0.10, CacheCreation: 1.25},
+
+	// OpenAI image generation. Per-token billing — output tokens include
+	// the generated pixels, so cost scales with image resolution. 4K
+	// (3840×2160) high-quality renders ~$0.15–0.20.
+	"gpt-image-2":      {Input: 8.00, Output: 30.00, CacheRead: 0, CacheCreation: 0},
+	"gpt-image-1.5":    {Input: 8.00, Output: 32.00, CacheRead: 0, CacheCreation: 0},
+	"gpt-image-1":      {Input: 8.00, Output: 30.00, CacheRead: 0, CacheCreation: 0},
+	"gpt-image-1-mini": {Input: 2.50, Output: 8.00, CacheRead: 0, CacheCreation: 0},
 }
 
 // CostUSD computes the dollar cost of a single Claude call given token
