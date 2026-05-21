@@ -44,6 +44,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"image"
+	"image/jpeg"
+	_ "image/png" // register PNG decoder for ref images
 	"io"
 	"log"
 	"net/http"
@@ -56,6 +59,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/nfnt/resize"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -817,13 +822,26 @@ func runCollection(name string, count int) {
 	fmt.Printf("==> Reference: %s (%.1f KB, %s)\n",
 		filepath.Base(refPath), float64(len(refData))/1024, refMIME)
 
+	// Anthropic caps single-image inputs at 5 MB (base64 expands to ~6.7
+	// MB → API rejects with 400). Downsample only the copy we send to
+	// Claude; gpt-image-2 / mini take the original at full res because
+	// OpenAI's 50 MB cap leaves plenty of headroom.
+	claudeRef, claudeMIME, err := downscaleForClaude(refData, refMIME)
+	if err != nil {
+		fail("downscale reference for Claude: %v", err)
+	}
+	if len(claudeRef) != len(refData) {
+		fmt.Printf("    (downsampled to %.1f KB for Claude — Anthropic's 5 MB cap)\n",
+			float64(len(claudeRef))/1024)
+	}
+
 	usageRepo := tryDBConnect()
 	llmClient := llm.New(anthropicKey, usageRepo)
 
 	ctx := context.Background()
 	fmt.Printf("==> Asking Claude for %d collection variants…\n", count)
 	t0 := time.Now()
-	variants, err := llmClient.CollectionVariants(ctx, refData, refMIME, count, "")
+	variants, err := llmClient.CollectionVariants(ctx, claudeRef, claudeMIME, count, "")
 	if err != nil {
 		fail("collection variants failed: %v", err)
 	}
@@ -1047,4 +1065,44 @@ func truncate(s string, n int) string {
 		return s[:n] + "…"
 	}
 	return s
+}
+
+// downscaleForClaude returns a JPEG-encoded copy of the reference image
+// shrunk to fit under Anthropic's 5 MB per-image limit (4 MB target to
+// leave base64 headroom). If the input is already small enough, returns
+// the bytes + original MIME unchanged. Always re-encodes to JPEG q=85
+// when downscaling — Claude doesn't care about format, and JPEG gives
+// the smallest payload for our typical "photographic reference" case.
+func downscaleForClaude(data []byte, mediaType string) ([]byte, string, error) {
+	const targetBytes = 4 * 1024 * 1024 // ~4 MB raw → ~5.3 MB base64 (under cap)
+
+	if len(data) <= targetBytes {
+		return data, mediaType, nil
+	}
+
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, "", fmt.Errorf("decode reference: %w", err)
+	}
+	w := uint(img.Bounds().Dx())
+	h := uint(img.Bounds().Dy())
+
+	// Iteratively halve until the JPEG-encoded output fits the target.
+	// Reference images are typically 4K-ish; one or two halvings always
+	// gets us under 4 MB.
+	for {
+		w = w / 2
+		h = h / 2
+		if w < 256 || h < 256 {
+			return nil, "", fmt.Errorf("can't shrink reference enough — original may be malformed")
+		}
+		scaled := resize.Resize(w, h, img, resize.Lanczos3)
+		var buf bytes.Buffer
+		if err := jpeg.Encode(&buf, scaled, &jpeg.Options{Quality: 85}); err != nil {
+			return nil, "", fmt.Errorf("encode reference: %w", err)
+		}
+		if buf.Len() <= targetBytes {
+			return buf.Bytes(), "image/jpeg", nil
+		}
+	}
 }
