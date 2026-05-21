@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"mime"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -685,3 +687,70 @@ func (h *AdminHandler) WorkerJobs(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, map[string]any{"items": jobs})
 }
 
+
+// extMIME mirrors the upload handler's table — needed because the admin
+// AI-upload path does its own multipart parsing.
+var aiUploadExtMIME = map[string]string{
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".png":  "image/png",
+	".webp": "image/webp",
+	".heic": "image/heic",
+	".heif": "image/heif",
+}
+
+// UploadAIWallpaper accepts a multipart upload from cmd/aigen and
+// publishes the file through the regular WallpaperService.Upload flow
+// with is_ai_generated = true. Admin-only — the surrounding /admin
+// route group enforces that already. The user_id on the row is the
+// admin's own id (same as a normal upload by them).
+func (h *AdminHandler) UploadAIWallpaper(w http.ResponseWriter, r *http.Request) {
+	// 30 MB matches the public upload cap; AI generations are tiny in
+	// practice (~3 MB for a 4K PNG) but we don't need a special limit.
+	const maxAIUpload = 30 << 20
+	if err := r.ParseMultipartForm(maxAIUpload); err != nil {
+		slog.ErrorContext(r.Context(), "admin AI upload: parse form failed", "error", err)
+		response.Error(w, http.StatusBadRequest, errcode.ErrBadRequest)
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrBadRequest)
+		return
+	}
+	defer file.Close()
+
+	fileType := header.Header.Get("Content-Type")
+	if fileType == "" || fileType == "application/octet-stream" {
+		ext := strings.ToLower(filepath.Ext(header.Filename))
+		if ct := mime.TypeByExtension(ext); ct != "" {
+			fileType = ct
+		} else if ct, ok := aiUploadExtMIME[ext]; ok {
+			fileType = ct
+		}
+	}
+
+	var categoryID int64
+	if raw := r.FormValue("category_id"); raw != "" {
+		if v, perr := strconv.ParseInt(raw, 10, 64); perr == nil {
+			categoryID = v
+		}
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	wp, ec := h.wallpaperSvc.Upload(r.Context(), userID, service.UploadRequest{
+		Title:         r.FormValue("title"),
+		Description:   r.FormValue("description"),
+		CategoryID:    categoryID,
+		File:          file,
+		FileSize:      header.Size,
+		FileType:      fileType,
+		FileName:      header.Filename,
+		IsAIGenerated: true,
+	})
+	if ec != nil {
+		response.Error(w, http.StatusInternalServerError, ec)
+		return
+	}
+	response.JSON(w, http.StatusCreated, errcode.Success, wp)
+}

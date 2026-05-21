@@ -39,3 +39,4 @@ macos/*.zip
 # repo, build-app.sh silently produces an icon-less .app.
 macos/AppIcon.iconset/
 scripts/.qcheck.env
+ai-wallpapers/

@@ -67,6 +67,11 @@ type UploadRequest struct {
 	FileSize    int64
 	FileType    string
 	FileName    string
+	// IsAIGenerated flags wallpapers that came out of cmd/aigen. Only
+	// admins are allowed to set this — non-admin uploads silently keep
+	// the default false. The web UI doesn't surface it yet; the column
+	// + flag are wired so a future "AI" badge / filter is a one-liner.
+	IsAIGenerated bool
 }
 
 type WallpaperDetail struct {
@@ -120,15 +125,16 @@ func (s *WallpaperService) Upload(ctx context.Context, userID int64, req UploadR
 		slugSource = req.FileName
 	}
 	w := &model.Wallpaper{
-		Slug:        slug.FromFileName(slugSource),
-		UserID:      userID,
-		Title:       req.Title,
-		Description: req.Description,
-		CategoryID:  req.CategoryID,
-		OriginalURL: originalURL,
-		Status:      model.WallpaperStatusProcessing,
-		FileSize:    req.FileSize,
-		FileType:    req.FileType,
+		Slug:          slug.FromFileName(slugSource),
+		UserID:        userID,
+		Title:         req.Title,
+		Description:   req.Description,
+		CategoryID:    req.CategoryID,
+		OriginalURL:   originalURL,
+		Status:        model.WallpaperStatusProcessing,
+		FileSize:      req.FileSize,
+		FileType:      req.FileType,
+		IsAIGenerated: req.IsAIGenerated,
 	}
 
 	if err := s.wallpaperRepo.Create(ctx, w); err != nil {

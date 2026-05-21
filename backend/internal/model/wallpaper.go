@@ -34,6 +34,7 @@ type Wallpaper struct {
 	IsDynamic     bool      `gorm:"not null;default:false" json:"is_dynamic"`
 	DynamicType   string    `gorm:"size:16;not null;default:''" json:"dynamic_type"`
 	FrameURLs     string    `gorm:"type:text;not null;default:''" json:"frame_urls"`
+	IsAIGenerated bool      `gorm:"column:is_ai_generated;not null;default:false" json:"is_ai_generated,omitempty"`
 	Phash         int64     `gorm:"not null;default:0" json:"-"`
 	QualityFlag   string    `gorm:"size:32;not null;default:''" json:"quality_flag,omitempty"`
 	QualityNotes  string    `gorm:"type:text;not null;default:''" json:"quality_notes,omitempty"`

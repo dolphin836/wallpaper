@@ -488,3 +488,52 @@ func contains(list []string, s string) bool {
 	}
 	return false
 }
+
+// ExpandWallpaperPrompt turns a vague user idea (often Chinese, often
+// just a noun phrase) into a richer English image-generation prompt for
+// gpt-image-2. The wallpaper-specific composition + safety constraints
+// are appended by the caller (cmd/aigen), not by the LLM — keeping the
+// rules visible in code rather than buried in a system prompt the user
+// can't see.
+func (c *Client) ExpandWallpaperPrompt(ctx context.Context, idea string) (string, error) {
+	if !c.Enabled() {
+		return "", fmt.Errorf("anthropic api key not configured")
+	}
+	resp, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     c.model,
+		MaxTokens: 400,
+		System: []anthropic.TextBlockParam{
+			{Text: expandPromptSystem},
+		},
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(idea)),
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("anthropic: %w", err)
+	}
+	c.recordUsage("prompt_expand", resp.Usage)
+
+	for _, block := range resp.Content {
+		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
+			out := strings.TrimSpace(t.Text)
+			// Strip wrapping quotes a model sometimes adds despite the
+			// system prompt asking for none.
+			out = strings.Trim(out, `"'`)
+			return out, nil
+		}
+	}
+	return "", fmt.Errorf("anthropic: empty response")
+}
+
+const expandPromptSystem = `You expand a brief idea into a single concise prompt for OpenAI gpt-image-2, intended for desktop wallpapers.
+
+The user gives a short idea (often Chinese, often just a noun phrase). You output ONE English prompt that:
+
+1. Adds rich sensory detail — lighting, time of day, color palette, mood, era, materials.
+2. Specifies an artistic style by name (e.g. "painterly cinematic", "minimalist gradient", "ukiyo-e watercolor", "low-poly isometric", "matte vector"). Never write "photorealistic" or "ultra-realistic".
+3. Establishes a clear focal subject that can be centered in the frame with breathing room — the renderer will crop the edges for mobile and tablet aspect ratios.
+4. Keeps the mood calm and contemplative — these are wallpapers people look at for hours, not posters.
+5. NEVER asks for: people, faces, text, logos, watermarks, brand names, recognizable real-world locations.
+
+Output ONLY the prompt text. No quotes, no preamble, no explanation. 1-3 sentences, 60 words max.`

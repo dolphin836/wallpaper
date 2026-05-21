@@ -244,6 +244,13 @@ CREATE INDEX IF NOT EXISTS idx_analytics_events_type_created ON analytics_events
 CREATE INDEX IF NOT EXISTS idx_analytics_events_user ON analytics_events(user_id) WHERE user_id <> 0;
 CREATE INDEX IF NOT EXISTS idx_analytics_events_session ON analytics_events(session_id);
 
+-- AI-generated wallpaper marker. Set by the cmd/aigen publish path
+-- (with source=ai on the upload form). Indexed partial so the future
+-- "AI-generated" filter / badge lookup is cheap even as the catalog
+-- grows.
+ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS is_ai_generated BOOLEAN NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_wallpapers_ai ON wallpapers(is_ai_generated) WHERE is_ai_generated = true;
+
 -- Per-call ledger for Anthropic Claude API usage. We can't query the
 -- Admin API without an Org Owner Admin key, so instead the LLM client
 -- records token usage + computed USD cost after every successful call.
