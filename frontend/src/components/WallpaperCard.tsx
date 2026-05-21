@@ -273,6 +273,12 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               Mac
             </span>
           )}
+          {wallpaper.is_ai_generated && (
+            <span className="mono text-[10px] tracking-wider font-medium px-2 py-[3px] rounded-[3px] bg-violet-600/85 text-white backdrop-blur-md inline-flex items-center gap-1">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.6 4.6L18 8.2l-4.4 1.6L12 14.4l-1.6-4.6L6 8.2l4.4-1.6L12 2zm7 10l1 2.8 2.8 1-2.8 1L19 19.6l-1-2.8-2.8-1 2.8-1L19 12zM5 14l.9 2.6L8.4 17.6l-2.5 1L5 21.2 4.1 18.6 1.6 17.6 4.1 16.6 5 14z"/></svg>
+              AI
+            </span>
+          )}
         </div>
 
         {/* Hover action rail. Order: favorite → like → download.
@@ -383,6 +389,12 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               macOS
             </span>
           )}
+          {wallpaper.is_ai_generated && (
+            <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-violet-600/85 text-white backdrop-blur-sm">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.6 4.6L18 8.2l-4.4 1.6L12 14.4l-1.6-4.6L6 8.2l4.4-1.6L12 2zm7 10l1 2.8 2.8 1-2.8 1L19 19.6l-1-2.8-2.8-1 2.8-1L19 12zM5 14l.9 2.6L8.4 17.6l-2.5 1L5 21.2 4.1 18.6 1.6 17.6 4.1 16.6 5 14z"/></svg>
+              AI
+            </span>
+          )}
           {resLabel && (
             <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-black/50 text-white/80 backdrop-blur-sm">
               {resLabel}
@@ -392,7 +404,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
 
         {showStatus && wallpaper.status !== STATUS_PUBLISHED && (
           <span
-            className={`absolute ${wallpaper.is_dynamic || resLabel ? 'top-8' : 'top-2.5'} left-2.5 z-[3] px-2 py-0.5 text-[10px] font-semibold rounded-full backdrop-blur-sm ${
+            className={`absolute ${wallpaper.is_dynamic || resLabel || wallpaper.is_ai_generated ? 'top-8' : 'top-2.5'} left-2.5 z-[3] px-2 py-0.5 text-[10px] font-semibold rounded-full backdrop-blur-sm ${
               isProcessing
                 ? 'bg-amber-500/80 text-white'
                 : isFailed

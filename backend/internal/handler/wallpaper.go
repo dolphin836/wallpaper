@@ -163,6 +163,7 @@ func (h *WallpaperHandler) List(w http.ResponseWriter, r *http.Request) {
 		DeviceHeight:   deviceHeight,
 		IncludeDynamic: q.Get("include_dynamic") == "true",
 		DynamicOnly:    q.Get("dynamic_only") == "true",
+		AIOnly:         q.Get("ai_only") == "true",
 	}
 
 	userID := middleware.GetUserID(r.Context())

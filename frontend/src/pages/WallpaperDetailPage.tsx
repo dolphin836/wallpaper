@@ -760,7 +760,7 @@ export default function WallpaperDetailPage() {
           <div className="flex flex-col gap-5 min-w-0">
             {/* Eyebrow */}
             <div className="kicker text-muted">
-              {wallpaper.tags?.length > 0 ? wallpaper.tags[0].name.toUpperCase() : 'WALLPAPER'} · ADDED {daysAgo}D AGO{wallpaper.is_dynamic ? ' · DYNAMIC' : ''}
+              {wallpaper.tags?.length > 0 ? wallpaper.tags[0].name.toUpperCase() : 'WALLPAPER'} · ADDED {daysAgo}D AGO{wallpaper.is_dynamic ? ' · DYNAMIC' : ''}{wallpaper.is_ai_generated ? ' · AI' : ''}
             </div>
 
             {/* Uploader row */}
@@ -810,7 +810,7 @@ export default function WallpaperDetailPage() {
                 <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">DIM</dt>
                 <dd className="m-0 text-ink">{wallpaper.width.toLocaleString()} × {wallpaper.height.toLocaleString()} px</dd>
                 <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">RES</dt>
-                <dd className="m-0 text-ink">{resLabel || '—'}{wallpaper.is_dynamic && <span className="ml-2 text-accent">● Dynamic</span>}</dd>
+                <dd className="m-0 text-ink">{resLabel || '—'}{wallpaper.is_dynamic && <span className="ml-2 text-accent">● Dynamic</span>}{wallpaper.is_ai_generated && <span className="ml-2 text-violet-600">✦ AI Generated</span>}</dd>
                 <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">FILE</dt>
                 <dd className="m-0 text-ink">{(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}</dd>
                 {wallpaper.dominant_color && (

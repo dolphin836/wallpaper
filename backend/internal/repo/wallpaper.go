@@ -45,7 +45,7 @@ func (r *WallpaperRepo) Create(ctx context.Context, w *model.Wallpaper) error {
 func (r *WallpaperRepo) GetByID(ctx context.Context, id int64) (*model.Wallpaper, error) {
 	var w model.Wallpaper
 	err := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, created_at, updated_at").
+		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, created_at, updated_at").
 		Where("id = ? AND status != ?", id, model.WallpaperStatusRemoved).
 		First(&w).Error
 	if err != nil {
@@ -75,7 +75,7 @@ func (r *WallpaperRepo) GetByIDAnyStatus(ctx context.Context, id int64) (*model.
 func (r *WallpaperRepo) GetBySlug(ctx context.Context, slug string) (*model.Wallpaper, error) {
 	var w model.Wallpaper
 	err := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, created_at, updated_at").
+		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, created_at, updated_at").
 		Where("slug = ? AND status != ?", slug, model.WallpaperStatusRemoved).
 		First(&w).Error
 	if err != nil {
@@ -105,6 +105,7 @@ type ListOptions struct {
 	DeviceHeight     int
 	IncludeDynamic   bool
 	DynamicOnly      bool
+	AIOnly           bool
 }
 
 // applyListFilters applies every WHERE clause from ListOptions except the cursor.
@@ -128,6 +129,9 @@ func (r *WallpaperRepo) applyListFilters(query *gorm.DB, opts ListOptions) *gorm
 	if opts.Search != "" {
 		query = query.Where("title ILIKE ?", "%"+opts.Search+"%")
 	}
+	if opts.AIOnly {
+		query = query.Where("is_ai_generated = true")
+	}
 	if opts.DynamicOnly {
 		query = query.Where("is_dynamic = true")
 	} else if opts.DeviceWidth > 0 && opts.DeviceHeight > 0 {
@@ -144,7 +148,7 @@ func (r *WallpaperRepo) applyListFilters(query *gorm.DB, opts ListOptions) *gorm
 
 func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wallpaper, error) {
 	query := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, created_at")
+		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, created_at")
 	query = r.applyListFilters(query, opts)
 	if opts.Cursor > 0 {
 		query = query.Where("id < ?", opts.Cursor)
@@ -180,7 +184,7 @@ func (r *WallpaperRepo) GetByIDs(ctx context.Context, ids []int64) ([]model.Wall
 	}
 	var wallpapers []model.Wallpaper
 	err := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, created_at").
+		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, created_at").
 		Where("id IN ? AND status = ?", ids, model.WallpaperStatusPublished).
 		Find(&wallpapers).Error
 	return wallpapers, err

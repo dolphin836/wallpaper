@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getWeeklyCurrent, type WeeklyCurrent } from '../api';
+import { getWeeklyCurrent, getWallpapers, type WeeklyCurrent } from '../api';
+import type { Wallpaper } from '../types';
 import PageMeta from '../components/PageMeta';
 import WallpaperCard from '../components/WallpaperCard';
 import CollectionCard from '../components/CollectionCard';
@@ -15,6 +16,12 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);
 
+  // AI-generated row. Independent fetch — failure here shouldn't break
+  // the weekly drop above it. Empty array (e.g. nothing flagged yet) hides
+  // the section entirely so we don't surface a sad placeholder row.
+  const [aiItems, setAiItems] = useState<Wallpaper[]>([]);
+  const [aiLoading, setAiLoading] = useState(true);
+
   useEffect(() => {
     getWeeklyCurrent()
       .then((r) => setData(r.data.data))
@@ -22,8 +29,16 @@ export default function HomePage() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    getWallpapers({ ai_only: true, limit: 10, sort: 'newest' })
+      .then((r) => setAiItems(r.data.data.items))
+      .catch(() => setAiItems([]))
+      .finally(() => setAiLoading(false));
+  }, []);
+
   const hasPicks = !!data && data.picks && data.picks.length > 0;
   const hasThemes = !!data && data.themes && data.themes.length > 0;
+  const hasAI = aiItems.length > 0;
 
   return (
     <div className="bg-paper-2 min-h-full">
@@ -75,6 +90,38 @@ export default function HomePage() {
             </div>
           )}
         </section>
+
+        {/* ── AI-generated row ───────────────────────────────────── */}
+        {(aiLoading || hasAI) && (
+          <section className="mb-12">
+            <div className="flex items-baseline justify-between mb-5">
+              <div>
+                <div className="mono text-[10px] tracking-[0.18em] uppercase text-muted">AI Lab</div>
+                <h2 className="display text-[28px] sm:text-[32px] leading-tight mt-1">
+                  Generated this week
+                </h2>
+              </div>
+              <Link to="/discover?filter=ai" className="mono text-[11px] tracking-[0.14em] uppercase text-ink-2 hover:text-ink no-underline">
+                All AI wallpapers →
+              </Link>
+            </div>
+            {aiLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="aspect-[4/3] border border-hair rounded bg-paper-3 skeleton-card" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {aiItems.map((w, i) => (
+                  <div key={w.id} className="aspect-[4/3] relative">
+                    <WallpaperCard wallpaper={w} fixedAspect hideActions animDelay={i * 30} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* ── Themed collections ─────────────────────────────────── */}
         {(loading || hasThemes) && (

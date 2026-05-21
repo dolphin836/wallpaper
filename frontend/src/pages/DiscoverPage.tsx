@@ -72,7 +72,7 @@ const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent);
 
 // Single discovery filter. Each option fully specifies *what* gets fetched
 // and *how* it's sorted — there is no separate sort toggle.
-type FilterMode = 'latest' | 'trending' | 'for_you' | 'my_device' | 'mac_dynamic';
+type FilterMode = 'latest' | 'trending' | 'for_you' | 'my_device' | 'mac_dynamic' | 'ai';
 
 const FILTER_LABELS: Record<FilterMode, string> = {
   latest:      'Latest',
@@ -80,6 +80,7 @@ const FILTER_LABELS: Record<FilterMode, string> = {
   for_you:     'For You',
   my_device:   'My Device',
   mac_dynamic: 'macOS Dynamic',
+  ai:          'AI Generated',
 };
 
 // Default view mode = 'justified' (justified-layout library, uniform row
@@ -200,8 +201,8 @@ function FilterDropdown(p: FilterDropdownProps) {
   // so the dropdown doesn't surface an option that immediately falls
   // back to Latest.
   const options: FilterMode[] = p.isAuthenticated
-    ? ['latest', 'trending', 'for_you', 'my_device', 'mac_dynamic']
-    : ['latest', 'trending', 'my_device', 'mac_dynamic'];
+    ? ['latest', 'trending', 'for_you', 'my_device', 'mac_dynamic', 'ai']
+    : ['latest', 'trending', 'my_device', 'mac_dynamic', 'ai'];
 
   return (
     <div className="relative" ref={p.ddRef}>
@@ -281,7 +282,15 @@ export default function DiscoverPage() {
   // device, mac, sort). Each option fully describes both the data
   // source and the sort order — see fetchWallpapers below for the
   // mapping to backend params.
-  const [filterMode, setFilterMode] = useState<FilterMode>('latest');
+  // URL ?filter=<mode> is honored once on mount so deep-links from
+  // other pages (e.g. HomePage's "All AI wallpapers →") land on the
+  // right filter. We don't sync changes BACK to the URL — the dropdown
+  // owns the live state from there on.
+  const [filterMode, setFilterMode] = useState<FilterMode>(() => {
+    const raw = new URLSearchParams(window.location.search).get('filter');
+    const allowed: FilterMode[] = ['latest', 'trending', 'for_you', 'my_device', 'mac_dynamic', 'ai'];
+    return (allowed as string[]).includes(raw || '') ? (raw as FilterMode) : 'latest';
+  });
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const [loadError, setLoadError] = useState(false);
@@ -376,6 +385,9 @@ export default function DiscoverPage() {
           break;
         case 'mac_dynamic':
           params.dynamic_only = true;
+          break;
+        case 'ai':
+          params.ai_only = true;
           break;
         case 'latest':
           // No special params — default backend behavior is latest first.
