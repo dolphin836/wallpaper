@@ -8,14 +8,15 @@
 
 1. [日常 / 周度操作](#1-日常--周度操作)
 2. [AI 壁纸生成流程](#2-ai-壁纸生成流程)
-3. [发版（macOS 客户端）](#3-发版macos-客户端)
-4. [部署（后端 / 前端）](#4-部署后端--前端)
-5. [内容运营（待手动发布）](#5-内容运营待手动发布)
-6. [SEO / 搜索引擎索引](#6-seo--搜索引擎索引)
-7. [基础设施 / 调试](#7-基础设施--调试)
-8. [密钥 / API Key 速查](#8-密钥--api-key-速查)
-9. [仍在等待外部审批](#9-仍在等待外部审批)
-10. [紧急情况](#10-紧急情况)
+3. [壁纸质量审核（qcheck）](#3-壁纸质量审核qcheck)
+4. [发版（macOS 客户端）](#4-发版macos-客户端)
+5. [部署（后端 / 前端）](#5-部署后端--前端)
+6. [内容运营（待手动发布）](#6-内容运营待手动发布)
+7. [SEO / 搜索引擎索引](#7-seo--搜索引擎索引)
+8. [基础设施 / 调试](#8-基础设施--调试)
+9. [密钥 / API Key 速查](#9-密钥--api-key-速查)
+10. [仍在等待外部审批](#10-仍在等待外部审批)
+11. [紧急情况](#11-紧急情况)
 
 ---
 
@@ -24,9 +25,9 @@
 | 频率 | 事项 | 命令 |
 |---|---|---|
 | 每天（建议） | 看一眼 admin dashboard 的流量 + LLM 消费 | 浏览器开 [/admin](https://wallpaperexchange.com/admin) → "流量" / "总览" |
-| 每周一次 | 生成一期 Weekly Drop | `./scripts/run-weekly-drop.sh` （见 §4） |
+| 每周一次 | 生成一期 Weekly Drop | 见 [§5.3](#5-部署后端--前端) |
+| 每 1-2 周 | 给新上传壁纸跑质量审核 | 见 [§3](#3-壁纸质量审核qcheck) |
 | 临时 | AI 生成一张壁纸入站 | 见 [§2](#2-ai-壁纸生成流程) |
-| 临时 | 服务端低质量壁纸标记 | `./scripts/qcheck-local.sh`（见 §4） |
 
 ---
 
@@ -95,7 +96,64 @@
 
 ---
 
-## 3. 发版（macOS 客户端）
+## 3. 壁纸质量审核（qcheck）
+
+worker 在 publish 阶段会**自动 autotag**（写 category / tags / title），但**不做质量判断** —— 模糊、噪点重、AI 残影、文字水印、构图垃圾这些都需要 `qcheck` 这步专门来识别。
+
+跑一遍 Claude vision 会给每张壁纸标一个 `quality_flag`：
+
+| flag | 含义 | 处理建议 |
+|---|---|---|
+| `ok` | 正常 | 不做任何操作。**一旦标过 ok 就是 sticky 的**，下次再跑 qcheck 不会重判 |
+| `blurry` | 模糊 / 失焦 | 通常硬删除 |
+| `watermark` | 有水印 / 图源 logo | 通常硬删除 |
+| `ai_slop` | 明显 AI 生成残影（手指畸形 / 物理违背 / 边缘融化）| 看情况，质感好的可保留 |
+| `text_overlay` | 上面带文字 / 字幕 | 通常硬删除（壁纸用不上）|
+| `low_aesthetic` | 构图垃圾 / 颜色脏 / 题材无聊 | 看情况，没人喜欢的下架 |
+
+**前提**：标记后**不会自动删除**，只是放进后台"⚑ 已标记"队列，你手动审一遍后在 admin 里"硬删除"或"标为正常"。
+
+### 何时跑
+
+- 每 1-2 周 / 攒了 30+ 张新上传之后
+- 发现首页 Latest 出现明显垃圾时（最直观信号）
+- 计划做 Weekly Drop 之前（先洗一遍候选池）
+
+### 跑法
+
+```bash
+# 1. 干跑（不写 DB），先看一眼会标多少 + 标成什么
+./scripts/qcheck-local.sh
+
+# 2. 觉得 OK → 实际写入 DB
+./scripts/qcheck-local.sh --commit
+
+# 3. 第一次跑保守一点，限制条数（小规模 canary）
+./scripts/qcheck-local.sh --commit --limit 10
+```
+
+脚本会自动开 SSH 隧道 + 拉取候选 + 调 Claude vision + 写回 DB，每张约 $0.005，速率约 4-5 张/分钟。
+
+### 跑完之后你手动做什么
+
+1. 浏览器开 [/admin/wallpapers?quality_flag=flagged](https://wallpaperexchange.com/admin/wallpapers)（或在 admin 壁纸列表选 "⚑ 已标记" 过滤）
+2. 一张张过：
+   - 确实是垃圾 → 点 **硬删除**（连 MinIO 上的 variants 也会清，详见 [§11 紧急情况](#11-紧急情况)）
+   - 误判 → 点 **标为正常**（这张被 sticky 锁，下次 qcheck 不会再碰）
+
+### 历史欠债
+
+到目前为止你的库里 **`quality_flag IS NULL` 的壁纸 ≈ 全部新上传**（worker 不写这字段，只有 qcheck 写）。要跑一次普查，约 800 张 × $0.005 = **~$4**。
+
+```bash
+./scripts/qcheck-local.sh --commit
+```
+
+跑完后只有真正可疑的 50-80 张会出现在 "⚑ 已标记" 里，剩下的全自动打 `ok` 不会再被复跑。
+
+---
+
+## 4. 发版（macOS 客户端）
 
 每次发版你要改 3 个文件，跑 2 个脚本。
 
@@ -139,7 +197,7 @@ curl -fsS "https://wallpaper.haibing.site/api/v1/mac/release" | python3 -m json.
 
 ---
 
-## 4. 部署（后端 / 前端）
+## 5. 部署（后端 / 前端）
 
 ### 常规部署
 
@@ -168,11 +226,11 @@ ssh root@139.224.49.94 'cd /opt/app/wallpaper && ./wallctl.sh db-migrate'
 
 ### 几个常用维护脚本
 
-| 脚本 | 干什么 | 触发条件 |
-|---|---|---|
-| `./scripts/run-weekly-drop.sh`（暂无，待加）| 跑 weekly-drop 选 10 张 + AI 主题合集 | 每周五人工触发；后续可以挂 cron |
-| `./scripts/qcheck-local.sh` | 把低质量壁纸标 flag 进队列 | 临时或周度 |
-| `./scripts/sweep-orphan-variants.sh` | 清理 MinIO 上没有 DB 引用的孤儿文件 | 几个月一次，看存储占用 |
+| 脚本 | 干什么 | 触发条件 | 详细说明 |
+|---|---|---|---|
+| `weekly-drop --commit` | 选 10 张 + AI 主题合集 | 每周五人工触发 | 见 §5.3 |
+| `./scripts/qcheck-local.sh` | 把低质量壁纸标 flag 进队列 | 1-2 周一次 | 见 [§3](#3-壁纸质量审核qcheck) |
+| `./scripts/sweep-orphan-variants.sh` | 清理 MinIO 上没有 DB 引用的孤儿文件 | 几个月一次，看存储占用 | — |
 
 > Weekly Drop 目前需要手动跑：
 > ```bash
@@ -181,7 +239,7 @@ ssh root@139.224.49.94 'cd /opt/app/wallpaper && ./wallctl.sh db-migrate'
 
 ---
 
-## 5. 内容运营（待手动发布）
+## 6. 内容运营（待手动发布）
 
 所有稿件在 `docs/promotion/` 下，按需复制粘贴。
 
@@ -203,7 +261,7 @@ ssh root@139.224.49.94 'cd /opt/app/wallpaper && ./wallctl.sh db-migrate'
 
 ---
 
-## 6. SEO / 搜索引擎索引
+## 7. SEO / 搜索引擎索引
 
 ### 6.1 自动跑的（不用你管）
 
@@ -236,7 +294,7 @@ ssh root@139.224.49.94 'docker compose -f /opt/app/wallpaper/docker-compose.yml 
 
 ---
 
-## 7. 基础设施 / 调试
+## 8. 基础设施 / 调试
 
 ### 7.1 SSH 隧道（开 / 关）
 
@@ -295,7 +353,7 @@ ssh root@139.224.49.94 'cd /opt/app/wallpaper && ./wallctl.sh restart api'
 
 ---
 
-## 8. 密钥 / API Key 速查
+## 9. 密钥 / API Key 速查
 
 ### 8.1 本地 `.env`（项目根目录，gitignored）
 
@@ -331,7 +389,7 @@ OpenAI 没账户余额公开 API。**消费**可以在我们 dashboard 看；**�
 
 ---
 
-## 9. 仍在等待外部审批
+## 10. 仍在等待外部审批
 
 | 事项 | 状态 | 审过来要做什么 |
 |---|---|---|
@@ -342,7 +400,7 @@ OpenAI 没账户余额公开 API。**消费**可以在我们 dashboard 看；**�
 
 ---
 
-## 10. 紧急情况
+## 11. 紧急情况
 
 ### 站打不开
 
