@@ -49,11 +49,12 @@ import (
 	_ "image/png" // register PNG decoder for ref images
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"mime/multipart"
 	"runtime"
 	"sort"
 	"strconv"
@@ -519,7 +520,13 @@ func openaiEdit(ctx context.Context, key, model, prompt, size string, refData []
 	mw := multipart.NewWriter(&body)
 	// `image[]` so future multi-reference uploads (gpt-image-2 supports
 	// up to 4 reference images) work without rewriting the wire format.
-	part, err := mw.CreateFormFile("image[]", refFilename)
+	// Must use CreatePart with an explicit Content-Type — CreateFormFile
+	// hardcodes application/octet-stream, which OpenAI rejects with
+	// "unsupported mimetype" since it validates the header, not the filename.
+	partHeader := make(textproto.MIMEHeader)
+	partHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="image[]"; filename=%q`, refFilename))
+	partHeader.Set("Content-Type", refMIME)
+	part, err := mw.CreatePart(partHeader)
 	if err != nil {
 		return nil, openaiUsage{}, err
 	}
@@ -531,7 +538,6 @@ func openaiEdit(ctx context.Context, key, model, prompt, size string, refData []
 	_ = mw.WriteField("size", size)
 	_ = mw.WriteField("n", "1")
 	mw.Close()
-	_ = refMIME // currently unused — server detects from filename, but keeping the arg makes the API symmetric and lets future callers force a MIME
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/images/edits", &body)
 	if err != nil {
