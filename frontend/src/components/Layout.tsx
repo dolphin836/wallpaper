@@ -76,8 +76,8 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
           className="w-9 h-9 rounded-lg border border-hair flex-shrink-0 object-cover"
         />
         <div>
-          <div className="display text-[18px] leading-none">Wallpaper</div>
-          <div className="display italic-d text-[18px] leading-none mt-0.5">Exchange</div>
+          <div className="display text-[20px] leading-none">Wallpaper</div>
+          <div className="mono text-[10px] tracking-[0.18em] uppercase text-muted mt-1.5">Exchange</div>
         </div>
       </Link>
 
