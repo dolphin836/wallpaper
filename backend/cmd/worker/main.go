@@ -13,7 +13,6 @@ import (
 
 	"github.com/wallpaper/backend/internal/config"
 	"github.com/wallpaper/backend/internal/pkg/indexnow"
-	"github.com/wallpaper/backend/internal/pkg/llm"
 	"github.com/wallpaper/backend/internal/pkg/storage"
 	"github.com/wallpaper/backend/internal/repo"
 	"github.com/wallpaper/backend/internal/worker"
@@ -43,9 +42,6 @@ func main() {
 	wallpaperRepo := repo.NewWallpaperRepo(db)
 	deviceRepo := repo.NewDeviceRepo(db)
 	jobRepo := repo.NewWorkerJobRepo(db)
-	tagRepo := repo.NewTagRepo(db)
-	categoryRepo := repo.NewCategoryRepo(db)
-	llmUsageRepo := repo.NewLLMUsageRepo(db)
 
 	indexClient, err := indexnow.New(cfg.IndexNow.Key, cfg.IndexNow.SiteURL)
 	if err != nil {
@@ -53,30 +49,13 @@ func main() {
 		indexClient = nil
 	}
 
-	// Cache category slug → id at startup so each autotag call doesn't
-	// hit the DB just to translate the LLM's chosen slug. New categories
-	// require a worker restart, which is fine — they're an admin action.
-	categorySlugMap := map[string]int64{}
-	if cats, cerr := categoryRepo.List(context.Background()); cerr == nil {
-		for _, c := range cats {
-			categorySlugMap[c.Slug] = c.ID
-		}
-		slog.Info("loaded categories for autotag", "count", len(categorySlugMap))
-	} else {
-		slog.Warn("autotag disabled (couldn't load categories)", "error", cerr)
-	}
-	llmClient := llm.New(cfg.Anthropic.APIKey, llmUsageRepo)
-
 	imgWorker := worker.NewImageWorker(
 		cfg.Kafka.Brokers,
 		wallpaperRepo,
 		deviceRepo,
 		jobRepo,
-		tagRepo,
-		categorySlugMap,
 		store,
 		indexClient,
-		llmClient,
 		cfg.IndexNow.SiteURL,
 	)
 	statsWorker := worker.NewStatsWorker(cfg.Kafka.Brokers, wallpaperRepo, jobRepo)
