@@ -114,9 +114,9 @@ func (r *WeeklyPickRepo) LatestWeek(ctx context.Context) (int16, int16, error) {
 }
 
 // ArchiveEntry is one row of the "all past weeks" index. The cover_url
-// is whichever pick happened to be sort_order=0 in that week; we surface
-// it so the archive list can render a single thumbnail per week without
-// a second join.
+// is the thumb (≈400×300) of whichever pick was sort_order=0 in that
+// week — thumbnail-sized is intentional, archive cards render ≤280px
+// wide so preview_url would just waste bandwidth.
 type ArchiveEntry struct {
 	Year     int16  `json:"year"`
 	Week     int16  `json:"week"`
@@ -132,7 +132,7 @@ func (r *WeeklyPickRepo) Archive(ctx context.Context, limit int) ([]ArchiveEntry
 	}
 	var rows []ArchiveEntry
 	err := r.db.WithContext(ctx).Raw(`
-		SELECT wp.year, wp.week, slate.cnt AS count, COALESCE(w.preview_url, w.thumb_url, '') AS cover_url
+		SELECT wp.year, wp.week, slate.cnt AS count, COALESCE(w.thumb_url, w.preview_url, '') AS cover_url
 		FROM (
 		    SELECT year, week, COUNT(*) AS cnt
 		    FROM weekly_picks
