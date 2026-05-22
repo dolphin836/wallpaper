@@ -94,20 +94,36 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
               key={item.label}
               to={item.to}
               onClick={onCloseDrawer}
-              className={`group grid grid-cols-[20px_1fr_auto] items-baseline gap-2 px-2 -mx-2 py-3 ${i === 0 ? 'border-t border-hair' : ''} border-b border-hair no-underline transition-colors duration-200 ${active ? 'text-ink bg-paper-2/40' : 'text-ink-2 hover:text-ink hover:bg-paper-2/60'}`}
+              className={`group grid grid-cols-[20px_1fr] items-baseline gap-2 pl-3 pr-2 -mx-2 py-3 ${i === 0 ? 'border-t border-hair' : ''} border-b border-hair border-l-2 no-underline transition-colors duration-200 ${
+                active
+                  ? 'border-l-ink text-ink'
+                  : 'border-l-transparent text-ink-2 hover:text-ink hover:border-l-hair'
+              }`}
             >
-              <span className={`mono text-[10px] transition-colors duration-200 ${active ? 'text-accent' : 'text-muted group-hover:text-ink'}`}>{String(i + 1).padStart(2, '0')}</span>
+              <span className={`mono text-[10px] transition-colors duration-200 ${active ? 'text-muted-2' : 'text-muted group-hover:text-ink'}`}>
+                {String(i + 1).padStart(2, '0')}
+              </span>
               <div>
-                <div className={`display text-[18px] leading-tight transition-transform duration-300 group-hover:translate-x-0.5 ${isUpload && !active ? 'text-accent' : ''}`}>
-                  {item.label}
+                <div className={`display text-[18px] leading-tight flex items-center gap-1.5 ${isUpload && !active ? 'text-accent' : ''}`}>
+                  <span>{item.label}</span>
+                  {isUpload && !active && (
+                    <AiOutlinePlus size={14} className="text-accent transition-transform duration-200 group-hover:rotate-90" />
+                  )}
                 </div>
-                <div className="text-[11px] text-muted mt-0.5">{item.sub}</div>
+                {/* Sub-description: collapsed to height 0 by default, expands on
+                    hover/active. grid-rows trick gives a true height transition
+                    (CSS can't transition `height: auto`) without measuring JS. */}
+                <div
+                  className={`grid transition-[grid-template-rows] duration-300 ${
+                    active ? 'grid-rows-[1fr]' : 'grid-rows-[0fr] group-hover:grid-rows-[1fr]'
+                  }`}
+                  style={{ transitionTimingFunction: 'var(--ease-out-expo)' }}
+                >
+                  <div className="overflow-hidden">
+                    <div className="text-[11px] text-muted pt-1">{item.sub}</div>
+                  </div>
+                </div>
               </div>
-              {active
-                ? <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                : isUpload
-                  ? <AiOutlinePlus size={14} className="text-accent transition-transform duration-200 group-hover:rotate-90" />
-                  : <span className="w-1.5 h-1.5 rounded-full bg-transparent group-hover:bg-muted-2 transition-colors duration-200" />}
             </Link>
           );
         })}
