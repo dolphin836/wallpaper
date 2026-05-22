@@ -44,7 +44,7 @@ const (
 	themeCandidatePoolSize = 120 // candidates handed to Claude for the themed collection
 	themeMinPicks          = 6   // minimum coherent picks before we publish a theme
 	recentLookbackDays     = 14  // "current-week" mode: bias toward recent uploads
-	avoidThemesLookback    = 8   // when proposing a theme, avoid the last N weeks' themes
+	avoidThemesLookback    = 16  // when proposing a theme, avoid the last N created themes
 )
 
 func main() {
@@ -169,6 +169,27 @@ func main() {
 
 	// ── Persist theme collection.
 	if pick != nil && len(pick.WallpaperIDs) >= themeMinPicks {
+		// Upsert semantics: wipe any previous (year, week, kind=1)
+		// collection before creating the new one. collection_wallpapers
+		// has no ON DELETE CASCADE, so we clear the link table first.
+		// Without this, re-running an already-populated week leaves the
+		// old themed collection in place alongside the new one (which
+		// is how W19 ended up with two themed collections during the
+		// 5-21 backfill — operator re-ran it to get the missing 10th pick).
+		if err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if err := tx.Exec(`
+				DELETE FROM collection_wallpapers
+				WHERE collection_id IN (
+				    SELECT id FROM collections WHERE year = ? AND week = ? AND kind = 1
+				)`, year, week).Error; err != nil {
+				return err
+			}
+			return tx.Exec(`DELETE FROM collections WHERE year = ? AND week = ? AND kind = 1`,
+				year, week).Error
+		}); err != nil {
+			log.Fatal("clear previous themed collection: ", err)
+		}
+
 		col := &model.Collection{
 			UserID:      owner,
 			Title:       fmt.Sprintf("Week %02d · %s", week, pick.ThemeName),
@@ -365,18 +386,21 @@ func hydrateCandidates(ctx context.Context, db *gorm.DB, ids []int64) []llm.Them
 	return out
 }
 
-// loadRecentThemeNames returns the last N weeks' themed-collection
-// titles so the LLM can avoid repeating them. The "Week NN · " prefix
-// is stripped — Claude cares about the editorial angle, not the
-// week marker.
-func loadRecentThemeNames(ctx context.Context, db *gorm.DB, weeks int) []string {
+// loadRecentThemeNames returns the most recently CREATED themed-collection
+// titles so the LLM can avoid repeating them. Ordering by created_at
+// (not year/week) is deliberate: in backfill mode the operator might
+// stitch together past weeks in any order, and what we want to avoid is
+// editorial repetition across whatever the last few runs produced — not
+// "the highest-week titles by calendar". The "Week NN · " prefix is
+// stripped — Claude cares about the editorial angle, not the marker.
+func loadRecentThemeNames(ctx context.Context, db *gorm.DB, limit int) []string {
 	var titles []string
 	if err := db.WithContext(ctx).Raw(`
 		SELECT title FROM collections
 		WHERE kind = 1
-		ORDER BY year DESC, week DESC
+		ORDER BY created_at DESC
 		LIMIT ?
-	`, weeks).Scan(&titles).Error; err != nil {
+	`, limit).Scan(&titles).Error; err != nil {
 		return nil
 	}
 	out := make([]string, 0, len(titles))

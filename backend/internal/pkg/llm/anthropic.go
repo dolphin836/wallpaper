@@ -424,7 +424,11 @@ Pick ONE specific theme that would make a strong weekly collection. The theme is
 - a TIME / SEASON (e.g. "Golden Hour", "Winter Stillness")
 - a DEVICE FIT (e.g. "Made for Mac Studio Displays" when the candidates share a portrait/ultrawide aspect)
 
-If a list of THEMES_TO_AVOID is provided (e.g. recent past weeks), do NOT repeat any of them — vary the editorial angle. If avoiding them forces a weaker pick than re-using one, prefer to skip (return empty wallpaper_ids) over repeating.
+If a list of THEMES_TO_AVOID is provided (e.g. recent past weeks), do NOT repeat any of them AND do not propose a CLOSE VARIATION. A close variation = the same core subject re-skinned with synonyms. Examples of what counts as "too close":
+  • "Night Lights and City Bokeh" already used → "Night Lights and Neon Bokeh" / "After-Dark Cityscapes" / "Urban Nocturnes with Bokeh" are all rejected — the core idea is night + city + bokeh.
+  • "Sunset Silhouettes" already used → "Dusk Silhouettes" / "Golden-Hour Outlines" are rejected — the core idea is silhouettes against warm light.
+  • "Looking Up" already used → "Looking Up at the Sky" / "Upward Gazes" are rejected.
+Pick a fundamentally different editorial angle (different SUBJECT, MOOD, STYLE, PALETTE, or TIME — not just different adjectives over the same subject). If avoiding the list forces a weaker collection than re-using one, prefer to skip entirely (return empty wallpaper_ids).
 
 STEP 2 — SELECT THE 10 WALLPAPERS that best embody that theme.
 - All 10 picks MUST be genuinely related to the chosen theme. Better to return 7 strong picks than 10 loose ones. If you cannot find 6 strong fits, return empty wallpaper_ids.
