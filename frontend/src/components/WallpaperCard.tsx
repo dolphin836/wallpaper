@@ -39,25 +39,7 @@ interface Props {
   hideActions?: boolean;
 }
 
-// Category hue tokens — keyed on category_id matching deployments/init.sql's
-// seed order. Used to paint a 3px stripe along the bottom of each card so
-// you can scan the feed and tell categories apart at a glance without
-// reading labels. Falls back to muted on unknown ids (e.g. category_id=0).
-const CATEGORY_HUE: Record<number, string> = {
-  1:  'var(--cat-nature)',
-  2:  'var(--cat-city)',
-  3:  'var(--cat-anime)',
-  4:  'var(--cat-abstract)',
-  5:  'var(--cat-minimal)',
-  6:  'var(--cat-tech)',
-  7:  'var(--cat-animal)',
-  8:  'var(--cat-space)',
-  9:  'var(--cat-game)',
-  10: 'var(--cat-other)',
-};
-
 export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0, disableModal = false, layout, hideActions = false }: Props) {
-  const categoryColor = wallpaper.category_id ? CATEGORY_HUE[wallpaper.category_id] : undefined;
   // Two-stage progressive load: thumb (~30 KB, displayed immediately with a
   // small blur) → preview_url (~250 KB watermarked 1600px, fades in once
   // loaded). Loading the 1600px preview on the home feed means the browser
@@ -331,13 +313,6 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
             )}
           </div>
         )}
-        {categoryColor && (
-          <span
-            aria-hidden
-            className="absolute bottom-0 left-0 right-0 h-[3px] z-[4] pointer-events-none"
-            style={{ background: categoryColor }}
-          />
-        )}
       </Wrapper>
     );
   }
@@ -490,13 +465,6 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
             )}
           </div>
         </div>}
-        {categoryColor && (
-          <span
-            aria-hidden
-            className="absolute bottom-0 left-0 right-0 h-[3px] z-[4] pointer-events-none"
-            style={{ background: categoryColor }}
-          />
-        )}
       </div>
     </Wrapper>
   );
