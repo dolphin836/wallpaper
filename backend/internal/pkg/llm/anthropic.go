@@ -488,10 +488,7 @@ func (c *Client) ProposeWeeklyTheme(ctx context.Context, candidates []ThemeCandi
 	if raw == "" {
 		return nil, fmt.Errorf("anthropic returned no text content")
 	}
-	raw = strings.TrimPrefix(raw, "```json")
-	raw = strings.TrimPrefix(raw, "```")
-	raw = strings.TrimSuffix(raw, "```")
-	raw = strings.TrimSpace(raw)
+	raw = extractJSONObject(raw)
 	var out ThemePick
 	if err := json.Unmarshal([]byte(raw), &out); err != nil {
 		return nil, fmt.Errorf("parse theme json: %w (first 300 chars: %q)", err, truncateLLM(raw, 300))
@@ -506,6 +503,29 @@ func truncateLLM(s string, n int) string {
 		return s
 	}
 	return s[:n]
+}
+
+// extractJSONObject pulls the first balanced `{...}` substring out of
+// a raw LLM reply. Claude occasionally wraps its JSON in markdown
+// fences ("```json\n{...}\n```") or sneaks in a preamble ("Here is
+// the JSON: {...}") despite being told not to — this defends against
+// both. Strips fences, then carves out the span from the first `{`
+// to the last `}` (LLM output is small enough that the simple
+// last-`}` heuristic is sufficient — no real risk of trailing braces
+// in commentary). Returns the trimmed input unchanged when no object
+// is detected so the caller's error includes the actual raw text.
+func extractJSONObject(raw string) string {
+	raw = strings.TrimSpace(raw)
+	raw = strings.TrimPrefix(raw, "```json")
+	raw = strings.TrimPrefix(raw, "```")
+	raw = strings.TrimSuffix(raw, "```")
+	raw = strings.TrimSpace(raw)
+	start := strings.Index(raw, "{")
+	end := strings.LastIndex(raw, "}")
+	if start >= 0 && end > start {
+		return raw[start : end+1]
+	}
+	return raw
 }
 
 func contains(list []string, s string) bool {
@@ -572,10 +592,7 @@ func (c *Client) ProposeWeeklyPicks(ctx context.Context, candidates []ThemeCandi
 	if raw == "" {
 		return nil, fmt.Errorf("anthropic returned no text content")
 	}
-	raw = strings.TrimPrefix(raw, "```json")
-	raw = strings.TrimPrefix(raw, "```")
-	raw = strings.TrimSuffix(raw, "```")
-	raw = strings.TrimSpace(raw)
+	raw = extractJSONObject(raw)
 	var out struct {
 		WallpaperIDs []int64 `json:"wallpaper_ids"`
 	}
