@@ -39,11 +39,12 @@ import (
 )
 
 const (
-	weeklyPicksTarget        = 10
-	themeCandidatePoolSize   = 60 // how many recent rows we hand to Claude
-	themeMinPicks            = 6  // minimum coherent picks before we publish
-	recentLookbackDays       = 7
-	historicalLookbackMonths = 6
+	weeklyPicksTarget      = 10
+	pickCandidatePoolSize  = 80  // candidates handed to Claude for the unthemed slate
+	themeCandidatePoolSize = 120 // candidates handed to Claude for the themed collection
+	themeMinPicks          = 6   // minimum coherent picks before we publish a theme
+	recentLookbackDays     = 14  // "current-week" mode: bias toward recent uploads
+	avoidThemesLookback    = 8   // when proposing a theme, avoid the last N weeks' themes
 )
 
 func main() {
@@ -59,6 +60,13 @@ func main() {
 	flag.Int64Var(&owner, "owner", 1, "user id that owns generated theme collections (defaults to admin user 1)")
 	flag.Parse()
 
+	// "Backfill mode" = the operator pinned an explicit --week. In that
+	// case we are stitching a slate for a past week, so we should NOT
+	// bias toward recently-uploaded wallpapers (those didn't exist when
+	// that historical week was live, conceptually). Current-week mode
+	// keeps the recency boost so this Friday's drop reflects what users
+	// have just been adding and engaging with.
+	backfillMode := week > 0
 	if year == 0 || week == 0 {
 		y, w := time.Now().UTC().ISOWeek()
 		if year == 0 {
@@ -89,26 +97,38 @@ func main() {
 	collectionRepo := repo.NewCollectionRepo(db)
 	llmClient := llm.New(cfg.Anthropic.APIKey, repo.NewLLMUsageRepo(db))
 
-	fmt.Printf("==> Generating Weekly Drop for ISO %d-W%02d\n", year, week)
+	mode := "current-week (recency-boosted)"
+	if backfillMode {
+		mode = "backfill (all-time pool, no recency boost)"
+	}
+	fmt.Printf("==> Generating Weekly Drop for ISO %d-W%02d — mode: %s\n", year, week, mode)
 
-	// ── PART 1: Weekly Picks (no theme, just hot recent + historical tail).
-	pickIDs := selectWeeklyPicks(ctx, weeklyRepo)
+	// ── PART 1: Weekly Picks — Claude picks 10 untheme'd wallpapers
+	// balancing quality, popularity, and variety.
+	pickCandidates := loadPickCandidates(ctx, db, weeklyRepo, pickCandidatePoolSize, backfillMode)
+	fmt.Printf("Pick candidates: %d\n", len(pickCandidates))
+	pickIDs := selectWeeklyPicks(ctx, llmClient, pickCandidates)
 	fmt.Printf("Picks selected: %d wallpapers\n", len(pickIDs))
 	for i, id := range pickIDs {
 		fmt.Printf("  [%2d] id=%d\n", i+1, id)
 	}
 
 	// ── PART 2: Theme Collection.
-	candidates := loadThemeCandidates(ctx, db, themeCandidatePoolSize)
+	candidates := loadThemeCandidates(ctx, db, themeCandidatePoolSize, backfillMode)
 	fmt.Printf("Theme candidates: %d\n", len(candidates))
 	if len(candidates) < themeMinPicks {
 		fmt.Println("not enough candidates for a theme; will skip theme generation")
 	}
 
+	avoidThemes := loadRecentThemeNames(ctx, db, avoidThemesLookback)
+	if len(avoidThemes) > 0 {
+		fmt.Printf("Avoiding recent themes: %v\n", avoidThemes)
+	}
+
 	var pick *llm.ThemePick
 	if len(candidates) >= themeMinPicks {
 		fmt.Println("Asking Claude for a coherent weekly theme...")
-		pick, err = llmClient.ProposeWeeklyTheme(ctx, candidates)
+		pick, err = llmClient.ProposeWeeklyTheme(ctx, candidates, avoidThemes)
 		if err != nil {
 			log.Fatal("propose theme: ", err)
 		}
@@ -185,10 +205,28 @@ func main() {
 }
 
 // selectWeeklyPicks chooses 10 wallpapers by hot score, preferring recent
-// uploads and falling back to the historical tail when the recent pool is
-// thin. Anything that has appeared in any past slate is excluded so users
-// see fresh content every week.
-func selectWeeklyPicks(ctx context.Context, weeklyRepo *repo.WeeklyPickRepo) []int64 {
+// selectWeeklyPicks hands the prepared candidate pool to Claude and
+// returns the 10 IDs it chose, balancing quality, popularity, and
+// variety. Empty pool → no picks (rather than failing loudly).
+func selectWeeklyPicks(ctx context.Context, llmClient *llm.Client, candidates []llm.ThemeCandidate) []int64 {
+	if len(candidates) == 0 {
+		return nil
+	}
+	ids, err := llmClient.ProposeWeeklyPicks(ctx, candidates)
+	if err != nil {
+		log.Fatal("propose weekly picks: ", err)
+	}
+	if len(ids) > weeklyPicksTarget {
+		ids = ids[:weeklyPicksTarget]
+	}
+	return ids
+}
+
+// loadPickCandidates returns the candidate pool for the unthemed slate.
+// Excludes wallpapers that already appeared in any past week (so users
+// see fresh content). In current-week mode it bounds to the recent
+// window; in backfill mode it uses the unbounded historical pool.
+func loadPickCandidates(ctx context.Context, db *gorm.DB, weeklyRepo *repo.WeeklyPickRepo, limit int, backfillMode bool) []llm.ThemeCandidate {
 	excluded, err := weeklyRepo.AllPickedIDs(ctx)
 	if err != nil {
 		log.Fatal("load excluded: ", err)
@@ -197,104 +235,157 @@ func selectWeeklyPicks(ctx context.Context, weeklyRepo *repo.WeeklyPickRepo) []i
 	for id := range excluded {
 		excludedIDs = append(excludedIDs, id)
 	}
-	since := time.Now().UTC().AddDate(0, 0, -recentLookbackDays).Unix()
-	recent, err := weeklyRepo.CandidatePool(ctx, since, excludedIDs)
+	var since int64
+	if !backfillMode {
+		since = time.Now().UTC().AddDate(0, 0, -recentLookbackDays).Unix()
+	}
+	pool, err := weeklyRepo.CandidatePool(ctx, since, excludedIDs)
 	if err != nil {
-		log.Fatal("recent candidate pool: ", err)
+		log.Fatal("pick candidate pool: ", err)
 	}
-
-	picked := make([]int64, 0, weeklyPicksTarget)
-	seen := make(map[int64]bool, weeklyPicksTarget)
-	for _, c := range recent {
-		if len(picked) >= weeklyPicksTarget {
-			break
-		}
-		if seen[c.ID] {
-			continue
-		}
-		seen[c.ID] = true
-		picked = append(picked, c.ID)
+	if len(pool) > limit {
+		pool = pool[:limit]
 	}
-	if len(picked) >= weeklyPicksTarget {
-		return picked
+	ids := make([]int64, len(pool))
+	for i, c := range pool {
+		ids[i] = c.ID
 	}
-
-	// Recent pool too small — top up from history (last 6 months).
-	deadline := time.Now().UTC().AddDate(0, -historicalLookbackMonths, 0).Unix()
-	hist, err := weeklyRepo.CandidatePool(ctx, deadline, append(excludedIDs, picked...))
-	if err != nil {
-		log.Fatal("historical candidate pool: ", err)
-	}
-	for _, c := range hist {
-		if len(picked) >= weeklyPicksTarget {
-			break
-		}
-		if seen[c.ID] {
-			continue
-		}
-		seen[c.ID] = true
-		picked = append(picked, c.ID)
-	}
-	return picked
+	return hydrateCandidates(ctx, db, ids)
 }
 
-// loadThemeCandidates fetches the recent published catalog (with quality
-// ok) plus tags + category, packaged for the LLM's theme decision. The
-// pool is intentionally larger than the target (so Claude has slack to
-// pick a coherent subset).
-func loadThemeCandidates(ctx context.Context, db *gorm.DB, limit int) []llm.ThemeCandidate {
+// loadThemeCandidates returns the candidate pool for the themed
+// collection. The themed collection deliberately does NOT exclude
+// previously-picked wallpapers (a wallpaper can star in a slate AND in
+// a later theme — that's by design). Recency vs. all-time follows the
+// same backfill switch as picks.
+func loadThemeCandidates(ctx context.Context, db *gorm.DB, limit int, backfillMode bool) []llm.ThemeCandidate {
 	type row struct {
-		ID         int64
-		CategoryID int64
-		Category   string
-		Title      string
-		Dominant   string
+		ID            int64
+		CategoryID    int64
+		Category      string
+		Title         string
+		Dominant      string
+		LikeCount     int64
+		DownloadCount int64
 	}
-	since := time.Now().UTC().AddDate(0, 0, -14) // a touch wider than picks
-	var rows []row
-	if err := db.WithContext(ctx).Raw(`
+	base := `
 		SELECT w.id, w.category_id, COALESCE(c.slug, '') AS category,
-		       w.title, w.dominant_color AS dominant
+		       w.title, w.dominant_color AS dominant,
+		       w.like_count, w.download_count
 		FROM wallpapers w
 		LEFT JOIN categories c ON c.id = w.category_id
-		WHERE w.status = 1
-		  AND w.quality_flag = 'ok'
-		  AND w.created_at >= ?
-		ORDER BY (3.0 * w.like_count + 2.0 * w.download_count + 0.1 * w.view_count) DESC
-		LIMIT ?
-	`, since, limit).Scan(&rows).Error; err != nil {
-		log.Fatal("load theme candidates: ", err)
-	}
-	if len(rows) < themeMinPicks {
-		// Fall back to historical pool — same as picks logic.
-		if err := db.WithContext(ctx).Raw(`
-			SELECT w.id, w.category_id, COALESCE(c.slug, '') AS category,
-			       w.title, w.dominant_color AS dominant
-			FROM wallpapers w
-			LEFT JOIN categories c ON c.id = w.category_id
-			WHERE w.status = 1 AND w.quality_flag = 'ok'
+		WHERE w.status = 1 AND w.quality_flag = 'ok'`
+	var rows []row
+	if backfillMode {
+		if err := db.WithContext(ctx).Raw(base+`
 			ORDER BY (3.0 * w.like_count + 2.0 * w.download_count + 0.1 * w.view_count) DESC
-			LIMIT ?
-		`, limit).Scan(&rows).Error; err != nil {
-			log.Fatal("load theme candidates (historical): ", err)
+			LIMIT ?`, limit).Scan(&rows).Error; err != nil {
+			log.Fatal("load theme candidates (all-time): ", err)
+		}
+	} else {
+		since := time.Now().UTC().AddDate(0, 0, -recentLookbackDays)
+		if err := db.WithContext(ctx).Raw(base+` AND w.created_at >= ?
+			ORDER BY (3.0 * w.like_count + 2.0 * w.download_count + 0.1 * w.view_count) DESC
+			LIMIT ?`, since, limit).Scan(&rows).Error; err != nil {
+			log.Fatal("load theme candidates (recent): ", err)
 		}
 	}
 	ids := make([]int64, len(rows))
 	for i, r := range rows {
 		ids[i] = r.ID
 	}
-	// Attach tags in one batch.
 	tagsByWp := loadTags(ctx, db, ids)
 
 	out := make([]llm.ThemeCandidate, len(rows))
 	for i, r := range rows {
 		out[i] = llm.ThemeCandidate{
-			ID:         r.ID,
-			CategoryID: r.CategoryID,
-			Category:   r.Category,
-			Tags:       tagsByWp[r.ID],
-			Title:      strings.TrimSpace(r.Title),
-			Dominant:   r.Dominant,
+			ID:            r.ID,
+			CategoryID:    r.CategoryID,
+			Category:      r.Category,
+			Tags:          tagsByWp[r.ID],
+			Title:         strings.TrimSpace(r.Title),
+			Dominant:      r.Dominant,
+			LikeCount:     r.LikeCount,
+			DownloadCount: r.DownloadCount,
+		}
+	}
+	return out
+}
+
+// hydrateCandidates takes a list of wallpaper IDs in display order and
+// fetches the per-row metadata Claude needs (category slug, title,
+// dominant color, tags, engagement counts). Order is preserved from
+// the input ids slice. Missing IDs are silently dropped.
+func hydrateCandidates(ctx context.Context, db *gorm.DB, ids []int64) []llm.ThemeCandidate {
+	if len(ids) == 0 {
+		return nil
+	}
+	type row struct {
+		ID            int64
+		CategoryID    int64
+		Category      string
+		Title         string
+		Dominant      string
+		LikeCount     int64
+		DownloadCount int64
+	}
+	var rows []row
+	if err := db.WithContext(ctx).Raw(`
+		SELECT w.id, w.category_id, COALESCE(c.slug, '') AS category,
+		       w.title, w.dominant_color AS dominant,
+		       w.like_count, w.download_count
+		FROM wallpapers w
+		LEFT JOIN categories c ON c.id = w.category_id
+		WHERE w.id IN ?
+	`, ids).Scan(&rows).Error; err != nil {
+		log.Fatal("hydrate candidates: ", err)
+	}
+	tagsByWp := loadTags(ctx, db, ids)
+	rowByID := make(map[int64]row, len(rows))
+	for _, r := range rows {
+		rowByID[r.ID] = r
+	}
+	out := make([]llm.ThemeCandidate, 0, len(ids))
+	for _, id := range ids {
+		r, ok := rowByID[id]
+		if !ok {
+			continue
+		}
+		out = append(out, llm.ThemeCandidate{
+			ID:            r.ID,
+			CategoryID:    r.CategoryID,
+			Category:      r.Category,
+			Tags:          tagsByWp[r.ID],
+			Title:         strings.TrimSpace(r.Title),
+			Dominant:      r.Dominant,
+			LikeCount:     r.LikeCount,
+			DownloadCount: r.DownloadCount,
+		})
+	}
+	return out
+}
+
+// loadRecentThemeNames returns the last N weeks' themed-collection
+// titles so the LLM can avoid repeating them. The "Week NN · " prefix
+// is stripped — Claude cares about the editorial angle, not the
+// week marker.
+func loadRecentThemeNames(ctx context.Context, db *gorm.DB, weeks int) []string {
+	var titles []string
+	if err := db.WithContext(ctx).Raw(`
+		SELECT title FROM collections
+		WHERE kind = 1
+		ORDER BY year DESC, week DESC
+		LIMIT ?
+	`, weeks).Scan(&titles).Error; err != nil {
+		return nil
+	}
+	out := make([]string, 0, len(titles))
+	for _, t := range titles {
+		if idx := strings.Index(t, " · "); idx > 0 && strings.HasPrefix(t, "Week ") {
+			t = t[idx+len(" · "):]
+		}
+		if t = strings.TrimSpace(t); t != "" {
+			out = append(out, t)
 		}
 	}
 	return out

@@ -386,16 +386,21 @@ func (c *Client) ProposeTagMerges(ctx context.Context, tags []TagInput) ([]TagMe
 	return cleaned, nil
 }
 
-// ThemeCandidate is one wallpaper handed to ProposeWeeklyTheme — the
-// model sees the id, the existing tags/category, and the dominant
-// color so it can group by any combination of those dimensions.
+// ThemeCandidate is one wallpaper handed to ProposeWeeklyTheme /
+// ProposeWeeklyPicks. The model sees the id, the existing tags /
+// category / title / dominant color so it can group by any combination,
+// plus engagement counters so it has a popularity signal — useful for
+// the picks function which is asked to balance quality, popularity,
+// and variety.
 type ThemeCandidate struct {
-	ID         int64    `json:"id"`
-	CategoryID int64    `json:"category_id"`
-	Category   string   `json:"category"`
-	Tags       []string `json:"tags"`
-	Title      string   `json:"title"`
-	Dominant   string   `json:"dominant"`
+	ID            int64    `json:"id"`
+	CategoryID    int64    `json:"category_id"`
+	Category      string   `json:"category"`
+	Tags          []string `json:"tags"`
+	Title         string   `json:"title"`
+	Dominant      string   `json:"dominant"`
+	LikeCount     int64    `json:"like_count"`
+	DownloadCount int64    `json:"download_count"`
 }
 
 // ThemePick is the LLM's answer for a weekly theme collection: a
@@ -408,19 +413,25 @@ type ThemePick struct {
 	WallpaperIDs []int64 `json:"wallpaper_ids"`
 }
 
-const proposeWeeklyThemePrompt = `You are an editor curating a weekly themed wallpaper collection. From the catalog below, pick a SINGLE coherent theme and the 10 wallpapers that best embody it.
+const proposeWeeklyThemePrompt = `You are an editor curating a weekly themed wallpaper collection. Work in TWO steps, in this order:
 
-The theme can be:
-- a SUBJECT (e.g. "Sunsets at the Horizon", "Quiet Mountain Mornings", "Neon Cyberpunk Streets")
+STEP 1 — DECIDE THE THEME FIRST.
+Pick ONE specific theme that would make a strong weekly collection. The theme is a creative editorial decision; the catalog below is your candidate inventory, not a constraint on which themes are allowed. The theme can be:
+- a SUBJECT (e.g. "Sunsets at the Horizon", "Reflections on Still Water", "Neon Cyberpunk Streets")
 - a MOOD (e.g. "Dreamy Pastels", "Moody and Atmospheric", "Bold and Vibrant")
-- a STYLE (e.g. "Minimal Geometry", "Film Photography Aesthetic")
+- a STYLE (e.g. "Minimal Geometry", "Film Photography Aesthetic", "Painterly Brushwork")
+- a PALETTE (e.g. "Sun-bleached Earth Tones", "Electric Pink and Cyan")
+- a TIME / SEASON (e.g. "Golden Hour", "Winter Stillness")
 - a DEVICE FIT (e.g. "Made for Mac Studio Displays" when the candidates share a portrait/ultrawide aspect)
 
-Rules:
-- The 10 wallpapers MUST be genuinely related to the theme. Better to have 7 strong picks than 10 loose ones.
-- If no clean theme exists for at least 6 wallpapers, return an empty wallpaper_ids array; the caller will skip generation this week.
-- The theme name should be short (≤50 chars), evocative, and Title Case.
-- Description is one sentence (≤140 chars) elaborating the theme — what unites these picks.
+If a list of THEMES_TO_AVOID is provided (e.g. recent past weeks), do NOT repeat any of them — vary the editorial angle. If avoiding them forces a weaker pick than re-using one, prefer to skip (return empty wallpaper_ids) over repeating.
+
+STEP 2 — SELECT THE 10 WALLPAPERS that best embody that theme.
+- All 10 picks MUST be genuinely related to the chosen theme. Better to return 7 strong picks than 10 loose ones. If you cannot find 6 strong fits, return empty wallpaper_ids.
+- Within the picks, aim for variety — different framings, lighting moments, or compositions all sharing the same theme. Don't pick 10 near-duplicate shots of the same subject.
+- popularity (like_count + download_count) is a quality signal, but it is NOT the selection rule. A coherent theme beats raw popularity.
+- The theme name should be short (≤50 chars), evocative, Title Case.
+- Description is one sentence (≤140 chars) elaborating the theme.
 - Output ONLY a JSON object — no markdown fence, no commentary:
 
 {
@@ -429,15 +440,19 @@ Rules:
   "wallpaper_ids": [123, 456, ...]
 }
 
-Catalog (JSON array, one row per wallpaper):
+THEMES_TO_AVOID (recent past weeks): %s
+
+Catalog (JSON array, one row per wallpaper; engagement counters reflect cumulative likes/downloads):
 %s`
 
-// ProposeWeeklyTheme asks Claude to scan a candidate pool and propose
-// one coherent theme with 10 wallpapers that fit it. The caller
-// validates that wallpaper_ids ⊆ candidates and that there are at
-// least min_count of them; a "no clean theme this week" verdict comes
+// ProposeWeeklyTheme asks Claude to (1) pick a SINGLE theme and
+// (2) select 10 wallpapers that embody it. avoidThemes is a list of
+// recent past weeks' theme names so the model rotates the editorial
+// angle instead of latching on to whatever subject dominates the pool.
+// The caller validates that wallpaper_ids ⊆ candidates and that there
+// are at least min_count of them; "no clean theme this week" comes
 // back as an empty wallpaper_ids slice.
-func (c *Client) ProposeWeeklyTheme(ctx context.Context, candidates []ThemeCandidate) (*ThemePick, error) {
+func (c *Client) ProposeWeeklyTheme(ctx context.Context, candidates []ThemeCandidate, avoidThemes []string) (*ThemePick, error) {
 	if !c.Enabled() {
 		return nil, fmt.Errorf("anthropic api key not configured")
 	}
@@ -445,11 +460,15 @@ func (c *Client) ProposeWeeklyTheme(ctx context.Context, candidates []ThemeCandi
 	if err != nil {
 		return nil, fmt.Errorf("marshal catalog: %w", err)
 	}
+	avoidJSON, err := json.Marshal(avoidThemes)
+	if err != nil {
+		return nil, fmt.Errorf("marshal avoid themes: %w", err)
+	}
 	resp, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     c.model,
 		MaxTokens: 1500,
 		System: []anthropic.TextBlockParam{
-			{Text: fmt.Sprintf(proposeWeeklyThemePrompt, string(catalog))},
+			{Text: fmt.Sprintf(proposeWeeklyThemePrompt, string(avoidJSON), string(catalog))},
 		},
 		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(anthropic.NewTextBlock("Output the JSON now.")),
@@ -496,6 +515,88 @@ func contains(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+const proposeWeeklyPicksPrompt = `You are an editor selecting the 10 wallpapers for this week's "Weekly Drop" — a UNTHEMED slate that should feel like a tasteful sampler of the catalog. Pick 10 wallpaper IDs from the candidate pool below.
+
+Selection criteria, in order:
+1. QUALITY — every pick should look polished: confident composition, clean execution, no obvious AI-slop artifacts. Title and tags help you judge this; ignore obvious filler.
+2. POPULARITY as a quality signal — like_count and download_count are cumulative engagement. High counts suggest other users found the wallpaper worth keeping. Use them as a hint, NOT as a sort key — top-10 by raw engagement would produce a boring monoculture.
+3. VARIETY — the 10 picks together should span DIFFERENT categories, subjects, palettes, and moods. Avoid stacking 6 mountain landscapes or 5 cyberpunk scenes even if they're all popular. Aim for at most 2-3 wallpapers per category, and watch the dominant colors / tags to avoid visual repetition.
+4. ENGAGEMENT FLOOR — prefer wallpapers with at least 1 like or download over ones with zero, unless quality clearly stands out.
+
+Hard rules:
+- Output exactly 10 IDs. If the pool truly cannot yield 10 strong picks, output the most you confidently can (down to 5) — never duplicate IDs.
+- IDs must be drawn from the pool; do not invent any.
+- Output ONLY a JSON object, no fence, no commentary:
+
+{"wallpaper_ids": [123, 456, ...]}
+
+Candidate pool (JSON array; engagement counters are cumulative):
+%s`
+
+// ProposeWeeklyPicks asks Claude to pick the 10 unthemed wallpapers
+// that lead this week's "Weekly Drop" slate. Unlike ProposeWeeklyTheme,
+// there is no editorial theme — the model is balancing quality,
+// popularity (like / download counts as a hint), and variety across
+// the pool. Returns the chosen wallpaper IDs in display order.
+func (c *Client) ProposeWeeklyPicks(ctx context.Context, candidates []ThemeCandidate) ([]int64, error) {
+	if !c.Enabled() {
+		return nil, fmt.Errorf("anthropic api key not configured")
+	}
+	catalog, err := json.Marshal(candidates)
+	if err != nil {
+		return nil, fmt.Errorf("marshal catalog: %w", err)
+	}
+	resp, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     c.model,
+		MaxTokens: 800,
+		System: []anthropic.TextBlockParam{
+			{Text: fmt.Sprintf(proposeWeeklyPicksPrompt, string(catalog))},
+		},
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock("Output the JSON now.")),
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("anthropic api: %w", err)
+	}
+	c.recordUsage("weekly_picks", resp.Usage)
+	var raw string
+	for _, block := range resp.Content {
+		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
+			raw = strings.TrimSpace(t.Text)
+			break
+		}
+	}
+	if raw == "" {
+		return nil, fmt.Errorf("anthropic returned no text content")
+	}
+	raw = strings.TrimPrefix(raw, "```json")
+	raw = strings.TrimPrefix(raw, "```")
+	raw = strings.TrimSuffix(raw, "```")
+	raw = strings.TrimSpace(raw)
+	var out struct {
+		WallpaperIDs []int64 `json:"wallpaper_ids"`
+	}
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil, fmt.Errorf("parse picks json: %w (first 300 chars: %q)", err, truncateLLM(raw, 300))
+	}
+	// Dedup + validate ⊆ pool. Cheap to do here so the CLI doesn't have to.
+	offered := make(map[int64]bool, len(candidates))
+	for _, c := range candidates {
+		offered[c.ID] = true
+	}
+	seen := make(map[int64]bool, len(out.WallpaperIDs))
+	clean := make([]int64, 0, len(out.WallpaperIDs))
+	for _, id := range out.WallpaperIDs {
+		if !offered[id] || seen[id] {
+			continue
+		}
+		seen[id] = true
+		clean = append(clean, id)
+	}
+	return clean, nil
 }
 
 // ExpandWallpaperPrompt turns a vague user idea (often Chinese, often
