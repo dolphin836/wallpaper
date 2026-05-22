@@ -53,6 +53,34 @@
   --font-display: "Instrument Serif", "Times New Roman", serif;
   --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-sans:    "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Motion — these tokens override Tailwind's `ease-*` utilities so
+     `transition-colors`, `transition-transform`, etc. all pick up the
+     snappier curve by default. quart = fast attack, soft landing.
+     expo = even faster attack, used for "appear" moments (toasts,
+     popovers). Avoid bounce / spring curves; they read as cheap. */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+  --default-transition-timing-function: var(--ease-out-quart);
+  --default-transition-duration: 200ms;
+}
+
+/* All transitions in the app pick up ease-out-quart by default. Any
+   element that explicitly sets its own timing-function (via inline
+   transition shorthand or a CSS rule with `ease` in the value) keeps
+   that timing — only the implicit default changes. */
+*, *::before, *::after {
+  transition-timing-function: var(--ease-out-quart);
+}
+
+/* Keyboard focus indicator. Mouse clicks won't draw it (browsers handle
+   :focus-visible heuristics). Soft accent ring, rounded for pill-shaped
+   buttons, with breathing offset so it doesn't crowd the content. */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 /* Archive dark skin — overrides ride on top of the existing `.dark` class
@@ -234,13 +262,14 @@
   font-size: 13px;
   font-weight: 500;
   display: inline-flex; align-items: center; gap: 10px;
-  transition: background 160ms ease, border-color 160ms ease;
+  transition: background 200ms, border-color 200ms, transform 100ms;
   cursor: pointer;
 }
 .btn-load-more:hover {
   background: var(--color-paper-2);
   border-color: var(--color-ink-2);
 }
+.btn-load-more:active:not(:disabled) { transform: scale(0.97); }
 .btn-load-more__warn {
   width: 6px; height: 6px; border-radius: 50%;
   background: #d18a3a;

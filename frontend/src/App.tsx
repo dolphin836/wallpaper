@@ -84,7 +84,29 @@ function AppRoutes() {
 function App() {
   return (
     <BrowserRouter>
-      <Toaster position="top-center" />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 2800,
+          style: {
+            background: 'var(--color-paper)',
+            color: 'var(--color-ink)',
+            border: '1px solid var(--color-hair)',
+            borderRadius: '8px',
+            fontSize: '13px',
+            fontFamily: 'var(--font-sans)',
+            padding: '10px 14px',
+            boxShadow: '0 8px 24px -12px rgba(0,0,0,0.18)',
+          },
+          success: {
+            iconTheme: { primary: '#4a8a5a', secondary: 'var(--color-paper)' },
+          },
+          error: {
+            duration: 4500,
+            iconTheme: { primary: '#e0463a', secondary: 'var(--color-paper)' },
+          },
+        }}
+      />
       <AppRoutes />
     </BrowserRouter>
   );

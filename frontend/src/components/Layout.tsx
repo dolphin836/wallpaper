@@ -94,11 +94,11 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
               key={item.label}
               to={item.to}
               onClick={onCloseDrawer}
-              className={`grid grid-cols-[20px_1fr_auto] items-baseline gap-2 py-3 ${i === 0 ? 'border-t border-hair' : ''} border-b border-hair no-underline ${active ? 'text-ink' : 'text-ink-2'}`}
+              className={`group grid grid-cols-[20px_1fr_auto] items-baseline gap-2 px-2 -mx-2 py-3 ${i === 0 ? 'border-t border-hair' : ''} border-b border-hair no-underline transition-colors duration-200 ${active ? 'text-ink bg-paper-2/40' : 'text-ink-2 hover:text-ink hover:bg-paper-2/60'}`}
             >
-              <span className="mono text-[10px] text-muted">{String(i + 1).padStart(2, '0')}</span>
+              <span className={`mono text-[10px] transition-colors duration-200 ${active ? 'text-accent' : 'text-muted group-hover:text-ink'}`}>{String(i + 1).padStart(2, '0')}</span>
               <div>
-                <div className={`display text-[18px] leading-tight ${isUpload && !active ? 'text-accent' : ''}`}>
+                <div className={`display text-[18px] leading-tight transition-transform duration-300 group-hover:translate-x-0.5 ${isUpload && !active ? 'text-accent' : ''}`}>
                   {item.label}
                 </div>
                 <div className="text-[11px] text-muted mt-0.5">{item.sub}</div>
@@ -106,8 +106,8 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
               {active
                 ? <span className="w-1.5 h-1.5 rounded-full bg-accent" />
                 : isUpload
-                  ? <AiOutlinePlus size={14} className="text-accent" />
-                  : <span className="w-1.5 h-1.5" />}
+                  ? <AiOutlinePlus size={14} className="text-accent transition-transform duration-200 group-hover:rotate-90" />
+                  : <span className="w-1.5 h-1.5 rounded-full bg-transparent group-hover:bg-muted-2 transition-colors duration-200" />}
             </Link>
           );
         })}
@@ -139,15 +139,15 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
       <div className="mt-auto px-6 pt-6 pb-6 flex flex-col items-center">
         <hr className="border-t border-dashed border-hair w-full" />
         <ul className="flex flex-wrap justify-start gap-x-3 gap-y-1.5 py-3 list-none m-0 p-0 mono text-[10px] tracking-[0.12em] uppercase text-muted self-stretch">
-          <li><Link to="/about" className="text-inherit no-underline hover:text-ink">About</Link></li>
+          <li><Link to="/about" className="text-inherit no-underline hover:text-ink transition-colors duration-200">About</Link></li>
           <li className="text-hair" aria-hidden>·</li>
-          <li><Link to="/contribute" className="text-inherit no-underline hover:text-ink">Contribute</Link></li>
+          <li><Link to="/contribute" className="text-inherit no-underline hover:text-ink transition-colors duration-200">Contribute</Link></li>
           <li className="text-hair" aria-hidden>·</li>
-          <li><Link to="/terms" className="text-inherit no-underline hover:text-ink">Terms</Link></li>
+          <li><Link to="/terms" className="text-inherit no-underline hover:text-ink transition-colors duration-200">Terms</Link></li>
           <li className="text-hair" aria-hidden>·</li>
-          <li><Link to="/privacy" className="text-inherit no-underline hover:text-ink">Privacy</Link></li>
+          <li><Link to="/privacy" className="text-inherit no-underline hover:text-ink transition-colors duration-200">Privacy</Link></li>
           <li className="text-hair" aria-hidden>·</li>
-          <li><Link to="/legal/dmca" className="text-inherit no-underline hover:text-ink">DMCA</Link></li>
+          <li><Link to="/legal/dmca" className="text-inherit no-underline hover:text-ink transition-colors duration-200">DMCA</Link></li>
         </ul>
         <hr className="border-t border-hair w-full" />
         <div className="mt-3 flex items-baseline justify-center gap-1.5 text-[11px] text-ink-2 text-center">
