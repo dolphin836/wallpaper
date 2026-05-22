@@ -44,7 +44,7 @@ const (
 	themeCandidatePoolSize = 120 // candidates handed to Claude for the themed collection
 	themeMinPicks          = 6   // minimum coherent picks before we publish a theme
 	recentLookbackDays     = 14  // "current-week" mode: bias toward recent uploads
-	avoidThemesLookback    = 16  // when proposing a theme, avoid the last N created themes
+	avoidThemesLookback    = 32  // when proposing a theme, avoid the last N created themes (covers ~half a year of weekly drops + any backfill churn so Claude sees the full slate at a glance)
 )
 
 func main() {
