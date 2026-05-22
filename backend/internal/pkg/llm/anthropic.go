@@ -403,50 +403,60 @@ type ThemeCandidate struct {
 	DownloadCount int64    `json:"download_count"`
 }
 
-// ThemePick is the LLM's answer for a weekly theme collection: a
-// human-readable theme name (used as the collection title), a short
-// description, and the 10 wallpaper IDs that should belong to it. The
-// caller validates that the IDs are a subset of what was offered.
+// ThemePick is the LLM's answer for a weekly theme collection. We
+// deliberately do NOT ask Claude for wallpaper IDs anymore — it
+// hallucinates IDs that aren't in the catalog when the pool's
+// dominant motif doesn't yield 10 strong fits, which then fails the
+// caller's ⊆-catalog check. Instead, Claude returns a theme name,
+// description, and a small bag of lowercase keywords (subject +
+// synonyms + palette/mood terms). The caller does its own SQL match
+// over titles / tags / category-slugs to assemble the collection.
 type ThemePick struct {
-	ThemeName    string  `json:"theme_name"`
-	Description  string  `json:"description"`
-	WallpaperIDs []int64 `json:"wallpaper_ids"`
+	ThemeName   string   `json:"theme_name"`
+	Description string   `json:"description"`
+	Keywords    []string `json:"keywords"`
 }
 
-const proposeWeeklyThemePrompt = `You are an editor curating a weekly themed wallpaper collection. Work in TWO steps, in this order:
+const proposeWeeklyThemePrompt = `You are an editor picking ONE theme for this week's themed wallpaper collection. You ONLY decide the theme — the system will pull matching wallpapers from the database separately using the keywords you provide.
 
-STEP 1 — DECIDE THE THEME FIRST.
-Pick ONE specific theme that would make a strong weekly collection. The theme is a creative editorial decision; the catalog below is your candidate inventory, not a constraint on which themes are allowed. The theme can be:
-- a SUBJECT (e.g. "Sunsets at the Horizon", "Reflections on Still Water", "Neon Cyberpunk Streets")
-- a MOOD (e.g. "Dreamy Pastels", "Moody and Atmospheric", "Bold and Vibrant")
-- a STYLE (e.g. "Minimal Geometry", "Film Photography Aesthetic", "Painterly Brushwork")
+STEP 1 — PICK A THEME.
+The catalog below is inspiration / inventory; you can scan it to see what subjects exist, but you are NOT required to use the most popular subject. Pick a theme that would make a coherent weekly collection. The theme can be:
+- a SUBJECT (e.g. "Sunsets at the Horizon", "Reflections on Still Water", "Cats at Home")
+- a MOOD (e.g. "Dreamy Pastels", "Moody and Atmospheric")
+- a STYLE (e.g. "Minimal Geometry", "Film Photography Aesthetic")
 - a PALETTE (e.g. "Sun-bleached Earth Tones", "Electric Pink and Cyan")
 - a TIME / SEASON (e.g. "Golden Hour", "Winter Stillness")
-- a DEVICE FIT (e.g. "Made for Mac Studio Displays" when the candidates share a portrait/ultrawide aspect)
 
-If a list of THEMES_TO_AVOID is provided (e.g. recent past weeks), do NOT repeat any of them AND do not propose a CLOSE VARIATION. A close variation = the same core subject re-skinned with synonyms. Examples of what counts as "too close":
-  • "Night Lights and City Bokeh" already used → "Night Lights and Neon Bokeh" / "After-Dark Cityscapes" / "Urban Nocturnes with Bokeh" are all rejected — the core idea is night + city + bokeh.
-  • "Sunset Silhouettes" already used → "Dusk Silhouettes" / "Golden-Hour Outlines" are rejected — the core idea is silhouettes against warm light.
-  • "Looking Up" already used → "Looking Up at the Sky" / "Upward Gazes" are rejected.
-Pick a fundamentally different editorial angle (different SUBJECT, MOOD, STYLE, PALETTE, or TIME — not just different adjectives over the same subject). If avoiding the list forces a weaker collection than re-using one, prefer to skip entirely (return empty wallpaper_ids).
+THEMES_TO_AVOID rule: if a list is provided, do NOT repeat any title in it AND do not propose a CLOSE VARIATION. A close variation = the same core subject re-skinned with synonyms. Examples:
+  • "Night Lights and City Bokeh" used → "Night Lights and Neon Bokeh" / "After-Dark Cityscapes" are REJECTED — core idea is night + city + bokeh.
+  • "Sunset Silhouettes" used → "Dusk Silhouettes" / "Golden-Hour Outlines" are REJECTED — silhouettes against warm light.
+  • "Looking Up" used → "Looking Up at the Sky" / "Upward Gazes" are REJECTED.
+  • "Cats in Quiet Moments" used → "Cats: Quiet Companions" / "Feline Portraits" are REJECTED — cats are the subject.
+Pick a fundamentally different angle (different SUBJECT, MOOD, STYLE, PALETTE, or TIME — not adjective swap). If the only remaining strong themes are all variants of avoided ones, output empty keywords; the system will skip this week's theme.
 
-STEP 2 — SELECT THE 10 WALLPAPERS that best embody that theme.
-- All 10 picks MUST be genuinely related to the chosen theme. Better to return 7 strong picks than 10 loose ones. If you cannot find 6 strong fits, return empty wallpaper_ids.
-- Within the picks, aim for variety — different framings, lighting moments, or compositions all sharing the same theme. Don't pick 10 near-duplicate shots of the same subject.
-- popularity (like_count + download_count) is a quality signal, but it is NOT the selection rule. A coherent theme beats raw popularity.
-- The theme name should be short (≤50 chars), evocative, Title Case.
-- Description is one sentence (≤140 chars) elaborating the theme.
-- Output ONLY a JSON object — no markdown fence, no commentary:
+STEP 2 — OUTPUT KEYWORDS for SQL matching.
+Provide 5-10 lowercase keywords the system will use to find wallpapers in the database whose title OR tags OR category-slug contain any of these terms. Include:
+  • the main subject noun(s) (e.g. "cat", "kitten" for feline themes)
+  • close synonyms / related terms (e.g. "feline", "pet" for cats; "sunset", "dusk", "twilight" for golden-hour)
+  • palette / mood adjectives that would likely appear in tags (e.g. "pastel", "moody", "vibrant")
+  • category slugs when relevant (current slugs: nature, city, abstract, anime, minimal, art, space, animals, food, technology, vehicles)
+Keywords are matched case-insensitively as substrings against title / tag / category-slug. Avoid keywords so generic they'd match unrelated wallpapers (e.g. don't use "light", "sky" alone).
+
+OUTPUT (strict):
+- theme_name: ≤50 chars, evocative, Title Case
+- description: one sentence (≤140 chars)
+- keywords: 5-10 lowercase short terms
+- Output ONLY a JSON object — no fence, no commentary:
 
 {
   "theme_name": "...",
   "description": "...",
-  "wallpaper_ids": [123, 456, ...]
+  "keywords": ["...", "...", ...]
 }
 
 THEMES_TO_AVOID (recent past weeks): %s
 
-Catalog (JSON array, one row per wallpaper; engagement counters reflect cumulative likes/downloads):
+Catalog (inspiration only — JSON array of one row per wallpaper):
 %s`
 
 // ProposeWeeklyTheme asks Claude to (1) pick a SINGLE theme and

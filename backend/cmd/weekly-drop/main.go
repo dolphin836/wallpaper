@@ -125,32 +125,29 @@ func main() {
 		fmt.Printf("Avoiding recent themes: %v\n", avoidThemes)
 	}
 
-	var pick *llm.ThemePick
+	var (
+		pick        *llm.ThemePick
+		themeWpIDs  []int64
+	)
 	if len(candidates) >= themeMinPicks {
 		fmt.Println("Asking Claude for a coherent weekly theme...")
 		pick, err = llmClient.ProposeWeeklyTheme(ctx, candidates, avoidThemes)
 		if err != nil {
 			log.Fatal("propose theme: ", err)
 		}
-		// Validate that returned ids are a subset of the offered pool —
-		// the model occasionally hallucinates ids when nothing fits.
-		offered := make(map[int64]bool, len(candidates))
-		for _, c := range candidates {
-			offered[c.ID] = true
-		}
-		valid := pick.WallpaperIDs[:0]
-		for _, id := range pick.WallpaperIDs {
-			if offered[id] {
-				valid = append(valid, id)
-			}
-		}
-		pick.WallpaperIDs = valid
 		fmt.Printf("Theme: %q\n", pick.ThemeName)
 		fmt.Printf("  %s\n", pick.Description)
-		fmt.Printf("  %d wallpapers in theme\n", len(pick.WallpaperIDs))
-		if len(pick.WallpaperIDs) < themeMinPicks {
-			fmt.Println("  (theme rejected — fewer than %d valid picks)")
+		fmt.Printf("  Keywords: %v\n", pick.Keywords)
+		if len(pick.Keywords) == 0 {
+			fmt.Println("  (Claude returned empty keywords — skipping theme this week)")
 			pick = nil
+		} else {
+			themeWpIDs = matchWallpapersByKeywords(ctx, db, pick.Keywords, weeklyPicksTarget)
+			fmt.Printf("  Matched %d wallpapers in DB\n", len(themeWpIDs))
+			if len(themeWpIDs) < themeMinPicks {
+				fmt.Printf("  (theme rejected — only %d matched, need >= %d)\n", len(themeWpIDs), themeMinPicks)
+				pick = nil
+			}
 		}
 	}
 
@@ -168,14 +165,10 @@ func main() {
 	}
 
 	// ── Persist theme collection.
-	if pick != nil && len(pick.WallpaperIDs) >= themeMinPicks {
+	if pick != nil && len(themeWpIDs) >= themeMinPicks {
 		// Upsert semantics: wipe any previous (year, week, kind=1)
 		// collection before creating the new one. collection_wallpapers
 		// has no ON DELETE CASCADE, so we clear the link table first.
-		// Without this, re-running an already-populated week leaves the
-		// old themed collection in place alongside the new one (which
-		// is how W19 ended up with two themed collections during the
-		// 5-21 backfill — operator re-ran it to get the missing 10th pick).
 		if err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			if err := tx.Exec(`
 				DELETE FROM collection_wallpapers
@@ -203,11 +196,8 @@ func main() {
 		if err := collectionRepo.Create(ctx, col); err != nil {
 			log.Fatal("create collection: ", err)
 		}
-		// Attach wallpapers in pick order — repo.AddWallpaper bumps
-		// wallpaper_count and sets sort_order so the detail page
-		// renders them in the order Claude returned.
 		attached := 0
-		for _, wpID := range pick.WallpaperIDs {
+		for _, wpID := range themeWpIDs {
 			if err := collectionRepo.AddWallpaper(ctx, col.ID, wpID); err != nil {
 				fmt.Printf("  add wallpaper %d failed: %v\n", wpID, err)
 				continue
@@ -384,6 +374,47 @@ func hydrateCandidates(ctx context.Context, db *gorm.DB, ids []int64) []llm.Them
 		})
 	}
 	return out
+}
+
+// matchWallpapersByKeywords pulls up to `limit` wallpapers whose title,
+// any tag, or category slug contains ANY of the given keywords (case-
+// insensitive substring). The result is sorted by the same hot score
+// used elsewhere so popular wallpapers float to the top. Used by the
+// themed-collection picker — Claude proposes a theme + keywords, this
+// function does the actual selection so we stop relying on the LLM to
+// remember which IDs are in the catalog.
+func matchWallpapersByKeywords(ctx context.Context, db *gorm.DB, keywords []string, limit int) []int64 {
+	if len(keywords) == 0 {
+		return nil
+	}
+	// Build a single Postgres regex alternation: "cat|kitten|feline".
+	// Keywords are LLM-supplied lowercase short terms — no escaping of
+	// regex metachars needed in practice (they'd be malformed input
+	// anyway and the regex would just fail to match, not crash).
+	pattern := strings.Join(keywords, "|")
+	var ids []int64
+	if err := db.WithContext(ctx).Raw(`
+		SELECT w.id
+		FROM wallpapers w
+		LEFT JOIN categories c ON c.id = w.category_id
+		WHERE w.status = 1
+		  AND w.quality_flag = 'ok'
+		  AND (
+		      w.title ~* ?
+		      OR (c.slug IS NOT NULL AND c.slug ~* ?)
+		      OR EXISTS (
+		          SELECT 1 FROM wallpaper_tags wt
+		          JOIN tags t ON t.id = wt.tag_id
+		          WHERE wt.wallpaper_id = w.id AND t.name ~* ?
+		      )
+		  )
+		ORDER BY (3.0 * w.like_count + 2.0 * w.download_count + 0.1 * w.view_count) DESC,
+		         w.created_at DESC
+		LIMIT ?
+	`, pattern, pattern, pattern, limit).Scan(&ids).Error; err != nil {
+		log.Fatal("match wallpapers by keywords: ", err)
+	}
+	return ids
 }
 
 // loadRecentThemeNames returns the most recently CREATED themed-collection
