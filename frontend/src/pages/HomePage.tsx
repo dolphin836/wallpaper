@@ -82,11 +82,27 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {data!.picks.map((w, i) => (
-                <div key={w.id} className="aspect-[4/3] relative">
-                  <WallpaperCard wallpaper={w} fixedAspect hideActions animDelay={i * 30} />
-                </div>
-              ))}
+              {data!.picks.map((w, i) => {
+                const featured = i === 0;
+                return (
+                  <div
+                    key={w.id}
+                    className={`aspect-[4/3] relative ${
+                      featured
+                        ? 'ring-2 ring-ink shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)] scale-[1.02] hover:scale-[1.04] transition-transform duration-300'
+                        : ''
+                    }`}
+                    style={featured ? { transitionTimingFunction: 'var(--ease-out-expo)' } : undefined}
+                  >
+                    <WallpaperCard wallpaper={w} fixedAspect hideActions animDelay={i * 30} />
+                    {featured && (
+                      <span className="absolute -top-2 -left-2 z-[5] mono text-[9px] tracking-[0.16em] uppercase font-medium px-2 py-1 rounded-sm bg-ink text-paper shadow-[0_4px_12px_-4px_rgba(0,0,0,0.4)] pointer-events-none">
+                        Editor's Pick
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
