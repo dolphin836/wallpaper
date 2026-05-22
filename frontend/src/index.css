@@ -44,6 +44,20 @@
   --color-accent-soft: oklch(94% 0.05 60);
   --color-accent-ink:  oklch(38% 0.15 42);
 
+  /* Category palette. OKLCH-equal in perceptual brightness so no single
+     category dominates the grid when 10 tiles tile across; chroma slightly
+     varied so each hue reads as itself instead of "saturated rainbow". */
+  --cat-nature:   oklch(0.60 0.13 150); /* forest green */
+  --cat-city:     oklch(0.55 0.14 245); /* metropolitan blue */
+  --cat-anime:    oklch(0.70 0.16 340); /* shoujo pink */
+  --cat-abstract: oklch(0.62 0.16 295); /* electric purple */
+  --cat-minimal:  oklch(0.68 0.04 80);  /* warm grey — the absence of color is the color */
+  --cat-tech:     oklch(0.60 0.14 220); /* cyan-blue */
+  --cat-animal:   oklch(0.66 0.13 55);  /* fur ochre */
+  --cat-space:    oklch(0.45 0.14 280); /* deep cosmic indigo */
+  --cat-game:     oklch(0.62 0.20 25);  /* arcade red-orange */
+  --cat-other:    oklch(0.65 0.03 80);  /* neutral fallback */
+
   /* Tile-action selected colors */
   --color-like:       #e0463a;
   --color-favorite:   #d8a23a;
