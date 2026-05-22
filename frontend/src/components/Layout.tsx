@@ -328,6 +328,14 @@ export default function Layout() {
 
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
+  // Route-transition key. AppRoutes uses a background-location pattern
+  // (`location.state.background`) to overlay the wallpaper detail modal
+  // on whichever page the user was on. When that's active the live URL
+  // changes but the underlying page shouldn't remount — so we key off
+  // the background pathname instead.
+  const background = (location.state as { background?: { pathname: string } } | null)?.background;
+  const routeKey = background?.pathname ?? location.pathname;
+
   return (
     <div className="min-h-screen flex bg-paper text-ink font-sans transition-colors duration-200">
       {/* Desktop sidebar */}
@@ -361,7 +369,15 @@ export default function Layout() {
         />
 
         <main className="flex-1 bg-paper relative overflow-x-hidden">
-          <Outlet />
+          {/* Per-route fade-up. Keyed on the BACKGROUND location's
+              pathname when present (so the modal-overlay routing
+              pattern — opening a wallpaper detail on top of the
+              gallery — doesn't remount the page underneath); otherwise
+              keyed on the live pathname so each real navigation
+              triggers a fresh fade. */}
+          <div key={routeKey} className="animate-route-in">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

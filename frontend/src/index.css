@@ -139,6 +139,17 @@
   animation: fade-in 0.4s ease-out both;
 }
 
+/* Route-transition entrance. Page content fades and lifts in over
+   280ms — short enough to feel snappy, long enough to register. Used
+   by Layout to animate each new <Outlet> on navigation. */
+@keyframes route-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-route-in {
+  animation: route-in 280ms var(--ease-out-expo) both;
+}
+
 .shimmer-overlay {
   overflow: hidden;
 }
@@ -155,13 +166,34 @@
   animation: shimmer 1.6s ease-in-out infinite;
 }
 
-@keyframes skeleton-pulse {
-  0%, 100% { opacity: 0.6; }
-  50%      { opacity: 1; }
-}
-
+/* Skeleton tiles get a shimmer pass instead of a flat pulse. The base
+   element keeps its paper-3 fill; the ::after layer sweeps a soft
+   light gradient across it, which reads as "loading" without the
+   harsh "now darker / now lighter" rhythm a pulse animation has. */
 .skeleton-card {
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 75%
+  );
+  transform: translateX(-100%);
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+.dark .skeleton-card::after {
+  background: linear-gradient(
+    100deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 75%
+  );
 }
 
 /* ── Salon mosaic tile interactions ─────────────────────────────────
