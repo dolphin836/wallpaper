@@ -118,10 +118,11 @@ func (r *WeeklyPickRepo) LatestWeek(ctx context.Context) (int16, int16, error) {
 // week — thumbnail-sized is intentional, archive cards render ≤280px
 // wide so preview_url would just waste bandwidth.
 type ArchiveEntry struct {
-	Year     int16  `json:"year"`
-	Week     int16  `json:"week"`
-	Count    int    `json:"count"`
-	CoverURL string `json:"cover_url"`
+	Year        int16  `json:"year"`
+	Week        int16  `json:"week"`
+	Count       int    `json:"count"`
+	CoverURL    string `json:"cover_url"`
+	AccentColor string `json:"accent_color,omitempty"`
 }
 
 // Archive returns every past pick slate, newest first, paginated by
@@ -131,8 +132,14 @@ func (r *WeeklyPickRepo) Archive(ctx context.Context, limit int) ([]ArchiveEntry
 		limit = 50
 	}
 	var rows []ArchiveEntry
+	// Join the matching themed collection so each archive entry can
+	// surface the LLM-chosen accent color alongside its cover. Themed
+	// collections share the (year, week) key with weekly_picks; left
+	// join keeps weeks without a theme working.
 	err := r.db.WithContext(ctx).Raw(`
-		SELECT wp.year, wp.week, slate.cnt AS count, COALESCE(w.thumb_url, w.preview_url, '') AS cover_url
+		SELECT wp.year, wp.week, slate.cnt AS count,
+		       COALESCE(w.thumb_url, w.preview_url, '') AS cover_url,
+		       COALESCE(tc.accent_color, '') AS accent_color
 		FROM (
 		    SELECT year, week, COUNT(*) AS cnt
 		    FROM weekly_picks
@@ -140,6 +147,7 @@ func (r *WeeklyPickRepo) Archive(ctx context.Context, limit int) ([]ArchiveEntry
 		) slate
 		JOIN weekly_picks wp ON wp.year = slate.year AND wp.week = slate.week AND wp.sort_order = 0
 		LEFT JOIN wallpapers w ON w.id = wp.wallpaper_id
+		LEFT JOIN collections tc ON tc.kind = 1 AND tc.year = wp.year AND tc.week = wp.week
 		ORDER BY wp.year DESC, wp.week DESC
 		LIMIT ?
 	`, limit).Scan(&rows).Error

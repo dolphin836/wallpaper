@@ -415,6 +415,11 @@ type ThemePick struct {
 	ThemeName   string   `json:"theme_name"`
 	Description string   `json:"description"`
 	Keywords    []string `json:"keywords"`
+	// AccentColor is an OKLCH string ("oklch(L C H)") capturing the
+	// theme's editorial mood. The frontend uses it to tint each week's
+	// home / archive hero so the rotation feels visually different
+	// week-to-week instead of one monolithic paper-ink stream.
+	AccentColor string `json:"accent_color"`
 }
 
 const proposeWeeklyThemePrompt = `You are an editor picking ONE theme for this week's themed wallpaper collection. You ONLY decide the theme — the system will pull matching wallpapers from the database separately using the keywords you provide.
@@ -446,12 +451,24 @@ OUTPUT (strict):
 - theme_name: ≤50 chars, evocative, Title Case
 - description: one sentence (≤140 chars)
 - keywords: 5-10 lowercase short terms
+- accent_color: ONE OKLCH color capturing the theme's mood. Format
+  exactly: oklch(L C H) where L is 0.55-0.75 (perceptually mid-bright,
+  legible on a light-paper background), C is 0.10-0.20 (saturated but
+  not garish), H is 0-360. Examples:
+    "Sunset Silhouettes"      → oklch(0.65 0.18 35)   warm amber
+    "Snowbound Stillness"     → oklch(0.70 0.06 230)  cold pale blue
+    "Neon Cyberpunk Streets"  → oklch(0.60 0.18 290)  electric purple
+    "Cats in Curious Moments" → oklch(0.65 0.13 55)   tabby ochre
+    "Mirror Lakes"            → oklch(0.62 0.10 200)  glassy teal
+  The hue should evoke the theme without being literal (a "winter"
+  theme doesn't have to be blue, but should feel cool).
 - Output ONLY a JSON object — no fence, no commentary:
 
 {
   "theme_name": "...",
   "description": "...",
-  "keywords": ["...", "...", ...]
+  "keywords": ["...", "...", ...],
+  "accent_color": "oklch(L C H)"
 }
 
 THEMES_TO_AVOID (recent past weeks): %s
@@ -510,6 +527,57 @@ func (c *Client) ProposeWeeklyTheme(ctx context.Context, candidates []ThemeCandi
 	out.ThemeName = strings.TrimSpace(out.ThemeName)
 	out.Description = strings.TrimSpace(out.Description)
 	return &out, nil
+}
+
+// ProposeThemeAccent asks Claude to pick a single OKLCH accent color
+// for an existing themed collection given its title + description.
+// Used by cmd/recolor-themes to backfill collections that were
+// generated before AccentColor existed on ThemePick.
+func (c *Client) ProposeThemeAccent(ctx context.Context, title, description string) (string, error) {
+	if !c.Enabled() {
+		return "", fmt.Errorf("anthropic api key not configured")
+	}
+	system := `You are picking a single OKLCH accent color for a wallpaper collection theme.
+
+Output ONE color: oklch(L C H) where
+  L = 0.55–0.75 (mid-bright, legible on light paper)
+  C = 0.10–0.20 (saturated but not garish)
+  H = 0–360
+
+The hue should evoke the theme's mood without being literal — a winter theme doesn't have to be blue, but should feel cool; a desert theme doesn't have to be tan, but should feel warm.
+
+Output ONLY the oklch() string. No fence, no commentary, no explanation.
+
+Examples:
+  Theme: "Sunset Silhouettes"           → oklch(0.65 0.18 35)
+  Theme: "Snowbound Stillness"          → oklch(0.70 0.06 230)
+  Theme: "Neon Cyberpunk Streets"       → oklch(0.60 0.18 290)
+  Theme: "Cats in Curious Moments"      → oklch(0.65 0.13 55)
+  Theme: "Mirror Lakes"                 → oklch(0.62 0.10 200)`
+
+	resp, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     c.model,
+		MaxTokens: 80,
+		System:    []anthropic.TextBlockParam{{Text: system}},
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(fmt.Sprintf("Title: %q\nDescription: %q", title, description))),
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("anthropic api: %w", err)
+	}
+	c.recordUsage("theme_accent", resp.Usage)
+	for _, block := range resp.Content {
+		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
+			raw := strings.TrimSpace(t.Text)
+			raw = strings.Trim(raw, "`\"' \n")
+			if !strings.HasPrefix(raw, "oklch(") {
+				return "", fmt.Errorf("malformed accent: %q", truncateLLM(raw, 100))
+			}
+			return raw, nil
+		}
+	}
+	return "", fmt.Errorf("anthropic returned no text")
 }
 
 func truncateLLM(s string, n int) string {

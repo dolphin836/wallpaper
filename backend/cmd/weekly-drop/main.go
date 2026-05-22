@@ -191,6 +191,7 @@ func main() {
 			Kind:        1,
 			Year:        int16(year),
 			Week:        int16(week),
+			AccentColor: pick.AccentColor,
 		}
 		col.Slug = slug.Generate(fmt.Sprintf("week-%d-%02d-%s", year, week, pick.ThemeName))
 		if err := collectionRepo.Create(ctx, col); err != nil {

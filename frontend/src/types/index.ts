@@ -145,6 +145,7 @@ export interface Collection {
   kind?: number;
   year?: number;
   week?: number;
+  accent_color?: string;
   created_at: string;
   updated_at: string;
 }

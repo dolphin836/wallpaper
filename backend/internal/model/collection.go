@@ -19,6 +19,10 @@ type Collection struct {
 	Kind int16 `gorm:"not null;default:0" json:"kind"`
 	Year int16 `gorm:"not null;default:0" json:"year,omitempty"`
 	Week int16 `gorm:"not null;default:0" json:"week,omitempty"`
+	// AccentColor is set by cmd/weekly-drop for themed (kind=1) collections.
+	// Stored as an OKLCH string ("oklch(0.65 0.18 35)") so the frontend can
+	// drop it directly into a CSS var. Empty for user collections.
+	AccentColor string `gorm:"column:accent_color;size:64;not null;default:''" json:"accent_color,omitempty"`
 	CreatedAt      time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
 	UpdatedAt      time.Time `gorm:"not null;autoUpdateTime" json:"updated_at"`
 	// RecentTiles is populated by handlers that need a mini-preview strip for

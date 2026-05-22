@@ -43,10 +43,18 @@ export default function CollectionCard({ collection, curatorHandle }: Props) {
         </div>
       </div>
 
-      {/* Caption */}
-      <div className="pt-3">
+      {/* Caption. Themed collections (kind=1) carry an accent_color set
+          by cmd/weekly-drop's Claude call; we render a 2px rule above
+          the caption in that color and tint the ID counter so each
+          week's card visually leads with its own palette. User
+          collections (kind=0, accent_color empty) fall back to the
+          neutral hair color so the layout doesn't shift. */}
+      <div
+        className="pt-3 border-t-2 mt-3"
+        style={{ borderColor: collection.accent_color || 'var(--color-hair)' }}
+      >
         <div className="flex items-center justify-between mono text-[10px] tracking-[0.12em] uppercase text-muted">
-          <span>
+          <span style={collection.accent_color ? { color: collection.accent_color } : undefined}>
             №{String(collection.id).padStart(3, '0')} ·{' '}
             {collection.wallpaper_count} {collection.wallpaper_count === 1 ? 'wallpaper' : 'wallpapers'}
           </span>

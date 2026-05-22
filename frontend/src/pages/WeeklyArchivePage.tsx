@@ -56,6 +56,16 @@ export default function WeeklyArchivePage() {
                   />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-black/0" />
+                {/* Per-week accent rule across the top of the tile. Themed
+                    collections set this from Claude's palette; entries
+                    without a theme just don't render the bar. */}
+                {r.accent_color && (
+                  <span
+                    aria-hidden
+                    className="absolute top-0 left-0 right-0 h-[3px] z-[2]"
+                    style={{ background: r.accent_color }}
+                  />
+                )}
                 <div className="absolute bottom-2 left-3 right-3 text-paper">
                   <div className="mono text-[10px] tracking-[0.14em] uppercase opacity-90">
                     {r.year} · Week {String(r.week).padStart(2, '0')}

@@ -71,6 +71,7 @@ export interface WeeklyArchiveEntry {
   week: number;
   count: number;
   cover_url: string;
+  accent_color?: string;
 }
 export interface WeeklyCurrent {
   year: number;
