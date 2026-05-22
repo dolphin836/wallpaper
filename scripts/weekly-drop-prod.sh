@@ -9,13 +9,29 @@
 # (403 "Request not allowed"). This is the canonical "offshore API + prod
 # DB" pattern — same shape as scripts/autotag-prod.sh.
 #
-# No flags. Default mode is --commit (writes everything). Re-running for
-# the same ISO week is fine — the picks generator replaces existing rows
-# and the collection upsert is keyed on (year, week, kind=1).
+# Usage:
+#   ./scripts/weekly-drop-prod.sh           # current ISO week
+#   ./scripts/weekly-drop-prod.sh 18        # backfill an explicit week (this year)
+#
+# Always runs with --commit. The picks generator is upsert-safe on
+# (year, week) — re-running for an existing week replaces its slate.
+# (Collections are not upsert-safe today; running the same week twice
+#  will create a second themed collection. Avoid unless you mean to.)
 #
 # Requires: ANTHROPIC_API_KEY (auto-loaded from repo .env if not set in
 # your shell), SSH access to the prod host.
 set -euo pipefail
+
+EXTRA_ARGS=()
+if [ $# -gt 0 ]; then
+    WEEK="$1"
+    if ! [[ "${WEEK}" =~ ^[0-9]+$ ]] || [ "${WEEK}" -lt 1 ] || [ "${WEEK}" -gt 53 ]; then
+        echo "ERROR: week must be an integer in 1..53, got '${WEEK}'" >&2
+        exit 1
+    fi
+    EXTRA_ARGS+=(--week "${WEEK}")
+    echo "==> Targeting ISO week ${WEEK} of the current year"
+fi
 
 : "${SSH_HOST:=root@139.224.49.94}"
 : "${TUNNEL_PORT:=15432}"
@@ -52,7 +68,11 @@ if ! nc -z 127.0.0.1 "${TUNNEL_PORT}" 2>/dev/null; then
     exit 1
 fi
 
-echo "==> Generating this week's picks + themed collection"
+if [ ${#EXTRA_ARGS[@]} -eq 0 ]; then
+    echo "==> Generating this week's picks + themed collection"
+else
+    echo "==> Generating picks + themed collection for ${EXTRA_ARGS[*]}"
+fi
 cd "${REPO_ROOT}/backend"
 DB_HOST=127.0.0.1 \
 DB_PORT="${TUNNEL_PORT}" \
@@ -61,4 +81,4 @@ DB_PASSWORD="${DB_PASSWORD}" \
 DB_NAME=wallpaper \
 DB_SSLMODE=disable \
 ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
-go run ./cmd/weekly-drop --commit
+go run ./cmd/weekly-drop --commit "${EXTRA_ARGS[@]}"
