@@ -590,13 +590,34 @@
   display: block;
   transition: transform 700ms cubic-bezier(.22,.61,.36,1), filter 400ms ease;
 }
-.coll-card:hover .coll-stack {
-  transform: translateY(-3px);
-  border-color: var(--color-ink-2);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
-}
+/* Image-only hover treatment — the lift / border-color / box-shadow
+   that used to ride on `.coll-stack` was too busy; just letting the
+   imagery breathe and animating the caption rule below carries the
+   interaction. */
 .coll-card:hover .coll-stack .coll-main img { transform: scale(1.04); }
 .coll-card:hover .coll-stack .coll-sub  img { transform: scale(1.06); }
+
+/* Caption rule. Default state is the hair color across the full
+   width; on hover the card's accent color wipes in from the left
+   over 320ms. CollectionCard sets --card-accent inline from the
+   collection's accent_color, with a fallback to the global accent. */
+.coll-rule {
+  position: relative;
+  height: 2px;
+  background: var(--color-hair);
+}
+.coll-rule::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--card-accent, var(--color-accent));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 320ms var(--ease-out-quart);
+}
+.coll-card:hover .coll-rule::after {
+  transform: scaleX(1);
+}
 
 /* Featured corner brackets revealed on hover */
 .coll-stack .coll-main::before,

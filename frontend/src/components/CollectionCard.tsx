@@ -29,7 +29,11 @@ export default function CollectionCard({ collection, curatorHandle }: Props) {
   const extra = Math.max(0, collection.wallpaper_count - 3);
 
   return (
-    <Link to={`/collections/${collection.slug}`} className="coll-card no-underline text-ink">
+    <Link
+      to={`/collections/${collection.slug}`}
+      className="coll-card no-underline text-ink"
+      style={{ '--card-accent': collection.accent_color || 'var(--color-accent)' } as React.CSSProperties}
+    >
       <div className="coll-stack">
         <div className="coll-main">
           <Tile tile={main} />
@@ -43,18 +47,17 @@ export default function CollectionCard({ collection, curatorHandle }: Props) {
         </div>
       </div>
 
-      {/* Caption. Themed collections (kind=1) carry an accent_color set
-          by cmd/weekly-drop's Claude call; we render a 2px rule above
-          the caption in that color and tint the ID counter so each
-          week's card visually leads with its own palette. User
-          collections (kind=0, accent_color empty) fall back to the
-          neutral hair color so the layout doesn't shift. */}
-      <div
-        className="pt-3 border-t-2 mt-3"
-        style={{ borderColor: collection.accent_color || 'var(--color-hair)' }}
-      >
+      {/* Caption. The 2px rule above is hair-colored at rest and wipes
+          to the card's accent on hover (the wipe / accent color is
+          set by --card-accent on the Link wrapper above). Themed
+          collections carry their own accent_color from Claude; user
+          collections fall back to the global accent. ID counter is
+          unchanged — kept neutral so the wipe is the only colored
+          motion. */}
+      <div className="coll-rule mt-3" aria-hidden />
+      <div className="pt-3">
         <div className="flex items-center justify-between mono text-[10px] tracking-[0.12em] uppercase text-muted">
-          <span style={collection.accent_color ? { color: collection.accent_color } : undefined}>
+          <span>
             №{String(collection.id).padStart(3, '0')} ·{' '}
             {collection.wallpaper_count} {collection.wallpaper_count === 1 ? 'wallpaper' : 'wallpapers'}
           </span>
