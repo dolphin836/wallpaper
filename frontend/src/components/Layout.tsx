@@ -94,7 +94,7 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
               key={item.label}
               to={item.to}
               onClick={onCloseDrawer}
-              className={`group grid grid-cols-[20px_1fr] items-baseline gap-2 pl-3 pr-2 -mx-2 py-3 ${i === 0 ? 'border-t border-hair' : ''} border-b border-hair border-l-2 no-underline transition-colors duration-200 ${
+              className={`group grid grid-cols-[20px_1fr] items-baseline gap-2 pl-3 pr-2 -mx-2 py-3 border-l-2 no-underline transition-colors duration-200 ${
                 active
                   ? 'border-l-ink text-ink'
                   : 'border-l-transparent text-ink-2 hover:text-ink hover:border-l-hair'
