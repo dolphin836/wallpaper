@@ -10,6 +10,21 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [1.3.5] - 2026-05-23
+
+### Fixed
+
+- **Auto-rotate now reaches every display, including ones that were
+  asleep at the rotation tick.** Previously, when the 4-hour timer
+  fired while a secondary monitor was in display-sleep, that screen
+  was missing from `NSScreen.screens` so `setDesktopImageURL` never
+  ran for it — when the monitor woke up, macOS restored the previous
+  wallpaper from its plist. The manager now listens for
+  `didChangeScreenParametersNotification` (display connect / wake /
+  mode change) and `NSWorkspace.didWakeNotification` (system wake),
+  and re-applies the current wallpaper to every connected screen
+  when either fires.
+
 ## [1.3.4] - 2026-05-23
 
 ### Changed

@@ -56,6 +56,60 @@ final class WallpaperManager {
         if autoRotate {
             startRotation()
         }
+
+        // Re-apply the current wallpaper whenever the screen layout
+        // changes (display connect / disconnect / wake-from-sleep) or
+        // when the Mac itself wakes. NSScreen.screens skips sleeping or
+        // disconnected displays, so a wallpaper applied during
+        // auto-rotate while a secondary monitor was asleep would never
+        // reach that display — when the user came back to a woken
+        // monitor it still showed the old image. Two observers fix that
+        // by re-running setDesktopImageURL on every screen as soon as
+        // the topology stabilizes.
+        installScreenChangeObservers()
+    }
+
+    // WallpaperManager is a singleton with process-lifetime — deinit
+    // never runs, so we don't bother holding observer tokens to
+    // unregister. NotificationCenter's block-based observers keep a
+    // weak self capture so they're harmless if the singleton ever
+    // were to disappear.
+
+    private func installScreenChangeObservers() {
+        // didChangeScreenParametersNotification fires for any display
+        // topology change: connect, disconnect, mode change, and
+        // (importantly) wake from display sleep.
+        _ = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.reapplyCurrentWallpaper(source: "screen-change")
+            }
+        }
+        // didWakeNotification fires when the Mac itself wakes from
+        // system sleep. Some configurations (e.g. closed-lid clamshell
+        // with the external display already on) only emit the
+        // screen-change notification after the workspace wake, so
+        // observing both gives us belt-and-suspenders coverage.
+        _ = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.reapplyCurrentWallpaper(source: "system-wake")
+            }
+        }
+    }
+
+    /// Re-run setDesktopImageURL on every connected screen for the
+    /// wallpaper currently marked as active. No-op when nothing is
+    /// active or the file is missing locally.
+    private func reapplyCurrentWallpaper(source: String) {
+        guard let id = currentWallpaperID, let url = localURL(for: id) else { return }
+        applyToAllScreens(url: url, source: source)
     }
 
     // MARK: - Auto-rotate
