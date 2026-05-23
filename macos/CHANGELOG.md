@@ -10,6 +10,19 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-05-23
+
+### Changed
+
+- **Wallpaper-apply now logs per-screen results.** Both manual Set
+  Wallpaper and the 4-hour auto-rotate route through a single helper
+  that records each connected display's localized name, frame, and
+  setDesktopImageURL outcome to the unified log (subsystem
+  `com.wallpaperexchange.mac`, category `wallpaper`). Investigating
+  reports of "secondary monitors didn't get the new wallpaper" needs
+  the per-screen log; the previous code silently swallowed errors
+  with `try?`.
+
 ## [1.3.3] - 2026-05-23
 
 ### Added

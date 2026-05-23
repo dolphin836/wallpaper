@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import os.log
 
 @MainActor
 @Observable
@@ -25,6 +26,12 @@ final class WallpaperManager {
     private var rotationTask: Task<Void, Never>?
     private let autoRotateDefaultsKey = "wallpaper.autoRotate"
     private let rotationInterval: TimeInterval = 4 * 3600
+
+    // Console.app subsystem for setDesktopImageURL diagnostics. Useful for
+    // chasing reports of "only the main screen got the new wallpaper" —
+    // users can filter the unified log to com.wallpaperexchange.mac and
+    // see per-screen success / failure for each rotation tick.
+    private let logger = Logger(subsystem: "com.wallpaperexchange.mac", category: "wallpaper")
     private var rotationIntervalNs: UInt64 { UInt64(rotationInterval * 1_000_000_000) }
 
     // ID of the wallpaper most recently applied to the desktop, regardless
@@ -103,13 +110,33 @@ final class WallpaperManager {
             return (id, url)
         }
         guard let pick = pairs.randomElement() else { return }
-        for screen in NSScreen.screens {
-            try? NSWorkspace.shared.setDesktopImageURL(pick.1, for: screen, options: [
-                .imageScaling: NSImageScaling.scaleProportionallyUpOrDown.rawValue,
-                .allowClipping: true,
-            ])
-        }
+        applyToAllScreens(url: pick.1, source: "auto-rotate")
         markCurrent(pick.0)
+    }
+
+    /// Set the same image URL on every connected NSScreen and log the
+    /// per-screen result. The old code looped with `try?`, which made
+    /// silent failures on secondary monitors impossible to diagnose
+    /// (a user-reported issue: only the main display got the new
+    /// wallpaper). We now log each screen's localized name + frame
+    /// alongside the success / error and surface failures so the next
+    /// rotation tick has something concrete to work from.
+    private func applyToAllScreens(url: URL, source: String) {
+        let screens = NSScreen.screens
+        logger.info("applying wallpaper from \(source, privacy: .public): \(screens.count, privacy: .public) screen(s)")
+        for (idx, screen) in screens.enumerated() {
+            let name = screen.localizedName
+            let frame = screen.frame
+            do {
+                try NSWorkspace.shared.setDesktopImageURL(url, for: screen, options: [
+                    .imageScaling: NSImageScaling.scaleProportionallyUpOrDown.rawValue,
+                    .allowClipping: true,
+                ])
+                logger.info("screen[\(idx, privacy: .public)] \(name, privacy: .public) \(Int(frame.width), privacy: .public)x\(Int(frame.height), privacy: .public): OK")
+            } catch {
+                logger.error("screen[\(idx, privacy: .public)] \(name, privacy: .public) \(Int(frame.width), privacy: .public)x\(Int(frame.height), privacy: .public): FAILED — \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     var storagePath: URL { storageDir }
@@ -243,12 +270,7 @@ final class WallpaperManager {
         guard let url = localURL(for: wallpaper.id) else {
             throw WallpaperError.fileUnavailable
         }
-        for screen in NSScreen.screens {
-            try NSWorkspace.shared.setDesktopImageURL(url, for: screen, options: [
-                .imageScaling: NSImageScaling.scaleProportionallyUpOrDown.rawValue,
-                .allowClipping: true,
-            ])
-        }
+        applyToAllScreens(url: url, source: "manual-set id=\(wallpaper.id)")
         markCurrent(wallpaper.id)
     }
 
