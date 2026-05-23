@@ -62,6 +62,7 @@ struct Wallpaper: Decodable, Identifiable {
     let downloadCount: Int
     let favoriteCount: Int
     let isDynamic: Bool
+    let isAIGenerated: Bool?
     let isLiked: Bool?
     let isFavorited: Bool?
     let isDownloaded: Bool?
@@ -82,6 +83,7 @@ struct Wallpaper: Decodable, Identifiable {
         case downloadCount = "download_count"
         case favoriteCount = "favorite_count"
         case isDynamic = "is_dynamic"
+        case isAIGenerated = "is_ai_generated"
         case isLiked = "is_liked"
         case isFavorited = "is_favorited"
         case isDownloaded = "is_downloaded"

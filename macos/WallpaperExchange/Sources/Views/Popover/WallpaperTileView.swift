@@ -81,6 +81,9 @@ struct WallpaperTileView: View {
             if wallpaper.isDynamic {
                 Chip(text: "Mac", icon: "apple.logo")
             }
+            if wallpaper.isAIGenerated == true {
+                Chip(text: "AI", icon: "sparkles", tone: .ai)
+            }
         }
         .padding(chipInset)
     }
@@ -198,7 +201,7 @@ struct WallpaperTileView: View {
 // MARK: - Sub-components
 
 private struct Chip: View {
-    enum Tone { case neutral, active, warn }
+    enum Tone { case neutral, active, warn, ai }
     let text: String
     var icon: String? = nil
     var tone: Tone = .neutral
@@ -238,6 +241,10 @@ private struct Chip: View {
             Color.accent
         case .warn:
             Color.warn
+        case .ai:
+            // Matches the web's `bg-violet-600/85` AI badge so the chip
+            // reads as "this came out of cmd/aigen" across surfaces.
+            Color(red: 0.45, green: 0.30, blue: 0.85).opacity(0.85)
         }
     }
 }

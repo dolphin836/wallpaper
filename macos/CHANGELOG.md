@@ -10,6 +10,14 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-05-23
+
+### Added
+
+- **AI badge on wallpaper tiles.** AI-generated wallpapers now carry a
+  violet "AI" chip in the top-left corner alongside the resolution /
+  Mac chips, matching the badge introduced on the web.
+
 ## [1.3.2] - 2026-05-20
 
 ### Changed
