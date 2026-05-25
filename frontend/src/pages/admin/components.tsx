@@ -151,6 +151,8 @@ export const WALLPAPER_STATUS: Record<number, { label: string; tone: 'good' | 'w
   2: { label: '处理失败', tone: 'bad' },
   3: { label: '已下架', tone: 'mute' },
   4: { label: '重复', tone: 'mute' },
+  5: { label: '待审核', tone: 'info' },
+  6: { label: '已拒绝', tone: 'bad' },
 };
 
 export const REPORT_STATUS: Record<number, { label: string; tone: 'good' | 'warn' | 'bad' | 'mute' }> = {
