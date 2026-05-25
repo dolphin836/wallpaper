@@ -87,6 +87,12 @@ func NewTusHandler(
 		DisableDownload:         true,
 		NotifyCompleteUploads:   true,
 		PreUploadCreateCallback: h.preCreate,
+		// Trust X-Forwarded-Host / X-Forwarded-Proto set by Caddy.
+		// Without this tusd would build the Location header from the
+		// container-internal URL (http://api:8080/...) and the browser
+		// would reject the cross-protocol PATCH with a Mixed Content
+		// error — even though the original request came over HTTPS.
+		RespectForwardedHeaders: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("tus handler: %w", err)
