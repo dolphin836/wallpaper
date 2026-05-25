@@ -159,6 +159,9 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Post("/wallpapers/ai-upload", deps.AdminHandler.UploadAIWallpaper)
 
 			r.Get("/wallpapers", deps.AdminHandler.ListWallpapers)
+			r.Get("/wallpapers/review-queue", deps.AdminHandler.ListReviewQueue)
+			r.Post("/wallpapers/{id}/approve-review", deps.AdminHandler.ApproveReview)
+			r.Post("/wallpapers/{id}/reject-review", deps.AdminHandler.RejectReview)
 			r.Put("/wallpapers/{id}", deps.AdminHandler.UpdateWallpaper)
 			r.Post("/wallpapers/{id}/reprocess", deps.AdminHandler.ReprocessWallpaper)
 			r.Post("/wallpapers/{id}/approve-quality", deps.AdminHandler.ApproveQuality)

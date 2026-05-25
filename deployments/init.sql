@@ -257,6 +257,18 @@ CREATE INDEX IF NOT EXISTS idx_analytics_events_session ON analytics_events(sess
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS is_ai_generated BOOLEAN NOT NULL DEFAULT false;
 CREATE INDEX IF NOT EXISTS idx_wallpapers_ai ON wallpapers(is_ai_generated) WHERE is_ai_generated = true;
 
+-- Admin review queue. New uploads land in status=5 (PendingReview) after
+-- processing, and admin must approve before the wallpaper becomes
+-- publicly visible. Rejection writes status=6 (Rejected) + a
+-- human-readable rejection_reason that the uploader sees on their
+-- "my uploads" view. Existing pre-policy rows (~900 on first
+-- deployment) keep status=1 (Published); only NEW uploads after this
+-- migration enter the queue.
+ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS rejection_reason VARCHAR(280) NOT NULL DEFAULT '';
+-- Partial index keeps the review-queue list query cheap as the table
+-- grows: the queue only needs rows in status=5.
+CREATE INDEX IF NOT EXISTS idx_wallpapers_review_queue ON wallpapers(created_at DESC) WHERE status = 5;
+
 -- Per-call ledger for Anthropic Claude API usage. We can't query the
 -- Admin API without an Org Owner Admin key, so instead the LLM client
 -- records token usage + computed USD cost after every successful call.

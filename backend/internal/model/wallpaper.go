@@ -3,11 +3,19 @@ package model
 import "time"
 
 const (
-	WallpaperStatusProcessing int16 = 0
-	WallpaperStatusPublished  int16 = 1
-	WallpaperStatusFailed     int16 = 2
-	WallpaperStatusRemoved    int16 = 3
-	WallpaperStatusDuplicate  int16 = 4
+	WallpaperStatusProcessing    int16 = 0
+	WallpaperStatusPublished     int16 = 1
+	WallpaperStatusFailed        int16 = 2
+	WallpaperStatusRemoved       int16 = 3
+	WallpaperStatusDuplicate     int16 = 4
+	// PendingReview lands here after image / video processing finishes
+	// successfully. Admin must approve before the wallpaper becomes
+	// publicly visible. Existing pre-policy rows are unaffected — they
+	// stay Published; only new uploads go through the review queue.
+	WallpaperStatusPendingReview int16 = 5
+	// Rejected by admin during review. Stays out of public listings;
+	// rejection_reason on the wallpaper row tells the uploader why.
+	WallpaperStatusRejected      int16 = 6
 )
 
 type Wallpaper struct {
@@ -35,6 +43,11 @@ type Wallpaper struct {
 	DynamicType   string    `gorm:"size:16;not null;default:''" json:"dynamic_type"`
 	FrameURLs     string    `gorm:"type:text;not null;default:''" json:"frame_urls"`
 	IsAIGenerated bool      `gorm:"column:is_ai_generated;not null;default:false" json:"is_ai_generated,omitempty"`
+	// RejectionReason is populated when admin rejects a wallpaper in
+	// the review queue. Surfaced on the uploader's "my uploads" view
+	// next to the Rejected status chip so they know what to fix on
+	// the next upload.
+	RejectionReason string `gorm:"column:rejection_reason;size:280;not null;default:''" json:"rejection_reason,omitempty"`
 	Phash         int64     `gorm:"not null;default:0" json:"-"`
 	QualityFlag   string    `gorm:"size:32;not null;default:''" json:"quality_flag,omitempty"`
 	QualityNotes  string    `gorm:"type:text;not null;default:''" json:"quality_notes,omitempty"`

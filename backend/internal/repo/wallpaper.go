@@ -45,7 +45,7 @@ func (r *WallpaperRepo) Create(ctx context.Context, w *model.Wallpaper) error {
 func (r *WallpaperRepo) GetByID(ctx context.Context, id int64) (*model.Wallpaper, error) {
 	var w model.Wallpaper
 	err := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, created_at, updated_at").
+		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, rejection_reason, created_at, updated_at").
 		Where("id = ? AND status != ?", id, model.WallpaperStatusRemoved).
 		First(&w).Error
 	if err != nil {
@@ -75,7 +75,7 @@ func (r *WallpaperRepo) GetByIDAnyStatus(ctx context.Context, id int64) (*model.
 func (r *WallpaperRepo) GetBySlug(ctx context.Context, slug string) (*model.Wallpaper, error) {
 	var w model.Wallpaper
 	err := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, created_at, updated_at").
+		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, rejection_reason, created_at, updated_at").
 		Where("slug = ? AND status != ?", slug, model.WallpaperStatusRemoved).
 		First(&w).Error
 	if err != nil {
@@ -148,7 +148,7 @@ func (r *WallpaperRepo) applyListFilters(query *gorm.DB, opts ListOptions) *gorm
 
 func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wallpaper, error) {
 	query := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, created_at")
+		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, rejection_reason, created_at")
 	query = r.applyListFilters(query, opts)
 	if opts.Cursor > 0 {
 		query = query.Where("id < ?", opts.Cursor)
@@ -184,7 +184,7 @@ func (r *WallpaperRepo) GetByIDs(ctx context.Context, ids []int64) ([]model.Wall
 	}
 	var wallpapers []model.Wallpaper
 	err := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, created_at").
+		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, rejection_reason, created_at").
 		Where("id IN ? AND status = ?", ids, model.WallpaperStatusPublished).
 		Find(&wallpapers).Error
 	return wallpapers, err
@@ -208,8 +208,60 @@ func (r *WallpaperRepo) UpdateProcessed(ctx context.Context, id int64, thumbURL,
 			"height":         height,
 			"dominant_color": dominantColor,
 			"color_palette":  colorPalette,
-			"status":         model.WallpaperStatusPublished,
+			// New uploads land in the review queue rather than going
+			// straight live. Admin moves the row to Published via
+			// AdminApprove (sets status=1 + clears rejection_reason).
+			"status":         model.WallpaperStatusPendingReview,
 		}).Error
+}
+
+// AdminApprove transitions a wallpaper from PendingReview → Published,
+// clearing any prior rejection reason in case the row went through a
+// reject-then-undo cycle. Called by the admin review queue handler.
+func (r *WallpaperRepo) AdminApprove(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Wallpaper{}).
+		Where("id = ? AND status = ?", id, model.WallpaperStatusPendingReview).
+		Updates(map[string]any{
+			"status":           model.WallpaperStatusPublished,
+			"rejection_reason": "",
+		}).Error
+}
+
+// AdminReject transitions PendingReview → Rejected and stores the
+// human-readable reason the uploader sees on their "my uploads" view.
+func (r *WallpaperRepo) AdminReject(ctx context.Context, id int64, reason string) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Wallpaper{}).
+		Where("id = ? AND status = ?", id, model.WallpaperStatusPendingReview).
+		Updates(map[string]any{
+			"status":           model.WallpaperStatusRejected,
+			"rejection_reason": reason,
+		}).Error
+}
+
+// ReviewQueue returns wallpapers awaiting admin review, newest first.
+// Uses the idx_wallpapers_review_queue partial index so the list stays
+// cheap even when the catalog grows past hundreds of thousands of
+// already-published rows.
+func (r *WallpaperRepo) ReviewQueue(ctx context.Context, limit, offset int) ([]model.Wallpaper, int64, error) {
+	var rows []model.Wallpaper
+	var total int64
+	if err := r.db.WithContext(ctx).
+		Model(&model.Wallpaper{}).
+		Where("status = ?", model.WallpaperStatusPendingReview).
+		Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := r.db.WithContext(ctx).
+		Where("status = ?", model.WallpaperStatusPendingReview).
+		Order("created_at ASC"). // oldest first — first-come first-reviewed
+		Limit(limit).
+		Offset(offset).
+		Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	return rows, total, nil
 }
 
 // SetAutoTagged writes the LLM-chosen category onto a published wallpaper,

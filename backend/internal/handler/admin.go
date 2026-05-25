@@ -266,6 +266,68 @@ func (h *AdminHandler) ApproveQuality(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, nil)
 }
 
+// ─── review queue ─────────────────────────────────────────────────────
+// Uploads now land in WallpaperStatusPendingReview after processing.
+// Admin uses these three endpoints to drain the queue.
+
+func (h *AdminHandler) ListReviewQueue(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	page, limit := parsePage(q)
+	rows, total, err := h.wallpaperRepo.ReviewQueue(r.Context(), limit, (page-1)*limit)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "admin review queue list failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, map[string]any{
+		"items": rows, "total": total, "page": page, "limit": limit,
+	})
+}
+
+func (h *AdminHandler) ApproveReview(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	if err := h.wallpaperRepo.AdminApprove(r.Context(), id); err != nil {
+		slog.ErrorContext(r.Context(), "admin approve review failed", "id", id, "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, nil)
+}
+
+type adminRejectReviewReq struct {
+	Reason string `json:"reason"`
+}
+
+func (h *AdminHandler) RejectReview(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	var req adminRejectReviewReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	reason := strings.TrimSpace(req.Reason)
+	if reason == "" {
+		reason = "Rejected by admin"
+	}
+	if len(reason) > 280 {
+		reason = reason[:280]
+	}
+	if err := h.wallpaperRepo.AdminReject(r.Context(), id, reason); err != nil {
+		slog.ErrorContext(r.Context(), "admin reject review failed", "id", id, "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, nil)
+}
+
 // ReprocessWallpaper re-queues a stuck or failed wallpaper through the
 // image worker. Flips status back to processing and re-publishes the
 // original wallpaper.uploaded Kafka event with the same object key, so
