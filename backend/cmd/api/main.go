@@ -112,6 +112,15 @@ func main() {
 	llmUsageRepo := repo.NewLLMUsageRepo(db)
 	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo, analyticsRepo, llmUsageRepo, store, wallpaperSvc)
 
+	// Resumable video uploads. Failure to set up the tus handler is
+	// non-fatal — the rest of the API stays up and the upload endpoint
+	// is simply unavailable.
+	tusHandler, err := handler.NewTusHandler(wallpaperSvc, wallpaperRepo, store, cfg.JWT.Secret, cfg.Tus.TmpDir)
+	if err != nil {
+		slog.Warn("tus upload handler disabled", "error", err)
+		tusHandler = nil
+	}
+
 	router := handler.NewRouter(handler.Deps{
 		AuthHandler:       authHandler,
 		WallpaperHandler:  wallpaperHandler,
@@ -128,6 +137,7 @@ func main() {
 		WeeklyPickHandler: weeklyPickHandler,
 		StatsHandler:      statsHandler,
 		AdminHandler:      adminHandler,
+		TusHandler:        tusHandler,
 		UserRepo:          userRepo,
 		IndexNowKey:       cfg.IndexNow.Key,
 		JWTSecret:         cfg.JWT.Secret,

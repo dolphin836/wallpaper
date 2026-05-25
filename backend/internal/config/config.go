@@ -15,6 +15,17 @@ type Config struct {
 	JWT       JWTConfig
 	Anthropic AnthropicConfig
 	IndexNow  IndexNowConfig
+	Tus       TusConfig
+}
+
+// TusConfig controls the local-disk staging area used by the
+// /api/v1/uploads/tus/* resumable upload endpoint. The directory
+// holds in-flight chunks and the assembled file for each upload
+// until completion fires and we push to MinIO. Sized to handle
+// max-upload-size × concurrent-uploads — at 200 MB per video, a
+// modest 4 GB tmp dir holds ~20 concurrent uploads.
+type TusConfig struct {
+	TmpDir string `env:"TUS_TMP_DIR" envDefault:"/var/lib/wpe/tus"`
 }
 
 type AnthropicConfig struct {

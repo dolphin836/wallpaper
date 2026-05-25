@@ -638,6 +638,78 @@ func (s *WallpaperService) Reprocess(ctx context.Context, id int64) *errcode.Err
 	return nil
 }
 
+// IngestVideoUploadRequest is what the tus completion handler hands us
+// once the video bytes are safely stored in MinIO. We do NOT re-upload
+// to storage here — the tus handler already streamed the bytes in.
+type IngestVideoUploadRequest struct {
+	ObjectKey string
+	FileSize  int64
+	FileType  string
+	FileName  string
+}
+
+// IngestVideoUpload creates a wallpaper row for a video that's already
+// in MinIO (uploaded via tus) and fires a wallpaper.transcode Kafka
+// event so the transcode worker can normalize the file to H.264 + AAC
+// and generate a poster image. Mirrors the responsibilities of Upload
+// minus the storage write (tus owns that) and the tag handling (we
+// don't take title/desc/tags at tus-upload time; uploader edits those
+// on the "my uploads" page before approval).
+func (s *WallpaperService) IngestVideoUpload(ctx context.Context, userID int64, req IngestVideoUploadRequest) (*model.Wallpaper, *errcode.ErrCode) {
+	slugSource := req.FileName
+	if slugSource == "" {
+		slugSource = "video"
+	}
+	w := &model.Wallpaper{
+		Slug:        slug.FromFileName(slugSource),
+		UserID:      userID,
+		OriginalURL: s.storage.GetURL(req.ObjectKey),
+		Status:      model.WallpaperStatusProcessing,
+		FileSize:    req.FileSize,
+		FileType:    req.FileType,
+	}
+	if err := s.wallpaperRepo.Create(ctx, w); err != nil {
+		slog.ErrorContext(ctx, "ingest video: create wallpaper failed", "error", err)
+		return nil, errcode.ErrInternal
+	}
+	s.publishTranscodeEvent(ctx, w, userID, req.ObjectKey)
+	if _, err := s.coinRepo.Transfer(ctx, repo.SystemUserID, userID, 1,
+		model.CoinTxUploadReward, model.CoinTxUploadReward, w.ID,
+		"Upload reward issued", "Upload video wallpaper reward"); err != nil {
+		slog.ErrorContext(ctx, "failed to grant video upload coin",
+			"error", err, "user_id", userID, "wallpaper_id", w.ID)
+	}
+	return w, nil
+}
+
+// publishTranscodeEvent fires the new wallpaper.transcode topic that
+// the ffmpeg worker consumes. Reuses the WallpaperUploadedEvent shape
+// so the worker can share a decoder with the existing image worker.
+func (s *WallpaperService) publishTranscodeEvent(ctx context.Context, w *model.Wallpaper, userID int64, objectKey string) {
+	event := WallpaperUploadedEvent{
+		WallpaperID: w.ID,
+		UserID:      userID,
+		ObjectKey:   objectKey,
+		Timestamp:   time.Now().UTC().Format(time.RFC3339),
+	}
+	data, err := json.Marshal(event)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to marshal transcode event", "error", err)
+		return
+	}
+	if err := s.kafkaWriter.WriteMessages(ctx, kafka.Message{
+		Topic: "wallpaper.transcode",
+		Key:   []byte(strconv.FormatInt(w.ID, 10)),
+		Value: data,
+	}); err != nil {
+		slog.ErrorContext(ctx, "failed to publish transcode event",
+			"error", err, "wallpaper_id", w.ID)
+	} else {
+		slog.InfoContext(ctx, "wallpaper transcode event published",
+			"wallpaper_id", w.ID, "object_key", objectKey)
+	}
+}
+
 func (s *WallpaperService) publishUploadedEvent(ctx context.Context, w *model.Wallpaper, userID int64, objectKey string) {
 	event := WallpaperUploadedEvent{
 		WallpaperID: w.ID,

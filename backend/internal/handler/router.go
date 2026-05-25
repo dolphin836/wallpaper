@@ -28,6 +28,7 @@ type Deps struct {
 	WeeklyPickHandler *WeeklyPickHandler
 	StatsHandler      *StatsHandler
 	AdminHandler      *AdminHandler
+	TusHandler        *TusHandler
 	UserRepo          *repo.UserRepo
 	JWTSecret         string
 	// IndexNowKey, when non-empty, registers /{IndexNowKey}.txt to serve
@@ -51,9 +52,22 @@ func NewRouter(deps Deps) *chi.Mux {
 			}
 			return strings.HasPrefix(origin, "http://localhost:")
 		},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
-		ExposedHeaders:   []string{"Link"},
+		// PATCH + HEAD are needed by the tus.io resumable upload
+		// protocol; the rest of the API doesn't use them.
+		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowedHeaders: []string{
+			"Accept", "Authorization", "Content-Type",
+			// tus.io protocol headers — required for browser pre-flight
+			// to succeed on POST/PATCH/HEAD against the tus endpoint.
+			"Tus-Resumable", "Upload-Length", "Upload-Offset",
+			"Upload-Metadata", "Upload-Defer-Length", "Upload-Concat",
+		},
+		// Tus client needs to read Location (the upload URL) + Upload-Offset
+		// (resume from where it left off) + Upload-Length from CORS responses.
+		ExposedHeaders: []string{
+			"Link",
+			"Tus-Resumable", "Upload-Offset", "Upload-Length", "Location",
+		},
 		AllowCredentials: true,
 		MaxAge:           86400,
 	}))
@@ -113,6 +127,16 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Use(middleware.Auth(deps.JWTSecret))
 
 			r.Post("/wallpapers", deps.WallpaperHandler.Upload)
+			// Resumable video upload. tus.io protocol — POST creates
+			// an upload, PATCH streams chunks, HEAD resumes. tusd's
+			// handler owns everything past /uploads/tus/. Mounted
+			// inside the Auth group so anonymous traffic is rejected
+			// before tusd even sees it; preCreate inside tusd re-
+			// verifies the JWT to extract user_id.
+			if deps.TusHandler != nil {
+				r.Handle("/uploads/tus", deps.TusHandler)
+				r.Handle("/uploads/tus/*", deps.TusHandler)
+			}
 			r.Delete("/wallpapers/{id}", deps.WallpaperHandler.Delete)
 			r.Get("/wallpapers/{id}/download", deps.WallpaperHandler.Download)
 			r.Post("/wallpapers/{id}/variants/{vid}/download", deps.DeviceHandler.DownloadVariant)

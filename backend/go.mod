@@ -3,6 +3,7 @@ module github.com/wallpaper/backend
 go 1.26.2
 
 require (
+	github.com/anthropics/anthropic-sdk-go v1.43.0
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/chai2010/webp v1.4.0
 	github.com/corona10/goimagehash v1.1.0
@@ -15,6 +16,7 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/redis/go-redis/v9 v9.19.0
 	github.com/segmentio/kafka-go v0.4.51
+	github.com/tus/tusd/v2 v2.9.2
 	golang.org/x/crypto v0.50.0
 	golang.org/x/image v0.39.0
 	golang.org/x/sync v0.20.0
@@ -25,7 +27,6 @@ require (
 )
 
 require (
-	github.com/anthropics/anthropic-sdk-go v1.43.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -61,6 +62,7 @@ require (
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8 // indirect
 	golang.org/x/net v0.53.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

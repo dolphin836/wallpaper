@@ -26,6 +26,11 @@ RUN CGO_ENABLED=0 go build -o /bin/wallpaper-import ./cmd/wallpaper-import
 FROM alpine:3.19 AS api
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
     apk add --no-cache ca-certificates tzdata
+# tus tempdir for resumable video uploads. Mounted as a volume in
+# docker-compose so the staging files persist across api container
+# restarts (an upload paused in the browser can resume after we
+# restart the api).
+RUN mkdir -p /var/lib/wpe/tus
 COPY --from=builder /bin/api /bin/api
 COPY --from=builder /bin/sluggen /bin/sluggen
 COPY --from=builder /bin/phashgen /bin/phashgen

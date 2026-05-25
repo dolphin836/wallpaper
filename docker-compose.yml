@@ -114,6 +114,12 @@ services:
       ANTHROPIC_ADMIN_API_KEY: ${ANTHROPIC_ADMIN_API_KEY:-}
       INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       INDEXNOW_SITE_URL: ${INDEXNOW_SITE_URL:-https://wallpaperexchange.com}
+      TUS_TMP_DIR: "/var/lib/wpe/tus"
+    volumes:
+      # Resumable video uploads stage chunks here. Volume so an
+      # in-flight upload survives an api container restart and the
+      # client can resume.
+      - tus_data:/var/lib/wpe/tus
     depends_on:
       postgres:
         condition: service_healthy
@@ -171,6 +177,7 @@ volumes:
   pg_data:
   redis_data:
   minio_data:
+  tus_data:
 
 networks:
   caddy_shared:
