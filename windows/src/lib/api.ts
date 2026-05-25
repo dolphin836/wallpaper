@@ -12,7 +12,11 @@ import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { getToken } from './auth';
 import type { ApiResponse, AuthResponse, ListResponse, User, Wallpaper } from './types';
 
-const API_BASE = 'https://api.wallpaperexchange.com/api/v1';
+// Apex domain serves /api/v1 via Caddy → Go api container. The
+// api.wallpaperexchange.com subdomain isn't routed in prod (returns
+// connection-reset), so the macOS client's hardcoded subdomain is
+// actually wrong — we point at the apex directly here.
+const API_BASE = 'https://wallpaperexchange.com/api/v1';
 
 async function request<T>(
   path: string,

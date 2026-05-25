@@ -2,10 +2,18 @@ import { useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 import { setToken } from '../lib/auth';
 
-// First-run / signed-out surface. Email + password. The web app's
-// register flow doesn't ship with the Windows MVP — users sign up on
-// the website, then sign in here.
-export default function LoginScreen({ onSignedIn }: { onSignedIn: (token: string) => void }) {
+// Login appears as a centered modal-style overlay on top of the
+// Home screen. Click outside the form (the dim backdrop) or press
+// Esc to dismiss without signing in. Sign-up is web-only — link
+// users out to the marketing site rather than reimplementing the
+// flow in the desktop client.
+export default function LoginScreen({
+  onSignedIn,
+  onCancel,
+}: {
+  onSignedIn: (token: string) => void;
+  onCancel: () => void;
+}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -27,11 +35,11 @@ export default function LoginScreen({ onSignedIn }: { onSignedIn: (token: string
   }
 
   return (
-    <div className="screen-center">
-      <form className="login-form" onSubmit={submit}>
+    <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <form className="login-form" onSubmit={submit} onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}>
         <div className="brand">
           <div className="name">Wallpaper Exchange</div>
-          <div className="kicker" style={{ marginTop: 4 }}>Sign in</div>
+          <div className="kicker" style={{ marginTop: 4 }}>Sign in to download</div>
         </div>
 
         <input
@@ -40,6 +48,7 @@ export default function LoginScreen({ onSignedIn }: { onSignedIn: (token: string
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          autoFocus
           required
           disabled={busy}
         />
@@ -57,8 +66,11 @@ export default function LoginScreen({ onSignedIn }: { onSignedIn: (token: string
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
         <div className="kicker" style={{ textAlign: 'center', marginTop: 8 }}>
-          Don&apos;t have an account? Sign up at wallpaperexchange.com
+          No account? Sign up at wallpaperexchange.com
         </div>
+        <button type="button" onClick={onCancel} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', marginTop: 4, fontSize: 12 }}>
+          Cancel
+        </button>
       </form>
     </div>
   );
