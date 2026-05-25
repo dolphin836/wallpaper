@@ -101,6 +101,27 @@ export default function WallpapersPage() {
     }).catch((e) => toast.error(e?.response?.data?.message || '批准失败'));
   };
 
+  // Review-queue actions exposed inline on the main wallpapers list
+  // for pending_review rows, so admins don't have to bounce over to
+  // /admin/review-queue when they're already filtering or searching
+  // here. Same backend endpoints — just a different surface.
+  const onApproveReview = (id: number) => {
+    if (!confirm('通过审核并公开发布这张壁纸？')) return;
+    admin.approveAdminReview(id).then(() => {
+      toast.success('已通过审核');
+      fetchList();
+    }).catch((e) => toast.error(e?.response?.data?.message || '通过失败'));
+  };
+
+  const onRejectReview = (id: number) => {
+    const reason = window.prompt('拒绝原因（会显示给上传者）：', '');
+    if (reason === null) return;
+    admin.rejectAdminReview(id, reason).then(() => {
+      toast.success('已拒绝');
+      fetchList();
+    }).catch((e) => toast.error(e?.response?.data?.message || '拒绝失败'));
+  };
+
   return (
     <>
       <PageHeader title="壁纸管理" subtitle={`共 ${total} 张`} />
@@ -211,6 +232,12 @@ export default function WallpapersPage() {
                           )}
                           {w.status === 4 && (
                             <button onClick={() => onHardDelete(w.id, w.status)} className="text-xs font-medium text-rose-600 hover:underline">永久删除</button>
+                          )}
+                          {w.status === 5 && (
+                            <>
+                              <button onClick={() => onApproveReview(w.id)} className="text-xs font-medium text-emerald-600 hover:underline mr-3">通过</button>
+                              <button onClick={() => onRejectReview(w.id)} className="text-xs font-medium text-rose-600 hover:underline">拒绝</button>
+                            </>
                           )}
                         </td>
                       </tr>
