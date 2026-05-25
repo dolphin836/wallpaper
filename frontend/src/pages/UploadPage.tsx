@@ -175,7 +175,11 @@ export default function UploadPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-6">
-      <h1 className="text-2xl font-bold text-gray-900 mb-8">Upload Wallpapers</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-2">Upload Wallpapers</h1>
+      <div className="text-[12px] text-gray-600 mb-6">
+        Got a video wallpaper instead?{' '}
+        <a href="/upload/video" className="underline text-gray-900">/upload/video</a>
+      </div>
 
       <div
         {...getRootProps()}

@@ -216,6 +216,10 @@
   transform: scale(1.045);
   filter: brightness(1.04);
 }
+.tile-cell:hover .tile-video,
+.tile-cell:focus-within .tile-video {
+  opacity: 1;
+}
 .tile-cell .tile-gradient { transition: opacity 280ms ease; }
 .tile-cell:hover .tile-gradient,
 .tile-cell:focus-within .tile-gradient { opacity: 1; }

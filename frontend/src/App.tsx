@@ -9,6 +9,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import WallpaperDetailPage from './pages/WallpaperDetailPage';
 import UploadPage from './pages/UploadPage';
+import VideoUploadPage from './pages/VideoUploadPage';
 import ProfilePage from './pages/ProfilePage';
 import CollectionsPage from './pages/CollectionsPage';
 import CollectionDetailPage from './pages/CollectionDetailPage';
@@ -26,6 +27,7 @@ import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/DashboardPage';
 import AdminAnalytics from './pages/admin/AnalyticsPage';
 import AdminWallpapers from './pages/admin/WallpapersPage';
+import AdminReviewQueue from './pages/admin/ReviewQueuePage';
 import AdminCollections from './pages/admin/CollectionsPage';
 import AdminUsers from './pages/admin/UsersPage';
 import AdminReports from './pages/admin/ReportsPage';
@@ -48,6 +50,7 @@ function AppRoutes() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/wallpaper/:slug" element={<WallpaperDetailPage />} />
           <Route path="/upload" element={<UploadPage />} />
+          <Route path="/upload/video" element={<VideoUploadPage />} />
           <Route path="/user/:username" element={<ProfilePage />} />
           <Route path="/collections" element={<CollectionsPage />} />
           <Route path="/uploaders" element={<UploadersPage />} />
@@ -65,6 +68,7 @@ function AppRoutes() {
           <Route index element={<AdminDashboard />} />
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="wallpapers" element={<AdminWallpapers />} />
+          <Route path="review-queue" element={<AdminReviewQueue />} />
           <Route path="collections" element={<AdminCollections />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="reports" element={<AdminReports />} />

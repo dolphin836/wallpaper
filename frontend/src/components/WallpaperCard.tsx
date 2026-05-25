@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -19,6 +19,8 @@ import { likeWallpaper, unlikeWallpaper, favoriteWallpaper, unfavoriteWallpaper,
 const STATUS_PROCESSING = 0;
 const STATUS_PUBLISHED = 1;
 const STATUS_FAILED = 2;
+const STATUS_PENDING_REVIEW = 5;
+const STATUS_REJECTED = 6;
 
 interface Props {
   wallpaper: Wallpaper;
@@ -63,6 +65,11 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   const isProcessing = wallpaper.status === STATUS_PROCESSING;
   const isFailed = wallpaper.status === STATUS_FAILED;
   const canDownload = !wallpaper.is_dynamic || /Macintosh|Mac OS X/i.test(navigator.userAgent);
+  // Video wallpapers carry file_type starting with "video/" after the
+  // transcode worker normalizes to mp4. thumb_url / preview_url point
+  // at the poster.webp the worker also generated; original_url is the
+  // H.264 file we feed to <video>.
+  const isVideo = (wallpaper.file_type || '').startsWith('video/');
 
   const aspectRatio = wallpaper.width > 0 && wallpaper.height > 0
     ? wallpaper.width / wallpaper.height
@@ -249,6 +256,9 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
                 background: 'linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.28) 100%)',
               }}
             />
+            {isVideo && wallpaper.original_url && (
+              <VideoHoverOverlay src={wallpaper.original_url} />
+            )}
           </>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -265,6 +275,12 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           {resLabel && (
             <span className="mono text-[10px] tracking-wider font-medium px-2 py-[3px] rounded-[3px] bg-black/55 text-white backdrop-blur-md">
               {resLabel}
+            </span>
+          )}
+          {isVideo && (
+            <span className="mono text-[10px] tracking-wider font-medium px-2 py-[3px] rounded-[3px] bg-black/55 text-white backdrop-blur-md inline-flex items-center gap-1">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
+              Video
             </span>
           )}
           {wallpaper.is_dynamic && (
@@ -383,6 +399,12 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
 
         {/* Tags: top-left */}
         <div className="absolute top-2.5 left-2.5 z-[3] flex items-center gap-1.5">
+          {isVideo && (
+            <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-black/50 text-white backdrop-blur-sm">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
+              Video
+            </span>
+          )}
           {wallpaper.is_dynamic && (
             <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-black/50 text-white backdrop-blur-sm">
               <svg width="10" height="10" viewBox="0 0 384 512" fill="currentColor"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
@@ -402,19 +424,32 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           )}
         </div>
 
-        {showStatus && wallpaper.status !== STATUS_PUBLISHED && (
-          <span
-            className={`absolute ${wallpaper.is_dynamic || resLabel || wallpaper.is_ai_generated ? 'top-8' : 'top-2.5'} left-2.5 z-[3] px-2 py-0.5 text-[10px] font-semibold rounded-full backdrop-blur-sm ${
-              isProcessing
-                ? 'bg-amber-500/80 text-white'
-                : isFailed
-                  ? 'bg-red-500/80 text-white'
-                  : 'bg-slate-500/80 text-white'
-            }`}
-          >
-            {isProcessing ? 'Processing' : isFailed ? 'Failed' : `Status ${wallpaper.status}`}
-          </span>
-        )}
+        {showStatus && wallpaper.status !== STATUS_PUBLISHED && (() => {
+          // Tone + label table indexed by status. Pending review +
+          // Rejected are owner-only states that appear on the "my
+          // uploads" view; they never reach strangers because the
+          // public list filter restricts to Published.
+          const tone =
+            isProcessing ? 'bg-amber-500/80 text-white' :
+            isFailed ? 'bg-red-500/80 text-white' :
+            wallpaper.status === STATUS_PENDING_REVIEW ? 'bg-violet-500/85 text-white' :
+            wallpaper.status === STATUS_REJECTED ? 'bg-red-500/85 text-white' :
+            'bg-slate-500/80 text-white';
+          const label =
+            isProcessing ? 'Processing' :
+            isFailed ? 'Failed' :
+            wallpaper.status === STATUS_PENDING_REVIEW ? 'Pending review' :
+            wallpaper.status === STATUS_REJECTED ? 'Rejected' :
+            `Status ${wallpaper.status}`;
+          return (
+            <span
+              className={`absolute ${wallpaper.is_dynamic || resLabel || wallpaper.is_ai_generated ? 'top-8' : 'top-2.5'} left-2.5 z-[3] px-2 py-0.5 text-[10px] font-semibold rounded-full backdrop-blur-sm ${tone}`}
+              title={wallpaper.status === STATUS_REJECTED && wallpaper.rejection_reason ? wallpaper.rejection_reason : undefined}
+            >
+              {label}
+            </span>
+          );
+        })()}
 
         {/* Action buttons — appear on hover, only for published wallpapers */}
         {isPublished && !hideActions && <div className="absolute right-0 top-0 bottom-0 z-[2] p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end">
@@ -467,5 +502,31 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         </div>}
       </div>
     </Wrapper>
+  );
+}
+
+// VideoHoverOverlay layers a muted, looping <video> on top of the
+// poster image and only kicks off network I/O on hover (preload="none"
+// + on-demand .load()). Browsers that pause autoplay outside the
+// viewport are fine — we don't autoplay until the user is actually
+// hovering the tile.
+function VideoHoverOverlay({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+  return (
+    <video
+      ref={ref}
+      src={src}
+      muted
+      loop
+      playsInline
+      preload="none"
+      className="tile-video absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-200 pointer-events-none"
+      onMouseEnter={() => {
+        const v = ref.current;
+        if (!v) return;
+        if (v.readyState < 2) v.load();
+        v.play().catch(() => {});
+      }}
+    />
   );
 }

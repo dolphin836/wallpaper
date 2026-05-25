@@ -697,6 +697,21 @@ export default function WallpaperDetailPage() {
                       className="absolute bottom-3 right-3 px-3 py-1 bg-black/60 text-white text-[11px] mono rounded backdrop-blur-sm"
                     >{framePlaying ? 'PAUSE' : 'PLAY'} · {frameIdx + 1}/{frames.length}</button>
                   </div>
+                ) : (wallpaper.file_type || '').startsWith('video/') && wallpaper.original_url ? (
+                  // Video wallpapers play inline on the detail page —
+                  // muted + loop + controls so the user can preview
+                  // the full clip. poster fills in instantly from the
+                  // transcode worker's first-frame webp.
+                  <video
+                    src={wallpaper.original_url}
+                    poster={wallpaper.preview_url || wallpaper.thumb_url}
+                    controls
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-contain select-none bg-black"
+                  />
                 ) : (
                   heroImg && (
                     <img

@@ -58,6 +58,7 @@ export interface Wallpaper {
   dynamic_type: string;
   frame_urls: string;
   is_ai_generated?: boolean;
+  rejection_reason?: string;
   quality_flag?: string;
   quality_notes?: string;
   created_at: string;

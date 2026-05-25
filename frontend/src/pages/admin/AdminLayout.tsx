@@ -6,6 +6,7 @@ import client from '../../api/client';
 const NAV = [
   { to: '/admin', label: '总览', exact: true },
   { to: '/admin/analytics', label: '流量' },
+  { to: '/admin/review-queue', label: '审核' },
   { to: '/admin/wallpapers', label: '壁纸' },
   { to: '/admin/collections', label: '合集' },
   { to: '/admin/users', label: '用户' },
