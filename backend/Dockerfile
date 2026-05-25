@@ -46,6 +46,9 @@ ENTRYPOINT ["/bin/api"]
 
 FROM alpine:3.19 AS worker
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
-    apk add --no-cache ca-certificates tzdata libheif-tools libwebp
+    apk add --no-cache ca-certificates tzdata libheif-tools libwebp ffmpeg
+# Scratch dir for the video transcode worker. Mounted as a volume in
+# compose so concurrent transcodes don't fight for / disk space.
+RUN mkdir -p /var/lib/wpe/transcode
 COPY --from=builder /bin/worker /bin/worker
 ENTRYPOINT ["/bin/worker"]

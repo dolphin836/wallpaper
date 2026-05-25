@@ -152,6 +152,9 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       INDEXNOW_SITE_URL: ${INDEXNOW_SITE_URL:-https://wallpaperexchange.com}
+      TRANSCODE_WORK_DIR: "/var/lib/wpe/transcode"
+    volumes:
+      - transcode_data:/var/lib/wpe/transcode
     depends_on:
       postgres:
         condition: service_healthy
@@ -178,6 +181,7 @@ volumes:
   redis_data:
   minio_data:
   tus_data:
+  transcode_data:
 
 networks:
   caddy_shared:

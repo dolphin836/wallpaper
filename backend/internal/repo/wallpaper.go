@@ -215,6 +215,41 @@ func (r *WallpaperRepo) UpdateProcessed(ctx context.Context, id int64, thumbURL,
 		}).Error
 }
 
+// UpdateTranscodedInput carries the post-transcode metadata the
+// worker writes back to the wallpapers row when a video upload
+// finishes processing.
+type UpdateTranscodedInput struct {
+	OriginalURL string
+	ThumbURL    string
+	PreviewURL  string
+	Width       int
+	Height      int
+	FileSize    int64
+	FileType    string
+}
+
+// UpdateTranscoded writes the transcoded mp4 + poster URLs back to
+// the wallpaper row and transitions Processing → PendingReview so
+// the admin queue picks it up. Mirrors UpdateProcessed in spirit but
+// is keyed for video uploads (poster used for thumb_url AND
+// preview_url since we don't generate device-sized variants for
+// video — the <video> tag scales natively).
+func (r *WallpaperRepo) UpdateTranscoded(ctx context.Context, id int64, in UpdateTranscodedInput) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Wallpaper{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"original_url": in.OriginalURL,
+			"thumb_url":    in.ThumbURL,
+			"preview_url":  in.PreviewURL,
+			"width":        in.Width,
+			"height":       in.Height,
+			"file_size":    in.FileSize,
+			"file_type":    in.FileType,
+			"status":       model.WallpaperStatusPendingReview,
+		}).Error
+}
+
 // AdminApprove transitions a wallpaper from PendingReview → Published,
 // clearing any prior rejection reason in case the row went through a
 // reject-then-undo cycle. Called by the admin review queue handler.

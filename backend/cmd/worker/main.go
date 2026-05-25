@@ -60,6 +60,18 @@ func main() {
 	)
 	statsWorker := worker.NewStatsWorker(cfg.Kafka.Brokers, wallpaperRepo, jobRepo)
 
+	// Transcode worker is optional — if ffmpeg isn't installed or the
+	// work dir can't be created, log and continue so the image +
+	// stats workers stay up. Video uploads won't progress past
+	// Processing until the worker is healthy.
+	transcodeWorker, err := worker.NewTranscodeWorker(
+		cfg.Kafka.Brokers, wallpaperRepo, jobRepo, store, cfg.Transcode.WorkDir,
+	)
+	if err != nil {
+		slog.Warn("transcode worker disabled", "error", err)
+		transcodeWorker = nil
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -81,6 +93,12 @@ func main() {
 		return statsWorker.Run(gCtx)
 	})
 
+	if transcodeWorker != nil {
+		g.Go(func() error {
+			return transcodeWorker.Run(gCtx)
+		})
+	}
+
 	if err := g.Wait(); err != nil && err != context.Canceled {
 		slog.Error("worker error", "error", err)
 	}
@@ -90,6 +108,11 @@ func main() {
 	}
 	if err := statsWorker.Close(); err != nil {
 		slog.Error("close stats worker failed", "error", err)
+	}
+	if transcodeWorker != nil {
+		if err := transcodeWorker.Close(); err != nil {
+			slog.Error("close transcode worker failed", "error", err)
+		}
 	}
 
 	slog.Info("workers stopped")

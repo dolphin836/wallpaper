@@ -16,6 +16,7 @@ type Config struct {
 	Anthropic AnthropicConfig
 	IndexNow  IndexNowConfig
 	Tus       TusConfig
+	Transcode TranscodeConfig
 }
 
 // TusConfig controls the local-disk staging area used by the
@@ -26,6 +27,12 @@ type Config struct {
 // modest 4 GB tmp dir holds ~20 concurrent uploads.
 type TusConfig struct {
 	TmpDir string `env:"TUS_TMP_DIR" envDefault:"/var/lib/wpe/tus"`
+}
+
+// TranscodeConfig: scratch dir the ffmpeg worker writes intermediates
+// into. Sized for max-input × concurrent transcodes.
+type TranscodeConfig struct {
+	WorkDir string `env:"TRANSCODE_WORK_DIR" envDefault:"/var/lib/wpe/transcode"`
 }
 
 type AnthropicConfig struct {
