@@ -1,0 +1,62 @@
+[package]
+name = "wallpaper-exchange-windows"
+version = "0.1.0"
+description = "Wallpaper Exchange desktop client for Windows"
+authors = ["Eric"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77"
+
+# Single binary; we deliberately keep the lib + bin pattern flat because
+# the desktop app doesn't need a Rust library API surface yet.
+[[bin]]
+name = "wallpaper-exchange-windows"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Core Tauri runtime. Tray icon + window management lives here.
+tauri = { version = "2", features = ["tray-icon"] }
+# Plugins.
+tauri-plugin-shell = "2"      # opens URLs in the user's browser
+tauri-plugin-fs = "2"         # write downloaded wallpaper files
+tauri-plugin-http = "2"       # HTTPS to wallpaperexchange.com
+tauri-plugin-notification = "2"
+tauri-plugin-process = "2"    # restart on update
+tauri-plugin-dialog = "2"     # native file picker if we ever need one
+
+# HTTP client used inside Rust commands (not via the JS plugin).
+# rustls so we don't drag in system OpenSSL — keeps the .msi small.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+tokio = { version = "1", features = ["full"] }
+futures-util = "0.3"
+
+# Serialization.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Logging — surfaces in stderr (dev) and the system event log (prod).
+log = "0.4"
+env_logger = "0.11"
+
+# Windows-only crate for Win32 calls (SystemParametersInfo,
+# IDesktopWallpaper COM, WorkerW reparenting, EnumDisplayMonitors).
+# cfg-gated so the build still works on macOS during dev.
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Gdi",
+] }
+
+[features]
+# this feature is used for production builds or when `devPath` points to the
+# filesystem and the built-in dev server is disabled.
+# If you use cargo directly instead of tauri's cli you can use this feature
+# flag to switch between tauri's `dev` and `build` modes.
+# DO NOT REMOVE!!
+custom-protocol = ["tauri/custom-protocol"]
