@@ -129,13 +129,15 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Post("/wallpapers", deps.WallpaperHandler.Upload)
 			// Resumable video upload. tus.io protocol — POST creates
 			// an upload, PATCH streams chunks, HEAD resumes. tusd's
-			// handler owns everything past /uploads/tus/. Mounted
-			// inside the Auth group so anonymous traffic is rejected
-			// before tusd even sees it; preCreate inside tusd re-
-			// verifies the JWT to extract user_id.
+			// internal router strips both ends of r.URL.Path and
+			// expects "" (create) or "<id>" (resource), so we must
+			// http.StripPrefix the API mount path before delegating;
+			// without that tusd sees "api/v1/uploads/tus" and returns
+			// 405 because the trim-leading-slash path isn't empty.
 			if deps.TusHandler != nil {
-				r.Handle("/uploads/tus", deps.TusHandler)
-				r.Handle("/uploads/tus/*", deps.TusHandler)
+				tus := http.StripPrefix("/api/v1/uploads/tus", deps.TusHandler)
+				r.Handle("/uploads/tus", tus)
+				r.Handle("/uploads/tus/*", tus)
 			}
 			r.Delete("/wallpapers/{id}", deps.WallpaperHandler.Delete)
 			r.Get("/wallpapers/{id}/download", deps.WallpaperHandler.Download)

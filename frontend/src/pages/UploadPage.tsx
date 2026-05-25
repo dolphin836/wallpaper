@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
+import * as tus from 'tus-js-client';
 import { resolveBaseURL } from '../api/client';
 import {
   AiOutlineCloudUpload,
@@ -49,22 +50,54 @@ export default function UploadPage() {
     const toAdd = accepted.slice(0, remaining);
     const oversized = toAdd.filter((f) => f.size > MAX_SIZE);
     if (oversized.length > 0) {
-      toast.error(`${oversized.length} file(s) exceed 200MB limit and were skipped`);
+      toast.error(`${oversized.length} file(s) exceed 200MB and were skipped`);
     }
-    const valid = toAdd.filter((f) => f.size <= MAX_SIZE);
-    if (valid.length === 0) return;
+    const sizeOK = toAdd.filter((f) => f.size <= MAX_SIZE);
+    if (sizeOK.length === 0) return;
 
-    const newFiles: UploadFile[] = valid.map((f) => {
-      const isHEIC = /\.heic$/i.test(f.name) || f.type === 'image/heic' || f.type === 'image/heif';
+    // Mixed-batch rules. Videos process one-at-a-time through the tus
+    // resumable endpoint, images stay on the existing multipart route.
+    // We don't combine them in a single batch — easier to reason about
+    // and the failure modes are very different.
+    const incomingHasVideo = sizeOK.some((f) => isVideoFile(f));
+    const existingHasVideo = files.some((f) => isVideoFile(f.file));
+    const existingHasImage = files.some((f) => !isVideoFile(f.file));
+    if (incomingHasVideo) {
+      if (sizeOK.length > 1) {
+        toast.error('Drop one video at a time — combining files in a single batch isn\'t supported');
+        return;
+      }
+      if (existingHasImage) {
+        toast.error('Clear the image batch before adding a video');
+        return;
+      }
+      if (existingHasVideo) {
+        toast.error('Only one video per upload — remove the current one first');
+        return;
+      }
+    } else if (existingHasVideo) {
+      toast.error('Clear the queued video before adding images');
+      return;
+    }
+
+    const newFiles: UploadFile[] = sizeOK.map((f) => {
+      const heic = /\.heic$/i.test(f.name) || f.type === 'image/heic' || f.type === 'image/heif';
       return {
         file: f,
-        preview: isHEIC ? '' : URL.createObjectURL(f),
+        // <video poster> consumes object URLs identically to <img>.
+        preview: heic ? '' : URL.createObjectURL(f),
         status: 'pending' as FileStatus,
         progress: 0,
       };
     });
     setFiles((prev) => [...prev, ...newFiles]);
-  }, [files.length]);
+  }, [files]);
+
+  // Single source of truth for "is this video?" — used by onDrop,
+  // handleUpload, and the per-row card to decide between img/video.
+  const isVideoFile = (f: File) =>
+    (f.type || '').startsWith('video/') ||
+    /\.(mp4|mov|webm|mkv)$/i.test(f.name);
 
   const removeFile = (index: number) => {
     if (uploading) return;
@@ -76,11 +109,21 @@ export default function UploadPage() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'image/*': [], 'image/heic': ['.heic'], 'image/heif': ['.heif'] },
+    accept: {
+      'image/*': [],
+      'image/heic': ['.heic'],
+      'image/heif': ['.heif'],
+      'video/mp4': ['.mp4'],
+      'video/quicktime': ['.mov'],
+      'video/webm': ['.webm'],
+      'video/x-matroska': ['.mkv'],
+    },
     maxFiles: MAX_FILES,
     maxSize: MAX_SIZE,
     disabled: uploading,
   });
+
+  const tusRef = useRef<tus.Upload | null>(null);
 
   useEffect(() => {
     return () => {
@@ -107,47 +150,13 @@ export default function UploadPage() {
         success++;
         continue;
       }
-
       updateFile(i, { status: 'uploading', progress: 0 });
-
-      const formData = new FormData();
-      formData.append('file', files[i].file);
-
       try {
-        await new Promise<void>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('POST', `${resolveBaseURL()}/wallpapers`);
-
-          const token = localStorage.getItem('token');
-          if (token) {
-            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-          }
-
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              const pct = Math.round((e.loaded / e.total) * 100);
-              updateFile(i, { progress: pct });
-            }
-          };
-
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              resolve();
-            } else {
-              let msg = `HTTP ${xhr.status}`;
-              try {
-                const body = JSON.parse(xhr.responseText);
-                if (body.message) msg = body.message;
-              } catch { /* use default */ }
-              reject(new Error(msg));
-            }
-          };
-
-          xhr.onerror = () => reject(new Error('Network error'));
-          xhr.ontimeout = () => reject(new Error('Upload timeout'));
-          xhr.send(formData);
-        });
-
+        if (isVideoFile(files[i].file)) {
+          await uploadVideoTus(i, files[i].file);
+        } else {
+          await uploadImageMultipart(i, files[i].file);
+        }
         updateFile(i, { status: 'success', progress: 100 });
         success++;
       } catch (err) {
@@ -160,12 +169,74 @@ export default function UploadPage() {
     setUploading(false);
     track('upload_complete', { succeeded: success, failed });
     if (failed === 0) {
-      toast.success(`${success} wallpaper(s) uploaded successfully`);
-      setTimeout(() => navigate('/'), 1000);
+      // Different messaging for video vs image batches — videos always
+      // route through admin review; image uploads ALSO route through
+      // review now (post-Phase 1 policy), so the wording is unified.
+      toast.success(
+        success === 1
+          ? 'Upload received — pending admin review. You\'ll see it in your profile once approved.'
+          : `${success} uploads received — pending admin review.`,
+      );
+      setTimeout(() => navigate('/profile'), 1500);
     } else {
-      toast.error(`${success} succeeded, ${failed} failed — you can retry failed ones`);
+      toast.error(`${success} succeeded, ${failed} failed — retry the failed rows below.`);
     }
   };
+
+  const uploadImageMultipart = (i: number, f: File) =>
+    new Promise<void>((resolve, reject) => {
+      const formData = new FormData();
+      formData.append('file', f);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${resolveBaseURL()}/wallpapers`);
+      const token = localStorage.getItem('token');
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          updateFile(i, { progress: Math.round((e.loaded / e.total) * 100) });
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) return resolve();
+        let msg = `HTTP ${xhr.status}`;
+        try {
+          const body = JSON.parse(xhr.responseText);
+          if (body.message) msg = body.message;
+        } catch { /* keep default */ }
+        reject(new Error(msg));
+      };
+      xhr.onerror = () => reject(new Error('Network error'));
+      xhr.ontimeout = () => reject(new Error('Upload timeout'));
+      xhr.send(formData);
+    });
+
+  // Video uploads use tus.io for resume-on-disconnect. The endpoint is
+  // wired with auth + 200 MB cap on the backend; we just hand it the
+  // file + metadata.
+  const uploadVideoTus = (i: number, f: File) =>
+    new Promise<void>((resolve, reject) => {
+      const token = localStorage.getItem('token');
+      if (!token) return reject(new Error('Please sign in first'));
+      const upload = new tus.Upload(f, {
+        endpoint: `${resolveBaseURL()}/uploads/tus`,
+        chunkSize: 8 * 1024 * 1024,
+        retryDelays: [0, 1000, 3000, 5000, 10000],
+        metadata: { filename: f.name, filetype: f.type || 'video/mp4' },
+        headers: { Authorization: `Bearer ${token}` },
+        storeFingerprintForResuming: true,
+        removeFingerprintOnSuccess: true,
+        onError: (err) => reject(new Error(err.message || 'Upload failed')),
+        onProgress: (sent, total) => {
+          updateFile(i, { progress: Math.round((sent / total) * 100) });
+        },
+        onSuccess: () => resolve(),
+      });
+      upload.findPreviousUploads().then((prev) => {
+        if (prev.length > 0) upload.resumeFromPreviousUpload(prev[0]);
+        upload.start();
+        tusRef.current = upload;
+      });
+    });
 
   const totalDone = files.filter((f) => f.status === 'success').length;
   const totalError = files.filter((f) => f.status === 'error').length;
@@ -176,9 +247,13 @@ export default function UploadPage() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-6">
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Upload Wallpapers</h1>
-      <div className="text-[12px] text-gray-600 mb-6">
-        Got a video wallpaper instead?{' '}
-        <a href="/upload/video" className="underline text-gray-900">/upload/video</a>
+      <div className="text-sm text-gray-600 mb-2 max-w-2xl">
+        Drop images (JPG / PNG / HEIC, up to {MAX_FILES} at a time) or a single video
+        (MP4 / MOV / WebM / MKV). Each file is capped at 200&nbsp;MB.
+      </div>
+      <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-6 max-w-2xl">
+        <strong>All uploads go through admin review</strong> before showing up publicly. You&apos;ll see
+        the status on your profile — videos may take a minute longer because we re-encode them.
       </div>
 
       <div
@@ -225,7 +300,21 @@ export default function UploadPage() {
             {files.map((f, idx) => (
               <div key={idx} className="relative group">
                 <div className="aspect-square relative rounded-lg overflow-hidden">
-                  {f.preview ? (
+                  {f.preview && isVideoFile(f.file) ? (
+                    // <video> with the object URL gives a real
+                    // moving thumbnail; muted+loop+playsInline so
+                    // it autoplays without scaring users.
+                    <video
+                      src={f.preview}
+                      muted
+                      loop
+                      playsInline
+                      autoPlay
+                      className={`w-full h-full object-cover bg-black transition-opacity duration-200 ${
+                        f.status === 'uploading' ? 'opacity-60' : f.status === 'error' ? 'opacity-40' : ''
+                      }`}
+                    />
+                  ) : f.preview ? (
                     <img
                       src={f.preview}
                       alt=""

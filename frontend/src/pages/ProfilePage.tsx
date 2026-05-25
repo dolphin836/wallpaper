@@ -998,15 +998,25 @@ function Grid({ items, showProcessing }: { items: Wallpaper[]; showProcessing?: 
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
       {items.map((w) => (
         <div key={w.id} className="relative">
-          <WallpaperCard wallpaper={w} fixedAspect hideActions disableModal />
+          <WallpaperCard wallpaper={w} showStatus fixedAspect hideActions disableModal />
           {showProcessing && w.status === 0 && (
-            // WallpaperCard already renders its own spinner inside the
-            // empty-image slot when status=processing, so the overlay
-            // intentionally has no spinner of its own — otherwise the two
-            // stacked indicators competed for the same eye-fix point.
             <div className="proc-overlay pointer-events-none">
               <div className="proc-label">Processing</div>
               <div className="proc-sub">Generating device variants</div>
+            </div>
+          )}
+          {showProcessing && w.status === 5 && (
+            <div className="proc-overlay pointer-events-none">
+              <div className="proc-label">Pending admin review</div>
+              <div className="proc-sub">Usually within a few hours</div>
+            </div>
+          )}
+          {showProcessing && w.status === 6 && (
+            <div className="proc-overlay pointer-events-none" style={{ background: 'rgba(176,49,31,0.86)' }}>
+              <div className="proc-label">Rejected</div>
+              <div className="proc-sub">
+                {w.rejection_reason ? w.rejection_reason : 'No reason provided.'}
+              </div>
             </div>
           )}
         </div>

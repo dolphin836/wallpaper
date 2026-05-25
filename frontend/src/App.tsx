@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
@@ -9,7 +9,6 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import WallpaperDetailPage from './pages/WallpaperDetailPage';
 import UploadPage from './pages/UploadPage';
-import VideoUploadPage from './pages/VideoUploadPage';
 import ProfilePage from './pages/ProfilePage';
 import CollectionsPage from './pages/CollectionsPage';
 import CollectionDetailPage from './pages/CollectionDetailPage';
@@ -50,7 +49,9 @@ function AppRoutes() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/wallpaper/:slug" element={<WallpaperDetailPage />} />
           <Route path="/upload" element={<UploadPage />} />
-          <Route path="/upload/video" element={<VideoUploadPage />} />
+          {/* Legacy split-page entry — redirect any saved bookmark
+              to the unified /upload form. */}
+          <Route path="/upload/video" element={<Navigate to="/upload" replace />} />
           <Route path="/user/:username" element={<ProfilePage />} />
           <Route path="/collections" element={<CollectionsPage />} />
           <Route path="/uploaders" element={<UploadersPage />} />
