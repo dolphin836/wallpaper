@@ -182,8 +182,15 @@ func (h *TusHandler) completionLoop() {
 		err := h.handleComplete(ctx, uploadID, userID, filename, filetype, event.Upload.Size)
 		cancel()
 		if err != nil {
-			slog.Error("tus: handle complete failed",
-				"upload_id", uploadID, "user_id", userID, "error", err)
+			// Preserve the assembled file on disk so an operator can
+			// re-trigger ingest manually (e.g. via a CLI) rather than
+			// asking the user to re-upload the whole thing. Cleanup
+			// only on the happy path. The tus_data volume sweeps
+			// stale leftovers when it's resized; this isn't a leak.
+			slog.Error("tus: handle complete failed — preserving file for manual recovery",
+				"upload_id", uploadID, "user_id", userID, "error", err,
+				"file", filepath.Join(h.tmpDir, uploadID))
+			continue
 		}
 		h.cleanup(uploadID)
 	}
