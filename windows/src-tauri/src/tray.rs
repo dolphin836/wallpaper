@@ -10,17 +10,29 @@ use tauri::{
 
 pub fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let show_item = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
+    let uninstall_item =
+        MenuItem::with_id(app, "uninstall", "Uninstall Wallpaper Exchange…", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+    // separator + uninstall sits visually distant from Quit so a
+    // mis-click on the menu's last item doesn't nuke the install.
+    let menu = Menu::with_items(
+        app,
+        &[
+            &show_item,
+            &tauri::menu::PredefinedMenuItem::separator(app)?,
+            &uninstall_item,
+            &tauri::menu::PredefinedMenuItem::separator(app)?,
+            &quit_item,
+        ],
+    )?;
 
     TrayIconBuilder::with_id("main-tray")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id().as_ref() {
             "show" => toggle_window(app, true),
-            "quit" => {
-                app.exit(0);
-            }
+            "uninstall" => crate::uninstall::run_uninstaller(app),
+            "quit" => app.exit(0),
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {

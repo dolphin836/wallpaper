@@ -76,7 +76,17 @@ export const api = {
     return request<User>('/users/me');
   },
 
-  listWallpapers(params: { limit?: number; cursor?: number; sort?: string } = {}) {
+  listWallpapers(params: {
+    limit?: number;
+    cursor?: number;
+    sort?: string;
+    exclude_dynamic?: boolean;
+    exclude_video?: boolean;
+  } = {}) {
     return request<ListResponse<Wallpaper>>('/wallpapers', { query: params });
+  },
+
+  getWallpaper(id: number) {
+    return request<Wallpaper>(`/wallpapers/${id}`);
   },
 };
