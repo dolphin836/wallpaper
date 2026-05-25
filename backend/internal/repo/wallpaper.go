@@ -106,6 +106,12 @@ type ListOptions struct {
 	IncludeDynamic   bool
 	DynamicOnly      bool
 	AIOnly           bool
+	// ExcludeDynamic / ExcludeVideo let platform clients hide wallpaper
+	// types they can't render. Windows hides macOS-dynamic HEIC (it
+	// has no system support for them); macOS hides video/* wallpapers
+	// (mac doesn't ship a video-wallpaper engine yet).
+	ExcludeDynamic   bool
+	ExcludeVideo     bool
 }
 
 // applyListFilters applies every WHERE clause from ListOptions except the cursor.
@@ -131,6 +137,12 @@ func (r *WallpaperRepo) applyListFilters(query *gorm.DB, opts ListOptions) *gorm
 	}
 	if opts.AIOnly {
 		query = query.Where("is_ai_generated = true")
+	}
+	if opts.ExcludeDynamic {
+		query = query.Where("is_dynamic = false")
+	}
+	if opts.ExcludeVideo {
+		query = query.Where("file_type NOT LIKE 'video/%'")
 	}
 	if opts.DynamicOnly {
 		query = query.Where("is_dynamic = true")

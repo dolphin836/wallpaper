@@ -23,7 +23,10 @@ enum APIError: LocalizedError {
 actor APIClient {
     static let shared = APIClient()
 
-    private let baseURL = "https://api.wallpaperexchange.com/api/v1"
+    // Apex domain; the api. subdomain isn't routed in prod (TLS
+    // connection-reset). This was a long-standing bug that masked
+    // itself because cached tokens skipped the login path.
+    private let baseURL = "https://wallpaperexchange.com/api/v1"
 
     private let session: URLSession
     private let decoder: JSONDecoder
@@ -95,6 +98,10 @@ actor APIClient {
         if dynamicOnly {
             items.append(.init(name: "dynamic_only", value: "true"))
         }
+        // The mac client doesn't render video wallpapers — Windows
+        // does. Hide them server-side so we don't even pay the
+        // metadata round trip.
+        items.append(.init(name: "exclude_video", value: "true"))
         if let c = cursor {
             items.append(.init(name: "cursor", value: String(c)))
         }
