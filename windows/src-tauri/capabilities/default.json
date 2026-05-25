@@ -12,7 +12,13 @@
     "core:tray:default",
     "shell:allow-open",
     "fs:default",
-    "http:default",
-    "notification:default"
+    "notification:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://wallpaperexchange.com/*" },
+        { "url": "https://wallpaper.haibing.site/*" }
+      ]
+    }
   ]
 }

@@ -13,8 +13,11 @@ name: Windows desktop build
 on:
   workflow_dispatch:
   push:
-    tags:
-      - 'v-win-*'
+    branches: [main]
+    tags: ['v-win-*']
+    paths:
+      - 'windows/**'
+      - '.github/workflows/windows-build.yml'
 
 jobs:
   build:
