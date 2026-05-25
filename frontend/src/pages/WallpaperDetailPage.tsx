@@ -1230,35 +1230,56 @@ export default function WallpaperDetailPage() {
   );
 }
 
-// VideoPlayer: poster image with a center play button. Click → load
-// + play (no controls UI; native autoplay-on-end-of-load + click again
-// to pause). Only fetches the video file when the user explicitly
-// taps play — avoids burning bandwidth for users who only wanted to
-// see the still preview.
+// VideoPlayer: poster + center play button. Click triggers load and
+// play. Three visual phases:
+//   idle    — poster only, play icon centered
+//   loading — poster still showing, spinner replaces the play icon
+//             (we keep the poster so the user doesn't see a black
+//             flash while bytes are coming in)
+//   playing — video crossfades over poster, click-anywhere pauses
+//             (pause button only shows on hover when playing)
+// preload="none" + src bound on first click means we don't fetch
+// any video bytes for users who didn't ask for them.
 function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
   const vidRef = useRef<HTMLVideoElement | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [armed, setArmed] = useState(false); // becomes true after first user click → load video
+  const [armed, setArmed] = useState(false);    // user clicked at least once
+  const [playing, setPlaying] = useState(false); // first frame has actually painted
+  const [loading, setLoading] = useState(false); // armed but not yet playing
 
   const toggle = () => {
     const v = vidRef.current;
+    if (!armed) {
+      // First click: hand the <video> a src + start fetching.
+      setArmed(true);
+      setLoading(true);
+      return;
+    }
     if (!v) return;
-    if (!armed) setArmed(true);
     if (v.paused) {
-      v.play().catch(() => {});
+      setLoading(true);
+      v.play().catch(() => setLoading(false));
     } else {
       v.pause();
     }
   };
 
+  // Effect to actually call .play() after the <video> mounts with a
+  // real src. Without this, just setting src doesn't autoplay.
+  useEffect(() => {
+    if (armed && vidRef.current) {
+      vidRef.current.play().catch(() => setLoading(false));
+    }
+  }, [armed]);
+
   return (
     <div className="relative w-full h-full bg-black flex items-center justify-center">
-      {poster && !playing && (
+      {poster && (
         <img
           src={poster}
           alt=""
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
           draggable={false}
+          className={`absolute inset-0 w-full h-full object-contain pointer-events-none transition-opacity duration-300 ${playing ? 'opacity-0' : 'opacity-100'}`}
+          style={{ transitionTimingFunction: 'var(--ease-out-quart)' }}
         />
       )}
       <video
@@ -1267,24 +1288,27 @@ function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
         loop
         playsInline
         preload="none"
-        onPlay={() => setPlaying(true)}
+        onPlaying={() => { setPlaying(true); setLoading(false); }}
+        onWaiting={() => setLoading(true)}
         onPause={() => setPlaying(false)}
         className={`relative z-[1] w-full h-full object-contain transition-opacity duration-300 ${playing ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
       />
-      {/* Center play / pause overlay. Always clickable; transparent
-          tap target covers the whole frame so the user can pause by
-          tapping anywhere on the playing video, not just the icon. */}
       <button
         type="button"
         onClick={toggle}
-        aria-label={playing ? 'Pause video' : 'Play video'}
+        aria-label={playing ? 'Pause video' : loading ? 'Loading' : 'Play video'}
         className="absolute inset-0 z-[2] flex items-center justify-center group"
+        disabled={loading}
       >
         <span
-          className={`flex items-center justify-center w-20 h-20 rounded-full bg-black/55 text-white backdrop-blur-md transition-all duration-200 group-hover:scale-110 group-hover:bg-black/70 ${playing ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
+          className={`flex items-center justify-center w-20 h-20 rounded-full bg-black/55 text-white backdrop-blur-md transition-all duration-200 group-hover:scale-110 group-hover:bg-black/70 ${playing && !loading ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
           style={{ transitionTimingFunction: 'var(--ease-out-quart)' }}
         >
-          {playing ? (
+          {loading ? (
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden className="animate-spin" style={{ animationDuration: '900ms' }}>
+              <path d="M21 12a9 9 0 1 1-6.219-8.563" strokeLinecap="round" />
+            </svg>
+          ) : playing ? (
             <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
           ) : (
             <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
