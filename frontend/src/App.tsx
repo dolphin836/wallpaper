@@ -26,7 +26,6 @@ import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/DashboardPage';
 import AdminAnalytics from './pages/admin/AnalyticsPage';
 import AdminWallpapers from './pages/admin/WallpapersPage';
-import AdminReviewQueue from './pages/admin/ReviewQueuePage';
 import AdminCollections from './pages/admin/CollectionsPage';
 import AdminUsers from './pages/admin/UsersPage';
 import AdminReports from './pages/admin/ReportsPage';
@@ -69,7 +68,9 @@ function AppRoutes() {
           <Route index element={<AdminDashboard />} />
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="wallpapers" element={<AdminWallpapers />} />
-          <Route path="review-queue" element={<AdminReviewQueue />} />
+          {/* Legacy: review actions are now inline on the main
+              /admin/wallpapers list when status=PendingReview. */}
+          <Route path="review-queue" element={<Navigate to="/admin/wallpapers?status=5" replace />} />
           <Route path="collections" element={<AdminCollections />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="reports" element={<AdminReports />} />

@@ -698,19 +698,14 @@ export default function WallpaperDetailPage() {
                     >{framePlaying ? 'PAUSE' : 'PLAY'} · {frameIdx + 1}/{frames.length}</button>
                   </div>
                 ) : (wallpaper.file_type || '').startsWith('video/') && wallpaper.original_url ? (
-                  // Video wallpapers play inline on the detail page —
-                  // muted + loop + controls so the user can preview
-                  // the full clip. poster fills in instantly from the
-                  // transcode worker's first-frame webp.
-                  <video
+                  // Video wallpapers: poster + click-to-play. The
+                  // <video> doesn't preload (preload="none") so the
+                  // file is only fetched after the user actively
+                  // chooses to play. No controls bar — minimal UI,
+                  // pure tap-to-start.
+                  <VideoPlayer
                     src={wallpaper.original_url}
                     poster={wallpaper.preview_url || wallpaper.thumb_url}
-                    controls
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="w-full h-full object-contain select-none bg-black"
                   />
                 ) : (
                   heroImg && (
@@ -825,7 +820,17 @@ export default function WallpaperDetailPage() {
                 <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">DIM</dt>
                 <dd className="m-0 text-ink">{wallpaper.width.toLocaleString()} × {wallpaper.height.toLocaleString()} px</dd>
                 <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">RES</dt>
-                <dd className="m-0 text-ink">{resLabel || '—'}{wallpaper.is_dynamic && <span className="ml-2 text-accent">● Dynamic</span>}{wallpaper.is_ai_generated && <span className="ml-2 text-violet-600">✦ AI Generated</span>}</dd>
+                <dd className="m-0 text-ink">
+                  {resLabel || '—'}
+                  {(wallpaper.file_type || '').startsWith('video/') && (
+                    <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-ink text-paper">
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
+                      VIDEO
+                    </span>
+                  )}
+                  {wallpaper.is_dynamic && <span className="ml-2 text-accent">● Dynamic</span>}
+                  {wallpaper.is_ai_generated && <span className="ml-2 text-violet-600">✦ AI Generated</span>}
+                </dd>
                 <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">FILE</dt>
                 <dd className="m-0 text-ink">{(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}</dd>
                 {wallpaper.dominant_color && (
@@ -1222,5 +1227,70 @@ export default function WallpaperDetailPage() {
         </div>
       </div>
     </>
+  );
+}
+
+// VideoPlayer: poster image with a center play button. Click → load
+// + play (no controls UI; native autoplay-on-end-of-load + click again
+// to pause). Only fetches the video file when the user explicitly
+// taps play — avoids burning bandwidth for users who only wanted to
+// see the still preview.
+function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
+  const vidRef = useRef<HTMLVideoElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [armed, setArmed] = useState(false); // becomes true after first user click → load video
+
+  const toggle = () => {
+    const v = vidRef.current;
+    if (!v) return;
+    if (!armed) setArmed(true);
+    if (v.paused) {
+      v.play().catch(() => {});
+    } else {
+      v.pause();
+    }
+  };
+
+  return (
+    <div className="relative w-full h-full bg-black flex items-center justify-center">
+      {poster && !playing && (
+        <img
+          src={poster}
+          alt=""
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+          draggable={false}
+        />
+      )}
+      <video
+        ref={vidRef}
+        src={armed ? src : undefined}
+        loop
+        playsInline
+        preload="none"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        className={`relative z-[1] w-full h-full object-contain transition-opacity duration-300 ${playing ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+      />
+      {/* Center play / pause overlay. Always clickable; transparent
+          tap target covers the whole frame so the user can pause by
+          tapping anywhere on the playing video, not just the icon. */}
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label={playing ? 'Pause video' : 'Play video'}
+        className="absolute inset-0 z-[2] flex items-center justify-center group"
+      >
+        <span
+          className={`flex items-center justify-center w-20 h-20 rounded-full bg-black/55 text-white backdrop-blur-md transition-all duration-200 group-hover:scale-110 group-hover:bg-black/70 ${playing ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
+          style={{ transitionTimingFunction: 'var(--ease-out-quart)' }}
+        >
+          {playing ? (
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+          ) : (
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
+          )}
+        </span>
+      </button>
+    </div>
   );
 }

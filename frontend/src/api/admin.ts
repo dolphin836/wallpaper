@@ -137,12 +137,9 @@ export const reprocessAdminWallpaper = (id: number) =>
 export const approveAdminWallpaperQuality = (id: number) =>
   client.post<ApiResponse<null>>(`/admin/wallpapers/${id}/approve-quality`);
 
-// Review queue: PendingReview rows the admin must approve or reject
-// before they become publicly listable. Backend emits the same row
-// shape as listAdminWallpapers so we reuse AdminWallpaperRow.
-export const listAdminReviewQueue = (params: { page?: number; limit?: number } = {}) =>
-  client.get<ApiResponse<PaginatedAdmin<AdminWallpaperRow>>>('/admin/wallpapers/review-queue', { params });
-
+// Approve / reject for PendingReview rows. The dedicated review-queue
+// page was removed — admins use these from inline buttons on the main
+// /admin/wallpapers list (filter by status=5 to drain the queue).
 export const approveAdminReview = (id: number) =>
   client.post<ApiResponse<null>>(`/admin/wallpapers/${id}/approve-review`);
 
