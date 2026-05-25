@@ -213,12 +213,23 @@ export default function UploadPage() {
   // Video uploads use tus.io for resume-on-disconnect. The endpoint is
   // wired with auth + 200 MB cap on the backend; we just hand it the
   // file + metadata.
+  //
+  // The endpoint MUST be an absolute https URL. tus-js-client builds
+  // its PATCH/HEAD calls from the Location header the server returns,
+  // and the Location header tusd produces is "<scheme>://<host>/...".
+  // If we pass a relative endpoint here, tus-js-client resolves it
+  // against window.location for the POST, but the server's Location
+  // response decides the protocol for the follow-up PATCH — so we
+  // force https on both sides explicitly.
   const uploadVideoTus = (i: number, f: File) =>
     new Promise<void>((resolve, reject) => {
       const token = localStorage.getItem('token');
       if (!token) return reject(new Error('Please sign in first'));
+      const base = resolveBaseURL().startsWith('http')
+        ? resolveBaseURL()
+        : `${window.location.origin}${resolveBaseURL()}`;
       const upload = new tus.Upload(f, {
-        endpoint: `${resolveBaseURL()}/uploads/tus`,
+        endpoint: `${base}/uploads/tus`,
         chunkSize: 8 * 1024 * 1024,
         retryDelays: [0, 1000, 3000, 5000, 10000],
         metadata: { filename: f.name, filetype: f.type || 'video/mp4' },
