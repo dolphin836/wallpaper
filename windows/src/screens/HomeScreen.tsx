@@ -25,7 +25,9 @@ export default function HomeScreen({
   const [latestLoading, setLatestLoading] = useState(true);
   const [downloaded, setDownloaded] = useState<Wallpaper[]>([]);
   const [downloadedPaths, setDownloadedPaths] = useState<Map<number, string>>(new Map());
-  const [downloadedLoading, setDownloadedLoading] = useState(true);
+  const [localIDs, setLocalIDs] = useState<Set<number>>(new Set());
+  const [downloadedLoading, setDownloadedLoading] = useState(false);
+  const [downloadedErr, setDownloadedErr] = useState<string | null>(null);
   const [me, setMe] = useState<User | null>(null);
   const [diskBytes, setDiskBytes] = useState<number>(0);
   const [appliedID, setAppliedID] = useState<number | null>(() => {
@@ -53,52 +55,51 @@ export default function HomeScreen({
     api.me().then(setMe).catch(() => setMe(null));
   }, [token]);
 
-  // Downloaded column. We list local files (the Rust side scans the
-  // downloads dir), then ask the API to hydrate the wallpaper rows so
-  // we can show thumbnails / titles consistently with Latest.
-  const refreshDownloaded = useCallback(async () => {
-    setDownloadedLoading(true);
+  // Downloaded column. Server-side download history drives the list
+  // (mirrors macOS behavior — a wallpaper pulled on another device
+  // still surfaces here), while the local file scan only determines
+  // which tiles render Set vs Re-download.
+  const refreshLocalIDs = useCallback(async () => {
     try {
       const local = await cmd.listDownloaded();
-      const ids = local.map((i) => i.id);
-      const paths = new Map(local.map((i) => [i.id, i.path] as const));
-      setDownloadedPaths(paths);
-      if (ids.length === 0) {
-        setDownloaded([]);
-      } else {
-        // The /wallpapers endpoint doesn't have a "by ids" mode, so
-        // we hand-fetch each. Fine for the modest sizes (< 100 local
-        // downloads); revisit if users hoard thousands.
-        const hydrated = await Promise.all(
-          ids.map((id) =>
-            api
-              .getWallpaper(id)
-              .catch(() => null),
-          ),
-        );
-        const valid = hydrated.filter((w): w is Wallpaper => w !== null);
-        // Newest-on-top using local stat would need another command;
-        // for now sort by id desc.
-        valid.sort((a, b) => b.id - a.id);
-        setDownloaded(valid);
-      }
+      setLocalIDs(new Set(local.map((i) => i.id)));
+      setDownloadedPaths(new Map(local.map((i) => [i.id, i.path] as const)));
       const bytes = await cmd.downloadsTotalBytes();
       setDiskBytes(bytes);
     } catch (e) {
-      console.error('refresh downloaded', e);
-    } finally {
-      setDownloadedLoading(false);
+      console.error('refresh local ids', e);
     }
   }, []);
 
-  useEffect(() => {
-    refreshDownloaded();
-  }, [refreshDownloaded]);
+  const refreshDownloaded = useCallback(async () => {
+    if (!token) {
+      setDownloaded([]);
+      setDownloadedErr(null);
+      return;
+    }
+    setDownloadedLoading(true);
+    setDownloadedErr(null);
+    try {
+      const r = await api.listMyDownloads({ limit: 24 });
+      setDownloaded(r.items);
+    } catch (e) {
+      setDownloadedErr(e instanceof Error ? e.message : 'Failed to load');
+    } finally {
+      setDownloadedLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { refreshLocalIDs(); }, [refreshLocalIDs]);
+  useEffect(() => { refreshDownloaded(); }, [refreshDownloaded]);
 
   async function onDownload(w: Wallpaper) {
     if (!token) return onRequestSignIn();
     try {
-      await cmd.downloadWallpaper(w.id, w.original_url);
+      // First-time download from Latest — resolve the signed URL via
+      // the API since original_url may be empty for non-owners.
+      const url = w.original_url || (await api.getDownloadURL(w.id));
+      await cmd.downloadWallpaper(w.id, url);
+      await refreshLocalIDs();
       await refreshDownloaded();
     } catch (e) {
       alert(`Download failed: ${e}`);
@@ -108,9 +109,11 @@ export default function HomeScreen({
   async function onSet(w: Wallpaper) {
     if (!token) return onRequestSignIn();
     try {
-      await cmd.setWallpaperById(w.id, w.original_url);
+      const url = w.original_url || (await api.getDownloadURL(w.id));
+      await cmd.setWallpaperById(w.id, url);
       setAppliedID(w.id);
       localStorage.setItem(APPLIED_KEY, String(w.id));
+      await refreshLocalIDs();
       await refreshDownloaded();
     } catch (e) {
       alert(`Set wallpaper failed: ${e}`);
@@ -118,8 +121,8 @@ export default function HomeScreen({
   }
 
   async function onSetLocal(w: Wallpaper) {
-    // Downloaded → Set: skip the re-download, point straight at the
-    // local path so we don't pay bytes twice.
+    // Downloaded → Set when the file is already on this machine —
+    // skip the network round-trip entirely.
     const path = downloadedPaths.get(w.id);
     if (!path) return onSet(w);
     try {
@@ -131,12 +134,16 @@ export default function HomeScreen({
     }
   }
 
-  async function onRemove(w: Wallpaper) {
+  async function onRedownload(w: Wallpaper) {
+    // Downloaded column, local file missing — pull from server-side
+    // history. HasDownloaded means the server won't re-charge coins.
+    if (!token) return onRequestSignIn();
     try {
-      await cmd.removeDownloaded(w.id);
-      await refreshDownloaded();
+      const url = await api.getDownloadURL(w.id);
+      await cmd.downloadWallpaper(w.id, url);
+      await refreshLocalIDs();
     } catch (e) {
-      alert(`Remove failed: ${e}`);
+      alert(`Re-download failed: ${e}`);
     }
   }
 
@@ -181,12 +188,13 @@ export default function HomeScreen({
           title="Downloaded"
           items={downloaded}
           loading={downloadedLoading}
-          err={null}
+          err={downloadedErr ?? (!token ? 'Sign in to see your downloads' : null)}
           renderActions={(w) => (
-            <>
+            localIDs.has(w.id) ? (
               <button onClick={() => onSetLocal(w)}>Set</button>
-              <button onClick={() => onRemove(w)}>Remove</button>
-            </>
+            ) : (
+              <button onClick={() => onRedownload(w)}>Re-download</button>
+            )
           )}
           appliedID={appliedID}
         />

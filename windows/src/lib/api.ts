@@ -89,4 +89,37 @@ export const api = {
   getWallpaper(id: number) {
     return request<Wallpaper>(`/wallpapers/${id}`);
   },
+
+  // Server-side history of every wallpaper this user has downloaded.
+  // The Downloaded column mirrors this list — local-file presence is
+  // tracked separately via the Rust `list_downloaded` command, so a
+  // wallpaper the user pulled on another device still shows up here
+  // (with a Re-download affordance).
+  listMyDownloads(params: { limit?: number; cursor?: number } = {}) {
+    return request<ListResponse<Wallpaper>>('/users/me/downloads', { query: params });
+  },
+
+  // /wallpapers/{id}/download 302-redirects to a signed object-storage
+  // URL. We intercept the redirect to hand the final URL to the Rust
+  // downloader, since `original_url` is stripped from the My Downloads
+  // payload for items the user didn't upload. HasDownloaded on the
+  // server makes the re-fetch free of coin charges.
+  async getDownloadURL(id: number): Promise<string> {
+    const tok = await getToken();
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (tok) headers['Authorization'] = `Bearer ${tok}`;
+    // Tauri's plugin-http uses `maxRedirections` rather than the
+    // standard Fetch API's `redirect: 'manual'` — setting it to 0
+    // stops reqwest from following the 302 so we can read Location.
+    const res = await tauriFetch(`${API_BASE}/wallpapers/${id}/download`, {
+      method: 'GET',
+      headers,
+      maxRedirections: 0,
+    });
+    if (res.status === 401) throw new Error('Sign in required');
+    if (res.status === 402) throw new Error('Insufficient coins');
+    const location = res.headers.get('Location') || res.headers.get('location');
+    if (!location) throw new Error(`No redirect URL (status ${res.status})`);
+    return location;
+  },
 };
