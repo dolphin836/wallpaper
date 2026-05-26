@@ -187,6 +187,7 @@ input:focus { outline: none; border-color: var(--ink-2); }
 .tile {
   position: relative;
   aspect-ratio: 16/10;
+  flex-shrink: 0;
   overflow: hidden;
   border: 1px solid var(--hair);
   border-radius: 6px;
