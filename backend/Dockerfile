@@ -23,6 +23,7 @@ RUN CGO_ENABLED=0 go build -o /bin/indexnow-backfill ./cmd/indexnow-backfill
 RUN CGO_ENABLED=0 go build -o /bin/weekly-drop ./cmd/weekly-drop
 RUN CGO_ENABLED=0 go build -o /bin/wallpaper-import ./cmd/wallpaper-import
 RUN CGO_ENABLED=0 go build -o /bin/variantgc ./cmd/variantgc
+RUN CGO_ENABLED=0 go build -o /bin/videoprev ./cmd/videoprev
 
 FROM alpine:3.19 AS api
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
@@ -53,4 +54,5 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 # compose so concurrent transcodes don't fight for / disk space.
 RUN mkdir -p /var/lib/wpe/transcode
 COPY --from=builder /bin/worker /bin/worker
+COPY --from=builder /bin/videoprev /bin/videoprev
 ENTRYPOINT ["/bin/worker"]
