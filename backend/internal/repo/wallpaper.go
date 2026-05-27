@@ -45,7 +45,7 @@ func (r *WallpaperRepo) Create(ctx context.Context, w *model.Wallpaper) error {
 func (r *WallpaperRepo) GetByID(ctx context.Context, id int64) (*model.Wallpaper, error) {
 	var w model.Wallpaper
 	err := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, rejection_reason, created_at, updated_at").
+		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, preview_url, preview_video_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, rejection_reason, created_at, updated_at").
 		Where("id = ? AND status != ?", id, model.WallpaperStatusRemoved).
 		First(&w).Error
 	if err != nil {
@@ -75,7 +75,7 @@ func (r *WallpaperRepo) GetByIDAnyStatus(ctx context.Context, id int64) (*model.
 func (r *WallpaperRepo) GetBySlug(ctx context.Context, slug string) (*model.Wallpaper, error) {
 	var w model.Wallpaper
 	err := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, rejection_reason, created_at, updated_at").
+		Select("id, slug, user_id, title, description, category_id, original_url, thumb_url, preview_url, preview_video_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, rejection_reason, created_at, updated_at").
 		Where("slug = ? AND status != ?", slug, model.WallpaperStatusRemoved).
 		First(&w).Error
 	if err != nil {
@@ -235,13 +235,14 @@ func (r *WallpaperRepo) UpdateProcessed(ctx context.Context, id int64, thumbURL,
 // worker writes back to the wallpapers row when a video upload
 // finishes processing.
 type UpdateTranscodedInput struct {
-	OriginalURL string
-	ThumbURL    string
-	PreviewURL  string
-	Width       int
-	Height      int
-	FileSize    int64
-	FileType    string
+	OriginalURL     string
+	ThumbURL        string
+	PreviewURL      string
+	PreviewVideoURL string
+	Width           int
+	Height          int
+	FileSize        int64
+	FileType        string
 }
 
 // UpdateTranscoded writes the transcoded mp4 + poster URLs back to
@@ -255,14 +256,15 @@ func (r *WallpaperRepo) UpdateTranscoded(ctx context.Context, id int64, in Updat
 		Model(&model.Wallpaper{}).
 		Where("id = ?", id).
 		Updates(map[string]any{
-			"original_url": in.OriginalURL,
-			"thumb_url":    in.ThumbURL,
-			"preview_url":  in.PreviewURL,
-			"width":        in.Width,
-			"height":       in.Height,
-			"file_size":    in.FileSize,
-			"file_type":    in.FileType,
-			"status":       model.WallpaperStatusPendingReview,
+			"original_url":      in.OriginalURL,
+			"thumb_url":         in.ThumbURL,
+			"preview_url":       in.PreviewURL,
+			"preview_video_url": in.PreviewVideoURL,
+			"width":             in.Width,
+			"height":            in.Height,
+			"file_size":         in.FileSize,
+			"file_type":         in.FileType,
+			"status":            model.WallpaperStatusPendingReview,
 		}).Error
 }
 

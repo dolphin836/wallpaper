@@ -40,6 +40,7 @@ export interface Wallpaper {
   original_url: string;
   thumb_url: string;
   preview_url: string;
+  preview_video_url?: string;
   width: number;
   height: number;
   file_size: number;

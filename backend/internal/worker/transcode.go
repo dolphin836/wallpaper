@@ -189,7 +189,27 @@ func (w *TranscodeWorker) processVideo(ctx context.Context, event WallpaperUploa
 		return fmt.Errorf("ffmpeg poster: %w (%s)", err, snippet(out, 400))
 	}
 
-	// Upload both back to MinIO.
+	// Low-quality preview clip for the detail page: 480p, CRF 30, no audio,
+	// faststart. The web player fully buffers this before playing (no mid-
+	// playback stutter), so keeping it small matters more than fidelity —
+	// original_url stays the download-quality copy. Roughly 1/6–1/8 the
+	// transcoded size. Downscaled from out.mp4 since that's already H.264.
+	previewMp4 := filepath.Join(work, "preview.mp4")
+	previewArgs := []string{
+		"-y", "-hide_banner", "-loglevel", "error",
+		"-i", outMp4,
+		"-c:v", "libx264", "-profile:v", "high", "-preset", "veryfast", "-crf", "30",
+		"-vf", "scale=-2:'min(480,ih)'",
+		"-an",
+		"-movflags", "+faststart",
+		"-max_muxing_queue_size", "1024",
+		previewMp4,
+	}
+	if out, err := exec.CommandContext(ctx, "ffmpeg", previewArgs...).CombinedOutput(); err != nil {
+		return fmt.Errorf("ffmpeg preview: %w (%s)", err, snippet(out, 400))
+	}
+
+	// Upload all three back to MinIO.
 	mp4Key := fmt.Sprintf("videos/%s/%s.mp4",
 		time.Now().UTC().Format("2006/01/02"), uuid.New().String())
 	if err := w.uploadFile(ctx, mp4Key, outMp4, "video/mp4"); err != nil {
@@ -199,6 +219,11 @@ func (w *TranscodeWorker) processVideo(ctx context.Context, event WallpaperUploa
 		time.Now().UTC().Format("2006/01/02"), uuid.New().String())
 	if err := w.uploadFile(ctx, posterKey, posterPath, "image/webp"); err != nil {
 		return fmt.Errorf("upload poster: %w", err)
+	}
+	previewKey := fmt.Sprintf("video-previews/%s/%s.mp4",
+		time.Now().UTC().Format("2006/01/02"), uuid.New().String())
+	if err := w.uploadFile(ctx, previewKey, previewMp4, "video/mp4"); err != nil {
+		return fmt.Errorf("upload preview mp4: %w", err)
 	}
 
 	// Update DB:
@@ -211,13 +236,14 @@ func (w *TranscodeWorker) processVideo(ctx context.Context, event WallpaperUploa
 	//   status       → PendingReview
 	st, _ := os.Stat(outMp4)
 	if err := w.wpRepo.UpdateTranscoded(ctx, event.WallpaperID, repo.UpdateTranscodedInput{
-		OriginalURL: w.storage.GetURL(mp4Key),
-		ThumbURL:    w.storage.GetURL(posterKey),
-		PreviewURL:  w.storage.GetURL(posterKey),
-		Width:       probe.Width,
-		Height:      probe.Height,
-		FileSize:    st.Size(),
-		FileType:    "video/mp4",
+		OriginalURL:     w.storage.GetURL(mp4Key),
+		ThumbURL:        w.storage.GetURL(posterKey),
+		PreviewURL:      w.storage.GetURL(posterKey),
+		PreviewVideoURL: w.storage.GetURL(previewKey),
+		Width:           probe.Width,
+		Height:          probe.Height,
+		FileSize:        st.Size(),
+		FileType:        "video/mp4",
 	}); err != nil {
 		return fmt.Errorf("update wallpaper row: %w", err)
 	}

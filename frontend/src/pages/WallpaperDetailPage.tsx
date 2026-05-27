@@ -764,13 +764,13 @@ export default function WallpaperDetailPage() {
                     >{framePlaying ? 'PAUSE' : 'PLAY'} · {frameIdx + 1}/{frames.length}</button>
                   </div>
                 ) : (wallpaper.file_type || '').startsWith('video/') && wallpaper.original_url ? (
-                  // Video wallpapers: poster + click-to-play. The
-                  // <video> doesn't preload (preload="none") so the
-                  // file is only fetched after the user actively
-                  // chooses to play. No controls bar — minimal UI,
-                  // pure tap-to-start.
+                  // Video wallpapers: poster + click-to-play. On play we
+                  // fully buffer the low-quality preview clip (falling back
+                  // to the full transcode for older videos) before starting,
+                  // so playback never stalls mid-stream on a slow link. A
+                  // progress bar covers the buffering wait.
                   <VideoPlayer
-                    src={wallpaper.original_url}
+                    src={wallpaper.preview_video_url || wallpaper.original_url}
                     poster={wallpaper.preview_url || wallpaper.thumb_url}
                   />
                 ) : (
@@ -1296,46 +1296,55 @@ export default function WallpaperDetailPage() {
   );
 }
 
-// VideoPlayer: poster + center play button. Click triggers load and
-// play. Three visual phases:
-//   idle    — poster only, play icon centered
-//   loading — poster still showing, spinner replaces the play icon
-//             (we keep the poster so the user doesn't see a black
-//             flash while bytes are coming in)
-//   playing — video crossfades over poster, click-anywhere pauses
-//             (pause button only shows on hover when playing)
-// preload="none" + src bound on first click means we don't fetch
-// any video bytes for users who didn't ask for them.
+// VideoPlayer: poster + center play button. On the first click we fully
+// buffer the clip into a blob (showing a progress bar over the poster) and
+// only then start playback, so it can't stall mid-stream on a slow link.
+// Phases:
+//   idle      — poster only, play icon centered
+//   buffering — poster still showing, progress bar replaces the play icon
+//   playing   — video crossfades over poster from the in-memory blob;
+//               click pauses (pause button shows on hover when playing)
+// No bytes are fetched until the user actively chooses to play.
 function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
   const vidRef = useRef<HTMLVideoElement | null>(null);
-  const [armed, setArmed] = useState(false);    // user clicked at least once
-  const [playing, setPlaying] = useState(false); // first frame has actually painted
-  const [loading, setLoading] = useState(false); // armed but not yet playing
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number | null>(null); // null = not buffering
+  const [buffering, setBuffering] = useState(false);
+  const [playing, setPlaying] = useState(false);
 
-  const toggle = () => {
-    const v = vidRef.current;
-    if (!armed) {
-      // First click: hand the <video> a src + start fetching.
-      setArmed(true);
-      setLoading(true);
-      return;
-    }
-    if (!v) return;
-    if (v.paused) {
-      setLoading(true);
-      v.play().catch(() => setLoading(false));
-    } else {
-      v.pause();
+  // Release the object URL when it changes or the player unmounts.
+  useEffect(() => () => { if (blobUrl) URL.revokeObjectURL(blobUrl); }, [blobUrl]);
+
+  const startBuffering = async () => {
+    if (buffering || blobUrl) return;
+    setBuffering(true);
+    setProgress(0);
+    try {
+      const resp = await fetch(src);
+      if (!resp.ok) throw new Error(`status ${resp.status}`);
+      const blob = await fetchBlobWithProgress(resp, setProgress);
+      setProgress(100);
+      setBlobUrl(URL.createObjectURL(blob)); // the effect below kicks off play
+    } catch {
+      setBuffering(false);
+      setProgress(null);
     }
   };
 
-  // Effect to actually call .play() after the <video> mounts with a
-  // real src. Without this, just setting src doesn't autoplay.
+  const toggle = () => {
+    const v = vidRef.current;
+    if (!blobUrl) { startBuffering(); return; }
+    if (!v) return;
+    if (v.paused) v.play().catch(() => {});
+    else v.pause();
+  };
+
+  // Once the fully-buffered blob is attached, start playback.
   useEffect(() => {
-    if (armed && vidRef.current) {
-      vidRef.current.play().catch(() => setLoading(false));
+    if (blobUrl && vidRef.current) {
+      vidRef.current.play().catch(() => {});
     }
-  }, [armed]);
+  }, [blobUrl]);
 
   return (
     <div className="relative w-full h-full bg-black flex items-center justify-center">
@@ -1350,36 +1359,43 @@ function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
       )}
       <video
         ref={vidRef}
-        src={armed ? src : undefined}
+        src={blobUrl ?? undefined}
         loop
         playsInline
-        preload="none"
-        onPlaying={() => { setPlaying(true); setLoading(false); }}
-        onWaiting={() => setLoading(true)}
+        muted
+        onPlaying={() => { setPlaying(true); setBuffering(false); }}
         onPause={() => setPlaying(false)}
         className={`relative z-[1] w-full h-full object-contain transition-opacity duration-300 ${playing ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
       />
       <button
         type="button"
         onClick={toggle}
-        aria-label={playing ? 'Pause video' : loading ? 'Loading' : 'Play video'}
+        aria-label={playing ? 'Pause video' : buffering ? 'Loading' : 'Play video'}
         className="absolute inset-0 z-[2] flex items-center justify-center group"
-        disabled={loading}
+        disabled={buffering}
       >
-        <span
-          className={`flex items-center justify-center w-20 h-20 rounded-full bg-black/55 text-white backdrop-blur-md transition-all duration-200 group-hover:scale-110 group-hover:bg-black/70 ${playing && !loading ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
-          style={{ transitionTimingFunction: 'var(--ease-out-quart)' }}
-        >
-          {loading ? (
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden className="animate-spin" style={{ animationDuration: '900ms' }}>
-              <path d="M21 12a9 9 0 1 1-6.219-8.563" strokeLinecap="round" />
-            </svg>
-          ) : playing ? (
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
-          ) : (
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
-          )}
-        </span>
+        {buffering ? (
+          <span className="flex flex-col items-center gap-2.5 rounded-2xl bg-black/55 px-6 py-5 text-white backdrop-blur-md">
+            <span className="h-1.5 w-40 overflow-hidden rounded-full bg-white/25">
+              <span
+                className="block h-full w-full origin-left rounded-full bg-white transition-transform duration-150 ease-out"
+                style={{ transform: `scaleX(${(progress ?? 0) / 100})` }}
+              />
+            </span>
+            <span className="mono text-[11px] tracking-wide tabular-nums text-white/90">{progress ?? 0}%</span>
+          </span>
+        ) : (
+          <span
+            className={`flex items-center justify-center w-20 h-20 rounded-full bg-black/55 text-white backdrop-blur-md transition-all duration-200 group-hover:scale-110 group-hover:bg-black/70 ${playing ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
+            style={{ transitionTimingFunction: 'var(--ease-out-quart)' }}
+          >
+            {playing ? (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+            ) : (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
+            )}
+          </span>
+        )}
       </button>
     </div>
   );

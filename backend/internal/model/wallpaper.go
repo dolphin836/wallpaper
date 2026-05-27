@@ -25,9 +25,10 @@ type Wallpaper struct {
 	CategoryID    int64     `gorm:"not null;default:0;index" json:"category_id"`
 	Title         string    `gorm:"size:128;not null;default:''" json:"title"`
 	Description   string    `gorm:"size:1000;not null;default:''" json:"description"`
-	OriginalURL   string    `gorm:"size:512;not null" json:"original_url"`
-	ThumbURL      string    `gorm:"size:512;not null;default:''" json:"thumb_url"`
-	PreviewURL    string    `gorm:"size:512;not null;default:''" json:"preview_url"`
+	OriginalURL     string    `gorm:"size:512;not null" json:"original_url"`
+	ThumbURL        string    `gorm:"size:512;not null;default:''" json:"thumb_url"`
+	PreviewURL      string    `gorm:"size:512;not null;default:''" json:"preview_url"`
+	PreviewVideoURL string    `gorm:"size:512;not null;default:''" json:"preview_video_url"`
 	Width         int       `gorm:"not null;default:0" json:"width"`
 	Height        int       `gorm:"not null;default:0" json:"height"`
 	FileSize      int64     `gorm:"not null;default:0" json:"file_size"`
