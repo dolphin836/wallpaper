@@ -280,6 +280,15 @@ cmd_setadmin() {
     compose exec api /bin/setadmin "$@"
 }
 
+cmd_variantgc() {
+    # Reclaim lazily-generated device variants that have gone cold. Variants
+    # are produced on first download and cached under derived/; this deletes
+    # the MinIO object + DB row for any not served within the TTL (default
+    # 30d). Cron-friendly. Pass --dry-run to preview, --days N to tune.
+    log_info "Reclaiming cold on-demand variants..."
+    compose exec api /bin/variantgc "$@"
+}
+
 cmd_help() {
     cat <<EOF
 ${CYAN}wallctl.sh${NC} - WallShare Application Manager
@@ -341,5 +350,6 @@ case "${1:-help}" in
     recompress) shift; cmd_recompress "$@" ;;
     autotag)    shift; cmd_autotag "$@" ;;
     setadmin)   shift; cmd_setadmin "$@" ;;
+    variantgc)  shift; cmd_variantgc "$@" ;;
     help|*)     cmd_help ;;
 esac
