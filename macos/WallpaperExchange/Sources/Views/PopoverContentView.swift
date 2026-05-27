@@ -70,7 +70,7 @@ struct PopoverContentView: View {
                         emptySubtitle: nil,
                         onDownload: { wp in Task { await download(wp) } },
                         onDownloadAndSet: { wp in Task { await downloadAndSet(wp) } },
-                        onSetWallpaper: { _ in },
+                        onSetWallpaper: { wp in Task { await setWallpaper(wp) } },
                         onRedownload: { _ in },
                         onLoadMore: { Task { await loadLatest() } }
                     )
