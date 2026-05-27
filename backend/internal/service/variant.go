@@ -28,11 +28,26 @@ func isVideoType(fileType string) bool {
 	return strings.HasPrefix(fileType, "video/")
 }
 
-// ListSupportedDevices returns the active device profiles a wallpaper can be
-// downloaded for — those whose resolution the original fully covers (no
-// upscaling). Dynamic and video wallpapers have no device variants, so the
-// list is empty for them.
-func (s *WallpaperService) ListSupportedDevices(ctx context.Context, wallpaperID int64) ([]model.DeviceProfile, *errcode.ErrCode) {
+// SupportedDevice is one entry in a wallpaper's device picker. Its shape
+// mirrors the legacy variant-list response the detail page already consumes
+// (id doubles as the download key, now a device id), so the frontend didn't
+// need to change when variants went lazy. No url: the page renders previews
+// from the wallpaper's preview_url.
+type SupportedDevice struct {
+	ID         int64  `json:"id"`
+	DeviceID   int64  `json:"device_id"`
+	Platform   string `json:"platform"`
+	Brand      string `json:"brand"`
+	DeviceName string `json:"device_name"`
+	DeviceSlug string `json:"device_slug"`
+	Width      int    `json:"width"`
+	Height     int    `json:"height"`
+}
+
+// ListSupportedDevices returns the devices a wallpaper can be downloaded for —
+// those whose resolution the original fully covers (no upscaling). Dynamic and
+// video wallpapers have no device variants, so the list is empty for them.
+func (s *WallpaperService) ListSupportedDevices(ctx context.Context, wallpaperID int64) ([]SupportedDevice, *errcode.ErrCode) {
 	w, err := s.wallpaperRepo.GetByID(ctx, wallpaperID)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get wallpaper", "error", err, "wallpaper_id", wallpaperID)
@@ -42,7 +57,7 @@ func (s *WallpaperService) ListSupportedDevices(ctx context.Context, wallpaperID
 		return nil, errcode.ErrNotFound
 	}
 	if w.IsDynamic || isVideoType(w.FileType) {
-		return []model.DeviceProfile{}, nil
+		return []SupportedDevice{}, nil
 	}
 
 	devices, err := s.deviceRepo.ListActive(ctx)
@@ -50,10 +65,19 @@ func (s *WallpaperService) ListSupportedDevices(ctx context.Context, wallpaperID
 		slog.ErrorContext(ctx, "failed to list devices", "error", err)
 		return nil, errcode.ErrInternal
 	}
-	out := make([]model.DeviceProfile, 0, len(devices))
+	out := make([]SupportedDevice, 0, len(devices))
 	for _, d := range devices {
 		if variant.OriginalCoversDevice(w.Width, w.Height, d.Width, d.Height) {
-			out = append(out, d)
+			out = append(out, SupportedDevice{
+				ID:         d.ID,
+				DeviceID:   d.ID,
+				Platform:   d.Platform,
+				Brand:      d.Brand,
+				DeviceName: d.Name,
+				DeviceSlug: d.Slug,
+				Width:      d.Width,
+				Height:     d.Height,
+			})
 		}
 	}
 	return out, nil
