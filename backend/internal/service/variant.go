@@ -5,13 +5,12 @@ import (
 	"context"
 	"fmt"
 	"image"
-	_ "image/jpeg" // register JPEG decoder for image.Decode (most originals)
-	_ "image/png"  // register PNG decoder
+	"image/jpeg" // decode + encode JPEG (pure Go — no cgo in the api binary)
+	_ "image/png" // register PNG decoder
 	"log/slog"
 	"strings"
 	"time"
 
-	"github.com/chai2010/webp"
 	_ "github.com/gen2brain/heic" // register HEIC decoder (iPhone originals)
 
 	"github.com/wallpaper/backend/internal/model"
@@ -195,11 +194,11 @@ func (s *WallpaperService) generateVariant(ctx context.Context, w *model.Wallpap
 
 	resized := variant.CoverResize(img, dev.Width, dev.Height)
 	buf := new(bytes.Buffer)
-	if err := webp.Encode(buf, resized, &webp.Options{Quality: 80}); err != nil {
-		return "", fmt.Errorf("encode webp: %w", err)
+	if err := jpeg.Encode(buf, resized, &jpeg.Options{Quality: 90}); err != nil {
+		return "", fmt.Errorf("encode jpeg: %w", err)
 	}
 	size := int64(buf.Len())
-	if err := s.storage.Upload(genCtx, key, buf, size, "image/webp"); err != nil {
+	if err := s.storage.Upload(genCtx, key, buf, size, "image/jpeg"); err != nil {
 		return "", fmt.Errorf("upload variant: %w", err)
 	}
 

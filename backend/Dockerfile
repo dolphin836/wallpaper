@@ -10,9 +10,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-# api needs cgo now: on-demand variant generation encodes WebP via
-# chai2010/webp (cgo + libwebp), same as the worker.
-RUN CGO_ENABLED=1 go build -o /bin/api ./cmd/api
+RUN CGO_ENABLED=0 go build -o /bin/api ./cmd/api
 RUN CGO_ENABLED=1 go build -o /bin/worker ./cmd/worker
 RUN CGO_ENABLED=0 go build -o /bin/sluggen ./cmd/sluggen
 RUN CGO_ENABLED=0 go build -o /bin/phashgen ./cmd/phashgen
@@ -28,7 +26,7 @@ RUN CGO_ENABLED=0 go build -o /bin/variantgc ./cmd/variantgc
 
 FROM alpine:3.19 AS api
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
-    apk add --no-cache ca-certificates tzdata libwebp
+    apk add --no-cache ca-certificates tzdata
 # tus tempdir for resumable video uploads. Mounted as a volume in
 # docker-compose so the staging files persist across api container
 # restarts (an upload paused in the browser can resume after we

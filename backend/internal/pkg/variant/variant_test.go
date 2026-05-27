@@ -31,7 +31,7 @@ func TestOriginalCoversDevice(t *testing.T) {
 
 func TestObjectKey(t *testing.T) {
 	got := ObjectKey(42, 7)
-	want := "derived/42/7.webp"
+	want := "derived/42/7.jpg"
 	if got != want {
 		t.Errorf("ObjectKey(42, 7) = %q, want %q", got, want)
 	}

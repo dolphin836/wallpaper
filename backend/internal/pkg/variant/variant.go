@@ -24,9 +24,10 @@ func OriginalCoversDevice(origW, origH, devW, devH int) bool {
 
 // ObjectKey is the MinIO key for a lazily-generated variant. The `derived/`
 // prefix keeps these separate from the legacy `variants/` objects so the
-// one-time purge of the old pre-generated set is unambiguous.
+// one-time purge of the old pre-generated set is unambiguous. Lazy variants
+// are JPEG (pure-Go encoder — keeps cgo/libwebp out of the api binary).
 func ObjectKey(wallpaperID, deviceID int64) string {
-	return fmt.Sprintf("derived/%d/%d.webp", wallpaperID, deviceID)
+	return fmt.Sprintf("derived/%d/%d.jpg", wallpaperID, deviceID)
 }
 
 // CoverResize scales img to fully cover targetW×targetH (preserving aspect
