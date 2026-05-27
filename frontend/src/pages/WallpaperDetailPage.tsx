@@ -80,6 +80,34 @@ function ToolbarBtn({
   );
 }
 
+// Stream a fetch Response into a Blob while reporting percent complete.
+// Falls back to indeterminate (null) when the server doesn't send a usable
+// Content-Length or streaming isn't available. Caps at 99% mid-stream so the
+// caller owns the jump to 100 once the blob is assembled.
+async function fetchBlobWithProgress(
+  resp: Response,
+  onProgress: (pct: number | null) => void,
+): Promise<Blob> {
+  const total = Number(resp.headers.get('Content-Length')) || 0;
+  if (!resp.body || total <= 0) {
+    onProgress(null);
+    return resp.blob();
+  }
+  const reader = resp.body.getReader();
+  const chunks: BlobPart[] = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      chunks.push(value as BlobPart);
+      received += value.length;
+      onProgress(Math.min(99, Math.round((received / total) * 100)));
+    }
+  }
+  return new Blob(chunks);
+}
+
 function findBestMatch(variants: WallpaperVariant[]): WallpaperVariant | null {
   const dpr = window.devicePixelRatio || 1;
   const sw = Math.round(window.screen.width * dpr);
@@ -181,6 +209,9 @@ export default function WallpaperDetailPage() {
   }, [categories, wallpaper?.category_id]);
   const [dlLoading, setDlLoading] = useState(false);
   const [dlDone, setDlDone] = useState(false);
+  // null while the server prepares the file (no measurable progress yet),
+  // 0-100 once the download stream is reporting bytes.
+  const [dlProgress, setDlProgress] = useState<number | null>(null);
   // Coin CTA state machine: default → confirm → (success | insufficient)
   // 'insufficient' is computed from balance + cost rather than tracked
   // separately so a fresh page-load with balance < cost lands directly
@@ -355,15 +386,18 @@ export default function WallpaperDetailPage() {
     // original regardless (variants can't represent multi-frame HEIC).
     const useVariant = wallpaper.is_dynamic ? null : variant;
     setDlLoading(true);
+    setDlProgress(null);
     try {
       let blobUrl: string;
       let filename: string;
       if (useVariant) {
+        // POST first: on a cold variant the server resizes the original
+        // before answering, so keep the bar indeterminate until then.
         const apiResp = await downloadVariant(wallpaper.id, useVariant.id);
         const dlUrl = apiResp.data.data?.url;
         if (!dlUrl) { toast.error('Download failed'); return; }
         const resp = await fetch(dlUrl);
-        const blob = await resp.blob();
+        const blob = await fetchBlobWithProgress(resp, setDlProgress);
         blobUrl = URL.createObjectURL(blob);
         filename = `wallpaper_${wallpaper.id}_${useVariant.width}x${useVariant.height}.jpg`;
       } else {
@@ -380,11 +414,12 @@ export default function WallpaperDetailPage() {
           return;
         }
         const finalUrl = resp.url;
-        const blob = await resp.blob();
+        const blob = await fetchBlobWithProgress(resp, setDlProgress);
         blobUrl = URL.createObjectURL(blob);
         const ext = finalUrl.split('.').pop()?.split('?')[0] || 'jpg';
         filename = `wallpaper_${wallpaper.id}_${wallpaper.width}x${wallpaper.height}.${ext}`;
       }
+      setDlProgress(100);
       const a = document.createElement('a');
       a.href = blobUrl;
       a.download = filename;
@@ -412,6 +447,7 @@ export default function WallpaperDetailPage() {
       }
     } finally {
       setDlLoading(false);
+      setDlProgress(null);
     }
   };
 
@@ -513,6 +549,36 @@ export default function WallpaperDetailPage() {
         <ReportModal wallpaperId={wallpaper.id} onClose={() => setShowReport(false)} />
       )}
 
+
+      {dlLoading && createPortal(
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-6">
+          <div className="w-full max-w-sm rounded-xl border border-hair bg-paper p-6 shadow-2xl">
+            <div className="mono text-[10px] tracking-[0.18em] uppercase text-muted">
+              {dlProgress === null ? 'Preparing' : 'Downloading'}
+            </div>
+            <div className="mt-1 display text-[20px] leading-tight text-ink truncate">
+              {wallpaper?.title?.trim() || `Wallpaper #${wallpaper?.id}`}
+            </div>
+
+            <div className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-paper-3">
+              {dlProgress === null ? (
+                <div className="dl-indeterminate h-full w-1/3 rounded-full bg-accent" />
+              ) : (
+                <div
+                  className="h-full w-full origin-left rounded-full bg-accent transition-transform duration-200 ease-out"
+                  style={{ transform: `scaleX(${dlProgress / 100})` }}
+                />
+              )}
+            </div>
+
+            <div className="mt-2 flex items-center justify-between mono text-[11px] text-ink-2">
+              <span>{dlProgress === null ? 'Generating your size' : 'Saving to your device'}</span>
+              <span className="tabular-nums">{dlProgress === null ? '' : `${dlProgress}%`}</span>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {mockupVariant && wallpaper && (
         <DeviceMockup
