@@ -30,7 +30,7 @@ interface UploadFile {
 
 export default function UploadPage() {
   usePageTitle('Upload');
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const navigate = useNavigate();
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -177,7 +177,11 @@ export default function UploadPage() {
           ? 'Upload received — pending admin review. You\'ll see it in your profile once approved.'
           : `${success} uploads received — pending admin review.`,
       );
-      setTimeout(() => navigate('/profile'), 1500);
+      setTimeout(() => {
+        if (user?.username) {
+          navigate(`/user/${user.username}`);
+        }
+      }, 1500);
     } else {
       toast.error(`${success} succeeded, ${failed} failed — retry the failed rows below.`);
     }
@@ -407,12 +411,12 @@ export default function UploadPage() {
               {uploading ? (
                 <span className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Uploading...
+                  Uploading
                 </span>
               ) : totalError > 0 ? (
                 'Retry Failed'
               ) : (
-                `Upload ${files.length} image${files.length > 1 ? 's' : ''}`
+                'Upload'
               )}
             </button>
           </div>
