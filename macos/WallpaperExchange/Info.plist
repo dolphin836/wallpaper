@@ -11,9 +11,9 @@
     <key>CFBundleExecutable</key>
     <string>WallpaperExchange</string>
     <key>CFBundleVersion</key>
-    <string>12</string>
+    <string>13</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.3.5</string>
+    <string>1.3.6</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleIconFile</key>

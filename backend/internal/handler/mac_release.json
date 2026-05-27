@@ -1,8 +1,16 @@
 {
-  "current_version": "1.3.5",
-  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.3.5.dmg",
+  "current_version": "1.3.6",
+  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.3.6.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "1.3.6",
+      "released_at": "2026-05-27",
+      "notes": [
+        "Fix: in the Latest column, the Set as wallpaper button on a wallpaper you'd already downloaded did nothing — it now applies it to your desktop.",
+        "Video wallpapers no longer appear in the Downloaded column (the mac client can't play them); they're hidden the same way the Latest list already did."
+      ]
+    },
     {
       "version": "1.3.5",
       "released_at": "2026-05-23",

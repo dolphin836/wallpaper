@@ -10,6 +10,20 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [1.3.6] - 2026-05-27
+
+### Fixed
+
+- **Set as wallpaper now works in the Latest column for already-downloaded
+  wallpapers.** When a Latest tile was already on disk its action row
+  collapsed to a single "Set as wallpaper" button, but that button was
+  wired to a no-op, so clicking it did nothing. It now applies the
+  wallpaper to the desktop.
+- **Video wallpapers no longer appear in the Downloaded column.** The mac
+  client can't render video wallpapers, and the Latest list already hid
+  them, but downloads are cross-platform so a video pulled on the web or
+  Windows still surfaced in Downloaded. It's now filtered out there too.
+
 ## [1.3.5] - 2026-05-23
 
 ### Fixed
