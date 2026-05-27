@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
-	"image/draw"
 	_ "image/jpeg" // register JPEG decoder for image.Decode (originals are often JPEG)
 	_ "image/png"  // register PNG decoder for image.Decode
 	"io"
@@ -320,12 +319,10 @@ func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedE
 			"original_size", fmt.Sprintf("%dx%d", origW, origH),
 		)
 	} else {
-		if err := w.generateDeviceVariants(ctx, img, format, event.WallpaperID, origW, origH); err != nil {
-			slog.Error("device variants partially failed (non-fatal)",
-				"wallpaper_id", event.WallpaperID,
-				"error", err,
-			)
-		}
+		// Device variants are no longer pre-generated here — they're produced
+		// lazily on first download (service.resolveOrGenerateVariant) and
+		// reclaimed when cold (cmd/variantgc), which kept ~9G of never-served
+		// resizes out of MinIO. Thumb/preview/color above are still eager.
 		slog.Info("image processed",
 			"wallpaper_id", event.WallpaperID,
 			"original_size", fmt.Sprintf("%dx%d", origW, origH),
@@ -382,107 +379,6 @@ func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Ima
 		return fmt.Errorf("update processed: %w", err)
 	}
 	return nil
-}
-
-func (w *ImageWorker) generateDeviceVariants(ctx context.Context, img image.Image, format string, wallpaperID int64, origW, origH int) error {
-	devices, err := w.deviceRepo.ListActive(ctx)
-	if err != nil {
-		return fmt.Errorf("list devices: %w", err)
-	}
-
-	var variants []model.WallpaperVariant
-	for _, dev := range devices {
-		if origW < dev.Width || origH < dev.Height {
-			slog.Debug("skipping device (original too small)",
-				"wallpaper_id", wallpaperID,
-				"device", dev.Name,
-				"need", fmt.Sprintf("%dx%d", dev.Width, dev.Height),
-				"have", fmt.Sprintf("%dx%d", origW, origH),
-			)
-			continue
-		}
-
-		resized := coverResize(img, dev.Width, dev.Height)
-		buf := new(bytes.Buffer)
-		// WebP q=80 is roughly visually equivalent to JPEG q=85 while
-		// saving another 25–30% on top — variants dominate MinIO storage,
-		// so the compounding effect matters here even if the per-image
-		// difference is small.
-		if err := webp.Encode(buf, resized, &webp.Options{Quality: 80}); err != nil {
-			slog.Error("encode variant failed",
-				"wallpaper_id", wallpaperID,
-				"device", dev.Name,
-				"error", err,
-			)
-			continue
-		}
-
-		objKey := fmt.Sprintf("variants/%s.webp", uuid.New().String())
-		fileSize := int64(buf.Len())
-		if err := w.storage.Upload(ctx, objKey, buf, fileSize, "image/webp"); err != nil {
-			slog.Error("upload variant failed",
-				"wallpaper_id", wallpaperID,
-				"device", dev.Name,
-				"error", err,
-			)
-			continue
-		}
-
-		variants = append(variants, model.WallpaperVariant{
-			WallpaperID: wallpaperID,
-			DeviceID:    dev.ID,
-			URL:         w.storage.GetURL(objKey),
-			Width:       dev.Width,
-			Height:      dev.Height,
-			FileSize:    fileSize,
-		})
-
-		slog.Info("variant generated",
-			"wallpaper_id", wallpaperID,
-			"device", dev.Name,
-			"size", fmt.Sprintf("%dx%d", dev.Width, dev.Height),
-		)
-	}
-
-	if len(variants) > 0 {
-		if err := w.deviceRepo.CreateVariants(ctx, variants); err != nil {
-			return fmt.Errorf("save variants: %w", err)
-		}
-	}
-
-	slog.Info("device variants done",
-		"wallpaper_id", wallpaperID,
-		"generated", len(variants),
-		"skipped", len(devices)-len(variants),
-	)
-	return nil
-}
-
-// coverResize scales the image to cover the target dimensions, then center-crops.
-func coverResize(img image.Image, targetW, targetH int) image.Image {
-	bounds := img.Bounds()
-	srcW, srcH := bounds.Dx(), bounds.Dy()
-
-	scaleW := float64(targetW) / float64(srcW)
-	scaleH := float64(targetH) / float64(srcH)
-	scale := scaleW
-	if scaleH > scaleW {
-		scale = scaleH
-	}
-
-	newW := uint(float64(srcW) * scale)
-	newH := uint(float64(srcH) * scale)
-	scaled := resize.Resize(newW, newH, img, resize.Lanczos3)
-
-	scaledBounds := scaled.Bounds()
-	offsetX := (scaledBounds.Dx() - targetW) / 2
-	offsetY := (scaledBounds.Dy() - targetH) / 2
-	cropRect := image.Rect(0, 0, targetW, targetH)
-
-	cropped := image.NewRGBA(cropRect)
-	draw.Draw(cropped, cropRect, scaled, image.Pt(scaledBounds.Min.X+offsetX, scaledBounds.Min.Y+offsetY), draw.Src)
-
-	return cropped
 }
 
 func (w *ImageWorker) Close() error {

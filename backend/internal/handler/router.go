@@ -105,7 +105,7 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Post("/events", deps.AnalyticsHandler.Track)
 			r.Get("/wallpapers", deps.WallpaperHandler.List)
 			r.Get("/wallpapers/{id}", deps.WallpaperHandler.Get)
-			r.Get("/wallpapers/{id}/variants", deps.DeviceHandler.ListVariants)
+			r.Get("/wallpapers/{id}/variants", deps.WallpaperHandler.ListSupportedDevices)
 			r.Get("/wallpapers/{id}/engagements", deps.WallpaperHandler.GetEngagements)
 			r.Get("/wallpapers/{id}/similar", deps.RecommendHandler.Similar)
 
@@ -141,7 +141,7 @@ func NewRouter(deps Deps) *chi.Mux {
 			}
 			r.Delete("/wallpapers/{id}", deps.WallpaperHandler.Delete)
 			r.Get("/wallpapers/{id}/download", deps.WallpaperHandler.Download)
-			r.Post("/wallpapers/{id}/variants/{vid}/download", deps.DeviceHandler.DownloadVariant)
+			r.Post("/wallpapers/{id}/variants/{vid}/download", deps.WallpaperHandler.DownloadForDevice)
 			r.Post("/wallpapers/{id}/like", deps.WallpaperHandler.Like)
 			r.Delete("/wallpapers/{id}/like", deps.WallpaperHandler.Unlike)
 			r.Post("/wallpapers/{id}/favorite", deps.WallpaperHandler.Favorite)

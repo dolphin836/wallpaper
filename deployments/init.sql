@@ -169,6 +169,10 @@ CREATE INDEX IF NOT EXISTS idx_we_wallpaper_type ON wallpaper_events(wallpaper_i
 CREATE INDEX IF NOT EXISTS idx_we_created ON wallpaper_events(created_at);
 
 ALTER TABLE wallpaper_variants ADD COLUMN IF NOT EXISTS download_count BIGINT NOT NULL DEFAULT 0;
+-- Lazy variants are materialized on first download and reclaimed by cmd/variantgc
+-- once cold. last_downloaded_at drives that TTL sweep (NULL = never served).
+ALTER TABLE wallpaper_variants ADD COLUMN IF NOT EXISTS last_downloaded_at TIMESTAMPTZ(6);
+CREATE INDEX IF NOT EXISTS idx_variants_last_downloaded ON wallpaper_variants(last_downloaded_at);
 
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS slug VARCHAR(160) NOT NULL DEFAULT '';
 CREATE UNIQUE INDEX IF NOT EXISTS idx_wallpapers_slug ON wallpapers(slug) WHERE slug != '';

@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/pkg/errcode"
@@ -30,6 +31,9 @@ type WallpaperService struct {
 	deviceRepo      *repo.DeviceRepo
 	storage         *storage.Storage
 	kafkaWriter     *kafka.Writer
+	// variantSF collapses concurrent first-time generations of the same
+	// (wallpaper, device) variant into one resize+upload.
+	variantSF singleflight.Group
 }
 
 func NewWallpaperService(
@@ -539,75 +543,56 @@ func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, user
 		return "", errcode.ErrNotFound
 	}
 
-	isOwner := w.UserID == userID
+	if ec := s.chargeAndRecordDownload(ctx, w, userID); ec != nil {
+		return "", ec
+	}
 
-	if !isOwner {
-		alreadyPaid, err := s.interactionRepo.HasDownloaded(ctx, userID, wallpaperID)
-		if err != nil {
-			slog.ErrorContext(ctx, "failed to check download history", "error", err)
-			return "", errcode.ErrInternal
-		}
-		if !alreadyPaid {
-			if _, err := s.coinRepo.Transfer(ctx, userID, w.UserID, 1,
-				model.CoinTxDownloadCost, model.CoinTxDownloadEarned, wallpaperID,
-				"Download wallpaper", "Wallpaper downloaded by others"); err != nil {
-				slog.WarnContext(ctx, "coin transfer failed", "error", err, "user_id", userID, "wallpaper_id", wallpaperID)
-				return "", errcode.ErrInsufficientCoins
+	// Native clients (mac/windows) hit this endpoint with their screen size.
+	// Map that to the smallest covering device profile and lazily generate
+	// that variant, sharing the same derived cache as the web device picker.
+	if target.Width > 0 && target.Height > 0 && !w.IsDynamic && !isVideoType(w.FileType) {
+		if dev := s.pickDeviceForTarget(ctx, w, target); dev != nil {
+			if url, err := s.resolveOrGenerateVariant(ctx, w, dev); err == nil {
+				return url, nil
+			} else {
+				slog.ErrorContext(ctx, "variant generation failed (serving original)",
+					"error", err, "wallpaper_id", wallpaperID, "device_id", dev.ID)
 			}
 		}
-	}
-
-	if err := s.interactionRepo.RecordDownload(ctx, userID, wallpaperID); err != nil {
-		slog.ErrorContext(ctx, "failed to record download", "error", err)
-	}
-
-	if err := s.wallpaperRepo.IncrementCounter(ctx, wallpaperID, "download_count", 1); err != nil {
-		slog.ErrorContext(ctx, "failed to increment download count", "error", err)
-	}
-
-	if err := s.eventRepo.Record(ctx, wallpaperID, "download", userID, nil); err != nil {
-		slog.ErrorContext(ctx, "failed to record download event", "error", err, "wallpaper_id", wallpaperID)
-	}
-
-	if target.Width > 0 && target.Height > 0 && !w.IsDynamic {
-		if url := s.pickBestVariantURL(ctx, wallpaperID, target); url != "" {
-			return url, nil
-		}
-		// fall through to OriginalURL when no variant covers the target —
-		// e.g. wallpaper is smaller than every device profile.
 	}
 	return w.OriginalURL, nil
 }
 
-// pickBestVariantURL returns the smallest variant whose dimensions still
-// cover target.W × target.H. Smaller-than-target variants would force the
-// client to upscale (visible quality loss), so they're rejected. Dynamic
-// wallpapers skip this path entirely — their value is the multi-frame
-// HEIC, which can't be substituted by a static variant. Returns "" when
-// no variant qualifies; caller falls back to the original.
-func (s *WallpaperService) pickBestVariantURL(ctx context.Context, wallpaperID int64, target DownloadTarget) string {
-	variants, err := s.deviceRepo.ListVariantsByWallpaper(ctx, wallpaperID)
-	if err != nil {
-		slog.WarnContext(ctx, "variant lookup failed (falling back to original)", "wallpaper_id", wallpaperID, "error", err)
-		return ""
-	}
-	var best *model.VariantWithDevice
-	bestPixels := 0
-	for i := range variants {
-		v := &variants[i]
-		if v.Width < target.Width || v.Height < target.Height {
-			continue
+// chargeAndRecordDownload runs the coin transfer (first download only, owner
+// exempt), records the download, and bumps counters. Shared by the legacy
+// width/height Download path and the device-id DownloadForDevice path.
+func (s *WallpaperService) chargeAndRecordDownload(ctx context.Context, w *model.Wallpaper, userID int64) *errcode.ErrCode {
+	if w.UserID != userID {
+		alreadyPaid, err := s.interactionRepo.HasDownloaded(ctx, userID, w.ID)
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to check download history", "error", err)
+			return errcode.ErrInternal
 		}
-		p := v.Width * v.Height
-		if best == nil || p < bestPixels {
-			best = v
-			bestPixels = p
+		if !alreadyPaid {
+			if _, err := s.coinRepo.Transfer(ctx, userID, w.UserID, 1,
+				model.CoinTxDownloadCost, model.CoinTxDownloadEarned, w.ID,
+				"Download wallpaper", "Wallpaper downloaded by others"); err != nil {
+				slog.WarnContext(ctx, "coin transfer failed", "error", err, "user_id", userID, "wallpaper_id", w.ID)
+				return errcode.ErrInsufficientCoins
+			}
 		}
 	}
-	if best == nil {
-		return ""
+
+	if err := s.interactionRepo.RecordDownload(ctx, userID, w.ID); err != nil {
+		slog.ErrorContext(ctx, "failed to record download", "error", err)
 	}
-	return best.URL
+	if err := s.wallpaperRepo.IncrementCounter(ctx, w.ID, "download_count", 1); err != nil {
+		slog.ErrorContext(ctx, "failed to increment download count", "error", err)
+	}
+	if err := s.eventRepo.Record(ctx, w.ID, "download", userID, nil); err != nil {
+		slog.ErrorContext(ctx, "failed to record download event", "error", err, "wallpaper_id", w.ID)
+	}
+	return nil
 }
 
 // Reprocess re-runs variant generation for a wallpaper that's stuck in

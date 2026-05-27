@@ -343,3 +343,54 @@ func (h *WallpaperHandler) Download(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, url, http.StatusFound)
 }
+
+// ListSupportedDevices returns the device profiles a wallpaper can be
+// downloaded for (original covers the device resolution). Drives the detail
+// page's device picker. Empty for dynamic/video wallpapers.
+func (h *WallpaperHandler) ListSupportedDevices(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	devices, ec := h.wallpaperSvc.ListSupportedDevices(r.Context(), id)
+	if ec != nil {
+		status := http.StatusInternalServerError
+		if ec.Code == errcode.ErrNotFound.Code {
+			status = http.StatusNotFound
+		}
+		response.Error(w, status, ec)
+		return
+	}
+	response.OK(w, devices)
+}
+
+// DownloadForDevice charges the download and returns a JSON {url} sized for the
+// given device, generating the variant on first request. The {vid} path slot
+// carries the device id (the web client downloads by device, not variant id).
+func (h *WallpaperHandler) DownloadForDevice(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	deviceID, err := strconv.ParseInt(chi.URLParam(r, "vid"), 10, 64)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	userID := middleware.GetUserID(r.Context())
+	url, ec := h.wallpaperSvc.DownloadForDevice(r.Context(), id, deviceID, userID)
+	if ec != nil {
+		status := http.StatusInternalServerError
+		switch ec.Code {
+		case errcode.ErrNotFound.Code:
+			status = http.StatusNotFound
+		case errcode.ErrInsufficientCoins.Code:
+			status = http.StatusPaymentRequired
+		}
+		response.Error(w, status, ec)
+		return
+	}
+	response.OK(w, map[string]string{"url": url})
+}

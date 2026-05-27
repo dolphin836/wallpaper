@@ -30,6 +30,9 @@ type WallpaperVariant struct {
 	FileSize      int64     `gorm:"not null;default:0" json:"file_size"`
 	DownloadCount int64     `gorm:"not null;default:0" json:"download_count"`
 	CreatedAt     time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
+	// LastDownloadedAt is bumped each time a lazily-generated variant is served;
+	// cmd/variantgc reclaims rows (and their MinIO objects) once it's cold.
+	LastDownloadedAt *time.Time `gorm:"column:last_downloaded_at" json:"last_downloaded_at,omitempty"`
 }
 
 func (WallpaperVariant) TableName() string {
