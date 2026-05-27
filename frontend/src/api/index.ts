@@ -18,6 +18,7 @@ export const getWallpapers = (params: {
   include_dynamic?: boolean;
   dynamic_only?: boolean;
   ai_only?: boolean;
+  video_only?: boolean;
 }) => client.get<ApiResponse<PaginatedData<Wallpaper>>>('/wallpapers', { params });
 
 export const getWallpaper = (slug: string) =>

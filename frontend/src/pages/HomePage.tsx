@@ -21,6 +21,8 @@ export default function HomePage() {
   // the section entirely so we don't surface a sad placeholder row.
   const [aiItems, setAiItems] = useState<Wallpaper[]>([]);
   const [aiLoading, setAiLoading] = useState(true);
+  const [videoItems, setVideoItems] = useState<Wallpaper[]>([]);
+  const [videoLoading, setVideoLoading] = useState(true);
 
   useEffect(() => {
     getWeeklyCurrent()
@@ -36,9 +38,17 @@ export default function HomePage() {
       .finally(() => setAiLoading(false));
   }, []);
 
+  useEffect(() => {
+    getWallpapers({ video_only: true, limit: 10, sort: 'newest' })
+      .then((r) => setVideoItems(r.data.data.items))
+      .catch(() => setVideoItems([]))
+      .finally(() => setVideoLoading(false));
+  }, []);
+
   const hasPicks = !!data && data.picks && data.picks.length > 0;
   const hasThemes = !!data && data.themes && data.themes.length > 0;
   const hasAI = aiItems.length > 0;
+  const hasVideo = videoItems.length > 0;
 
   return (
     <div className="bg-paper-2 min-h-full">
@@ -139,6 +149,38 @@ export default function HomePage() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {aiItems.map((w, i) => (
+                  <div key={w.id} className="aspect-[4/3] relative">
+                    <WallpaperCard wallpaper={w} fixedAspect hideActions animDelay={i * 30} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── Video row ──────────────────────────────────────────── */}
+        {(videoLoading || hasVideo) && (
+          <section className="mb-12">
+            <div className="flex items-baseline justify-between mb-5">
+              <div>
+                <div className="mono text-[10px] tracking-[0.18em] uppercase text-muted">Live</div>
+                <h2 className="display text-[28px] sm:text-[32px] leading-tight mt-1">
+                  Video wallpapers
+                </h2>
+              </div>
+              <Link to="/discover?filter=video" className="mono text-[11px] tracking-[0.14em] uppercase text-ink-2 hover:text-ink no-underline">
+                All videos →
+              </Link>
+            </div>
+            {videoLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="aspect-[4/3] border border-hair rounded bg-paper-3 skeleton-card" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {videoItems.map((w, i) => (
                   <div key={w.id} className="aspect-[4/3] relative">
                     <WallpaperCard wallpaper={w} fixedAspect hideActions animDelay={i * 30} />
                   </div>

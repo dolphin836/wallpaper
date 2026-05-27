@@ -164,6 +164,7 @@ func (h *WallpaperHandler) List(w http.ResponseWriter, r *http.Request) {
 		IncludeDynamic: q.Get("include_dynamic") == "true",
 		DynamicOnly:    q.Get("dynamic_only") == "true",
 		AIOnly:         q.Get("ai_only") == "true",
+		VideoOnly:      q.Get("video_only") == "true",
 		ExcludeDynamic: q.Get("exclude_dynamic") == "true",
 		ExcludeVideo:   q.Get("exclude_video") == "true",
 	}

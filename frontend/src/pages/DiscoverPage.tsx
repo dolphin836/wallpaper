@@ -72,7 +72,7 @@ const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent);
 
 // Single discovery filter. Each option fully specifies *what* gets fetched
 // and *how* it's sorted — there is no separate sort toggle.
-type FilterMode = 'latest' | 'trending' | 'for_you' | 'my_device' | 'mac_dynamic' | 'ai';
+type FilterMode = 'latest' | 'trending' | 'for_you' | 'my_device' | 'mac_dynamic' | 'ai' | 'video';
 
 const FILTER_LABELS: Record<FilterMode, string> = {
   latest:      'Latest',
@@ -81,6 +81,7 @@ const FILTER_LABELS: Record<FilterMode, string> = {
   my_device:   'My Device',
   mac_dynamic: 'macOS Dynamic',
   ai:          'AI Generated',
+  video:       'Video',
 };
 
 // Default view mode = 'justified' (justified-layout library, uniform row
@@ -201,8 +202,8 @@ function FilterDropdown(p: FilterDropdownProps) {
   // so the dropdown doesn't surface an option that immediately falls
   // back to Latest.
   const options: FilterMode[] = p.isAuthenticated
-    ? ['latest', 'trending', 'for_you', 'my_device', 'mac_dynamic', 'ai']
-    : ['latest', 'trending', 'my_device', 'mac_dynamic', 'ai'];
+    ? ['latest', 'trending', 'for_you', 'my_device', 'mac_dynamic', 'ai', 'video']
+    : ['latest', 'trending', 'my_device', 'mac_dynamic', 'ai', 'video'];
 
   return (
     <div className="relative" ref={p.ddRef}>
@@ -288,7 +289,7 @@ export default function DiscoverPage() {
   // owns the live state from there on.
   const [filterMode, setFilterMode] = useState<FilterMode>(() => {
     const raw = new URLSearchParams(window.location.search).get('filter');
-    const allowed: FilterMode[] = ['latest', 'trending', 'for_you', 'my_device', 'mac_dynamic', 'ai'];
+    const allowed: FilterMode[] = ['latest', 'trending', 'for_you', 'my_device', 'mac_dynamic', 'ai', 'video'];
     return (allowed as string[]).includes(raw || '') ? (raw as FilterMode) : 'latest';
   });
   const [filterOpen, setFilterOpen] = useState(false);
@@ -388,6 +389,9 @@ export default function DiscoverPage() {
           break;
         case 'ai':
           params.ai_only = true;
+          break;
+        case 'video':
+          params.video_only = true;
           break;
         case 'latest':
           // No special params — default backend behavior is latest first.
