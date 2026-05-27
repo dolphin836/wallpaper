@@ -306,6 +306,7 @@ func (h *UserHandler) GetDownloads(w http.ResponseWriter, r *http.Request) {
 		DeviceHeight:   parseIntQuery(r, "device_height"),
 		DynamicOnly:    r.URL.Query().Get("dynamic_only") == "true",
 		IncludeDynamic: r.URL.Query().Get("include_dynamic") == "true",
+		ExcludeVideo:   r.URL.Query().Get("exclude_video") == "true",
 	}
 
 	items, err := h.interactionRepo.ListDownloads(r.Context(), userID, cursor, fetchLimit, filters)

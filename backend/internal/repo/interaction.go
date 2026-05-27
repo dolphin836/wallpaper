@@ -191,12 +191,18 @@ type DownloadFilters struct {
 	DeviceHeight   int
 	DynamicOnly    bool
 	IncludeDynamic bool
+	// ExcludeVideo hides video/* wallpapers — the mac client can't render
+	// them, so it asks the downloads list to drop any it pulled elsewhere.
+	ExcludeVideo bool
 }
 
 // applyDownloadFilters narrows a wallpapers/user_downloads join by the
 // resolution / dynamic-only knobs. Same WHERE clauses as WallpaperRepo.List
 // so the two listings filter identically.
 func (r *InteractionRepo) applyDownloadFilters(query *gorm.DB, f DownloadFilters) *gorm.DB {
+	if f.ExcludeVideo {
+		query = query.Where("wallpapers.file_type NOT LIKE 'video/%'")
+	}
 	if f.DynamicOnly {
 		return query.Where("wallpapers.is_dynamic = true")
 	}

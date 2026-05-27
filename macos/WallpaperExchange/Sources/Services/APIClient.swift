@@ -118,6 +118,9 @@ actor APIClient {
     ) async throws -> PaginatedData<Wallpaper> {
         var items: [URLQueryItem] = [
             .init(name: "limit", value: String(limit)),
+            // The mac client can't render video wallpapers. Downloads are
+            // cross-platform, so drop any video the user pulled elsewhere.
+            .init(name: "exclude_video", value: "true"),
         ]
         if let c = cursor {
             items.append(.init(name: "cursor", value: String(c)))
