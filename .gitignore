@@ -1,6 +1,19 @@
 # Go
 backend/bin/
 backend/tmp/
+# Locally-compiled CLI binaries (go build -o <name> ./cmd/<name>)
+backend/aigen
+backend/autotag
+backend/phashgen
+backend/qcheck
+backend/wallpaper-import
+backend/weekly-drop
+backend/recompress
+backend/tagclean
+backend/setadmin
+backend/sluggen
+backend/indexnow-backfill
+backend/variantgc
 
 # Node
 frontend/node_modules/
