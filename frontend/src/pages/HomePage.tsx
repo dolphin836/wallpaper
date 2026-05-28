@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getWeeklyCurrent, getWallpapers, getCollections, type WeeklyCurrent } from '../api';
 import type { Wallpaper, Collection } from '../types';
@@ -56,18 +56,38 @@ export default function HomePage() {
   // non-first pick — slicing by index would dupe the hero into the grid).
   const restPicks = (data?.picks || []).filter((p) => p.id !== hero?.id).slice(0, 5);
 
-  // Drive the page's mesh background from the hero's palette. Effect runs
-  // on the root container so the CSS variables stay scoped to .h3-home
-  // (no document-wide leak).
+  // Drive the page's mesh background from a wallpaper's palette. Effect
+  // runs on the root container so CSS variables stay scoped to .h3-home.
+  // Picks indices 0 / mid / last from the palette — palettes are typically
+  // ordered dark→light, so these three give the most visible contrast in
+  // the mesh. (The previous "last-2 / 1 / last" pick clustered to similar
+  // tones, making the background read as a flat tint.)
   const rootRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!hero || !rootRef.current) return;
-    const parts = (hero.color_palette || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const applyPalette = useCallback((palette: string | undefined | null) => {
+    if (!rootRef.current) return;
+    if (!palette) {
+      rootRef.current.style.removeProperty('--h3-c1');
+      rootRef.current.style.removeProperty('--h3-c2');
+      rootRef.current.style.removeProperty('--h3-c3');
+      return;
+    }
+    const parts = palette.split(',').map((s) => s.trim()).filter(Boolean);
     if (parts.length < 3) return;
-    rootRef.current.style.setProperty('--h3-c1', parts[parts.length - 2] || parts[0]);
-    rootRef.current.style.setProperty('--h3-c2', parts[1] || parts[0]);
-    rootRef.current.style.setProperty('--h3-c3', parts[parts.length - 1] || parts[2]);
-  }, [hero]);
+    rootRef.current.style.setProperty('--h3-c1', parts[0]);
+    rootRef.current.style.setProperty('--h3-c2', parts[Math.floor(parts.length / 2)]);
+    rootRef.current.style.setProperty('--h3-c3', parts[parts.length - 1]);
+  }, []);
+  // Hero palette = default. When user hovers a wallpaper tile, the mesh
+  // briefly switches to that wallpaper's palette; on leave we restore
+  // the hero's palette via this ref.
+  const heroPaletteRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    heroPaletteRef.current = hero?.color_palette;
+    applyPalette(hero?.color_palette);
+  }, [hero, applyPalette]);
+  const handleTileHover = useCallback((palette: string | undefined) => {
+    applyPalette(palette || heroPaletteRef.current);
+  }, [applyPalette]);
 
   const showWeekly = !loading && hero;
   const showRestWeekly = !loading && restPicks.length > 0;
@@ -101,7 +121,7 @@ export default function HomePage() {
               <Link to={`/weekly-picks/${data!.year}/${data!.week}`} className="h3-more">View all weekly →</Link>
             </div>
             <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-              {restPicks.map((w) => <WallpaperTile key={w.id} w={w} variant="weekly" />)}
+              {restPicks.map((w) => <WallpaperTile key={w.id} w={w} variant="weekly" onHover={handleTileHover} />)}
             </div>
           </section>
         )}
@@ -117,7 +137,7 @@ export default function HomePage() {
               <Link to="/discover?filter=ai" className="h3-more">All AI wallpapers →</Link>
             </div>
             <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-              {aiItems.slice(0, 5).map((w) => <WallpaperTile key={w.id} w={w} variant="ai" />)}
+              {aiItems.slice(0, 5).map((w) => <WallpaperTile key={w.id} w={w} variant="ai" onHover={handleTileHover} />)}
             </div>
           </section>
         )}
@@ -133,7 +153,7 @@ export default function HomePage() {
               <Link to="/discover?filter=video" className="h3-more">All videos →</Link>
             </div>
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-              {videoItems.slice(0, 4).map((w) => <WallpaperTile key={w.id} w={w} variant="video" />)}
+              {videoItems.slice(0, 4).map((w) => <WallpaperTile key={w.id} w={w} variant="video" onHover={handleTileHover} />)}
             </div>
           </section>
         )}
@@ -202,7 +222,13 @@ function HeroCard({ hero, week, year }: { hero: Wallpaper; week: number; year: n
 }
 
 /* ─────────── Tile (weekly / ai / video) ─────────── */
-function WallpaperTile({ w, variant }: { w: Wallpaper; variant: 'weekly' | 'ai' | 'video' }) {
+function WallpaperTile({
+  w, variant, onHover,
+}: {
+  w: Wallpaper;
+  variant: 'weekly' | 'ai' | 'video';
+  onHover?: (palette: string | undefined) => void;
+}) {
   const [loaded, setLoaded] = useState(false);
   // Video preview-clip autoplay on hover. preview_video_url is the
   // 480p/CRF30/muted clip generated by the transcode worker; falls back
@@ -214,12 +240,24 @@ function WallpaperTile({ w, variant }: { w: Wallpaper; variant: 'weekly' | 'ai' 
     vidRef.current?.play().catch(() => { /* autoplay blocked */ });
   }, [playing]);
 
+  // Tile hover drives the page's mesh palette (parent supplies onHover).
+  // For video tiles we additionally toggle playback. Both run from the
+  // same handlers so the two concerns stay in sync.
+  const handleEnter = () => {
+    onHover?.(w.color_palette);
+    if (variant === 'video' && w.preview_video_url) setPlaying(true);
+  };
+  const handleLeave = () => {
+    onHover?.(undefined);
+    if (variant === 'video' && w.preview_video_url) setPlaying(false);
+  };
+
   return (
     <Link
       to={`/wallpaper/${w.slug || w.id}`}
       className={`h3-tile h3-${variant}${playing ? ' h3-playing' : ''}`}
-      onMouseEnter={variant === 'video' && w.preview_video_url ? () => setPlaying(true) : undefined}
-      onMouseLeave={variant === 'video' && w.preview_video_url ? () => setPlaying(false) : undefined}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
     >
       <img
         src={w.preview_url || w.thumb_url}

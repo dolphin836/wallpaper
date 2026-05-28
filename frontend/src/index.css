@@ -865,14 +865,14 @@
   --h3-c1: oklch(85% 0.05 230);
   --h3-c2: oklch(78% 0.06 200);
   --h3-c3: oklch(82% 0.04 250);
-  --h3-liquid-opacity: 0.32;
+  --h3-liquid-opacity: 0.60;
   position: relative;
   isolation: isolate;
   min-height: 100%;
   background: var(--color-paper);
 }
 .dark .h3-home {
-  --h3-liquid-opacity: 0.5;
+  --h3-liquid-opacity: 0.78;
 }
 
 /* Animated mesh background — three soft blob colors from the hero
@@ -880,23 +880,30 @@
    (not the whole viewport — Layout's sidebar/header keep their own
    surfaces). */
 .h3-home-mesh {
-  position: absolute; inset: -10%; z-index: 0;
+  /* fixed (not absolute) so the drift animation never affects document
+     height. Previously the absolute mesh with inset:-10% + scale/translate
+     animation grew/shrunk the document each frame, dragging the scroll
+     position around (you couldn't reach the bottom; the page slowly
+     scrolled up by itself). Fixed = anchored to viewport, zero layout
+     impact. CSS vars still inherit from .h3-home in the DOM tree. */
+  position: fixed; inset: 0; z-index: 0;
   background:
     radial-gradient(40% 40% at 22% 30%, var(--h3-c1) 0%, transparent 60%),
     radial-gradient(45% 45% at 78% 20%, var(--h3-c2) 0%, transparent 55%),
     radial-gradient(50% 50% at 50% 82%, var(--h3-c3) 0%, transparent 62%);
-  filter: blur(80px) saturate(1.15);
+  filter: blur(80px) saturate(1.4);
   opacity: var(--h3-liquid-opacity);
   animation: h3-drift 30s ease-in-out infinite alternate;
   transition: background 1400ms ease, opacity 1400ms ease;
   pointer-events: none;
 }
-.dark .h3-home-mesh { filter: blur(80px) saturate(1.8); }
+.dark .h3-home-mesh { filter: blur(80px) saturate(2.0); }
 @keyframes h3-drift {
+  /* Subtler drift — viewport-anchored, only gradient positions wander. */
   0%   { transform: translate(0, 0) scale(1); }
-  33%  { transform: translate(-3%, 2%) scale(1.05); }
-  66%  { transform: translate(2%, -3%) scale(0.95); }
-  100% { transform: translate(-1%, 1%) scale(1.02); }
+  33%  { transform: translate(-2%, 1.5%) scale(1.03); }
+  66%  { transform: translate(1.5%, -2%) scale(0.98); }
+  100% { transform: translate(-0.5%, 0.5%) scale(1.01); }
 }
 .h3-home-main { position: relative; z-index: 1; }
 
@@ -1201,7 +1208,7 @@
   --d3-c1: oklch(86% 0.08 45);
   --d3-c2: oklch(82% 0.10 30);
   --d3-c3: oklch(88% 0.06 60);
-  --d3-liquid-opacity: 0.25;
+  --d3-liquid-opacity: 0.55;
   position: relative;
   isolation: isolate;
   min-height: 100%;
@@ -1213,27 +1220,26 @@
   --d3-c1: oklch(28% 0.06 35);
   --d3-c2: oklch(22% 0.04 230);
   --d3-c3: oklch(32% 0.07 50);
-  --d3-liquid-opacity: 0.45;
+  --d3-liquid-opacity: 0.72;
 }
 .d3-discover-mesh {
-  position: absolute; inset: -10%; z-index: 0;
+  /* See .h3-home-mesh — fixed anchoring, viewport-bound, zero layout cost. */
+  position: fixed; inset: 0; z-index: 0;
   background:
     radial-gradient(40% 40% at 22% 30%, var(--d3-c1) 0%, transparent 60%),
     radial-gradient(45% 45% at 78% 20%, var(--d3-c2) 0%, transparent 55%),
     radial-gradient(50% 50% at 50% 82%, var(--d3-c3) 0%, transparent 62%);
-  filter: blur(80px) saturate(1.15);
+  filter: blur(80px) saturate(1.4);
   opacity: var(--d3-liquid-opacity);
   animation: d3-drift 32s ease-in-out infinite alternate;
-  /* Long color transition so the per-card hover swap reads as a slow,
-     ambient shift instead of a flickery snap. */
   transition: background 1200ms ease, opacity 1200ms ease;
   pointer-events: none;
 }
-.dark .d3-discover-mesh { filter: blur(80px) saturate(1.8); }
+.dark .d3-discover-mesh { filter: blur(80px) saturate(2.0); }
 @keyframes d3-drift {
   0%   { transform: translate(0, 0) scale(1); }
-  33%  { transform: translate(-2.5%, 2%) scale(1.05); }
-  66%  { transform: translate(2%, -3%) scale(0.95); }
-  100% { transform: translate(-1%, 1%) scale(1.02); }
+  33%  { transform: translate(-2%, 1.5%) scale(1.03); }
+  66%  { transform: translate(1.5%, -2%) scale(0.98); }
+  100% { transform: translate(-0.5%, 0.5%) scale(1.01); }
 }
 .d3-discover-main { position: relative; z-index: 1; }
