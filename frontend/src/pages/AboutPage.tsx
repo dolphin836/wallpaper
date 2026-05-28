@@ -7,19 +7,20 @@ import PageMeta from '../components/PageMeta';
 // dynamic (counts, leaderboards) lives elsewhere.
 export default function AboutPage() {
   return (
-    <div className="bg-paper text-ink min-h-full">
+    <div className="legal-page min-h-full">
+      <div className="legal-mesh" aria-hidden />
       <PageMeta
         title="About"
         description="Wallpaper Exchange — a wallpaper community where every image comes pre-sized for forty-plus devices, and every contributor earns a coin for every upload."
       />
 
-      <div className="px-6 sm:px-10 pt-7 pb-12 max-w-[820px] mx-auto">
+      <div className="relative z-10 px-6 sm:px-10 lg:px-14 pt-10 pb-16 max-w-[820px] mx-auto">
 
         {/* ─── Hero ─── */}
         <header className="mb-10">
           <div className="kicker text-muted">About · Independent since 2026</div>
-          <h1 className="display text-[40px] sm:text-[56px] leading-[0.96] mt-2 tracking-[-0.02em] text-ink">
-            The archive built for <span className="italic-d">the screens you actually use.</span>
+          <h1 className="display text-[40px] sm:text-[56px] leading-[1.02] mt-2 tracking-[-0.015em] text-ink">
+            The archive built for <em className="legal-title-tail">the screens you actually use.</em>
           </h1>
           <p className="text-[16px] leading-[1.55] text-ink-2 mt-5 max-w-[640px]">
             Wallpaper Exchange is a small editorial wallpaper community.

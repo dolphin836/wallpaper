@@ -84,24 +84,27 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="bg-paper-2 min-h-full flex items-center justify-center px-4 py-12">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-[480px] p-10 bg-paper"
-        style={{ border: '1px solid var(--color-hair)', boxShadow: '0 8px 32px rgba(0,0,0,0.04)' }}
-      >
-        <div className="kicker text-muted">Register</div>
-        <h1 className="display text-[40px] sm:text-[44px] leading-[0.98] tracking-[-0.02em] mt-2 text-ink">
-          Join <span className="italic-d">the archive.</span>
+    <div className="auth-page">
+      <div className="auth-mesh" aria-hidden />
+      <form onSubmit={handleSubmit} className="auth-card">
+        <Link to="/" className="auth-brand" aria-label="Wallpaper Exchange">
+          <img src="/logo-192.png" alt="" />
+          <span className="auth-brand-stack">
+            <span className="auth-brand-name">Wallpaper</span>
+            <span className="auth-brand-sub">Exchange</span>
+          </span>
+        </Link>
+
+        <div className="auth-kicker">Register</div>
+        <h1 className="auth-title">
+          Join <em>the archive</em>.
         </h1>
-        <p className="text-[13px] text-ink-2 leading-[1.55] mt-3">
+        <p className="auth-desc">
           Free. Get <strong className="text-accent">10 coins</strong> on signup; earn{' '}
           <strong className="text-accent">+1</strong> for every wallpaper you contribute.
         </p>
 
-        <hr className="my-6 border-t border-hair" />
-
-        <div className="flex flex-col gap-[18px]">
+        <div className="auth-fields">
           <Field
             label="Username"
             type="text"
@@ -139,36 +142,32 @@ export default function RegisterPage() {
           />
         </div>
 
-        <label className="flex items-start gap-2.5 mt-5 text-[12px] text-ink-2 leading-snug cursor-pointer select-none">
+        <label className="auth-agree">
           <input
             type="checkbox"
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-0.5 accent-ink"
+            className="accent-ink"
           />
           <span>
             I accept the{' '}
-            <Link to="/terms" target="_blank" className="text-ink hover:underline">Terms of Service</Link>
+            <Link to="/terms" target="_blank" className="auth-link">Terms of Service</Link>
             {', '}
-            <Link to="/privacy" target="_blank" className="text-ink hover:underline">Privacy Policy</Link>
+            <Link to="/privacy" target="_blank" className="auth-link">Privacy Policy</Link>
             {', and '}
-            <Link to="/legal/dmca" target="_blank" className="text-ink hover:underline">DMCA policy</Link>.
+            <Link to="/legal/dmca" target="_blank" className="auth-link">DMCA policy</Link>.
           </span>
         </label>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="mt-6 w-full py-3.5 bg-ink text-paper text-[14px] font-semibold rounded disabled:opacity-50 hover:bg-ink-2 transition-colors"
-        >
+        <button type="submit" disabled={loading} className="auth-submit">
           {loading ? 'Creating…' : <>Create account · <span className="text-accent">get 10 coins</span></>}
         </button>
 
-        <p className="mt-5 text-center text-[12px] text-muted">
+        <p className="auth-footnote">
           Already have an account?{' '}
           <Link
             to={isDesktop ? '/login?desktop=1' : '/login'}
-            className="text-ink hover:underline font-medium"
+            className="auth-footnote-link"
           >Sign in →</Link>
         </p>
       </form>

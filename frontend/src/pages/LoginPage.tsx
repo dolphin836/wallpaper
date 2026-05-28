@@ -79,23 +79,26 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="bg-paper-2 min-h-full flex items-center justify-center px-4 py-12">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-[460px] p-10 bg-paper"
-        style={{ border: '1px solid var(--color-hair)', boxShadow: '0 8px 32px rgba(0,0,0,0.04)' }}
-      >
-        <div className="kicker text-muted">Sign in</div>
-        <h1 className="display text-[44px] sm:text-[48px] leading-[0.98] tracking-[-0.02em] mt-2 text-ink">
-          Welcome back, <span className="italic-d">archivist.</span>
+    <div className="auth-page">
+      <div className="auth-mesh" aria-hidden />
+      <form onSubmit={handleSubmit} className="auth-card">
+        <Link to="/" className="auth-brand" aria-label="Wallpaper Exchange">
+          <img src="/logo-192.png" alt="" />
+          <span className="auth-brand-stack">
+            <span className="auth-brand-name">Wallpaper</span>
+            <span className="auth-brand-sub">Exchange</span>
+          </span>
+        </Link>
+
+        <div className="auth-kicker">Sign in</div>
+        <h1 className="auth-title">
+          Welcome back, <em>archivist</em>.
         </h1>
-        <p className="text-[13px] text-ink-2 leading-[1.55] mt-3">
-          Sign in to spend coins, save favorites, and upload your own specimens.
+        <p className="auth-desc">
+          Sign in to spend coins, save favourites, and upload your own work.
         </p>
 
-        <hr className="my-6 border-t border-hair" />
-
-        <div className="flex flex-col gap-[18px]">
+        <div className="auth-fields">
           <Field
             label="Email"
             type="email"
@@ -120,19 +123,15 @@ export default function LoginPage() {
           />
         </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="mt-6 w-full py-3.5 bg-ink text-paper text-[14px] font-semibold rounded disabled:opacity-50 hover:bg-ink-2 transition-colors"
-        >
-          {loading ? 'Signing in…' : 'Sign in →'}
+        <button type="submit" disabled={loading} className="auth-submit">
+          {loading ? 'Signing in…' : <>Sign in <span aria-hidden>→</span></>}
         </button>
 
-        <p className="mt-5 text-center text-[12px] text-muted">
-          New to the archive?{' '}
+        <p className="auth-footnote">
+          New here?{' '}
           <Link
             to={isDesktop ? '/register?desktop=1' : '/register'}
-            className="text-ink hover:underline font-medium"
+            className="auth-footnote-link"
           >Register →</Link>
         </p>
       </form>

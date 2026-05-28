@@ -11,19 +11,20 @@ export default function ContributePage() {
   const startPath = isAuthenticated ? '/upload' : '/register';
 
   return (
-    <div className="bg-paper text-ink min-h-full">
+    <div className="legal-page min-h-full">
+      <div className="legal-mesh" aria-hidden />
       <PageMeta
         title="Contribute"
         description="Upload your wallpapers to Wallpaper Exchange. We auto-generate variants for forty-plus device profiles, you earn a coin per accepted upload, and the best work gets featured."
       />
 
-      <div className="px-6 sm:px-10 pt-7 pb-12 max-w-[820px] mx-auto">
+      <div className="relative z-10 px-6 sm:px-10 lg:px-14 pt-10 pb-16 max-w-[820px] mx-auto">
 
         {/* ─── Hero ─── */}
         <header className="mb-10">
           <div className="kicker text-muted">Contribute · For wallpaper artists</div>
-          <h1 className="display text-[40px] sm:text-[56px] leading-[0.96] mt-2 tracking-[-0.02em] text-ink">
-            Your wallpaper, <span className="italic-d">forty devices,</span> one upload.
+          <h1 className="display text-[40px] sm:text-[56px] leading-[1.02] mt-2 tracking-[-0.015em] text-ink">
+            Your wallpaper, <em className="legal-title-tail">forty devices</em>, one upload.
           </h1>
           <p className="text-[16px] leading-[1.55] text-ink-2 mt-5 max-w-[640px]">
             Drop a single high-resolution file. We crop and resize it

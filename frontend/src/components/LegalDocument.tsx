@@ -44,8 +44,9 @@ export default function LegalDocument({ doc, currentPath }: Props) {
   const slugFor = (label: string) => label.toLowerCase().replace(/^\d+\s*·\s*/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
   return (
-    <div className="bg-paper text-ink min-h-full">
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8 lg:gap-14 px-6 sm:px-10 lg:px-14 py-8">
+    <div className="legal-page min-h-full">
+      <div className="legal-mesh" aria-hidden />
+      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8 lg:gap-14 max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 py-12">
         {/* TOC sidebar */}
         <aside className="hidden lg:block">
           <div className="kicker text-muted">Articles · {doc.toc.length}</div>
@@ -108,8 +109,8 @@ export default function LegalDocument({ doc, currentPath }: Props) {
           <div className="flex justify-between items-baseline border-b border-hair pb-4 gap-4 flex-wrap">
             <div>
               <div className="kicker text-muted">Legal · {doc.version}</div>
-              <h1 className="display text-[44px] sm:text-[60px] lg:text-[76px] leading-[0.92] tracking-[-0.02em] mt-2 text-ink">
-                {doc.title} <span className="italic-d">{doc.italicTail}.</span>
+              <h1 className="display text-[44px] sm:text-[60px] lg:text-[76px] leading-[0.95] tracking-[-0.015em] mt-2 text-ink">
+                {doc.title} <span className="legal-title-tail">{doc.italicTail}.</span>
               </h1>
             </div>
             <div className="text-right mono text-[11px] text-muted tracking-[0.06em]">
