@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AiOutlineArrowRight } from 'react-icons/ai';
-import { getWeeklyArchive, getWeeklyByWeek, type WeeklyArchiveEntry, type WeeklyPicked } from '../api';
+import { getWeeklyArchive, type WeeklyArchiveEntry } from '../api';
 import PageMeta from '../components/PageMeta';
 
 const MONTH_ABBR = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
@@ -26,12 +26,6 @@ export default function WeeklyArchivePage() {
   const [loading, setLoading] = useState(true);
   const [selectedIdx, setSelectedIdx] = useState(0); // 0 = most recent
 
-  // Per-week hero cache. The archive endpoint only returns a cover
-  // URL (preview-sized at best). To match the home-page hero's
-  // resolution we fetch the week's picks lazily on selection, find the
-  // is_hero pick, and use its original_url to upgrade the cover.
-  const [heroCache, setHeroCache] = useState<Record<string, WeeklyPicked | null>>({});
-
   useEffect(() => {
     getWeeklyArchive(100)
       .then((r) => setRows(r.data.data || []))
@@ -39,60 +33,18 @@ export default function WeeklyArchivePage() {
   }, []);
 
   const selected = rows[selectedIdx];
-  const cacheKey = selected ? `${selected.year}-${selected.week}` : '';
-  const heroPick = cacheKey ? heroCache[cacheKey] : null;
 
-  // Lazy-fetch the hero pick for the selected week (cached).
-  useEffect(() => {
-    if (!selected || cacheKey in heroCache) return;
-    let cancelled = false;
-    getWeeklyByWeek(selected.year, selected.week)
-      .then((r) => {
-        if (cancelled) return;
-        const picks = r.data.data?.picks || [];
-        const hero = picks.find((p) => p.is_hero) || picks[0] || null;
-        setHeroCache((prev) => ({ ...prev, [cacheKey]: hero }));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        // Mark as null so we don't keep retrying — preview cover stays.
-        setHeroCache((prev) => ({ ...prev, [cacheKey]: null }));
-      });
-    return () => { cancelled = true; };
-  }, [selected, cacheKey, heroCache]);
-
-  // Progressive cover image: start with archive cover_url (now backed
-  // by preview_url server-side), then swap to the hero's original_url
-  // once it's both available in the cache AND decoded by the browser.
-  //
-  // Race protection: when the user clicks through the timeline fast,
-  // week A's pre-decode (new Image().onload) can still fire after the
-  // user has already switched to week B. Without a guard, that
-  // onload would setCoverSrc(A.original_url) and overwrite the
-  // freshly-painted B.cover_url, producing a brief 'wrong image'
-  // flash. We bump a version ref on every week change and the
-  // onload only commits if it still matches.
-  const [coverSrc, setCoverSrc] = useState<string>('');
+  // Cover paint state — single src straight from cover_url. The
+  // archive endpoint already picks the right wallpaper (admin hero
+  // first, fallback to first published). The list page used to
+  // re-fetch byWeek and progressively upgrade to original_url; that
+  // produced a visible image swap when the data sources disagreed.
+  // Now the list page renders cover_url and only cover_url —
+  // upgrade to the full original happens on the detail page.
   const [coverLoaded, setCoverLoaded] = useState(false);
-  const versionRef = useRef(0);
   useEffect(() => {
-    if (!selected) return;
-    versionRef.current += 1;
-    setCoverSrc(selected.cover_url || '');
     setCoverLoaded(false);
   }, [selected?.year, selected?.week]);
-  useEffect(() => {
-    if (!selected || !heroPick?.original_url) return;
-    if (heroPick.original_url === selected.cover_url) return;
-    if (coverSrc === heroPick.original_url) return;
-    const myVersion = versionRef.current;
-    const upgrade = new Image();
-    upgrade.onload = () => {
-      if (versionRef.current !== myVersion) return; // stale — user moved on
-      setCoverSrc(heroPick.original_url);
-    };
-    upgrade.src = heroPick.original_url;
-  }, [selected, heroPick?.original_url, coverSrc]);
 
   return (
     <div className="w-weekly-archive min-h-full">
@@ -156,9 +108,10 @@ export default function WeeklyArchivePage() {
                   className="w-archive-cover-link"
                 >
                   <figure className="w-archive-cover">
-                    {coverSrc && (
+                    {selected.cover_url && (
                       <img
-                        src={coverSrc}
+                        key={`${selected.year}-${selected.week}`}
+                        src={selected.cover_url}
                         alt=""
                         className={coverLoaded ? 'is-loaded' : ''}
                         onLoad={() => setCoverLoaded(true)}

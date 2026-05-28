@@ -327,21 +327,21 @@ func (r *WeeklyPickRepo) Archive(ctx context.Context, limit int) ([]ArchiveEntry
 	// surface the LLM-chosen accent color alongside its cover. Themed
 	// collections share the (year, week) key with weekly_picks; left
 	// join keeps weeks without a theme working.
-	// DISTINCT ON picks the first published wallpaper of each slate
-	// (ordered by sort_order ASC). This deliberately drops the
-	// is_hero column from the cover selection — ListByWeek already
-	// filters to status=published and promotes its rows[0] to hero,
-	// so the SPA's progressive upgrade (archive cover → detail
-	// hero.original_url) only stays consistent if the archive picks
-	// the *same* row. Using is_hero diverged whenever the hero
-	// wallpaper got unpublished (week 18 was the canary: hero row
-	// pointed at wallpaper 774 which was unpublished, so byWeek
-	// promoted row 2 instead and the archive cover swapped on
-	// upgrade). "First published pick" is the single source of
-	// truth on both endpoints.
+	// Cover selection per slate:
+	//   - Prefer the admin-marked hero (is_hero = TRUE) — that's the
+	//     piece the curator wanted on the cover.
+	//   - If the hero wallpaper has been unpublished since, fall
+	//     through to the next published row by sort_order ASC.
+	//   - Only published wallpapers are eligible (status filter on
+	//     the wallpapers JOIN).
+	// DISTINCT ON + the ORDER BY 'is_hero DESC, sort_order ASC' inner
+	// keys do that selection in one query. The archive endpoint
+	// returns just one row per (year, week) and the SPA list page
+	// renders the cover_url directly — no follow-up byWeek fetch,
+	// no progressive upgrade, no chance of swap.
 	err := r.db.WithContext(ctx).Raw(`
-		SELECT DISTINCT ON (wp.year, wp.week)
-		       wp.year, wp.week, slate.cnt AS count,
+		SELECT DISTINCT ON (slate.year, slate.week)
+		       slate.year, slate.week, slate.cnt AS count,
 		       COALESCE(w.preview_url, w.thumb_url, '') AS cover_url,
 		       COALESCE(tc.accent_color, '') AS accent_color
 		FROM (
@@ -351,8 +351,8 @@ func (r *WeeklyPickRepo) Archive(ctx context.Context, limit int) ([]ArchiveEntry
 		) slate
 		JOIN weekly_picks wp ON wp.year = slate.year AND wp.week = slate.week
 		JOIN wallpapers w ON w.id = wp.wallpaper_id AND w.status = ?
-		LEFT JOIN collections tc ON tc.kind = 1 AND tc.year = wp.year AND tc.week = wp.week
-		ORDER BY wp.year DESC, wp.week DESC, wp.sort_order ASC
+		LEFT JOIN collections tc ON tc.kind = 1 AND tc.year = slate.year AND tc.week = slate.week
+		ORDER BY slate.year DESC, slate.week DESC, wp.is_hero DESC, wp.sort_order ASC
 		LIMIT ?
 	`, model.WallpaperStatusPublished, limit).Scan(&rows).Error
 	return rows, err
