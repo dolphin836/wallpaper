@@ -116,6 +116,21 @@ export default function WeeklyArchivePage() {
                     {selected.cover_url && (
                       <img
                         key={`${selected.year}-${selected.week}`}
+                        ref={(el) => {
+                          // Cached-image edge case: when the key flip
+                          // remounts the <img>, the browser can serve
+                          // src from the HTTP cache so fast that the
+                          // onLoad fires before React attached its
+                          // listener — coverLoaded then stays false
+                          // forever and the CSS opacity: 0 hides the
+                          // image. Reading .complete synchronously
+                          // after mount catches that case. Verified
+                          // by the user as the 'first cover sometimes
+                          // doesn't show on refresh' symptom.
+                          if (el && el.complete && el.naturalWidth > 0) {
+                            setCoverLoaded(true);
+                          }
+                        }}
                         src={selected.cover_url}
                         alt=""
                         className={coverLoaded ? 'is-loaded' : ''}
