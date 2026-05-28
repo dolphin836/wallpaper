@@ -364,6 +364,27 @@
   .feed-end-text, .feed-end-count { animation: none; opacity: 1; clip-path: none; }
   .feed-end-caret { display: none; }
 }
+
+/* ────────────────────────────────────────────────────────────────
+   .live-dot — 5px phosphor dot used as a brand-mark live-system
+   signal (rendered next to "Exchange" in the sidebar). Slow breath
+   so the page never feels static; soft halo carries the "signal"
+   feel without screaming. */
+.live-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--color-signal);
+  box-shadow: 0 0 6px oklch(86% 0.18 145 / 0.6);
+  animation: live-breath 2400ms cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  flex-shrink: 0;
+}
+@keyframes live-breath {
+  0%, 100% { opacity: 0.55; transform: scale(1); box-shadow: 0 0 4px oklch(86% 0.18 145 / 0.35); }
+  50%      { opacity: 1;    transform: scale(1.15); box-shadow: 0 0 9px oklch(86% 0.18 145 / 0.75); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-dot { animation: none; opacity: 0.85; }
+}
 @keyframes trade-flash {
   0%   { transform: scaleX(0);   opacity: 0; }
   10%  { transform: scaleX(0);   opacity: 1; }

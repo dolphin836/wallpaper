@@ -77,7 +77,12 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
         />
         <div>
           <div className="display text-[20px] leading-none">Wallpaper</div>
-          <div className="mono text-[10px] tracking-[0.18em] uppercase text-muted mt-1.5">Exchange</div>
+          <div className="mono text-[10px] tracking-[0.18em] uppercase text-muted mt-1.5 inline-flex items-center gap-1.5">
+            Exchange
+            {/* Live-system signal — slow phosphor pulse so the brand mark
+                reads "this is a running system" on every page. */}
+            <span className="live-dot" aria-hidden title="System online" />
+          </div>
         </div>
       </Link>
 
