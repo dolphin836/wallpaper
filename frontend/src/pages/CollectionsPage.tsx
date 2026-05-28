@@ -121,9 +121,20 @@ export default function CollectionsPage() {
         </header>
 
         {loading && visible.length === 0 ? (
+          // 12 placeholders = 3 full rows at lg (4-col). Each card
+          // mirrors the real CollectionTile geometry: 1:1 cover +
+          // mono kicker bar + title bar + meta bar, so the page
+          // doesn't shift when the data lands.
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="c-list-skeleton skeleton-card" />
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="c-tile-skel">
+                <div className="c-tile-skel-cover skeleton-card" />
+                <div className="c-tile-skel-cap">
+                  <div className="c-tile-skel-kicker skeleton-card" />
+                  <div className="c-tile-skel-title skeleton-card" />
+                  <div className="c-tile-skel-meta skeleton-card" />
+                </div>
+              </div>
             ))}
           </div>
         ) : visible.length === 0 ? (
@@ -165,6 +176,15 @@ export default function CollectionsPage() {
    of "a mosaic preview". */
 function CollectionTile({ collection: c }: { collection: Collection }) {
   const accent = c.accent_color || 'var(--color-accent)';
+  // Cover fallback chain: cover_url → first recent_tile's preview/
+  // thumb → empty state. Some legacy collections still carry a
+  // stale cover_url pointing at the old .jpg objects that got
+  // cleaned up when the worker switched to .webp; the onError
+  // handler silently swaps the src to a fresh tile so the user
+  // sees an image instead of a broken-image placeholder.
+  const firstTile = c.recent_tiles?.[0];
+  const fallbackSrc = firstTile?.preview_url || firstTile?.thumb_url || '';
+  const [src, setSrc] = useState(c.cover_url || fallbackSrc);
   return (
     <Link
       to={`/collections/${c.slug}`}
@@ -172,8 +192,16 @@ function CollectionTile({ collection: c }: { collection: Collection }) {
       style={{ '--c-accent': accent } as React.CSSProperties}
     >
       <div className="c-tile-frame">
-        {c.cover_url ? (
-          <img src={c.cover_url} alt={c.title} loading="lazy" />
+        {src ? (
+          <img
+            src={src}
+            alt={c.title}
+            loading="lazy"
+            onError={() => {
+              if (fallbackSrc && src !== fallbackSrc) setSrc(fallbackSrc);
+              else setSrc('');
+            }}
+          />
         ) : (
           <div className="c-tile-empty">No cover yet</div>
         )}

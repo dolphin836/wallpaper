@@ -12,7 +12,7 @@ import {
   AiOutlineArrowLeft,
 } from 'react-icons/ai';
 import toast from 'react-hot-toast';
-import type { CollectionDetail as CollectionDetailType, Wallpaper } from '../types';
+import type { CollectionDetail as CollectionDetailType, Wallpaper, User } from '../types';
 import {
   getCollection,
   getCollectionWallpapers,
@@ -20,9 +20,10 @@ import {
   unlikeCollection,
   deleteCollection,
   updateCollection,
+  getUserProfile,
 } from '../api';
 import { useAuthStore } from '../store/auth';
-import WallpaperCard from '../components/WallpaperCard';
+import WallpaperGrid from '../components/WallpaperGrid';
 import Pagination from '../components/Pagination';
 import EmptyState from '../components/EmptyState';
 
@@ -49,6 +50,7 @@ export default function CollectionDetailPage() {
   const { user } = useAuthStore();
 
   const [collection, setCollection] = useState<CollectionDetailType | null>(null);
+  const [curator, setCurator] = useState<User | null>(null);
   const [pages, setPages] = useState<Record<number, Wallpaper[]>>({});
   const [cursors, setCursors] = useState<Record<number, number | undefined>>({ 1: undefined });
   const [hasMoreUpTo, setHasMoreUpTo] = useState<number | null>(null);
@@ -67,7 +69,17 @@ export default function CollectionDetailPage() {
     if (!id) return;
     setLoading(true);
     getCollection(id)
-      .then((res) => setCollection(res.data.data))
+      .then(async (res) => {
+        const c = res.data.data;
+        setCollection(c);
+        // Fetch the curator separately so the meta column can show
+        // their handle + avatar. Optional — caption degrades to
+        // "user-N" on failure.
+        try {
+          const u = await getUserProfile(String(c.user_id));
+          setCurator(u.data.data);
+        } catch { /* curator info optional */ }
+      })
       .catch(() => toast.error('Failed to load collection'))
       .finally(() => setLoading(false));
   }, [id]);
@@ -187,6 +199,7 @@ export default function CollectionDetailPage() {
   const visible = pages[currentPage] || [];
   const total = knownTotalPages ?? (hasMoreUpTo ? hasMoreUpTo + 1 : 1);
   const cover = collection.cover_url || visible[0]?.preview_url || visible[0]?.thumb_url;
+  const curatorInitial = (curator?.nickname || curator?.username || 'U').charAt(0).toUpperCase();
 
   return (
     <div className="c-detail min-h-full" style={accentStyle}>
@@ -267,12 +280,40 @@ export default function CollectionDetailPage() {
                 </div>
               </div>
             ) : (
-              <h1 className="c-detail-title">{collection.title}</h1>
+              <>
+                <h1 className="c-detail-title">{collection.title}</h1>
+                {collection.description && (
+                  <p className="c-detail-desc">{collection.description}</p>
+                )}
+              </>
             )}
 
-            <div className="c-detail-sub">
-              {collection.wallpaper_count} {collection.wallpaper_count === 1 ? 'wallpaper' : 'wallpapers'}
-              {collection.updated_at ? ` · updated ${relativeTime(collection.updated_at)}` : ''}
+            {/* Curator + meta row. Avatar + handle + 'by' line + the
+                count/updated meta. All roman — no italic anywhere
+                (display-italic-on-display-italic was the previous
+                problem). The handle is set in the same display serif
+                as the title, but at body weight, so it reads as a
+                signature line rather than another headline. */}
+            <div className="c-detail-byline">
+              <Link
+                to={curator ? `/user/${curator.username}` : '#'}
+                className="c-detail-byline-link"
+              >
+                <span className="c-detail-byline-avatar">
+                  {curator?.avatar_url
+                    ? <img src={curator.avatar_url} alt="" />
+                    : curatorInitial}
+                </span>
+                <span className="c-detail-byline-meta">
+                  <span className="c-detail-byline-handle">
+                    A set by @{curator?.username || `user-${collection.user_id}`}
+                  </span>
+                  <span className="c-detail-byline-sub">
+                    {collection.wallpaper_count} {collection.wallpaper_count === 1 ? 'wallpaper' : 'wallpapers'}
+                    {collection.updated_at ? ` · updated ${relativeTime(collection.updated_at)}` : ''}
+                  </span>
+                </span>
+              </Link>
             </div>
 
             {!editing && (
@@ -318,6 +359,11 @@ export default function CollectionDetailPage() {
             </span>
           </div>
 
+          {/* Salon-wall mosaic — 11-col CSS grid with mixed col/row
+              spans gives an "art-gallery hang" rhythm. Distinct from
+              Discover (uniform Grid or row-justified) and from Weekly
+              (5-up 4:5 portrait tiles). Reads as a curated wall of
+              pieces, not a catalog. */}
           {loadingPage && visible.length === 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {Array.from({ length: 8 }).map((_, i) => (
@@ -327,19 +373,11 @@ export default function CollectionDetailPage() {
           ) : visible.length === 0 ? (
             <div className="text-center py-20 text-muted text-sm">No wallpapers in this collection yet.</div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {visible.map((w, i) => (
-                <div key={w.id} className="relative aspect-[3/2]">
-                  <WallpaperCard
-                    wallpaper={w}
-                    layout="salon"
-                    fillHeight
-                    hideActions={!user}
-                    animDelay={i * 35}
-                  />
-                </div>
-              ))}
-            </div>
+            <WallpaperGrid
+              wallpapers={visible}
+              viewMode="salon"
+              sizeMode="md"
+            />
           )}
 
           <Pagination current={currentPage} total={total} onChange={setCurrentPage} />

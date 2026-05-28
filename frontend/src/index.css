@@ -652,11 +652,39 @@
 }
 .c-list-new:active { transform: scale(0.97); }
 
-.c-list-skeleton {
-  aspect-ratio: 4/3;
+/* Collection tile skeleton — mirrors the real CollectionTile so the
+   page doesn't reflow when data lands. Square cover (1:1, matches
+   .c-tile-frame) + three short bars sized to the caption rows
+   (kicker / title / meta). */
+.c-tile-skel {
+  display: block;
+}
+.c-tile-skel-cover {
+  aspect-ratio: 1/1;
   border-radius: 14px;
   background: var(--color-paper-2);
-  border: 1px solid var(--color-hair-soft);
+}
+.c-tile-skel-cap {
+  padding-top: 18px;
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+.c-tile-skel-kicker {
+  height: 9px; width: 38%;
+  border-radius: 4px;
+  background: var(--color-paper-2);
+}
+.c-tile-skel-title {
+  height: 22px; width: 72%;
+  border-radius: 5px;
+  background: var(--color-paper-2);
+  margin-top: 2px;
+}
+.c-tile-skel-meta {
+  height: 10px; width: 30%;
+  border-radius: 4px;
+  background: var(--color-paper-2);
+  margin-top: 4px;
 }
 
 /* New collection card — stacked-paper aesthetic with a single 1:1
@@ -900,11 +928,66 @@
   color: var(--color-ink);
   margin-top: 12px;
 }
-.c-detail-sub {
-  margin-top: 14px;
+/* Description — restored, but in straight roman (not italic display).
+   The old italic serif quote was the 'artistic font' the user pushed
+   back on. Same display family for typographic continuity with the
+   title, just font-style: normal. */
+.c-detail-desc {
+  margin-top: 18px;
+  font-family: var(--font-display);
+  font-style: normal;
+  font-size: clamp(16px, 1.4vw, 19px);
+  line-height: 1.5;
+  color: var(--color-ink-2);
+  max-width: 540px;
+}
+
+/* Byline — curator avatar + handle + meta. No italic anywhere; the
+   accent colour from --c-accent tints the hairlines (top + bottom)
+   so each collection's byline carries a hint of its own colour. */
+.c-detail-byline {
+  margin-top: 28px;
+  padding: 14px 0;
+  border-top: 1px solid color-mix(in oklch, var(--c-accent) 22%, var(--color-hair));
+  border-bottom: 1px solid color-mix(in oklch, var(--c-accent) 22%, var(--color-hair));
+}
+.c-detail-byline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--color-ink);
+}
+.c-detail-byline-avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in oklch, var(--c-accent) 30%, var(--color-hair));
+  background: var(--color-paper-2);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--color-ink);
+  flex-shrink: 0;
+}
+.c-detail-byline-avatar img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.c-detail-byline-meta {
+  display: flex; flex-direction: column;
+  gap: 2px;
+}
+.c-detail-byline-handle {
+  font-family: var(--font-display);
+  font-style: normal;
+  font-size: 15px;
+  line-height: 1.2;
+  color: var(--color-ink);
+}
+.c-detail-byline-sub {
   font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.18em;
+  font-size: 10px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-muted);
 }
