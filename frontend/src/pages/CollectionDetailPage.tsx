@@ -385,7 +385,6 @@ export default function CollectionDetailPage() {
                 <div className="c-detail-cover-empty">No cover yet</div>
               )}
             </div>
-            <span className="c-detail-accent-dot" aria-hidden />
           </div>
 
           {/* Meta column. When still loading we render bar

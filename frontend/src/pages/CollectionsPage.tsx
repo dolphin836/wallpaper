@@ -205,7 +205,6 @@ function CollectionTile({ collection: c }: { collection: Collection }) {
         ) : (
           <div className="c-tile-empty">No cover yet</div>
         )}
-        <span className="c-tile-accent-dot" aria-hidden />
       </div>
       <div className="c-tile-caption">
         <div className="c-tile-kicker">
