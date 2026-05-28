@@ -9,9 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   /* ==========================================================
-     Liquid Surface v3 — full homepage preview with real data.
-     Top nav (no sidebar) · floating hero · soft cards · 3D tilt
-     · color-driven background · footer for legal.
+     Liquid Surface v3 — homepage preview. Per-row differentiation:
+     weekly = portrait + serif №, AI = square + iridescent hover,
+     video = widescreen + play + hover-autoplay, collections = stacked.
      ========================================================== */
 
   :root {
@@ -22,9 +22,9 @@
     --paper-2: oklch(95% 0.008 240);
     --hair: oklch(90% 0.010 240);
     --accent: oklch(64% 0.21 42);
+    --signal: oklch(78% 0.18 145);
     --ease: cubic-bezier(0.16, 1, 0.30, 1);
     --ease-q: cubic-bezier(0.25, 1, 0.5, 1);
-
     /* Liquid palette — overridden per page from the active wallpaper */
     --c1: #4681C8;
     --c2: #345F5F;
@@ -45,7 +45,7 @@
   a { color: inherit; text-decoration: none; }
   button { font-family: inherit; cursor: pointer; }
 
-  /* ── Animated mesh surface ── */
+  /* Animated mesh surface */
   body::before {
     content: ""; position: fixed; inset: -20%; z-index: 0;
     background:
@@ -89,33 +89,39 @@
     color: var(--paper);
     display: grid; place-items: center;
     font-family: 'Instrument Serif', serif; font-style: italic; font-size: 16px;
+    position: relative;
+  }
+  /* live-system dot — phosphor breathing, signals "online" */
+  .brand .live {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--signal);
+    box-shadow: 0 0 6px oklch(78% 0.18 145 / 0.7);
+    animation: live-breath 2400ms cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    margin-left: 4px;
+  }
+  @keyframes live-breath {
+    0%,100% { opacity: 0.55; transform: scale(1); }
+    50%     { opacity: 1;    transform: scale(1.2); }
   }
 
-  header nav.primary {
-    display: flex; gap: 26px; margin-left: 8px;
-  }
+  header nav.primary { display: flex; gap: 26px; margin-left: 8px; }
   header nav.primary a {
     font-size: 13.5px; font-weight: 500;
     color: var(--ink-2);
     transition: color 200ms var(--ease);
-    position: relative;
-    padding: 6px 0;
+    position: relative; padding: 6px 0;
   }
   header nav.primary a:hover { color: var(--ink); }
   header nav.primary a.active { color: var(--ink); }
   header nav.primary a.active::after {
-    content: "";
-    position: absolute; bottom: 0; left: 0; right: 0;
+    content: ""; position: absolute; bottom: 0; left: 0; right: 0;
     height: 1.5px; background: var(--ink);
     border-radius: 999px;
     animation: nav-line-in 320ms var(--ease) both;
   }
   @keyframes nav-line-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
-  header .right {
-    margin-left: auto;
-    display: flex; align-items: center; gap: 14px;
-  }
+  header .right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
   header .right .icon-btn {
     width: 34px; height: 34px;
     display: inline-grid; place-items: center;
@@ -126,7 +132,6 @@
   }
   header .right .icon-btn:hover { background: oklch(95% 0.008 240 / 0.7); color: var(--ink); }
 
-  /* Balance pill */
   .balance-pill {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 7px 14px 7px 11px;
@@ -144,8 +149,7 @@
   }
   .balance-pill .pulse-ring {
     position: absolute; inset: -3px; border-radius: 999px;
-    border: 1.5px solid var(--accent); opacity: 0;
-    pointer-events: none;
+    border: 1.5px solid var(--accent); opacity: 0; pointer-events: none;
   }
   .balance-pill .pulse-ring.go { animation: pulse-out 1200ms ease-out forwards; }
   @keyframes pulse-out {
@@ -153,7 +157,6 @@
     100% { transform: scale(2);    opacity: 0; }
   }
 
-  /* User dropdown */
   .user-menu { position: relative; }
   .user-menu .trigger {
     display: inline-flex; align-items: center; gap: 7px;
@@ -195,12 +198,11 @@
   .user-menu .menu a:hover { background: var(--paper-2); }
   .user-menu .menu a.accent { color: var(--accent); font-weight: 600; }
   .user-menu .menu hr { border: 0; border-top: 1px solid var(--hair); margin: 4px 0; }
-  .user-menu .menu .shortcut { margin-left: auto; font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
 
   /* ─────────── MAIN ─────────── */
   main { position: relative; z-index: 1; padding-bottom: 60px; }
 
-  /* HERO */
+  /* ─── HERO ─── */
   section.hero {
     padding: 48px 40px 24px;
     display: grid; place-items: center;
@@ -228,9 +230,7 @@
       0 60px 140px -40px oklch(20% 0.014 240 / 0.38);
   }
   .hero-card img {
-    width: 100%; height: 100%;
-    object-fit: cover;
-    display: block;
+    width: 100%; height: 100%; object-fit: cover; display: block;
     opacity: 0;
     transition: opacity 700ms var(--ease);
   }
@@ -249,8 +249,7 @@
     color: rgba(255,255,255,0.8);
   }
   .hero-card .overlay h1 {
-    margin-top: 8px;
-    font-weight: 500;
+    margin-top: 8px; font-weight: 500;
     font-size: clamp(22px, 2.8vw, 40px); line-height: 1.05;
     letter-spacing: -0.015em;
     max-width: 24ch;
@@ -276,8 +275,16 @@
     width: 11px; height: 11px; border-radius: 50%;
     background: linear-gradient(135deg, #f4ae66, #d57130);
   }
+  /* Resolution chip on hero (top-right) */
+  .hero-card .res {
+    position: absolute; top: 18px; right: 18px;
+    padding: 4px 11px; border-radius: 999px;
+    background: oklch(98% 0.005 240 / 0.92); backdrop-filter: blur(8px);
+    color: var(--ink); font-size: 11px; font-weight: 700;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em;
+  }
 
-  /* ROWS */
+  /* ─── ROW SHARED HEAD ─── */
   section.row { padding: 48px 40px 8px; }
   .row-head {
     max-width: 1280px; margin: 0 auto 22px;
@@ -297,8 +304,7 @@
   }
   .row-head .more {
     font-size: 13px; color: var(--ink);
-    border-bottom: 1px solid var(--ink-2);
-    padding-bottom: 2px;
+    border-bottom: 1px solid var(--ink-2); padding-bottom: 2px;
     transition: color 200ms var(--ease), border-color 200ms var(--ease);
   }
   .row-head .more:hover { color: var(--accent); border-color: var(--accent); }
@@ -312,57 +318,224 @@
   @media (max-width: 1100px) { .grid-5 { grid-template-columns: repeat(3, 1fr); } .grid-4 { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 700px)  { .grid-5, .grid-4 { grid-template-columns: repeat(2, 1fr); } }
 
-  .tile {
+  /* ─── Resolution chip (shared, top-left on all tiles) ─── */
+  .res-chip {
+    position: absolute; top: 12px; left: 12px; z-index: 4;
+    padding: 3px 9px; border-radius: 999px;
+    background: oklch(98% 0.005 240 / 0.92); backdrop-filter: blur(6px);
+    color: var(--ink); font-size: 10px; font-weight: 700;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em;
+  }
+
+  /* ════════════ ROW 1 · WEEKLY ════════════ */
+  /* portrait 4:5 + giant italic № stamp */
+  .tile-weekly {
     aspect-ratio: 4/5;
     border-radius: 16px;
     overflow: hidden;
     position: relative;
     background: var(--paper-2);
-    box-shadow:
-      0 1px 0 oklch(100% 0 0 / 0.5),
-      0 8px 22px -10px oklch(20% 0.014 240 / 0.2);
+    box-shadow: 0 1px 0 oklch(100% 0 0 / 0.5), 0 8px 22px -10px oklch(20% 0.014 240 / 0.2);
     transition: transform 380ms var(--ease), box-shadow 380ms var(--ease);
-    cursor: pointer;
-    display: block;
+    cursor: pointer; display: block;
   }
-  .tile.collection { aspect-ratio: 1 / 1; }
-  .tile:hover {
+  .tile-weekly:hover {
     transform: translateY(-5px);
-    box-shadow:
-      0 1px 0 oklch(100% 0 0 / 0.65),
-      0 20px 42px -12px oklch(20% 0.014 240 / 0.35);
+    box-shadow: 0 1px 0 oklch(100% 0 0 / 0.65), 0 20px 42px -12px oklch(20% 0.014 240 / 0.35);
   }
-  .tile img {
-    width: 100%; height: 100%;
-    object-fit: cover; display: block;
+  .tile-weekly img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
     transition: transform 800ms var(--ease), opacity 400ms var(--ease);
     opacity: 0;
   }
-  .tile img.loaded { opacity: 1; }
-  .tile:hover img { transform: scale(1.05); }
-  .tile .label {
-    position: absolute; left: 14px; right: 14px; bottom: 14px;
-    color: white; font-size: 13px; font-weight: 500;
-    line-height: 1.3;
-    text-shadow: 0 2px 14px rgba(0,0,0,0.7);
-    opacity: 0; transform: translateY(6px);
-    transition: opacity 300ms var(--ease), transform 300ms var(--ease);
+  .tile-weekly img.loaded { opacity: 1; }
+  .tile-weekly:hover img { transform: scale(1.05); }
+  .tile-weekly .num-stamp {
+    position: absolute; left: 14px; bottom: 12px;
+    font-family: 'Instrument Serif', serif; font-style: italic;
+    font-size: 44px; line-height: 1;
+    color: white;
+    text-shadow: 0 2px 18px rgba(0,0,0,0.6);
+    z-index: 4;
   }
-  .tile:hover .label { opacity: 1; transform: none; }
-  .tile .chip {
-    position: absolute; left: 12px; top: 12px;
-    background: oklch(98% 0.005 240 / 0.85);
-    backdrop-filter: blur(6px);
-    color: var(--ink);
-    padding: 3px 9px;
-    border-radius: 999px;
-    font-size: 10px; font-weight: 600;
-    letter-spacing: 0.05em;
+  .tile-weekly::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 40%;
+    background: linear-gradient(to top, rgba(0,0,0,0.45), transparent);
+    pointer-events: none;
   }
-  .tile .chip.purple { color: oklch(50% 0.20 290); }
-  .tile .chip.video { color: oklch(50% 0.20 30); display: inline-flex; align-items: center; gap: 4px; }
 
-  /* Skeleton */
+  /* ════════════ ROW 2 · AI LAB ════════════ */
+  /* square 1:1, iridescent border on hover */
+  .tile-ai {
+    aspect-ratio: 1/1;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    background: var(--paper-2);
+    box-shadow: 0 1px 0 oklch(100% 0 0 / 0.5), 0 8px 22px -10px oklch(20% 0.014 240 / 0.2);
+    transition: transform 380ms var(--ease), box-shadow 380ms var(--ease);
+    cursor: pointer; display: block;
+  }
+  .tile-ai:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 1px 0 oklch(100% 0 0 / 0.65), 0 20px 42px -12px oklch(20% 0.014 240 / 0.35);
+  }
+  .tile-ai img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: transform 800ms var(--ease), opacity 400ms var(--ease);
+    opacity: 0;
+  }
+  .tile-ai img.loaded { opacity: 1; }
+  .tile-ai:hover img { transform: scale(1.04); }
+  /* Iridescent ring (conic gradient) — visible only on hover */
+  .tile-ai::before {
+    content: ""; position: absolute; inset: -2px;
+    background: conic-gradient(
+      from 0deg,
+      oklch(70% 0.18 290),
+      oklch(75% 0.16 200),
+      oklch(80% 0.18 145),
+      oklch(78% 0.18 60),
+      oklch(72% 0.20 30),
+      oklch(70% 0.18 290)
+    );
+    border-radius: 18px;
+    opacity: 0; z-index: 0;
+    transition: opacity 300ms var(--ease);
+    animation: iri-spin 6s linear infinite;
+  }
+  @keyframes iri-spin { to { transform: rotate(360deg); } }
+  .tile-ai:hover::before { opacity: 0.85; }
+  .tile-ai::after {
+    content: ""; position: absolute; inset: 2px;
+    background: var(--paper-2);
+    border-radius: 14px; z-index: 1;
+  }
+  .tile-ai img, .tile-ai .res-chip, .tile-ai .gen-chip { position: relative; z-index: 2; }
+  .tile-ai .gen-chip {
+    position: absolute; top: 12px; right: 12px;
+    padding: 3px 9px; border-radius: 999px;
+    background: oklch(98% 0.005 240 / 0.92); backdrop-filter: blur(6px);
+    color: oklch(50% 0.20 290); font-size: 10px; font-weight: 700;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.08em;
+  }
+
+  /* ════════════ ROW 3 · VIDEO ════════════ */
+  /* widescreen 16:9, hover autoplay */
+  .grid.grid-video { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 1100px) { .grid.grid-video { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 700px)  { .grid.grid-video { grid-template-columns: 1fr; } }
+  .tile-video {
+    aspect-ratio: 16/9;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    background: oklch(20% 0.014 240);
+    box-shadow: 0 1px 0 oklch(100% 0 0 / 0.5), 0 10px 26px -10px oklch(20% 0.014 240 / 0.28);
+    transition: transform 380ms var(--ease), box-shadow 380ms var(--ease);
+    cursor: pointer; display: block;
+  }
+  .tile-video:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 1px 0 oklch(100% 0 0 / 0.65), 0 22px 46px -12px oklch(20% 0.014 240 / 0.4);
+  }
+  .tile-video img, .tile-video video {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: opacity 400ms var(--ease);
+  }
+  .tile-video img { opacity: 0; }
+  .tile-video img.loaded { opacity: 1; }
+  .tile-video video {
+    position: absolute; inset: 0; opacity: 0;
+    transition: opacity 320ms var(--ease);
+  }
+  .tile-video.playing video { opacity: 1; }
+  .tile-video.playing img   { opacity: 0; }
+  .tile-video .play {
+    position: absolute; inset: 0;
+    display: grid; place-items: center; z-index: 3;
+    transition: opacity 240ms var(--ease);
+    pointer-events: none;
+  }
+  .tile-video.playing .play { opacity: 0; }
+  .tile-video .play svg {
+    width: 56px; height: 56px;
+    filter: drop-shadow(0 4px 18px rgba(0,0,0,0.55));
+  }
+  .tile-video .play circle { fill: rgba(255,255,255,0.92); }
+  .tile-video .play polygon { fill: var(--ink); }
+
+  /* ════════════ ROW 4 · COLLECTIONS ════════════ */
+  /* square 1:1, stacked-paper effect, title + count */
+  .tile-collection {
+    aspect-ratio: 1/1;
+    border-radius: 14px;
+    position: relative;
+    background: var(--paper-2);
+    cursor: pointer; display: block;
+    transition: transform 380ms var(--ease);
+    /* stacked shadow effect (two faded copies behind) */
+    box-shadow:
+      0 1px 0 oklch(100% 0 0 / 0.5),
+      0 8px 22px -10px oklch(20% 0.014 240 / 0.2),
+      /* "back of stack" #1 */
+      4px 4px 0 -1px var(--paper-2),
+      4px 4px 0 0 oklch(86% 0.010 240),
+      /* "back of stack" #2 */
+      8px 8px 0 -1px var(--paper-2),
+      8px 8px 0 0 oklch(82% 0.012 240);
+  }
+  .tile-collection:hover {
+    transform: translate(-3px, -3px);
+    box-shadow:
+      0 1px 0 oklch(100% 0 0 / 0.65),
+      0 18px 40px -12px oklch(20% 0.014 240 / 0.35),
+      6px 6px 0 -1px var(--paper-2),
+      6px 6px 0 0 oklch(86% 0.010 240),
+      12px 12px 0 -1px var(--paper-2),
+      12px 12px 0 0 oklch(82% 0.012 240);
+  }
+  .tile-collection .frame {
+    position: absolute; inset: 0;
+    border-radius: 14px; overflow: hidden;
+  }
+  .tile-collection img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    opacity: 0;
+    transition: opacity 400ms var(--ease), transform 800ms var(--ease);
+  }
+  .tile-collection img.loaded { opacity: 1; }
+  .tile-collection:hover img { transform: scale(1.04); }
+  .tile-collection .gradient {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.7));
+    pointer-events: none;
+  }
+  .tile-collection .copy {
+    position: absolute; left: 14px; right: 14px; bottom: 14px;
+    color: white;
+    z-index: 2;
+  }
+  .tile-collection .title {
+    font-family: 'Instrument Serif', serif; font-weight: 400;
+    font-size: 18px; line-height: 1.1;
+    text-shadow: 0 2px 14px rgba(0,0,0,0.7);
+  }
+  .tile-collection .count {
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: rgba(255,255,255,0.85);
+  }
+  .tile-collection .set-chip {
+    position: absolute; top: 12px; left: 12px; z-index: 3;
+    padding: 3px 9px; border-radius: 999px;
+    background: oklch(98% 0.005 240 / 0.92); backdrop-filter: blur(6px);
+    color: var(--ink); font-size: 10px; font-weight: 700;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em;
+  }
+
+  /* ─── Skeleton placeholders ─── */
   .sk {
     aspect-ratio: 4/5;
     border-radius: 16px;
@@ -370,7 +543,8 @@
     background-size: 220% 100%;
     animation: skel 1.6s ease-in-out infinite;
   }
-  .sk.collection { aspect-ratio: 1 / 1; }
+  .sk-sq { aspect-ratio: 1/1; }
+  .sk-vid { aspect-ratio: 16/9; }
   @keyframes skel {
     0%   { background-position: 100% 0; }
     100% { background-position: -100% 0; }
@@ -397,30 +571,27 @@
     max-width: 1280px; margin: 0 auto;
     display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
   }
-  footer .legal-inner .brand-line {
+  footer .brand-line {
     font-family: 'Instrument Serif', serif; font-style: italic;
     color: var(--ink); font-size: 14px;
   }
-  footer .legal-inner nav.legal-nav {
-    display: flex; gap: 22px; flex-wrap: wrap;
-  }
-  footer .legal-inner nav.legal-nav a {
+  footer nav.legal-nav { display: flex; gap: 22px; flex-wrap: wrap; }
+  footer nav.legal-nav a {
     font-size: 12.5px; color: var(--muted);
     transition: color 200ms var(--ease);
   }
-  footer .legal-inner nav.legal-nav a:hover { color: var(--ink); }
-  footer .legal-inner .copyright {
+  footer nav.legal-nav a:hover { color: var(--ink); }
+  footer .copyright {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px; color: var(--muted); letter-spacing: 0.06em;
   }
 
-  /* ─────────── Mobile ─────────── */
+  /* Mobile */
   @media (max-width: 820px) {
     header.topnav { padding: 12px 16px; gap: 12px; flex-wrap: nowrap; overflow-x: auto; }
     header nav.primary { gap: 16px; }
     header nav.primary a { font-size: 12.5px; white-space: nowrap; }
     header .right { margin-left: auto; gap: 8px; }
-    header .right .icon-btn { width: 30px; height: 30px; }
     .balance-pill { padding: 5px 10px 5px 8px; font-size: 12px; }
     .user-menu .trigger { padding: 4px 8px 4px 4px; }
     section.hero { padding: 20px 16px 12px; }
@@ -428,6 +599,7 @@
     footer.legal { padding: 28px 16px 40px; }
     .hero-card .overlay { padding: 18px 18px 18px; flex-direction: column; align-items: start; gap: 14px; }
     .hero-card .overlay h1 { font-size: 22px; }
+    .tile-weekly .num-stamp { font-size: 34px; }
   }
 </style>
 </head>
@@ -438,6 +610,7 @@
   <a class="brand" href="#">
     <span class="logo">W</span>
     <span>Wallpaper Exchange</span>
+    <span class="live" title="System online"></span>
   </a>
   <nav class="primary">
     <a class="active" href="#">Home</a>
@@ -467,27 +640,12 @@
           Upload a wallpaper
         </a>
         <hr>
-        <a href="#">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          My profile
-        </a>
-        <a href="#">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>
-          My uploads
-        </a>
-        <a href="#">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          My downloads
-        </a>
+        <a href="#">My profile</a>
+        <a href="#">My uploads</a>
+        <a href="#">My downloads</a>
         <hr>
-        <a href="#">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          Settings
-        </a>
-        <a href="#">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Sign out
-        </a>
+        <a href="#">Settings</a>
+        <a href="#">Sign out</a>
       </div>
     </div>
   </div>
@@ -500,6 +658,7 @@
   <section class="hero">
     <a class="hero-card" id="heroCard" href="#">
       <img id="heroImg" alt="" />
+      <span class="res" id="heroRes"></span>
       <div class="overlay">
         <div class="copy">
           <div class="kicker"><span id="heroKicker">This week · loading</span></div>
@@ -514,7 +673,7 @@
     </a>
   </section>
 
-  <!-- WEEKLY (other picks beyond hero) -->
+  <!-- WEEKLY -->
   <section class="row">
     <div class="row-head">
       <div>
@@ -532,13 +691,13 @@
   <section class="row">
     <div class="row-head">
       <div>
-        <div class="sub">AI Lab</div>
+        <div class="sub">AI Lab · synthetic samples</div>
         <h2 class="display"><em>Generated</em> this week.</h2>
       </div>
       <a class="more" href="#">All AI wallpapers →</a>
     </div>
     <div class="grid grid-5" id="aiGrid">
-      <div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div>
+      <div class="sk sk-sq"></div><div class="sk sk-sq"></div><div class="sk sk-sq"></div><div class="sk sk-sq"></div><div class="sk sk-sq"></div>
     </div>
   </section>
 
@@ -546,13 +705,13 @@
   <section class="row">
     <div class="row-head">
       <div>
-        <div class="sub">Motion samples</div>
+        <div class="sub">Motion · hover to preview</div>
         <h2 class="display"><em>Video</em> wallpapers.</h2>
       </div>
       <a class="more" href="#">All videos →</a>
     </div>
-    <div class="grid grid-5" id="videoGrid">
-      <div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div>
+    <div class="grid grid-video" id="videoGrid">
+      <div class="sk sk-vid"></div><div class="sk sk-vid"></div><div class="sk sk-vid"></div><div class="sk sk-vid"></div>
     </div>
   </section>
 
@@ -560,19 +719,18 @@
   <section class="row">
     <div class="row-head">
       <div>
-        <div class="sub">Editorial sets</div>
+        <div class="sub">Editorial sets · themed bundles</div>
         <h2 class="display"><em>Themed</em> collections.</h2>
       </div>
       <a class="more" href="#">All collections →</a>
     </div>
     <div class="grid grid-4" id="collectionsGrid">
-      <div class="sk collection"></div><div class="sk collection"></div><div class="sk collection"></div><div class="sk collection"></div>
+      <div class="sk sk-sq"></div><div class="sk sk-sq"></div><div class="sk sk-sq"></div><div class="sk sk-sq"></div>
     </div>
   </section>
 
 </main>
 
-<!-- ─────────── FOOTER ─────────── -->
 <footer class="legal">
   <div class="legal-inner">
     <div class="brand-line">Wallpaper Exchange · trade wallpapers, share more.</div>
@@ -588,14 +746,17 @@
 </footer>
 
 <script>
-  // ============================================================
-  // Liquid Surface v3 — real-data preview
-  // Same-origin fetches; CORS-clean when served from prod.
-  // ============================================================
   const API = '/api/v1';
 
-  // ── Helpers ──────────────────────────────────────────────
   const fmtMB = (b) => (b / 1024 / 1024).toFixed(1) + ' MB';
+  function resBadge(w) {
+    const max = Math.max(w.width || 0, w.height || 0);
+    if (max >= 7680) return '8K';
+    if (max >= 3840) return '4K';
+    if (max >= 2560) return '2K';
+    if (max >= 1920) return 'HD';
+    return null;
+  }
   function applyPaletteFromHex(palette) {
     if (!palette) return;
     const parts = palette.split(',').map(s => s.trim()).filter(Boolean);
@@ -613,14 +774,12 @@
     if (!r.ok) throw new Error('HTTP ' + r.status + ' on ' + url);
     return r.json();
   }
-
-  // Show error inline if a section can't load
   function showErr(containerId, msg) {
     const c = document.getElementById(containerId);
-    c.outerHTML = `<div class="row-err">${msg}</div>`;
+    if (c) c.outerHTML = `<div class="row-err">${msg}</div>`;
   }
 
-  // ── HERO + Weekly picks ──────────────────────────────────
+  // ── HERO + Weekly ─────────────────────────────────
   (async () => {
     try {
       const j = await getJSON(`${API}/weekly-picks/current`);
@@ -632,39 +791,39 @@
         return;
       }
       const hero = picks[0];
-      // Apply hero's palette to the surface
       applyPaletteFromHex(hero.color_palette);
-      // Apply avatar gradient based on the same palette so the chrome unifies
+      // Avatar gradient matches hero palette
       const av = document.querySelector('.user-menu .avatar');
       const parts = (hero.color_palette || '').split(',').map(s => s.trim()).filter(Boolean);
       if (parts.length >= 2 && av) {
         av.style.background = `linear-gradient(135deg, ${parts[parts.length - 2]}, ${parts[parts.length - 1]})`;
       }
-      // Fill hero card
       const img = document.getElementById('heroImg');
       loadImg(img);
       img.src = hero.preview_url || hero.thumb_url;
       document.getElementById('heroTitle').textContent = (hero.title || `Specimen №${hero.id}`) + '.';
       document.getElementById('heroKicker').textContent = `Curation · Week ${data.week} · ${data.year}`;
       document.getElementById('heroMeta').textContent = `${hero.width}×${hero.height} · ${fmtMB(hero.file_size || 0)}`;
+      const r = resBadge(hero);
+      if (r) document.getElementById('heroRes').textContent = r;
 
       // Render rest of picks (skip hero[0])
       const rest = picks.slice(1, 6);
       const grid = document.getElementById('weeklyGrid');
       grid.innerHTML = '';
-      rest.forEach(w => grid.appendChild(makeTile(w)));
-      if (rest.length < 5) {
-        for (let i = rest.length; i < 5; i++) grid.appendChild(emptyTile());
+      rest.forEach((w, i) => grid.appendChild(makeWeeklyTile(w, i + 2)));
+      while (grid.children.length < 5) {
+        const e = document.createElement('div'); e.className = 'sk'; grid.appendChild(e);
       }
     } catch (e) {
       console.error('weekly fetch failed', e);
       showErr('weeklyGrid', 'Weekly picks unavailable.');
       document.getElementById('heroTitle').textContent = 'API offline';
-      document.getElementById('heroKicker').textContent = 'Couldn\'t reach the archive';
+      document.getElementById('heroKicker').textContent = "Couldn't reach the archive";
     }
   })();
 
-  // ── AI row ──────────────────────────────────────────────
+  // ── AI ─────────────────────────────────
   (async () => {
     try {
       const j = await getJSON(`${API}/wallpapers?ai_only=true&limit=10&sort=newest`);
@@ -676,33 +835,37 @@
         grid.outerHTML = '<div class="row-err">No AI wallpapers this week yet.</div>';
         return;
       }
-      top.forEach(w => grid.appendChild(makeTile(w, { chip: 'AI', chipClass: 'purple' })));
-      while (grid.children.length < 5) grid.appendChild(emptyTile());
+      top.forEach(w => grid.appendChild(makeAITile(w)));
+      while (grid.children.length < 5) {
+        const e = document.createElement('div'); e.className = 'sk sk-sq'; grid.appendChild(e);
+      }
     } catch (e) {
       console.error(e); showErr('aiGrid', 'AI row unavailable.');
     }
   })();
 
-  // ── Videos row ───────────────────────────────────────────
+  // ── Videos ─────────────────────────────────
   (async () => {
     try {
       const j = await getJSON(`${API}/wallpapers?video_only=true&limit=10&sort=newest`);
       const items = (j.data && j.data.items) || [];
       const grid = document.getElementById('videoGrid');
       grid.innerHTML = '';
-      const top = items.slice(0, 5);
+      const top = items.slice(0, 4);
       if (top.length === 0) {
-        grid.outerHTML = '<div class="row-err">No video wallpapers this week yet.</div>';
+        grid.outerHTML = '<div class="row-err">No video wallpapers yet.</div>';
         return;
       }
-      top.forEach(w => grid.appendChild(makeTile(w, { chip: '▶ VIDEO', chipClass: 'video' })));
-      while (grid.children.length < 5) grid.appendChild(emptyTile());
+      top.forEach(w => grid.appendChild(makeVideoTile(w)));
+      while (grid.children.length < 4) {
+        const e = document.createElement('div'); e.className = 'sk sk-vid'; grid.appendChild(e);
+      }
     } catch (e) {
       console.error(e); showErr('videoGrid', 'Video row unavailable.');
     }
   })();
 
-  // ── Collections row ──────────────────────────────────────
+  // ── Collections ─────────────────────────────────
   (async () => {
     try {
       const j = await getJSON(`${API}/collections?limit=8`);
@@ -716,60 +879,109 @@
       }
       top.forEach(c => grid.appendChild(makeCollectionTile(c)));
       while (grid.children.length < 4) {
-        const e = document.createElement('div'); e.className = 'sk collection'; grid.appendChild(e);
+        const e = document.createElement('div'); e.className = 'sk sk-sq'; grid.appendChild(e);
       }
     } catch (e) {
       console.error(e); showErr('collectionsGrid', 'Collections unavailable.');
     }
   })();
 
-  // ── Tile factories ──────────────────────────────────────
-  function makeTile(w, opts = {}) {
+  // ── Tile factories ─────────────────────────────────
+  function makeWeeklyTile(w, idx) {
     const a = document.createElement('a');
-    a.className = 'tile';
+    a.className = 'tile-weekly';
     a.href = '#';
+    a.setAttribute('aria-label', w.title || 'Specimen ' + w.id);
+    const r = resBadge(w);
     a.innerHTML = `
-      <img alt="${(w.title || '').replace(/"/g, '&quot;')}">
-      ${opts.chip ? `<span class="chip ${opts.chipClass || ''}">${opts.chip}</span>` : ''}
-      <div class="label">${w.title || 'Specimen №' + w.id}</div>
+      <img alt="">
+      ${r ? `<span class="res-chip">${r}</span>` : ''}
+      <span class="num-stamp">№${String(idx).padStart(2, '0')}</span>
     `;
-    const img = a.querySelector('img');
-    loadImg(img);
-    img.src = w.thumb_url || w.preview_url;
-    // Hover ripples palette into surface
-    const pal = w.color_palette;
-    a.addEventListener('mouseenter', () => { if (pal) applyPaletteFromHex(pal); });
+    const img = a.querySelector('img'); loadImg(img); img.src = w.thumb_url || w.preview_url;
+    if (w.color_palette) a.addEventListener('mouseenter', () => applyPaletteFromHex(w.color_palette));
+    return a;
+  }
+  function makeAITile(w) {
+    const a = document.createElement('a');
+    a.className = 'tile-ai';
+    a.href = '#';
+    a.setAttribute('aria-label', w.title || 'Specimen ' + w.id);
+    const r = resBadge(w);
+    a.innerHTML = `
+      <img alt="">
+      ${r ? `<span class="res-chip">${r}</span>` : ''}
+      <span class="gen-chip">GEN</span>
+    `;
+    const img = a.querySelector('img'); loadImg(img); img.src = w.thumb_url || w.preview_url;
+    if (w.color_palette) a.addEventListener('mouseenter', () => applyPaletteFromHex(w.color_palette));
+    return a;
+  }
+  function makeVideoTile(w) {
+    const a = document.createElement('a');
+    a.className = 'tile-video';
+    a.href = '#';
+    a.setAttribute('aria-label', w.title || 'Specimen ' + w.id);
+    const r = resBadge(w);
+    a.innerHTML = `
+      <img alt="">
+      ${r ? `<span class="res-chip">${r}</span>` : ''}
+      <div class="play">
+        <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28"/><polygon points="26,20 26,44 46,32"/></svg>
+      </div>
+    `;
+    const img = a.querySelector('img'); loadImg(img); img.src = w.thumb_url || w.preview_url;
+    // Lazy autoplay-on-hover for preview video. preview_video_url is the
+    // small 480p muted clip; falls back to no preview if absent.
+    if (w.preview_video_url) {
+      let vid = null;
+      a.addEventListener('mouseenter', () => {
+        if (!vid) {
+          vid = document.createElement('video');
+          vid.src = w.preview_video_url;
+          vid.muted = true; vid.loop = true; vid.playsInline = true; vid.preload = 'auto';
+          a.appendChild(vid);
+        }
+        a.classList.add('playing');
+        vid.play().catch(() => {});
+      });
+      a.addEventListener('mouseleave', () => {
+        a.classList.remove('playing');
+        if (vid) vid.pause();
+      });
+    }
+    if (w.color_palette) a.addEventListener('mouseenter', () => applyPaletteFromHex(w.color_palette));
     return a;
   }
   function makeCollectionTile(c) {
     const a = document.createElement('a');
-    a.className = 'tile collection';
+    a.className = 'tile-collection';
     a.href = '#';
+    a.setAttribute('aria-label', c.title);
     a.innerHTML = `
-      <img alt="${(c.title || '').replace(/"/g, '&quot;')}">
-      <span class="chip">SET · ${c.wallpaper_count ?? 0}</span>
-      <div class="label">${c.title || 'Untitled set'}</div>
+      <div class="frame">
+        <img alt="">
+        <div class="gradient"></div>
+      </div>
+      <span class="set-chip">SET</span>
+      <div class="copy">
+        <div class="title">${c.title || 'Untitled set'}</div>
+        <div class="count">${c.wallpaper_count ?? 0} wallpapers</div>
+      </div>
     `;
-    const img = a.querySelector('img');
-    loadImg(img);
-    img.src = c.cover_url || '';
+    const img = a.querySelector('img'); loadImg(img); img.src = c.cover_url || '';
     return a;
   }
-  function emptyTile() {
-    const e = document.createElement('div'); e.className = 'sk'; return e;
-  }
 
-  // ── User menu open/close ────────────────────────────────
+  // ── User menu ─────────────────────────────────
   const userMenu = document.getElementById('userMenu');
   document.getElementById('userTrigger').addEventListener('click', (e) => {
-    e.stopPropagation();
-    userMenu.classList.toggle('open');
+    e.stopPropagation(); userMenu.classList.toggle('open');
   });
   document.addEventListener('click', () => userMenu.classList.remove('open'));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') userMenu.classList.remove('open'); });
 
-  // ── Demo: trigger balance pulse every 10s ───────────────
-  // In prod this fires when the server reports a +1 (someone traded yours).
+  // Demo: balance pulse every 10s
   setInterval(() => {
     const r = document.getElementById('balPulse');
     r.classList.remove('go'); void r.offsetWidth; r.classList.add('go');
