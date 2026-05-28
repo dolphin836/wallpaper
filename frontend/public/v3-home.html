@@ -8,12 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  /* ==========================================================
-     Liquid Surface v3 — homepage preview. Per-row differentiation:
-     weekly = portrait + serif №, AI = square + iridescent hover,
-     video = widescreen + play + hover-autoplay, collections = stacked.
-     ========================================================== */
-
   :root {
     --ink: oklch(20% 0.014 240);
     --ink-2: oklch(36% 0.012 240);
@@ -25,7 +19,6 @@
     --signal: oklch(78% 0.18 145);
     --ease: cubic-bezier(0.16, 1, 0.30, 1);
     --ease-q: cubic-bezier(0.25, 1, 0.5, 1);
-    /* Liquid palette — overridden per page from the active wallpaper */
     --c1: #4681C8;
     --c2: #345F5F;
     --c3: #9ACCD5;
@@ -45,7 +38,6 @@
   a { color: inherit; text-decoration: none; }
   button { font-family: inherit; cursor: pointer; }
 
-  /* Animated mesh surface */
   body::before {
     content: ""; position: fixed; inset: -20%; z-index: 0;
     background:
@@ -91,7 +83,6 @@
     font-family: 'Instrument Serif', serif; font-style: italic; font-size: 16px;
     position: relative;
   }
-  /* live-system dot — phosphor breathing, signals "online" */
   .brand .live {
     width: 7px; height: 7px; border-radius: 50%;
     background: var(--signal);
@@ -237,8 +228,8 @@
   .hero-card img.loaded { opacity: 1; }
   .hero-card .overlay {
     position: absolute; left: 0; right: 0; bottom: 0;
-    padding: 30px 36px 28px;
-    background: linear-gradient(180deg, transparent, rgba(0,0,0,0.55));
+    padding: 26px 30px 24px;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,0.4));
     color: white;
     display: flex; align-items: end; justify-content: space-between; gap: 24px;
   }
@@ -246,18 +237,11 @@
   .hero-card .overlay .kicker {
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
-    color: rgba(255,255,255,0.8);
-  }
-  .hero-card .overlay h1 {
-    margin-top: 8px; font-weight: 500;
-    font-size: clamp(22px, 2.8vw, 40px); line-height: 1.05;
-    letter-spacing: -0.015em;
-    max-width: 24ch;
-    text-shadow: 0 2px 20px rgba(0,0,0,0.5);
+    color: rgba(255,255,255,0.85);
   }
   .hero-card .overlay .meta {
-    margin-top: 10px;
-    font-size: 12.5px; opacity: 0.85;
+    margin-top: 6px;
+    font-size: 12.5px; opacity: 0.78;
     font-family: 'JetBrains Mono', monospace;
   }
   .hero-card .cta {
@@ -275,16 +259,24 @@
     width: 11px; height: 11px; border-radius: 50%;
     background: linear-gradient(135deg, #f4ae66, #d57130);
   }
-  /* Resolution chip on hero (top-right) */
-  .hero-card .res {
-    position: absolute; top: 18px; right: 18px;
-    padding: 4px 11px; border-radius: 999px;
-    background: oklch(98% 0.005 240 / 0.92); backdrop-filter: blur(8px);
-    color: var(--ink); font-size: 11px; font-weight: 700;
-    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em;
+
+  /* ─── Resolution chip — smaller and softer ─── */
+  .res-chip {
+    position: absolute; top: 10px; left: 10px; z-index: 4;
+    padding: 1px 6px; border-radius: 999px;
+    background: oklch(98% 0.005 240 / 0.55); backdrop-filter: blur(6px);
+    color: oklch(36% 0.012 240); font-size: 9px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em;
+    line-height: 1.5;
+  }
+  /* Hero gets a slightly more prominent chip due to bigger image */
+  .hero-card .res-chip {
+    top: 16px; left: auto; right: 16px;
+    padding: 2px 8px; font-size: 10px;
+    background: oklch(98% 0.005 240 / 0.75);
   }
 
-  /* ─── ROW SHARED HEAD ─── */
+  /* ─── ROW HEAD ─── */
   section.row { padding: 48px 40px 8px; }
   .row-head {
     max-width: 1280px; margin: 0 auto 22px;
@@ -309,26 +301,14 @@
   }
   .row-head .more:hover { color: var(--accent); border-color: var(--accent); }
 
-  .grid {
-    max-width: 1280px; margin: 0 auto;
-    display: grid; gap: 16px;
-  }
+  .grid { max-width: 1280px; margin: 0 auto; display: grid; gap: 16px; }
   .grid-5 { grid-template-columns: repeat(5, 1fr); }
   .grid-4 { grid-template-columns: repeat(4, 1fr); }
   @media (max-width: 1100px) { .grid-5 { grid-template-columns: repeat(3, 1fr); } .grid-4 { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 700px)  { .grid-5, .grid-4 { grid-template-columns: repeat(2, 1fr); } }
 
-  /* ─── Resolution chip (shared, top-left on all tiles) ─── */
-  .res-chip {
-    position: absolute; top: 12px; left: 12px; z-index: 4;
-    padding: 3px 9px; border-radius: 999px;
-    background: oklch(98% 0.005 240 / 0.92); backdrop-filter: blur(6px);
-    color: var(--ink); font-size: 10px; font-weight: 700;
-    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em;
-  }
-
   /* ════════════ ROW 1 · WEEKLY ════════════ */
-  /* portrait 4:5 + giant italic № stamp */
+  /* portrait 4:5, clean — no stamps, no titles */
   .tile-weekly {
     aspect-ratio: 4/5;
     border-radius: 16px;
@@ -350,22 +330,11 @@
   }
   .tile-weekly img.loaded { opacity: 1; }
   .tile-weekly:hover img { transform: scale(1.05); }
-  .tile-weekly .num-stamp {
-    position: absolute; left: 14px; bottom: 12px;
-    font-family: 'Instrument Serif', serif; font-style: italic;
-    font-size: 44px; line-height: 1;
-    color: white;
-    text-shadow: 0 2px 18px rgba(0,0,0,0.6);
-    z-index: 4;
-  }
-  .tile-weekly::after {
-    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 40%;
-    background: linear-gradient(to top, rgba(0,0,0,0.45), transparent);
-    pointer-events: none;
-  }
 
-  /* ════════════ ROW 2 · AI LAB ════════════ */
-  /* square 1:1, iridescent border on hover */
+  /* ════════════ ROW 2 · AI LAB · FOIL ════════════ */
+  /* Square 1:1 + a holographic foil sweep that travels across the image
+     continuously, like light catching on a foil card. No chip; the foil
+     itself signals "generated". */
   .tile-ai {
     aspect-ratio: 1/1;
     border-radius: 16px;
@@ -375,6 +344,7 @@
     box-shadow: 0 1px 0 oklch(100% 0 0 / 0.5), 0 8px 22px -10px oklch(20% 0.014 240 / 0.2);
     transition: transform 380ms var(--ease), box-shadow 380ms var(--ease);
     cursor: pointer; display: block;
+    isolation: isolate; /* so blend-mode is bounded to this tile */
   }
   .tile-ai:hover {
     transform: translateY(-5px);
@@ -384,44 +354,63 @@
     width: 100%; height: 100%; object-fit: cover; display: block;
     transition: transform 800ms var(--ease), opacity 400ms var(--ease);
     opacity: 0;
+    z-index: 1;
   }
   .tile-ai img.loaded { opacity: 1; }
   .tile-ai:hover img { transform: scale(1.04); }
-  /* Iridescent ring (conic gradient) — visible only on hover */
-  .tile-ai::before {
-    content: ""; position: absolute; inset: -2px;
-    background: conic-gradient(
-      from 0deg,
-      oklch(70% 0.18 290),
-      oklch(75% 0.16 200),
-      oklch(80% 0.18 145),
-      oklch(78% 0.18 60),
-      oklch(72% 0.20 30),
-      oklch(70% 0.18 290)
+  /* Foil — diagonal rainbow band that sweeps slowly across.
+     mix-blend-mode lets it interact with the underlying image colors,
+     so the effect is iridescent rather than a flat overlay. */
+  .tile-ai .foil {
+    position: absolute; inset: -10%;
+    background: linear-gradient(
+      115deg,
+      transparent 25%,
+      oklch(78% 0.16 30 / 0.55) 38%,
+      oklch(80% 0.18 60 / 0.55) 44%,
+      oklch(80% 0.18 145 / 0.55) 50%,
+      oklch(75% 0.18 200 / 0.55) 56%,
+      oklch(72% 0.20 290 / 0.55) 62%,
+      transparent 75%
     );
-    border-radius: 18px;
-    opacity: 0; z-index: 0;
-    transition: opacity 300ms var(--ease);
-    animation: iri-spin 6s linear infinite;
+    background-size: 220% 220%;
+    background-repeat: no-repeat;
+    mix-blend-mode: color-dodge;
+    pointer-events: none;
+    z-index: 2;
+    animation: foil-sweep 8s linear infinite;
+    opacity: 0.55;
+    transition: opacity 320ms var(--ease);
   }
-  @keyframes iri-spin { to { transform: rotate(360deg); } }
-  .tile-ai:hover::before { opacity: 0.85; }
+  @keyframes foil-sweep {
+    0%   { background-position: 200% 200%; }
+    100% { background-position: -100% -100%; }
+  }
+  .tile-ai:hover .foil { opacity: 0.9; animation-duration: 4s; }
+  /* A second, slower foil layer in the opposite direction for depth — like
+     two prisms playing on the same surface. */
   .tile-ai::after {
-    content: ""; position: absolute; inset: 2px;
-    background: var(--paper-2);
-    border-radius: 14px; z-index: 1;
+    content: ""; position: absolute; inset: 0; z-index: 3;
+    background: linear-gradient(
+      -65deg,
+      transparent 40%,
+      oklch(85% 0.10 60 / 0.20) 50%,
+      transparent 60%
+    );
+    background-size: 300% 300%;
+    background-repeat: no-repeat;
+    mix-blend-mode: soft-light;
+    pointer-events: none;
+    animation: foil-sweep-2 14s linear infinite reverse;
+    opacity: 0.7;
   }
-  .tile-ai img, .tile-ai .res-chip, .tile-ai .gen-chip { position: relative; z-index: 2; }
-  .tile-ai .gen-chip {
-    position: absolute; top: 12px; right: 12px;
-    padding: 3px 9px; border-radius: 999px;
-    background: oklch(98% 0.005 240 / 0.92); backdrop-filter: blur(6px);
-    color: oklch(50% 0.20 290); font-size: 10px; font-weight: 700;
-    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.08em;
+  @keyframes foil-sweep-2 {
+    0%   { background-position: -50% -50%; }
+    100% { background-position: 200% 200%; }
   }
+  .tile-ai .res-chip { z-index: 4; }
 
   /* ════════════ ROW 3 · VIDEO ════════════ */
-  /* widescreen 16:9, hover autoplay */
   .grid.grid-video { grid-template-columns: repeat(4, 1fr); }
   @media (max-width: 1100px) { .grid.grid-video { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 700px)  { .grid.grid-video { grid-template-columns: 1fr; } }
@@ -451,22 +440,26 @@
   }
   .tile-video.playing video { opacity: 1; }
   .tile-video.playing img   { opacity: 0; }
+  /* Play icon — small, soft, top-left so it doesn't fight content */
   .tile-video .play {
-    position: absolute; inset: 0;
-    display: grid; place-items: center; z-index: 3;
-    transition: opacity 240ms var(--ease);
+    position: absolute; left: 10px; bottom: 10px; z-index: 3;
+    width: 28px; height: 28px;
+    background: oklch(20% 0.014 240 / 0.5);
+    backdrop-filter: blur(6px);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    transition: opacity 240ms var(--ease), background 240ms var(--ease);
     pointer-events: none;
   }
+  .tile-video:hover .play { background: oklch(20% 0.014 240 / 0.7); }
   .tile-video.playing .play { opacity: 0; }
   .tile-video .play svg {
-    width: 56px; height: 56px;
-    filter: drop-shadow(0 4px 18px rgba(0,0,0,0.55));
+    width: 12px; height: 12px;
+    fill: rgba(255,255,255,0.9);
   }
-  .tile-video .play circle { fill: rgba(255,255,255,0.92); }
-  .tile-video .play polygon { fill: var(--ink); }
 
   /* ════════════ ROW 4 · COLLECTIONS ════════════ */
-  /* square 1:1, stacked-paper effect, title + count */
+  /* Stacked-paper effect, title + count, no chip */
   .tile-collection {
     aspect-ratio: 1/1;
     border-radius: 14px;
@@ -474,14 +467,11 @@
     background: var(--paper-2);
     cursor: pointer; display: block;
     transition: transform 380ms var(--ease);
-    /* stacked shadow effect (two faded copies behind) */
     box-shadow:
       0 1px 0 oklch(100% 0 0 / 0.5),
       0 8px 22px -10px oklch(20% 0.014 240 / 0.2),
-      /* "back of stack" #1 */
       4px 4px 0 -1px var(--paper-2),
       4px 4px 0 0 oklch(86% 0.010 240),
-      /* "back of stack" #2 */
       8px 8px 0 -1px var(--paper-2),
       8px 8px 0 0 oklch(82% 0.012 240);
   }
@@ -527,15 +517,8 @@
     font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
     color: rgba(255,255,255,0.85);
   }
-  .tile-collection .set-chip {
-    position: absolute; top: 12px; left: 12px; z-index: 3;
-    padding: 3px 9px; border-radius: 999px;
-    background: oklch(98% 0.005 240 / 0.92); backdrop-filter: blur(6px);
-    color: var(--ink); font-size: 10px; font-weight: 700;
-    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em;
-  }
 
-  /* ─── Skeleton placeholders ─── */
+  /* ─── Skeletons ─── */
   .sk {
     aspect-ratio: 4/5;
     border-radius: 16px;
@@ -550,7 +533,6 @@
     100% { background-position: -100% 0; }
   }
 
-  /* Error fallback for a row */
   .row-err {
     max-width: 1280px; margin: 0 auto;
     padding: 24px; border: 1px dashed var(--hair); border-radius: 12px;
@@ -558,7 +540,7 @@
     background: oklch(98% 0.005 240 / 0.5);
   }
 
-  /* ─────────── FOOTER ─────────── */
+  /* ─── Footer ─── */
   footer.legal {
     margin-top: 80px;
     padding: 36px 40px 56px;
@@ -586,7 +568,6 @@
     font-size: 11px; color: var(--muted); letter-spacing: 0.06em;
   }
 
-  /* Mobile */
   @media (max-width: 820px) {
     header.topnav { padding: 12px 16px; gap: 12px; flex-wrap: nowrap; overflow-x: auto; }
     header nav.primary { gap: 16px; }
@@ -597,15 +578,12 @@
     section.hero { padding: 20px 16px 12px; }
     section.row { padding: 32px 16px 8px; }
     footer.legal { padding: 28px 16px 40px; }
-    .hero-card .overlay { padding: 18px 18px 18px; flex-direction: column; align-items: start; gap: 14px; }
-    .hero-card .overlay h1 { font-size: 22px; }
-    .tile-weekly .num-stamp { font-size: 34px; }
+    .hero-card .overlay { padding: 16px; flex-direction: column; align-items: start; gap: 12px; }
   }
 </style>
 </head>
 <body>
 
-<!-- ─────────── TOP NAV ─────────── -->
 <header class="topnav">
   <a class="brand" href="#">
     <span class="logo">W</span>
@@ -651,18 +629,15 @@
   </div>
 </header>
 
-<!-- ─────────── MAIN ─────────── -->
 <main>
-
   <!-- HERO -->
   <section class="hero">
     <a class="hero-card" id="heroCard" href="#">
       <img id="heroImg" alt="" />
-      <span class="res" id="heroRes"></span>
+      <span class="res-chip" id="heroRes"></span>
       <div class="overlay">
         <div class="copy">
           <div class="kicker"><span id="heroKicker">This week · loading</span></div>
-          <h1 id="heroTitle">—</h1>
           <div class="meta" id="heroMeta">—</div>
         </div>
         <button class="cta">
@@ -728,7 +703,6 @@
       <div class="sk sk-sq"></div><div class="sk sk-sq"></div><div class="sk sk-sq"></div><div class="sk sk-sq"></div>
     </div>
   </section>
-
 </main>
 
 <footer class="legal">
@@ -779,20 +753,18 @@
     if (c) c.outerHTML = `<div class="row-err">${msg}</div>`;
   }
 
-  // ── HERO + Weekly ─────────────────────────────────
+  // ── HERO + Weekly ──
   (async () => {
     try {
       const j = await getJSON(`${API}/weekly-picks/current`);
       const data = j.data;
       const picks = data.picks || [];
       if (picks.length === 0) {
-        document.getElementById('heroTitle').textContent = 'No weekly drop yet';
-        document.getElementById('heroKicker').textContent = `Week ${data.week} · ${data.year}`;
+        document.getElementById('heroKicker').textContent = `Week ${data.week} · ${data.year} · no picks yet`;
         return;
       }
       const hero = picks[0];
       applyPaletteFromHex(hero.color_palette);
-      // Avatar gradient matches hero palette
       const av = document.querySelector('.user-menu .avatar');
       const parts = (hero.color_palette || '').split(',').map(s => s.trim()).filter(Boolean);
       if (parts.length >= 2 && av) {
@@ -801,29 +773,26 @@
       const img = document.getElementById('heroImg');
       loadImg(img);
       img.src = hero.preview_url || hero.thumb_url;
-      document.getElementById('heroTitle').textContent = (hero.title || `Specimen №${hero.id}`) + '.';
       document.getElementById('heroKicker').textContent = `Curation · Week ${data.week} · ${data.year}`;
       document.getElementById('heroMeta').textContent = `${hero.width}×${hero.height} · ${fmtMB(hero.file_size || 0)}`;
       const r = resBadge(hero);
       if (r) document.getElementById('heroRes').textContent = r;
 
-      // Render rest of picks (skip hero[0])
       const rest = picks.slice(1, 6);
       const grid = document.getElementById('weeklyGrid');
       grid.innerHTML = '';
-      rest.forEach((w, i) => grid.appendChild(makeWeeklyTile(w, i + 2)));
+      rest.forEach(w => grid.appendChild(makeWeeklyTile(w)));
       while (grid.children.length < 5) {
         const e = document.createElement('div'); e.className = 'sk'; grid.appendChild(e);
       }
     } catch (e) {
       console.error('weekly fetch failed', e);
       showErr('weeklyGrid', 'Weekly picks unavailable.');
-      document.getElementById('heroTitle').textContent = 'API offline';
       document.getElementById('heroKicker').textContent = "Couldn't reach the archive";
     }
   })();
 
-  // ── AI ─────────────────────────────────
+  // ── AI ──
   (async () => {
     try {
       const j = await getJSON(`${API}/wallpapers?ai_only=true&limit=10&sort=newest`);
@@ -844,7 +813,7 @@
     }
   })();
 
-  // ── Videos ─────────────────────────────────
+  // ── Videos ──
   (async () => {
     try {
       const j = await getJSON(`${API}/wallpapers?video_only=true&limit=10&sort=newest`);
@@ -865,7 +834,7 @@
     }
   })();
 
-  // ── Collections ─────────────────────────────────
+  // ── Collections ──
   (async () => {
     try {
       const j = await getJSON(`${API}/collections?limit=8`);
@@ -886,8 +855,8 @@
     }
   })();
 
-  // ── Tile factories ─────────────────────────────────
-  function makeWeeklyTile(w, idx) {
+  // ── Tile factories ──
+  function makeWeeklyTile(w) {
     const a = document.createElement('a');
     a.className = 'tile-weekly';
     a.href = '#';
@@ -896,7 +865,6 @@
     a.innerHTML = `
       <img alt="">
       ${r ? `<span class="res-chip">${r}</span>` : ''}
-      <span class="num-stamp">№${String(idx).padStart(2, '0')}</span>
     `;
     const img = a.querySelector('img'); loadImg(img); img.src = w.thumb_url || w.preview_url;
     if (w.color_palette) a.addEventListener('mouseenter', () => applyPaletteFromHex(w.color_palette));
@@ -910,8 +878,8 @@
     const r = resBadge(w);
     a.innerHTML = `
       <img alt="">
+      <span class="foil"></span>
       ${r ? `<span class="res-chip">${r}</span>` : ''}
-      <span class="gen-chip">GEN</span>
     `;
     const img = a.querySelector('img'); loadImg(img); img.src = w.thumb_url || w.preview_url;
     if (w.color_palette) a.addEventListener('mouseenter', () => applyPaletteFromHex(w.color_palette));
@@ -927,12 +895,10 @@
       <img alt="">
       ${r ? `<span class="res-chip">${r}</span>` : ''}
       <div class="play">
-        <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28"/><polygon points="26,20 26,44 46,32"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden><polygon points="6,4 6,20 20,12"/></svg>
       </div>
     `;
     const img = a.querySelector('img'); loadImg(img); img.src = w.thumb_url || w.preview_url;
-    // Lazy autoplay-on-hover for preview video. preview_video_url is the
-    // small 480p muted clip; falls back to no preview if absent.
     if (w.preview_video_url) {
       let vid = null;
       a.addEventListener('mouseenter', () => {
@@ -963,7 +929,6 @@
         <img alt="">
         <div class="gradient"></div>
       </div>
-      <span class="set-chip">SET</span>
       <div class="copy">
         <div class="title">${c.title || 'Untitled set'}</div>
         <div class="count">${c.wallpaper_count ?? 0} wallpapers</div>
@@ -973,7 +938,7 @@
     return a;
   }
 
-  // ── User menu ─────────────────────────────────
+  // ── User menu ──
   const userMenu = document.getElementById('userMenu');
   document.getElementById('userTrigger').addEventListener('click', (e) => {
     e.stopPropagation(); userMenu.classList.toggle('open');
@@ -981,7 +946,7 @@
   document.addEventListener('click', () => userMenu.classList.remove('open'));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') userMenu.classList.remove('open'); });
 
-  // Demo: balance pulse every 10s
+  // Demo balance pulse
   setInterval(() => {
     const r = document.getElementById('balPulse');
     r.classList.remove('go'); void r.offsetWidth; r.classList.add('go');
