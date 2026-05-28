@@ -215,7 +215,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         // `block` is essential: when isPublished, Wrapper is <Link> which renders
         // as <a> — that's inline by default, so w-full / h-full are no-ops and
         // the tile collapses to 0×0, hiding the (absolutely-positioned) image.
-        className={`tile-cell block relative w-full h-full overflow-hidden border border-hair animate-fade-in no-underline ${isPublished ? '' : 'cursor-default'}`}
+        className={`tile-cell block relative w-full h-full overflow-hidden animate-fade-in no-underline ${isPublished ? '' : 'cursor-default'}`}
         // data-palette lets parent surfaces (e.g. Discover's liquid mesh)
         // detect which card is hovered via event delegation and tint the
         // page background from this wallpaper's color palette. Harmless
@@ -275,28 +275,27 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           </div>
         )}
 
-        {/* Top-left chips: resolution + Mac only. */}
-        <div className="absolute top-3 left-3 z-[2] flex gap-1.5 flex-wrap max-w-[calc(100%-24px)]">
-          {resLabel && (
-            <span className="mono text-[10px] tracking-wider font-medium px-2 py-[3px] rounded-[3px] bg-black/55 text-white backdrop-blur-md">
-              {resLabel}
-            </span>
-          )}
+        {/* Top-left chips. Editorial pill family — see .tile-chip in
+            index.css; the AI variant keeps a violet wash so the
+            "synthetic" label reads at a glance, everything else is the
+            neutral light/dark pill shared with home-page tiles. */}
+        <div className="absolute top-2.5 left-2.5 z-[2] flex gap-1 flex-wrap max-w-[calc(100%-20px)]">
+          {resLabel && <span className="tile-chip">{resLabel}</span>}
           {isVideo && (
-            <span className="mono text-[10px] tracking-wider font-medium px-2 py-[3px] rounded-[3px] bg-black/55 text-white backdrop-blur-md inline-flex items-center gap-1">
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
+            <span className="tile-chip">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
               Video
             </span>
           )}
           {wallpaper.is_dynamic && (
-            <span className="mono text-[10px] tracking-wider font-medium px-2 py-[3px] rounded-[3px] bg-black/55 text-white backdrop-blur-md inline-flex items-center gap-1">
-              <svg width="10" height="10" viewBox="0 0 384 512" fill="currentColor"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+            <span className="tile-chip">
+              <svg viewBox="0 0 384 512" fill="currentColor" aria-hidden><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
               Mac
             </span>
           )}
           {wallpaper.is_ai_generated && (
-            <span className="mono text-[10px] tracking-wider font-medium px-2 py-[3px] rounded-[3px] bg-violet-600/85 text-white backdrop-blur-md inline-flex items-center gap-1">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.6 4.6L18 8.2l-4.4 1.6L12 14.4l-1.6-4.6L6 8.2l4.4-1.6L12 2zm7 10l1 2.8 2.8 1-2.8 1L19 19.6l-1-2.8-2.8-1 2.8-1L19 12zM5 14l.9 2.6L8.4 17.6l-2.5 1L5 21.2 4.1 18.6 1.6 17.6 4.1 16.6 5 14z"/></svg>
+            <span className="tile-chip is-ai">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.6 4.6L18 8.2l-4.4 1.6L12 14.4l-1.6-4.6L6 8.2l4.4-1.6L12 2zm7 10l1 2.8 2.8 1-2.8 1L19 19.6l-1-2.8-2.8-1 2.8-1L19 12zM5 14l.9 2.6L8.4 17.6l-2.5 1L5 21.2 4.1 18.6 1.6 17.6 4.1 16.6 5 14z"/></svg>
               AI
             </span>
           )}

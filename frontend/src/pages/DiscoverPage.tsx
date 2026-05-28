@@ -93,15 +93,38 @@ function readSavedViewMode(): ViewMode {
   if (raw === 'salon' || raw === 'justified' || raw === 'grid') {
     return raw;
   }
-  return 'justified';
+  return 'grid';
 }
 
-function SkeletonRows({ rowHeight = 260 }: { rowHeight?: number }) {
-  // Loose approximation of the justified-layout output: three horizontal
-  // rows of mixed-width tiles at uniform row height. The widths don't have
-  // to match what the library will compute — once the data arrives the
-  // real grid replaces this in one tick — they just need to read as
-  // "things will land at this height."
+function SkeletonRows({
+  viewMode,
+  sizeMode,
+  rowHeight = 260,
+}: { viewMode: ViewMode; sizeMode: SizeMode; rowHeight?: number }) {
+  // Grid mode lays out fixed-aspect cells in a CSS grid — match the real
+  // breakpoint counts in GRID_BREAKPOINT_COLS so the skeleton occupies
+  // the same footprint at every viewport size.
+  if (viewMode === 'grid') {
+    const bp = GRID_BREAKPOINT_COLS[sizeMode];
+    const count = bp[3] * 2;
+    const cols =
+      sizeMode === 'lg' ? 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+      : sizeMode === 'md' ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6'
+      : 'grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10';
+    return (
+      <div className={`grid gap-4 ${cols}`}>
+        {Array.from({ length: count }).map((_, i) => (
+          <div
+            key={i}
+            className="tile-cell skeleton-card aspect-[3/2]"
+            style={{ animationDelay: `${i * 60}ms` }}
+          />
+        ))}
+      </div>
+    );
+  }
+  // Justified / salon — three rows of mixed-width tiles at the target row
+  // height. Approximate but reads as "content will land here."
   const rows = [
     [3, 4, 3],
     [2, 3, 3, 3],
@@ -114,7 +137,7 @@ function SkeletonRows({ rowHeight = 260 }: { rowHeight?: number }) {
           {row.map((flex, ci) => (
             <div
               key={ci}
-              className="skeleton-card bg-paper-3 border border-hair-soft rounded-lg"
+              className="tile-cell skeleton-card"
               style={{ flex, animationDelay: `${(ri * row.length + ci) * 80}ms` }}
             />
           ))}
@@ -243,20 +266,22 @@ interface ViewSizeControlsProps {
 function ViewSizeControls(p: ViewSizeControlsProps) {
   return (
     <>
-      {/* View toggle — uniform-height "justified" rows vs fixed-aspect
-          grid. The third 'salon' mosaic mode is intentionally not
-          exposed (it's selectable from a deeper menu elsewhere). */}
+      {/* View toggle — icon + label, icon first. Grid is the editorial
+          default (uniform 3:2 cards in a CSS grid); Justified packs by
+          the justified-layout library at a uniform row height. Salon
+          (mosaic) is no longer surfaced here — saved value still
+          round-trips for users who picked it before. */}
       <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-lg">
-        <button
-          onClick={() => p.onView('justified')}
-          title="Justified"
-          className={`w-[30px] h-[26px] rounded-[5px] flex items-center justify-center transition-colors ${p.viewMode === 'justified' || p.viewMode === 'salon' ? 'bg-ink text-paper' : 'text-muted'}`}
-        ><AiOutlineAppstore size={13} /></button>
         <button
           onClick={() => p.onView('grid')}
           title="Grid"
-          className={`w-[30px] h-[26px] rounded-[5px] flex items-center justify-center transition-colors ${p.viewMode === 'grid' ? 'bg-ink text-paper' : 'text-muted'}`}
-        ><AiOutlineBars size={13} /></button>
+          className={`h-[26px] px-2.5 rounded-[5px] inline-flex items-center gap-1.5 text-[11px] transition-colors ${p.viewMode === 'grid' ? 'bg-ink text-paper' : 'text-muted hover:text-ink-2'}`}
+        ><AiOutlineBars size={13} /><span>Grid</span></button>
+        <button
+          onClick={() => p.onView('justified')}
+          title="Justified"
+          className={`h-[26px] px-2.5 rounded-[5px] inline-flex items-center gap-1.5 text-[11px] transition-colors ${p.viewMode === 'justified' || p.viewMode === 'salon' ? 'bg-ink text-paper' : 'text-muted hover:text-ink-2'}`}
+        ><AiOutlineAppstore size={13} /><span>Justified</span></button>
       </div>
       <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-lg">
         {(['sm', 'md', 'lg'] as SizeMode[]).map((k) => {
@@ -551,47 +576,50 @@ export default function DiscoverPage() {
       <div className="d3-discover-mesh" aria-hidden />
       <div className="d3-discover-main">
 
-      {/* Unified discover toolbar: left half is the category strip (scrolls
-          horizontally when it overflows), right half is the Filter dropdown
-          plus view/size controls. The strip itself is hidden until
-          categories load to avoid layout shift on first paint. */}
-      <div className="flex items-center gap-4 border-b border-hair bg-paper px-6 py-3">
-        <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar">
-          <div className="flex items-center gap-2">
-            <CategoryChip
-              label="All"
-              active={categoryFilter === null}
-              onClick={() => navigate('/')}
-            />
-            {categories.map((c) => (
+      {/* Unified discover toolbar. Outer wrapper carries the edge-to-edge
+          hairline; inner row constrains to the same max-w / side-padding
+          as the content below so chips, filter, and view controls all
+          align with the grid. No solid background — the Liquid mesh
+          shows through. */}
+      <div className="border-b border-hair">
+        <div className="max-w-[1600px] mx-auto flex items-center gap-4 px-6 sm:px-10 lg:px-14 py-3">
+          <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-2">
               <CategoryChip
-                key={c.id}
-                label={c.name}
-                active={categoryFilter === c.id}
-                onClick={() => navigate(`/category/${c.slug}`)}
+                label="All"
+                active={categoryFilter === null}
+                onClick={() => navigate('/')}
               />
-            ))}
+              {categories.map((c) => (
+                <CategoryChip
+                  key={c.id}
+                  label={c.name}
+                  active={categoryFilter === c.id}
+                  onClick={() => navigate(`/category/${c.slug}`)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2.5 flex-shrink-0">
-          <FilterDropdown
-            mode={filterMode}
-            setMode={setFilterMode}
-            open={filterOpen}
-            setOpen={setFilterOpen}
-            ddRef={filterRef}
-            isAuthenticated={isAuthenticated}
-          />
-          <ViewSizeControls
-            viewMode={viewMode}
-            onView={handleViewChange}
-            sizeMode={sizeMode}
-            onSize={handleSizeChange}
-          />
+          <div className="flex items-center gap-2.5 flex-shrink-0">
+            <FilterDropdown
+              mode={filterMode}
+              setMode={setFilterMode}
+              open={filterOpen}
+              setOpen={setFilterOpen}
+              ddRef={filterRef}
+              isAuthenticated={isAuthenticated}
+            />
+            <ViewSizeControls
+              viewMode={viewMode}
+              onView={handleViewChange}
+              sizeMode={sizeMode}
+              onSize={handleSizeChange}
+            />
+          </div>
         </div>
       </div>
 
-      <main className="p-6">
+      <main className="max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-8">
         {isAuthenticated && user && user.coins <= 0 && (
           <Link
             to="/upload"
@@ -608,7 +636,7 @@ export default function DiscoverPage() {
         )}
 
         {loading ? (
-          <SkeletonRows rowHeight={SIZE_HEIGHTS[sizeMode]} />
+          <SkeletonRows viewMode={viewMode} sizeMode={sizeMode} rowHeight={SIZE_HEIGHTS[sizeMode]} />
         ) : (
           <>
             <WallpaperGrid

@@ -61,6 +61,15 @@ const NAV_ITEMS: { label: string; to: string }[] = [
 
 function isItemActive(pathname: string, to: string) {
   if (to === '/') return pathname === '/';
+  // Category landing pages live under /category/:slug but visually belong
+  // to Discover — keep the nav item highlighted there too.
+  if (to === '/discover') {
+    return (
+      pathname === '/discover'
+      || pathname.startsWith('/discover/')
+      || pathname.startsWith('/category/')
+    );
+  }
   return pathname === to || pathname.startsWith(to + '/');
 }
 

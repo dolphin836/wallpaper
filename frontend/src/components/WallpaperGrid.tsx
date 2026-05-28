@@ -87,17 +87,23 @@ const GRID_COLS: Record<SizeMode, string> = {
 };
 
 function GridLayout({ wallpapers, showStatus, sizeMode, staggerFrom = 0, disableModal }: { wallpapers: Wallpaper[]; showStatus?: boolean; sizeMode: SizeMode; staggerFrom?: number; disableModal?: boolean }) {
+  // Uses the salon (editorial) tile variant so cards share the rounded-
+  // chrome + hover-lift look used by the home page's weekly grid. Each
+  // cell gets an aspect-ratio host box because the salon card is
+  // absolutely-positioned and needs a sized parent.
   return (
     <div className={`grid ${GRID_COLS[sizeMode]} gap-4`}>
       {wallpapers.map((w, i) => (
-        <WallpaperCard
-          key={w.id}
-          wallpaper={w}
-          showStatus={showStatus}
-          fixedAspect
-          animDelay={staggerDelay(i, staggerFrom)}
-          disableModal={disableModal}
-        />
+        <div key={w.id} className="relative aspect-[3/2]">
+          <WallpaperCard
+            wallpaper={w}
+            showStatus={showStatus}
+            layout="salon"
+            fillHeight
+            animDelay={staggerDelay(i, staggerFrom)}
+            disableModal={disableModal}
+          />
+        </div>
       ))}
     </div>
   );
