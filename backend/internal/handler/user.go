@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/gen2brain/heic"
@@ -160,13 +161,27 @@ func (h *UserHandler) GetWallpapers(w http.ResponseWriter, r *http.Request) {
 		UserID: id,
 	}
 	// ?status=<n> lets the owner split the profile Uploads tab into a
-	// "Published" + "In Progress" pair without two list endpoints.
+	// "Published" + "Pending" pair without two list endpoints. A comma-
+	// separated list (e.g. ?status=0,5) asks for multiple statuses at
+	// once — the Pending tab uses Processing + PendingReview together.
 	// Strangers can't access non-published items, so the filter is ignored
-	// for them. We use StatusFilter (a *int16) so status=0 / Processing
-	// actually filters; the plain Status int16 collides with the struct
-	// zero-value and would silently fall back to "published only".
+	// for them. StatusFilter (a *int16) is honored for the single-value
+	// case so status=0 / Processing actually filters; the plain Status
+	// int16 collides with the struct zero-value and would silently fall
+	// back to "published only".
 	if statusRaw := r.URL.Query().Get("status"); statusRaw != "" && isOwner {
-		if v, parseErr := strconv.Atoi(statusRaw); parseErr == nil {
+		if strings.Contains(statusRaw, ",") {
+			parts := strings.Split(statusRaw, ",")
+			ss := make([]int16, 0, len(parts))
+			for _, p := range parts {
+				if v, parseErr := strconv.Atoi(strings.TrimSpace(p)); parseErr == nil {
+					ss = append(ss, int16(v))
+				}
+			}
+			if len(ss) > 0 {
+				opts.StatusFilterIn = ss
+			}
+		} else if v, parseErr := strconv.Atoi(statusRaw); parseErr == nil {
 			s := int16(v)
 			opts.StatusFilter = &s
 		}

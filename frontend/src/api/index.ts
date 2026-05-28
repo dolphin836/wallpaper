@@ -96,8 +96,12 @@ export const getUsers = (params: { page?: number; limit?: number; sort?: string 
 export const getUserProfile = (username: string) =>
   client.get<ApiResponse<User>>(`/users/${username}`);
 
-export const getUserWallpapers = (username: string, params: { cursor?: number; limit?: number; status?: number }) =>
-  client.get<ApiResponse<PaginatedData<Wallpaper>>>(`/users/${username}/wallpapers`, { params });
+// `status` accepts a single int (e.g. 1 = published) or a comma-separated
+// list (e.g. "0,5" for Processing + PendingReview) — the backend handles both.
+export const getUserWallpapers = (
+  username: string,
+  params: { cursor?: number; limit?: number; status?: number | string },
+) => client.get<ApiResponse<PaginatedData<Wallpaper>>>(`/users/${username}/wallpapers`, { params });
 
 // Public companions to /users/me/{likes,favorites,downloads}. Each returns
 // either the standard PaginatedData<Wallpaper> shape, or an empty payload

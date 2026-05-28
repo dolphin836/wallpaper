@@ -98,6 +98,10 @@ type ListOptions struct {
 	// can't ask for processing wallpapers because `Status: 0` collides with
 	// the struct zero-value and silently fell back to "published only".
 	StatusFilter     *int16
+	// StatusFilterIn lets the caller ask for several statuses at once
+	// (e.g. Processing + PendingReview for the profile's "Pending" tab).
+	// Takes precedence over StatusFilter/Status/IncludeAllActive when set.
+	StatusFilterIn   []int16
 	IncludeAllActive bool
 	Sort             string // "newest" or "popular"
 	Search           string
@@ -124,7 +128,9 @@ func (r *WallpaperRepo) applyListFilters(query *gorm.DB, opts ListOptions) *gorm
 	if opts.UserID > 0 {
 		query = query.Where("user_id = ?", opts.UserID)
 	}
-	if opts.StatusFilter != nil {
+	if len(opts.StatusFilterIn) > 0 {
+		query = query.Where("status IN ?", opts.StatusFilterIn)
+	} else if opts.StatusFilter != nil {
 		query = query.Where("status = ?", *opts.StatusFilter)
 	} else if opts.IncludeAllActive {
 		query = query.Where("status != ?", model.WallpaperStatusRemoved)

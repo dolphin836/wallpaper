@@ -171,7 +171,9 @@ export default function ProfilePage() {
       if (target === 'pub') {
         res = await getUserWallpapers(user.username, { ...params, status: 1 });
       } else if (target === 'inprogress') {
-        res = await getUserWallpapers(user.username, { ...params, status: 0 });
+        // Pending = Processing (0) + PendingReview (5). Backend supports
+        // comma-separated statuses and emits a single paginated stream.
+        res = await getUserWallpapers(user.username, { ...params, status: '0,5' });
       } else if (isMe) {
         // Owner: use the /me/* endpoints (existing behavior — these don't
         // 403 and don't apply privacy gates).
@@ -730,9 +732,10 @@ function UploadsPanel({ isOwner, inProgress, pub, onPubPage, onInProgressPage }:
     <div>
       {showInProgress && (
         <section className="mb-8">
-          <div className="label-rule mb-3">In progress · {inTotal}</div>
+          <div className="label-rule mb-3">Pending · {inTotal}</div>
           <p className="text-[12px] text-muted mb-4">
-            Generating device variants. Wallpapers appear in the public archive when processing finishes.
+            Wallpapers still being processed or waiting on admin review. Each tile
+            shows its exact stage; they enter the public archive once approved.
           </p>
           <Grid items={inProgress.items} showProcessing />
           <Pagination
