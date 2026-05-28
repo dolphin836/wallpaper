@@ -216,6 +216,11 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         // as <a> — that's inline by default, so w-full / h-full are no-ops and
         // the tile collapses to 0×0, hiding the (absolutely-positioned) image.
         className={`tile-cell block relative w-full h-full overflow-hidden border border-hair animate-fade-in no-underline ${isPublished ? '' : 'cursor-default'}`}
+        // data-palette lets parent surfaces (e.g. Discover's liquid mesh)
+        // detect which card is hovered via event delegation and tint the
+        // page background from this wallpaper's color palette. Harmless
+        // on pages that don't read it.
+        data-palette={wallpaper.color_palette || ''}
         style={{
           ...style,
           animationDelay: `${animDelay}ms`,

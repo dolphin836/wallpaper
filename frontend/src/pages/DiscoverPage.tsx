@@ -278,6 +278,46 @@ function ViewSizeControls(p: ViewSizeControlsProps) {
 export default function DiscoverPage() {
   const { isAuthenticated, user } = useAuthStore();
 
+  // Discover liquid mesh — brand-warm/deep defaults that switch to a
+  // hovered wallpaper's palette via event delegation. Setting CSS vars on
+  // the scoped root keeps the effect bounded to Discover; other pages
+  // don't see these vars.
+  const liquidRootRef = useRef<HTMLDivElement | null>(null);
+  const applyPalette = useCallback((palette: string | undefined) => {
+    const root = liquidRootRef.current;
+    if (!root) return;
+    if (!palette) {
+      // Revert to brand defaults — clearing inline overrides lets the
+      // stylesheet's :root / .dark rules take over.
+      root.style.removeProperty('--d3-c1');
+      root.style.removeProperty('--d3-c2');
+      root.style.removeProperty('--d3-c3');
+      return;
+    }
+    const parts = palette.split(',').map((s) => s.trim()).filter(Boolean);
+    if (parts.length < 3) return;
+    root.style.setProperty('--d3-c1', parts[parts.length - 2] || parts[0]);
+    root.style.setProperty('--d3-c2', parts[1] || parts[0]);
+    root.style.setProperty('--d3-c3', parts[parts.length - 1] || parts[2]);
+  }, []);
+  // Event-delegated hover: any descendant <a class="tile-cell"
+  // data-palette="..."> emits its palette to the mesh, no per-card prop
+  // wiring needed. closest() climbs from the hovered DOM node up to the
+  // tile root.
+  const onTileOver = useCallback((e: React.MouseEvent) => {
+    const tile = (e.target as HTMLElement).closest<HTMLElement>('.tile-cell');
+    if (tile && tile.dataset.palette) applyPalette(tile.dataset.palette);
+  }, [applyPalette]);
+  const onTileLeave = useCallback((e: React.MouseEvent) => {
+    // Only reset when the pointer actually leaves the tile (not when it
+    // crosses between children) — relatedTarget tells us where it went.
+    const tile = (e.target as HTMLElement).closest<HTMLElement>('.tile-cell');
+    if (!tile) return;
+    const next = e.relatedTarget as Node | null;
+    if (next && tile.contains(next)) return;
+    applyPalette(undefined);
+  }, [applyPalette]);
+
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
   const [cursor, setCursor] = useState<number | undefined>();
   const [hasMore, setHasMore] = useState(false);
@@ -494,7 +534,12 @@ export default function DiscoverPage() {
     : 'idle';
 
   return (
-    <div className="bg-paper-2 min-h-full">
+    <div
+      ref={liquidRootRef}
+      className="d3-discover min-h-full"
+      onMouseOver={onTileOver}
+      onMouseOut={onTileLeave}
+    >
       <PageMeta
         title={currentCategory ? `${currentCategory.name} wallpapers` : 'Discover'}
         description={
@@ -503,6 +548,8 @@ export default function DiscoverPage() {
             : 'Browse and download community-uploaded HD and 4K wallpapers — phone, desktop, and macOS dynamic wallpapers, sorted by latest and popular.'
         }
       />
+      <div className="d3-discover-mesh" aria-hidden />
+      <div className="d3-discover-main">
 
       {/* Unified discover toolbar: left half is the category strip (scrolls
           horizontally when it overflows), right half is the Filter dropdown
@@ -579,6 +626,7 @@ export default function DiscoverPage() {
           </>
         )}
       </main>
+      </div>
     </div>
   );
 }
