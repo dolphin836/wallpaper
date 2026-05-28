@@ -72,6 +72,10 @@ export const getCategories = () =>
 // listing page, and `byWeek` is the detail view for a specific slate.
 export interface WeeklyPicked extends Wallpaper {
   sort_order: number;
+  // Marks the hero pick — only it gets a non-empty original_url. Backend
+  // ensures at most one per (year, week) and falls back to sort_order=0
+  // for legacy slates predating the column.
+  is_hero: boolean;
 }
 export interface WeeklyArchiveEntry {
   year: number;
