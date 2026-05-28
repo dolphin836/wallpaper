@@ -187,22 +187,23 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
 
           {isAuthenticated && user ? (
             <>
-              {/* Balance pill — editorial recipe: mono tabular number
-                  next to a small caps "COINS" label. No accent dot
-                  (the orange disc read as a status indicator, not a
-                  coin). AnimatedNumber still smooths +1/-1 jumps so
-                  balance changes feel metered. */}
+              {/* Balance pill — warm-tinted gradient with a real coin
+                  glyph (gradient disc, not the old generic accent
+                  dot). Hover flips the coin on its Y-axis and lights
+                  a warm halo around the pill; the pill itself lifts
+                  -2px. mx-2 separates it from the theme button and
+                  avatar so the balance reads as the main affordance
+                  of the right cluster, not blended with chrome. */}
               <Link
                 to={`/user/${user.username}`}
                 title="Your balance"
-                className="hidden sm:inline-flex items-baseline gap-2 px-3.5 h-[34px] rounded-full bg-paper-2 border border-hair text-ink no-underline hover:bg-paper-3 hover:border-ink-2 transition-colors"
+                className="balance-pill hidden sm:inline-flex mx-2"
               >
-                <span className="mono tabular-nums text-[14px] font-semibold leading-none">
+                <span className="balance-pill__coin" aria-hidden />
+                <span className="balance-pill__num">
                   <AnimatedNumber value={user.coins ?? 0} />
                 </span>
-                <span className="mono text-[9px] tracking-[0.20em] uppercase text-muted leading-none">
-                  coins
-                </span>
+                <span className="balance-pill__label">coins</span>
               </Link>
 
               {/* User menu */}
