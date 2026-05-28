@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Geist:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=JetBrains+Mono:wght@400;500;600&family=Geist:wght@300;400;500;600;700&display=swap");
 
 @import "tailwindcss";
 
@@ -53,7 +53,14 @@
   --color-downloaded: #4a8a5a;
 
   /* Type stacks */
-  --font-display: "Instrument Serif", "Times New Roman", serif;
+  /* Display serif — Newsreader (variable, optical sizing 6-72). Picked
+     over the previous Instrument Serif because its italic reads as a
+     real editorial italic (printing-press / book-style cursive that
+     keeps even weight stroke), not Instrument's high-contrast display
+     italic with dramatic calligraphic flourishes. Better neighbour to
+     Geist sans body. font-optical-sizing: auto in the rules below lets
+     the browser pick the right axis value per font-size. */
+  --font-display: "Newsreader", "Times New Roman", serif;
   --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-sans:    "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
@@ -103,8 +110,8 @@
 }
 
 /* Editorial type helpers used across the new Discover surface */
-.display   { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.01em; }
-.italic-d  { font-family: var(--font-display); font-style: italic; }
+.display   { font-family: var(--font-display); font-weight: 400; font-optical-sizing: auto; letter-spacing: -0.005em; }
+.italic-d  { font-family: var(--font-display); font-style: italic; font-optical-sizing: auto; }
 .mono      { font-family: var(--font-mono); }
 .kicker {
   font-family: var(--font-mono);

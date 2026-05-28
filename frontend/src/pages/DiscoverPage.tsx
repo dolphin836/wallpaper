@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AiOutlineAppstore, AiOutlineBars, AiOutlineReload } from 'react-icons/ai';
 import toast from 'react-hot-toast';
@@ -112,7 +113,9 @@ function SkeletonRows({
   // the same footprint at every viewport size.
   if (viewMode === 'grid') {
     const bp = GRID_BREAKPOINT_COLS[sizeMode];
-    const count = bp[3] * 2;
+    // 4 rows worth of skeleton tiles — first paint reads as a full
+    // screen of feed instead of two thin rows hovering at the top.
+    const count = bp[3] * 4;
     const cols =
       sizeMode === 'lg' ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3'
       : sizeMode === 'md' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
@@ -195,9 +198,19 @@ function FeedFooter({ state, count, onRetry }: { state: FooterState; count: numb
 // content column (max-w 1600px) — not the viewport edge — at 100px
 // from the visible top. Fades in once the user crosses into the
 // second screen and smooth-scrolls back to the top when clicked.
-// Throttled to the rAF beat so scroll handlers don't thrash state.
+//
+// IMPORTANT: portaled to document.body. Layout's <div className=
+// "animate-route-in"> applies `transform: translateY(0)` as the final
+// keyframe (with animation-fill-mode: both, the transform stays
+// computed after the animation ends). Any non-`none` transform on
+// an ancestor makes that ancestor the containing block for fixed
+// descendants — so without the portal, top:100px would be measured
+// from the route-in div (which scrolls with the page), not from the
+// viewport, and the button would scroll off-screen with the content.
 function BackToTop() {
   const [show, setShow] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
     let ticking = false;
     const onScroll = () => {
@@ -212,7 +225,8 @@ function BackToTop() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
-  return (
+  if (!mounted) return null;
+  return createPortal(
     <button
       type="button"
       aria-label="Back to top"
@@ -223,7 +237,8 @@ function BackToTop() {
         strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <polyline points="6 14 12 8 18 14" />
       </svg>
-    </button>
+    </button>,
+    document.body,
   );
 }
 
