@@ -560,8 +560,12 @@
 
 .back-to-top {
   position: fixed;
-  right: 28px;
-  bottom: 28px;
+  /* Anchor to the centered content column (max-w 1600px). When the
+     viewport is wider than 1600, this tracks the column's right edge
+     plus a 28px inset into the gutter. At narrower viewports it
+     collapses to a comfortable 28px from the viewport edge. */
+  right: max(28px, calc((100vw - 1600px) / 2 + 28px));
+  top: 100px;
   z-index: 30;
   width: 44px; height: 44px;
   border-radius: 999px;

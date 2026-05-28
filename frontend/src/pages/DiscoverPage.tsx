@@ -191,9 +191,11 @@ function FeedFooter({ state, count, onRetry }: { state: FooterState; count: numb
   );
 }
 
-// Back-to-top floating pill. Materializes once the user has scrolled
-// past a couple of viewport heights and smooth-scrolls back to the top
-// when clicked. Throttled to the rAF beat — no per-pixel state churn.
+// Back-to-top floating pill. Pinned to the right edge of the centered
+// content column (max-w 1600px) — not the viewport edge — at 100px
+// from the visible top. Fades in once the user crosses into the
+// second screen and smooth-scrolls back to the top when clicked.
+// Throttled to the rAF beat so scroll handlers don't thrash state.
 function BackToTop() {
   const [show, setShow] = useState(false);
   useEffect(() => {
@@ -202,7 +204,7 @@ function BackToTop() {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
-        setShow(window.scrollY > 600);
+        setShow(window.scrollY > window.innerHeight);
         ticking = false;
       });
     };
@@ -310,7 +312,7 @@ function ViewSizeControls(p: ViewSizeControlsProps) {
         ><AiOutlineAppstore size={13} /><span>Justified</span></button>
       </div>
       <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-lg">
-        {(['sm', 'md', 'lg'] as SizeMode[]).map((k) => {
+        {(['md', 'lg'] as SizeMode[]).map((k) => {
           const on = p.sizeMode === k;
           return (
             <button
@@ -412,14 +414,15 @@ export default function DiscoverPage() {
   hasMoreRef.current = hasMore;
   const [viewMode, setViewMode] = useState<ViewMode>(readSavedViewMode);
   const [sizeMode, setSizeMode] = useState<SizeMode>(() => {
-    // Honor any value the user has explicitly picked before; otherwise
-    // pick a default that matches their viewport class. Phones (<640px,
-    // the Tailwind `sm` breakpoint) get 'sm' so the gallery isn't
-    // dominated by 3 huge tiles per row; tablets/desktop stay on 'md'.
+    // SM was retired from the UI (too small to read; not worth the
+    // toggle slot). Saved 'sm' from older sessions silently bumps to
+    // 'md' on read so users land on something visible. New default
+    // is 'lg' — poster scale fits the editorial Liquid Surface
+    // direction better than mid-density.
     const saved = localStorage.getItem('wallpaper_size_mode') as SizeMode | null;
-    if (saved === 'sm' || saved === 'md' || saved === 'lg') return saved;
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
-    return isMobile ? 'sm' : 'md';
+    if (saved === 'md' || saved === 'lg') return saved;
+    if (saved === 'sm') return 'md';
+    return 'lg';
   });
   const viewModeRef = useRef(viewMode);
   const sizeModeRef = useRef(sizeMode);
@@ -614,7 +617,7 @@ export default function DiscoverPage() {
               <CategoryChip
                 label="All"
                 active={categoryFilter === null}
-                onClick={() => navigate('/')}
+                onClick={() => navigate('/discover')}
               />
               {categories.map((c) => (
                 <CategoryChip
