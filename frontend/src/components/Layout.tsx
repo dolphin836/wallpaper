@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import usePageView from '../hooks/usePageView';
@@ -71,6 +71,75 @@ function isItemActive(pathname: string, to: string) {
     );
   }
   return pathname === to || pathname.startsWith(to + '/');
+}
+
+/* Sliding-underline desktop nav. One absolutely-positioned span tracks
+   the active item via translateX + width transitions, so navigating
+   Home → Discover shows the bar gliding to the new label (and
+   resizing to fit) rather than the old border-b color swap. Re-
+   measures on resize so the position stays accurate if fonts load
+   late or the viewport changes. */
+function NavBar({ location }: { location: { pathname: string } }) {
+  const navRef = useRef<HTMLElement>(null);
+  const itemRefs = useRef<Map<string, HTMLAnchorElement>>(new Map());
+  const [indicator, setIndicator] = useState<{ x: number; w: number; visible: boolean }>({
+    x: 0, w: 0, visible: false,
+  });
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const navEl = navRef.current;
+      const activeItem = NAV_ITEMS.find((item) => isItemActive(location.pathname, item.to));
+      if (!navEl || !activeItem) {
+        setIndicator((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+        return;
+      }
+      const el = itemRefs.current.get(activeItem.to);
+      if (!el) return;
+      const elRect = el.getBoundingClientRect();
+      const navRect = navEl.getBoundingClientRect();
+      setIndicator({
+        x: elRect.left - navRect.left,
+        w: elRect.width,
+        visible: true,
+      });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [location.pathname]);
+
+  return (
+    <nav ref={navRef} className="hidden md:flex items-center gap-7 ml-6 relative">
+      {NAV_ITEMS.map((item) => {
+        const active = isItemActive(location.pathname, item.to);
+        return (
+          <Link
+            key={item.to}
+            ref={(el) => {
+              if (el) itemRefs.current.set(item.to, el);
+              else itemRefs.current.delete(item.to);
+            }}
+            to={item.to}
+            className={`text-[13.5px] no-underline transition-colors pb-1 ${
+              active ? 'text-ink font-medium' : 'text-ink-2 hover:text-ink'
+            }`}
+          >
+            {item.label}
+          </Link>
+        );
+      })}
+      <span
+        aria-hidden
+        className="nav-underline"
+        style={{
+          transform: `translateX(${indicator.x}px)`,
+          width: `${indicator.w}px`,
+          opacity: indicator.visible ? 1 : 0,
+        }}
+      />
+    </nav>
+  );
 }
 
 function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => void }) {
@@ -148,25 +217,13 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
           <span className="live-dot sm:hidden" title="System online" />
         </Link>
 
-        {/* Primary nav — desktop only */}
-        <nav className="hidden md:flex items-center gap-7 ml-6">
-          {NAV_ITEMS.map((item) => {
-            const active = isItemActive(location.pathname, item.to);
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={`text-[13.5px] no-underline transition-colors pb-1 border-b ${
-                  active
-                    ? 'text-ink border-ink font-medium'
-                    : 'text-ink-2 border-transparent hover:text-ink'
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        {/* Primary nav — desktop only. Sliding underline indicator:
+            one absolutely-positioned span rides across the nav as the
+            active route changes, translateX + width transitioning in
+            tandem so the bar both moves and resizes to the target
+            label. Beats per-link border-b's, which would just swap
+            colors instantly between siblings. */}
+        <NavBar location={location} />
 
         <div className="flex-1" />
 

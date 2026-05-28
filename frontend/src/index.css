@@ -572,6 +572,25 @@
   color: var(--color-muted);
 }
 
+/* ── Top-nav sliding underline ─────────────────────────────────── */
+
+.nav-underline {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 1.5px;
+  background: var(--color-ink);
+  border-radius: 1px;
+  pointer-events: none;
+  will-change: transform, width;
+  transition: transform 340ms var(--ease-out-quart),
+              width 340ms var(--ease-out-quart),
+              opacity 200ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-underline { transition: opacity 150ms ease; }
+}
+
 /* ── Top-nav balance pill ──────────────────────────────────────── */
 
 .balance-pill {
