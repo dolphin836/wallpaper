@@ -445,12 +445,13 @@
 }
 
 /* Tile action rail — shared by .tile-cell (discover salon),
-   .h3-tile (home / weekly variants), and .cd-frame (collection
-   framed prints). Same chrome, same hover reveal; the host class
-   differs per surface. */
+   .h3-tile (home / weekly variants), .cd-frame (collection framed
+   prints), and .dev-spec-card-screen (device spec card). Same
+   chrome, same hover reveal; the host class differs per surface. */
 .tile-cell .tile-actions,
 .h3-tile .tile-actions,
-.cd-frame .tile-actions {
+.cd-frame .tile-actions,
+.dev-spec-card-screen .tile-actions {
   position: absolute;
   right: 10px;
   bottom: 10px;
@@ -468,10 +469,126 @@
 .h3-tile:hover .tile-actions,
 .h3-tile:focus-within .tile-actions,
 .cd-frame:hover .tile-actions,
-.cd-frame:focus-within .tile-actions {
+.cd-frame:focus-within .tile-actions,
+.dev-spec-card:hover .tile-actions,
+.dev-spec-card:focus-within .tile-actions {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
+}
+
+/* ── .dev-spec-card — new grid tile for device-detail page ─────── */
+.dev-spec-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: 1px solid color-mix(in oklch, oklch(50% 0.03 240) 30%, var(--color-hair));
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 4px 12px -6px oklch(28% 0.04 240 / 0.28);
+  transition: transform 280ms var(--ease-out-quart),
+              border-color 220ms ease,
+              box-shadow 280ms var(--ease-out-quart);
+  animation: cd-frame-in 480ms var(--ease-out-quart) both;
+}
+.dark .dev-spec-card {
+  background: var(--color-paper-2);
+  border-color: color-mix(in oklch, oklch(50% 0.03 240) 40%, var(--color-hair-soft));
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.06),
+    0 4px 12px -6px oklch(0% 0 0 / 0.6);
+}
+.dev-spec-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--color-accent);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 18px 38px -12px color-mix(in oklch, var(--color-accent) 30%, oklch(0% 0 0 / 0.3));
+}
+.dev-spec-card-screen {
+  position: relative;
+  width: 100%;
+  background: var(--color-paper-2);
+  overflow: hidden;
+  /* Four hairline corner brackets via box-shadow stacks on
+     ::before/::after — adds a 'spec-sheet index card' read without
+     extra elements. */
+}
+.dev-spec-card-screen::before,
+.dev-spec-card-screen::after {
+  content: '';
+  position: absolute;
+  width: 12px; height: 12px;
+  border: 1px solid oklch(60% 0.04 240 / 0.7);
+  pointer-events: none;
+  z-index: 4;
+  transition: border-color 220ms ease, width 220ms ease, height 220ms ease;
+}
+.dev-spec-card-screen::before {
+  top: 6px; left: 6px;
+  border-right: none; border-bottom: none;
+}
+.dev-spec-card-screen::after {
+  bottom: 6px; right: 6px;
+  border-left: none; border-top: none;
+}
+.dark .dev-spec-card-screen::before,
+.dark .dev-spec-card-screen::after {
+  border-color: oklch(70% 0.03 240 / 0.6);
+}
+.dev-spec-card:hover .dev-spec-card-screen::before,
+.dev-spec-card:hover .dev-spec-card-screen::after {
+  border-color: var(--color-accent);
+  width: 16px; height: 16px;
+}
+.dev-spec-card-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 700ms var(--ease-out-quart);
+}
+.dev-spec-card:hover .dev-spec-card-img {
+  transform: scale(1.04);
+}
+.dev-spec-card-strip {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--color-ink-2);
+  background: var(--color-paper);
+  border-top: 1px solid var(--color-hair);
+}
+.dark .dev-spec-card-strip {
+  background: var(--color-paper-2);
+  border-top-color: var(--color-hair-soft);
+}
+.dev-spec-card-icon {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  color: oklch(38% 0.03 240);
+}
+.dark .dev-spec-card-icon { color: oklch(72% 0.03 240); }
+.dev-spec-card-res {
+  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+  color: var(--color-ink);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.dev-spec-card-seq {
+  text-align: right;
+  letter-spacing: 0.14em;
+  color: var(--color-muted);
 }
 
 .t-act {
@@ -674,42 +791,52 @@
   background: var(--color-paper-2);
 }
 
-/* Device-detail hero: two-column grid. Left = device frame (a
-   rounded-corner box at the device's exact aspect ratio holding the
-   first wallpaper). Right = title + mono spec grid. */
+/* Device-detail hero: two-column grid. Left = device mockup (real-
+   feeling chrome per platform: laptop deck, phone notch, monitor
+   stand, iMac chin). Right = title + mono spec grid. */
 .dev-hero {
   display: grid;
-  grid-template-columns: minmax(220px, 360px) 1fr;
-  gap: 48px;
+  grid-template-columns: minmax(280px, 560px) 1fr;
+  gap: 56px;
   margin-bottom: 56px;
   align-items: center;
 }
-@media (max-width: 720px) {
-  .dev-hero { grid-template-columns: 1fr; gap: 28px; }
+@media (max-width: 840px) {
+  .dev-hero { grid-template-columns: 1fr; gap: 32px; }
 }
 .dev-hero-left {
   display: flex; align-items: center; justify-content: center;
+  padding: 20px 0;
 }
-.dev-frame {
+
+/* ── .dev-mockup — platform-specific device chrome ─────────────── */
+.dev-mockup {
   position: relative;
   width: 100%;
-  max-height: 380px;
+  max-width: 540px;
+  margin: 0 auto;
+}
+.dev-mockup-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--dev-aspect, 16 / 9);
   background: var(--color-paper-2);
-  border: 6px solid oklch(28% 0.02 240);
   overflow: hidden;
+  border: 6px solid oklch(26% 0.02 240);
+  border-radius: 10px;
   box-shadow:
     inset 0 0 0 1px oklch(50% 0.02 240 / 0.4),
     0 26px 60px -22px oklch(28% 0.04 240 / 0.55),
     0 12px 30px -16px oklch(0% 0 0 / 0.4);
 }
-.dark .dev-frame {
-  border-color: oklch(20% 0.02 240);
+.dark .dev-mockup-screen {
+  border-color: oklch(18% 0.02 240);
   box-shadow:
     inset 0 0 0 1px oklch(40% 0.02 240 / 0.5),
     0 26px 60px -22px oklch(0% 0 0 / 0.75),
     0 12px 30px -16px oklch(0% 0 0 / 0.6);
 }
-.dev-frame img {
+.dev-mockup-screen img {
   width: 100%; height: 100%; object-fit: cover;
   display: block;
 }
@@ -717,6 +844,142 @@
   width: 100%; height: 100%;
   background: linear-gradient(135deg, oklch(75% 0.02 230), oklch(60% 0.03 240));
 }
+
+/* Phone: thicker border to mimic the bezel, big radius, dynamic-
+   island pill at the top. */
+.dev-mockup.is-phone .dev-mockup-screen {
+  border-width: 10px;
+  border-radius: 36px;
+}
+.dev-mockup-notch {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32%;
+  max-width: 100px;
+  height: 18px;
+  border-radius: 12px;
+  background: oklch(12% 0.02 240);
+  z-index: 2;
+  box-shadow: inset 0 1px 0 oklch(40% 0.02 240 / 0.5);
+}
+
+/* Tablet: medium border, big-ish radius. */
+.dev-mockup.is-tablet .dev-mockup-screen {
+  border-width: 8px;
+  border-radius: 18px;
+}
+
+/* Laptop: thin top/sides, small radius, with a keyboard 'deck'
+   underneath (wider than the screen, thin and trapezoid-ish via
+   border-radius). */
+.dev-mockup.is-laptop .dev-mockup-screen {
+  border-width: 5px;
+  border-radius: 6px;
+}
+.dev-mockup-laptop-notch {
+  /* Webcam dot at the top center of the bezel. */
+  position: absolute;
+  top: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: oklch(40% 0.02 240);
+  z-index: 2;
+}
+.dev-mockup-laptop-base {
+  display: block;
+  position: relative;
+  width: 116%;
+  height: 14px;
+  margin: 4px auto 0;
+  margin-left: -8%;
+  background: linear-gradient(180deg,
+    oklch(60% 0.02 240) 0%,
+    oklch(45% 0.02 240) 100%);
+  border-radius: 0 0 12px 12px;
+  box-shadow:
+    inset 0 1px 0 oklch(78% 0.02 240),
+    inset 0 -1px 0 oklch(30% 0.02 240),
+    0 6px 18px -8px oklch(0% 0 0 / 0.35);
+}
+.dev-mockup-laptop-base::after {
+  /* Trackpad notch — short rounded dip at the front of the deck. */
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22%;
+  height: 4px;
+  background: oklch(40% 0.02 240);
+  border-radius: 0 0 6px 6px;
+}
+.dark .dev-mockup-laptop-base {
+  background: linear-gradient(180deg,
+    oklch(38% 0.02 240) 0%,
+    oklch(26% 0.02 240) 100%);
+  box-shadow:
+    inset 0 1px 0 oklch(50% 0.02 240),
+    inset 0 -1px 0 oklch(14% 0.02 240),
+    0 6px 18px -8px oklch(0% 0 0 / 0.7);
+}
+
+/* Desktop monitor: thin bezel + a stand (neck + foot) below. */
+.dev-mockup.is-desktop .dev-mockup-screen {
+  border-width: 6px;
+  border-radius: 6px;
+}
+.dev-mockup-stand-neck {
+  display: block;
+  width: 14%;
+  height: 28px;
+  margin: 0 auto;
+  background: linear-gradient(180deg,
+    oklch(60% 0.02 240) 0%,
+    oklch(45% 0.02 240) 100%);
+  border-left: 1px solid oklch(35% 0.02 240);
+  border-right: 1px solid oklch(35% 0.02 240);
+  clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
+}
+.dev-mockup-stand-foot {
+  display: block;
+  width: 38%;
+  height: 8px;
+  margin: 0 auto;
+  background: linear-gradient(180deg,
+    oklch(50% 0.02 240) 0%,
+    oklch(38% 0.02 240) 100%);
+  border-radius: 4px 4px 8px 8px;
+  box-shadow:
+    inset 0 1px 0 oklch(72% 0.02 240),
+    0 6px 14px -6px oklch(0% 0 0 / 0.35);
+}
+.dark .dev-mockup-stand-neck {
+  background: linear-gradient(180deg,
+    oklch(36% 0.02 240) 0%,
+    oklch(24% 0.02 240) 100%);
+  border-color: oklch(18% 0.02 240);
+}
+.dark .dev-mockup-stand-foot {
+  background: linear-gradient(180deg,
+    oklch(30% 0.02 240) 0%,
+    oklch(20% 0.02 240) 100%);
+  box-shadow:
+    inset 0 1px 0 oklch(45% 0.02 240),
+    0 6px 14px -6px oklch(0% 0 0 / 0.6);
+}
+
+/* iMac: desktop chin underneath the screen, no separate stand. The
+   chin's the same gradient as the bezel — visually a single piece. */
+.dev-mockup.is-imac .dev-mockup-screen {
+  border-radius: 8px 8px 0 0;
+  border-bottom-width: 30px;
+}
+.dev-mockup.is-imac .dev-mockup-stand-neck,
+.dev-mockup.is-imac .dev-mockup-stand-foot { display: none; }
 
 .dev-spec-grid {
   margin-top: 22px;

@@ -1,11 +1,39 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useLocation, Link } from 'react-router-dom';
+import {
+  MdPhoneIphone, MdPhoneAndroid,
+  MdTabletMac, MdTabletAndroid,
+  MdLaptopMac, MdLaptopWindows, MdLaptopChromebook,
+  MdDesktopMac, MdDesktopWindows,
+  MdDevices,
+} from 'react-icons/md';
+import {
+  AiOutlineHeart, AiFillHeart,
+  AiOutlineStar, AiFillStar,
+  AiOutlineDownload, AiOutlineCheckCircle,
+  AiOutlineLoading3Quarters,
+} from 'react-icons/ai';
+import type { IconType } from 'react-icons';
 import type { DeviceProfile, Wallpaper } from '../types';
 import { getDeviceBySlug, getWallpapersForDevice } from '../api';
+import { useWallpaperActions } from '../hooks/useWallpaperActions';
 import PageMeta from '../components/PageMeta';
-import WallpaperCard from '../components/WallpaperCard';
 import ErrorState from '../components/ErrorState';
 import { WallpaperGridSkeleton } from '../components/Skeletons';
+
+function deviceIcon(d: DeviceProfile | null): IconType {
+  if (!d) return MdDevices;
+  const brand = (d.brand || '').toLowerCase();
+  const isApple = brand === 'apple';
+  const isChromebook = brand.includes('chromebook') || /chrome ?os/i.test(d.name);
+  switch (d.platform) {
+    case 'phone':   return isApple ? MdPhoneIphone : MdPhoneAndroid;
+    case 'tablet':  return isApple ? MdTabletMac : MdTabletAndroid;
+    case 'laptop':  return isChromebook ? MdLaptopChromebook : isApple ? MdLaptopMac : MdLaptopWindows;
+    case 'desktop': return isApple ? MdDesktopMac : MdDesktopWindows;
+    default:        return MdDevices;
+  }
+}
 
 // SEO long-tail landing for one device profile. The route is /wallpapers-for/:slug
 // (e.g. /wallpapers-for/iphone-16-pro). Page survives "no matches" gracefully
@@ -107,11 +135,11 @@ export default function DeviceWallpapersPage() {
 
   const deviceAspect = device ? device.width / device.height : 16 / 9;
   const featuredCover = wallpapers[0]?.preview_url || wallpapers[0]?.thumb_url;
-  const frameRadius =
-    device?.platform === 'phone' ? 28 :
-    device?.platform === 'tablet' ? 16 :
-    device?.platform === 'laptop' ? 8 :
-    8;
+  // CSS class hook for the platform-specific device chrome (keyboard
+  // base, phone notch, monitor stand, etc). See .dev-mockup.* in
+  // index.css.
+  const mockupClass = device ? `dev-mockup is-${device.platform}` : 'dev-mockup';
+  const isAppleDesktop = device?.platform === 'desktop' && (device?.brand || '').toLowerCase() === 'apple';
 
   return (
     <div className="devices-page min-h-full">
@@ -126,7 +154,7 @@ export default function DeviceWallpapersPage() {
         image={wallpapers[0]?.preview_url || wallpapers[0]?.thumb_url}
       />
 
-      <div className="relative z-10 px-6 sm:px-10 lg:px-14 py-10 max-w-[1280px] mx-auto">
+      <div className="relative z-10 px-6 sm:px-10 lg:px-14 py-10 max-w-[1600px] mx-auto">
 
         {/* ─── Hero: device frame + spec block ───
             Two-column layout: a screen frame at the device's real
@@ -138,17 +166,34 @@ export default function DeviceWallpapersPage() {
         <header className="dev-hero">
           <div className="dev-hero-left">
             <div
-              className="dev-frame"
+              className={`${mockupClass}${isAppleDesktop ? ' is-imac' : ''}`}
               style={{
-                aspectRatio: `${device?.width || 16} / ${device?.height || 9}`,
-                borderRadius: frameRadius,
-              }}
+                ['--dev-aspect' as string]: `${device?.width || 16} / ${device?.height || 9}`,
+              } as React.CSSProperties}
               aria-hidden
             >
-              {featuredCover ? (
-                <img src={featuredCover} alt="" />
-              ) : (
-                <div className="dev-frame-empty" />
+              <div className="dev-mockup-screen">
+                {featuredCover ? (
+                  <img src={featuredCover} alt="" />
+                ) : (
+                  <div className="dev-frame-empty" />
+                )}
+              </div>
+              {/* Platform-specific chrome — phone gets a notch, laptop
+                  a keyboard deck, desktop a stand, iMac a chin. CSS
+                  draws everything; no per-device assets. */}
+              {device?.platform === 'phone' && <span className="dev-mockup-notch" aria-hidden />}
+              {device?.platform === 'laptop' && (
+                <>
+                  <span className="dev-mockup-laptop-base" aria-hidden />
+                  <span className="dev-mockup-laptop-notch" aria-hidden />
+                </>
+              )}
+              {device?.platform === 'desktop' && !isAppleDesktop && (
+                <>
+                  <span className="dev-mockup-stand-neck" aria-hidden />
+                  <span className="dev-mockup-stand-foot" aria-hidden />
+                </>
               )}
             </div>
           </div>
@@ -192,14 +237,13 @@ export default function DeviceWallpapersPage() {
               : deviceAspect < 1.2 ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' // square-ish tablet → mid
               : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'                     // landscape laptop/desktop
             }`}>
-              {wallpapers.map((wp) => (
-                <div
+              {wallpapers.map((wp, i) => (
+                <DevSpecCard
                   key={wp.id}
-                  className="relative"
-                  style={{ aspectRatio: `${device?.width || 16} / ${device?.height || 9}` }}
-                >
-                  <WallpaperCard wallpaper={wp} layout="salon" fillHeight hideActions />
-                </div>
+                  wallpaper={wp}
+                  device={device}
+                  index={i}
+                />
               ))}
             </div>
 
@@ -230,6 +274,104 @@ export default function DeviceWallpapersPage() {
 
       </div>
     </div>
+  );
+}
+
+/* Spec card — the new tile for the device-detail grid. Wallpaper at
+   device aspect inside a thin steel border + corner brackets, with a
+   bottom info strip carrying the device icon, mono resolution, and
+   sequence number (01/24 style). Hover lifts the card, brings actions
+   in over the image. Reads as 'an index card from a spec book' — a
+   distinct treatment vs Discover salon / Weekly portrait / Collection
+   framed-mat. */
+function DevSpecCard({
+  wallpaper: w, device, index,
+}: {
+  wallpaper: Wallpaper;
+  device: DeviceProfile | null;
+  index: number;
+}) {
+  const location = useLocation();
+  const acts = useWallpaperActions(w);
+  const Icon = deviceIcon(device);
+  const aspect = device ? `${device.width} / ${device.height}` : '16 / 9';
+  const stop = (e: React.MouseEvent, fn: () => void) => {
+    e.preventDefault();
+    e.stopPropagation();
+    fn();
+  };
+  return (
+    <Link
+      to={`/wallpaper/${w.slug || w.id}`}
+      state={{ background: location, initialWallpaper: w }}
+      className="dev-spec-card"
+      style={{ animationDelay: `${index * 30}ms` }}
+    >
+      <div className="dev-spec-card-screen" style={{ aspectRatio: aspect }}>
+        <img
+          src={w.preview_url || w.thumb_url}
+          alt={w.title || `Wallpaper ${w.id}`}
+          loading="lazy"
+          className="dev-spec-card-img"
+          style={{ backgroundColor: w.dominant_color || undefined }}
+        />
+        {/* Corner brackets — four hairline L's drawn with pseudo
+            elements via the .dev-spec-card-screen::before/::after
+            stacks (see index.css). */}
+        <div className="tile-actions">
+          <button
+            type="button"
+            onClick={(e) => stop(e, acts.handleFavorite)}
+            disabled={acts.favLoading}
+            className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
+            title={acts.favorited ? 'Unfavorite' : 'Favorite'}
+          >
+            {acts.favLoading
+              ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
+              : acts.favorited
+                ? <AiFillStar size={15} />
+                : <AiOutlineStar size={15} />}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => stop(e, acts.handleLike)}
+            disabled={acts.likeLoading}
+            className={`t-act ${acts.liked ? 'is-liked' : ''}`}
+            title={acts.liked ? 'Unlike' : 'Like'}
+          >
+            {acts.likeLoading
+              ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
+              : acts.liked
+                ? <AiFillHeart size={15} />
+                : <AiOutlineHeart size={15} />}
+          </button>
+          {acts.canDownload && (
+            <button
+              type="button"
+              onClick={(e) => stop(e, acts.handleDownload)}
+              disabled={acts.downloading}
+              className={`t-act ${acts.downloaded ? 'is-downloaded' : ''}`}
+              title={acts.downloaded ? 'Downloaded' : 'Download (1 coin)'}
+            >
+              {acts.downloading
+                ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
+                : acts.downloaded
+                  ? <AiOutlineCheckCircle size={15} />
+                  : <AiOutlineDownload size={15} />}
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="dev-spec-card-strip">
+        <span className="dev-spec-card-icon" aria-hidden><Icon size={13} /></span>
+        <span className="dev-spec-card-res">
+          {device ? `${device.width}×${device.height}` : `${w.width}×${w.height}`}
+        </span>
+        <span className="dev-spec-card-seq">
+          № {String(index + 1).padStart(2, '0')}
+        </span>
+      </div>
+    </Link>
   );
 }
 

@@ -67,7 +67,7 @@ export default function UploadersPage() {
         description="The people behind Wallpaper Exchange — top contributors and recent arrivals."
       />
 
-      <div className="relative z-10 max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 py-12">
+      <div className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-12">
         {/* Header */}
         <div className="flex items-end justify-between gap-6 flex-wrap mb-10">
           <div>
