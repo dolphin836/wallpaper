@@ -212,6 +212,10 @@ export default function WallpaperDetailPage() {
   // null while the server prepares the file (no measurable progress yet),
   // 0-100 once the download stream is reporting bytes.
   const [dlProgress, setDlProgress] = useState<number | null>(null);
+  // Bumped each time a download succeeds so a one-shot phosphor signal line
+  // sweeps the bottom of the viewport (rendered via createPortal below). The
+  // key={tradeFlashTick} forces a fresh DOM node so the CSS animation re-runs.
+  const [tradeFlashTick, setTradeFlashTick] = useState(0);
   // Coin CTA state machine: default → confirm → (success | insufficient)
   // 'insufficient' is computed from balance + cost rather than tracked
   // separately so a fresh page-load with balance < cost lands directly
@@ -429,6 +433,7 @@ export default function WallpaperDetailPage() {
       URL.revokeObjectURL(blobUrl);
       setWallpaper({ ...wallpaper, download_count: wallpaper.download_count + 1 });
       setDlDone(true);
+      setTradeFlashTick((n) => n + 1);
       if (!isOwnerDl && user) {
         const remaining = user.coins - 1;
         updateCoins(remaining);
@@ -549,6 +554,14 @@ export default function WallpaperDetailPage() {
         <ReportModal wallpaperId={wallpaper.id} onClose={() => setShowReport(false)} />
       )}
 
+
+      {tradeFlashTick > 0 && createPortal(
+        // Peak-moment signal: a 1px phosphor line sweeps the bottom of the
+        // viewport for ~800ms. Keyed by the tick so successive trades re-run
+        // the CSS animation cleanly (each tick mounts a fresh node).
+        <div key={tradeFlashTick} className="trade-flash" aria-hidden />,
+        document.body,
+      )}
 
       {dlLoading && createPortal(
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-6">
