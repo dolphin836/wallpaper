@@ -11,6 +11,7 @@ import {
 } from 'react-icons/ai';
 import { BsSun, BsMoon } from 'react-icons/bs';
 import { getPublicStats } from '../api';
+import AnimatedNumber from './AnimatedNumber';
 
 function useDarkMode() {
   const [dark, setDark] = useState(() => {
@@ -39,6 +40,16 @@ interface NavItem { label: string; sub: string; to: string; }
 function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
   const { isAuthenticated, user } = useAuthStore();
   const location = useLocation();
+  // Per-session "skip download confirm" flag (set inside the trade-CTA
+  // confirm UI). When present, the sidebar surfaces a reset link so the
+  // user can re-enable confirmation without closing the tab. Re-check on
+  // navigation since sessionStorage doesn't fire events in the same window.
+  const [skipDlConfirm, setSkipDlConfirm] = useState(
+    () => typeof window !== 'undefined' && window.sessionStorage.getItem('wpe_skip_dl_confirm') === '1',
+  );
+  useEffect(() => {
+    setSkipDlConfirm(window.sessionStorage.getItem('wpe_skip_dl_confirm') === '1');
+  }, [location.pathname]);
 
   const items: NavItem[] = [
     { label: 'Home',        sub: 'This week\'s picks',     to: '/' },
@@ -141,15 +152,33 @@ function ArchiveSidebar({ onCloseDrawer }: { onCloseDrawer?: () => void }) {
         <Link to={`/user/${user.username}`} onClick={onCloseDrawer} className="mx-6 mt-5 px-3.5 py-3 border border-hair bg-paper-2 no-underline block">
           <div className="kicker text-muted">Your balance</div>
           <div className="mt-1.5 flex items-baseline gap-1.5">
-            <span className="mono font-semibold text-[22px] text-accent inline-flex items-center gap-1.5">
+            <span className="mono font-semibold text-[22px] text-accent inline-flex items-center gap-1.5 tabular-nums">
               <span className="w-2.5 h-2.5 rounded-full bg-accent shadow-[inset_0_-2px_0_oklch(48%_0.16_42),inset_0_1px_0_oklch(80%_0.16_60)]" />
-              {user?.coins ?? 0}
+              <AnimatedNumber value={user?.coins ?? 0} />
             </span>
             <span className="mono text-[10px] text-muted">/ COINS</span>
           </div>
           <div className="mt-2 text-[11px] text-ink-2 leading-snug">
             Upload to earn <span className="text-accent">+1</span>.
           </div>
+          {skipDlConfirm && (
+            // Reset the per-session "skip confirm" flag. The trade-CTA confirm
+            // sets it; without an in-app way to clear it, the only escape was
+            // closing the tab. Stops propagation so it doesn't trigger the
+            // parent Link's navigation to the profile.
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.sessionStorage.removeItem('wpe_skip_dl_confirm');
+                setSkipDlConfirm(false);
+              }}
+              className="mt-2 mono text-[10px] tracking-[0.14em] uppercase text-muted hover:text-accent transition-colors block cursor-pointer"
+            >
+              Re-enable download confirm →
+            </button>
+          )}
         </Link>
       )}
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
+import InAppConfirm from '../components/InAppConfirm';
 import {
   AiFillHeart,
   AiOutlineHeart,
@@ -456,9 +457,14 @@ export default function WallpaperDetailPage() {
     }
   };
 
-  const handleDelete = async () => {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const handleDelete = () => {
     if (!wallpaper) return;
-    if (!confirm('Delete this wallpaper?')) return;
+    setShowDeleteConfirm(true);
+  };
+  const doDelete = async () => {
+    if (!wallpaper) return;
+    setShowDeleteConfirm(false);
     try {
       await deleteWallpaper(wallpaper.id);
       toast.success('Wallpaper deleted');
@@ -554,6 +560,16 @@ export default function WallpaperDetailPage() {
         <ReportModal wallpaperId={wallpaper.id} onClose={() => setShowReport(false)} />
       )}
 
+
+      <InAppConfirm
+        open={showDeleteConfirm}
+        title="Delete this wallpaper?"
+        message="This removes the wallpaper and all its generated variants permanently. This action cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={doDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
 
       {tradeFlashTick > 0 && createPortal(
         // Peak-moment signal: a 1px phosphor line sweeps the bottom of the

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
+import InAppConfirm from '../components/InAppConfirm';
 import {
   AiFillHeart,
   AiOutlineHeart,
@@ -134,8 +135,14 @@ export default function CollectionDetailPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!collection || !window.confirm('Are you sure you want to delete this collection?')) return;
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const handleDelete = () => {
+    if (!collection) return;
+    setShowDeleteConfirm(true);
+  };
+  const doDelete = async () => {
+    if (!collection) return;
+    setShowDeleteConfirm(false);
     try {
       await deleteCollection(collection.id);
       toast.success('Collection deleted');
@@ -189,6 +196,15 @@ export default function CollectionDetailPage() {
         title={collection.title}
         description={collection.description || `Collection of ${collection.wallpaper_count} wallpapers`}
         image={cover}
+      />
+      <InAppConfirm
+        open={showDeleteConfirm}
+        title="Delete this collection?"
+        message="This removes the collection. Wallpapers inside the collection are not deleted."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={doDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
       />
 
       {/* Back link */}
