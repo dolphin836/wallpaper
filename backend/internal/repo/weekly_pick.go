@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -139,6 +140,76 @@ func (r *WeeklyPickRepo) SetHero(ctx context.Context, year, week int16, wallpape
 			return gorm.ErrRecordNotFound
 		}
 		return nil
+	})
+}
+
+// AddPick appends a single wallpaper to a week's slate at sort_order =
+// max+1, with is_hero=false (since the slate must already have a hero —
+// admin can promote later with SetHero). Returns ErrAlreadyPicked if the
+// wallpaper is already in that week's slate (the UNIQUE (year, week,
+// wallpaper_id) constraint).
+var ErrAlreadyPicked = errors.New("wallpaper is already in this week's slate")
+
+func (r *WeeklyPickRepo) AddPick(ctx context.Context, year, week int16, wallpaperID int64) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var maxOrder *int
+		if err := tx.Model(&model.WeeklyPick{}).
+			Select("MAX(sort_order)").
+			Where("year = ? AND week = ?", year, week).
+			Row().Scan(&maxOrder); err != nil {
+			return err
+		}
+		next := 0
+		if maxOrder != nil {
+			next = *maxOrder + 1
+		}
+		row := model.WeeklyPick{
+			Year:        year,
+			Week:        week,
+			WallpaperID: wallpaperID,
+			SortOrder:   next,
+			IsHero:      false,
+		}
+		if err := tx.Create(&row).Error; err != nil {
+			// Duplicate (year, week, wallpaper_id) → friendly error.
+			if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "unique") {
+				return ErrAlreadyPicked
+			}
+			return err
+		}
+		return nil
+	})
+}
+
+// RemovePick deletes a single (year, week, wallpaper_id) row. If the
+// removed pick was the hero, promotes the next-lowest sort_order in the
+// same week to is_hero=true so the slate always has exactly one hero
+// (and the public surface never loses its full-res home image).
+func (r *WeeklyPickRepo) RemovePick(ctx context.Context, year, week int16, wallpaperID int64) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var deleting model.WeeklyPick
+		if err := tx.Where("year = ? AND week = ? AND wallpaper_id = ?", year, week, wallpaperID).
+			First(&deleting).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&deleting).Error; err != nil {
+			return err
+		}
+		if !deleting.IsHero {
+			return nil
+		}
+		// We deleted the hero; promote the lowest remaining sort_order.
+		var next model.WeeklyPick
+		err := tx.Where("year = ? AND week = ?", year, week).
+			Order("sort_order ASC").First(&next).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Week is now empty — nothing to promote, that's fine.
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		return tx.Model(&next).Update("is_hero", true).Error
 	})
 }
 

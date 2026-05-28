@@ -294,3 +294,14 @@ export const adminSetWeeklyPickHero = (year: number, week: number, wallpaperId: 
     `/admin/weekly-picks/${year}/${week}/hero`,
     { wallpaper_id: wallpaperId },
   );
+
+export const adminAddWeeklyPick = (year: number, week: number, wallpaperId: number) =>
+  client.post<ApiResponse<{ ok: boolean }>>(
+    `/admin/weekly-picks/${year}/${week}/picks`,
+    { wallpaper_id: wallpaperId },
+  );
+
+export const adminRemoveWeeklyPick = (year: number, week: number, wallpaperId: number) =>
+  client.delete<ApiResponse<{ ok: boolean }>>(
+    `/admin/weekly-picks/${year}/${week}/picks/${wallpaperId}`,
+  );

@@ -888,3 +888,77 @@ func (h *AdminHandler) SetWeeklyPickHero(w http.ResponseWriter, r *http.Request)
 	}
 	response.OK(w, map[string]any{"ok": true})
 }
+
+// AddWeeklyPick appends a single wallpaper to a week's slate at the end.
+// Body: {"wallpaper_id": N}. Returns 409 if the wallpaper is already in
+// the slate (duplicate per the UNIQUE (year, week, wallpaper_id)
+// constraint).
+func (h *AdminHandler) AddWeeklyPick(w http.ResponseWriter, r *http.Request) {
+	year, err := strconv.Atoi(chi.URLParam(r, "year"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	week, err := strconv.Atoi(chi.URLParam(r, "week"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	var body struct{ WallpaperID int64 `json:"wallpaper_id"` }
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.WallpaperID == 0 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	// Guard against picking unpublished / removed wallpapers so the
+	// public weekly endpoint never serves a stale row.
+	wp, err := h.wallpaperRepo.GetByIDAnyStatus(r.Context(), body.WallpaperID)
+	if err != nil || wp == nil {
+		response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+		return
+	}
+	if wp.Status != model.WallpaperStatusPublished {
+		response.Error(w, http.StatusBadRequest, &errcode.ErrCode{Code: 40010, Message: "wallpaper is not published"})
+		return
+	}
+	if err := h.weeklyPickRepo.AddPick(r.Context(), int16(year), int16(week), body.WallpaperID); err != nil {
+		if errors.Is(err, repo.ErrAlreadyPicked) {
+			response.Error(w, http.StatusConflict, &errcode.ErrCode{Code: 40902, Message: "wallpaper is already in this week's slate"})
+			return
+		}
+		slog.ErrorContext(r.Context(), "add weekly pick", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, map[string]any{"ok": true})
+}
+
+// RemoveWeeklyPick deletes one wallpaper from a week's slate. If the
+// removed pick was the hero, the repo promotes the next-lowest sort_order
+// to hero automatically.
+func (h *AdminHandler) RemoveWeeklyPick(w http.ResponseWriter, r *http.Request) {
+	year, err := strconv.Atoi(chi.URLParam(r, "year"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	week, err := strconv.Atoi(chi.URLParam(r, "week"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	wallpaperID, err := strconv.ParseInt(chi.URLParam(r, "wallpaperId"), 10, 64)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	if err := h.weeklyPickRepo.RemovePick(r.Context(), int16(year), int16(week), wallpaperID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+			return
+		}
+		slog.ErrorContext(r.Context(), "remove weekly pick", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, map[string]any{"ok": true})
+}
