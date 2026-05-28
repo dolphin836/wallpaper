@@ -1045,21 +1045,13 @@
 }
 .dark .h3-hero .h3-res-chip { background: oklch(14% 0.018 240 / 0.78); color: oklch(86% 0.012 240); }
 
-/* ── Row header ── */
-.h3-row { padding-top: 72px; position: relative; }
-/* Editorial hairline between sections (skip first row) */
-.h3-row + .h3-row::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 80px;
-  height: 1px;
-  background: var(--color-ink-2);
-  opacity: 0.42;
-  margin-top: 8px;
-}
+/* ── Row header ──
+   Sections separate by breathing room alone — no rules, no ornaments.
+   The Liquid Surface aesthetic relies on organic flow; hard geometric
+   dividers fought the mesh. ~120px between consecutive rows reads as
+   a deliberate beat, not as missing structure. */
+.h3-row { padding-top: 120px; }
+.h3-row:first-of-type { padding-top: 72px; }
 .h3-row-head {
   display: flex; align-items: end; justify-content: space-between; gap: 24px;
   margin-bottom: 22px;
