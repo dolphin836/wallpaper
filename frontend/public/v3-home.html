@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+  /* ============ Tokens — light defaults ============ */
   :root {
     --ink: oklch(20% 0.014 240);
     --ink-2: oklch(36% 0.012 240);
@@ -17,13 +18,57 @@
     --hair: oklch(90% 0.010 240);
     --accent: oklch(64% 0.21 42);
     --signal: oklch(78% 0.18 145);
+
+    /* Glass / hover surfaces — tokenized so dark mode can swap once */
+    --glass:        oklch(98% 0.005 240 / 0.6);
+    --glass-strong: oklch(98% 0.005 240 / 0.92);
+    --hover-soft:   oklch(95% 0.008 240 / 0.7);
+    --hover-soft-2: oklch(95% 0.008 240 / 0.85);
+    --chip-bg:      oklch(98% 0.005 240 / 0.55);
+    --chip-fg:      oklch(36% 0.012 240);
+    --highlight-line: oklch(100% 0 0 / 0.5); /* inset top edge highlight on cards */
+
     --ease: cubic-bezier(0.16, 1, 0.30, 1);
     --ease-q: cubic-bezier(0.25, 1, 0.5, 1);
+
+    /* Liquid palette — overridden per page from active wallpaper */
     --c1: #4681C8;
     --c2: #345F5F;
     --c3: #9ACCD5;
     --liquid-opacity: 0.30;
+
+    /* Collection stack shadow shades — visible against light surface */
+    --stack-a: oklch(86% 0.010 240);
+    --stack-b: oklch(82% 0.012 240);
   }
+
+  /* ============ Tokens — dark overrides ============ */
+  .dark {
+    --ink: oklch(95% 0.012 240);
+    --ink-2: oklch(78% 0.012 240);
+    --muted: oklch(58% 0.014 240);
+    --paper: oklch(14% 0.018 240);
+    --paper-2: oklch(19% 0.022 240);
+    --hair: oklch(28% 0.024 240);
+    --accent: oklch(72% 0.20 42);
+    --signal: oklch(82% 0.20 145);
+
+    --glass:        oklch(14% 0.018 240 / 0.6);
+    --glass-strong: oklch(19% 0.022 240 / 0.92);
+    --hover-soft:   oklch(22% 0.022 240 / 0.7);
+    --hover-soft-2: oklch(24% 0.024 240 / 0.85);
+    --chip-bg:      oklch(14% 0.018 240 / 0.72);
+    --chip-fg:      oklch(86% 0.012 240);
+    --highlight-line: oklch(100% 0 0 / 0.08);
+
+    /* Mesh punches harder against dark background — bump opacity. */
+    --liquid-opacity: 0.55;
+
+    /* Collection stack — darker, slightly lifted shades */
+    --stack-a: oklch(24% 0.024 240);
+    --stack-b: oklch(28% 0.026 240);
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { min-height: 100vh; }
   body {
@@ -34,10 +79,12 @@
     position: relative;
     -webkit-font-smoothing: antialiased;
     line-height: 1.5;
+    transition: background 400ms var(--ease), color 400ms var(--ease);
   }
   a { color: inherit; text-decoration: none; }
   button { font-family: inherit; cursor: pointer; }
 
+  /* Animated mesh surface — color comes from the active wallpaper */
   body::before {
     content: ""; position: fixed; inset: -20%; z-index: 0;
     background:
@@ -49,6 +96,10 @@
     animation: drift 30s ease-in-out infinite alternate;
     transition: background 1400ms ease, opacity 1400ms ease;
     pointer-events: none;
+  }
+  /* In dark mode, push saturation up so the mesh feels luminous, not muddy */
+  .dark body::before, html.dark body::before {
+    filter: blur(80px) saturate(1.8);
   }
   @keyframes drift {
     0%   { transform: translate(0, 0) scale(1); }
@@ -64,10 +115,11 @@
   header.topnav {
     position: sticky; top: 0; z-index: 40;
     backdrop-filter: blur(24px) saturate(1.6);
-    background: oklch(98% 0.005 240 / 0.6);
-    border-bottom: 1px solid oklch(90% 0.010 240 / 0.5);
+    background: var(--glass);
+    border-bottom: 1px solid color-mix(in oklch, var(--hair) 50%, transparent);
     padding: 14px 40px;
     display: flex; align-items: center; gap: 32px;
+    transition: background 400ms var(--ease), border-color 400ms var(--ease);
   }
   header .brand {
     display: inline-flex; align-items: center; gap: 10px;
@@ -77,11 +129,12 @@
   header .brand .logo {
     width: 28px; height: 28px;
     background: var(--ink);
-    border-radius: 8px;
     color: var(--paper);
+    border-radius: 8px;
     display: grid; place-items: center;
     font-family: 'Instrument Serif', serif; font-style: italic; font-size: 16px;
     position: relative;
+    transition: background 400ms var(--ease), color 400ms var(--ease);
   }
   .brand .live {
     width: 7px; height: 7px; border-radius: 50%;
@@ -121,18 +174,18 @@
     color: var(--ink-2);
     transition: background 200ms var(--ease), color 200ms var(--ease);
   }
-  header .right .icon-btn:hover { background: oklch(95% 0.008 240 / 0.7); color: var(--ink); }
+  header .right .icon-btn:hover { background: var(--hover-soft); color: var(--ink); }
 
   .balance-pill {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 7px 14px 7px 11px;
-    background: oklch(95% 0.008 240 / 0.6);
+    background: var(--hover-soft);
     border-radius: 999px;
     font-size: 13px; font-weight: 600; color: var(--ink);
     position: relative;
     transition: background 200ms var(--ease);
   }
-  .balance-pill:hover { background: oklch(95% 0.008 240 / 0.85); }
+  .balance-pill:hover { background: var(--hover-soft-2); }
   .balance-pill .coin {
     width: 10px; height: 10px; border-radius: 50%;
     background: linear-gradient(135deg, #f4ae66, #d57130);
@@ -158,7 +211,7 @@
     font-size: 13px; font-weight: 500; color: var(--ink);
     transition: background 200ms var(--ease), border-color 200ms var(--ease);
   }
-  .user-menu .trigger:hover { background: oklch(95% 0.008 240 / 0.7); border-color: var(--hair); }
+  .user-menu .trigger:hover { background: var(--hover-soft); border-color: var(--hair); }
   .user-menu .trigger .avatar {
     width: 26px; height: 26px; border-radius: 50%;
     background: linear-gradient(135deg, var(--c1), var(--c3));
@@ -170,11 +223,12 @@
   .user-menu .menu {
     position: absolute; top: calc(100% + 8px); right: 0;
     min-width: 220px;
-    background: var(--paper);
+    background: var(--glass-strong);
+    backdrop-filter: blur(16px) saturate(1.4);
     border: 1px solid var(--hair);
     border-radius: 12px;
     padding: 6px;
-    box-shadow: 0 12px 36px -10px oklch(20% 0.014 240 / 0.25);
+    box-shadow: 0 12px 36px -10px oklch(0% 0 0 / 0.35);
     opacity: 0; transform: translateY(-6px) scale(0.98);
     pointer-events: none;
     transition: opacity 200ms var(--ease), transform 200ms var(--ease);
@@ -206,9 +260,9 @@
     overflow: hidden;
     background: var(--paper-2);
     box-shadow:
-      0 1px 0 oklch(100% 0 0 / 0.5),
-      0 16px 60px -16px oklch(20% 0.014 240 / 0.25),
-      0 40px 110px -40px oklch(20% 0.014 240 / 0.3);
+      inset 0 1px 0 var(--highlight-line),
+      0 16px 60px -16px oklch(0% 0 0 / 0.3),
+      0 40px 110px -40px oklch(0% 0 0 / 0.35);
     cursor: pointer;
     transition: transform 600ms var(--ease), box-shadow 600ms var(--ease);
     transform-style: preserve-3d;
@@ -216,9 +270,9 @@
   .hero-card:hover {
     transform: perspective(1500px) rotateY(-1deg) rotateX(0.4deg) translateY(-3px);
     box-shadow:
-      0 1px 0 oklch(100% 0 0 / 0.6),
-      0 22px 80px -16px oklch(20% 0.014 240 / 0.32),
-      0 60px 140px -40px oklch(20% 0.014 240 / 0.38);
+      inset 0 1px 0 var(--highlight-line),
+      0 22px 80px -16px oklch(0% 0 0 / 0.4),
+      0 60px 140px -40px oklch(0% 0 0 / 0.45);
   }
   .hero-card img {
     width: 100%; height: 100%; object-fit: cover; display: block;
@@ -247,7 +301,7 @@
   .hero-card .cta {
     display: inline-flex; align-items: center; gap: 10px;
     padding: 13px 22px;
-    background: white; color: var(--ink);
+    background: white; color: oklch(20% 0.014 240);
     border-radius: 999px;
     font-size: 13.5px; font-weight: 600;
     box-shadow: 0 6px 22px -6px rgba(0,0,0,0.4);
@@ -260,20 +314,20 @@
     background: linear-gradient(135deg, #f4ae66, #d57130);
   }
 
-  /* ─── Resolution chip — smaller and softer ─── */
+  /* Resolution chip */
   .res-chip {
     position: absolute; top: 10px; left: 10px; z-index: 4;
     padding: 1px 6px; border-radius: 999px;
-    background: oklch(98% 0.005 240 / 0.55); backdrop-filter: blur(6px);
-    color: oklch(36% 0.012 240); font-size: 9px; font-weight: 600;
+    background: var(--chip-bg); backdrop-filter: blur(6px);
+    color: var(--chip-fg); font-size: 9px; font-weight: 600;
     font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em;
     line-height: 1.5;
   }
-  /* Hero gets a slightly more prominent chip due to bigger image */
   .hero-card .res-chip {
     top: 16px; left: auto; right: 16px;
     padding: 2px 8px; font-size: 10px;
     background: oklch(98% 0.005 240 / 0.75);
+    color: oklch(36% 0.012 240);
   }
 
   /* ─── ROW HEAD ─── */
@@ -307,22 +361,29 @@
   @media (max-width: 1100px) { .grid-5 { grid-template-columns: repeat(3, 1fr); } .grid-4 { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 700px)  { .grid-5, .grid-4 { grid-template-columns: repeat(2, 1fr); } }
 
+  /* Shared tile shadow recipe — works in both modes thanks to top highlight */
+  .tile-weekly, .tile-ai, .tile-video {
+    box-shadow:
+      inset 0 1px 0 var(--highlight-line),
+      0 8px 22px -10px oklch(0% 0 0 / 0.3);
+  }
+  .tile-weekly:hover, .tile-ai:hover, .tile-video:hover {
+    box-shadow:
+      inset 0 1px 0 var(--highlight-line),
+      0 20px 42px -12px oklch(0% 0 0 / 0.4);
+  }
+
   /* ════════════ ROW 1 · WEEKLY ════════════ */
-  /* portrait 4:5, clean — no stamps, no titles */
   .tile-weekly {
     aspect-ratio: 4/5;
     border-radius: 16px;
     overflow: hidden;
     position: relative;
     background: var(--paper-2);
-    box-shadow: 0 1px 0 oklch(100% 0 0 / 0.5), 0 8px 22px -10px oklch(20% 0.014 240 / 0.2);
     transition: transform 380ms var(--ease), box-shadow 380ms var(--ease);
     cursor: pointer; display: block;
   }
-  .tile-weekly:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 1px 0 oklch(100% 0 0 / 0.65), 0 20px 42px -12px oklch(20% 0.014 240 / 0.35);
-  }
+  .tile-weekly:hover { transform: translateY(-5px); }
   .tile-weekly img {
     width: 100%; height: 100%; object-fit: cover; display: block;
     transition: transform 800ms var(--ease), opacity 400ms var(--ease);
@@ -332,24 +393,17 @@
   .tile-weekly:hover img { transform: scale(1.05); }
 
   /* ════════════ ROW 2 · AI LAB · FOIL ════════════ */
-  /* Square 1:1 + a holographic foil sweep that travels across the image
-     continuously, like light catching on a foil card. No chip; the foil
-     itself signals "generated". */
   .tile-ai {
     aspect-ratio: 1/1;
     border-radius: 16px;
     overflow: hidden;
     position: relative;
     background: var(--paper-2);
-    box-shadow: 0 1px 0 oklch(100% 0 0 / 0.5), 0 8px 22px -10px oklch(20% 0.014 240 / 0.2);
     transition: transform 380ms var(--ease), box-shadow 380ms var(--ease);
     cursor: pointer; display: block;
-    isolation: isolate; /* so blend-mode is bounded to this tile */
+    isolation: isolate;
   }
-  .tile-ai:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 1px 0 oklch(100% 0 0 / 0.65), 0 20px 42px -12px oklch(20% 0.014 240 / 0.35);
-  }
+  .tile-ai:hover { transform: translateY(-5px); }
   .tile-ai img {
     width: 100%; height: 100%; object-fit: cover; display: block;
     transition: transform 800ms var(--ease), opacity 400ms var(--ease);
@@ -358,9 +412,6 @@
   }
   .tile-ai img.loaded { opacity: 1; }
   .tile-ai:hover img { transform: scale(1.04); }
-  /* Foil — diagonal rainbow band that sweeps slowly across.
-     mix-blend-mode lets it interact with the underlying image colors,
-     so the effect is iridescent rather than a flat overlay. */
   .tile-ai .foil {
     position: absolute; inset: -10%;
     background: linear-gradient(
@@ -382,13 +433,14 @@
     opacity: 0.55;
     transition: opacity 320ms var(--ease);
   }
+  /* Dark mode: foil reads stronger; pull it back slightly */
+  .dark .tile-ai .foil { opacity: 0.45; }
   @keyframes foil-sweep {
     0%   { background-position: 200% 200%; }
     100% { background-position: -100% -100%; }
   }
   .tile-ai:hover .foil { opacity: 0.9; animation-duration: 4s; }
-  /* A second, slower foil layer in the opposite direction for depth — like
-     two prisms playing on the same surface. */
+  .dark .tile-ai:hover .foil { opacity: 0.78; }
   .tile-ai::after {
     content: ""; position: absolute; inset: 0; z-index: 3;
     background: linear-gradient(
@@ -420,14 +472,10 @@
     overflow: hidden;
     position: relative;
     background: oklch(20% 0.014 240);
-    box-shadow: 0 1px 0 oklch(100% 0 0 / 0.5), 0 10px 26px -10px oklch(20% 0.014 240 / 0.28);
     transition: transform 380ms var(--ease), box-shadow 380ms var(--ease);
     cursor: pointer; display: block;
   }
-  .tile-video:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 1px 0 oklch(100% 0 0 / 0.65), 0 22px 46px -12px oklch(20% 0.014 240 / 0.4);
-  }
+  .tile-video:hover { transform: translateY(-5px); }
   .tile-video img, .tile-video video {
     width: 100%; height: 100%; object-fit: cover; display: block;
     transition: opacity 400ms var(--ease);
@@ -440,18 +488,17 @@
   }
   .tile-video.playing video { opacity: 1; }
   .tile-video.playing img   { opacity: 0; }
-  /* Play icon — small, soft, top-left so it doesn't fight content */
   .tile-video .play {
     position: absolute; left: 10px; bottom: 10px; z-index: 3;
     width: 28px; height: 28px;
-    background: oklch(20% 0.014 240 / 0.5);
+    background: oklch(0% 0 0 / 0.5);
     backdrop-filter: blur(6px);
     border-radius: 50%;
     display: grid; place-items: center;
     transition: opacity 240ms var(--ease), background 240ms var(--ease);
     pointer-events: none;
   }
-  .tile-video:hover .play { background: oklch(20% 0.014 240 / 0.7); }
+  .tile-video:hover .play { background: oklch(0% 0 0 / 0.7); }
   .tile-video.playing .play { opacity: 0; }
   .tile-video .play svg {
     width: 12px; height: 12px;
@@ -459,7 +506,9 @@
   }
 
   /* ════════════ ROW 4 · COLLECTIONS ════════════ */
-  /* Stacked-paper effect, title + count, no chip */
+  /* Stacked-paper effect using the dark/light stack shade tokens.
+     Note: collections don't use the shared shadow recipe — they have
+     their own multi-layer box-shadow representing the "stack". */
   .tile-collection {
     aspect-ratio: 1/1;
     border-radius: 14px;
@@ -468,22 +517,22 @@
     cursor: pointer; display: block;
     transition: transform 380ms var(--ease);
     box-shadow:
-      0 1px 0 oklch(100% 0 0 / 0.5),
-      0 8px 22px -10px oklch(20% 0.014 240 / 0.2),
+      inset 0 1px 0 var(--highlight-line),
+      0 8px 22px -10px oklch(0% 0 0 / 0.3),
       4px 4px 0 -1px var(--paper-2),
-      4px 4px 0 0 oklch(86% 0.010 240),
+      4px 4px 0 0 var(--stack-a),
       8px 8px 0 -1px var(--paper-2),
-      8px 8px 0 0 oklch(82% 0.012 240);
+      8px 8px 0 0 var(--stack-b);
   }
   .tile-collection:hover {
     transform: translate(-3px, -3px);
     box-shadow:
-      0 1px 0 oklch(100% 0 0 / 0.65),
-      0 18px 40px -12px oklch(20% 0.014 240 / 0.35),
+      inset 0 1px 0 var(--highlight-line),
+      0 18px 40px -12px oklch(0% 0 0 / 0.4),
       6px 6px 0 -1px var(--paper-2),
-      6px 6px 0 0 oklch(86% 0.010 240),
+      6px 6px 0 0 var(--stack-a),
       12px 12px 0 -1px var(--paper-2),
-      12px 12px 0 0 oklch(82% 0.012 240);
+      12px 12px 0 0 var(--stack-b);
   }
   .tile-collection .frame {
     position: absolute; inset: 0;
@@ -518,11 +567,12 @@
     color: rgba(255,255,255,0.85);
   }
 
-  /* ─── Skeletons ─── */
+  /* ─── Skeletons (light + dark variants via paper tokens) ─── */
   .sk {
     aspect-ratio: 4/5;
     border-radius: 16px;
-    background: linear-gradient(110deg, var(--paper-2) 30%, oklch(94% 0.010 240) 50%, var(--paper-2) 70%);
+    background:
+      linear-gradient(110deg, var(--paper-2) 30%, color-mix(in oklch, var(--paper-2) 60%, var(--paper)) 50%, var(--paper-2) 70%);
     background-size: 220% 100%;
     animation: skel 1.6s ease-in-out infinite;
   }
@@ -537,15 +587,15 @@
     max-width: 1280px; margin: 0 auto;
     padding: 24px; border: 1px dashed var(--hair); border-radius: 12px;
     color: var(--muted); font-size: 13px;
-    background: oklch(98% 0.005 240 / 0.5);
+    background: var(--glass);
   }
 
   /* ─── Footer ─── */
   footer.legal {
     margin-top: 80px;
     padding: 36px 40px 56px;
-    border-top: 1px solid var(--hair);
-    background: oklch(98% 0.005 240 / 0.6);
+    border-top: 1px solid color-mix(in oklch, var(--hair) 50%, transparent);
+    background: var(--glass);
     backdrop-filter: blur(12px);
     position: relative; z-index: 1;
   }
@@ -599,8 +649,11 @@
     <a href="#">Mac App</a>
   </nav>
   <div class="right">
-    <button class="icon-btn" title="Theme" aria-label="Toggle theme">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+    <button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">
+      <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+      </svg>
     </button>
     <a class="balance-pill" href="#" aria-label="Your balance">
       <span class="coin"></span> <span id="bal">42</span>
@@ -630,7 +683,6 @@
 </header>
 
 <main>
-  <!-- HERO -->
   <section class="hero">
     <a class="hero-card" id="heroCard" href="#">
       <img id="heroImg" alt="" />
@@ -648,7 +700,6 @@
     </a>
   </section>
 
-  <!-- WEEKLY -->
   <section class="row">
     <div class="row-head">
       <div>
@@ -662,7 +713,6 @@
     </div>
   </section>
 
-  <!-- AI -->
   <section class="row">
     <div class="row-head">
       <div>
@@ -676,7 +726,6 @@
     </div>
   </section>
 
-  <!-- VIDEOS -->
   <section class="row">
     <div class="row-head">
       <div>
@@ -690,7 +739,6 @@
     </div>
   </section>
 
-  <!-- COLLECTIONS -->
   <section class="row">
     <div class="row-head">
       <div>
@@ -722,6 +770,29 @@
 <script>
   const API = '/api/v1';
 
+  // ── Theme toggle ───────────────────────────────────
+  const root = document.documentElement;
+  const themeBtn = document.getElementById('themeBtn');
+  const themeIcon = document.getElementById('themeIcon');
+  const SUN_SVG = '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>';
+  const MOON_SVG = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+  function applyTheme(dark) {
+    root.classList.toggle('dark', dark);
+    try { localStorage.setItem('v3-theme', dark ? 'dark' : 'light'); } catch {}
+    themeIcon.innerHTML = dark ? SUN_SVG : MOON_SVG;
+  }
+  (() => {
+    let dark = false;
+    try {
+      const saved = localStorage.getItem('v3-theme');
+      if (saved === 'dark' || saved === 'light') dark = saved === 'dark';
+      else dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } catch {}
+    applyTheme(dark);
+  })();
+  themeBtn.addEventListener('click', () => applyTheme(!root.classList.contains('dark')));
+
+  // ── Helpers ────────────────────────────────────────
   const fmtMB = (b) => (b / 1024 / 1024).toFixed(1) + ' MB';
   function resBadge(w) {
     const max = Math.max(w.width || 0, w.height || 0);
