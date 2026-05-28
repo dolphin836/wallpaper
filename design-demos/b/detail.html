@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WallShare · Console · Detail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        oklch(13% 0.018 230);
+    --bg-1:      oklch(17% 0.020 230);
+    --bg-2:      oklch(22% 0.022 230);
+    --hair:      oklch(28% 0.024 230);
+    --ink:       oklch(96% 0.010 230);
+    --ink-2:     oklch(82% 0.010 230);
+    --muted:     oklch(58% 0.014 230);
+    --phosphor:  oklch(86% 0.18 145);
+    --warn:      oklch(72% 0.20 60);
+    --ease-q:    cubic-bezier(0.16, 1, 0.30, 1);
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 200;
+    background-image: repeating-linear-gradient(0deg, oklch(96% 0.010 230 / 0.018) 0 1px, transparent 1px 3px);
+    mix-blend-mode: overlay;
+  }
+  body { padding-top: 40px; }
+  .mono { font-family: var(--mono); }
+
+  /* Top bar — same as home */
+  .console-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    height: 40px; background: var(--bg-1); border-bottom: 1px solid var(--hair);
+    display: flex; align-items: stretch; font-family: var(--mono);
+  }
+  .console-bar .seg { display: flex; align-items: center; padding: 0 18px; height: 100%; border-right: 1px solid var(--hair); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+  .console-bar .seg.brand b { color: var(--phosphor); margin-right: 8px; }
+  .console-bar .seg.brand a { color: var(--ink); text-decoration: none; }
+  .console-bar .seg.meter { gap: 14px; }
+  .console-bar .meter-bar { display: flex; gap: 2px; width: 200px; height: 12px; }
+  .console-bar .meter-bar i { flex: 1; background: var(--bg-2); }
+  .console-bar .meter-bar i.on { background: var(--phosphor); }
+  .console-bar .meter-bar i.warn { background: var(--warn); }
+  .console-bar .net { color: var(--phosphor); }
+  .console-bar .right { margin-left: auto; border-right: 0; border-left: 1px solid var(--hair); color: var(--muted); }
+
+  /* Layout */
+  main {
+    max-width: 1500px; margin: 0 auto; padding: 56px 80px 0;
+    display: grid; grid-template-columns: 1.5fr 1fr; gap: 56px; align-items: start;
+  }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; padding: 40px 24px 0; } }
+
+  /* ---------- Specimen card (left, the image in a measurement frame) ---------- */
+  .specimen {
+    position: relative;
+    border: 1px solid var(--hair);
+    background: var(--bg-1);
+    padding: 14px;
+    overflow: hidden;
+  }
+  .specimen .corner {
+    position: absolute; width: 22px; height: 22px;
+    border: 1px solid var(--phosphor);
+    z-index: 4;
+  }
+  .specimen .corner.tl { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+  .specimen .corner.tr { top: -1px; right: -1px; border-left: 0; border-bottom: 0; }
+  .specimen .corner.bl { bottom: -1px; left: -1px; border-right: 0; border-top: 0; }
+  .specimen .corner.br { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+  .specimen .img-wrap {
+    position: relative; aspect-ratio: 16/9;
+    background: var(--bg-2); overflow: hidden;
+  }
+  .specimen .img-wrap img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: transform 600ms var(--ease-q);
+  }
+  /* scan reveal */
+  .specimen .img-wrap::after {
+    content: ""; position: absolute; inset: 0;
+    background: var(--bg);
+    transform-origin: right;
+    animation: scan-out 600ms var(--ease-q) 200ms forwards;
+  }
+  @keyframes scan-out { 0% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+  .specimen .top-label, .specimen .bottom-label {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 4px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .specimen .top-label .pho { color: var(--phosphor); }
+  .specimen .crosshair {
+    position: absolute; left: 50%; top: 50%; width: 22px; height: 22px;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    opacity: 0; transition: opacity 240ms var(--ease-q);
+    pointer-events: none;
+  }
+  .specimen .img-wrap:hover ~ .crosshair { opacity: 1; }
+  .specimen .crosshair::before, .specimen .crosshair::after {
+    content: ""; position: absolute; background: var(--phosphor);
+  }
+  .specimen .crosshair::before { top: 50%; left: 0; right: 0; height: 1px; transform: translateY(-50%); }
+  .specimen .crosshair::after  { left: 50%; top: 0; bottom: 0; width: 1px; transform: translateX(-50%); }
+
+  /* ---------- Instrument panel (right) ---------- */
+  aside.panel { display: flex; flex-direction: column; gap: 24px; }
+  aside.panel .topbar { display: flex; align-items: center; gap: 12px; color: var(--muted); }
+  aside.panel .topbar .blink { width: 6px; height: 6px; background: var(--phosphor); display: inline-block; animation: blink 1.6s steps(2, end) infinite; }
+  @keyframes blink { 50% { opacity: 0.35; } }
+  aside.panel .topbar .mono { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; }
+
+  aside.panel h1.title {
+    font-family: var(--mono); font-weight: 600;
+    font-size: clamp(28px, 3.6vw, 48px); line-height: 1.05;
+    letter-spacing: -0.015em;
+    text-transform: uppercase;
+  }
+  aside.panel h1.title .stop { color: var(--phosphor); }
+
+  /* Measurements block */
+  .measurements {
+    border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair);
+    padding: 18px 0;
+  }
+  .measurements .head {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .measurements .row {
+    display: grid; grid-template-columns: 1fr auto; padding: 5px 0;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em;
+  }
+  .measurements .row .k { color: var(--muted); text-transform: uppercase; }
+  .measurements .row .v { color: var(--ink); text-align: right; }
+  .measurements .row .v.pho { color: var(--phosphor); }
+  .measurements .row .v.swatch-row { display: flex; align-items: center; justify-content: end; gap: 6px; }
+  .measurements .row .v.swatch-row .sw { width: 14px; height: 14px; border: 1px solid var(--hair); }
+
+  /* Inline palette chips */
+  .palette-chips { display: flex; gap: 4px; }
+  .palette-chips .chip {
+    width: 28px; height: 16px; border: 1px solid var(--hair); position: relative;
+    transition: transform 220ms var(--ease-q);
+  }
+  .palette-chips .chip:hover { transform: translateY(-2px); }
+
+  /* Trade CTA + balance gauge */
+  .trade {
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .trade .cta {
+    background: var(--phosphor); color: var(--bg);
+    font-family: var(--mono); font-size: 14px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 600;
+    padding: 22px 26px; border: 1px solid var(--phosphor); cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    transition: background 240ms var(--ease-q), color 240ms var(--ease-q), transform 220ms var(--ease-q);
+  }
+  .trade .cta:hover { background: var(--ink); border-color: var(--ink); transform: translateX(3px); }
+  .trade .cta .prompt { font-weight: 400; opacity: 0.7; margin-right: 8px; }
+  .trade .cta .arr { transition: transform 240ms var(--ease-q); }
+  .trade .cta:hover .arr { transform: translateX(6px); }
+
+  .gauge {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2);
+    display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center;
+    padding: 12px 0;
+  }
+  .gauge .label { color: var(--muted); }
+  .gauge .bars { display: flex; gap: 2px; height: 10px; }
+  .gauge .bars i { flex: 1; background: var(--bg-2); }
+  .gauge .bars i.on { background: var(--phosphor); }
+  .gauge .after { color: var(--warn); }
+
+  /* Trade-in supply-side prompt */
+  .trade-in {
+    border: 1px dashed var(--hair);
+    padding: 18px 22px;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; line-height: 1.6; color: var(--ink-2);
+    display: flex; justify-content: space-between; gap: 16px; align-items: center;
+  }
+  .trade-in .left { max-width: 38ch; }
+  .trade-in .left .alert { color: var(--warn); }
+  .trade-in a {
+    color: var(--phosphor); text-decoration: none; white-space: nowrap;
+    font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+    border-bottom: 1px solid var(--phosphor); padding-bottom: 2px;
+  }
+  .trade-in a:hover { color: var(--ink); border-color: var(--ink); }
+
+  /* Secondary actions */
+  .actions {
+    display: flex; gap: 0; border: 1px solid var(--hair);
+  }
+  .actions button {
+    flex: 1; padding: 12px; background: var(--bg-1); color: var(--ink-2); border: 0; cursor: pointer;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    transition: background 200ms var(--ease-q), color 200ms var(--ease-q);
+  }
+  .actions button + button { border-left: 1px solid var(--hair); }
+  .actions button:hover { background: var(--phosphor); color: var(--bg); }
+
+  /* ---------- Telemetry strip (very bottom of detail) ---------- */
+  .telemetry {
+    margin-top: 80px;
+    padding: 24px 80px;
+    border-top: 1px solid var(--hair);
+    background: var(--bg-1);
+    display: flex; align-items: center; gap: 28px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+    overflow: hidden; white-space: nowrap;
+  }
+  .telemetry .pho { color: var(--phosphor); }
+  .telemetry .stream { animation: marquee 35s linear infinite; display: inline-block; }
+  @keyframes marquee {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .telemetry .stream span { margin-right: 32px; }
+
+  footer.foot {
+    padding: 18px 80px; border-top: 1px solid var(--hair);
+    display: flex; justify-content: space-between; align-items: center;
+    color: var(--muted);
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  }
+  footer.foot a { color: var(--muted); text-decoration: none; }
+  footer.foot a:hover { color: var(--phosphor); }
+  @media (max-width: 800px) { .telemetry, footer.foot { padding-left: 24px; padding-right: 24px; } }
+</style>
+</head>
+<body>
+
+<div class="console-bar">
+  <div class="seg brand"><b>›</b><a href="home.html">WALLSHARE / CONSOLE</a></div>
+  <div class="seg meter">
+    <span>LEDGER</span>
+    <span class="meter-bar" id="meterBar"></span>
+    <span class="net">+4 NET</span>
+  </div>
+  <div class="seg">BALANCE 42</div>
+  <div class="seg right">AUTH&nbsp;&gt;&nbsp;<span style="color:var(--ink); margin-left:6px">@you</span></div>
+</div>
+
+<main>
+  <!-- ===== Specimen frame ===== -->
+  <section class="specimen">
+    <span class="corner tl"></span><span class="corner tr"></span>
+    <span class="corner bl"></span><span class="corner br"></span>
+
+    <div class="top-label">
+      <span>SPECIMEN <span class="pho" id="specHeader"></span></span>
+      <span>FOCUS &nbsp;<span class="pho">●</span> LOCKED</span>
+    </div>
+
+    <div class="img-wrap">
+      <img id="img" alt="">
+    </div>
+    <span class="crosshair"></span>
+
+    <div class="bottom-label">
+      <span><span id="dims"></span> · <span id="mp"></span></span>
+      <span><span id="obs"></span> OBSERVERS / <span id="dl"></span> TRADED</span>
+    </div>
+  </section>
+
+  <!-- ===== Instrument panel ===== -->
+  <aside class="panel">
+    <div class="topbar">
+      <span class="blink"></span>
+      <span class="mono">INSTRUMENT PANEL · LIVE</span>
+    </div>
+
+    <h1 class="title" id="title"></h1>
+    <div class="mono" style="font-size:11px; color:var(--muted); letter-spacing:0.12em">
+      BY <span style="color:var(--phosphor)">@FROSTWOOD</span> · UPLOADED 2026.05.22 16:11 UTC
+    </div>
+
+    <!-- Measurements -->
+    <div class="measurements">
+      <div class="head">MEASUREMENTS</div>
+      <div class="row"><div class="k">dimensions</div><div class="v" id="mDim"></div></div>
+      <div class="row"><div class="k">pixels</div><div class="v" id="mMp"></div></div>
+      <div class="row"><div class="k">file size</div><div class="v" id="mFile"></div></div>
+      <div class="row"><div class="k">color space</div><div class="v pho">DCI-P3 WIDE</div></div>
+      <div class="row"><div class="k">dominant</div><div class="v swatch-row"><span class="sw" id="mDomSw"></span><span id="mDom"></span></div></div>
+      <div class="row"><div class="k">oklch</div><div class="v pho" id="mOklch"></div></div>
+      <div class="row" style="align-items:center"><div class="k">palette</div><div class="v"><div class="palette-chips" id="mPal"></div></div></div>
+    </div>
+
+    <!-- Trade -->
+    <div class="trade">
+      <button class="cta">
+        <span><span class="prompt">&gt;</span>TRADE FOR 1 COIN</span>
+        <span class="arr">▶</span>
+      </button>
+      <div class="gauge">
+        <span class="label">After</span>
+        <span class="bars" id="afterBars"></span>
+        <span class="after">41 / 42</span>
+      </div>
+    </div>
+
+    <!-- Supply-side -->
+    <div class="trade-in">
+      <div class="left">
+        You've earned <span class="pho" style="color:var(--phosphor)">+12</span> this week from your uploads. <span class="alert">Balance falls fast.</span> Submit one specimen to refill.
+      </div>
+      <a href="#">› Submit ▶</a>
+    </div>
+
+    <!-- Secondary actions -->
+    <div class="actions">
+      <button>♡ Like</button>
+      <button>★ Favorite</button>
+      <button>+ List</button>
+      <button>⤢ Magnify</button>
+    </div>
+  </aside>
+</main>
+
+<!-- ===== Telemetry strip ===== -->
+<div class="telemetry">
+  <span style="color:var(--phosphor)">› TELEMETRY</span>
+  <div class="stream" id="tel"></div>
+</div>
+
+<footer class="foot">
+  <span>CONSOLE — DETAIL VIEW</span>
+  <span><a href="../index.html">← back to compare</a></span>
+</footer>
+
+<script src="../_data.js"></script>
+<script>
+  const W = window.WALLPAPERS;
+  const wp = W[0];
+  const pal = wp.palette.split(',');
+
+  document.getElementById('img').src = wp.preview;
+  document.getElementById('title').innerHTML = wp.title.toUpperCase() + '<span class="stop">.</span>';
+  document.getElementById('specHeader').textContent = '№' + String(wp.id).padStart(4, '0');
+  document.getElementById('dims').textContent = wp.w + ' × ' + wp.h;
+  document.getElementById('mp').textContent = window.fmtMP(wp.w, wp.h);
+  document.getElementById('obs').textContent = wp.observers;
+  document.getElementById('dl').textContent = wp.downloads;
+
+  document.getElementById('mDim').textContent = wp.w + ' × ' + wp.h;
+  document.getElementById('mMp').textContent = window.fmtMP(wp.w, wp.h);
+  document.getElementById('mFile').textContent = window.fmtMB(wp.size) + ' · webp';
+  document.getElementById('mDomSw').style.background = wp.color;
+  document.getElementById('mDom').textContent = wp.color.toUpperCase();
+  document.getElementById('mOklch').textContent = window.hexToOklch(wp.color);
+  document.getElementById('mPal').innerHTML = pal.map(c => `<span class="chip" style="background:${c}"></span>`).join('');
+
+  // Top meter (same as home)
+  const cells = [];
+  for (let i = 0; i < 16; i++) {
+    if (i < 12) cells.push('<i class="on"></i>');
+    else if (i < 14) cells.push('<i></i>');
+    else cells.push('<i class="warn"></i>');
+  }
+  document.getElementById('meterBar').innerHTML = cells.join('');
+
+  // "After trade" bars: 41/42 = ~14.6 of 15 on
+  const afterCells = [];
+  for (let i = 0; i < 15; i++) afterCells.push(i < 14 ? '<i class="on"></i>' : '<i></i>');
+  document.getElementById('afterBars').innerHTML = afterCells.join('');
+
+  // Telemetry stream
+  const events = [
+    '› @oceanrust +1 · №958',
+    '↓ specimen №961 traded',
+    '› @glasswing +1 · №963',
+    '› @stonepine +1 · №959',
+    '↓ specimen №957 traded',
+    '› @noctule +1 · №966',
+    '› @frostwood +1 · №963 traded by you',
+    '↑ Index now at 10,243 entries',
+  ];
+  document.getElementById('tel').innerHTML = events.concat(events).map(e => `<span>${e}</span>`).join('');
+</script>
+</body>
+</html>

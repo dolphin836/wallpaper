@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WallShare · Console · Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        oklch(13% 0.018 230);
+    --bg-1:      oklch(17% 0.020 230);
+    --bg-2:      oklch(22% 0.022 230);
+    --hair:      oklch(28% 0.024 230);
+    --ink:       oklch(96% 0.010 230);
+    --ink-2:     oklch(82% 0.010 230);
+    --muted:     oklch(58% 0.014 230);
+    --phosphor:  oklch(86% 0.18 145);
+    --warn:      oklch(72% 0.20 60);
+    --ease-q:    cubic-bezier(0.16, 1, 0.30, 1);
+    --mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+
+  .mono { font-family: var(--mono); font-weight: 500; letter-spacing: 0.06em; }
+  .mono-up { font-family: var(--mono); font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; font-size: 11px; }
+
+  /* faint scanline overlay (subtle, slow drift) */
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 200;
+    background-image: repeating-linear-gradient(0deg, oklch(96% 0.010 230 / 0.018) 0 1px, transparent 1px 3px);
+    mix-blend-mode: overlay;
+  }
+
+  /* ---------- Top console bar ---------- */
+  .console-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    height: 40px;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--hair);
+    display: flex; align-items: stretch;
+    font-family: var(--mono);
+  }
+  .console-bar .seg { display: flex; align-items: center; padding: 0 18px; height: 100%; border-right: 1px solid var(--hair); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+  .console-bar .seg.brand { color: var(--ink); }
+  .console-bar .seg.brand b { color: var(--phosphor); font-weight: 600; margin-right: 8px; }
+  .console-bar .seg.meter { gap: 14px; }
+  .console-bar .meter-bar {
+    display: flex; gap: 2px; width: 200px; height: 12px;
+  }
+  .console-bar .meter-bar i {
+    flex: 1; background: var(--bg-2); display: block;
+  }
+  .console-bar .meter-bar i.on { background: var(--phosphor); }
+  .console-bar .meter-bar i.warn { background: var(--warn); }
+  .console-bar .net { color: var(--phosphor); }
+  .console-bar .seg.right { margin-left: auto; border-right: 0; border-left: 1px solid var(--hair); color: var(--muted); }
+  .console-bar .seg.right a { color: var(--ink); text-decoration: none; margin-left: 10px; }
+  .console-bar .blink {
+    width: 6px; height: 6px; background: var(--phosphor); display: inline-block; margin-right: 8px;
+    animation: blink 1.6s steps(2, end) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0.35; } }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    margin-top: 40px;
+    height: calc(100vh - 40px);
+    min-height: 580px;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .hero .frame {
+    position: absolute; inset: 32px;
+    border: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .hero .corner {
+    position: absolute; width: 26px; height: 26px;
+    border: 1px solid var(--ink);
+    transform: scale(0.9);
+    opacity: 0;
+    animation: corner-in 600ms var(--ease-q) 200ms forwards;
+  }
+  .hero .corner.tl { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+  .hero .corner.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; animation-delay: 280ms; }
+  .hero .corner.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; animation-delay: 360ms; }
+  .hero .corner.br { bottom: 0; right: 0; border-left: 0; border-top: 0; animation-delay: 440ms; }
+  @keyframes corner-in { to { transform: scale(1); opacity: 1; } }
+
+  .hero img.bg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    opacity: 0; filter: saturate(1.05) contrast(1.02);
+    animation: bg-in 900ms var(--ease-q) 700ms forwards, drift 24s ease-in-out 700ms infinite alternate;
+  }
+  @keyframes bg-in { to { opacity: 0.78; } }
+  @keyframes drift {
+    0%   { transform: scale(1.04) translate(0, 0); }
+    100% { transform: scale(1.10) translate(-1%, -1%); }
+  }
+  .hero::after {
+    content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(80% 60% at 50% 80%, oklch(13% 0.018 230 / 0.0), oklch(13% 0.018 230 / 0.85)),
+      linear-gradient(180deg, oklch(13% 0.018 230 / 0.4) 0%, transparent 30%);
+    pointer-events: none;
+  }
+
+  .hero .data {
+    position: absolute; top: 80px; left: 80px; z-index: 8;
+    display: flex; flex-direction: column; gap: 6px;
+    opacity: 0; transform: translateY(6px);
+    animation: data-in 600ms var(--ease-q) 1200ms forwards;
+  }
+  @keyframes data-in { to { opacity: 1; transform: none; } }
+  .hero .data .row { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--ink-2); }
+  .hero .data .row .lbl { color: var(--muted); display: inline-block; min-width: 130px; }
+  .hero .data .row .v { color: var(--ink); }
+  .hero .data .row.specimen .v { color: var(--phosphor); font-weight: 600; }
+  .hero .data .row.observers .v { color: var(--phosphor); }
+  .hero .data .row.observers .blink-dot { width: 6px; height: 6px; background: var(--phosphor); display: inline-block; margin-right: 6px; vertical-align: middle; animation: blink 1.6s steps(2, end) infinite; }
+
+  .hero .title-block {
+    position: absolute; left: 80px; right: 80px; bottom: 96px; z-index: 8;
+    display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: end;
+    opacity: 0; transform: translateY(12px);
+    animation: title-in 700ms var(--ease-q) 1400ms forwards;
+  }
+  @keyframes title-in { to { opacity: 1; transform: none; } }
+  .hero .title-block h1 {
+    font-family: var(--mono); font-weight: 600;
+    font-size: clamp(38px, 5.5vw, 80px); line-height: 1.0;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    max-width: 16ch;
+    text-transform: uppercase;
+  }
+  .hero .title-block h1 .stop { color: var(--phosphor); }
+
+  .hero .palette-bars {
+    display: flex; gap: 2px; height: 10px; width: 240px; margin-top: 18px;
+  }
+  .hero .palette-bars span {
+    flex: 1; transform: scaleY(0); transform-origin: bottom;
+    animation: bar-up 320ms var(--ease-q) forwards;
+  }
+  @keyframes bar-up { to { transform: scaleY(1); } }
+
+  .hero .cta-pair { display: flex; gap: 10px; }
+  .hero .cta {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+    padding: 16px 22px;
+    border: 1px solid var(--ink);
+    background: transparent; color: var(--ink);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 12px;
+    text-decoration: none;
+    transition: background 220ms var(--ease-q), color 220ms var(--ease-q), border-color 220ms var(--ease-q);
+  }
+  .hero .cta:hover { background: var(--phosphor); border-color: var(--phosphor); color: var(--bg); }
+  .hero .cta.primary { background: var(--phosphor); border-color: var(--phosphor); color: var(--bg); }
+  .hero .cta.primary:hover { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+  .hero .cta .arr { transition: transform 220ms var(--ease-q); }
+  .hero .cta:hover .arr { transform: translateX(4px); }
+
+  /* phosphor ticker at very bottom of hero */
+  .hero .ticker {
+    position: absolute; left: 0; right: 0; bottom: 32px; z-index: 7;
+    height: 24px; overflow: hidden;
+    border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair);
+    background: oklch(13% 0.018 230 / 0.85);
+    display: flex; align-items: center;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--phosphor);
+    padding-left: 80px;
+  }
+  .hero .ticker .stream { white-space: nowrap; animation: marquee 35s linear infinite; }
+  @keyframes marquee {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .hero .ticker .stream span { margin-right: 36px; }
+  .hero .ticker .stream span.spent { color: var(--warn); }
+
+  /* ---------- Specimen index (grid) ---------- */
+  section.index {
+    padding: 96px 80px 40px;
+    border-top: 1px solid var(--hair);
+  }
+  @media (max-width: 800px) { section.index { padding: 60px 24px 24px; } .hero .data, .hero .title-block, .hero .ticker { left: 24px; } .hero .title-block { right: 24px; } }
+
+  .index .head {
+    display: flex; align-items: end; justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--hair);
+  }
+  .index .head h2 {
+    font-family: var(--mono); font-weight: 500; font-size: clamp(20px, 2.4vw, 28px);
+    text-transform: uppercase; letter-spacing: 0.15em;
+  }
+  .index .head .right { display: flex; gap: 24px; color: var(--muted); }
+  .index .head .right .num { color: var(--phosphor); }
+
+  .grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+  }
+  @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 580px) { .grid { grid-template-columns: 1fr; } }
+
+  .specimen-cell {
+    position: relative;
+    aspect-ratio: 16/10;
+    background: var(--bg-1);
+    cursor: pointer;
+    overflow: hidden;
+  }
+  .specimen-cell .corners {
+    position: absolute; inset: 0;
+    pointer-events: none; z-index: 3;
+  }
+  .specimen-cell .cn {
+    position: absolute; width: 16px; height: 16px;
+    border: 1px solid var(--ink-2);
+    transition: width 240ms var(--ease-q), height 240ms var(--ease-q), border-color 240ms var(--ease-q);
+  }
+  .specimen-cell .cn.tl { top: 8px; left: 8px; border-right: 0; border-bottom: 0; }
+  .specimen-cell .cn.tr { top: 8px; right: 8px; border-left: 0; border-bottom: 0; }
+  .specimen-cell .cn.bl { bottom: 8px; left: 8px; border-right: 0; border-top: 0; }
+  .specimen-cell .cn.br { bottom: 8px; right: 8px; border-left: 0; border-top: 0; }
+  .specimen-cell:hover .cn { width: 22px; height: 22px; border-color: var(--phosphor); }
+  .specimen-cell img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    opacity: 0.92;
+    transition: opacity 320ms var(--ease-q), transform 480ms var(--ease-q);
+  }
+  .specimen-cell:hover img { opacity: 1; transform: scale(1.02); }
+  .specimen-cell .label {
+    position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+    font-family: var(--mono); font-size: 10px; color: var(--phosphor); letter-spacing: 0.18em; text-transform: uppercase;
+    background: var(--bg); padding: 3px 8px; z-index: 4;
+    opacity: 0;
+    transition: opacity 200ms var(--ease-q);
+  }
+  .specimen-cell:hover .label { opacity: 1; }
+
+  .specimen-cell .palette-strip {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 0; display: flex; gap: 0;
+    transition: height 280ms var(--ease-q);
+    z-index: 4;
+  }
+  .specimen-cell:hover .palette-strip { height: 26px; }
+  .specimen-cell .palette-strip i { flex: 1; }
+
+  .specimen-cell .data-row {
+    position: absolute; left: 0; right: 0; bottom: -28px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 10px;
+    background: var(--bg);
+    font-family: var(--mono); font-size: 10px; color: var(--ink-2); letter-spacing: 0.1em; text-transform: uppercase;
+    transition: bottom 280ms var(--ease-q);
+    z-index: 4;
+  }
+  .specimen-cell:hover .data-row { bottom: 26px; }
+
+  /* ---------- Submit-a-specimen invitation ---------- */
+  section.invite {
+    margin-top: 80px;
+    padding: 80px 80px 100px;
+    border-top: 1px solid var(--hair);
+    background: var(--bg-1);
+    display: grid; grid-template-columns: 1fr auto; gap: 56px; align-items: center;
+  }
+  @media (max-width: 800px) { section.invite { padding: 60px 24px; grid-template-columns: 1fr; } }
+  .invite .left h3 {
+    font-family: var(--mono); font-weight: 600;
+    font-size: clamp(28px, 3.6vw, 48px); line-height: 1.05;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+  }
+  .invite .left h3 .alert { color: var(--warn); }
+  .invite .left p { color: var(--ink-2); max-width: 60ch; margin-top: 18px; font-family: var(--mono); font-size: 13px; letter-spacing: 0.04em; line-height: 1.6; }
+  .invite .right { display: flex; flex-direction: column; gap: 16px; align-items: end; }
+  .invite .ledger {
+    border: 1px solid var(--hair); padding: 18px 22px;
+    background: var(--bg);
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-2);
+    display: grid; grid-template-columns: auto auto; column-gap: 24px; row-gap: 6px;
+  }
+  .invite .ledger .k { color: var(--muted); }
+  .invite .ledger .v { color: var(--ink); text-align: right; }
+  .invite .ledger .v.up { color: var(--phosphor); }
+  .invite .ledger .v.down { color: var(--warn); }
+  .invite .submit {
+    font-family: var(--mono); font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase;
+    background: var(--phosphor); color: var(--bg);
+    padding: 18px 26px; text-decoration: none;
+    border: 1px solid var(--phosphor);
+    display: inline-flex; align-items: center; gap: 14px;
+    transition: transform 240ms var(--ease-q), background 240ms var(--ease-q);
+  }
+  .invite .submit:hover { transform: translateX(4px); background: var(--ink); border-color: var(--ink); }
+
+  footer.foot {
+    padding: 24px 80px; border-top: 1px solid var(--hair);
+    display: flex; justify-content: space-between; align-items: center;
+    color: var(--muted);
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  }
+  footer.foot a { color: var(--muted); text-decoration: none; }
+  footer.foot a:hover { color: var(--phosphor); }
+  @media (max-width: 800px) { footer.foot { padding: 16px 24px; } }
+</style>
+</head>
+<body>
+
+<!-- ===== Top console bar ===== -->
+<div class="console-bar">
+  <div class="seg brand"><b>›</b>WALLSHARE · CONSOLE</div>
+  <div class="seg meter">
+    <span>LEDGER</span>
+    <span class="meter-bar" id="meterBar"></span>
+    <span><span class="net">+4 NET</span></span>
+  </div>
+  <div class="seg">12&nbsp;↑&nbsp;EARN</div>
+  <div class="seg">8&nbsp;↓&nbsp;SPEND</div>
+  <div class="seg right"><span class="blink"></span>AUTH&nbsp;&gt;&nbsp;<a href="#">sign-in</a></div>
+</div>
+
+<!-- ===== Hero ===== -->
+<section class="hero">
+  <img class="bg" alt="" id="heroImg">
+  <div class="frame">
+    <span class="corner tl"></span><span class="corner tr"></span>
+    <span class="corner bl"></span><span class="corner br"></span>
+  </div>
+
+  <div class="data">
+    <div class="row specimen"><span class="lbl">SPECIMEN</span><span class="v" id="dSpec">№042</span></div>
+    <div class="row"><span class="lbl">DIMENSIONS</span><span class="v" id="dDim"></span></div>
+    <div class="row"><span class="lbl">PIXELS</span><span class="v" id="dMp"></span></div>
+    <div class="row"><span class="lbl">FILE</span><span class="v" id="dFile"></span></div>
+    <div class="row"><span class="lbl">DOMINANT</span><span class="v" id="dDom"></span></div>
+    <div class="row"><span class="lbl">OKLCH</span><span class="v" id="dOklch"></span></div>
+    <div class="row observers"><span class="lbl">ON THE LINE</span><span class="v"><span class="blink-dot"></span><span id="dObs"></span> observers</span></div>
+  </div>
+
+  <div class="title-block">
+    <div>
+      <h1 id="heroTitle"></h1>
+      <div class="palette-bars" id="heroPalette"></div>
+    </div>
+    <div class="cta-pair">
+      <button class="cta">View magnified</button>
+      <a class="cta primary" href="detail.html"><span>Trade &gt; 1 coin</span><span class="arr">▶</span></a>
+    </div>
+  </div>
+
+  <div class="ticker">
+    <div class="stream" id="ticker"></div>
+  </div>
+</section>
+
+<!-- ===== Specimen index ===== -->
+<section class="index">
+  <div class="head">
+    <h2>Specimen Index</h2>
+    <div class="right mono">
+      <span>ENTRIES <span class="num">10,243</span></span>
+      <span>FILTER <span class="num">LATEST</span></span>
+      <span>VIEW <span class="num">3-COL</span></span>
+    </div>
+  </div>
+  <div class="grid" id="grid"></div>
+</section>
+
+<!-- ===== Submit a specimen ===== -->
+<section class="invite">
+  <div class="left">
+    <h3>Balance running low. <span class="alert">Submit one specimen to restore credit.</span></h3>
+    <p>Every download you make costs one coin. Every download someone makes on your upload returns one. The exchange stays open as long as the index grows.</p>
+  </div>
+  <div class="right">
+    <div class="ledger">
+      <div class="k">CURRENT</div>           <div class="v">42</div>
+      <div class="k">EARNED · WEEK</div>     <div class="v up">+12</div>
+      <div class="k">SPENT · WEEK</div>      <div class="v down">−8</div>
+      <div class="k">TOP CONTRIBUTION</div>  <div class="v">№963 · 10 traded</div>
+    </div>
+    <a class="submit" href="#"><span>&gt; Submit a specimen</span><span class="arr">▶</span></a>
+  </div>
+</section>
+
+<footer class="foot">
+  <span>CONSOLE — DESIGN DIRECTION B</span>
+  <span><a href="../index.html">← back to compare</a></span>
+</footer>
+
+<script src="../_data.js"></script>
+<script>
+  const W = window.WALLPAPERS;
+  const wp = W[0];
+
+  // ----- Hero data -----
+  document.getElementById('heroImg').src = wp.preview;
+  document.getElementById('dSpec').textContent = '№' + String(wp.id).padStart(4, '0');
+  document.getElementById('dDim').textContent = wp.w + ' × ' + wp.h;
+  document.getElementById('dMp').textContent = window.fmtMP(wp.w, wp.h);
+  document.getElementById('dFile').textContent = window.fmtMB(wp.size) + ' · webp';
+  document.getElementById('dDom').textContent = wp.color;
+  document.getElementById('dOklch').textContent = window.hexToOklch(wp.color);
+  document.getElementById('dObs').textContent = wp.observers;
+
+  document.getElementById('heroTitle').innerHTML = wp.title.toUpperCase() + '<span class="stop">.</span>';
+
+  // ----- Palette bars with stagger -----
+  const palette = wp.palette.split(',');
+  document.getElementById('heroPalette').innerHTML = palette.map((c, i) =>
+    `<span style="background:${c}; animation-delay:${1600 + i * 70}ms"></span>`
+  ).join('');
+
+  // ----- Console meter (15 cells, fill 8 phosphor + 1 warn at the spending end) -----
+  const cells = [];
+  for (let i = 0; i < 16; i++) {
+    if (i < 12) cells.push('<i class="on"></i>');     // earned
+    else if (i < 14) cells.push('<i></i>');           // neutral
+    else cells.push('<i class="warn"></i>');          // warn segment (spent ahead)
+  }
+  document.getElementById('meterBar').innerHTML = cells.join('');
+
+  // ----- Ticker stream (looping marquee of recent trades) -----
+  const events = [
+    '› @frostwood +1 · №963 downloaded',
+    '↓ you spent 1 · №961',
+    '› @oceanrust +1 · №958 downloaded',
+    '› @noctule +1 · №966 downloaded',
+    '↓ you spent 1 · №957',
+    '› @glasswing +1 · №963 downloaded',
+    '› @stonepine +1 · №959 downloaded',
+  ];
+  const streamHtml = events.concat(events).map(e =>
+    `<span class="${e.startsWith('↓') ? 'spent' : ''}">${e}</span>`
+  ).join('');
+  document.getElementById('ticker').innerHTML = streamHtml;
+
+  // ----- Specimen grid -----
+  const grid = document.getElementById('grid');
+  W.slice(1).forEach(w => {
+    const pal = w.palette.split(',');
+    const cell = document.createElement('div');
+    cell.className = 'specimen-cell';
+    cell.innerHTML = `
+      <img src="${w.thumb}" alt="">
+      <div class="corners">
+        <span class="cn tl"></span><span class="cn tr"></span>
+        <span class="cn bl"></span><span class="cn br"></span>
+      </div>
+      <div class="label">№${w.id} · in focus</div>
+      <div class="data-row">
+        <span>${w.w} × ${w.h}</span>
+        <span>${window.fmtMB(w.size)}</span>
+      </div>
+      <div class="palette-strip">${pal.map(c => `<i style="background:${c}"></i>`).join('')}</div>
+    `;
+    cell.addEventListener('click', () => location.href = 'detail.html');
+    grid.appendChild(cell);
+  });
+</script>
+</body>
+</html>

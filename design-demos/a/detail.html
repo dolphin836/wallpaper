@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WallShare · Substrate · Detail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:      oklch(14% 0.012 80);
+    --ink-2:    oklch(28% 0.012 80);
+    --paper:    oklch(96% 0.006 80);
+    --paper-2:  oklch(99% 0.003 80);
+    --paper-3:  oklch(92% 0.010 80);
+    --hair:     oklch(86% 0.010 80);
+    --muted:    oklch(48% 0.012 80);
+    --accent:   oklch(64% 0.21 42);
+    --ease:     cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-q:   cubic-bezier(0.16, 1, 0.30, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--paper); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { padding-top: 32px; }
+  .mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; }
+  .serif { font-family: 'Instrument Serif', serif; font-weight: 400; }
+
+  /* ---------- Strip ---------- */
+  .strip {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    height: 32px;
+    background: var(--paper-2);
+    border-bottom: 1px solid var(--hair);
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 0 24px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+  }
+  .strip .left { color: var(--muted); }
+  .strip .left a { color: var(--ink); text-decoration: none; }
+  .strip .mid { display: flex; gap: 0; }
+  .strip .mid .seg { padding: 0 14px; border-left: 1px solid var(--hair); display: flex; align-items: center; height: 32px; }
+  .strip .mid .seg:first-child { border-left: 0; }
+  .strip .mid .num { color: var(--ink); }
+  .strip .mid .net .num { color: var(--accent); }
+  .strip .right { text-align: right; color: var(--muted); }
+
+  /* ---------- Main layout ---------- */
+  main {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 56px 6vw 0;
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 56px;
+    align-items: start;
+  }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+
+  /* ---------- Specimen card (left) ---------- */
+  .specimen {
+    position: relative;
+    padding: 24px;
+    background: var(--paper-2);
+    border: 1px solid var(--hair);
+    animation: rise 600ms var(--ease-q) both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .specimen .corner {
+    position: absolute; width: 18px; height: 18px;
+    border: 1px solid var(--ink);
+  }
+  .specimen .corner.tl { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+  .specimen .corner.tr { top: -1px; right: -1px; border-left: 0; border-bottom: 0; }
+  .specimen .corner.bl { bottom: -1px; left: -1px; border-right: 0; border-top: 0; }
+  .specimen .corner.br { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+  .specimen img {
+    width: 100%; display: block;
+    aspect-ratio: 16/9;
+    object-fit: cover;
+    background: var(--paper-3);
+  }
+  .specimen .footer-bar {
+    margin-top: 18px;
+    display: flex; justify-content: space-between; align-items: center;
+    color: var(--muted);
+  }
+  .specimen .footer-bar .ticker { color: var(--ink-2); }
+
+  /* ---------- Info panel (right) ---------- */
+  .info { display: flex; flex-direction: column; gap: 28px; padding-top: 4px; }
+  .info .topkicker {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--muted);
+  }
+  .info .topkicker .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .info h1 {
+    font-family: 'Instrument Serif', serif; font-weight: 400;
+    font-size: clamp(38px, 4.6vw, 64px); line-height: 1.0;
+    letter-spacing: -0.01em;
+  }
+  .info .by {
+    color: var(--muted);
+  }
+  .info .by .who { color: var(--ink); font-weight: 500; }
+
+  /* Palette: 5 vertical strips that "pour" taller on hover */
+  .palette-stack {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+    height: 84px;
+    margin-top: 4px;
+  }
+  .palette-stack .col {
+    position: relative; overflow: hidden;
+    background: var(--paper-3); border: 1px solid var(--hair);
+    transition: transform 240ms var(--ease-q);
+  }
+  .palette-stack .col .fill {
+    position: absolute; inset: auto 0 0 0;
+    height: 70%;
+    transition: height 320ms var(--ease-q);
+  }
+  .palette-stack .col:hover { transform: translateY(-3px); }
+  .palette-stack .col:hover .fill { height: 100%; }
+  .palette-stack .col .lbl {
+    position: absolute; left: 6px; bottom: 4px;
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.06em;
+    color: var(--paper); mix-blend-mode: difference;
+  }
+
+  /* Metadata table */
+  .meta-grid {
+    display: grid; grid-template-columns: auto 1fr; column-gap: 18px; row-gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 18px 0;
+    border-top: 1px solid var(--hair);
+    border-bottom: 1px solid var(--hair);
+  }
+  .meta-grid .k { color: var(--muted); }
+  .meta-grid .v { color: var(--ink); }
+
+  /* CTA group */
+  .cta-block {
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .cta {
+    position: relative;
+    background: var(--ink); color: var(--paper);
+    padding: 22px 24px;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase;
+    border: 1px solid var(--ink);
+    cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    transition: background 260ms var(--ease-q), transform 220ms var(--ease-q);
+  }
+  .cta:hover { background: var(--accent); border-color: var(--accent); }
+  .cta:hover .arr { transform: translateX(6px); }
+  .cta .arr { transition: transform 260ms var(--ease-q); }
+  .cta .coin { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); display: inline-block; vertical-align: middle; margin-right: 8px; }
+  .cta:hover .coin { background: var(--paper); }
+  .balance-preview {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .balance-preview .arrow { color: var(--accent); }
+
+  /* Trade-in callout (the share->earn theme on the detail page) */
+  .trade-in {
+    border: 1px dashed var(--hair);
+    padding: 20px 22px;
+    display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center;
+    background: var(--paper-2);
+  }
+  .trade-in p { font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+  .trade-in p em { color: var(--accent); font-style: normal; font-weight: 600; }
+  .trade-in a {
+    color: var(--ink); text-decoration: none;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    border-bottom: 1px solid var(--ink); padding-bottom: 2px;
+    white-space: nowrap;
+    transition: color 220ms var(--ease-q), border-color 220ms var(--ease-q);
+  }
+  .trade-in a:hover { color: var(--accent); border-color: var(--accent); }
+
+  .actions-row {
+    display: flex; gap: 0; margin-top: 4px;
+  }
+  .actions-row button {
+    flex: 1; background: var(--paper); color: var(--ink); border: 1px solid var(--hair);
+    padding: 12px; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    transition: background 200ms var(--ease-q), color 200ms var(--ease-q), border-color 200ms var(--ease-q);
+  }
+  .actions-row button + button { border-left: 0; }
+  .actions-row button:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  /* Same-palette row */
+  .same-palette { padding: 80px 6vw 60px; }
+  .same-palette .head { display: flex; align-items: end; justify-content: space-between; margin-bottom: 24px; }
+  .same-palette h2 { font-family: 'Instrument Serif', serif; font-weight: 400; font-size: clamp(28px, 3.4vw, 48px); line-height: 1; }
+  .same-palette .kicker { color: var(--muted); }
+  .same-palette .row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  }
+  @media (max-width: 800px) { .same-palette .row { grid-template-columns: repeat(2, 1fr); } }
+  .same-palette .tile {
+    position: relative; aspect-ratio: 16/10; overflow: hidden;
+    background: var(--paper-3); border: 1px solid var(--hair);
+    transition: transform 280ms var(--ease-q), border-color 280ms var(--ease-q);
+  }
+  .same-palette .tile:hover { transform: translateY(-3px); border-color: var(--ink); }
+  .same-palette .tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  footer.foot {
+    padding: 28px 6vw; border-top: 1px solid var(--hair);
+    display: flex; justify-content: space-between; align-items: center;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  }
+  footer.foot a { color: var(--muted); text-decoration: none; }
+  footer.foot a:hover { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="strip">
+  <div class="left"><a href="home.html">← Substrate · Home</a></div>
+  <div class="mid">
+    <div class="seg">LEDGER</div>
+    <div class="seg">+12 EARNED</div>
+    <div class="seg">−8 SPENT</div>
+    <div class="seg net">NET <span class="num">+4</span></div>
+  </div>
+  <div class="right">Balance · <span style="color:var(--ink)">42</span></div>
+</div>
+
+<main>
+  <!-- ===== Specimen (the image) ===== -->
+  <section class="specimen">
+    <span class="corner tl"></span><span class="corner tr"></span>
+    <span class="corner bl"></span><span class="corner br"></span>
+    <img id="img" alt="">
+    <div class="footer-bar mono">
+      <span class="ticker" id="footerKicker"></span>
+      <span><span id="observers"></span> observers · <span id="downloads"></span> traded</span>
+    </div>
+  </section>
+
+  <!-- ===== Info panel ===== -->
+  <aside class="info">
+    <div class="topkicker mono">
+      <span class="dot"></span>
+      <span id="specimenNo"></span>
+      <span>·</span>
+      <span>Curated 2026.05.22</span>
+    </div>
+
+    <div>
+      <h1 class="serif" id="title"></h1>
+      <div class="by mono" style="margin-top:14px">By <span class="who">@frostwood</span> · Uploaded 2026.05.22</div>
+    </div>
+
+    <!-- Palette ----- -->
+    <div>
+      <div class="mono" style="color:var(--muted); margin-bottom:10px">Extracted palette</div>
+      <div class="palette-stack" id="palStack"></div>
+    </div>
+
+    <!-- Metadata -->
+    <div class="meta-grid">
+      <div class="k">Dimensions</div> <div class="v" id="mDim"></div>
+      <div class="k">Megapixels</div> <div class="v" id="mMp"></div>
+      <div class="k">File</div>       <div class="v" id="mFile"></div>
+      <div class="k">Dominant</div>   <div class="v" id="mDom"></div>
+      <div class="k">OKLCH</div>      <div class="v" id="mOklch"></div>
+      <div class="k">Color space</div><div class="v">DCI-P3</div>
+    </div>
+
+    <!-- Secondary actions -->
+    <div class="actions-row">
+      <button>♡ Like</button>
+      <button>☆ Favorite</button>
+      <button>+ List</button>
+      <button>⤢ Fullscreen</button>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta-block">
+      <button class="cta" onclick="document.querySelector('.trade-in').scrollIntoView({behavior:'smooth'})">
+        <span><span class="coin"></span>Trade for 1</span>
+        <span class="arr">→</span>
+      </button>
+      <div class="balance-preview">
+        <span>Balance</span>
+        <span>42 <span class="arrow">→</span> 41 coins</span>
+      </div>
+    </div>
+
+    <!-- Share-to-earn loop -->
+    <div class="trade-in">
+      <p>You've earned <em>+12 this week</em>. Each upload restores the credit downloads spend. Share once, watch the meter move.</p>
+      <a href="#">Upload →</a>
+    </div>
+  </aside>
+</main>
+
+<!-- ===== Same palette band ===== -->
+<section class="same-palette">
+  <div class="head">
+    <div>
+      <div class="kicker mono">Palette family</div>
+      <h2 class="serif" style="margin-top:4px">Same temperature.</h2>
+    </div>
+    <a href="home.html" class="mono" style="text-decoration:none; color:var(--ink); border-bottom:1px solid var(--ink); padding-bottom:4px">Browse the gallery →</a>
+  </div>
+  <div class="row" id="family"></div>
+</section>
+
+<footer class="foot">
+  <span>SUBSTRATE — DETAIL VIEW</span>
+  <span><a href="../index.html">← back to compare</a></span>
+</footer>
+
+<script src="../_data.js"></script>
+<script>
+  const W = window.WALLPAPERS;
+  const wp = W[0];
+  const pal = wp.palette.split(',');
+
+  document.getElementById('img').src = wp.preview;
+  document.getElementById('title').textContent = wp.title + '.';
+  document.getElementById('specimenNo').textContent = 'Specimen №' + wp.id;
+  document.getElementById('observers').textContent = wp.observers;
+  document.getElementById('downloads').textContent = wp.downloads;
+  document.getElementById('footerKicker').textContent = 'Specimen №' + wp.id + ' — curated by editor';
+
+  document.getElementById('mDim').textContent = wp.w + ' × ' + wp.h;
+  document.getElementById('mMp').textContent = window.fmtMP(wp.w, wp.h);
+  document.getElementById('mFile').textContent = window.fmtMB(wp.size) + ' · webp';
+  document.getElementById('mDom').innerHTML = `<span style="display:inline-block;width:10px;height:10px;border:1px solid var(--hair);background:${wp.color};vertical-align:middle;margin-right:6px"></span>${wp.color}`;
+  document.getElementById('mOklch').textContent = 'OKLCH ' + window.hexToOklch(wp.color);
+
+  // palette stack — 5 columns that fill higher on hover
+  document.getElementById('palStack').innerHTML = pal.map((c, i) => `
+    <div class="col" style="--c:${c}">
+      <span class="fill" style="background:${c}; height:${50 + i * 10}%"></span>
+      <span class="lbl">${c}</span>
+    </div>
+  `).join('');
+
+  // Same-palette family — pick wallpapers with similar dominant L
+  const family = W.slice(1).slice(0, 4);
+  document.getElementById('family').innerHTML = family.map(w => `
+    <a class="tile" href="detail.html"><img src="${w.thumb}" alt=""></a>
+  `).join('');
+</script>
+</body>
+</html>

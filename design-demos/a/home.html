@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WallShare · Substrate · Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:      oklch(14% 0.012 80);
+    --ink-2:    oklch(28% 0.012 80);
+    --paper:    oklch(96% 0.006 80);
+    --paper-2:  oklch(99% 0.003 80);
+    --paper-3:  oklch(92% 0.010 80);
+    --hair:     oklch(86% 0.010 80);
+    --muted:    oklch(48% 0.012 80);
+    --accent:   oklch(64% 0.21 42);
+    --ease:     cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-q:   cubic-bezier(0.16, 1, 0.30, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--paper); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+
+  .mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; }
+  .serif { font-family: 'Instrument Serif', serif; font-weight: 400; }
+
+  /* ---------- Trade Strip (fixed top, the share->earn loop made structural) ---------- */
+  .strip {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    height: 32px;
+    background: var(--paper-2);
+    border-bottom: 1px solid var(--hair);
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 0 24px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+  }
+  .strip .left { color: var(--muted); }
+  .strip .mid { display: flex; gap: 0; align-items: stretch; }
+  .strip .mid .seg { padding: 0 14px; border-left: 1px solid var(--hair); display: flex; align-items: center; height: 32px; }
+  .strip .mid .seg:first-child { border-left: 0; }
+  .strip .mid .net { color: var(--accent); }
+  .strip .right { text-align: right; color: var(--muted); }
+  .strip .right a { color: var(--ink); text-decoration: none; padding: 0 4px; }
+  .strip .right a:hover { background: var(--ink); color: var(--paper); }
+  .strip .num { color: var(--ink); }
+
+  /* tiny ticker bump when an "incoming" earn happens (we fake one with JS) */
+  .pulse { animation: pulse 600ms var(--ease) 1; }
+  @keyframes pulse {
+    0%   { background: var(--paper-2); }
+    35%  { background: oklch(94% 0.08 42); }
+    100% { background: var(--paper-2); }
+  }
+
+  /* ---------- Hero (single specimen, takes the screen) ---------- */
+  .hero {
+    margin-top: 32px;
+    height: calc(100vh - 32px);
+    min-height: 540px;
+    position: relative;
+    overflow: hidden;
+    background: var(--paper-3);
+  }
+  .hero img.bg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transform-origin: 50% 60%;
+    animation: kenburns 22s ease-in-out infinite alternate;
+  }
+  @keyframes kenburns {
+    0%   { transform: scale(1.04) translate(0, 0); }
+    100% { transform: scale(1.10) translate(-1.5%, -1%); }
+  }
+  .hero::after {
+    /* paper-tone vignette on top of image, keeps it "sat on paper" */
+    content: ""; position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg, transparent 35%, oklch(96% 0.006 80 / 0.0) 55%, oklch(96% 0.006 80 / 0.85) 100%),
+      linear-gradient(90deg, oklch(96% 0.006 80 / 0.6), transparent 35%);
+    pointer-events: none;
+  }
+  .hero .overlay {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 28px 6vw 36px;
+    display: grid; grid-template-columns: 1fr auto; gap: 24px;
+    align-items: end;
+  }
+  .hero .kicker-row {
+    display: flex; gap: 24px; align-items: center;
+    color: var(--ink-2);
+    margin-bottom: 10px;
+  }
+  .hero .kicker-row .dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; }
+  .hero h1.title {
+    font-family: 'Instrument Serif', serif; font-weight: 400;
+    font-size: clamp(48px, 7.5vw, 120px);
+    line-height: 0.92;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    max-width: 14ch;
+  }
+  .hero .meta-line {
+    margin-top: 14px;
+    display: flex; gap: 16px; flex-wrap: wrap;
+    color: var(--ink-2);
+  }
+  .hero .meta-line span { display: flex; align-items: center; gap: 6px; }
+  .hero .meta-line .swatch { width: 10px; height: 10px; border: 1px solid var(--hair); }
+  .hero .palette-row {
+    margin-top: 18px;
+    display: flex; gap: 4px;
+    height: 16px;
+    max-width: 320px;
+  }
+  .hero .palette-row span {
+    flex: 1; transition: flex 240ms var(--ease-q);
+  }
+  .hero .palette-row:hover span { flex: 1; }
+  .hero .palette-row:hover span:hover { flex: 4; }
+
+  .hero .cta-pack { display: flex; gap: 12px; align-items: end; }
+  .hero .cta {
+    display: inline-flex; align-items: center; gap: 12px;
+    background: var(--ink); color: var(--paper);
+    padding: 16px 22px;
+    border: 1px solid var(--ink);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 220ms var(--ease-q), background 220ms var(--ease-q);
+  }
+  .hero .cta:hover { transform: translateY(-2px); background: var(--accent); border-color: var(--accent); }
+  .hero .cta .coin { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); display: inline-block; }
+  .hero .cta:hover .coin { background: var(--paper); }
+  .hero .cta-secondary {
+    background: transparent; color: var(--ink); border: 1px solid var(--ink);
+  }
+  .hero .cta-secondary:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  .hero .accent-line {
+    position: absolute; left: 0; right: 0; bottom: 16px;
+    height: 1px; background: var(--accent);
+    transform-origin: left;
+    animation: line-in 1200ms var(--ease-q) 200ms both;
+  }
+  @keyframes line-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+  /* ---------- Section heads ---------- */
+  .section { padding: 80px 6vw 24px; }
+  .section .head { display: flex; align-items: end; justify-content: space-between; margin-bottom: 28px; gap: 24px; }
+  .section .head h2 { font-family: 'Instrument Serif', serif; font-weight: 400; font-size: clamp(32px, 4vw, 56px); line-height: 1; }
+  .section .head .kicker { color: var(--muted); }
+  .section .head a.more { color: var(--ink); text-decoration: none; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; padding: 8px 0; border-bottom: 1px solid var(--ink); }
+  .section .head a.more:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ---------- Grid of specimens ---------- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 580px) { .grid { grid-template-columns: 1fr; } }
+  .tile {
+    position: relative;
+    aspect-ratio: 16/10;
+    overflow: hidden;
+    background: var(--paper-3);
+    border: 1px solid var(--hair);
+    transition: transform 320ms var(--ease-q), box-shadow 320ms var(--ease-q), border-color 320ms var(--ease-q);
+    transform-style: preserve-3d;
+  }
+  .tile img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 480ms var(--ease-q);
+  }
+  .tile:hover {
+    transform: perspective(900px) rotateX(0.6deg) rotateY(-0.6deg) translateY(-3px);
+    border-color: var(--ink);
+    box-shadow:
+      0 12px 28px -10px var(--dom, oklch(40% 0.06 80) / 0.35),
+      0 1px 0 var(--hair);
+  }
+  .tile:hover img { transform: scale(1.03); }
+  .tile .meta {
+    position: absolute; left: 12px; right: 12px; bottom: 10px;
+    display: flex; align-items: end; justify-content: space-between; gap: 12px;
+    color: var(--paper);
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    text-shadow: 0 1px 12px rgba(0,0,0,0.5);
+  }
+  .tile .meta .num { color: var(--paper); }
+  .tile .palette-ribbon {
+    position: absolute; right: 0; top: 0; bottom: 0;
+    width: 8px;
+    display: flex; flex-direction: column;
+    transform: translateX(8px);
+    transition: transform 320ms var(--ease-q);
+  }
+  .tile:hover .palette-ribbon { transform: translateX(0); }
+  .tile .palette-ribbon span { flex: 1; }
+
+  /* ---------- "Trade-in" prompt (the supply-side nudge) ---------- */
+  .invite {
+    margin-top: 100px;
+    padding: 80px 6vw 100px;
+    border-top: 1px solid var(--hair);
+    background: var(--paper-2);
+    display: grid; grid-template-columns: 1.2fr 1fr; gap: 60px; align-items: center;
+  }
+  @media (max-width: 800px) { .invite { grid-template-columns: 1fr; } }
+  .invite h3 {
+    font-family: 'Instrument Serif', serif; font-weight: 400;
+    font-size: clamp(36px, 5vw, 72px); line-height: 1;
+    letter-spacing: -0.01em;
+  }
+  .invite h3 em { font-style: italic; color: var(--accent); }
+  .invite p { font-size: 16px; line-height: 1.55; color: var(--muted); max-width: 50ch; margin-top: 14px; }
+  .invite .right {
+    display: flex; flex-direction: column; align-items: start; gap: 20px;
+  }
+  .invite .ledger-card {
+    display: grid; grid-template-columns: auto 1fr; column-gap: 16px; row-gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 18px 22px; border: 1px solid var(--hair); background: var(--paper); width: 100%;
+  }
+  .invite .ledger-card .k { color: var(--muted); }
+  .invite .ledger-card .v { color: var(--ink); text-align: right; }
+  .invite .ledger-card .v.up { color: oklch(45% 0.15 145); }
+  .invite .ledger-card .v.down { color: var(--accent); }
+  .invite .big-button {
+    background: var(--ink); color: var(--paper);
+    padding: 18px 26px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 14px;
+    transition: transform 260ms var(--ease-q), background 260ms var(--ease-q);
+  }
+  .invite .big-button:hover { transform: translateX(4px); background: var(--accent); }
+  .invite .big-button .arr { transition: transform 260ms var(--ease-q); }
+  .invite .big-button:hover .arr { transform: translateX(4px); }
+
+  footer.foot {
+    padding: 24px 6vw;
+    border-top: 1px solid var(--hair);
+    display: flex; justify-content: space-between; align-items: center;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  }
+  footer.foot a { color: var(--muted); text-decoration: none; }
+  footer.foot a:hover { color: var(--ink); }
+
+  /* scroll-reveal */
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity 600ms var(--ease-q), transform 600ms var(--ease-q); }
+  .reveal.on { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+
+<!-- ===== Trade Strip ===== -->
+<div class="strip" id="strip">
+  <div class="left">WallShare · Substrate Demo · Week 22</div>
+  <div class="mid">
+    <div class="seg">LEDGER</div>
+    <div class="seg"><span class="num">+12</span>&nbsp;EARNED</div>
+    <div class="seg"><span class="num">−8</span>&nbsp;SPENT</div>
+    <div class="seg net">NET&nbsp;<span class="num" style="color:var(--accent)">+4</span></div>
+  </div>
+  <div class="right"><a href="#">Sign in</a> · <a href="#">Upload</a></div>
+</div>
+
+<!-- ===== Hero ===== -->
+<section class="hero" id="hero">
+  <img class="bg" alt="" id="heroImg">
+  <span class="accent-line"></span>
+  <div class="overlay">
+    <div>
+      <div class="kicker-row mono">
+        <span class="dot"></span>
+        <span>Curation №042 / Week 22</span>
+        <span>·</span>
+        <span id="observersHero">3 observers</span>
+      </div>
+      <h1 class="title serif" id="heroTitle"></h1>
+      <div class="meta-line mono" id="heroMeta"></div>
+      <div class="palette-row" id="heroPalette"></div>
+    </div>
+    <div class="cta-pack">
+      <button class="cta cta-secondary mono" onclick="bumpStrip()">View magnified</button>
+      <a class="cta mono" href="detail.html">
+        <span>Trade for 1</span>
+        <span class="coin"></span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Grid ===== -->
+<section class="section reveal" id="gridSec">
+  <div class="head">
+    <div>
+      <div class="kicker mono">From the gallery</div>
+      <h2 class="serif" style="margin-top:4px">Recently added.</h2>
+    </div>
+    <a class="more" href="#">All wallpapers →</a>
+  </div>
+  <div class="grid" id="grid"></div>
+</section>
+
+<!-- ===== Invitation (share-to-earn) ===== -->
+<section class="invite reveal" id="invSec">
+  <div>
+    <div class="mono" style="color:var(--muted); letter-spacing:0.18em">The loop</div>
+    <h3 class="serif">Want more? <em>Trade something back.</em></h3>
+    <p>You've spent 8 coins this week and earned 12 back from people downloading your work. Every wallpaper you share opens the next download.</p>
+  </div>
+  <div class="right">
+    <div class="ledger-card">
+      <div class="k">Balance</div>           <div class="v">42</div>
+      <div class="k">↑ Earned this week</div> <div class="v up">+12</div>
+      <div class="k">↓ Spent this week</div>  <div class="v down">−8</div>
+      <div class="k">Top trade</div>          <div class="v">Specimen №963 · 10 downloads</div>
+    </div>
+    <a class="big-button" href="#" onclick="event.preventDefault(); fakeEarn()">
+      <span>Upload a wallpaper</span><span class="arr">→</span>
+    </a>
+  </div>
+</section>
+
+<footer class="foot">
+  <span>SUBSTRATE — DESIGN DIRECTION A</span>
+  <span><a href="../index.html">← back to compare</a></span>
+</footer>
+
+<script src="../_data.js"></script>
+<script>
+  const W = window.WALLPAPERS;
+
+  // ---------- Hero ----------
+  const hero = W[0];
+  document.getElementById('heroImg').src = hero.preview;
+  document.getElementById('heroTitle').textContent = hero.title + '.';
+  document.getElementById('observersHero').textContent = hero.observers + ' observers';
+  document.getElementById('heroMeta').innerHTML = `
+    <span>${hero.w} × ${hero.h}</span>
+    <span>·</span>
+    <span>${window.fmtMP(hero.w, hero.h)}</span>
+    <span>·</span>
+    <span>${window.fmtMB(hero.size)}</span>
+    <span>·</span>
+    <span><span class="swatch" style="background:${hero.color}"></span>OKLCH ${window.hexToOklch(hero.color)}</span>
+  `;
+  const palette = hero.palette.split(',');
+  document.getElementById('heroPalette').innerHTML = palette.map(c => `<span style="background:${c}"></span>`).join('');
+
+  // ---------- Grid ----------
+  const grid = document.getElementById('grid');
+  W.slice(1, 10).forEach((w, i) => {
+    const pal = w.palette.split(',');
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.style.setProperty('--dom', w.color);
+    tile.innerHTML = `
+      <img src="${w.thumb}" alt="">
+      <div class="palette-ribbon">${pal.map(c => `<span style="background:${c}"></span>`).join('')}</div>
+      <div class="meta">
+        <span>№${w.id} · ${w.title.length > 32 ? w.title.slice(0, 30) + '…' : w.title}</span>
+        <span class="num">${w.w}×${w.h}</span>
+      </div>
+    `;
+    tile.addEventListener('click', () => location.href = 'detail.html');
+    grid.appendChild(tile);
+  });
+
+  // ---------- Reveal on scroll ----------
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('on'); });
+  }, { rootMargin: '-50px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // ---------- Fake "you got an earn" ticker bump ----------
+  function bumpStrip() {
+    const s = document.getElementById('strip');
+    s.classList.remove('pulse'); void s.offsetWidth; s.classList.add('pulse');
+  }
+  function fakeEarn() {
+    bumpStrip();
+    setTimeout(bumpStrip, 1400);
+  }
+  // a single self-bump after 4s, so first impression shows the meter is alive
+  setTimeout(bumpStrip, 4200);
+</script>
+</body>
+</html>

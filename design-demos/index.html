@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WallShare — Design Direction Demos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: oklch(14% 0.012 80);
+    --paper: oklch(96% 0.006 80);
+    --paper-2: oklch(99% 0.003 80);
+    --hair: oklch(86% 0.010 80);
+    --muted: oklch(48% 0.012 80);
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--paper); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; display: flex; flex-direction: column; padding: 64px 8vw; gap: 56px; }
+  .kicker { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+  h1 { font-family: 'Instrument Serif', serif; font-weight: 400; font-size: clamp(40px, 6vw, 88px); line-height: 0.95; letter-spacing: -0.01em; }
+  h1 em { font-style: italic; color: oklch(50% 0.18 28); }
+  p.lede { max-width: 60ch; font-size: 16px; line-height: 1.55; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .card {
+    position: relative;
+    border: 1px solid var(--hair);
+    background: var(--paper-2);
+    padding: 28px 28px 24px;
+    overflow: hidden;
+    transition: transform 280ms var(--ease), border-color 280ms var(--ease);
+  }
+  .card:hover { transform: translateY(-3px); border-color: var(--ink); }
+  .card h2 { font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 36px; line-height: 1.05; margin: 12px 0 6px; }
+  .card .ticker { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
+  .card .one-line { font-size: 13px; color: var(--ink); margin-top: 10px; line-height: 1.5; }
+  .card .palette { display: flex; gap: 0; margin-top: 18px; height: 28px; }
+  .card .palette span { flex: 1; }
+  .card .links { display: flex; gap: 0; border-top: 1px solid var(--hair); margin-top: 20px; padding-top: 16px; }
+  .card .links a {
+    flex: 1;
+    text-align: center;
+    text-decoration: none;
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 10px;
+    border: 1px solid transparent;
+    transition: background 160ms var(--ease), color 160ms var(--ease);
+  }
+  .card .links a:hover { background: var(--ink); color: var(--paper); }
+  .card .links a + a { border-left: 1px solid var(--hair); }
+  .card.console { background: oklch(13% 0.018 230); color: oklch(96% 0.010 230); border-color: oklch(28% 0.020 230); }
+  .card.console h2 { color: oklch(96% 0.010 230); }
+  .card.console .ticker { color: oklch(86% 0.18 145); }
+  .card.console .one-line { color: oklch(82% 0.010 230); }
+  .card.console .links { border-top-color: oklch(28% 0.020 230); }
+  .card.console .links a { color: oklch(96% 0.010 230); }
+  .card.console .links a + a { border-left-color: oklch(28% 0.020 230); }
+  .card.console .links a:hover { background: oklch(86% 0.18 145); color: oklch(13% 0.018 230); }
+  footer { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } body { padding: 40px 6vw; } }
+</style>
+</head>
+<body>
+  <header>
+    <div class="kicker">WallShare · design demos · 2026.05.28</div>
+    <h1>Two directions, <em>same product</em>.</h1>
+    <p class="lede">两个方向的可点击 demo,真实壁纸数据驱动,主要看首页 hero 冲击力和详情页交易感。所有功能都会保留,这里只展示视觉与交互语言。</p>
+  </header>
+
+  <section class="grid">
+    <article class="card">
+      <span class="ticker">Direction A</span>
+      <h2>Substrate</h2>
+      <div class="one-line">一个材料工作室。壁纸是实物,UI 是它躺着的纸面,你能"感觉到它的重量"。质感优先、触觉感、安静的张力。</div>
+      <div class="palette">
+        <span style="background:oklch(96% 0.006 80)"></span>
+        <span style="background:oklch(86% 0.010 80)"></span>
+        <span style="background:oklch(48% 0.012 80)"></span>
+        <span style="background:oklch(14% 0.012 80)"></span>
+        <span style="background:oklch(64% 0.21 42)"></span>
+      </div>
+      <div class="links">
+        <a href="a/home.html">Home →</a>
+        <a href="a/detail.html">Detail →</a>
+      </div>
+    </article>
+
+    <article class="card console">
+      <span class="ticker">Direction B</span>
+      <h2>Console</h2>
+      <div class="one-line">一个色彩校准实验室。壁纸是被测样本,UI 是测量仪器。深、冷、精确。科技/前沿,但不是 neon 赛博。</div>
+      <div class="palette">
+        <span style="background:oklch(13% 0.018 230)"></span>
+        <span style="background:oklch(22% 0.022 230)"></span>
+        <span style="background:oklch(96% 0.010 230)"></span>
+        <span style="background:oklch(86% 0.18 145)"></span>
+        <span style="background:oklch(72% 0.20 60)"></span>
+      </div>
+      <div class="links">
+        <a href="b/home.html">Home →</a>
+        <a href="b/detail.html">Detail →</a>
+      </div>
+    </article>
+  </section>
+
+  <footer>4 PAGES · ARROW KEYS DON'T DO ANYTHING · OPEN ANYWHERE</footer>
+</body>
+</html>
