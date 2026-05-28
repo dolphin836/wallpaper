@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>③ Cosmos · WallShare demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  /* Cosmos — cinematic, dark indigo, hero never stops, hidden controls */
+  :root {
+    --bg:    oklch(15% 0.045 270);
+    --bg-1:  oklch(20% 0.045 270);
+    --ink:   oklch(96% 0.012 270);
+    --ink-2: oklch(82% 0.014 270);
+    --muted: oklch(60% 0.018 270);
+    --hair:  oklch(30% 0.030 270);
+    --warm:  oklch(78% 0.16 60);
+    --ease:  cubic-bezier(0.16, 1, 0.30, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh; overflow-x: hidden;
+  }
+  .serif { font-family: 'Instrument Serif', serif; font-weight: 400; }
+
+  /* Hidden-until-needed header — fades in on mouse move at top */
+  header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    padding: 22px 48px;
+    display: flex; align-items: center; gap: 28px;
+    opacity: 0.0;
+    transition: opacity 600ms var(--ease);
+    pointer-events: none;
+  }
+  body.show-chrome header { opacity: 1; pointer-events: auto; }
+  header::before {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, oklch(15% 0.045 270 / 0.9), transparent);
+    z-index: -1;
+  }
+  header .brand { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 22px; }
+  header nav { display: flex; gap: 22px; margin-left: 28px; }
+  header nav a { font-size: 13px; color: var(--ink-2); text-decoration: none; transition: color 200ms var(--ease); }
+  header nav a:hover, header nav a.active { color: var(--ink); }
+  header .right { margin-left: auto; display: flex; align-items: center; gap: 20px; }
+  header .right .user { font-size: 13px; color: var(--ink-2); }
+
+  /* Trade Circle — top-right, a moon-phase meter for the share-to-earn loop */
+  .trade-circle {
+    position: fixed; top: 22px; right: 28px; z-index: 60;
+    width: 44px; height: 44px;
+    transition: transform 400ms var(--ease);
+  }
+  .trade-circle:hover { transform: scale(1.08); }
+  .trade-circle svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .trade-circle .ring { fill: none; stroke: var(--hair); stroke-width: 2; }
+  .trade-circle .fill { fill: none; stroke: var(--warm); stroke-width: 2; stroke-linecap: round; transition: stroke-dashoffset 800ms var(--ease); }
+  .trade-circle .center {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font-family: 'Instrument Serif', serif; font-size: 16px; color: var(--ink);
+  }
+  .trade-circle.pulse .fill { animation: tc-pulse 1200ms ease-out 1; }
+  @keyframes tc-pulse { 0% { stroke-width: 2; } 50% { stroke-width: 4; filter: drop-shadow(0 0 6px var(--warm)); } 100% { stroke-width: 2; } }
+  .trade-circle .tip {
+    position: absolute; top: 50px; right: 0;
+    background: var(--bg-1); padding: 10px 14px;
+    border: 1px solid var(--hair);
+    border-radius: 4px;
+    font-size: 11px; color: var(--ink-2);
+    white-space: nowrap;
+    opacity: 0; pointer-events: none;
+    transition: opacity 200ms var(--ease);
+  }
+  .trade-circle:hover .tip { opacity: 1; }
+  .trade-circle .tip b { color: var(--warm); }
+
+  /* HERO — full bleed, auto-cycle, cross-fade */
+  .hero { position: relative; height: 100vh; overflow: hidden; }
+  .slide {
+    position: absolute; inset: 0;
+    opacity: 0;
+    transition: opacity 1400ms ease-in-out;
+  }
+  .slide.on { opacity: 1; }
+  .slide img {
+    width: 100%; height: 100%; object-fit: cover;
+    transform: scale(1.04);
+    animation: slow-zoom 14s ease-out forwards;
+  }
+  @keyframes slow-zoom { from { transform: scale(1.04); } to { transform: scale(1.10); } }
+  .hero::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(70% 50% at 50% 100%, oklch(15% 0.045 270 / 0.85), transparent 70%),
+      linear-gradient(180deg, oklch(15% 0.045 270 / 0.55) 0%, transparent 25%);
+  }
+
+  /* Curator's note — quiet, bottom-left */
+  .note {
+    position: absolute; left: 56px; bottom: 80px; right: 56px; z-index: 4;
+    display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: end;
+    color: var(--ink);
+  }
+  .note .meta {
+    font-family: 'Instrument Serif', serif; font-style: italic;
+    font-size: 12px; letter-spacing: 0.04em; color: var(--ink-2);
+  }
+  .note h1 {
+    margin-top: 8px;
+    font-family: 'Instrument Serif', serif; font-weight: 400;
+    font-size: clamp(40px, 5.5vw, 80px); line-height: 1; letter-spacing: -0.015em;
+    max-width: 14ch;
+  }
+  .note h1 em { font-style: italic; color: var(--warm); }
+  .note .by {
+    margin-top: 14px;
+    font-size: 13px; color: var(--ink-2); letter-spacing: 0.04em;
+  }
+  .note .by .name { color: var(--ink); font-style: italic; }
+  .note .cta {
+    display: inline-flex; align-items: center; gap: 12px;
+    padding: 14px 24px;
+    background: oklch(96% 0.012 270 / 0.95); color: var(--bg);
+    border-radius: 999px;
+    font-size: 13px; font-weight: 600;
+    text-decoration: none;
+    transition: transform 240ms var(--ease), background 240ms var(--ease);
+  }
+  .note .cta:hover { transform: translateY(-2px); background: var(--warm); color: var(--bg); }
+  .note .cta .coin {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: linear-gradient(135deg, #f4ae66, #d57130);
+  }
+
+  /* Slide indicators — tiny dashes at very bottom */
+  .indicators {
+    position: absolute; bottom: 36px; left: 56px; right: 56px; z-index: 5;
+    display: flex; gap: 6px;
+  }
+  .indicators i {
+    flex: 1; height: 1.5px; background: oklch(96% 0.012 270 / 0.25);
+    border-radius: 999px;
+    overflow: hidden; position: relative;
+  }
+  .indicators i.on::after {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+    background: var(--ink);
+    animation: ind 4s linear forwards;
+  }
+  @keyframes ind { from { width: 0; } to { width: 100%; } }
+
+  /* Below: masonry, 3 columns, varied heights */
+  .gallery {
+    padding: 80px 56px 100px;
+    column-count: 3; column-gap: 18px;
+  }
+  @media (max-width: 900px) { .gallery { column-count: 2; padding: 60px 24px; } }
+  .gallery .pin {
+    break-inside: avoid;
+    margin-bottom: 18px;
+    position: relative;
+    overflow: hidden;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 400ms var(--ease);
+  }
+  .gallery .pin img { width: 100%; height: auto; display: block; transition: transform 800ms var(--ease); }
+  .gallery .pin:hover { transform: translateY(-3px); }
+  .gallery .pin:hover img { transform: scale(1.03); }
+  .gallery .pin .cap {
+    position: absolute; left: 16px; bottom: 14px; right: 16px;
+    color: white; font-family: 'Instrument Serif', serif; font-size: 18px;
+    text-shadow: 0 2px 16px rgba(0,0,0,0.6);
+    opacity: 0; transition: opacity 280ms var(--ease);
+  }
+  .gallery .pin:hover .cap { opacity: 1; }
+
+  .gallery-head {
+    padding: 60px 56px 0;
+    display: flex; align-items: end; justify-content: space-between;
+    border-top: 1px solid var(--hair);
+    margin-top: 0;
+  }
+  .gallery-head { padding-top: 60px; }
+  .gallery-head h2 { font-family: 'Instrument Serif', serif; font-size: clamp(28px, 3.4vw, 44px); line-height: 1; letter-spacing: -0.01em; }
+  .gallery-head h2 em { font-style: italic; color: var(--warm); }
+  .gallery-head .sub { font-family: 'Instrument Serif', serif; font-style: italic; color: var(--muted); font-size: 14px; margin-top: 6px; }
+
+  /* footer back link */
+  .compare {
+    position: fixed; bottom: 16px; left: 16px; z-index: 100;
+    background: oklch(20% 0.045 270 / 0.85);
+    backdrop-filter: blur(8px);
+    padding: 8px 14px; border-radius: 999px;
+    font-size: 11px; color: var(--ink-2); text-decoration: none;
+    border: 1px solid var(--hair);
+  }
+  .compare:hover { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Wallpaper Exchange</div>
+  <nav>
+    <a class="active">Home</a>
+    <a>Discover</a>
+    <a>Collections</a>
+    <a>Submit</a>
+  </nav>
+  <div class="right">
+    <span class="user">@you</span>
+  </div>
+</header>
+
+<!-- Trade Circle — moon-phase meter -->
+<div class="trade-circle pulse" id="circle" title="Your trade circle">
+  <svg viewBox="0 0 44 44">
+    <circle class="ring" cx="22" cy="22" r="18" />
+    <circle class="fill" cx="22" cy="22" r="18"
+            stroke-dasharray="113.097" stroke-dashoffset="29.4" />
+  </svg>
+  <div class="center serif">42</div>
+  <div class="tip">Trade circle · <b>+4 net</b> this week</div>
+</div>
+
+<section class="hero">
+  <div class="slide on" id="s0"><img alt=""></div>
+  <div class="slide" id="s1"><img alt=""></div>
+  <div class="slide" id="s2"><img alt=""></div>
+
+  <div class="indicators">
+    <i id="i0" class="on"></i>
+    <i id="i1"></i>
+    <i id="i2"></i>
+  </div>
+
+  <div class="note">
+    <div>
+      <div class="meta" id="hMeta">Curator's note · Week 22</div>
+      <h1 id="hTitle" class="serif">—<em>.</em></h1>
+      <div class="by">by <span class="name">@frostwood</span></div>
+    </div>
+    <a class="cta" href="#"><span class="coin"></span> Trade for 1 coin</a>
+  </div>
+</section>
+
+<section class="gallery-head">
+  <div>
+    <h2 class="serif">The <em>archive</em>.</h2>
+    <div class="sub">12,043 wallpapers · refreshed continuously</div>
+  </div>
+</section>
+
+<section class="gallery" id="gallery"></section>
+
+<a class="compare" href="../index.html">← back</a>
+
+<script src="../_data.js"></script>
+<script>
+  const W = window.WALLPAPERS;
+  const slides = [W[0], W[1], W[2]];
+  const imgs = [
+    document.querySelector('#s0 img'),
+    document.querySelector('#s1 img'),
+    document.querySelector('#s2 img'),
+  ];
+  imgs.forEach((el, i) => el.src = slides[i].preview);
+
+  function applyNote(i) {
+    const w = slides[i];
+    document.getElementById('hMeta').textContent = `Curator's note · Week 22 · №${String(w.id).padStart(4,'0')}`;
+    document.getElementById('hTitle').innerHTML = w.title + '<em>.</em>';
+  }
+  applyNote(0);
+
+  let idx = 0;
+  setInterval(() => {
+    document.getElementById('s' + idx).classList.remove('on');
+    document.getElementById('i' + idx).classList.remove('on');
+    idx = (idx + 1) % slides.length;
+    document.getElementById('s' + idx).classList.add('on');
+    document.getElementById('i' + idx).classList.add('on');
+    // Restart the indicator animation by re-applying the on class
+    void document.getElementById('i' + idx).offsetWidth;
+    applyNote(idx);
+    // Restart the slow-zoom on the new image
+    const newImg = imgs[idx];
+    newImg.style.animation = 'none';
+    void newImg.offsetWidth;
+    newImg.style.animation = '';
+  }, 4000);
+
+  // Show header chrome on mouse near top, or after any motion
+  let hideTimer;
+  function showChrome() {
+    document.body.classList.add('show-chrome');
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => document.body.classList.remove('show-chrome'), 2400);
+  }
+  document.addEventListener('mousemove', showChrome);
+  // Initial show for 2.5s so user sees the UI exists
+  showChrome();
+
+  // Masonry — varied heights for the cinematic feel
+  const gal = document.getElementById('gallery');
+  W.slice(0).forEach(w => {
+    const a = document.createElement('a');
+    a.className = 'pin';
+    a.href = '#';
+    a.innerHTML = `<img src="${w.preview}" alt=""><div class="cap">${w.title}</div>`;
+    gal.appendChild(a);
+  });
+
+  // Demo: every 8s, pulse the trade circle (someone traded yours)
+  const circle = document.getElementById('circle');
+  setInterval(() => {
+    circle.classList.remove('pulse'); void circle.offsetWidth; circle.classList.add('pulse');
+  }, 8000);
+</script>
+</body>
+</html>

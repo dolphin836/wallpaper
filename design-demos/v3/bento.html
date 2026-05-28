@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>② Editorial Bento · WallShare demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Editorial Bento — asymmetric, magazine-paper, big serif, hush */
+  :root {
+    --paper: #FAFAF7;
+    --ink: #0F0F0E;
+    --ink-2: #3A3A37;
+    --muted: #87877E;
+    --hair: #E5E4DE;
+    --accent: #E85A2C;
+    --ease: cubic-bezier(0.16, 1, 0.30, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .serif { font-family: 'Instrument Serif', serif; font-weight: 400; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* Masthead — magazine style */
+  header {
+    padding: 32px 64px 24px;
+    display: flex; align-items: end; justify-content: space-between;
+    border-bottom: 1px solid var(--ink);
+    margin: 0 32px;
+  }
+  header .left { display: flex; align-items: baseline; gap: 24px; }
+  header h1.title { font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 36px; line-height: 1; letter-spacing: -0.01em; }
+  header h1.title em { font-style: italic; color: var(--accent); }
+  header .issue { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+  header .right { display: flex; gap: 28px; font-size: 13px; }
+  header .right a { color: var(--ink); text-decoration: none; padding-bottom: 4px; border-bottom: 1px solid transparent; transition: border-color 200ms var(--ease); }
+  header .right a:hover, header .right a.active { border-bottom-color: var(--ink); }
+  header .right .balance { color: var(--accent); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+
+  /* Issue header band */
+  .issue-band {
+    padding: 56px 96px 28px;
+    display: grid; grid-template-columns: auto 1fr; gap: 60px; align-items: end;
+  }
+  .issue-band .num {
+    font-family: 'Instrument Serif', serif; font-style: italic;
+    font-size: clamp(80px, 12vw, 180px); line-height: 0.85;
+    color: var(--ink); letter-spacing: -0.03em;
+  }
+  .issue-band .copy { padding-bottom: 14px; }
+  .issue-band .copy .meta {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .issue-band .copy h2 {
+    margin-top: 8px;
+    font-family: 'Instrument Serif', serif; font-weight: 400;
+    font-size: clamp(28px, 3.4vw, 52px); line-height: 1.05;
+    letter-spacing: -0.01em;
+    max-width: 16ch;
+  }
+  .issue-band .copy h2 em { font-style: italic; color: var(--accent); }
+  .issue-band .copy p {
+    margin-top: 14px;
+    font-size: 14px; line-height: 1.55; color: var(--ink-2);
+    max-width: 44ch;
+  }
+
+  /* BENTO grid */
+  .bento {
+    padding: 32px 96px 48px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-auto-rows: 120px;
+    gap: 14px;
+  }
+  .b { position: relative; overflow: hidden; border-radius: 4px; cursor: pointer; background: #E5E4DE; opacity: 0; transform: translateY(14px); animation: rise 700ms var(--ease) forwards; }
+  .b img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 700ms var(--ease); }
+  .b:hover img { transform: scale(1.05); }
+  .b .cap {
+    position: absolute; left: 16px; bottom: 14px; right: 16px; color: white;
+    font-family: 'Instrument Serif', serif; font-size: 22px; line-height: 1.1;
+    text-shadow: 0 2px 16px rgba(0,0,0,0.6);
+  }
+  .b .num-stamp {
+    position: absolute; top: 12px; left: 16px;
+    font-family: 'Instrument Serif', serif; font-style: italic;
+    font-size: 28px; color: white; text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  }
+  /* Asymmetric tiles */
+  .b.hero       { grid-column: span 4; grid-row: span 4; }
+  .b.tall       { grid-column: span 2; grid-row: span 4; }
+  .b.wide       { grid-column: span 4; grid-row: span 2; }
+  .b.med        { grid-column: span 2; grid-row: span 2; }
+  /* Stagger entrance */
+  .b:nth-child(1) { animation-delay: 0ms; }
+  .b:nth-child(2) { animation-delay: 80ms; }
+  .b:nth-child(3) { animation-delay: 160ms; }
+  .b:nth-child(4) { animation-delay: 240ms; }
+  .b:nth-child(5) { animation-delay: 320ms; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+
+  /* Hover lift — physical paper */
+  .b { transition: transform 320ms var(--ease), box-shadow 320ms var(--ease); }
+  .b:hover { transform: translateY(-4px); box-shadow: 0 18px 40px -14px rgba(0,0,0,0.25); }
+
+  /* "The Ledger" column — share-to-earn done as a magazine sidebar */
+  .ledger {
+    margin: 48px 96px 80px;
+    padding: 28px 0;
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+    display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 36px; align-items: start;
+  }
+  .ledger .col-h {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted);
+    padding-bottom: 12px; border-bottom: 1px solid var(--hair);
+    margin-bottom: 12px;
+  }
+  .ledger h3 {
+    font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 36px; line-height: 1.05; letter-spacing: -0.01em;
+  }
+  .ledger h3 em { font-style: italic; color: var(--accent); }
+  .ledger .copy { font-size: 14px; line-height: 1.6; color: var(--ink-2); }
+  .ledger .copy a { color: var(--ink); border-bottom: 1px solid var(--accent); text-decoration: none; padding-bottom: 1px; }
+  .ledger .stats { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .ledger .stats .line { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+  .ledger .stats .line:last-child { border-bottom: 0; }
+  .ledger .stats .v.up { color: oklch(45% 0.15 145); }
+  .ledger .stats .v.down { color: var(--accent); }
+  .ledger .stats .v.net { font-weight: 600; }
+
+  /* footer back link */
+  .compare {
+    position: fixed; bottom: 16px; right: 16px; z-index: 100;
+    background: var(--paper);
+    padding: 8px 14px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--muted); text-decoration: none;
+    border: 1px solid var(--hair);
+  }
+  .compare:hover { color: var(--ink); border-color: var(--ink); }
+  @media (max-width: 900px) {
+    header { margin: 0; padding: 20px; flex-wrap: wrap; gap: 12px; }
+    .issue-band, .bento, .ledger { padding-left: 24px; padding-right: 24px; margin-left: 0; margin-right: 0; }
+    .bento { grid-template-columns: repeat(2, 1fr); }
+    .b.hero, .b.tall, .b.wide, .b.med { grid-column: span 2; grid-row: span 2; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="left">
+    <h1 class="title"><em>Wallpaper</em> Exchange</h1>
+    <span class="issue">Issue №042 · Week 22 · May 2026</span>
+  </div>
+  <div class="right">
+    <a class="active">Home</a>
+    <a>Discover</a>
+    <a>Collections</a>
+    <a>Submit</a>
+    <span class="balance">42 coins</span>
+  </div>
+</header>
+
+<section class="issue-band">
+  <div class="num serif"><em>42</em></div>
+  <div class="copy">
+    <div class="meta">This week · 10 wallpapers · chosen by the editor</div>
+    <h2 class="serif"><em>Stargazing</em> and starlit nights.</h2>
+    <p>Ten frames pulled from the archive this week, chosen for the way light arrives a moment before sound. Trade one for your own.</p>
+  </div>
+</section>
+
+<section class="bento" id="bento"></section>
+
+<section class="ledger">
+  <div>
+    <div class="col-h">The Ledger</div>
+    <h3 class="serif">Want more? <em>Trade something back.</em></h3>
+  </div>
+  <div>
+    <div class="col-h">From the editor</div>
+    <div class="copy">
+      Every download spends one coin; every wallpaper you share earns one. The math is gentle. <a href="#">Submit a wallpaper</a> and the next download won't cost you anything new.
+    </div>
+  </div>
+  <div>
+    <div class="col-h">Your column</div>
+    <div class="stats">
+      <div class="line"><span>↑ Earned</span><span class="v up">+12</span></div>
+      <div class="line"><span>↓ Spent</span><span class="v down">−8</span></div>
+      <div class="line"><span>Net</span><span class="v net">+4</span></div>
+      <div class="line"><span>Balance</span><span>42</span></div>
+    </div>
+  </div>
+</section>
+
+<a class="compare" href="../index.html">← back</a>
+
+<script src="../_data.js"></script>
+<script>
+  const W = window.WALLPAPERS;
+  // Asymmetric bento: hero + tall + wide + med + med
+  const layout = [
+    { wp: W[0], cls: 'hero', stamp: '№01' },
+    { wp: W[1], cls: 'tall', stamp: '№02' },
+    { wp: W[2], cls: 'wide', stamp: '№03' },
+    { wp: W[3], cls: 'med',  stamp: '№04' },
+    { wp: W[4], cls: 'med',  stamp: '№05' },
+  ];
+  const bento = document.getElementById('bento');
+  layout.forEach(({ wp, cls, stamp }) => {
+    const a = document.createElement('a');
+    a.className = `b ${cls}`;
+    a.href = '#';
+    a.innerHTML = `
+      <img src="${wp.preview}" alt="">
+      <span class="num-stamp">${stamp}</span>
+      <div class="cap">${wp.title}</div>
+    `;
+    bento.appendChild(a);
+  });
+</script>
+</body>
+</html>

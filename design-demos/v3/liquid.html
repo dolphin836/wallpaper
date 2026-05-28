@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>① Liquid Surface · WallShare demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Liquid Surface — wallpaper drives the surface */
+  :root {
+    --ink: oklch(20% 0.014 240);
+    --ink-2: oklch(36% 0.012 240);
+    --muted: oklch(56% 0.014 240);
+    --paper: oklch(98% 0.005 240);
+    --hair: oklch(90% 0.010 240);
+    --ease: cubic-bezier(0.16, 1, 0.30, 1);
+    --c1: #4681C8;
+    --c2: #345F5F;
+    --c3: #9ACCD5;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: 'Geist', system-ui, sans-serif;
+    background: var(--paper);
+    overflow-x: hidden;
+    position: relative;
+  }
+  /* Animated mesh background — three soft blobs of the active wallpaper's
+     palette drifting around. This is the signature: the SURFACE is alive. */
+  body::before {
+    content: ""; position: fixed; inset: -20%; z-index: 0;
+    background:
+      radial-gradient(40% 40% at 20% 30%, var(--c1) 0%, transparent 60%),
+      radial-gradient(45% 45% at 80% 25%, var(--c2) 0%, transparent 55%),
+      radial-gradient(50% 50% at 50% 80%, var(--c3) 0%, transparent 60%);
+    filter: blur(80px) saturate(1.1);
+    opacity: 0.28;
+    animation: drift 30s ease-in-out infinite alternate;
+    transition: background 1200ms ease, opacity 1200ms ease;
+    pointer-events: none;
+  }
+  @keyframes drift {
+    0%   { transform: translate(0, 0) scale(1); }
+    33%  { transform: translate(-3%, 2%) scale(1.05); }
+    66%  { transform: translate(2%, -3%) scale(0.95); }
+    100% { transform: translate(-1%, 1%) scale(1.02); }
+  }
+
+  /* Header — translucent, soft */
+  header {
+    position: sticky; top: 0; z-index: 30;
+    backdrop-filter: blur(20px) saturate(1.4);
+    background: oklch(98% 0.005 240 / 0.55);
+    border-bottom: 1px solid oklch(90% 0.010 240 / 0.6);
+    padding: 14px 40px;
+    display: flex; align-items: center; gap: 24px;
+  }
+  header .brand { font-weight: 600; font-size: 17px; letter-spacing: -0.01em; }
+  header nav { display: flex; gap: 20px; margin-left: 32px; }
+  header nav a {
+    font-size: 13px; color: var(--muted); text-decoration: none;
+    transition: color 200ms var(--ease);
+  }
+  header nav a:hover, header nav a.active { color: var(--ink); }
+  header nav a.active { font-weight: 500; }
+  header .right { margin-left: auto; display: flex; align-items: center; gap: 16px; font-size: 13px; }
+  header .right .balance {
+    display: inline-flex; align-items: center; gap: 6px; color: var(--ink);
+    font-weight: 500;
+  }
+  header .right .balance .coin {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: linear-gradient(135deg, #f0a05b, #d57130);
+    box-shadow: 0 0 0 2px oklch(98% 0.005 240 / 0.5);
+  }
+
+  /* HERO — floating wallpaper card, breathing space around */
+  main { position: relative; z-index: 1; }
+  .hero {
+    padding: 64px 40px 56px;
+    display: grid; place-items: center;
+  }
+  .hero-card {
+    width: min(86vw, 1180px);
+    aspect-ratio: 16/9;
+    position: relative;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow:
+      0 1px 0 oklch(100% 0 0 / 0.6),
+      0 12px 60px -16px oklch(20% 0.014 240 / 0.25),
+      0 40px 100px -40px oklch(20% 0.014 240 / 0.3);
+    transition: transform 600ms var(--ease), box-shadow 600ms var(--ease);
+    transform-style: preserve-3d;
+  }
+  .hero-card:hover {
+    transform: perspective(1400px) rotateY(-1.2deg) rotateX(0.6deg) translateY(-4px);
+    box-shadow:
+      0 1px 0 oklch(100% 0 0 / 0.6),
+      0 20px 80px -16px oklch(20% 0.014 240 / 0.35),
+      0 60px 140px -40px oklch(20% 0.014 240 / 0.4);
+  }
+  .hero-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .hero-card .overlay {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 28px 32px 26px;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,0.55));
+    color: white;
+    display: flex; align-items: end; justify-content: space-between; gap: 16px;
+  }
+  .hero-card .overlay h1 {
+    font-weight: 500; font-size: clamp(20px, 2.4vw, 34px); line-height: 1.1;
+    letter-spacing: -0.015em;
+    max-width: 22ch;
+  }
+  .hero-card .overlay .meta {
+    font-size: 12px; opacity: 0.78; margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .hero-card .cta {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 12px 20px;
+    background: white; color: var(--ink);
+    border-radius: 999px;
+    font-size: 13px; font-weight: 600;
+    text-decoration: none;
+    transition: transform 240ms var(--ease), box-shadow 240ms var(--ease);
+    box-shadow: 0 6px 20px -8px rgba(0,0,0,0.4);
+  }
+  .hero-card .cta:hover { transform: translateY(-2px); box-shadow: 0 10px 28px -8px rgba(0,0,0,0.5); }
+  .hero-card .cta .coin {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: linear-gradient(135deg, #f0a05b, #d57130);
+  }
+
+  /* Below-hero — 4 floating cards in a relaxed row */
+  .row { padding: 36px 40px 80px; }
+  .row .head {
+    max-width: 1180px; margin: 0 auto 22px;
+    display: flex; align-items: end; justify-content: space-between;
+  }
+  .row .head h2 { font-weight: 500; font-size: 22px; letter-spacing: -0.01em; }
+  .row .head .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .row .head a.more { font-size: 13px; color: var(--ink); opacity: 0.7; text-decoration: none; }
+  .row .head a.more:hover { opacity: 1; }
+  .row .grid {
+    max-width: 1180px; margin: 0 auto;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+  }
+  @media (max-width: 900px) { .row .grid { grid-template-columns: repeat(2, 1fr); } }
+  .tile {
+    aspect-ratio: 4/5;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    background: oklch(90% 0.010 240);
+    box-shadow: 0 1px 0 oklch(100% 0 0 / 0.5), 0 8px 24px -10px oklch(20% 0.014 240 / 0.2);
+    transition: transform 400ms var(--ease), box-shadow 400ms var(--ease);
+    cursor: pointer;
+  }
+  .tile:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 1px 0 oklch(100% 0 0 / 0.7), 0 18px 40px -12px oklch(20% 0.014 240 / 0.35);
+  }
+  .tile img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 800ms var(--ease); }
+  .tile:hover img { transform: scale(1.04); }
+  .tile .label {
+    position: absolute; left: 14px; bottom: 14px; right: 14px;
+    color: white; font-size: 12px; font-weight: 500;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.7);
+    opacity: 0; transform: translateY(6px);
+    transition: opacity 300ms var(--ease), transform 300ms var(--ease);
+  }
+  .tile:hover .label { opacity: 1; transform: none; }
+
+  /* Trade Pulse — fires when balance ticks. Subtle. */
+  .pulse-ring {
+    position: absolute; inset: -4px; border-radius: 999px;
+    border: 1.5px solid #f0a05b; opacity: 0;
+    pointer-events: none;
+  }
+  .pulse-ring.go { animation: pulse-out 1100ms ease-out forwards; }
+  @keyframes pulse-out {
+    0% { transform: scale(0.8); opacity: 0.7; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+
+  .badge {
+    position: absolute; right: 14px; top: 14px;
+    background: oklch(98% 0.005 240 / 0.92);
+    backdrop-filter: blur(8px);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 10px; font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--ink);
+  }
+
+  /* footer back link */
+  .compare {
+    position: fixed; bottom: 16px; right: 16px; z-index: 100;
+    background: oklch(98% 0.005 240 / 0.6);
+    backdrop-filter: blur(10px);
+    padding: 8px 14px; border-radius: 999px;
+    font-size: 11px; color: var(--muted); text-decoration: none;
+    border: 1px solid oklch(90% 0.010 240 / 0.6);
+  }
+  .compare:hover { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">WallShare</div>
+  <nav>
+    <a class="active">Home</a>
+    <a>Discover</a>
+    <a>Collections</a>
+    <a>Submit</a>
+  </nav>
+  <div class="right">
+    <span class="balance" style="position:relative">
+      <span class="coin"></span> 42
+      <span class="pulse-ring" id="pulse"></span>
+    </span>
+    <span style="color:var(--muted)">@you</span>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <a class="hero-card" href="#">
+      <img id="heroImg" alt="">
+      <div class="overlay">
+        <div>
+          <h1 id="heroTitle">—</h1>
+          <div class="meta" id="heroMeta">—</div>
+        </div>
+        <span class="cta">
+          <span class="coin"></span>
+          Trade for 1
+        </span>
+      </div>
+    </a>
+  </section>
+
+  <section class="row">
+    <div class="head">
+      <div>
+        <h2>This week's picks</h2>
+        <div class="sub">Curated · refreshed every Wednesday</div>
+      </div>
+      <a class="more" href="#">View all →</a>
+    </div>
+    <div class="grid" id="picks"></div>
+  </section>
+</main>
+
+<a class="compare" href="../index.html">← back</a>
+
+<script src="../_data.js"></script>
+<script>
+  const W = window.WALLPAPERS;
+  const hero = W[0];
+  document.getElementById('heroImg').src = hero.preview;
+  document.getElementById('heroTitle').textContent = hero.title + '.';
+  document.getElementById('heroMeta').textContent = `${hero.w} × ${hero.h} · ${window.fmtMB(hero.size)} · by @frostwood`;
+
+  // Drive surface gradient from hero palette — the wallpaper IS the UI color.
+  const pal = hero.palette.split(',');
+  document.documentElement.style.setProperty('--c1', pal[3] || pal[0]);
+  document.documentElement.style.setProperty('--c2', pal[1] || pal[0]);
+  document.documentElement.style.setProperty('--c3', pal[4] || pal[2]);
+
+  // Cards
+  const grid = document.getElementById('picks');
+  W.slice(1, 5).forEach((w, i) => {
+    const a = document.createElement('a');
+    a.className = 'tile';
+    a.href = '#';
+    a.innerHTML = `
+      <img src="${w.thumb}" alt="">
+      ${i === 0 ? '<span class="badge">New</span>' : ''}
+      <div class="label">${w.title}</div>
+    `;
+    grid.appendChild(a);
+    // Each card hover shifts the surface palette to its own colors — try it.
+    a.addEventListener('mouseenter', () => {
+      const p = w.palette.split(',');
+      document.documentElement.style.setProperty('--c1', p[3] || p[0]);
+      document.documentElement.style.setProperty('--c2', p[1] || p[0]);
+      document.documentElement.style.setProperty('--c3', p[4] || p[2]);
+    });
+    a.addEventListener('mouseleave', () => {
+      document.documentElement.style.setProperty('--c1', pal[3] || pal[0]);
+      document.documentElement.style.setProperty('--c2', pal[1] || pal[0]);
+      document.documentElement.style.setProperty('--c3', pal[4] || pal[2]);
+    });
+  });
+
+  // Demo: every 6 seconds, a fake "someone traded yours" pulse on the balance
+  setInterval(() => {
+    const r = document.getElementById('pulse');
+    r.classList.remove('go'); void r.offsetWidth; r.classList.add('go');
+  }, 6000);
+</script>
+</body>
+</html>
