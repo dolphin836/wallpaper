@@ -1,18 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AiOutlineArrowRight } from 'react-icons/ai';
-import { getWeeklyArchive, type WeeklyArchiveEntry } from '../api';
+import { getWeeklyArchive, getWeeklyByWeek, type WeeklyArchiveEntry, type WeeklyPicked } from '../api';
 import PageMeta from '../components/PageMeta';
 
 const MONTH_ABBR = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
-// ISO week → date of the Friday in that week (weeklies drop on Fridays,
-// so showing the Friday reads "this is the day it was published"). Uses
+// ISO week → date of the Friday in that week (weeklies drop on Fridays).
 // UTC internally to dodge DST + timezone slippage at midnight.
 function isoWeekFriday(year: number, week: number): Date {
-  // First Thursday of the year defines ISO week 1.
   const jan4 = new Date(Date.UTC(year, 0, 4));
-  const jan4Dow = jan4.getUTCDay() || 7; // Mon=1 .. Sun=7
+  const jan4Dow = jan4.getUTCDay() || 7;
   const week1Monday = new Date(jan4);
   week1Monday.setUTCDate(jan4.getUTCDate() - jan4Dow + 1);
   const friday = new Date(week1Monday);
@@ -26,8 +24,13 @@ function fmtDate(d: Date) {
 export default function WeeklyArchivePage() {
   const [rows, setRows] = useState<WeeklyArchiveEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  // Index into rows. Default to 0 = most recent (archive comes newest-first).
-  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [selectedIdx, setSelectedIdx] = useState(0); // 0 = most recent
+
+  // Per-week hero cache. The archive endpoint only returns a cover
+  // URL (preview-sized at best). To match the home-page hero's
+  // resolution we fetch the week's picks lazily on selection, find the
+  // is_hero pick, and use its original_url to upgrade the cover.
+  const [heroCache, setHeroCache] = useState<Record<string, WeeklyPicked | null>>({});
 
   useEffect(() => {
     getWeeklyArchive(100)
@@ -36,6 +39,46 @@ export default function WeeklyArchivePage() {
   }, []);
 
   const selected = rows[selectedIdx];
+  const cacheKey = selected ? `${selected.year}-${selected.week}` : '';
+  const heroPick = cacheKey ? heroCache[cacheKey] : null;
+
+  // Lazy-fetch the hero pick for the selected week (cached).
+  useEffect(() => {
+    if (!selected || cacheKey in heroCache) return;
+    let cancelled = false;
+    getWeeklyByWeek(selected.year, selected.week)
+      .then((r) => {
+        if (cancelled) return;
+        const picks = r.data.data?.picks || [];
+        const hero = picks.find((p) => p.is_hero) || picks[0] || null;
+        setHeroCache((prev) => ({ ...prev, [cacheKey]: hero }));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Mark as null so we don't keep retrying — preview cover stays.
+        setHeroCache((prev) => ({ ...prev, [cacheKey]: null }));
+      });
+    return () => { cancelled = true; };
+  }, [selected, cacheKey, heroCache]);
+
+  // Progressive cover image: start with archive cover_url (now backed
+  // by preview_url server-side), then swap to the hero's original_url
+  // once it's both available in the cache AND decoded by the browser.
+  const [coverSrc, setCoverSrc] = useState<string>('');
+  const [coverLoaded, setCoverLoaded] = useState(false);
+  useEffect(() => {
+    if (!selected) return;
+    setCoverSrc(selected.cover_url || '');
+    setCoverLoaded(false);
+  }, [selected?.year, selected?.week]);
+  useEffect(() => {
+    if (!selected || !heroPick?.original_url) return;
+    if (heroPick.original_url === selected.cover_url) return;
+    if (coverSrc === heroPick.original_url) return;
+    const upgrade = new Image();
+    upgrade.onload = () => setCoverSrc(heroPick.original_url);
+    upgrade.src = heroPick.original_url;
+  }, [selected, heroPick?.original_url, coverSrc]);
 
   return (
     <div className="w-weekly-archive min-h-full">
@@ -71,9 +114,6 @@ export default function WeeklyArchivePage() {
           </div>
         ) : (
           <div className="w-archive-grid">
-            {/* Left rail — the timeline. Clicking a row swaps the right
-                preview; clicking the cover (or the View-picks CTA) goes
-                to the detail page. */}
             <ol className="w-timeline">
               {rows.map((r, i) => {
                 const d = isoWeekFriday(r.year, r.week);
@@ -95,8 +135,6 @@ export default function WeeklyArchivePage() {
               })}
             </ol>
 
-            {/* Right panel — selected week's cover with stamped issue
-                number + a CTA into the detail page. */}
             <div className="w-archive-panel">
               {selected && (
                 <Link
@@ -104,8 +142,14 @@ export default function WeeklyArchivePage() {
                   className="w-archive-cover-link"
                 >
                   <figure className="w-archive-cover">
-                    {selected.cover_url && (
-                      <img src={selected.cover_url} alt="" />
+                    {coverSrc && (
+                      <img
+                        src={coverSrc}
+                        alt=""
+                        className={coverLoaded ? 'is-loaded' : ''}
+                        onLoad={() => setCoverLoaded(true)}
+                        onError={() => setCoverLoaded(true)}
+                      />
                     )}
                     <div className="w-archive-cover-shade" aria-hidden />
                     <figcaption className="w-archive-cover-stamp">

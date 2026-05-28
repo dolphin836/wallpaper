@@ -329,7 +329,7 @@ func (r *WeeklyPickRepo) Archive(ctx context.Context, limit int) ([]ArchiveEntry
 	// join keeps weeks without a theme working.
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT wp.year, wp.week, slate.cnt AS count,
-		       COALESCE(w.thumb_url, w.preview_url, '') AS cover_url,
+		       COALESCE(w.preview_url, w.thumb_url, '') AS cover_url,
 		       COALESCE(tc.accent_color, '') AS accent_color
 		FROM (
 		    SELECT year, week, COUNT(*) AS cnt

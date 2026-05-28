@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { AiOutlineArrowLeft } from 'react-icons/ai';
 import { getWeeklyByWeek, type WeeklyPicked } from '../api';
+import type { Wallpaper } from '../types';
 import PageMeta from '../components/PageMeta';
 import WallpaperCard from '../components/WallpaperCard';
 
@@ -18,6 +19,61 @@ function isoWeekFriday(year: number, week: number): Date {
 }
 function fmtDate(d: Date) {
   return `${MONTH_ABBR[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2,'0')}, ${d.getUTCFullYear()}`;
+}
+function fmtMB(b?: number) { return ((b || 0) / 1024 / 1024).toFixed(1) + ' MB'; }
+function resLabel(w: Wallpaper) {
+  const px = Math.max(w.width || 0, w.height || 0);
+  if (px >= 7680) return '8K';
+  if (px >= 3840) return '4K';
+  if (px >= 2560) return '2K';
+  if (px >= 1920) return '1080P';
+  if (px >= 1280) return '720P';
+  return '';
+}
+
+// Hero card — mirrors HomePage's HeroCard exactly so the home weekly
+// hero and the detail-page hero feel like the same artifact. Progressive
+// load: preview_url first (fast first paint), then background-fetch
+// original_url and swap once decoded; preview stays if original never
+// arrives.
+function WeeklyHero({ hero, week, year }: { hero: WeeklyPicked; week: number; year: number }) {
+  const [src, setSrc] = useState(hero.preview_url || hero.thumb_url);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    setSrc(hero.preview_url || hero.thumb_url);
+    setLoaded(false);
+    if (!hero.original_url || hero.original_url === hero.preview_url) return;
+    const upgrade = new Image();
+    upgrade.onload = () => setSrc(hero.original_url);
+    upgrade.src = hero.original_url;
+  }, [hero.id, hero.preview_url, hero.thumb_url, hero.original_url]);
+
+  const rl = resLabel(hero);
+
+  return (
+    <Link to={`/wallpaper/${hero.slug || hero.id}`} className="h3-hero block">
+      <img
+        src={src}
+        alt={hero.title || `Week ${week} hero`}
+        className={loaded ? 'h3-loaded' : ''}
+        onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
+      />
+      {rl && <span className="h3-res-chip">{rl}</span>}
+      <div className="h3-hero-overlay">
+        <div className="flex-1 min-w-0">
+          <div className="h3-kicker">Curation · Week {week} · {year}</div>
+          <div className="h3-meta">{hero.width}×{hero.height} · {fmtMB(hero.file_size)}</div>
+        </div>
+        <button
+          className="h3-cta"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); /* navigation handles trade flow */ }}
+        >
+          <span className="h3-coin" /> Trade for 1
+        </button>
+      </div>
+    </Link>
+  );
 }
 
 export default function WeeklyWeekPage() {
@@ -45,6 +101,7 @@ export default function WeeklyWeekPage() {
 
   const date = year && week ? isoWeekFriday(Number(year), Number(week)) : null;
   const dateStr = date ? fmtDate(date) : '';
+  const weekNum = week ? Number(week) : 0;
 
   return (
     <div className="w-weekly-detail min-h-full">
@@ -59,17 +116,21 @@ export default function WeeklyWeekPage() {
           <span>All weekly issues</span>
         </Link>
 
-        <header className="w-detail-head">
-          <div className="w-detail-kicker">ISSUE</div>
-          <div className="w-detail-issue">№ {String(week).padStart(2, '0')}</div>
-          <div className="w-detail-meta">
-            {dateStr ? `${dateStr} · ` : ''}10 picks
-          </div>
+        {/* Simplified header — just 'Week N' with the date as a small
+            mono caption. No ISSUE pill, no № masthead — the hero
+            overlay below already carries 'Curation · Week N · YYYY'. */}
+        <header className="w-detail-head-simple">
+          <h1 className="w-detail-week">Week {weekNum}</h1>
+          {dateStr && <div className="w-detail-week-meta">{dateStr}</div>}
         </header>
 
         {loading ? (
           <>
-            <div className="w-detail-hero skeleton-card" style={{ aspectRatio: '21/9' }} />
+            <div
+              className="h3-hero skeleton-card"
+              style={{ aspectRatio: '16/9', marginBottom: 48 }}
+              aria-hidden
+            />
             <div className="w-detail-grid">
               {Array.from({ length: 9 }).map((_, i) => (
                 <div key={i} className="tile-cell skeleton-card aspect-[3/2]" />
@@ -83,37 +144,21 @@ export default function WeeklyWeekPage() {
         ) : (
           <>
             {hero && (
-              <Link
-                to={`/wallpaper/${hero.slug || hero.id}`}
-                className="w-detail-hero-link"
-              >
-                <figure className="w-detail-hero">
-                  <img
-                    src={hero.preview_url || hero.original_url || hero.thumb_url}
-                    alt={hero.title || `Week ${week} hero`}
-                    loading="eager"
-                  />
-                  <figcaption className="w-detail-hero-stamp">
-                    <span className="w-detail-pickno">№ 01 / 10</span>
-                    <span className="w-detail-pickkind">The hero</span>
-                  </figcaption>
-                </figure>
-              </Link>
+              <div className="mb-12">
+                <WeeklyHero hero={hero} week={weekNum} year={Number(year)} />
+              </div>
             )}
 
             {rest.length > 0 && (
               <div className="w-detail-grid">
                 {rest.slice(0, 9).map((p, i) => (
-                  <div key={p.id} className="w-detail-cell">
-                    <div className="relative aspect-[3/2]">
-                      <WallpaperCard
-                        wallpaper={p}
-                        layout="salon"
-                        fillHeight
-                        animDelay={i * 40}
-                      />
-                    </div>
-                    <span className="w-detail-cell-no">№ {String(i + 2).padStart(2, '0')}</span>
+                  <div key={p.id} className="relative aspect-[3/2]">
+                    <WallpaperCard
+                      wallpaper={p}
+                      layout="salon"
+                      fillHeight
+                      animDelay={i * 40}
+                    />
                   </div>
                 ))}
               </div>
