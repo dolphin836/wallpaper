@@ -336,7 +336,15 @@ func (r *WeeklyPickRepo) Archive(ctx context.Context, limit int) ([]ArchiveEntry
 		    FROM weekly_picks
 		    GROUP BY year, week
 		) slate
-		JOIN weekly_picks wp ON wp.year = slate.year AND wp.week = slate.week AND wp.sort_order = 0
+		-- Join on is_hero=TRUE so the archive cover is the *actual*
+		-- hero pick (the one the detail page promotes to original_url).
+		-- The old sort_order=0 condition predated is_hero and produced
+		-- a different wallpaper for any week whose hero was moved by
+		-- admin — the SPA's archive→detail progressive upgrade then
+		-- visibly swapped from one image to another. is_hero is
+		-- guaranteed by the upsert in MarkHero so every slate has
+		-- exactly one TRUE row.
+		JOIN weekly_picks wp ON wp.year = slate.year AND wp.week = slate.week AND wp.is_hero = TRUE
 		LEFT JOIN wallpapers w ON w.id = wp.wallpaper_id
 		LEFT JOIN collections tc ON tc.kind = 1 AND tc.year = wp.year AND tc.week = wp.week
 		ORDER BY wp.year DESC, wp.week DESC
