@@ -87,6 +87,7 @@ function AppRoutes() {
               to the unified /upload form. */}
           <Route path="/upload/video" element={<Navigate to="/upload" replace />} />
           <Route path="/user/:username" element={<ProfilePage />} />
+          <Route path="/user/:username/:tab" element={<ProfilePage />} />
           <Route path="/collections" element={<CollectionsPage />} />
           <Route path="/uploaders" element={<UploadersPage />} />
           <Route path="/collections/:slug" element={<CollectionDetailPage />} />

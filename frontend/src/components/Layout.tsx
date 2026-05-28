@@ -10,6 +10,7 @@ import {
   AiOutlineUser,
   AiOutlineUpload,
   AiOutlineDownload,
+  AiOutlineThunderbolt,
 } from 'react-icons/ai';
 import { BsSun, BsMoon } from 'react-icons/bs';
 import { getPublicStats } from '../api';
@@ -151,6 +152,29 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
   const [mobileOpen, setMobileOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
+  // Hover-to-open dropdown with a small grace period on leave so the
+  // user can slide the cursor from the avatar down to the menu items
+  // without the menu snapping shut mid-traverse.
+  const hoverCloseTimerRef = useRef<number | null>(null);
+  const cancelHoverClose = () => {
+    if (hoverCloseTimerRef.current !== null) {
+      clearTimeout(hoverCloseTimerRef.current);
+      hoverCloseTimerRef.current = null;
+    }
+  };
+  const onAvatarEnter = () => {
+    cancelHoverClose();
+    setUserMenuOpen(true);
+  };
+  const onAvatarLeave = () => {
+    cancelHoverClose();
+    hoverCloseTimerRef.current = window.setTimeout(() => {
+      setUserMenuOpen(false);
+      hoverCloseTimerRef.current = null;
+    }, 180);
+  };
+  useEffect(() => () => cancelHoverClose(), []);
+
   // Close menus on route change so the user doesn't have to.
   useEffect(() => {
     setUserMenuOpen(false);
@@ -252,8 +276,8 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
                   avatar so the balance reads as the main affordance
                   of the right cluster, not blended with chrome. */}
               <Link
-                to={`/user/${user.username}`}
-                title="Your balance"
+                to={`/user/${user.username}/ledger`}
+                title="Coin ledger"
                 className="balance-pill hidden sm:inline-flex mx-2"
               >
                 <span className="balance-pill__coin" aria-hidden />
@@ -263,35 +287,40 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
                 <span className="balance-pill__label">coins</span>
               </Link>
 
-              {/* User menu */}
-              <div className="relative" ref={userMenuRef}>
+              {/* User menu — hover-to-open with an accent-ring avatar.
+                  Always-rendered menu drives the open/close transition
+                  in CSS (translateY + scale + opacity); the conditional
+                  mount of the past wouldn't transition on entry. */}
+              <div
+                className="avatar-shell relative"
+                ref={userMenuRef}
+                onMouseEnter={onAvatarEnter}
+                onMouseLeave={onAvatarLeave}
+              >
                 <button
                   onClick={() => setUserMenuOpen((o) => !o)}
                   aria-label="Open user menu"
                   aria-expanded={userMenuOpen}
-                  className="inline-flex items-center gap-1.5 p-0.5 rounded-full border border-hair bg-paper hover:bg-paper-2 transition-colors"
+                  className="avatar-btn"
                 >
                   {user.avatar_url ? (
-                    <img src={user.avatar_url} alt="" className="w-[32px] h-[32px] rounded-full object-cover" />
+                    <img src={user.avatar_url} alt="" className="avatar-img" />
                   ) : (
-                    <div className="w-[32px] h-[32px] rounded-full bg-paper-2 flex items-center justify-center display text-[16px] text-ink leading-none">
-                      {initial}
-                    </div>
+                    <div className="avatar-img avatar-img--fallback">{initial}</div>
                   )}
                 </button>
-                {userMenuOpen && (
-                  <UserMenu
-                    user={user}
-                    isAdmin={!!user.is_admin}
-                    skipDlConfirm={skipDlConfirm}
-                    onResetSkip={() => {
-                      window.sessionStorage.removeItem('wpe_skip_dl_confirm');
-                      setSkipDlConfirm(false);
-                    }}
-                    onLogout={handleLogout}
-                    onClose={() => setUserMenuOpen(false)}
-                  />
-                )}
+                <UserMenu
+                  user={user}
+                  isOpen={userMenuOpen}
+                  isAdmin={!!user.is_admin}
+                  skipDlConfirm={skipDlConfirm}
+                  onResetSkip={() => {
+                    window.sessionStorage.removeItem('wpe_skip_dl_confirm');
+                    setSkipDlConfirm(false);
+                  }}
+                  onLogout={handleLogout}
+                  onClose={() => setUserMenuOpen(false)}
+                />
               </div>
             </>
           ) : (
@@ -358,9 +387,10 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
 /* ───────────────────────── User dropdown ───────────────────────── */
 
 function UserMenu({
-  user, isAdmin, skipDlConfirm, onResetSkip, onLogout, onClose,
+  user, isOpen, isAdmin, skipDlConfirm, onResetSkip, onLogout, onClose,
 }: {
   user: { username: string; coins?: number };
+  isOpen: boolean;
   isAdmin: boolean;
   skipDlConfirm: boolean;
   onResetSkip: () => void;
@@ -371,7 +401,8 @@ function UserMenu({
   return (
     <div
       role="menu"
-      className="absolute right-0 top-[calc(100%+8px)] w-[260px] bg-paper border border-hair rounded-xl shadow-[0_12px_36px_-10px_oklch(0%_0_0_/_0.25)] py-1.5 px-1.5 z-50"
+      aria-hidden={!isOpen}
+      className={`user-menu${isOpen ? ' is-open' : ''}`}
     >
       {/* Upload — accent-colored, the "supply side" CTA. */}
       <Link to="/upload" onClick={onClose} className={`${item} text-accent font-semibold`}>
@@ -381,17 +412,21 @@ function UserMenu({
 
       <hr className="my-1.5 border-t border-hair-soft" />
 
+      {/* My profile = uploads tab by default — no separate "My uploads"
+          link since it pointed to the same view. Downloads + Coin
+          ledger get explicit entries because they're owner-only and
+          aren't surfaced anywhere else. */}
       <Link to={`/user/${user.username}`} onClick={onClose} className={`${item} text-ink`}>
         <AiOutlineUser size={16} />
         My profile
       </Link>
-      <Link to={`/user/${user.username}?tab=uploads`} onClick={onClose} className={`${item} text-ink`}>
-        <AiOutlineUpload size={16} />
-        My uploads
-      </Link>
-      <Link to={`/user/${user.username}?tab=downloads`} onClick={onClose} className={`${item} text-ink`}>
+      <Link to={`/user/${user.username}/downloads`} onClick={onClose} className={`${item} text-ink`}>
         <AiOutlineDownload size={16} />
         My downloads
+      </Link>
+      <Link to={`/user/${user.username}/ledger`} onClick={onClose} className={`${item} text-ink`}>
+        <AiOutlineThunderbolt size={16} />
+        Coin ledger
       </Link>
 
       <hr className="my-1.5 border-t border-hair-soft" />
@@ -504,6 +539,11 @@ export default function Layout() {
   const stableKey = (() => {
     const p = location.pathname;
     if (p === '/discover' || p.startsWith('/discover/') || p.startsWith('/category/')) return 'discover';
+    // Profile tab routes: /user/:username and /user/:username/:tab map to
+    // the same component. Collapsing the key here means switching tabs
+    // doesn't remount ProfilePage (would blow away loaded lists).
+    const userMatch = p.match(/^\/user\/([^/]+)(?:\/.*)?$/);
+    if (userMatch) return `user:${userMatch[1]}`;
     return p;
   })();
   const routeKey = background?.pathname ?? stableKey;

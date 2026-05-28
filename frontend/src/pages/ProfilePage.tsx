@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   AiOutlineHeart,
   AiOutlineStar,
@@ -95,14 +95,21 @@ const LEDGER_LABELS: Record<string, string> = {
 };
 
 export default function ProfilePage() {
-  const { username } = useParams<{ username: string }>();
+  const { username, tab: tabParam } = useParams<{ username: string; tab?: string }>();
+  const navigate = useNavigate();
   const { user: currentUser, updateCoins, updateUser } = useAuthStore();
 
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // ─── Tab state ───
-  const [activeTab, setActiveTab] = useState<TabKey>('uploads');
+  // ─── Tab state ─── URL-driven: /user/:username[/:tab]. Missing tab
+  // segment means the implicit default ("uploads"). Unknown tab slugs
+  // fall back to the default too so a typo in the URL doesn't blank
+  // the page.
+  const TAB_KEYS: TabKey[] = ['uploads', 'collections', 'favorites', 'likes', 'downloads', 'ledger'];
+  const activeTab: TabKey = (TAB_KEYS as string[]).includes(tabParam || '')
+    ? (tabParam as TabKey)
+    : 'uploads';
   const isOwner = currentUser?.id === user?.id;
 
   // Uploads — two sub-lists (in-progress vs published) for owner; stranger sees only published.
@@ -258,7 +265,6 @@ export default function ProfilePage() {
     setFavList(emptyList()); setLikeList(emptyList()); setDlList(emptyList());
     setCollections([]); setCollectionsLoaded(false);
     setTxs([]); setTxPage(1); setTxCursors([0]); setTxTotal(0); setTxLoaded(false);
-    setActiveTab('uploads');
 
     getUserProfile(username)
       .then((res) => setUser(res.data.data))
@@ -279,15 +285,26 @@ export default function ProfilePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Lazy-load each tab on first activation.
+  // Tab click → push canonical URL. uploads goes to /user/:username
+  // (no tab suffix, that's the default); others go to
+  // /user/:username/:tab. Reload / share-link / back-button all land
+  // on the same view.
   const onTabChange = (tab: TabKey) => {
-    setActiveTab(tab);
-    if (tab === 'collections' && !collectionsLoaded) fetchCollections();
-    if (tab === 'favorites'  && !favList.loaded)  fetchList('favorites', 1);
-    if (tab === 'likes'      && !likeList.loaded) fetchList('likes', 1);
-    if (tab === 'downloads'  && !dlList.loaded)   fetchList('downloads', 1);
-    if (tab === 'ledger'     && !txLoaded)        fetchLedger(1);
+    if (tab === 'uploads') navigate(`/user/${username}`);
+    else navigate(`/user/${username}/${tab}`);
   };
+  // Lazy-load each tab on first activation. Driven by activeTab so it
+  // fires both for in-page clicks and for direct deep-links (e.g. the
+  // top-nav coin pill → /user/:username/ledger).
+  useEffect(() => {
+    if (!user) return;
+    if (activeTab === 'collections' && !collectionsLoaded) fetchCollections();
+    if (activeTab === 'favorites'  && !favList.loaded)  fetchList('favorites', 1);
+    if (activeTab === 'likes'      && !likeList.loaded) fetchList('likes', 1);
+    if (activeTab === 'downloads'  && !dlList.loaded)   fetchList('downloads', 1);
+    if (activeTab === 'ledger'     && !txLoaded)        fetchLedger(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, user?.id]);
 
   // ─── Avatar + profile edit handlers ───
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
