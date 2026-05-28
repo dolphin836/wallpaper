@@ -226,6 +226,83 @@
 .tile-cell:hover,
 .tile-cell:focus-within { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18); }
 
+/* ────────────────────────────────────────────────────────────────
+   .wp-card — default WallpaperCard variant (Home / Profile /
+   CollectionDetail / WeeklyWeek / DeviceWallpapers / detail-page
+   "Similar"). Replaces the legacy `rounded-lg bg-slate-100`
+   chrome with a focus-frame: square corners, four L-shaped
+   corner brackets painted via pseudo-elements (no JSX needed),
+   subtle cold halo on hover. The image itself still scales
+   underneath via the existing `.tile-img` / scale hover rules. */
+
+.wp-card {
+  position: relative;
+  border-radius: 0 !important;          /* override rounded-lg */
+  background: var(--color-paper-3) !important;  /* override bg-slate-100 — the wallpaper fills above this */
+  isolation: isolate;
+}
+.dark .wp-card { background: var(--color-paper-2) !important; }
+
+/* Two pseudo-elements draw 4 corner brackets (14px L's) using stacked
+   backgrounds. ::before owns the top two corners, ::after owns the bottom
+   two. The brackets sit OVER the image (z-index 3) but never above the
+   action rail (z-index ≥ 5 in tile-actions). */
+.wp-card::before,
+.wp-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-size:
+    14px 1px,  /* horizontal bar  */
+    1px 14px,  /* vertical bar    */
+    14px 1px,
+    1px 14px;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)),
+    linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)),
+    linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)),
+    linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85));
+  opacity: 0.7;
+  transition:
+    inset 320ms cubic-bezier(0.16, 1, 0.30, 1),
+    opacity 240ms cubic-bezier(0.16, 1, 0.30, 1);
+}
+.wp-card::before {
+  /* top-left horizontal, top-left vertical, top-right horizontal, top-right vertical */
+  background-position: top left, top left, top right, top right;
+}
+.wp-card::after {
+  /* bottom-left horizontal, bottom-left vertical, bottom-right horizontal, bottom-right vertical */
+  background-position: bottom left, bottom left, bottom right, bottom right;
+}
+
+/* Hover: corners snap inward 6px, brighten, and a cold halo lifts the card.
+   image scale + brightness keep handled by existing .tile-img-* rules and
+   WallpaperCard's tile-img class on the high-res <img>. */
+.wp-card:hover::before,
+.wp-card:hover::after,
+.wp-card:focus-within::before,
+.wp-card:focus-within::after {
+  inset: 6px;
+  opacity: 1;
+}
+.wp-card:hover,
+.wp-card:focus-within {
+  box-shadow:
+    0 18px 36px -16px oklch(20% 0.020 230 / 0.55),
+    0 1px 0 oklch(96% 0.010 230 / 0.45);
+}
+.dark .wp-card:hover,
+.dark .wp-card:focus-within {
+  box-shadow:
+    0 22px 40px -16px oklch(8% 0.012 230 / 0.85),
+    0 0 0 1px oklch(28% 0.024 230);
+}
+
 .tile-cell .tile-actions {
   position: absolute;
   right: 10px;

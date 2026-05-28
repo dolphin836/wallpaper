@@ -336,7 +336,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   return (
     <Wrapper
       {...(wrapperProps as any)}
-      className={`group block rounded-lg overflow-hidden bg-slate-100 dark:bg-ws-dark-card transition-all duration-300 ${fillHeight ? 'h-full' : ''} animate-fade-in`}
+      className={`wp-card group block rounded-lg overflow-hidden bg-slate-100 dark:bg-ws-dark-card transition-all duration-300 ${fillHeight ? 'h-full' : ''} animate-fade-in`}
       style={{ ...style, animationDelay: `${animDelay}ms`, ...(isPublished ? {} : { cursor: 'default' }) }}
     >
       <div
