@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WallShare · Console v2 · Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     Tokens — same direction as B/Console, but in light mode the
+     base is the production hue 230 cool paper. Dark mode optional
+     (toggle below). Signal phosphor reserved for live events.
+     ============================================================ */
+  :root {
+    /* Light cooled paper — matches what's now in production */
+    --paper:     oklch(97.8% 0.008 230);
+    --paper-2:   oklch(95.5% 0.010 230);
+    --paper-3:   oklch(92.0% 0.012 230);
+    --hair:      oklch(86.0% 0.010 230);
+    --hair-soft: oklch(91.0% 0.008 230);
+    --ink:       oklch(18.0% 0.012 230);
+    --ink-2:     oklch(28.0% 0.012 230);
+    --muted:     oklch(52.0% 0.012 230);
+    --muted-2:   oklch(68.0% 0.012 230);
+    --accent:    oklch(64% 0.21 42);
+    --signal:    oklch(68% 0.20 145);     /* phosphor for events */
+    --warn:      oklch(72% 0.20 60);
+    --ease:      cubic-bezier(0.16, 1, 0.30, 1);
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--paper); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { display: grid; grid-template-columns: 180px 1fr; grid-template-rows: 44px 1fr; min-height: 100vh; }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: var(--mono); }
+
+  /* ============================================================
+     CONSOLE RAIL (left sidebar, 180px)
+     ============================================================ */
+  aside.rail {
+    grid-row: 1 / 3; grid-column: 1;
+    background: var(--paper);
+    border-right: 1px solid var(--hair);
+    display: flex; flex-direction: column;
+    padding: 18px 0 14px;
+    position: sticky; top: 0; height: 100vh;
+  }
+  .brand {
+    padding: 4px 18px 16px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--hair-soft);
+    margin-bottom: 14px;
+  }
+  .brand .logo {
+    width: 28px; height: 28px;
+    background: var(--ink);
+    border-radius: 4px;
+    display: grid; place-items: center;
+    color: var(--paper);
+    font-family: var(--mono); font-weight: 600; font-size: 13px;
+  }
+  .brand .name { display: flex; flex-direction: column; gap: 1px; }
+  .brand .name b { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14px; letter-spacing: -0.01em; line-height: 1; }
+  .brand .name .sub {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--signal);
+    box-shadow: 0 0 6px oklch(68% 0.20 145 / 0.6);
+    animation: live-breath 2400ms cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+  @keyframes live-breath {
+    0%,100% { opacity: 0.55; transform: scale(1); }
+    50%     { opacity: 1;    transform: scale(1.15); }
+  }
+
+  .nav { display: flex; flex-direction: column; padding: 0 0 16px; }
+  .nav .item {
+    position: relative;
+    display: flex; align-items: center; gap: 0;
+    padding: 9px 18px;
+    font-family: var(--mono); font-weight: 500; font-size: 12px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 200ms var(--ease);
+  }
+  .nav .item::before {
+    content: ""; position: absolute; left: 0; top: 6px; bottom: 6px;
+    width: 1.5px; background: var(--signal);
+    transform: scaleY(0); transform-origin: center;
+    transition: transform 240ms var(--ease);
+  }
+  .nav .item:hover { color: var(--ink); }
+  .nav .item:hover::before { transform: scaleY(0.5); }
+  .nav .item.active { color: var(--ink); }
+  .nav .item.active::before { transform: scaleY(1); box-shadow: 0 0 6px oklch(68% 0.20 145 / 0.5); }
+
+  .nav .submit {
+    margin: 8px 14px 0;
+    padding: 9px 14px;
+    background: var(--ink); color: var(--paper);
+    font-family: var(--mono); font-weight: 600; font-size: 11px;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    display: inline-flex; align-items: center; justify-content: space-between;
+    transition: background 220ms var(--ease), transform 220ms var(--ease);
+  }
+  .nav .submit:hover { background: var(--signal); color: var(--ink); transform: translateY(-1px); }
+  .nav .submit .arr { transition: transform 220ms var(--ease); }
+  .nav .submit:hover .arr { transform: translateX(3px); }
+
+  .rail-rule { border: 0; border-top: 1px solid var(--hair-soft); margin: 14px 14px; }
+
+  .balance {
+    padding: 0 18px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .balance .lbl { font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+  .balance .row { display: flex; align-items: center; gap: 8px; }
+  .balance .num {
+    font-family: var(--mono); font-weight: 600; font-size: 26px;
+    color: var(--accent); letter-spacing: -0.01em;
+  }
+  .balance .coin {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: inset 0 -2px 0 oklch(48% 0.16 42), inset 0 1px 0 oklch(80% 0.16 60);
+  }
+  .balance .net { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--signal); }
+  .balance .hint { font-family: var(--mono); font-size: 9px; letter-spacing: 0.10em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+
+  .legal {
+    margin-top: auto;
+    padding: 14px 18px 0;
+    border-top: 1px solid var(--hair-soft);
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.10em; text-transform: uppercase; color: var(--muted);
+    line-height: 1.6;
+  }
+  .legal a:hover { color: var(--ink); }
+
+  /* ============================================================
+     CONSOLE BAR (top, 44px sticky)
+     ============================================================ */
+  header.bar {
+    grid-row: 1; grid-column: 2;
+    position: sticky; top: 0; z-index: 50;
+    background: var(--paper);
+    border-bottom: 1px solid var(--hair);
+    display: flex; align-items: stretch;
+    height: 44px;
+  }
+  header.bar .seg {
+    display: flex; align-items: center;
+    padding: 0 16px; height: 100%;
+    border-right: 1px solid var(--hair-soft);
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  header.bar .seg b, header.bar .seg strong { color: var(--ink); font-weight: 500; }
+  header.bar .seg.right { margin-left: auto; border-right: 0; border-left: 1px solid var(--hair-soft); }
+  header.bar .seg.right .icon { width: 28px; height: 28px; display: inline-grid; place-items: center; cursor: pointer; color: var(--muted); transition: color 200ms var(--ease); }
+  header.bar .seg.right .icon:hover { color: var(--ink); }
+  header.bar .seg.right .user { color: var(--ink); cursor: pointer; }
+
+  /* LEDGER METER */
+  .ledger { display: flex; align-items: center; gap: 12px; }
+  .ledger .bars {
+    display: flex; gap: 2px; height: 12px; width: 220px;
+  }
+  .ledger .bars i {
+    flex: 1; background: var(--paper-3);
+    transition: background 240ms var(--ease), box-shadow 240ms var(--ease);
+  }
+  .ledger .bars i.on { background: var(--signal); }
+  .ledger .bars i.pulse {
+    background: var(--signal);
+    animation: meter-pulse 1800ms ease-in-out infinite;
+  }
+  @keyframes meter-pulse {
+    0%,100% { box-shadow: 0 0 0 0 oklch(68% 0.20 145 / 0); }
+    50%     { box-shadow: 0 0 6px 0 oklch(68% 0.20 145 / 0.55); }
+  }
+  .ledger .net { color: var(--signal); font-weight: 600; }
+  .ledger .arrow-up { color: var(--signal); }
+  .ledger .arrow-dn { color: var(--warn); }
+
+  /* ============================================================
+     MAIN content area
+     ============================================================ */
+  main {
+    grid-row: 2; grid-column: 2;
+    overflow-x: hidden;
+  }
+
+  /* ───── HERO ───── */
+  section.hero {
+    position: relative;
+    height: calc(100vh - 44px);
+    min-height: 560px;
+    overflow: hidden;
+    background: var(--paper-3);
+  }
+  section.hero img.bg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transform: scale(1.04);
+    animation: hero-img-in 1100ms var(--ease) 300ms forwards, hero-drift 24s ease-in-out 1400ms infinite alternate;
+  }
+  @keyframes hero-img-in { to { opacity: 1; transform: scale(1.04); } }
+  @keyframes hero-drift {
+    0%   { transform: scale(1.04) translate(0, 0); }
+    100% { transform: scale(1.10) translate(-1.5%, -1%); }
+  }
+  section.hero::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.0) 35%, rgba(0,0,0,0.55) 100%);
+    pointer-events: none;
+  }
+
+  /* corner brackets (focus lock) */
+  .hero-corner {
+    position: absolute; width: 24px; height: 24px;
+    border: 1px solid rgba(255,255,255,0.95);
+    z-index: 3;
+    opacity: 0; transform: scale(0.85);
+    animation: corner-in 520ms var(--ease) 200ms forwards;
+    pointer-events: none;
+  }
+  .hero-corner.tl { top: 24px;    left: 24px;    border-right: 0; border-bottom: 0; }
+  .hero-corner.tr { top: 24px;    right: 24px;   border-left: 0;  border-bottom: 0; animation-delay: 280ms; }
+  .hero-corner.bl { bottom: 24px; left: 24px;    border-right: 0; border-top: 0;    animation-delay: 360ms; }
+  .hero-corner.br { bottom: 24px; right: 24px;   border-left: 0;  border-top: 0;    animation-delay: 440ms; }
+  @keyframes corner-in { to { opacity: 1; transform: scale(1); } }
+
+  /* hero data HUD - bottom-left */
+  .hero-hud {
+    position: absolute; left: 56px; bottom: 56px; right: 56px;
+    z-index: 4;
+    display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: end;
+    opacity: 0; transform: translateY(14px);
+    animation: hud-in 700ms var(--ease) 1300ms forwards;
+  }
+  @keyframes hud-in { to { opacity: 1; transform: none; } }
+  .hero-hud .meta { color: rgba(255,255,255,0.96); }
+  .hero-hud .kicker {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: rgba(255,255,255,0.85);
+    display: inline-flex; align-items: center; gap: 12px;
+  }
+  .hero-hud .kicker .pho { color: var(--signal); }
+  .hero-hud h1 {
+    margin-top: 14px;
+    font-family: var(--mono); font-weight: 600;
+    font-size: clamp(36px, 5vw, 64px); line-height: 0.96;
+    letter-spacing: -0.02em; text-transform: uppercase;
+    max-width: 18ch;
+    text-shadow: 0 2px 24px rgba(0,0,0,0.45);
+  }
+  .hero-hud h1 .dot { color: var(--signal); }
+  .hero-hud .data-row {
+    margin-top: 16px;
+    display: flex; flex-wrap: wrap; gap: 14px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.9);
+  }
+  .hero-hud .data-row .item { display: flex; align-items: center; gap: 6px; }
+  .hero-hud .data-row .sw { width: 12px; height: 12px; border: 1px solid rgba(255,255,255,0.6); }
+  .hero-hud .palette {
+    margin-top: 12px;
+    display: flex; gap: 3px; height: 12px; width: 280px;
+    border: 1px solid rgba(255,255,255,0.4);
+  }
+  .hero-hud .palette i { flex: 1; }
+
+  /* CTA cluster - bottom right */
+  .hero-cta {
+    display: flex; flex-direction: column; gap: 8px; align-items: end;
+  }
+  .hero-cta .observers {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(255,255,255,0.75);
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .hero-cta .observers .blink-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--signal);
+    animation: live-breath 1600ms ease-in-out infinite;
+  }
+  .hero-cta .button-row { display: flex; gap: 8px; }
+  .hero-cta .btn {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600;
+    padding: 14px 22px;
+    border: 1px solid rgba(255,255,255,0.95);
+    background: transparent; color: white;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 10px;
+    transition: background 240ms var(--ease), color 240ms var(--ease), transform 240ms var(--ease);
+  }
+  .hero-cta .btn:hover { transform: translateY(-1px); }
+  .hero-cta .btn.primary {
+    background: var(--signal); border-color: var(--signal); color: var(--ink);
+    box-shadow: 0 0 24px oklch(68% 0.20 145 / 0.35);
+  }
+  .hero-cta .btn.primary:hover { background: white; border-color: white; }
+  .hero-cta .btn .coin {
+    width: 10px; height: 10px; border-radius: 50%; background: var(--ink);
+  }
+  .hero-cta .btn.primary .coin { background: var(--ink); }
+  .hero-cta .btn:not(.primary):hover { background: white; color: var(--ink); }
+
+  /* phosphor accent line at hero bottom */
+  .hero-line {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 1px; background: var(--signal);
+    transform-origin: left; transform: scaleX(0);
+    animation: hero-line-in 1400ms var(--ease) 1500ms forwards;
+    z-index: 4;
+  }
+  @keyframes hero-line-in { to { transform: scaleX(1); } }
+
+  /* ───── Content rows below hero ───── */
+  section.row { padding: 56px 56px 24px; }
+  section.row .row-head {
+    display: flex; align-items: end; justify-content: space-between;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--hair);
+  }
+  section.row .row-head .kicker {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted);
+    display: flex; align-items: center; gap: 12px;
+  }
+  section.row .row-head .kicker .pho { color: var(--signal); }
+  section.row .row-head h2 {
+    margin-top: 4px;
+    font-family: var(--mono); font-weight: 500; font-size: 22px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  section.row .row-head .more {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink);
+    padding-bottom: 3px; border-bottom: 1px solid var(--ink);
+  }
+  section.row .row-head .more:hover { color: var(--signal); border-bottom-color: var(--signal); }
+
+  .grid-5 {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px;
+  }
+  @media (max-width: 1280px) { .grid-5 { grid-template-columns: repeat(4, 1fr); } }
+  @media (max-width: 980px)  { .grid-5 { grid-template-columns: repeat(3, 1fr); } }
+
+  /* Card with corner brackets — matches production .wp-card */
+  .cell {
+    position: relative;
+    aspect-ratio: 16/10;
+    overflow: hidden;
+    background: var(--paper-3);
+    cursor: pointer;
+    transition: transform 280ms var(--ease), box-shadow 280ms var(--ease);
+  }
+  .cell img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 600ms var(--ease); }
+  .cell:hover { transform: translateY(-2px); box-shadow: 0 18px 36px -16px oklch(20% 0.020 230 / 0.55), 0 1px 0 oklch(96% 0.010 230 / 0.45); }
+  .cell:hover img { transform: scale(1.03); }
+  .cell::before, .cell::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 3;
+    background-repeat: no-repeat;
+    background-size: 14px 1px, 1px 14px, 14px 1px, 1px 14px;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)),
+      linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)),
+      linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)),
+      linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85));
+    opacity: 0.7;
+    transition: inset 320ms var(--ease), opacity 240ms var(--ease);
+    animation: cell-corners-in 520ms var(--ease) both;
+  }
+  @keyframes cell-corners-in { 0% { inset: 18px; opacity: 0; } 100% { inset: 0; opacity: 0.7; } }
+  .cell::before { background-position: top left, top left, top right, top right; }
+  .cell::after  { background-position: bottom left, bottom left, bottom right, bottom right; }
+  .cell:hover::before, .cell:hover::after { inset: 6px; opacity: 1; }
+  .cell .chip {
+    position: absolute; top: 10px; left: 10px; z-index: 4;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+    background: rgba(0,0,0,0.55); color: white;
+    padding: 3px 7px;
+    backdrop-filter: blur(8px);
+  }
+  .cell .chip.pho { color: var(--signal); background: rgba(0,0,0,0.65); }
+  .cell .meta {
+    position: absolute; bottom: 10px; left: 10px; right: 10px; z-index: 4;
+    display: flex; justify-content: space-between; gap: 8px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: white;
+    text-shadow: 0 1px 12px rgba(0,0,0,0.7);
+  }
+
+  /* end-of-feed terminus */
+  footer.feed-end {
+    padding: 48px 56px 80px;
+    display: flex; justify-content: center; align-items: center; gap: 18px;
+    border-top: 1px solid var(--hair);
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  footer.feed-end .pho { color: var(--signal); }
+  footer.feed-end .caret { display: inline-block; animation: blink 1000ms steps(2, end) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* small-screen fallback note (this demo is desktop-first) */
+  @media (max-width: 840px) {
+    body { grid-template-columns: 1fr; grid-template-rows: 44px 1fr; }
+    aside.rail { display: none; }
+    header.bar { grid-column: 1; }
+    main { grid-column: 1; }
+    section.row { padding: 32px 20px 16px; }
+    .hero-hud { left: 20px; right: 20px; bottom: 28px; grid-template-columns: 1fr; }
+  }
+
+  /* back to compare */
+  .compare-link {
+    position: fixed; bottom: 14px; right: 14px; z-index: 100;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); background: var(--paper); padding: 6px 10px; border: 1px solid var(--hair);
+  }
+  .compare-link:hover { color: var(--ink); border-color: var(--ink); }
+</style>
+</head>
+<body>
+
+<!-- ============================== Console Rail ============================== -->
+<aside class="rail">
+  <a class="brand" href="#">
+    <div class="logo">W</div>
+    <div class="name">
+      <b>Wallpaper</b>
+      <span class="sub">Exchange <span class="live-dot"></span></span>
+    </div>
+  </a>
+
+  <nav class="nav">
+    <a class="item active" href="#">Home</a>
+    <a class="item" href="#">Discover</a>
+    <a class="item" href="#">Collections</a>
+    <a class="item" href="#">Uploaders</a>
+    <a class="item" href="#">Devices</a>
+    <a class="item" href="#">Mac App</a>
+    <a class="submit" href="#">
+      <span>▶ Submit</span><span class="arr">→</span>
+    </a>
+  </nav>
+
+  <hr class="rail-rule">
+
+  <div class="balance">
+    <div class="lbl">Balance</div>
+    <div class="row">
+      <span class="coin"></span>
+      <span class="num">42</span>
+    </div>
+    <div class="net">+4 NET · this week</div>
+    <div class="hint">Upload one to earn +1 →</div>
+  </div>
+
+  <div class="legal">
+    <a href="#">About</a> · <a href="#">Terms</a><br>
+    <a href="#">Privacy</a> · <a href="#">DMCA</a><br>
+    © 2026 Wallpaper Exchange
+  </div>
+</aside>
+
+<!-- ============================== Console Bar ============================== -->
+<header class="bar">
+  <div class="seg" style="border-right:1px solid var(--hair-soft)">
+    <strong>WallShare</strong>&nbsp;›&nbsp;CONSOLE
+  </div>
+  <div class="seg">
+    <span class="ledger">
+      <span>LEDGER</span>
+      <span class="bars" id="ledger"></span>
+      <span><span class="net">+4 NET</span></span>
+      <span><span class="arrow-up">↑12</span> EARN</span>
+      <span><span class="arrow-dn">↓8</span> SPEND</span>
+    </span>
+  </div>
+  <div class="seg">
+    <strong id="statWp">—</strong>&nbsp;WALLPAPERS · <strong id="statCol">—</strong>&nbsp;SETS
+  </div>
+  <div class="seg right">
+    <span class="icon" title="Theme">☀</span>
+    <span class="user">&nbsp;@you ▾</span>
+  </div>
+</header>
+
+<!-- ============================== Main ============================== -->
+<main>
+
+  <!-- HERO -->
+  <section class="hero">
+    <img class="bg" id="heroImg" alt="">
+    <span class="hero-corner tl"></span><span class="hero-corner tr"></span>
+    <span class="hero-corner bl"></span><span class="hero-corner br"></span>
+    <span class="hero-line"></span>
+
+    <div class="hero-hud">
+      <div class="meta">
+        <div class="kicker">
+          <span class="pho">●</span>
+          <span>Curation №042 / Week 22</span>
+          <span>·</span>
+          <span>Specimen №<span id="heroId"></span></span>
+        </div>
+        <h1 id="heroTitle">—<span class="dot">.</span></h1>
+        <div class="data-row">
+          <span class="item"><span id="heroDim">—</span></span>
+          <span class="item">·</span>
+          <span class="item"><span id="heroMp">—</span></span>
+          <span class="item">·</span>
+          <span class="item"><span id="heroSize">—</span></span>
+          <span class="item">·</span>
+          <span class="item"><span class="sw" id="heroSw"></span> <span id="heroOklch">OKLCH —</span></span>
+        </div>
+        <div class="palette" id="heroPalette"></div>
+      </div>
+      <div class="hero-cta">
+        <div class="observers"><span class="blink-dot"></span><span id="heroObs">— observers</span></div>
+        <div class="button-row">
+          <button class="btn">View magnified</button>
+          <button class="btn primary"><span class="coin"></span> Trade for 1</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CURATION SLATE -->
+  <section class="row">
+    <div class="row-head">
+      <div>
+        <div class="kicker"><span class="pho">●</span> Curation №042 · This week</div>
+        <h2>Full slate</h2>
+      </div>
+      <a class="more" href="#">All curations →</a>
+    </div>
+    <div class="grid-5" id="slate"></div>
+  </section>
+
+  <!-- AI LAB -->
+  <section class="row">
+    <div class="row-head">
+      <div>
+        <div class="kicker"><span class="pho">●</span> AI Lab / Generated</div>
+        <h2>Synthetic samples this week</h2>
+      </div>
+      <a class="more" href="#">All AI →</a>
+    </div>
+    <div class="grid-5" id="ai"></div>
+  </section>
+
+  <!-- MOTION SAMPLES -->
+  <section class="row">
+    <div class="row-head">
+      <div>
+        <div class="kicker"><span class="pho">●</span> Motion samples</div>
+        <h2>Video wallpapers</h2>
+      </div>
+      <a class="more" href="#">All videos →</a>
+    </div>
+    <div class="grid-5" id="motion"></div>
+  </section>
+
+  <!-- EDITORIAL SETS -->
+  <section class="row">
+    <div class="row-head">
+      <div>
+        <div class="kicker"><span class="pho">●</span> Editorial sets</div>
+        <h2>Themed collections</h2>
+      </div>
+      <a class="more" href="#">All sets →</a>
+    </div>
+    <div class="grid-5" id="sets"></div>
+  </section>
+
+  <footer class="feed-end">
+    <span class="pho">▌</span>
+    <span>End of index · 12,043 entries · 02:11 UTC</span>
+    <span class="caret pho">▌</span>
+  </footer>
+</main>
+
+<a class="compare-link" href="../index.html">← Back to compare</a>
+
+<script src="../_data.js"></script>
+<script>
+  const W = window.WALLPAPERS;
+
+  // ──────── Hero ────────
+  const hero = W[0];
+  document.getElementById('heroImg').src = hero.preview;
+  document.getElementById('heroTitle').innerHTML = hero.title.toUpperCase() + '<span class="dot">.</span>';
+  document.getElementById('heroId').textContent = String(hero.id).padStart(4, '0');
+  document.getElementById('heroDim').textContent = hero.w + ' × ' + hero.h;
+  document.getElementById('heroMp').textContent = window.fmtMP(hero.w, hero.h);
+  document.getElementById('heroSize').textContent = window.fmtMB(hero.size);
+  document.getElementById('heroSw').style.background = hero.color;
+  document.getElementById('heroOklch').textContent = 'OKLCH ' + window.hexToOklch(hero.color);
+  document.getElementById('heroObs').textContent = (hero.observers || 3) + ' observers';
+  document.getElementById('heroPalette').innerHTML = hero.palette.split(',').map(c => `<i style="background:${c}"></i>`).join('');
+
+  // ──────── Console bar stats ────────
+  document.getElementById('statWp').textContent = '12,043';
+  document.getElementById('statCol').textContent = '234';
+
+  // ──────── LEDGER METER bars (16 cells, 12 phosphor, 4 grey, last lit cell pulses) ────────
+  const ledger = document.getElementById('ledger');
+  const cells = [];
+  for (let i = 0; i < 16; i++) {
+    if (i < 11) cells.push('<i class="on"></i>');
+    else if (i === 11) cells.push('<i class="pulse"></i>');
+    else cells.push('<i></i>');
+  }
+  ledger.innerHTML = cells.join('');
+
+  // ──────── Helpers to build rows ────────
+  function cell(w, opts = {}) {
+    const div = document.createElement('a');
+    div.className = 'cell';
+    div.href = '#';
+    let chip = '';
+    if (opts.chip) chip = `<span class="chip ${opts.chipPho ? 'pho' : ''}">${opts.chip}</span>`;
+    div.innerHTML = `
+      <img src="${w.thumb}" alt="${w.title}">
+      ${chip}
+      <div class="meta">
+        <span>№${w.id}</span>
+        <span>${w.w}×${w.h}</span>
+      </div>
+    `;
+    return div;
+  }
+
+  // Slate (curation) — wallpapers 2..6 (the other 4-5 from this week)
+  const slate = document.getElementById('slate');
+  W.slice(1, 6).forEach((w, i) => {
+    const c = cell(w, { chip: `№${String(i + 2).padStart(2, '0')}` });
+    slate.appendChild(c);
+  });
+
+  // AI row — pick a different subset (mocked)
+  const ai = document.getElementById('ai');
+  W.slice(2, 7).forEach((w) => {
+    const c = cell(w, { chip: 'GEN', chipPho: true });
+    ai.appendChild(c);
+  });
+
+  // Motion samples — pick another subset with VIDEO chip
+  const motion = document.getElementById('motion');
+  W.slice(3, 8).forEach((w) => {
+    const c = cell(w, { chip: '▶ MOTION', chipPho: true });
+    motion.appendChild(c);
+  });
+
+  // Editorial sets — use 4 (collections as cards reuse the wallpaper thumbs as covers)
+  const sets = document.getElementById('sets');
+  const setTitles = ['Stargazing', 'Spring Awakening', 'Wildflowers', 'Ocean Calm', 'Mountain Air'];
+  W.slice(4, 9).forEach((w, i) => {
+    const c = cell(w, { chip: `SET · ${setTitles[i] || w.title}` });
+    sets.appendChild(c);
+  });
+</script>
+</body>
+</html>
