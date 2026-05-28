@@ -34,6 +34,31 @@ export default function HomeScreen({
     const v = localStorage.getItem(APPLIED_KEY);
     return v ? Number(v) : null;
   });
+  // In-app status/error banner. We can't rely on window.alert() — WebView2
+  // (the Tauri webview on Windows) suppresses script dialogs by default, so a
+  // thrown error in an action handler would otherwise look like "nothing
+  // happened". busyId disables the acting tile's buttons + shows progress.
+  const [banner, setBanner] = useState<{ kind: 'info' | 'error'; text: string } | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  // Wrap a Download/Set action: show a busy state, surface success/failure in
+  // the banner (and console), never swallow the error into a no-op alert.
+  const runAction = useCallback(
+    async (id: number, verb: string, fn: () => Promise<void>) => {
+      setBusyId(id);
+      setBanner({ kind: 'info', text: `${verb}…` });
+      try {
+        await fn();
+        setBanner(null);
+      } catch (e) {
+        console.error(`${verb} failed`, e);
+        setBanner({ kind: 'error', text: `${verb} failed: ${e instanceof Error ? e.message : String(e)}` });
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [],
+  );
 
   // Latest column — server-anonymous, hides macOS-dynamic since the
   // Windows desktop wallpaper API can't render them.
@@ -92,59 +117,51 @@ export default function HomeScreen({
   useEffect(() => { refreshLocalIDs(); }, [refreshLocalIDs]);
   useEffect(() => { refreshDownloaded(); }, [refreshDownloaded]);
 
-  async function onDownload(w: Wallpaper) {
+  function onDownload(w: Wallpaper) {
     if (!token) return onRequestSignIn();
-    try {
+    return runAction(w.id, 'Downloading', async () => {
       // First-time download from Latest — resolve the signed URL via
       // the API since original_url may be empty for non-owners.
       const url = w.original_url || (await api.getDownloadURL(w.id));
       await cmd.downloadWallpaper(w.id, url);
       await refreshLocalIDs();
       await refreshDownloaded();
-    } catch (e) {
-      alert(`Download failed: ${e}`);
-    }
+    });
   }
 
-  async function onSet(w: Wallpaper) {
+  function onSet(w: Wallpaper) {
     if (!token) return onRequestSignIn();
-    try {
+    return runAction(w.id, 'Setting wallpaper', async () => {
       const url = w.original_url || (await api.getDownloadURL(w.id));
       await cmd.setWallpaperById(w.id, url);
       setAppliedID(w.id);
       localStorage.setItem(APPLIED_KEY, String(w.id));
       await refreshLocalIDs();
       await refreshDownloaded();
-    } catch (e) {
-      alert(`Set wallpaper failed: ${e}`);
-    }
+    });
   }
 
-  async function onSetLocal(w: Wallpaper) {
+  function onSetLocal(w: Wallpaper) {
     // Downloaded → Set when the file is already on this machine —
     // skip the network round-trip entirely.
     const path = downloadedPaths.get(w.id);
     if (!path) return onSet(w);
-    try {
+    return runAction(w.id, 'Setting wallpaper', async () => {
       await cmd.setStaticWallpaper(path);
       setAppliedID(w.id);
       localStorage.setItem(APPLIED_KEY, String(w.id));
-    } catch (e) {
-      alert(`Set wallpaper failed: ${e}`);
-    }
+    });
   }
 
-  async function onRedownload(w: Wallpaper) {
+  function onRedownload(w: Wallpaper) {
     // Downloaded column, local file missing — pull from server-side
     // history. HasDownloaded means the server won't re-charge coins.
     if (!token) return onRequestSignIn();
-    try {
+    return runAction(w.id, 'Re-downloading', async () => {
       const url = await api.getDownloadURL(w.id);
       await cmd.downloadWallpaper(w.id, url);
       await refreshLocalIDs();
-    } catch (e) {
-      alert(`Re-download failed: ${e}`);
-    }
+    });
   }
 
   async function signOut() {
@@ -170,6 +187,12 @@ export default function HomeScreen({
         </div>
       </header>
 
+      {banner && (
+        <div className={`banner ${banner.kind}`} onClick={() => setBanner(null)}>
+          {banner.text}
+        </div>
+      )}
+
       <div className="cols">
         <Column
           title="Latest"
@@ -178,8 +201,12 @@ export default function HomeScreen({
           err={latestErr}
           renderActions={(w) => (
             <>
-              <button onClick={() => onSet(w)}>Set</button>
-              <button onClick={() => onDownload(w)}>Download</button>
+              <button disabled={busyId === w.id} onClick={() => onSet(w)}>
+                {busyId === w.id ? '…' : 'Set'}
+              </button>
+              <button disabled={busyId === w.id} onClick={() => onDownload(w)}>
+                {busyId === w.id ? '…' : 'Download'}
+              </button>
             </>
           )}
           appliedID={appliedID}
@@ -191,9 +218,13 @@ export default function HomeScreen({
           err={downloadedErr ?? (!token ? 'Sign in to see your downloads' : null)}
           renderActions={(w) => (
             localIDs.has(w.id) ? (
-              <button onClick={() => onSetLocal(w)}>Set</button>
+              <button disabled={busyId === w.id} onClick={() => onSetLocal(w)}>
+                {busyId === w.id ? '…' : 'Set'}
+              </button>
             ) : (
-              <button onClick={() => onRedownload(w)}>Re-download</button>
+              <button disabled={busyId === w.id} onClick={() => onRedownload(w)}>
+                {busyId === w.id ? '…' : 'Re-download'}
+              </button>
             )
           )}
           appliedID={appliedID}

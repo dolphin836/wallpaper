@@ -149,6 +149,17 @@ input:focus { outline: none; border-color: var(--ink-2); }
 }
 .home .signout:hover { color: var(--ink); background: transparent; }
 
+.banner {
+  margin: 0 16px 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid var(--hair);
+}
+.banner.info { background: var(--paper-2); color: var(--ink); }
+.banner.error { background: #fbe9e7; color: #b1311f; border-color: #f0b8ae; }
+
 .cols {
   flex: 1;
   display: grid;
