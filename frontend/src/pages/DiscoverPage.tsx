@@ -532,13 +532,28 @@ export default function DiscoverPage() {
       }
       const res = await getWallpapers(params);
       const { items, next_cursor, has_more } = res.data.data;
+      // Defensive dedupe: a thin category (e.g. Games with ~20 items)
+      // surfaced a server bug where pagination kept reporting
+      // has_more=true while returning the same page, producing visible
+      // duplicates in the feed. Drop any IDs we already have on append,
+      // and treat "no fresh items + same cursor" as the real end of
+      // the list regardless of what has_more says.
+      let appendedFresh = 0;
       setWallpapers((prev) => {
         const base = reset ? [] : prev;
         setStaggerFrom(base.length);
-        return [...base, ...items];
+        if (reset) {
+          appendedFresh = items.length;
+          return items;
+        }
+        const seen = new Set(base.map((w) => w.id));
+        const fresh = items.filter((w) => !seen.has(w.id));
+        appendedFresh = fresh.length;
+        return [...base, ...fresh];
       });
+      const cursorStalled = !reset && next_cursor === cursorRef.current;
       setCursor(next_cursor);
-      setHasMore(has_more);
+      setHasMore(has_more && !cursorStalled && (reset || appendedFresh > 0));
       setLoadError(false);
     } catch {
       // Reset-time failures still surface a toast (they're catastrophic — no
