@@ -1,9 +1,34 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  MdPhoneIphone, MdPhoneAndroid,
+  MdTabletMac, MdTabletAndroid,
+  MdLaptopMac, MdLaptopWindows, MdLaptopChromebook,
+  MdDesktopMac, MdDesktopWindows,
+  MdDevices,
+} from 'react-icons/md';
+import type { IconType } from 'react-icons';
 import type { DeviceProfile } from '../types';
 import { getDevices } from '../api';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
+
+// Brand-aware platform icon. We don't ship per-device renders (would
+// require hundreds of bespoke assets); instead we pick a Material
+// Design icon that matches platform + brand so an Apple laptop reads
+// distinctly different from a Windows laptop in the list.
+function iconFor(d: DeviceProfile): IconType {
+  const brand = (d.brand || '').toLowerCase();
+  const isApple = brand === 'apple';
+  const isChromebook = brand.includes('chromebook') || /chrome ?os/i.test(d.name);
+  switch (d.platform) {
+    case 'phone':   return isApple ? MdPhoneIphone : MdPhoneAndroid;
+    case 'tablet':  return isApple ? MdTabletMac : MdTabletAndroid;
+    case 'laptop':  return isChromebook ? MdLaptopChromebook : isApple ? MdLaptopMac : MdLaptopWindows;
+    case 'desktop': return isApple ? MdDesktopMac : MdDesktopWindows;
+    default:        return MdDevices;
+  }
+}
 
 interface DeviceWithCount extends DeviceProfile {
   wallpaper_count: number;
@@ -111,40 +136,19 @@ export default function DeviceIndexPage() {
   );
 }
 
-// Mini "device frame" indicator next to each card — a thin rectangle
-// rendered at the device's true aspect ratio. Phones get a high corner
-// radius, tablets medium, laptops/desktops low. Pure CSS, no SVG.
-function DeviceFrame({ d }: { d: DeviceWithCount }) {
-  const aspect = d.width / d.height;
-  // Portrait phones / tablets are tall; landscape laptops / desktops
-  // are wide. Cap the visual width at 36px so the frame doesn't
-  // dominate the row.
-  const width = aspect >= 1 ? 36 : 36 * aspect;
-  const height = aspect >= 1 ? 36 / aspect : 36;
-  const radius =
-    d.platform === 'phone' ? 5 :
-    d.platform === 'tablet' ? 4 :
-    d.platform === 'laptop' ? 2.5 :
-    2;
-  return (
-    <span
-      className="device-frame"
-      style={{ width, height, borderRadius: radius }}
-      aria-hidden
-    />
-  );
-}
-
 function DeviceCard({ device }: { device: DeviceWithCount }) {
   const count = device.wallpaper_count;
+  const Icon = iconFor(device);
   return (
     <Link
       to={`/wallpapers-for/${device.slug}`}
       className="device-card group"
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <DeviceFrame d={device} />
+        <div className="flex items-center gap-3.5 min-w-0">
+          <span className="device-icon" aria-hidden>
+            <Icon size={26} />
+          </span>
           <div className="min-w-0">
             <div className="text-[14.5px] font-medium text-ink truncate">
               {device.name}

@@ -589,26 +589,50 @@
   color: var(--color-accent);
 }
 
-/* Mini device-frame indicator inside each list-page card. Just a thin
-   rectangle styled per platform (radius = roundness of a phone vs a
-   monitor). Inline width/height supplied per device, see DeviceFrame
-   in DeviceIndexPage. */
-.device-frame {
-  display: inline-block;
-  background: linear-gradient(135deg,
-    oklch(80% 0.02 230) 0%,
-    oklch(70% 0.03 240) 100%);
-  border: 1px solid oklch(60% 0.04 240);
+/* Brand-aware device icon chip inside each list-page card. 44×44
+   rounded square holding a Material Design device icon
+   (MdPhoneIphone / MdLaptopMac / etc.); steel-tinted background +
+   inset top highlight matches the family's spec-sheet vocabulary
+   without committing to per-device renders. */
+.device-icon {
+  width: 44px; height: 44px;
+  border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.3),
-    0 1px 2px oklch(0% 0 0 / 0.15);
-}
-.dark .device-frame {
   background: linear-gradient(135deg,
-    oklch(38% 0.03 230) 0%,
-    oklch(30% 0.04 240) 100%);
-  border-color: oklch(48% 0.04 240);
+    oklch(95% 0.015 230) 0%,
+    oklch(89% 0.025 240) 100%);
+  border: 1px solid oklch(82% 0.03 240);
+  color: oklch(34% 0.05 240);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 1px 2px oklch(0% 0 0 / 0.1);
+  transition: transform 240ms var(--ease-out-quart),
+              background 220ms ease,
+              color 220ms ease;
+}
+.dark .device-icon {
+  background: linear-gradient(135deg,
+    oklch(34% 0.03 230) 0%,
+    oklch(28% 0.04 240) 100%);
+  border-color: oklch(46% 0.04 240);
+  color: oklch(82% 0.03 240);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.06),
+    0 1px 2px oklch(0% 0 0 / 0.4);
+}
+.device-card:hover .device-icon {
+  transform: scale(1.05);
+  background: linear-gradient(135deg,
+    oklch(96% 0.02 60) 0%,
+    oklch(91% 0.05 50) 100%);
+  color: var(--color-accent);
+}
+.dark .device-card:hover .device-icon {
+  background: linear-gradient(135deg,
+    oklch(38% 0.05 50) 0%,
+    oklch(32% 0.07 45) 100%);
+  color: oklch(82% 0.16 55);
 }
 
 .device-card {
