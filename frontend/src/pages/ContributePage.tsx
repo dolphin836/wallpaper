@@ -18,7 +18,7 @@ export default function ContributePage() {
         description="Upload your wallpapers to Wallpaper Exchange. We auto-generate variants for forty-plus device profiles, you earn a coin per accepted upload, and the best work gets featured."
       />
 
-      <div className="relative z-10 px-6 sm:px-10 lg:px-14 pt-10 pb-16 max-w-[820px] mx-auto">
+      <div className="relative z-10 px-6 sm:px-10 lg:px-14 py-12 max-w-[1280px] mx-auto">
 
         {/* ─── Hero ─── */}
         <header className="mb-10">

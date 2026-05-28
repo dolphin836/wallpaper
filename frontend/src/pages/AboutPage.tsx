@@ -14,7 +14,7 @@ export default function AboutPage() {
         description="Wallpaper Exchange — a wallpaper community where every image comes pre-sized for forty-plus devices, and every contributor earns a coin for every upload."
       />
 
-      <div className="relative z-10 px-6 sm:px-10 lg:px-14 pt-10 pb-16 max-w-[820px] mx-auto">
+      <div className="relative z-10 px-6 sm:px-10 lg:px-14 py-12 max-w-[1280px] mx-auto">
 
         {/* ─── Hero ─── */}
         <header className="mb-10">
