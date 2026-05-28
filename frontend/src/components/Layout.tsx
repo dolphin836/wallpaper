@@ -117,17 +117,26 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
   return (
     <header className="sticky top-0 z-40 bg-paper/85 border-b border-hair backdrop-blur-md">
       <div className="max-w-[1600px] mx-auto flex items-center gap-3 px-4 sm:px-8 py-3 min-h-[60px]">
-        {/* Brand */}
-        <Link to="/" className="flex items-center gap-2.5 text-ink no-underline shrink-0">
-          <span className="w-7 h-7 rounded-lg bg-ink text-paper display italic-d text-[18px] flex items-center justify-center leading-none">
-            W
-          </span>
-          <span className="hidden sm:inline font-semibold text-[15px] tracking-[-0.01em]">
-            Wallpaper Exchange
-          </span>
-          {/* Live-system signal — small phosphor breathing dot, signals
-              "the system is running" on every page. */}
-          <span className="live-dot ml-1" title="System online" />
+        {/* Brand — real PNG mark (two image frames + exchange arrows) +
+            stacked editorial wordmark (serif "Wallpaper" / mono uppercase
+            "EXCHANGE · live-dot"). The synthesized black W square was a
+            placeholder; this restores the original brand. */}
+        <Link to="/" className="flex items-center gap-3 text-ink no-underline shrink-0 group">
+          <img
+            src="/logo-192.png"
+            alt=""
+            className="w-9 h-9 shrink-0 transition-transform duration-300 group-hover:rotate-[8deg]"
+          />
+          <div className="hidden sm:block leading-none">
+            <div className="display text-[20px] leading-none tracking-[-0.01em]">Wallpaper</div>
+            <div className="mono text-[9px] tracking-[0.20em] uppercase text-muted mt-1 inline-flex items-center gap-1.5">
+              Exchange
+              <span className="live-dot" title="System online" />
+            </div>
+          </div>
+          {/* Mobile-only: just the live dot floats next to the icon since
+              the wordmark is hidden at < sm. */}
+          <span className="live-dot sm:hidden" title="System online" />
         </Link>
 
         {/* Primary nav — desktop only */}
