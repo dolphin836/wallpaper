@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
 import InAppConfirm from '../components/InAppConfirm';
@@ -36,8 +36,16 @@ const PAGE_SIZE = 12;
 
 /* Framed-print tile — paper mat + image + chips + hover action
    rail. Modal navigation via location.state.background so clicking
-   opens the detail overlay (same UX as discover salon tiles). */
-function FramedTile({ wallpaper: w, index }: { wallpaper: Wallpaper; index: number }) {
+   opens the detail overlay (same UX as discover salon tiles).
+   onHover lets the parent drive the page mesh from this
+   wallpaper's palette while hovered. */
+function FramedTile({
+  wallpaper: w, index, onHover,
+}: {
+  wallpaper: Wallpaper;
+  index: number;
+  onHover?: (palette: string | undefined, dominant?: string) => void;
+}) {
   const location = useLocation();
   const acts = useWallpaperActions(w);
   const [loaded, setLoaded] = useState(false);
@@ -62,6 +70,8 @@ function FramedTile({ wallpaper: w, index }: { wallpaper: Wallpaper; index: numb
       state={{ background: location, initialWallpaper: w }}
       className="cd-frame"
       style={{ animationDelay: `${index * 35}ms` }}
+      onMouseEnter={() => onHover?.(w.color_palette, w.dominant_color)}
+      onMouseLeave={() => onHover?.(undefined)}
     >
       <div className="cd-mat">
         <img
@@ -290,40 +300,57 @@ export default function CollectionDetailPage() {
     }
   };
 
-  // Mesh CSS variable from the collection's accent_color. This is the
-  // key differentiator: every collection's detail page literally takes
-  // on its own colour (warm, cool, neon, muted — depends on the curator
-  // or the editor's pick). Sets a CSS var on the page root that the
-  // mesh and accents read.
+  // Mesh CSS variable from the collection's accent_color. Sets
+  // --c-accent on the page root; the mesh's radial gradients
+  // color-mix this through 3 stops by default.
   const accentStyle = useMemo<React.CSSProperties>(() => {
     if (!collection?.accent_color) return {};
     return { '--c-accent': collection.accent_color } as React.CSSProperties;
   }, [collection?.accent_color]);
 
-  if (loading) {
-    return (
-      <div className="c-detail min-h-full">
-        <div className="c-detail-mesh" aria-hidden />
-        <main className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-10">
-          <div className="c-detail-hero skeleton-card" style={{ aspectRatio: '5/3' }} />
-        </main>
-      </div>
-    );
-  }
-  if (!collection) return <EmptyState message="Collection not found." />;
+  // Hover-driven palette swap — same recipe as home / weekly: the
+  // tile's color_palette overrides --c-c1/c2/c3 on the root while
+  // hovered, mesh transitions in. On mouse leave we remove the
+  // vars so the mesh falls back to the accent-color default.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const applyPalette = useCallback((palette: string | undefined, dominant?: string) => {
+    const root = rootRef.current;
+    if (!root) return;
+    if (!palette && !dominant) {
+      root.style.removeProperty('--c-c1');
+      root.style.removeProperty('--c-c2');
+      root.style.removeProperty('--c-c3');
+      return;
+    }
+    const parts = (palette || '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (parts.length >= 3) {
+      root.style.setProperty('--c-c1', parts[0]);
+      root.style.setProperty('--c-c2', parts[Math.floor(parts.length / 2)]);
+      root.style.setProperty('--c-c3', parts[parts.length - 1]);
+    } else if (dominant) {
+      root.style.setProperty('--c-c1', dominant);
+      root.style.setProperty('--c-c2', dominant);
+      root.style.setProperty('--c-c3', dominant);
+    }
+  }, []);
 
-  const isOwner = user?.id === collection.user_id;
+  // Not-found state stays an explicit empty view; everything else
+  // (initial load) renders the full structure with skeletons so the
+  // page doesn't reflow once data lands.
+  if (!loading && !collection) return <EmptyState message="Collection not found." />;
+
+  const isOwner = !!collection && user?.id === collection.user_id;
   const visible = pages[currentPage] || [];
   const total = knownTotalPages ?? (hasMoreUpTo ? hasMoreUpTo + 1 : 1);
-  const cover = collection.cover_url || visible[0]?.preview_url || visible[0]?.thumb_url;
+  const cover = collection?.cover_url || visible[0]?.preview_url || visible[0]?.thumb_url;
   const curatorInitial = (curator?.nickname || curator?.username || 'U').charAt(0).toUpperCase();
 
   return (
-    <div className="c-detail min-h-full" style={accentStyle}>
+    <div ref={rootRef} className="c-detail min-h-full" style={accentStyle}>
       <div className="c-detail-mesh" aria-hidden />
       <PageMeta
-        title={collection.title}
-        description={collection.description || `Collection of ${collection.wallpaper_count} wallpapers`}
+        title={collection?.title || 'Collection'}
+        description={collection?.description || (collection ? `Collection of ${collection.wallpaper_count} wallpapers` : '')}
         image={cover}
       />
       <InAppConfirm
@@ -342,22 +369,38 @@ export default function CollectionDetailPage() {
           <span>All collections</span>
         </Link>
 
-        {/* Hero — cover + minimal meta side-by-side. Cover sits on a
-            soft accent-tinted halo (no stacked-paper layers; cleaner
-            single-object presentation). Meta column has: kicker,
-            title, count meta, actions. No italic description, no
-            curator avatar/handle row — keeping the content side
-            quiet so the cover is the focal point. */}
+        {/* Hero — framed cover (same recipe as the tiles below, just
+            larger) + meta column. The paper mat + hairline + accent
+            halo treatment is shared with the framed tiles so the
+            page reads as one cohesive 'gallery wall + headline
+            piece' rather than a hero + grid of unrelated cards. */}
         <section className="c-detail-hero-row">
-          <div className="c-detail-frame">
-            {cover ? (
-              <img src={cover} alt={collection.title} className="c-detail-cover" />
-            ) : (
-              <div className="c-detail-cover-empty">No cover yet</div>
-            )}
+          <div className="c-detail-hero-frame">
+            <div className="c-detail-hero-mat">
+              {cover ? (
+                <img src={cover} alt={collection?.title || ''} className="c-detail-hero-img" />
+              ) : loading ? (
+                <div className="c-detail-hero-img skeleton-card" />
+              ) : (
+                <div className="c-detail-cover-empty">No cover yet</div>
+              )}
+            </div>
             <span className="c-detail-accent-dot" aria-hidden />
           </div>
 
+          {/* Meta column. When still loading we render bar
+              placeholders shaped roughly like kicker / title / desc
+              / sub so the right side doesn't snap from blank → full
+              when the API responds. */}
+          {!collection ? (
+            <div className="c-detail-meta">
+              <div className="c-detail-skel-bar w-28 h-3" />
+              <div className="c-detail-skel-bar w-2/3 h-12 mt-3" />
+              <div className="c-detail-skel-bar w-full h-3 mt-5" />
+              <div className="c-detail-skel-bar w-5/6 h-3 mt-2" />
+              <div className="c-detail-skel-bar w-1/2 h-3 mt-7" />
+            </div>
+          ) : (
           <div className="c-detail-meta">
             <div className="c-detail-kicker">
               {collection.kind === 1 ? 'Editor Theme' : 'Collection'}
@@ -460,6 +503,7 @@ export default function CollectionDetailPage() {
               </div>
             )}
           </div>
+          )}
         </section>
 
         {/* Wallpaper matrix — uniform, symmetric. Unlike Weekly's
@@ -472,7 +516,11 @@ export default function CollectionDetailPage() {
               The set
             </span>
             <span className="mono text-[10px] tracking-[0.18em] uppercase text-muted">
-              {visible.length > 0 ? `${visible.length} of ${collection.wallpaper_count}` : `${collection.wallpaper_count} ${collection.wallpaper_count === 1 ? 'piece' : 'pieces'}`}
+              {collection && visible.length > 0
+                ? `${visible.length} of ${collection.wallpaper_count}`
+                : collection
+                  ? `${collection.wallpaper_count} ${collection.wallpaper_count === 1 ? 'piece' : 'pieces'}`
+                  : ''}
             </span>
           </div>
 
@@ -485,7 +533,7 @@ export default function CollectionDetailPage() {
               image. Distinct from Weekly's 5-up 4:5 portrait tiles
               (no mat, no border — those read as 'magazine spread')
               and Discover's edge-to-edge utility grid. */}
-          {loadingPage && visible.length === 0 ? (
+          {(loading || (loadingPage && visible.length === 0)) ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
               {Array.from({ length: 8 }).map((_, i) => (
                 // Skeleton mirrors the real FramedTile: paper mat
@@ -504,7 +552,7 @@ export default function CollectionDetailPage() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
               {visible.map((w, i) => (
-                <FramedTile key={w.id} wallpaper={w} index={i} />
+                <FramedTile key={w.id} wallpaper={w} index={i} onHover={applyPalette} />
               ))}
             </div>
           )}

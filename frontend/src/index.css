@@ -814,14 +814,19 @@
 }
 .c-detail-mesh {
   position: fixed; inset: 0; z-index: 0;
+  /* 3 stops fall back to accent-color mixes unless --c-c1/c2/c3 are
+     set explicitly (hover swap). Same recipe as home/weekly — JS
+     writes the hovered wallpaper's palette into the vars and the
+     transition fades the mesh to that colour. */
   background:
-    radial-gradient(45% 45% at 24% 28%, color-mix(in oklch, var(--c-accent) 70%, transparent) 0%, transparent 60%),
-    radial-gradient(50% 50% at 76% 76%, color-mix(in oklch, var(--c-accent) 55%, transparent) 0%, transparent 55%),
-    radial-gradient(45% 45% at 50% 50%, color-mix(in oklch, var(--c-accent) 40%, transparent) 0%, transparent 65%);
+    radial-gradient(45% 45% at 24% 28%, var(--c-c1, color-mix(in oklch, var(--c-accent) 70%, transparent)) 0%, transparent 60%),
+    radial-gradient(50% 50% at 76% 76%, var(--c-c2, color-mix(in oklch, var(--c-accent) 55%, transparent)) 0%, transparent 55%),
+    radial-gradient(45% 45% at 50% 50%, var(--c-c3, color-mix(in oklch, var(--c-accent) 40%, transparent)) 0%, transparent 65%);
   filter: blur(80px) saturate(1.4);
   opacity: 0.5;
   pointer-events: none;
   animation: w-weekly-drift 38s ease-in-out infinite alternate;
+  transition: background 1000ms ease, opacity 600ms ease;
 }
 .dark .c-detail-mesh {
   opacity: 0.7;
@@ -854,51 +859,81 @@
   .c-detail-hero-row { grid-template-columns: 1fr; gap: 32px; }
 }
 
-/* Cover frame — single clean object (no stacked-paper layers).
-   Accent-tinted halo behind it (drop shadow with collection's
-   --c-accent colour-mixed into the depth shadow), a thin accent
-   ring on the cover edge, and a small accent dot in the corner.
-   1:1 like an album sleeve but presented as a contemporary art
-   print rather than a record stack. */
-.c-detail-frame {
+/* Hero cover — same recipe as the framed tiles below, but bigger.
+   Outer .c-detail-hero-frame is the paper mat (paper bg + thin
+   border + accent-tinted soft halo). Inner .c-detail-hero-mat is
+   the image chamber (paper-2 bg behind, slight radius). 1:1 keeps
+   the album-cover read while letting the column stay at the same
+   max-width (≤460px) — well under preview_url's native ~1600px so
+   no upscale blur. */
+.c-detail-hero-frame {
   position: relative;
   aspect-ratio: 1/1;
-  border-radius: 18px;
-  background: var(--color-paper-2);
-  overflow: hidden;
-  border: 1px solid color-mix(in oklch, var(--c-accent) 32%, var(--color-hair));
+  padding: 16px;
+  background: var(--color-paper);
+  border: 1px solid color-mix(in oklch, var(--c-accent) 30%, var(--color-hair));
+  border-radius: 10px;
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.5),
-    0 32px 80px -28px color-mix(in oklch, var(--c-accent) 55%, oklch(0% 0 0)),
-    0 14px 36px -18px oklch(0% 0 0 / 0.30);
+    0 28px 70px -24px color-mix(in oklch, var(--c-accent) 50%, oklch(0% 0 0)),
+    0 14px 36px -18px oklch(0% 0 0 / 0.28);
   transition: transform 480ms var(--ease-out-quart),
-              box-shadow 480ms var(--ease-out-quart);
+              box-shadow 480ms var(--ease-out-quart),
+              border-color 280ms ease;
 }
-.dark .c-detail-frame {
+.dark .c-detail-hero-frame {
+  background: var(--color-paper-2);
+  border-color: color-mix(in oklch, var(--c-accent) 35%, var(--color-hair-soft));
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.08),
-    0 32px 80px -28px color-mix(in oklch, var(--c-accent) 70%, oklch(0% 0 0)),
+    0 28px 70px -24px color-mix(in oklch, var(--c-accent) 60%, oklch(0% 0 0)),
     0 14px 36px -18px oklch(0% 0 0 / 0.6);
 }
-.c-detail-frame:hover {
-  transform: translateY(-3px);
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.5),
-    0 44px 100px -28px color-mix(in oklch, var(--c-accent) 60%, oklch(0% 0 0)),
-    0 18px 44px -18px oklch(0% 0 0 / 0.36);
+.c-detail-hero-mat {
+  position: relative;
+  width: 100%; height: 100%;
+  background: var(--color-paper-2);
+  border-radius: 4px;
+  overflow: hidden;
 }
-.c-detail-cover, .c-detail-cover-empty {
+.c-detail-hero-img {
   width: 100%; height: 100%;
   object-fit: cover;
   display: block;
 }
+.c-detail-hero-img.skeleton-card {
+  /* Geometry only — the skeleton-card animation supplies the shimmer. */
+  background: var(--color-paper-2);
+}
 .c-detail-cover-empty {
+  width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
   color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
+}
+
+/* Meta-column skeleton bars — generic placeholder pills sized via
+   Tailwind utilities (w-*, h-*, mt-*) in the JSX. paper-2 bg with
+   the skeleton-card shimmer riding on top. */
+.c-detail-skel-bar {
+  background: var(--color-paper-2);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+.c-detail-skel-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 25%, rgba(255,255,255,0.45) 50%, transparent 75%);
+  transform: translateX(-100%);
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+.dark .c-detail-skel-bar::after {
+  background: linear-gradient(100deg, transparent 25%, rgba(255,255,255,0.08) 50%, transparent 75%);
 }
 .c-detail-accent-dot {
   position: absolute;
