@@ -198,6 +198,10 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Put("/collections/{id}", deps.AdminHandler.UpdateCollection)
 			r.Delete("/collections/{id}", deps.AdminHandler.DeleteCollection)
 
+			r.Get("/weekly-picks", deps.AdminHandler.ListWeeklyPickWeeks)
+			r.Get("/weekly-picks/{year}/{week}", deps.AdminHandler.GetWeeklyPickWeek)
+			r.Put("/weekly-picks/{year}/{week}/hero", deps.AdminHandler.SetWeeklyPickHero)
+
 			r.Get("/users", deps.AdminHandler.ListUsers)
 			r.Put("/users/{id}/admin", deps.AdminHandler.SetUserAdmin)
 			r.Put("/users/{id}/status", deps.AdminHandler.SetUserStatus)

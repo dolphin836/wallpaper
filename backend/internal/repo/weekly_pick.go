@@ -19,13 +19,16 @@ func NewWeeklyPickRepo(db *gorm.DB) *WeeklyPickRepo {
 
 // WeeklyPicked is one row of a Weekly Picks slate, joined with the
 // wallpaper itself so the API can return everything the gallery needs
-// in a single call. Includes OriginalURL because the home-page hero
-// (pick #1) needs the full-resolution source to avoid upscaling blur
-// at 2× retina — preview_url maxes out at 1600px and visibly stretches
-// past that. The full /wallpapers list endpoint still strips it.
+// in a single call. OriginalURL is populated ONLY on the hero row
+// (IsHero=true, or sort_order=0 as fallback when no hero is set) —
+// the home page needs the original for the hero card's full-res
+// display, but all other picks return original_url="" so the public
+// surface still gates full-resolution downloads behind the coin
+// economy. The unbounded /wallpapers list endpoint still strips it.
 type WeeklyPicked struct {
 	model.Wallpaper
-	SortOrder int `json:"sort_order"`
+	SortOrder int  `json:"sort_order"`
+	IsHero    bool `json:"is_hero"`
 }
 
 // Insert writes the 10-row slate for one ISO week. If a slate already
@@ -44,6 +47,9 @@ func (r *WeeklyPickRepo) Insert(ctx context.Context, year, week int16, wallpaper
 				Week:        week,
 				WallpaperID: id,
 				SortOrder:   i,
+				// First pick (sort_order=0) starts as the hero so the home
+				// page always has one. Admin can change via SetHero.
+				IsHero: i == 0,
 			}
 		}
 		if len(rows) == 0 {
@@ -84,12 +90,123 @@ func (r *WeeklyPickRepo) ListByWeek(ctx context.Context, year, week int16) ([]We
 		        w.file_size, w.file_type, w.dominant_color, w.color_palette,
 		        w.status, w.view_count, w.like_count, w.download_count,
 		        w.favorite_count, w.is_dynamic, w.dynamic_type, w.frame_urls,
-		        w.created_at, w.updated_at, wp.sort_order`).
+		        w.created_at, w.updated_at, wp.sort_order, wp.is_hero`).
 		Joins("JOIN wallpapers w ON w.id = wp.wallpaper_id").
 		Where("wp.year = ? AND wp.week = ? AND w.status = ?", year, week, model.WallpaperStatusPublished).
 		Order("wp.sort_order ASC").
 		Find(&rows).Error
-	return rows, err
+	if err != nil {
+		return nil, err
+	}
+	// Strip OriginalURL from every row except the hero. If no row has
+	// IsHero=true (legacy weeks predating this column), fall back to
+	// sort_order=0 — same wallpaper the picker has historically treated
+	// as #1 — so existing slates keep working without an explicit
+	// migration touchup.
+	heroIdx := -1
+	for i, r := range rows {
+		if r.IsHero { heroIdx = i; break }
+	}
+	if heroIdx == -1 && len(rows) > 0 {
+		heroIdx = 0
+		rows[0].IsHero = true // legacy default: first pick = hero
+	}
+	for i := range rows {
+		if i != heroIdx {
+			rows[i].OriginalURL = ""
+		}
+	}
+	return rows, nil
+}
+
+// SetHero flips the hero flag for one wallpaper in (year, week), clearing
+// all others in the same week. Runs in a transaction so the partial
+// unique index can never see two TRUE rows at once.
+func (r *WeeklyPickRepo) SetHero(ctx context.Context, year, week int16, wallpaperID int64) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.WeeklyPick{}).
+			Where("year = ? AND week = ? AND is_hero = ?", year, week, true).
+			Update("is_hero", false).Error; err != nil {
+			return err
+		}
+		res := tx.Model(&model.WeeklyPick{}).
+			Where("year = ? AND week = ? AND wallpaper_id = ?", year, week, wallpaperID).
+			Update("is_hero", true)
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	})
+}
+
+// WeekSummary is one entry in the admin weekly-picks index — a single
+// (year, week) row enriched with how many picks were curated and which
+// wallpaper is the hero, so the admin list can render cover thumbnails
+// without a per-row second fetch.
+type WeekSummary struct {
+	Year         int16  `json:"year"`
+	Week         int16  `json:"week"`
+	Count        int    `json:"count"`
+	HeroThumb    string `json:"hero_thumb"`
+	HeroTitle    string `json:"hero_title"`
+	HeroWPID     int64  `json:"hero_wallpaper_id"`
+}
+
+// ListAllWeeks returns every week that has a picks slate, newest first,
+// with hero info attached. Used by the admin console.
+func (r *WeeklyPickRepo) ListAllWeeks(ctx context.Context) ([]WeekSummary, error) {
+	// Build a per-week summary in one round-trip. We need two pieces
+	// from each week's hero row (thumb_url, title) and the count of
+	// picks, so a CTE keeps the SQL readable.
+	type row struct {
+		Year      int16
+		Week      int16
+		Count     int
+		HeroThumb string
+		HeroTitle string
+		HeroWPID  int64
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).Raw(`
+		WITH counts AS (
+		    SELECT year, week, COUNT(*) AS c FROM weekly_picks GROUP BY year, week
+		),
+		heroes AS (
+		    SELECT wp.year, wp.week, wp.wallpaper_id, w.thumb_url, w.title
+		    FROM weekly_picks wp
+		    JOIN wallpapers w ON w.id = wp.wallpaper_id
+		    WHERE wp.is_hero = TRUE
+		),
+		first_pick AS (
+		    SELECT DISTINCT ON (wp.year, wp.week)
+		           wp.year, wp.week, wp.wallpaper_id, w.thumb_url, w.title
+		    FROM weekly_picks wp
+		    JOIN wallpapers w ON w.id = wp.wallpaper_id
+		    ORDER BY wp.year, wp.week, wp.sort_order ASC
+		)
+		SELECT c.year, c.week, c.c AS count,
+		       COALESCE(h.thumb_url, fp.thumb_url) AS hero_thumb,
+		       COALESCE(h.title,     fp.title)     AS hero_title,
+		       COALESCE(h.wallpaper_id, fp.wallpaper_id) AS hero_wp_id
+		FROM counts c
+		LEFT JOIN heroes     h  ON h.year  = c.year AND h.week  = c.week
+		LEFT JOIN first_pick fp ON fp.year = c.year AND fp.week = c.week
+		ORDER BY c.year DESC, c.week DESC
+	`).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]WeekSummary, len(rows))
+	for i, r := range rows {
+		out[i] = WeekSummary{
+			Year: r.Year, Week: r.Week, Count: r.Count,
+			HeroThumb: r.HeroThumb, HeroTitle: r.HeroTitle, HeroWPID: r.HeroWPID,
+		}
+	}
+	return out, nil
 }
 
 // LatestWeek returns the most recent (year, week) for which a slate

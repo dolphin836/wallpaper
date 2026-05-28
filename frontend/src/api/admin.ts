@@ -266,3 +266,31 @@ export interface LLMCostResp {
 }
 export const getLLMCost = () =>
   client.get<ApiResponse<LLMCostResp>>('/admin/llm-cost');
+
+// ─── Weekly picks ─────────────────────────────────────────────────────
+
+export interface AdminWeekSummary {
+  year: number;
+  week: number;
+  count: number;
+  hero_thumb: string;
+  hero_title: string;
+  hero_wallpaper_id: number;
+}
+export interface AdminWeeklyPick extends Wallpaper {
+  sort_order: number;
+  is_hero: boolean;
+}
+export const adminListWeeklyPickWeeks = () =>
+  client.get<ApiResponse<AdminWeekSummary[]>>('/admin/weekly-picks');
+
+export const adminGetWeeklyPickWeek = (year: number, week: number) =>
+  client.get<ApiResponse<{ year: number; week: number; picks: AdminWeeklyPick[] }>>(
+    `/admin/weekly-picks/${year}/${week}`,
+  );
+
+export const adminSetWeeklyPickHero = (year: number, week: number, wallpaperId: number) =>
+  client.put<ApiResponse<{ ok: boolean }>>(
+    `/admin/weekly-picks/${year}/${week}/hero`,
+    { wallpaper_id: wallpaperId },
+  );

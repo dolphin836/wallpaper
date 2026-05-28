@@ -12,7 +12,11 @@ type WeeklyPick struct {
 	Week        int16     `gorm:"not null" json:"week"`
 	WallpaperID int64     `gorm:"not null" json:"wallpaper_id"`
 	SortOrder   int       `gorm:"not null;default:0" json:"sort_order"`
-	CreatedAt   time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
+	// IsHero marks the single "main image" of a week — drives the home
+	// page hero and is the only pick whose original_url is exposed
+	// publicly. At most one per (year, week); see partial unique index.
+	IsHero    bool      `gorm:"not null;default:false" json:"is_hero"`
+	CreatedAt time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
 }
 
 func (WeeklyPick) TableName() string { return "weekly_picks" }

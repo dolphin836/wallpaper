@@ -34,6 +34,7 @@ type AdminHandler struct {
 	categoryRepo   *repo.CategoryRepo
 	analyticsRepo  *repo.AnalyticsRepo
 	llmUsageRepo   *repo.LLMUsageRepo
+	weeklyPickRepo *repo.WeeklyPickRepo
 	storage        *storage.Storage
 	wallpaperSvc   *service.WallpaperService // needed for Reprocess (Kafka re-publish)
 
@@ -52,6 +53,7 @@ func NewAdminHandler(
 	categoryRepo *repo.CategoryRepo,
 	analyticsRepo *repo.AnalyticsRepo,
 	llmUsageRepo *repo.LLMUsageRepo,
+	weeklyPickRepo *repo.WeeklyPickRepo,
 	store *storage.Storage,
 	wallpaperSvc *service.WallpaperService,
 ) *AdminHandler {
@@ -65,6 +67,7 @@ func NewAdminHandler(
 		categoryRepo:   categoryRepo,
 		analyticsRepo:  analyticsRepo,
 		llmUsageRepo:   llmUsageRepo,
+		weeklyPickRepo: weeklyPickRepo,
 		storage:        store,
 		wallpaperSvc:   wallpaperSvc,
 	}
@@ -815,4 +818,73 @@ func (h *AdminHandler) UploadAIWallpaper(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	response.JSON(w, http.StatusCreated, errcode.Success, wp)
+}
+
+
+// ─── Weekly picks ─────────────────────────────────────────────────────
+
+// ListWeeklyPickWeeks returns every (year, week) that has a slate, newest
+// first, with the hero thumb / title attached. Drives the admin Weekly
+// Picks index.
+func (h *AdminHandler) ListWeeklyPickWeeks(w http.ResponseWriter, r *http.Request) {
+	weeks, err := h.weeklyPickRepo.ListAllWeeks(r.Context())
+	if err != nil {
+		slog.ErrorContext(r.Context(), "list weekly weeks", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, weeks)
+}
+
+// GetWeeklyPickWeek returns the 10 picks for a specific (year, week),
+// including is_hero markers. Used to render the admin edit view.
+func (h *AdminHandler) GetWeeklyPickWeek(w http.ResponseWriter, r *http.Request) {
+	year, err := strconv.Atoi(chi.URLParam(r, "year"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	week, err := strconv.Atoi(chi.URLParam(r, "week"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	picks, err := h.weeklyPickRepo.ListByWeek(r.Context(), int16(year), int16(week))
+	if err != nil {
+		slog.ErrorContext(r.Context(), "list weekly", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, map[string]any{"year": year, "week": week, "picks": picks})
+}
+
+// SetWeeklyPickHero flips the hero flag for one wallpaper inside a week.
+// Body: {"wallpaper_id": <int64>}. The repo runs the swap in a transaction
+// so the partial unique index can never see two TRUE rows at once.
+func (h *AdminHandler) SetWeeklyPickHero(w http.ResponseWriter, r *http.Request) {
+	year, err := strconv.Atoi(chi.URLParam(r, "year"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	week, err := strconv.Atoi(chi.URLParam(r, "week"))
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	var body struct{ WallpaperID int64 `json:"wallpaper_id"` }
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.WallpaperID == 0 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	if err := h.weeklyPickRepo.SetHero(r.Context(), int16(year), int16(week), body.WallpaperID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+			return
+		}
+		slog.ErrorContext(r.Context(), "set weekly hero", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, map[string]any{"ok": true})
 }

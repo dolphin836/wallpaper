@@ -27,6 +27,7 @@ import AdminDashboard from './pages/admin/DashboardPage';
 import AdminAnalytics from './pages/admin/AnalyticsPage';
 import AdminWallpapers from './pages/admin/WallpapersPage';
 import AdminCollections from './pages/admin/CollectionsPage';
+import AdminWeeklyPicks from './pages/admin/WeeklyPicksPage';
 import AdminUsers from './pages/admin/UsersPage';
 import AdminReports from './pages/admin/ReportsPage';
 import AdminWorkers from './pages/admin/WorkersPage';
@@ -72,6 +73,7 @@ function AppRoutes() {
               /admin/wallpapers list when status=PendingReview. */}
           <Route path="review-queue" element={<Navigate to="/admin/wallpapers?status=5" replace />} />
           <Route path="collections" element={<AdminCollections />} />
+          <Route path="weekly-picks" element={<AdminWeeklyPicks />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="reports" element={<AdminReports />} />
           <Route path="workers" element={<AdminWorkers />} />
