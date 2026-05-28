@@ -242,6 +242,19 @@ function CategoryChip({ label, active, onClick }: { label: string; active: boole
   );
 }
 
+// Skeleton chip — varied widths so the strip looks like real category
+// names while the API roundtrips, instead of N identical placeholders.
+const CATEGORY_SKELETON_WIDTHS = [72, 92, 60, 108, 82, 68, 96, 78];
+function CategoryChipSkeleton({ width }: { width: number }) {
+  return (
+    <span
+      aria-hidden
+      className="inline-block h-[30px] rounded-full bg-paper-2 border border-hair-soft skeleton-card"
+      style={{ width: `${width}px` }}
+    />
+  );
+}
+
 interface FilterDropdownProps {
   mode: FilterMode;
   setMode: (m: FilterMode) => void;
@@ -398,10 +411,15 @@ export default function DiscoverPage() {
   const { slug: categorySlug } = useParams<{ slug?: string }>();
   const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);
+  // Tracks the initial categories fetch so the chip strip can show
+  // skeleton placeholders after "All" instead of starting collapsed
+  // (it used to be "All" alone for ~300ms, then the rest popped in).
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   useEffect(() => {
     getCategories()
       .then((r) => setCategories(r.data.data || []))
-      .catch(() => setCategories([]));
+      .catch(() => setCategories([]))
+      .finally(() => setCategoriesLoading(false));
   }, []);
   const currentCategory = useMemo(
     () => (categorySlug ? categories.find((c) => c.slug === categorySlug) : undefined),
@@ -619,14 +637,18 @@ export default function DiscoverPage() {
                 active={categoryFilter === null}
                 onClick={() => navigate('/discover')}
               />
-              {categories.map((c) => (
-                <CategoryChip
-                  key={c.id}
-                  label={c.name}
-                  active={categoryFilter === c.id}
-                  onClick={() => navigate(`/category/${c.slug}`)}
-                />
-              ))}
+              {categoriesLoading
+                ? CATEGORY_SKELETON_WIDTHS.map((w, i) => (
+                    <CategoryChipSkeleton key={`csk-${i}`} width={w} />
+                  ))
+                : categories.map((c) => (
+                    <CategoryChip
+                      key={c.id}
+                      label={c.name}
+                      active={categoryFilter === c.id}
+                      onClick={() => navigate(`/category/${c.slug}`)}
+                    />
+                  ))}
             </div>
           </div>
           <div className="flex items-center gap-2.5 flex-shrink-0">

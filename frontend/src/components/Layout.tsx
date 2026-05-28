@@ -172,42 +172,37 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
 
         {/* Right cluster: theme + balance + auth */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Theme toggle — same 2-state segmented pill as before */}
-          <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-full">
-            <button
-              onClick={() => setDark(false)}
-              title="Light mode"
-              aria-label="Light mode"
-              className={`w-[24px] h-[24px] rounded-full inline-flex items-center justify-center transition-colors ${!dark
-                ? 'bg-paper text-ink shadow-[0_1px_0_var(--color-hair),0_0_0_1px_var(--color-hair)]'
-                : 'bg-transparent text-muted'}`}
-            >
-              <BsSun size={12} />
-            </button>
-            <button
-              onClick={() => setDark(true)}
-              title="Dark mode"
-              aria-label="Dark mode"
-              className={`w-[24px] h-[24px] rounded-full inline-flex items-center justify-center transition-colors ${dark
-                ? 'bg-ink text-paper shadow-[0_1px_0_var(--color-hair),0_0_0_1px_var(--color-ink-2)]'
-                : 'bg-transparent text-muted'}`}
-            >
-              <BsMoon size={12} />
-            </button>
-          </div>
+          {/* Theme toggle — single button, icon shows the *destination*
+              mode (moon while light, sun while dark). Smaller footprint
+              than the previous 2-state pill and matches the original
+              demo's single-affordance treatment. */}
+          <button
+            onClick={() => setDark(!dark)}
+            title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="w-[34px] h-[34px] rounded-full inline-flex items-center justify-center bg-paper-2 border border-hair text-ink-2 hover:text-ink hover:border-ink-2 transition-colors"
+          >
+            {dark ? <BsSun size={13} /> : <BsMoon size={13} />}
+          </button>
 
           {isAuthenticated && user ? (
             <>
-              {/* Balance pill — links to profile (same as before). The
-                  AnimatedNumber smooths +1/-1 jumps so coin changes feel
-                  metered rather than jumpy. */}
+              {/* Balance pill — editorial recipe: mono tabular number
+                  next to a small caps "COINS" label. No accent dot
+                  (the orange disc read as a status indicator, not a
+                  coin). AnimatedNumber still smooths +1/-1 jumps so
+                  balance changes feel metered. */}
               <Link
                 to={`/user/${user.username}`}
                 title="Your balance"
-                className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-paper-2 border border-hair text-ink text-[13px] font-semibold no-underline hover:bg-paper-3 transition-colors mono tabular-nums"
+                className="hidden sm:inline-flex items-baseline gap-2 px-3.5 h-[34px] rounded-full bg-paper-2 border border-hair text-ink no-underline hover:bg-paper-3 hover:border-ink-2 transition-colors"
               >
-                <span className="w-2.5 h-2.5 rounded-full bg-accent shadow-[inset_0_-2px_0_oklch(48%_0.16_42),inset_0_1px_0_oklch(80%_0.16_60)]" />
-                <AnimatedNumber value={user.coins ?? 0} />
+                <span className="mono tabular-nums text-[14px] font-semibold leading-none">
+                  <AnimatedNumber value={user.coins ?? 0} />
+                </span>
+                <span className="mono text-[9px] tracking-[0.20em] uppercase text-muted leading-none">
+                  coins
+                </span>
               </Link>
 
               {/* User menu */}
@@ -441,7 +436,19 @@ export default function Layout() {
   // Route-transition key — see AppRoutes for the background-location
   // pattern that overlays the wallpaper-detail modal on a previous page.
   const background = (location.state as { background?: { pathname: string } } | null)?.background;
-  const routeKey = background?.pathname ?? location.pathname;
+  // Collapse all routes that resolve to the same page component into one
+  // key so React doesn't unmount + remount the page on intra-page nav.
+  // Without this, clicking a Discover category (e.g. /discover → /category/foo)
+  // remounted DiscoverPage, blowing away its `categories` state — the chip
+  // strip would flicker (all chips disappear, refetch, reappear) every
+  // time the user filtered. The animate-route-in still plays for real
+  // route transitions (Home → Discover, Detail → Profile, etc.).
+  const stableKey = (() => {
+    const p = location.pathname;
+    if (p === '/discover' || p.startsWith('/discover/') || p.startsWith('/category/')) return 'discover';
+    return p;
+  })();
+  const routeKey = background?.pathname ?? stableKey;
 
   return (
     <div className="min-h-screen flex flex-col bg-paper text-ink font-sans transition-colors duration-200">
