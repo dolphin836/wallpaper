@@ -843,11 +843,17 @@
       }
       const img = document.getElementById('heroImg');
       loadImg(img);
-      // Hero needs the highest available resolution — the card renders up to
-      // 1280px wide, which is 2560px at 2× retina; preview_url (~1600px) would
-      // stretch noticeably. Backend exposes original_url for weekly picks
-      // specifically so this works without a second fetch.
-      img.src = hero.original_url || hero.preview_url || hero.thumb_url;
+      // Progressive upgrade for the hero: paint the preview (~1600px,
+      // ~150KB) immediately for a quick first frame, then background-fetch
+      // the original (multi-MB, 2× retina sharp) and swap it in on load.
+      // If the original fails or never finishes, the preview stays — best
+      // possible quality given the connection without ever blocking paint.
+      img.src = hero.preview_url || hero.thumb_url;
+      if (hero.original_url) {
+        const upgrade = new Image();
+        upgrade.onload = () => { img.src = hero.original_url; };
+        upgrade.src = hero.original_url;
+      }
       document.getElementById('heroKicker').textContent = `Curation · Week ${data.week} · ${data.year}`;
       document.getElementById('heroMeta').textContent = `${hero.width}×${hero.height} · ${fmtMB(hero.file_size || 0)}`;
       const r = resBadge(hero);
