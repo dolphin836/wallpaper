@@ -651,6 +651,120 @@
   border: 1px solid var(--color-hair-soft);
 }
 
+/* New collection card — stacked-paper aesthetic with a single 1:1
+   cover. Multi-shadow box-shadow draws paper layers behind the
+   cover; layers are tinted from the collection's --c-accent so each
+   tile carries a hint of its own colour without overwhelming the
+   library page. Distinct from the old 3-photo CollectionCard. */
+.c-tile {
+  display: block;
+  color: var(--color-ink);
+  text-decoration: none;
+  --c-accent: var(--color-accent);
+}
+.c-tile-frame {
+  position: relative;
+  aspect-ratio: 1/1;
+  border-radius: 14px;
+  background: var(--color-paper-2);
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 8px 22px -10px oklch(0% 0 0 / 0.28),
+    4px 4px 0 -2px var(--color-paper),
+    4px 4px 0 -1px color-mix(in oklch, var(--c-accent) 28%, var(--color-hair)),
+    8px 8px 0 -2px var(--color-paper),
+    8px 8px 0 -1px color-mix(in oklch, var(--c-accent) 18%, var(--color-hair-soft));
+  transition: transform 380ms var(--ease-out-quart),
+              box-shadow 380ms var(--ease-out-quart);
+}
+.dark .c-tile-frame {
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.08),
+    0 8px 22px -10px oklch(0% 0 0 / 0.55),
+    4px 4px 0 -2px var(--color-paper),
+    4px 4px 0 -1px color-mix(in oklch, var(--c-accent) 30%, var(--color-hair-soft)),
+    8px 8px 0 -2px var(--color-paper),
+    8px 8px 0 -1px color-mix(in oklch, var(--c-accent) 20%, var(--color-hair-soft));
+}
+.c-tile-frame img {
+  width: 100%; height: 100%; object-fit: cover;
+  display: block;
+  transition: transform 900ms var(--ease-out-quart);
+}
+.c-tile-empty {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.c-tile:hover .c-tile-frame {
+  transform: translate(-3px, -3px);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 18px 40px -12px oklch(0% 0 0 / 0.38),
+    6px 6px 0 -2px var(--color-paper),
+    6px 6px 0 -1px color-mix(in oklch, var(--c-accent) 28%, var(--color-hair)),
+    12px 12px 0 -2px var(--color-paper),
+    12px 12px 0 -1px color-mix(in oklch, var(--c-accent) 18%, var(--color-hair-soft));
+}
+.dark .c-tile:hover .c-tile-frame {
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.08),
+    0 18px 40px -12px oklch(0% 0 0 / 0.7),
+    6px 6px 0 -2px var(--color-paper),
+    6px 6px 0 -1px color-mix(in oklch, var(--c-accent) 30%, var(--color-hair-soft)),
+    12px 12px 0 -2px var(--color-paper),
+    12px 12px 0 -1px color-mix(in oklch, var(--c-accent) 20%, var(--color-hair-soft));
+}
+.c-tile:hover .c-tile-frame img { transform: scale(1.04); }
+.c-tile-accent-dot {
+  position: absolute;
+  top: 12px; right: 12px;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--c-accent);
+  box-shadow: 0 0 0 3px oklch(100% 0 0 / 0.5),
+              0 1px 2px oklch(0% 0 0 / 0.2);
+}
+.dark .c-tile-accent-dot {
+  box-shadow: 0 0 0 3px oklch(14% 0.018 240 / 0.7),
+              0 1px 2px oklch(0% 0 0 / 0.5);
+}
+.c-tile-caption { padding-top: 18px; }
+.c-tile-kicker {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.c-tile-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.16;
+  margin-top: 6px;
+  color: var(--color-ink);
+  letter-spacing: -0.005em;
+  /* line-clamp 2 so unusually long titles don't blow the card height */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.c-tile-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin-top: 6px;
+}
+
 /* ── Detail (one collection) ────────────────────────────────────── */
 
 /* Mesh sourced from the collection's accent_color — set via inline
@@ -701,32 +815,38 @@
   .c-detail-hero-row { grid-template-columns: 1fr; gap: 32px; }
 }
 
-/* Sleeve cover — square aspect, the record-sleeve feel. Off-center
-   shadow stack (-6 -6 + 10 14) gives the "stacked behind it" idea
-   without explicit physical layers. */
-.c-detail-sleeve {
+/* Cover frame — single clean object (no stacked-paper layers).
+   Accent-tinted halo behind it (drop shadow with collection's
+   --c-accent colour-mixed into the depth shadow), a thin accent
+   ring on the cover edge, and a small accent dot in the corner.
+   1:1 like an album sleeve but presented as a contemporary art
+   print rather than a record stack. */
+.c-detail-frame {
   position: relative;
   aspect-ratio: 1/1;
-  border-radius: 14px;
+  border-radius: 18px;
   background: var(--color-paper-2);
   overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--c-accent) 32%, var(--color-hair));
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.5),
-    -8px 8px 0 -2px var(--color-paper),
-    -8px 8px 0 -1px color-mix(in oklch, var(--c-accent) 40%, var(--color-hair)),
-    0 30px 60px -22px oklch(0% 0 0 / 0.36);
-  transition: transform 420ms var(--ease-out-quart),
-              box-shadow 420ms var(--ease-out-quart);
+    0 32px 80px -28px color-mix(in oklch, var(--c-accent) 55%, oklch(0% 0 0)),
+    0 14px 36px -18px oklch(0% 0 0 / 0.30);
+  transition: transform 480ms var(--ease-out-quart),
+              box-shadow 480ms var(--ease-out-quart);
 }
-.dark .c-detail-sleeve {
+.dark .c-detail-frame {
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.08),
-    -8px 8px 0 -2px var(--color-paper),
-    -8px 8px 0 -1px color-mix(in oklch, var(--c-accent) 40%, var(--color-hair-soft)),
-    0 30px 60px -22px oklch(0% 0 0 / 0.65);
+    0 32px 80px -28px color-mix(in oklch, var(--c-accent) 70%, oklch(0% 0 0)),
+    0 14px 36px -18px oklch(0% 0 0 / 0.6);
 }
-.c-detail-sleeve:hover {
-  transform: translate(2px, -2px);
+.c-detail-frame:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 44px 100px -28px color-mix(in oklch, var(--c-accent) 60%, oklch(0% 0 0)),
+    0 18px 44px -18px oklch(0% 0 0 / 0.36);
 }
 .c-detail-cover, .c-detail-cover-empty {
   width: 100%; height: 100%;
@@ -741,8 +861,6 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
-/* Small accent dot at top-right corner of the sleeve — like a vinyl
-   label dot. Uses the collection's accent colour directly. */
 .c-detail-accent-dot {
   position: absolute;
   top: 16px; right: 16px;
@@ -758,78 +876,33 @@
 }
 
 .c-detail-meta { padding-top: 6px; }
+.c-detail-kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
 .c-detail-title {
   font-family: var(--font-display);
   font-weight: 400;
   font-size: clamp(40px, 5vw, 72px);
-  line-height: 0.96;
-  letter-spacing: -0.015em;
+  line-height: 1.02;
+  letter-spacing: -0.012em;
   color: var(--color-ink);
+  margin-top: 12px;
+}
+.c-detail-sub {
   margin-top: 14px;
-}
-.c-detail-desc {
-  margin-top: 18px;
-  font-family: var(--font-display);
-  font-size: clamp(16px, 1.4vw, 20px);
-  line-height: 1.5;
-  color: var(--color-ink-2);
-  max-width: 540px;
-  font-style: italic;
-}
-
-.c-detail-curator {
-  margin-top: 28px;
-  padding: 14px 0;
-  border-top: 1px solid color-mix(in oklch, var(--c-accent) 25%, var(--color-hair));
-  border-bottom: 1px solid color-mix(in oklch, var(--c-accent) 25%, var(--color-hair));
-}
-.c-detail-curator-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  text-decoration: none;
-  color: var(--color-ink);
-}
-.c-detail-curator-avatar {
-  width: 36px; height: 36px;
-  border-radius: 50%;
-  border: 1.5px solid color-mix(in oklch, var(--c-accent) 35%, var(--color-hair));
-  background: var(--color-paper-2);
-  display: flex; align-items: center; justify-content: center;
-  overflow: hidden;
-  font-family: var(--font-display);
-  font-size: 15px;
-  color: var(--color-ink);
-  flex-shrink: 0;
-}
-.c-detail-curator-avatar img {
-  width: 100%; height: 100%; object-fit: cover;
-}
-.c-detail-curator-meta {
-  display: flex; flex-direction: column;
-  gap: 2px;
-}
-.c-detail-curator-handle {
-  font-family: var(--font-display);
-  font-size: 15px;
-  line-height: 1.2;
-  color: var(--color-ink);
-}
-.c-detail-curator-handle em {
-  font-style: italic;
-  color: var(--c-accent);
-  font-weight: 500;
-}
-.c-detail-curator-sub {
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
+  font-size: 11px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--color-muted);
 }
 
 .c-detail-actions {
-  margin-top: 22px;
+  margin-top: 28px;
   display: inline-flex;
   gap: 8px;
   align-items: center;

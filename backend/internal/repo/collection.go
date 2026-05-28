@@ -80,6 +80,25 @@ func (r *CollectionRepo) Delete(ctx context.Context, id int64) error {
 	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&model.Collection{}).Error
 }
 
+// Count returns the total number of collections matching the same
+// visibility + kind filters as List. Used by the SPA so the
+// pagination control can show the real total page count from the
+// first render, instead of discovering it cursor-by-cursor.
+func (r *CollectionRepo) Count(ctx context.Context, userID int64, kind int) (int64, error) {
+	query := r.db.WithContext(ctx).Model(&model.Collection{})
+	if userID > 0 {
+		query = query.Where("is_public = ? OR user_id = ?", true, userID)
+	} else {
+		query = query.Where("is_public = ?", true)
+	}
+	if kind >= 0 {
+		query = query.Where("kind = ?", kind)
+	}
+	var n int64
+	err := query.Count(&n).Error
+	return n, err
+}
+
 func (r *CollectionRepo) List(ctx context.Context, cursor int64, limit int, userID int64, kind int) ([]model.Collection, error) {
 	query := r.db.WithContext(ctx).
 		Select("id, slug, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, kind, year, week, created_at, updated_at")

@@ -29,6 +29,7 @@ type CollectionListResponse struct {
 	Items      []model.Collection `json:"items"`
 	NextCursor int64              `json:"next_cursor"`
 	HasMore    bool               `json:"has_more"`
+	Total      int64              `json:"total"`
 }
 
 type WallpaperCollectionResponse struct {
@@ -115,7 +116,12 @@ func (s *CollectionService) List(ctx context.Context, cursor int64, limit int, u
 	if hasMore && len(items) > 0 {
 		nextCursor = items[len(items)-1].ID
 	}
-	return &CollectionListResponse{Items: items, NextCursor: nextCursor, HasMore: hasMore}, nil
+	total, err := s.collectionRepo.Count(ctx, userID, kind)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to count collections", "error", err)
+		total = 0 // non-fatal; SPA will degrade to cursor-only pagination
+	}
+	return &CollectionListResponse{Items: items, NextCursor: nextCursor, HasMore: hasMore, Total: total}, nil
 }
 
 func (s *CollectionService) Update(ctx context.Context, id, userID int64, title, description string, isPublic bool) *errcode.ErrCode {

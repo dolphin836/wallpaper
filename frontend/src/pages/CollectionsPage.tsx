@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { AiOutlinePlus } from 'react-icons/ai';
+import { Link } from 'react-router-dom';
 import type { Collection } from '../types';
 import { getCollections, createCollection } from '../api';
 import { useAuthStore } from '../store/auth';
 import PageMeta from '../components/PageMeta';
-import CollectionCard from '../components/CollectionCard';
 import Pagination from '../components/Pagination';
 
 type Filter = 'all' | 'yours';
@@ -24,8 +24,11 @@ export default function CollectionsPage() {
 
   const [pages, setPages] = useState<Record<number, Collection[]>>({});
   const [cursors, setCursors] = useState<Record<number, number | undefined>>({ 1: undefined });
-  const [hasMoreUpTo, setHasMoreUpTo] = useState<number | null>(null);
-  const [knownTotalPages, setKnownTotalPages] = useState<number | null>(null);
+  // Total page count comes back on the first response (server returns
+  // .total). That lets the Pagination control show the real ceiling
+  // (e.g. "1 2 3 … 12") from the very first paint instead of
+  // discovering pages cursor-by-cursor and showing "1 2" → "1 2 3".
+  const [serverTotal, setServerTotal] = useState<number | null>(null);
   const [current, setCurrent] = useState(1);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
@@ -34,8 +37,7 @@ export default function CollectionsPage() {
   useEffect(() => {
     setPages({});
     setCursors({ 1: undefined });
-    setHasMoreUpTo(null);
-    setKnownTotalPages(null);
+    setServerTotal(null);
     setCurrent(1);
   }, [filter, kind]);
 
@@ -49,15 +51,16 @@ export default function CollectionsPage() {
       let items = res.data.data.items || [];
       const nextCursor = res.data.data.next_cursor;
       const hasMore = res.data.data.has_more;
+      const total = res.data.data.total;
       if (filter === 'yours' && user) {
         items = items.filter((c) => c.user_id === user.id);
       }
       setPages((prev) => ({ ...prev, [page]: items }));
       if (hasMore && nextCursor) {
         setCursors((prev) => ({ ...prev, [page + 1]: nextCursor }));
-        setHasMoreUpTo(page);
-      } else {
-        setKnownTotalPages(page);
+      }
+      if (typeof total === 'number') {
+        setServerTotal(total);
       }
     } catch {
       toast.error('Failed to load collections');
@@ -69,7 +72,9 @@ export default function CollectionsPage() {
   useEffect(() => { fetchPage(current); }, [current, fetchPage]);
 
   const visible = pages[current] || [];
-  const total = knownTotalPages ?? (hasMoreUpTo ? hasMoreUpTo + 1 : 1);
+  // Real page total from the server count. Falls back to 1 only while
+  // the very first request is in flight.
+  const total = serverTotal !== null ? Math.max(1, Math.ceil(serverTotal / PAGE_SIZE)) : 1;
 
   return (
     <div className="c-list min-h-full">
@@ -128,7 +133,7 @@ export default function CollectionsPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
             {visible.map((c) => (
-              <CollectionCard key={c.id} collection={c} />
+              <CollectionTile key={c.id} collection={c} />
             ))}
           </div>
         )}
@@ -143,13 +148,48 @@ export default function CollectionsPage() {
             setShowCreate(false);
             setPages({});
             setCursors({ 1: undefined });
-            setHasMoreUpTo(null);
-            setKnownTotalPages(null);
+            setServerTotal(null);
             setCurrent(1);
           }}
         />
       )}
     </div>
+  );
+}
+
+/* New collection tile — stacked-paper aesthetic. Single 1:1 cover
+   with multi-layer box-shadow rendering paper layers beneath
+   (accent-tinted via --c-accent from the collection). Caption block
+   below: mono kicker · display title · mono meta. Distinct from the
+   old 3-photo composition; reads as "an album on a shelf" instead
+   of "a mosaic preview". */
+function CollectionTile({ collection: c }: { collection: Collection }) {
+  const accent = c.accent_color || 'var(--color-accent)';
+  return (
+    <Link
+      to={`/collections/${c.slug}`}
+      className="c-tile no-underline"
+      style={{ '--c-accent': accent } as React.CSSProperties}
+    >
+      <div className="c-tile-frame">
+        {c.cover_url ? (
+          <img src={c.cover_url} alt={c.title} loading="lazy" />
+        ) : (
+          <div className="c-tile-empty">No cover yet</div>
+        )}
+        <span className="c-tile-accent-dot" aria-hidden />
+      </div>
+      <div className="c-tile-caption">
+        <div className="c-tile-kicker">
+          {c.kind === 1 ? 'Editor Theme' : 'Collection'}
+          {!c.is_public && ' · Private'}
+        </div>
+        <div className="c-tile-title">{c.title}</div>
+        <div className="c-tile-meta">
+          {c.wallpaper_count} {c.wallpaper_count === 1 ? 'wallpaper' : 'wallpapers'}
+        </div>
+      </div>
+    </Link>
   );
 }
 

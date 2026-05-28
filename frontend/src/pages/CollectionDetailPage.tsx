@@ -12,7 +12,7 @@ import {
   AiOutlineArrowLeft,
 } from 'react-icons/ai';
 import toast from 'react-hot-toast';
-import type { CollectionDetail as CollectionDetailType, Wallpaper, User } from '../types';
+import type { CollectionDetail as CollectionDetailType, Wallpaper } from '../types';
 import {
   getCollection,
   getCollectionWallpapers,
@@ -20,7 +20,6 @@ import {
   unlikeCollection,
   deleteCollection,
   updateCollection,
-  getUserProfile,
 } from '../api';
 import { useAuthStore } from '../store/auth';
 import WallpaperCard from '../components/WallpaperCard';
@@ -50,7 +49,6 @@ export default function CollectionDetailPage() {
   const { user } = useAuthStore();
 
   const [collection, setCollection] = useState<CollectionDetailType | null>(null);
-  const [curator, setCurator] = useState<User | null>(null);
   const [pages, setPages] = useState<Record<number, Wallpaper[]>>({});
   const [cursors, setCursors] = useState<Record<number, number | undefined>>({ 1: undefined });
   const [hasMoreUpTo, setHasMoreUpTo] = useState<number | null>(null);
@@ -69,14 +67,7 @@ export default function CollectionDetailPage() {
     if (!id) return;
     setLoading(true);
     getCollection(id)
-      .then(async (res) => {
-        const c = res.data.data;
-        setCollection(c);
-        try {
-          const u = await getUserProfile(String(c.user_id));
-          setCurator(u.data.data);
-        } catch { /* curator info optional */ }
-      })
+      .then((res) => setCollection(res.data.data))
       .catch(() => toast.error('Failed to load collection'))
       .finally(() => setLoading(false));
   }, [id]);
@@ -196,7 +187,6 @@ export default function CollectionDetailPage() {
   const visible = pages[currentPage] || [];
   const total = knownTotalPages ?? (hasMoreUpTo ? hasMoreUpTo + 1 : 1);
   const cover = collection.cover_url || visible[0]?.preview_url || visible[0]?.thumb_url;
-  const curatorInitial = (curator?.nickname || curator?.username || 'U').charAt(0).toUpperCase();
 
   return (
     <div className="c-detail min-h-full" style={accentStyle}>
@@ -222,11 +212,14 @@ export default function CollectionDetailPage() {
           <span>All collections</span>
         </Link>
 
-        {/* Sleeve hero — cover + meta side-by-side, like an album back
-            cover. Cover gets the lifted shadow of a physical sleeve;
-            meta side stays in the typographic stack. */}
+        {/* Hero — cover + minimal meta side-by-side. Cover sits on a
+            soft accent-tinted halo (no stacked-paper layers; cleaner
+            single-object presentation). Meta column has: kicker,
+            title, count meta, actions. No italic description, no
+            curator avatar/handle row — keeping the content side
+            quiet so the cover is the focal point. */}
         <section className="c-detail-hero-row">
-          <div className="c-detail-sleeve">
+          <div className="c-detail-frame">
             {cover ? (
               <img src={cover} alt={collection.title} className="c-detail-cover" />
             ) : (
@@ -236,9 +229,9 @@ export default function CollectionDetailPage() {
           </div>
 
           <div className="c-detail-meta">
-            <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
+            <div className="c-detail-kicker">
               {collection.kind === 1 ? 'Editor Theme' : 'Collection'}
-              {!collection.is_public && ' · PRIVATE'}
+              {!collection.is_public && ' · Private'}
             </div>
 
             {editing ? (
@@ -274,33 +267,12 @@ export default function CollectionDetailPage() {
                 </div>
               </div>
             ) : (
-              <>
-                <h1 className="c-detail-title">{collection.title}</h1>
-                {collection.description && (
-                  <p className="c-detail-desc">{collection.description}</p>
-                )}
-              </>
+              <h1 className="c-detail-title">{collection.title}</h1>
             )}
 
-            <div className="c-detail-curator">
-              <Link
-                to={curator ? `/user/${curator.username}` : '#'}
-                className="c-detail-curator-link"
-              >
-                <span className="c-detail-curator-avatar">
-                  {curator?.avatar_url
-                    ? <img src={curator.avatar_url} alt="" />
-                    : curatorInitial}
-                </span>
-                <span className="c-detail-curator-meta">
-                  <span className="c-detail-curator-handle">
-                    A set by <em>@{curator?.username || `user-${collection.user_id}`}</em>
-                  </span>
-                  <span className="c-detail-curator-sub">
-                    {collection.wallpaper_count} {collection.wallpaper_count === 1 ? 'wallpaper' : 'wallpapers'} · updated {relativeTime(collection.updated_at)}
-                  </span>
-                </span>
-              </Link>
+            <div className="c-detail-sub">
+              {collection.wallpaper_count} {collection.wallpaper_count === 1 ? 'wallpaper' : 'wallpapers'}
+              {collection.updated_at ? ` · updated ${relativeTime(collection.updated_at)}` : ''}
             </div>
 
             {!editing && (
