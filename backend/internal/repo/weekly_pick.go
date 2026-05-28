@@ -19,8 +19,10 @@ func NewWeeklyPickRepo(db *gorm.DB) *WeeklyPickRepo {
 
 // WeeklyPicked is one row of a Weekly Picks slate, joined with the
 // wallpaper itself so the API can return everything the gallery needs
-// in a single call. It mirrors the shape of model.Wallpaper minus the
-// owner-only OriginalURL — the public surface should never see that.
+// in a single call. Includes OriginalURL because the home-page hero
+// (pick #1) needs the full-resolution source to avoid upscaling blur
+// at 2× retina — preview_url maxes out at 1600px and visibly stretches
+// past that. The full /wallpapers list endpoint still strips it.
 type WeeklyPicked struct {
 	model.Wallpaper
 	SortOrder int `json:"sort_order"`
@@ -78,10 +80,11 @@ func (r *WeeklyPickRepo) ListByWeek(ctx context.Context, year, week int16) ([]We
 	err := r.db.WithContext(ctx).
 		Table("weekly_picks AS wp").
 		Select(`w.id, w.slug, w.user_id, w.category_id, w.title, w.description,
-		        w.thumb_url, w.preview_url, w.width, w.height, w.file_size, w.file_type,
-		        w.dominant_color, w.color_palette, w.status, w.view_count, w.like_count,
-		        w.download_count, w.favorite_count, w.is_dynamic, w.dynamic_type,
-		        w.frame_urls, w.created_at, w.updated_at, wp.sort_order`).
+		        w.original_url, w.thumb_url, w.preview_url, w.width, w.height,
+		        w.file_size, w.file_type, w.dominant_color, w.color_palette,
+		        w.status, w.view_count, w.like_count, w.download_count,
+		        w.favorite_count, w.is_dynamic, w.dynamic_type, w.frame_urls,
+		        w.created_at, w.updated_at, wp.sort_order`).
 		Joins("JOIN wallpapers w ON w.id = wp.wallpaper_id").
 		Where("wp.year = ? AND wp.week = ? AND w.status = ?", year, week, model.WallpaperStatusPublished).
 		Order("wp.sort_order ASC").

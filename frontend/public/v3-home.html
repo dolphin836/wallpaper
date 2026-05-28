@@ -843,7 +843,11 @@
       }
       const img = document.getElementById('heroImg');
       loadImg(img);
-      img.src = hero.preview_url || hero.thumb_url;
+      // Hero needs the highest available resolution — the card renders up to
+      // 1280px wide, which is 2560px at 2× retina; preview_url (~1600px) would
+      // stretch noticeably. Backend exposes original_url for weekly picks
+      // specifically so this works without a second fetch.
+      img.src = hero.original_url || hero.preview_url || hero.thumb_url;
       document.getElementById('heroKicker').textContent = `Curation · Week ${data.week} · ${data.year}`;
       document.getElementById('heroMeta').textContent = `${hero.width}×${hero.height} · ${fmtMB(hero.file_size || 0)}`;
       const r = resBadge(hero);
@@ -937,7 +941,9 @@
       <img alt="">
       ${r ? `<span class="res-chip">${r}</span>` : ''}
     `;
-    const img = a.querySelector('img'); loadImg(img); img.src = w.thumb_url || w.preview_url;
+    // Non-hero tiles use preview_url (~1600px); thumb_url (~400px) would
+    // visibly stretch at 2× retina on anything above 200px tile width.
+    const img = a.querySelector('img'); loadImg(img); img.src = w.preview_url || w.thumb_url;
     if (w.color_palette) a.addEventListener('mouseenter', () => applyPaletteFromHex(w.color_palette));
     return a;
   }
@@ -952,7 +958,9 @@
       <span class="foil"></span>
       ${r ? `<span class="res-chip">${r}</span>` : ''}
     `;
-    const img = a.querySelector('img'); loadImg(img); img.src = w.thumb_url || w.preview_url;
+    // Non-hero tiles use preview_url (~1600px); thumb_url (~400px) would
+    // visibly stretch at 2× retina on anything above 200px tile width.
+    const img = a.querySelector('img'); loadImg(img); img.src = w.preview_url || w.thumb_url;
     if (w.color_palette) a.addEventListener('mouseenter', () => applyPaletteFromHex(w.color_palette));
     return a;
   }
@@ -969,7 +977,9 @@
         <svg viewBox="0 0 24 24" aria-hidden><polygon points="6,4 6,20 20,12"/></svg>
       </div>
     `;
-    const img = a.querySelector('img'); loadImg(img); img.src = w.thumb_url || w.preview_url;
+    // Non-hero tiles use preview_url (~1600px); thumb_url (~400px) would
+    // visibly stretch at 2× retina on anything above 200px tile width.
+    const img = a.querySelector('img'); loadImg(img); img.src = w.preview_url || w.thumb_url;
     if (w.preview_video_url) {
       let vid = null;
       a.addEventListener('mouseenter', () => {
