@@ -63,37 +63,62 @@ export default function HomePage() {
   // the mesh. (The previous "last-2 / 1 / last" pick clustered to similar
   // tones, making the background read as a flat tint.)
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const applyPalette = useCallback((palette: string | undefined | null) => {
+  const applyPalette = useCallback((palette: string | undefined | null, dominant?: string) => {
     if (!rootRef.current) return;
-    if (!palette) {
+    if (!palette && !dominant) {
       rootRef.current.style.removeProperty('--h3-c1');
       rootRef.current.style.removeProperty('--h3-c2');
       rootRef.current.style.removeProperty('--h3-c3');
       return;
     }
-    const parts = palette.split(',').map((s) => s.trim()).filter(Boolean);
-    if (parts.length < 3) return;
-    rootRef.current.style.setProperty('--h3-c1', parts[0]);
-    rootRef.current.style.setProperty('--h3-c2', parts[Math.floor(parts.length / 2)]);
-    rootRef.current.style.setProperty('--h3-c3', parts[parts.length - 1]);
+    const parts = (palette || '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (parts.length >= 3) {
+      rootRef.current.style.setProperty('--h3-c1', parts[0]);
+      rootRef.current.style.setProperty('--h3-c2', parts[Math.floor(parts.length / 2)]);
+      rootRef.current.style.setProperty('--h3-c3', parts[parts.length - 1]);
+      return;
+    }
+    // Fallback when palette is short/empty (e.g. video wallpapers — the
+    // transcode worker doesn't extract a palette, just a dominant color).
+    // Use the dominant_color for all three blobs so the mesh still tints
+    // toward the hovered wallpaper instead of staying static.
+    if (dominant) {
+      rootRef.current.style.setProperty('--h3-c1', dominant);
+      rootRef.current.style.setProperty('--h3-c2', dominant);
+      rootRef.current.style.setProperty('--h3-c3', dominant);
+    }
   }, []);
   // Hero palette = default. When user hovers a wallpaper tile, the mesh
   // briefly switches to that wallpaper's palette; on leave we restore
   // the hero's palette via this ref.
   const heroPaletteRef = useRef<string | undefined>(undefined);
+  const heroDominantRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     heroPaletteRef.current = hero?.color_palette;
-    applyPalette(hero?.color_palette);
+    heroDominantRef.current = hero?.dominant_color;
+    applyPalette(hero?.color_palette, hero?.dominant_color);
   }, [hero, applyPalette]);
-  const handleTileHover = useCallback((palette: string | undefined) => {
-    applyPalette(palette || heroPaletteRef.current);
-  }, [applyPalette]);
+  const handleTileHover = useCallback(
+    (palette: string | undefined, dominant?: string) => {
+      if (palette || dominant) {
+        applyPalette(palette, dominant);
+      } else {
+        applyPalette(heroPaletteRef.current, heroDominantRef.current);
+      }
+    },
+    [applyPalette],
+  );
 
-  const showWeekly = !loading && hero;
-  const showRestWeekly = !loading && restPicks.length > 0;
-  const showAI = !aiLoading && aiItems.length > 0;
-  const showVideo = !videoLoading && videoItems.length > 0;
-  const showCollections = !collectionsLoading && collections.length > 0;
+  // Section visibility: show during initial loading (with skeleton tiles)
+  // so the page renders at ~final height from the very first paint — that
+  // way you can scroll to the bottom while data is still streaming in and
+  // the page doesn't pop content into existence (the previous logic
+  // produced a hero-only frame, document height = ~500px, scroll bottom
+  // unreachable until everything loaded).
+  const showWeeklyRest = loading || restPicks.length > 0;
+  const showAI = aiLoading || aiItems.length > 0;
+  const showVideo = videoLoading || videoItems.length > 0;
+  const showCollections = collectionsLoading || collections.length > 0;
 
   return (
     <div ref={rootRef} className="h3-home">
@@ -105,23 +130,28 @@ export default function HomePage() {
 
       <main className="h3-home-main px-6 sm:px-10 lg:px-14 py-10 max-w-[1600px] mx-auto">
         {/* ───── Hero ───── */}
-        {loading && (
-          <div className="h3-tile h3-video skeleton-card" style={{ aspectRatio: '16 / 9' }} />
-        )}
-        {showWeekly && hero && <HeroCard hero={hero} week={data!.week} year={data!.year} />}
+        {loading
+          ? <div className="h3-tile skeleton-card" style={{ aspectRatio: '16 / 9', borderRadius: 24 }} />
+          : hero
+            ? <HeroCard hero={hero} week={data!.week} year={data!.year} />
+            : null}
 
         {/* ───── This week's picks (rest of slate) ───── */}
-        {showRestWeekly && (
+        {showWeeklyRest && (
           <section className="h3-row">
             <div className="h3-row-head">
               <div>
-                <div className="h3-sub">Curation · Week {data!.week}</div>
+                <div className="h3-sub">Curation{data ? ` · Week ${data.week}` : ''}</div>
                 <h2><em>This week's</em> picks.</h2>
               </div>
-              <Link to={`/weekly-picks/${data!.year}/${data!.week}`} className="h3-more">View all weekly →</Link>
+              {data && (
+                <Link to={`/weekly-picks/${data.year}/${data.week}`} className="h3-more">View all weekly →</Link>
+              )}
             </div>
             <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-              {restPicks.map((w) => <WallpaperTile key={w.id} w={w} variant="weekly" onHover={handleTileHover} />)}
+              {loading && restPicks.length === 0
+                ? Array.from({ length: 5 }).map((_, i) => <SkeletonTile key={`wsk-${i}`} variant="weekly" />)
+                : restPicks.map((w) => <WallpaperTile key={w.id} w={w} variant="weekly" onHover={handleTileHover} />)}
             </div>
           </section>
         )}
@@ -137,7 +167,9 @@ export default function HomePage() {
               <Link to="/discover?filter=ai" className="h3-more">All AI wallpapers →</Link>
             </div>
             <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-              {aiItems.slice(0, 5).map((w) => <WallpaperTile key={w.id} w={w} variant="ai" onHover={handleTileHover} />)}
+              {aiLoading && aiItems.length === 0
+                ? Array.from({ length: 5 }).map((_, i) => <SkeletonTile key={`ask-${i}`} variant="ai" />)
+                : aiItems.slice(0, 5).map((w) => <WallpaperTile key={w.id} w={w} variant="ai" onHover={handleTileHover} />)}
             </div>
           </section>
         )}
@@ -153,7 +185,9 @@ export default function HomePage() {
               <Link to="/discover?filter=video" className="h3-more">All videos →</Link>
             </div>
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-              {videoItems.slice(0, 4).map((w) => <WallpaperTile key={w.id} w={w} variant="video" onHover={handleTileHover} />)}
+              {videoLoading && videoItems.length === 0
+                ? Array.from({ length: 4 }).map((_, i) => <SkeletonTile key={`vsk-${i}`} variant="video" />)
+                : videoItems.slice(0, 4).map((w) => <WallpaperTile key={w.id} w={w} variant="video" onHover={handleTileHover} />)}
             </div>
           </section>
         )}
@@ -169,7 +203,9 @@ export default function HomePage() {
               <Link to="/collections" className="h3-more">All collections →</Link>
             </div>
             <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-              {collections.slice(0, 4).map((c) => <CollectionTile key={c.id} c={c} />)}
+              {collectionsLoading && collections.length === 0
+                ? Array.from({ length: 4 }).map((_, i) => <SkeletonTile key={`csk-${i}`} variant="collection" />)
+                : collections.slice(0, 4).map((c) => <CollectionTile key={c.id} c={c} onHover={handleTileHover} />)}
             </div>
           </section>
         )}
@@ -227,7 +263,7 @@ function WallpaperTile({
 }: {
   w: Wallpaper;
   variant: 'weekly' | 'ai' | 'video';
-  onHover?: (palette: string | undefined) => void;
+  onHover?: (palette: string | undefined, dominant?: string) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
   // Video preview-clip autoplay on hover. preview_video_url is the
@@ -241,10 +277,10 @@ function WallpaperTile({
   }, [playing]);
 
   // Tile hover drives the page's mesh palette (parent supplies onHover).
-  // For video tiles we additionally toggle playback. Both run from the
-  // same handlers so the two concerns stay in sync.
+  // Pass dominant_color too so video wallpapers (which don't have a
+  // color_palette extracted) still tint the mesh.
   const handleEnter = () => {
-    onHover?.(w.color_palette);
+    onHover?.(w.color_palette, w.dominant_color);
     if (variant === 'video' && w.preview_video_url) setPlaying(true);
   };
   const handleLeave = () => {
@@ -290,10 +326,22 @@ function WallpaperTile({
 }
 
 /* ─────────── Collection tile (stacked paper) ─────────── */
-function CollectionTile({ c }: { c: Collection }) {
+function CollectionTile({
+  c, onHover,
+}: {
+  c: Collection;
+  onHover?: (palette: string | undefined, dominant?: string) => void;
+}) {
   const [loaded, setLoaded] = useState(false);
+  // Collections expose an accent_color (curator-chosen). Use it as the
+  // mesh tint on hover — palettes aren't extracted for collections.
   return (
-    <Link to={`/collections/${c.slug || c.id}`} className="h3-tile-collection block">
+    <Link
+      to={`/collections/${c.slug || c.id}`}
+      className="h3-tile-collection block"
+      onMouseEnter={() => onHover?.(undefined, c.accent_color)}
+      onMouseLeave={() => onHover?.(undefined)}
+    >
       <div className="h3-frame">
         <img
           src={c.cover_url || ''}
@@ -310,6 +358,22 @@ function CollectionTile({ c }: { c: Collection }) {
         <div className="h3-count">{c.wallpaper_count ?? 0} wallpapers</div>
       </div>
     </Link>
+  );
+}
+
+/* ─────────── Skeleton placeholder per row variant ─────────── */
+function SkeletonTile({ variant }: { variant: 'weekly' | 'ai' | 'video' | 'collection' }) {
+  const ratio =
+    variant === 'weekly' ? '4 / 5'
+    : variant === 'video' ? '16 / 9'
+    : '1 / 1';
+  // Use the h3-tile chrome (rounded corners + shadow) so the skeleton
+  // visually matches what's about to land in its place.
+  return (
+    <div
+      className={variant === 'collection' ? 'h3-tile-collection skeleton-card' : `h3-tile h3-${variant} skeleton-card`}
+      style={{ aspectRatio: ratio }}
+    />
   );
 }
 

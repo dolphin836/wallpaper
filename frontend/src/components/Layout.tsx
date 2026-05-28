@@ -429,7 +429,11 @@ export default function Layout() {
     <div className="min-h-screen flex flex-col bg-paper text-ink font-sans transition-colors duration-200">
       <TopNav dark={dark} setDark={setDark} />
 
-      <main className="flex-1 bg-paper relative overflow-x-hidden">
+      {/* overflow-x:clip (not hidden) clips horizontal overflow without
+          becoming a scroll container — `hidden` was reserving a vertical
+          scrollbar gutter in the middle of the page even when nothing
+          actually overflowed. */}
+      <main className="flex-1 bg-paper relative overflow-x-clip">
         <div key={routeKey} className="animate-route-in">
           <Outlet />
         </div>
