@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
 import InAppConfirm from '../components/InAppConfirm';
@@ -26,7 +26,6 @@ import { useAuthStore } from '../store/auth';
 import WallpaperCard from '../components/WallpaperCard';
 import Pagination from '../components/Pagination';
 import EmptyState from '../components/EmptyState';
-import { CollectionDetailSkeleton, WallpaperGridSkeleton } from '../components/Skeletons';
 
 const PAGE_SIZE = 12;
 
@@ -34,15 +33,15 @@ function relativeTime(iso: string): string {
   const dt = new Date(iso).getTime();
   if (!dt) return '';
   const diff = (Date.now() - dt) / 1000;
-  if (diff < 60) return 'JUST NOW';
-  if (diff < 3600) return `${Math.floor(diff / 60)} MIN AGO`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} HR AGO`;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
   const days = Math.floor(diff / 86400);
-  if (days < 30) return `${days} ${days === 1 ? 'DAY' : 'DAYS'} AGO`;
+  if (days < 30) return `${days} ${days === 1 ? 'day' : 'days'} ago`;
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months} ${months === 1 ? 'MONTH' : 'MONTHS'} AGO`;
+  if (months < 12) return `${months} ${months === 1 ? 'month' : 'months'} ago`;
   const years = Math.floor(months / 12);
-  return `${years} ${years === 1 ? 'YEAR' : 'YEARS'} AGO`;
+  return `${years} ${years === 1 ? 'year' : 'years'} ago`;
 }
 
 export default function CollectionDetailPage() {
@@ -64,6 +63,7 @@ export default function CollectionDetailPage() {
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -72,9 +72,6 @@ export default function CollectionDetailPage() {
       .then(async (res) => {
         const c = res.data.data;
         setCollection(c);
-        // Curator info isn't embedded in the collection response; fetch
-        // separately so the hero can show the @handle. Non-fatal if it
-        // fails — caption just falls back to "@user-{id}".
         try {
           const u = await getUserProfile(String(c.user_id));
           setCurator(u.data.data);
@@ -84,7 +81,6 @@ export default function CollectionDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  // Reset page cache whenever the collection itself changes (different slug).
   useEffect(() => {
     setPages({});
     setCursors({ 1: undefined });
@@ -135,11 +131,6 @@ export default function CollectionDetailPage() {
     }
   };
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const handleDelete = () => {
-    if (!collection) return;
-    setShowDeleteConfirm(true);
-  };
   const doDelete = async () => {
     if (!collection) return;
     setShowDeleteConfirm(false);
@@ -164,7 +155,11 @@ export default function CollectionDetailPage() {
     if (!editTitle.trim()) { toast.error('Title is required'); return; }
     setSaving(true);
     try {
-      await updateCollection(collection.id, { title: editTitle.trim(), description: editDesc.trim(), is_public: collection.is_public });
+      await updateCollection(collection.id, {
+        title: editTitle.trim(),
+        description: editDesc.trim(),
+        is_public: collection.is_public,
+      });
       setCollection({ ...collection, title: editTitle.trim(), description: editDesc.trim() });
       setEditing(false);
       toast.success('Collection updated');
@@ -175,10 +170,23 @@ export default function CollectionDetailPage() {
     }
   };
 
+  // Mesh CSS variable from the collection's accent_color. This is the
+  // key differentiator: every collection's detail page literally takes
+  // on its own colour (warm, cool, neon, muted — depends on the curator
+  // or the editor's pick). Sets a CSS var on the page root that the
+  // mesh and accents read.
+  const accentStyle = useMemo<React.CSSProperties>(() => {
+    if (!collection?.accent_color) return {};
+    return { '--c-accent': collection.accent_color } as React.CSSProperties;
+  }, [collection?.accent_color]);
+
   if (loading) {
     return (
-      <div className="bg-paper text-ink min-h-full">
-        <CollectionDetailSkeleton />
+      <div className="c-detail min-h-full">
+        <div className="c-detail-mesh" aria-hidden />
+        <main className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-10">
+          <div className="c-detail-hero skeleton-card" style={{ aspectRatio: '5/3' }} />
+        </main>
       </div>
     );
   }
@@ -187,11 +195,12 @@ export default function CollectionDetailPage() {
   const isOwner = user?.id === collection.user_id;
   const visible = pages[currentPage] || [];
   const total = knownTotalPages ?? (hasMoreUpTo ? hasMoreUpTo + 1 : 1);
-  const cover = visible[0]?.preview_url || visible[0]?.thumb_url || collection.cover_url;
+  const cover = collection.cover_url || visible[0]?.preview_url || visible[0]?.thumb_url;
   const curatorInitial = (curator?.nickname || curator?.username || 'U').charAt(0).toUpperCase();
 
   return (
-    <div className="bg-paper text-ink min-h-full">
+    <div className="c-detail min-h-full" style={accentStyle}>
+      <div className="c-detail-mesh" aria-hidden />
       <PageMeta
         title={collection.title}
         description={collection.description || `Collection of ${collection.wallpaper_count} wallpapers`}
@@ -200,60 +209,45 @@ export default function CollectionDetailPage() {
       <InAppConfirm
         open={showDeleteConfirm}
         title="Delete this collection?"
-        message="This removes the collection. Wallpapers inside the collection are not deleted."
+        message="This removes the collection. Wallpapers inside are not deleted."
         confirmLabel="Delete"
         destructive
         onConfirm={doDelete}
         onCancel={() => setShowDeleteConfirm(false)}
       />
 
-      {/* Back link */}
-      <div className="px-6 sm:px-10 pt-5">
-        <Link
-          to="/collections"
-          className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-hair text-ink text-[13px] no-underline hover:bg-paper-2 transition-colors"
-        >
-          <AiOutlineArrowLeft size={13} /> All collections
+      <main className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-8">
+        <Link to="/collections" className="c-backlink">
+          <AiOutlineArrowLeft size={11} />
+          <span>All collections</span>
         </Link>
-      </div>
 
-      {/* Hero spread — px-6/sm:px-10 mirrors the wallpaper grid below
-          so the cover image + meta column don't bleed flush to the
-          viewport edges while everything underneath is inset. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 mt-5 border-b border-hair bg-paper px-6 sm:px-10">
-        <div className="relative aspect-[3/2] overflow-hidden bg-paper-3">
-          {cover ? (
-            <img src={cover} alt={collection.title} className="absolute inset-0 w-full h-full object-cover" />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-muted text-sm">No cover yet</div>
-          )}
-          {/* Inset corner brackets — always visible on this editorial cover. */}
-          <span className="plate-brackets">
-            <span className="br-tl" style={{ top: 16, left: 16, borderColor: '#fff', opacity: 0.7 }} />
-            <span className="br-tr" style={{ top: 16, right: 16, borderColor: '#fff', opacity: 0.7 }} />
-            <span className="br-bl" style={{ bottom: 16, left: 16, borderColor: '#fff', opacity: 0.7 }} />
-            <span className="br-br" style={{ bottom: 16, right: 16, borderColor: '#fff', opacity: 0.7 }} />
-          </span>
-        </div>
+        {/* Sleeve hero — cover + meta side-by-side, like an album back
+            cover. Cover gets the lifted shadow of a physical sleeve;
+            meta side stays in the typographic stack. */}
+        <section className="c-detail-hero-row">
+          <div className="c-detail-sleeve">
+            {cover ? (
+              <img src={cover} alt={collection.title} className="c-detail-cover" />
+            ) : (
+              <div className="c-detail-cover-empty">No cover yet</div>
+            )}
+            <span className="c-detail-accent-dot" aria-hidden />
+          </div>
 
-        {/* Right column: vertical padding only — horizontal breathing
-            comes from the outer container. lg:pl-10 puts a gap between
-            the cover and the meta text on desktop. */}
-        <div className="py-8 lg:py-10 lg:pl-10 flex flex-col justify-between min-h-[280px] lg:min-h-[420px]">
-          <div>
-            <div className="kicker text-muted">
-              Collection №{String(collection.id).padStart(3, '0')} · {collection.wallpaper_count}{' '}
-              {collection.wallpaper_count === 1 ? 'wallpaper' : 'wallpapers'}
+          <div className="c-detail-meta">
+            <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
+              {collection.kind === 1 ? 'Editor Theme' : 'Collection'}
               {!collection.is_public && ' · PRIVATE'}
             </div>
 
             {editing ? (
-              <div className="mt-3 space-y-3 max-w-[480px]">
+              <div className="mt-4 space-y-3">
                 <input
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
                   maxLength={100}
-                  className="w-full px-4 py-3 display text-[28px] leading-tight border border-hair bg-paper text-ink focus:outline-none focus:border-ink"
+                  className="w-full px-4 py-3 display text-[28px] leading-tight border border-hair bg-paper text-ink focus:outline-none focus:border-ink rounded-lg"
                 />
                 <textarea
                   value={editDesc}
@@ -261,109 +255,124 @@ export default function CollectionDetailPage() {
                   rows={3}
                   maxLength={500}
                   placeholder="Optional description"
-                  className="w-full px-4 py-3 italic-d text-[16px] border border-hair bg-paper text-ink-2 focus:outline-none focus:border-ink resize-none"
+                  className="w-full px-4 py-3 text-[15px] border border-hair bg-paper text-ink-2 focus:outline-none focus:border-ink resize-none rounded-lg"
                 />
                 <div className="flex gap-2">
                   <button
                     onClick={handleSave}
                     disabled={saving || !editTitle.trim()}
-                    className="px-4 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium disabled:opacity-50"
+                    className="c-detail-btn-primary"
                   >
-                    <AiOutlineCheck className="inline mr-1" /> {saving ? 'Saving…' : 'Save'}
+                    <AiOutlineCheck size={13} /> {saving ? 'Saving…' : 'Save'}
                   </button>
                   <button
                     onClick={() => setEditing(false)}
-                    className="px-4 py-1.5 rounded-full border border-hair text-ink-2 text-[12px] font-medium hover:bg-paper-2"
+                    className="c-detail-btn-ghost"
                   >
-                    <AiOutlineClose className="inline mr-1" /> Cancel
+                    <AiOutlineClose size={13} /> Cancel
                   </button>
                 </div>
               </div>
             ) : (
               <>
-                <h1 className="display text-[44px] sm:text-[64px] lg:text-[76px] leading-[0.92] mt-3 tracking-[-0.02em] text-ink">
-                  {collection.title}
-                </h1>
+                <h1 className="c-detail-title">{collection.title}</h1>
                 {collection.description && (
-                  <p className="display italic-d text-[17px] sm:text-[19px] leading-[1.45] text-ink-2 mt-5 max-w-[520px]">
-                    “{collection.description}”
-                  </p>
+                  <p className="c-detail-desc">{collection.description}</p>
                 )}
               </>
             )}
-          </div>
 
-          {/* Curator row */}
-          <div className="flex items-center gap-3 mt-7 flex-wrap">
-            <div className="w-9 h-9 rounded-full overflow-hidden border border-hair bg-paper-2 flex items-center justify-center display text-[16px] flex-shrink-0">
-              {curator?.avatar_url
-                ? <img src={curator.avatar_url} alt="" className="w-full h-full object-cover" />
-                : curatorInitial}
-            </div>
-            <div className="min-w-0 flex-1">
+            <div className="c-detail-curator">
               <Link
                 to={curator ? `/user/${curator.username}` : '#'}
-                className="display text-[17px] leading-tight no-underline text-ink hover:underline"
+                className="c-detail-curator-link"
               >
-                @{curator?.username || `user-${collection.user_id}`}
+                <span className="c-detail-curator-avatar">
+                  {curator?.avatar_url
+                    ? <img src={curator.avatar_url} alt="" />
+                    : curatorInitial}
+                </span>
+                <span className="c-detail-curator-meta">
+                  <span className="c-detail-curator-handle">
+                    A set by <em>@{curator?.username || `user-${collection.user_id}`}</em>
+                  </span>
+                  <span className="c-detail-curator-sub">
+                    {collection.wallpaper_count} {collection.wallpaper_count === 1 ? 'wallpaper' : 'wallpapers'} · updated {relativeTime(collection.updated_at)}
+                  </span>
+                </span>
               </Link>
-              <div className="mono text-[10px] tracking-[0.06em] uppercase text-muted mt-0.5">
-                Updated {relativeTime(collection.updated_at).toLowerCase()} · {collection.like_count} likes
+            </div>
+
+            {!editing && (
+              <div className="c-detail-actions">
+                <button
+                  onClick={handleLike}
+                  disabled={liking}
+                  className={`c-detail-like${collection.is_liked ? ' is-liked' : ''}`}
+                >
+                  {collection.is_liked ? <AiFillHeart size={14} /> : <AiOutlineHeart size={14} />}
+                  <span>{collection.like_count}</span>
+                </button>
+                {isOwner && (
+                  <>
+                    <button onClick={startEdit} className="c-detail-btn-ghost">
+                      <AiOutlineEdit size={13} /> Edit
+                    </button>
+                    <button
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="c-detail-btn-delete"
+                      title="Delete collection"
+                    >
+                      <AiOutlineDelete size={14} />
+                    </button>
+                  </>
+                )}
               </div>
-            </div>
-
-            <div className="flex items-center gap-2 ml-auto">
-              <button
-                onClick={handleLike}
-                disabled={liking}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-paper border border-hair text-ink text-[12px] font-medium hover:bg-paper-2 disabled:opacity-60 transition-colors"
-              >
-                {collection.is_liked ? <AiFillHeart size={13} className="text-rose-600" /> : <AiOutlineHeart size={13} />}
-                {collection.like_count}
-              </button>
-              {isOwner && (
-                <>
-                  <button
-                    onClick={startEdit}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-paper border border-hair text-ink text-[12px] font-medium hover:bg-paper-2 transition-colors"
-                    title="Edit"
-                  >
-                    <AiOutlineEdit size={13} /> Edit
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-hair text-rose-600 hover:bg-rose-50 transition-colors"
-                    title="Delete collection"
-                  >
-                    <AiOutlineDelete size={14} />
-                  </button>
-                </>
-              )}
-            </div>
+            )}
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Grid */}
-      <div className="bg-paper-2 px-6 sm:px-10 py-7">
-        <div className="label-rule mb-4">
-          Wallpapers · {visible.length} of {collection.wallpaper_count}
-        </div>
-
-        {loadingPage && visible.length === 0 ? (
-          <WallpaperGridSkeleton count={8} cols="4" />
-        ) : visible.length === 0 ? (
-          <div className="text-center py-20 text-muted text-sm">No wallpapers in this collection yet.</div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {visible.map((w) => (
-              <WallpaperCard key={w.id} wallpaper={w} fixedAspect hideActions />
-            ))}
+        {/* Wallpaper matrix — uniform, symmetric. Unlike Weekly's
+            non-symmetric 'hero + 3×3 with № markers', collections are
+            presented as a clean even set: this is the *theme*, equally
+            valid pieces of it. */}
+        <section className="c-detail-grid-section">
+          <div className="c-detail-grid-head">
+            <span className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
+              The set
+            </span>
+            <span className="mono text-[10px] tracking-[0.18em] uppercase text-muted">
+              {visible.length > 0 ? `${visible.length} of ${collection.wallpaper_count}` : `${collection.wallpaper_count} ${collection.wallpaper_count === 1 ? 'piece' : 'pieces'}`}
+            </span>
           </div>
-        )}
 
-        <Pagination current={currentPage} total={total} onChange={setCurrentPage} />
-      </div>
+          {loadingPage && visible.length === 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="tile-cell skeleton-card aspect-[3/2]" />
+              ))}
+            </div>
+          ) : visible.length === 0 ? (
+            <div className="text-center py-20 text-muted text-sm">No wallpapers in this collection yet.</div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {visible.map((w, i) => (
+                <div key={w.id} className="relative aspect-[3/2]">
+                  <WallpaperCard
+                    wallpaper={w}
+                    layout="salon"
+                    fillHeight
+                    hideActions={!user}
+                    animDelay={i * 35}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Pagination current={currentPage} total={total} onChange={setCurrentPage} />
+        </section>
+      </main>
     </div>
   );
 }

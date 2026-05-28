@@ -8,7 +8,6 @@ import { useAuthStore } from '../store/auth';
 import PageMeta from '../components/PageMeta';
 import CollectionCard from '../components/CollectionCard';
 import Pagination from '../components/Pagination';
-import { CollectionGridSkeleton } from '../components/Skeletons';
 
 type Filter = 'all' | 'yours';
 
@@ -17,28 +16,21 @@ const PAGE_SIZE = 12;
 export default function CollectionsPage() {
   const { isAuthenticated, user } = useAuthStore();
   const [searchParams] = useSearchParams();
-  // ?kind=1 limits to editor themes. We parse once per render and treat
-  // anything non-numeric as "no filter" so junk values don't 400 the API.
+  // ?kind=1 limits to editor themes. Anything non-numeric falls through
+  // as "no filter" so junk values don't 400 the API.
   const kindParam = searchParams.get('kind');
   const kind = kindParam !== null && /^\d+$/.test(kindParam) ? Number(kindParam) : undefined;
   const isThemes = kind === 1;
 
-  // Paginated cursor walk — collect into pages so the editorial Pagination
-  // can do prev/next moves. We discover total at the end (when has_more
-  // flips false) and cache each page once fetched.
   const [pages, setPages] = useState<Record<number, Collection[]>>({});
   const [cursors, setCursors] = useState<Record<number, number | undefined>>({ 1: undefined });
-  const [hasMoreUpTo, setHasMoreUpTo] = useState<number | null>(null); // last page that's confirmed not the end
+  const [hasMoreUpTo, setHasMoreUpTo] = useState<number | null>(null);
   const [knownTotalPages, setKnownTotalPages] = useState<number | null>(null);
   const [current, setCurrent] = useState(1);
-  // Start true so the skeleton paints on first render — the page-1 fetch
-  // is dispatched in useEffect, which doesn't run before the first paint.
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
   const [showCreate, setShowCreate] = useState(false);
 
-  // Reset cache when the filter or kind changes so the next fetch starts
-  // from page 1 cleanly.
   useEffect(() => {
     setPages({});
     setCursors({ 1: undefined });
@@ -50,7 +42,7 @@ export default function CollectionsPage() {
   const fetchPage = useCallback(async (page: number) => {
     if (pages[page]) return;
     const cursor = cursors[page];
-    if (page > 1 && cursor === undefined) return; // need previous page first
+    if (page > 1 && cursor === undefined) return;
     setLoading(true);
     try {
       const res = await getCollections({ cursor, limit: PAGE_SIZE, kind });
@@ -77,12 +69,11 @@ export default function CollectionsPage() {
   useEffect(() => { fetchPage(current); }, [current, fetchPage]);
 
   const visible = pages[current] || [];
-  // Total pages reveal themselves progressively; until proven otherwise
-  // assume there's at least one more page after the last one we've seen.
   const total = knownTotalPages ?? (hasMoreUpTo ? hasMoreUpTo + 1 : 1);
 
   return (
-    <div className="bg-paper-2 min-h-full">
+    <div className="c-list min-h-full">
+      <div className="c-list-mesh" aria-hidden />
       <PageMeta
         title={isThemes ? 'Editor Themes' : 'Collections'}
         description={isThemes
@@ -90,51 +81,52 @@ export default function CollectionsPage() {
           : 'Curated wallpaper selections from the community on Wallpaper Exchange.'}
       />
 
-      <div className="px-6 sm:px-10 pt-7">
-        {/* Header */}
-        <div className="flex items-end justify-between gap-6 flex-wrap mb-6">
+      <main className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-10">
+        <header className="c-list-head">
           <div>
-            <div className="kicker text-muted">
-              {isThemes ? 'Editor themes' : 'Collections'}
-              {knownTotalPages !== null ? ` · ${visible.length === 0 && current === 1 ? 0 : '∞'}` : ''}
+            <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
+              {isThemes ? 'Editor themes' : 'The Library'}
             </div>
-            <h1 className="display text-[40px] sm:text-[56px] leading-[0.96] mt-2 tracking-[-0.02em] text-ink">
-              {isThemes ? (
-                <>One theme, <span className="italic-d">every week.</span></>
-              ) : (
-                <>Curated <span className="italic-d">selections.</span></>
-              )}
+            <h1 className="display text-[clamp(34px,4.2vw,56px)] leading-[1.02] mt-2 tracking-[-0.01em] text-ink">
+              {isThemes
+                ? <>One theme, <em>every week.</em></>
+                : <>Crates, <em>curated.</em></>}
             </h1>
+            <p className="text-ink-2 mt-3 max-w-2xl text-[14px] leading-relaxed">
+              {isThemes
+                ? 'Weekly editor-picked themes. Each one bundles wallpapers around a mood, a place, or a moment.'
+                : 'Themed sets put together by the community and the editors. Each collection has its own colour, voice, and pace — like a small record.'}
+            </p>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="c-list-toolbar">
             <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>All</FilterChip>
             {isAuthenticated && (
               <FilterChip active={filter === 'yours'} onClick={() => setFilter('yours')}>Yours</FilterChip>
             )}
             {isAuthenticated && (
-              <>
-                <div className="w-px h-[22px] bg-hair mx-1.5" />
-                <button
-                  onClick={() => setShowCreate(true)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium hover:bg-ink-2 transition-colors"
-                >
-                  <AiOutlinePlus size={13} /> New collection
-                </button>
-              </>
+              <button
+                onClick={() => setShowCreate(true)}
+                className="c-list-new"
+              >
+                <AiOutlinePlus size={13} /> New
+              </button>
             )}
           </div>
-        </div>
+        </header>
 
-        {/* Grid */}
         {loading && visible.length === 0 ? (
-          <CollectionGridSkeleton />
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="c-list-skeleton skeleton-card" />
+            ))}
+          </div>
         ) : visible.length === 0 ? (
           <div className="text-center py-20 text-muted text-sm">
             {filter === 'yours' ? "You haven't created any collections yet." : 'No collections yet.'}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
             {visible.map((c) => (
               <CollectionCard key={c.id} collection={c} />
             ))}
@@ -142,14 +134,13 @@ export default function CollectionsPage() {
         )}
 
         <Pagination current={current} total={total} onChange={setCurrent} />
-      </div>
+      </main>
 
       {showCreate && (
         <NewCollectionModal
           onClose={() => setShowCreate(false)}
           onCreated={() => {
             setShowCreate(false);
-            // Bust the cache and re-fetch page 1.
             setPages({});
             setCursors({ 1: undefined });
             setHasMoreUpTo(null);
@@ -204,10 +195,10 @@ function NewCollectionModal({ onClose, onCreated }: { onClose: () => void; onCre
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-paper border border-ink w-full max-w-[360px] p-5"
+        className="bg-paper border border-ink w-full max-w-[360px] p-5 rounded-xl"
         style={{ boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
       >
-        <div className="kicker text-muted mb-3">New collection</div>
+        <div className="mono text-[10px] tracking-[0.16em] uppercase text-muted mb-3">New collection</div>
         <input
           autoFocus
           value={title}
@@ -215,7 +206,7 @@ function NewCollectionModal({ onClose, onCreated }: { onClose: () => void; onCre
           onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onClose(); }}
           placeholder="Name your collection"
           maxLength={100}
-          className="w-full px-3.5 py-3 bg-paper text-[14px] text-ink placeholder:text-muted outline-none rounded"
+          className="w-full px-3.5 py-3 bg-paper text-[14px] text-ink placeholder:text-muted outline-none rounded-lg"
           style={{ border: '1px solid var(--color-hair)' }}
         />
         <div className="flex justify-end gap-2 mt-3">

@@ -573,6 +573,340 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════
+   Collections family — list (the Library) + detail (an album sleeve).
+   Distinct from Weekly (issue / dated) by: no date, no № prefix on
+   tiles; instead each collection has its own accent_color which
+   drives the detail page's Liquid mesh. The list page uses a cool
+   neutral mesh so it doesn't compete with any single collection's
+   colour; the detail page wears the collection's colour like a
+   record sleeve cover.
+   ════════════════════════════════════════════════════════════════════ */
+
+.c-list, .c-detail {
+  position: relative;
+  isolation: isolate;
+  min-height: 100%;
+  background: var(--color-paper);
+}
+
+/* List mesh: cool/neutral lavender + sand so individual collection
+   accents have room to shine. Subtle drift. */
+.c-list-mesh {
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(40% 40% at 22% 30%, oklch(88% 0.04 280 / 0.45) 0%, transparent 60%),
+    radial-gradient(45% 45% at 78% 22%, oklch(90% 0.03 240 / 0.45) 0%, transparent 55%),
+    radial-gradient(50% 50% at 50% 80%, oklch(92% 0.03 100 / 0.40) 0%, transparent 62%);
+  filter: blur(80px) saturate(1.3);
+  pointer-events: none;
+  animation: w-weekly-drift 36s ease-in-out infinite alternate;
+}
+.dark .c-list-mesh {
+  background:
+    radial-gradient(40% 40% at 22% 30%, oklch(26% 0.06 280 / 0.55) 0%, transparent 60%),
+    radial-gradient(45% 45% at 78% 22%, oklch(24% 0.05 240 / 0.55) 0%, transparent 55%),
+    radial-gradient(50% 50% at 50% 80%, oklch(28% 0.05 100 / 0.50) 0%, transparent 62%);
+  filter: blur(80px) saturate(1.7);
+}
+
+.c-list-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 40px;
+}
+.c-list-head h1 em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--color-accent);
+}
+.c-list-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.c-list-new {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  font-size: 12px;
+  font-weight: 500;
+  transition: background 200ms ease, transform 100ms ease;
+  cursor: pointer;
+}
+.c-list-new:hover {
+  background: var(--color-ink-2);
+}
+.c-list-new:active { transform: scale(0.97); }
+
+.c-list-skeleton {
+  aspect-ratio: 4/3;
+  border-radius: 14px;
+  background: var(--color-paper-2);
+  border: 1px solid var(--color-hair-soft);
+}
+
+/* ── Detail (one collection) ────────────────────────────────────── */
+
+/* Mesh sourced from the collection's accent_color — set via inline
+   --c-accent on the page root. Falls back to brand accent if the
+   collection has no accent_color. */
+.c-detail {
+  --c-accent: var(--color-accent);
+}
+.c-detail-mesh {
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(45% 45% at 24% 28%, color-mix(in oklch, var(--c-accent) 70%, transparent) 0%, transparent 60%),
+    radial-gradient(50% 50% at 76% 76%, color-mix(in oklch, var(--c-accent) 55%, transparent) 0%, transparent 55%),
+    radial-gradient(45% 45% at 50% 50%, color-mix(in oklch, var(--c-accent) 40%, transparent) 0%, transparent 65%);
+  filter: blur(80px) saturate(1.4);
+  opacity: 0.5;
+  pointer-events: none;
+  animation: w-weekly-drift 38s ease-in-out infinite alternate;
+}
+.dark .c-detail-mesh {
+  opacity: 0.7;
+  filter: blur(80px) saturate(1.8);
+}
+
+.c-backlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  text-decoration: none;
+  transition: color 200ms ease;
+  padding: 4px 0;
+}
+.c-backlink:hover { color: var(--color-ink); }
+
+.c-detail-hero-row {
+  display: grid;
+  grid-template-columns: minmax(280px, 460px) 1fr;
+  gap: 56px;
+  margin: 24px 0 64px;
+  align-items: start;
+}
+@media (max-width: 840px) {
+  .c-detail-hero-row { grid-template-columns: 1fr; gap: 32px; }
+}
+
+/* Sleeve cover — square aspect, the record-sleeve feel. Off-center
+   shadow stack (-6 -6 + 10 14) gives the "stacked behind it" idea
+   without explicit physical layers. */
+.c-detail-sleeve {
+  position: relative;
+  aspect-ratio: 1/1;
+  border-radius: 14px;
+  background: var(--color-paper-2);
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    -8px 8px 0 -2px var(--color-paper),
+    -8px 8px 0 -1px color-mix(in oklch, var(--c-accent) 40%, var(--color-hair)),
+    0 30px 60px -22px oklch(0% 0 0 / 0.36);
+  transition: transform 420ms var(--ease-out-quart),
+              box-shadow 420ms var(--ease-out-quart);
+}
+.dark .c-detail-sleeve {
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.08),
+    -8px 8px 0 -2px var(--color-paper),
+    -8px 8px 0 -1px color-mix(in oklch, var(--c-accent) 40%, var(--color-hair-soft)),
+    0 30px 60px -22px oklch(0% 0 0 / 0.65);
+}
+.c-detail-sleeve:hover {
+  transform: translate(2px, -2px);
+}
+.c-detail-cover, .c-detail-cover-empty {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.c-detail-cover-empty {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+/* Small accent dot at top-right corner of the sleeve — like a vinyl
+   label dot. Uses the collection's accent colour directly. */
+.c-detail-accent-dot {
+  position: absolute;
+  top: 16px; right: 16px;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--c-accent);
+  box-shadow: 0 0 0 3px oklch(100% 0 0 / 0.6),
+              0 1px 2px oklch(0% 0 0 / 0.25);
+}
+.dark .c-detail-accent-dot {
+  box-shadow: 0 0 0 3px oklch(14% 0.018 240 / 0.7),
+              0 1px 2px oklch(0% 0 0 / 0.5);
+}
+
+.c-detail-meta { padding-top: 6px; }
+.c-detail-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(40px, 5vw, 72px);
+  line-height: 0.96;
+  letter-spacing: -0.015em;
+  color: var(--color-ink);
+  margin-top: 14px;
+}
+.c-detail-desc {
+  margin-top: 18px;
+  font-family: var(--font-display);
+  font-size: clamp(16px, 1.4vw, 20px);
+  line-height: 1.5;
+  color: var(--color-ink-2);
+  max-width: 540px;
+  font-style: italic;
+}
+
+.c-detail-curator {
+  margin-top: 28px;
+  padding: 14px 0;
+  border-top: 1px solid color-mix(in oklch, var(--c-accent) 25%, var(--color-hair));
+  border-bottom: 1px solid color-mix(in oklch, var(--c-accent) 25%, var(--color-hair));
+}
+.c-detail-curator-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--color-ink);
+}
+.c-detail-curator-avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in oklch, var(--c-accent) 35%, var(--color-hair));
+  background: var(--color-paper-2);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--color-ink);
+  flex-shrink: 0;
+}
+.c-detail-curator-avatar img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.c-detail-curator-meta {
+  display: flex; flex-direction: column;
+  gap: 2px;
+}
+.c-detail-curator-handle {
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1.2;
+  color: var(--color-ink);
+}
+.c-detail-curator-handle em {
+  font-style: italic;
+  color: var(--c-accent);
+  font-weight: 500;
+}
+.c-detail-curator-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.c-detail-actions {
+  margin-top: 22px;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.c-detail-like {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--color-paper);
+  border: 1px solid color-mix(in oklch, var(--c-accent) 40%, var(--color-hair));
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 200ms ease, border-color 200ms ease, color 200ms ease, transform 100ms ease;
+}
+.c-detail-like:hover {
+  background: color-mix(in oklch, var(--c-accent) 10%, var(--color-paper));
+  border-color: var(--c-accent);
+}
+.c-detail-like:active { transform: scale(0.97); }
+.c-detail-like.is-liked {
+  background: color-mix(in oklch, var(--c-accent) 18%, var(--color-paper));
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+}
+.c-detail-btn-primary,
+.c-detail-btn-ghost,
+.c-detail-btn-delete {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 200ms ease, border-color 200ms ease, color 200ms ease, transform 100ms ease;
+}
+.c-detail-btn-primary {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border: 1px solid var(--color-ink);
+}
+.c-detail-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.c-detail-btn-ghost {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border: 1px solid var(--color-hair);
+}
+.c-detail-btn-ghost:hover {
+  background: var(--color-paper-2);
+  border-color: var(--color-ink-2);
+}
+.c-detail-btn-delete {
+  background: var(--color-paper);
+  color: oklch(58% 0.18 25);
+  border: 1px solid var(--color-hair);
+  padding: 8px 10px;
+}
+.c-detail-btn-delete:hover {
+  background: oklch(95% 0.04 25);
+  border-color: oklch(58% 0.18 25);
+}
+
+.c-detail-grid-section {
+  padding-top: 8px;
+}
+.c-detail-grid-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid color-mix(in oklch, var(--c-accent) 25%, var(--color-hair));
+}
+
+/* ══════════════════════════════════════════════════════════════════════
    Weekly Picks family — list + detail share the same magazine-issue
    vocabulary (mesh, stamps, № glyph). Differentiated from Discover
    (utility grid), Collections (themed accent_color), Devices (spec
