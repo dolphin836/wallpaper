@@ -163,8 +163,11 @@ function FeedFooter({ state, count, onRetry }: { state: FooterState; count: numb
     <div className="feed-foot">
       <div className="feed-foot__rule" />
       <div className="feed-foot__inner">
-        <span className="display italic-d text-[18px] text-ink-2">end of the archive</span>
-        <span className="mono text-[10px] tracking-[0.14em] uppercase text-muted">
+        <span className="feed-end-text display italic-d text-[18px] text-ink-2 inline-flex items-center">
+          end of the archive
+          <span className="feed-end-caret mono not-italic text-ink-2" aria-hidden>▌</span>
+        </span>
+        <span className="feed-end-count mono text-[10px] tracking-[0.14em] uppercase text-muted">
           {count.toLocaleString()} wallpapers
         </span>
       </div>
