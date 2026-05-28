@@ -834,7 +834,10 @@
         document.getElementById('heroKicker').textContent = `Week ${data.week} · ${data.year} · no picks yet`;
         return;
       }
-      const hero = picks[0];
+      // The hero is the pick admin marked is_hero=true (only it gets a
+      // non-empty original_url from the server). Fall back to picks[0]
+      // for legacy weeks predating the column.
+      const hero = picks.find(p => p.is_hero) || picks[0];
       applyPaletteFromHex(hero.color_palette);
       const av = document.querySelector('.user-menu .avatar');
       const parts = (hero.color_palette || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -859,7 +862,9 @@
       const r = resBadge(hero);
       if (r) document.getElementById('heroRes').textContent = r;
 
-      const rest = picks.slice(1, 6);
+      // The grid below the hero should exclude whichever pick is the hero,
+      // not blindly skip index 0 — admin may have promoted a non-first pick.
+      const rest = picks.filter(p => p.id !== hero.id).slice(0, 5);
       const grid = document.getElementById('weeklyGrid');
       grid.innerHTML = '';
       rest.forEach(w => grid.appendChild(makeWeeklyTile(w)));
