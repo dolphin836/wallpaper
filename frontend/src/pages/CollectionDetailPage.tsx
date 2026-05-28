@@ -34,9 +34,9 @@ import EmptyState from '../components/EmptyState';
 
 const PAGE_SIZE = 12;
 
-/* Framed-print tile — paper mat + image + hover action rail. Modal
-   navigation via location.state.background so clicking opens the
-   detail overlay (same UX as discover salon tiles). */
+/* Framed-print tile — paper mat + image + chips + hover action
+   rail. Modal navigation via location.state.background so clicking
+   opens the detail overlay (same UX as discover salon tiles). */
 function FramedTile({ wallpaper: w, index }: { wallpaper: Wallpaper; index: number }) {
   const location = useLocation();
   const acts = useWallpaperActions(w);
@@ -46,6 +46,16 @@ function FramedTile({ wallpaper: w, index }: { wallpaper: Wallpaper; index: numb
     e.stopPropagation();
     fn();
   };
+  const isVideo = (w.file_type || '').startsWith('video/');
+  const resLabel = (() => {
+    const px = Math.max(w.width || 0, w.height || 0);
+    if (px >= 7680) return '8K';
+    if (px >= 3840) return '4K';
+    if (px >= 2560) return '2K';
+    if (px >= 1920) return '1080P';
+    if (px >= 1280) return '720P';
+    return '';
+  })();
   return (
     <Link
       to={`/wallpaper/${w.slug || w.id}`}
@@ -63,6 +73,31 @@ function FramedTile({ wallpaper: w, index }: { wallpaper: Wallpaper; index: numb
           onError={() => setLoaded(true)}
           style={{ backgroundColor: w.dominant_color || undefined }}
         />
+        {/* Top-left chip stack — same vocabulary as the discover
+            salon variant. Resolution + Video + Mac (dynamic) + AI
+            chips; .is-ai keeps the violet wash so synthetic
+            content reads at a glance. */}
+        <div className="cd-frame-chips">
+          {resLabel && <span className="tile-chip">{resLabel}</span>}
+          {isVideo && (
+            <span className="tile-chip">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
+              Video
+            </span>
+          )}
+          {w.is_dynamic && (
+            <span className="tile-chip">
+              <svg viewBox="0 0 384 512" fill="currentColor" aria-hidden><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+              Mac
+            </span>
+          )}
+          {w.is_ai_generated && (
+            <span className="tile-chip is-ai">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 2l1.6 4.6L18 8.2l-4.4 1.6L12 14.4l-1.6-4.6L6 8.2l4.4-1.6L12 2zm7 10l1 2.8 2.8 1-2.8 1L19 19.6l-1-2.8-2.8-1 2.8-1L19 12zM5 14l.9 2.6L8.4 17.6l-2.5 1L5 21.2 4.1 18.6 1.6 17.6 4.1 16.6 5 14z"/></svg>
+              AI
+            </span>
+          )}
+        </div>
         <div className="tile-actions">
           <button
             type="button"
@@ -453,7 +488,15 @@ export default function CollectionDetailPage() {
           {loadingPage && visible.length === 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="cd-frame skeleton-card" />
+                // Skeleton mirrors the real FramedTile: paper mat
+                // (visible chrome) + image chamber (shimmer) + a
+                // small chip placeholder so the geometry around
+                // the corner doesn't shift when chips paint in.
+                <div key={i} className="cd-frame">
+                  <div className="cd-mat skeleton-card">
+                    <div className="cd-frame-chip-skel" />
+                  </div>
+                </div>
               ))}
             </div>
           ) : visible.length === 0 ? (

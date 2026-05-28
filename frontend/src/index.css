@@ -1135,9 +1135,36 @@
 }
 .cd-frame-img.is-loaded { opacity: 1; }
 .cd-frame:hover .cd-frame-img { transform: scale(1.04); }
-/* Skeleton variant: mat-shaped placeholder while loading. */
-.cd-frame.skeleton-card { background: var(--color-paper-2); }
-.cd-frame.skeleton-card::after { border-radius: 3px; }
+
+/* Chip stack inside the mat — top-left corner, wraps on overflow.
+   z-index over the image but below the action rail. */
+.cd-frame-chips {
+  position: absolute;
+  top: 10px; left: 10px;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: calc(100% - 20px);
+}
+
+/* Skeleton placeholder for the chip stack — single short pill at
+   the top-left of the mat so the corner doesn't shift when chips
+   paint in (1-4 chips render in real cards, the placeholder is a
+   median 36×16 pill). Lives over the mat's shimmer; the chip-skel
+   itself isn't shimmered. */
+.cd-frame-chip-skel {
+  position: absolute;
+  top: 10px; left: 10px;
+  width: 36px; height: 16px;
+  border-radius: 999px;
+  background: oklch(98% 0.005 240 / 0.55);
+  backdrop-filter: blur(6px);
+  z-index: 4;
+}
+.dark .cd-frame-chip-skel {
+  background: oklch(14% 0.018 240 / 0.6);
+}
 
 /* ══════════════════════════════════════════════════════════════════════
    Weekly Picks family — list + detail share the same magazine-issue
