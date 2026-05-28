@@ -27,17 +27,17 @@
      Use `bg-paper`, `text-ink`, `border-hair`, etc. */
 
   /* Paper (light surfaces) */
-  --color-paper:     oklch(97.8% 0.008 80);
-  --color-paper-2:   oklch(95.5% 0.010 80);
-  --color-paper-3:   oklch(92.0% 0.012 80);
-  --color-hair:      oklch(86.0% 0.010 80);
-  --color-hair-soft: oklch(91.0% 0.008 80);
+  --color-paper:     oklch(97.8% 0.008 230);
+  --color-paper-2:   oklch(95.5% 0.010 230);
+  --color-paper-3:   oklch(92.0% 0.012 230);
+  --color-hair:      oklch(86.0% 0.010 230);
+  --color-hair-soft: oklch(91.0% 0.008 230);
 
   /* Ink */
-  --color-ink:    oklch(18.0% 0.012 80);
-  --color-ink-2:  oklch(28.0% 0.012 80);
-  --color-muted:  oklch(52.0% 0.012 80);
-  --color-muted-2:oklch(68.0% 0.012 80);
+  --color-ink:    oklch(18.0% 0.012 230);
+  --color-ink-2:  oklch(28.0% 0.012 230);
+  --color-muted:  oklch(52.0% 0.012 230);
+  --color-muted-2:oklch(68.0% 0.012 230);
 
   /* Accent — coin / exchange / urgent moments only */
   --color-accent:      oklch(64% 0.21 42);
@@ -87,15 +87,15 @@
    set by useDarkMode. Keep this scoped to the new tokens so the legacy
    ws-dark-* values stay independent and other pages continue to render. */
 .dark {
-  --color-paper:     oklch(15% 0.012 80);
-  --color-paper-2:   oklch(20% 0.012 80);
-  --color-paper-3:   oklch(24% 0.013 80);
-  --color-hair:      oklch(28% 0.012 80);
-  --color-hair-soft: oklch(24% 0.012 80);
-  --color-ink:       oklch(95% 0.008 80);
-  --color-ink-2:     oklch(82% 0.010 80);
-  --color-muted:     oklch(62% 0.012 80);
-  --color-muted-2:   oklch(48% 0.012 80);
+  --color-paper:     oklch(15% 0.012 230);
+  --color-paper-2:   oklch(20% 0.012 230);
+  --color-paper-3:   oklch(24% 0.013 230);
+  --color-hair:      oklch(28% 0.012 230);
+  --color-hair-soft: oklch(24% 0.012 230);
+  --color-ink:       oklch(95% 0.008 230);
+  --color-ink-2:     oklch(82% 0.010 230);
+  --color-muted:     oklch(62% 0.012 230);
+  --color-muted-2:   oklch(48% 0.012 230);
   --color-accent-soft: oklch(28% 0.08 42);
 }
 
