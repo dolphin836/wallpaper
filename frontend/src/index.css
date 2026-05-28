@@ -444,7 +444,12 @@
   @keyframes trade-flash-static { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
 }
 
-.tile-cell .tile-actions {
+/* Tile action rail — used by .tile-cell (discover salon variant) AND
+   by .h3-tile (home / weekly variants). Same chrome, same hover
+   reveal; the host class differs because the two surfaces have
+   different overall tile chrome. */
+.tile-cell .tile-actions,
+.h3-tile .tile-actions {
   position: absolute;
   right: 10px;
   bottom: 10px;
@@ -455,9 +460,12 @@
   transform: translateY(4px);
   transition: opacity 200ms ease, transform 240ms ease;
   pointer-events: none;
+  z-index: 5;
 }
 .tile-cell:hover .tile-actions,
-.tile-cell:focus-within .tile-actions {
+.tile-cell:focus-within .tile-actions,
+.h3-tile:hover .tile-actions,
+.h3-tile:focus-within .tile-actions {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;

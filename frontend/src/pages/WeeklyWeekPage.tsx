@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useLocation, Link } from 'react-router-dom';
 import { AiOutlineArrowLeft } from 'react-icons/ai';
 import { getWeeklyByWeek, type WeeklyPicked } from '../api';
 import type { Wallpaper } from '../types';
 import PageMeta from '../components/PageMeta';
-import WallpaperCard from '../components/WallpaperCard';
+import WallpaperTile, { ResChip } from '../components/WallpaperTile';
 
 const MONTH_ABBR = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -21,22 +21,15 @@ function fmtDate(d: Date) {
   return `${MONTH_ABBR[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2,'0')}, ${d.getUTCFullYear()}`;
 }
 function fmtMB(b?: number) { return ((b || 0) / 1024 / 1024).toFixed(1) + ' MB'; }
-function resLabel(w: Wallpaper) {
-  const px = Math.max(w.width || 0, w.height || 0);
-  if (px >= 7680) return '8K';
-  if (px >= 3840) return '4K';
-  if (px >= 2560) return '2K';
-  if (px >= 1920) return '1080P';
-  if (px >= 1280) return '720P';
-  return '';
-}
 
 // Hero card — mirrors HomePage's HeroCard exactly so the home weekly
 // hero and the detail-page hero feel like the same artifact. Progressive
 // load: preview_url first (fast first paint), then background-fetch
 // original_url and swap once decoded; preview stays if original never
-// arrives.
+// arrives. Click opens the wallpaper detail as a modal overlay (same
+// pattern as the tiles below) instead of a hard navigate.
 function WeeklyHero({ hero, week, year }: { hero: WeeklyPicked; week: number; year: number }) {
+  const location = useLocation();
   const [src, setSrc] = useState(hero.preview_url || hero.thumb_url);
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
@@ -48,10 +41,12 @@ function WeeklyHero({ hero, week, year }: { hero: WeeklyPicked; week: number; ye
     upgrade.src = hero.original_url;
   }, [hero.id, hero.preview_url, hero.thumb_url, hero.original_url]);
 
-  const rl = resLabel(hero);
-
   return (
-    <Link to={`/wallpaper/${hero.slug || hero.id}`} className="h3-hero block">
+    <Link
+      to={`/wallpaper/${hero.slug || hero.id}`}
+      state={{ background: location, initialWallpaper: hero as Wallpaper }}
+      className="h3-hero block"
+    >
       <img
         src={src}
         alt={hero.title || `Week ${week} hero`}
@@ -59,7 +54,7 @@ function WeeklyHero({ hero, week, year }: { hero: WeeklyPicked; week: number; ye
         onLoad={() => setLoaded(true)}
         onError={() => setLoaded(true)}
       />
-      {rl && <span className="h3-res-chip">{rl}</span>}
+      <ResChip wallpaper={hero} />
       <div className="h3-hero-overlay">
         <div className="flex-1 min-w-0">
           <div className="h3-kicker">Curation · Week {week} · {year}</div>
@@ -97,7 +92,6 @@ export default function WeeklyWeekPage() {
   }, [year, week]);
 
   const hero = rows.find((r) => r.is_hero) || rows[0];
-  const rest = rows.filter((r) => r.id !== hero?.id);
 
   const date = year && week ? isoWeekFriday(Number(year), Number(week)) : null;
   const dateStr = date ? fmtDate(date) : '';
@@ -131,9 +125,9 @@ export default function WeeklyWeekPage() {
               style={{ aspectRatio: '16/9', marginBottom: 48 }}
               aria-hidden
             />
-            <div className="w-detail-grid">
-              {Array.from({ length: 9 }).map((_, i) => (
-                <div key={i} className="tile-cell skeleton-card aspect-[3/2]" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="h3-tile h3-weekly skeleton-card" />
               ))}
             </div>
           </>
@@ -149,17 +143,15 @@ export default function WeeklyWeekPage() {
               </div>
             )}
 
-            {rest.length > 0 && (
-              <div className="w-detail-grid">
-                {rest.slice(0, 9).map((p, i) => (
-                  <div key={p.id} className="relative aspect-[3/2]">
-                    <WallpaperCard
-                      wallpaper={p}
-                      layout="salon"
-                      fillHeight
-                      animDelay={i * 40}
-                    />
-                  </div>
+            {/* All 10 picks rendered as the same 4:5 weekly tile as
+                the home page (5 per row on desktop). The hero appears
+                again here — intentional: the cover hero up top is the
+                'masthead' of the issue, the grid is the actual slate
+                you can browse. */}
+            {rows.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                {rows.map((p) => (
+                  <WallpaperTile key={p.id} w={p} variant="weekly" />
                 ))}
               </div>
             )}

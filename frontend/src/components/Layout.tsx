@@ -54,6 +54,7 @@ function useDarkMode() {
 const NAV_ITEMS: { label: string; to: string }[] = [
   { label: 'Home',        to: '/' },
   { label: 'Discover',    to: '/discover' },
+  { label: 'Weekly',      to: '/weekly-picks' },
   { label: 'Collections', to: '/collections' },
   { label: 'Uploaders',   to: '/uploaders' },
   { label: 'Devices',     to: '/wallpapers-for' },
