@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { AiOutlineArrowRight } from 'react-icons/ai';
 import { getWeeklyArchive, getWeeklyByWeek, type WeeklyArchiveEntry, type WeeklyPicked } from '../api';
@@ -64,10 +64,20 @@ export default function WeeklyArchivePage() {
   // Progressive cover image: start with archive cover_url (now backed
   // by preview_url server-side), then swap to the hero's original_url
   // once it's both available in the cache AND decoded by the browser.
+  //
+  // Race protection: when the user clicks through the timeline fast,
+  // week A's pre-decode (new Image().onload) can still fire after the
+  // user has already switched to week B. Without a guard, that
+  // onload would setCoverSrc(A.original_url) and overwrite the
+  // freshly-painted B.cover_url, producing a brief 'wrong image'
+  // flash. We bump a version ref on every week change and the
+  // onload only commits if it still matches.
   const [coverSrc, setCoverSrc] = useState<string>('');
   const [coverLoaded, setCoverLoaded] = useState(false);
+  const versionRef = useRef(0);
   useEffect(() => {
     if (!selected) return;
+    versionRef.current += 1;
     setCoverSrc(selected.cover_url || '');
     setCoverLoaded(false);
   }, [selected?.year, selected?.week]);
@@ -75,8 +85,12 @@ export default function WeeklyArchivePage() {
     if (!selected || !heroPick?.original_url) return;
     if (heroPick.original_url === selected.cover_url) return;
     if (coverSrc === heroPick.original_url) return;
+    const myVersion = versionRef.current;
     const upgrade = new Image();
-    upgrade.onload = () => setCoverSrc(heroPick.original_url);
+    upgrade.onload = () => {
+      if (versionRef.current !== myVersion) return; // stale — user moved on
+      setCoverSrc(heroPick.original_url);
+    };
     upgrade.src = heroPick.original_url;
   }, [selected, heroPick?.original_url, coverSrc]);
 

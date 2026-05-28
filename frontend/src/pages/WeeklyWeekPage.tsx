@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { AiOutlineArrowLeft } from 'react-icons/ai';
 import { getWeeklyByWeek, type WeeklyPicked } from '../api';
@@ -77,6 +77,40 @@ export default function WeeklyWeekPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
+  // Mesh palette is driven by the hero by default, swapped on tile
+  // hover to that tile's palette/dominant — same pattern as the
+  // home page. Setting --w-c1/c2/c3 on the page root keeps the
+  // effect bounded to this page (no leak into other surfaces).
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const heroPaletteRef = useRef<string | undefined>(undefined);
+  const heroDominantRef = useRef<string | undefined>(undefined);
+
+  const applyPalette = useCallback((palette: string | undefined | null, dominant?: string) => {
+    const root = rootRef.current;
+    if (!root) return;
+    if (!palette && !dominant) {
+      root.style.removeProperty('--w-c1');
+      root.style.removeProperty('--w-c2');
+      root.style.removeProperty('--w-c3');
+      return;
+    }
+    const parts = (palette || '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (parts.length >= 3) {
+      root.style.setProperty('--w-c1', parts[0]);
+      root.style.setProperty('--w-c2', parts[Math.floor(parts.length / 2)]);
+      root.style.setProperty('--w-c3', parts[parts.length - 1]);
+      return;
+    }
+    // Fallback to dominant_color when the wallpaper has no extracted
+    // palette (video / older uploads). One colour gets stretched across
+    // all three radials.
+    if (dominant) {
+      root.style.setProperty('--w-c1', dominant);
+      root.style.setProperty('--w-c2', dominant);
+      root.style.setProperty('--w-c3', dominant);
+    }
+  }, []);
+
   useEffect(() => {
     const y = Number(year);
     const w = Number(week);
@@ -93,12 +127,31 @@ export default function WeeklyWeekPage() {
 
   const hero = rows.find((r) => r.is_hero) || rows[0];
 
+  // Cache the hero's palette so hover-out reverts to it (instead of
+  // snapping back to the warm brand default).
+  useEffect(() => {
+    heroPaletteRef.current = hero?.color_palette;
+    heroDominantRef.current = hero?.dominant_color;
+    applyPalette(hero?.color_palette, hero?.dominant_color);
+  }, [hero, applyPalette]);
+
+  const handleTileHover = useCallback(
+    (palette: string | undefined, dominant?: string) => {
+      if (palette || dominant) {
+        applyPalette(palette, dominant);
+      } else {
+        applyPalette(heroPaletteRef.current, heroDominantRef.current);
+      }
+    },
+    [applyPalette],
+  );
+
   const date = year && week ? isoWeekFriday(Number(year), Number(week)) : null;
   const dateStr = date ? fmtDate(date) : '';
   const weekNum = week ? Number(week) : 0;
 
   return (
-    <div className="w-weekly-detail min-h-full">
+    <div ref={rootRef} className="w-weekly-detail min-h-full">
       <div className="w-weekly-mesh" aria-hidden />
       <PageMeta
         title={`Week ${week} · ${year}`}
@@ -151,7 +204,7 @@ export default function WeeklyWeekPage() {
             {rows.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                 {rows.map((p) => (
-                  <WallpaperTile key={p.id} w={p} variant="weekly" />
+                  <WallpaperTile key={p.id} w={p} variant="weekly" onHover={handleTileHover} />
                 ))}
               </div>
             )}
