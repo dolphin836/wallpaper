@@ -80,10 +80,13 @@ function useContainerWidth(ref: React.RefObject<HTMLDivElement | null>) {
   return width;
 }
 
+// Matches GRID_BREAKPOINT_COLS in DiscoverPage. Tuned so Grid LG reads
+// closer to Justified LG (was reading as Justified MD because tiles were
+// one tier smaller across the board).
 const GRID_COLS: Record<SizeMode, string> = {
-  lg: 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
-  md: 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6',
-  sm: 'grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10',
+  lg: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3',
+  md: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5',
+  sm: 'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8',
 };
 
 function GridLayout({ wallpapers, showStatus, sizeMode, staggerFrom = 0, disableModal }: { wallpapers: Wallpaper[]; showStatus?: boolean; sizeMode: SizeMode; staggerFrom?: number; disableModal?: boolean }) {
@@ -152,6 +155,7 @@ function JustifiedView({ wallpapers, showStatus, targetHeight, staggerFrom = 0, 
             key={w.id}
             wallpaper={w}
             showStatus={showStatus}
+            layout="salon"
             fillHeight
             animDelay={staggerDelay(i, staggerFrom)}
             disableModal={disableModal}

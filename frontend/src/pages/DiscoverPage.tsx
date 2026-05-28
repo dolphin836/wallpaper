@@ -18,10 +18,16 @@ function getScreenResolution() {
   };
 }
 
+// Cols per breakpoint [<640, 640+, 768+, 1024+]. Sized to land roughly at
+// the same visual density as the matching Justified row height — Grid LG
+// used to read as Justified MD because [2,2,3,4] put 4 tiles across a
+// 1500-wide container, each ~363px wide × 242px tall — about equal to
+// Justified MD's 260 row height. Each tier is now one column wider in
+// tile size (one fewer column on screen).
 const GRID_BREAKPOINT_COLS: Record<SizeMode, [number, number, number, number]> = {
-  lg: [2, 2, 3, 4],
-  md: [3, 4, 5, 6],
-  sm: [4, 6, 8, 10],
+  lg: [1, 2, 2, 3],
+  md: [2, 3, 4, 5],
+  sm: [3, 4, 6, 8],
 };
 
 function calculatePageSize(
@@ -108,9 +114,9 @@ function SkeletonRows({
     const bp = GRID_BREAKPOINT_COLS[sizeMode];
     const count = bp[3] * 2;
     const cols =
-      sizeMode === 'lg' ? 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
-      : sizeMode === 'md' ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6'
-      : 'grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10';
+      sizeMode === 'lg' ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3'
+      : sizeMode === 'md' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+      : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8';
     return (
       <div className={`grid gap-4 ${cols}`}>
         {Array.from({ length: count }).map((_, i) => (
@@ -154,48 +160,68 @@ function FeedFooter({ state, count, onRetry }: { state: FooterState; count: numb
   if (state === 'loading') {
     return (
       <div className="feed-foot">
-        <div className="feed-foot__inner">
-          <span className="spinner" />
-          <span className="mono text-[11px] tracking-[0.12em] uppercase text-muted">
-            Loading more wallpapers
-          </span>
-        </div>
+        <span className="feed-spinner" aria-hidden />
+        <span className="feed-foot__label">Loading more wallpapers</span>
       </div>
     );
   }
   if (state === 'retry') {
     return (
       <div className="feed-foot">
-        <div className="feed-foot__inner" style={{ flexDirection: 'column', gap: 12 }}>
-          <div className="inline-flex items-center gap-2.5">
-            <span className="btn-load-more__warn" />
-            <span className="mono text-[11px] tracking-[0.12em] uppercase text-muted">
-              Couldn't auto-load · network hiccup
-            </span>
-          </div>
-          <button className="btn-load-more" onClick={onRetry}>
-            <AiOutlineReload size={13} />
-            Load more
-          </button>
-        </div>
+        <span className="feed-foot__label feed-foot__label--warn">
+          Couldn't auto-load · network hiccup
+        </span>
+        <button className="feed-foot__btn" onClick={onRetry}>
+          <AiOutlineReload size={13} />
+          Try again
+        </button>
       </div>
     );
   }
-  // end
+  // end — no animation, no blinking caret. Just a quiet editorial mark.
   return (
-    <div className="feed-foot">
-      <div className="feed-foot__rule" />
-      <div className="feed-foot__inner">
-        <span className="feed-end-text display italic-d text-[18px] text-ink-2 inline-flex items-center">
-          end of the archive
-          <span className="feed-end-caret mono not-italic text-ink-2" aria-hidden>▌</span>
-        </span>
-        <span className="feed-end-count mono text-[10px] tracking-[0.14em] uppercase text-muted">
-          {count.toLocaleString()} wallpapers
-        </span>
+    <div className="feed-foot feed-foot--end">
+      <div className="feed-end-mark">
+        <em>end</em> of the archive.
       </div>
-      <div className="feed-foot__rule" />
+      <div className="feed-end-count">
+        {count.toLocaleString()} wallpapers
+      </div>
     </div>
+  );
+}
+
+// Back-to-top floating pill. Materializes once the user has scrolled
+// past a couple of viewport heights and smooth-scrolls back to the top
+// when clicked. Throttled to the rAF beat — no per-pixel state churn.
+function BackToTop() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        setShow(window.scrollY > 600);
+        ticking = false;
+      });
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  return (
+    <button
+      type="button"
+      aria-label="Back to top"
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      className={`back-to-top${show ? ' is-visible' : ''}`}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <polyline points="6 14 12 8 18 14" />
+      </svg>
+    </button>
   );
 }
 
@@ -576,13 +602,13 @@ export default function DiscoverPage() {
       <div className="d3-discover-mesh" aria-hidden />
       <div className="d3-discover-main">
 
-      {/* Unified discover toolbar. Outer wrapper carries the edge-to-edge
-          hairline; inner row constrains to the same max-w / side-padding
-          as the content below so chips, filter, and view controls all
-          align with the grid. No solid background — the Liquid mesh
-          shows through. */}
-      <div className="border-b border-hair">
-        <div className="max-w-[1600px] mx-auto flex items-center gap-4 px-6 sm:px-10 lg:px-14 py-3">
+      {/* Unified discover toolbar. No hard divider lines — the chips +
+          buttons carry their own borders, and the feed below has its own
+          padding-top, so a horizontal rule here just stacked two parallel
+          lines (top-nav border + this one) that read as a sandwich seam.
+          Letting the mesh flow through reads cleaner. */}
+      <div>
+        <div className="max-w-[1600px] mx-auto flex items-center gap-4 px-6 sm:px-10 lg:px-14 pt-5 pb-3">
           <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar">
             <div className="flex items-center gap-2">
               <CategoryChip
@@ -655,6 +681,7 @@ export default function DiscoverPage() {
         )}
       </main>
       </div>
+      <BackToTop />
     </div>
   );
 }

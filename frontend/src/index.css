@@ -392,45 +392,10 @@
 }
 
 /* ────────────────────────────────────────────────────────────────
-   End-of-feed typewriter reveal — when the wallpaper feed reaches
-   its terminus, the "end of the archive" line reveals left-to-right
-   (clip-path sweep, no layout shift), followed by a brief mono
-   caret that blinks three times then fades. The count beneath
-   joins ~250ms later for a relay effect. Keeps the existing
-   editorial copy untouched; adds only motion. */
-.feed-end-text {
-  clip-path: inset(0 100% 0 0);
-  opacity: 0;
-  animation: feed-end-reveal 720ms cubic-bezier(0.16, 1, 0.30, 1) 120ms forwards;
-}
-@keyframes feed-end-reveal {
-  to { clip-path: inset(0 0 0 0); opacity: 1; }
-}
-.feed-end-caret {
-  display: inline-block;
-  margin-left: 6px;
-  opacity: 0;
-  animation: feed-caret-blink 460ms steps(2, end) 900ms 3, feed-caret-fade 280ms ease-out 2280ms forwards;
-}
-@keyframes feed-caret-blink {
-  0%   { opacity: 1; }
-  50%  { opacity: 0; }
-  100% { opacity: 1; }
-}
-@keyframes feed-caret-fade {
-  to { opacity: 0; }
-}
-.feed-end-count {
-  opacity: 0;
-  animation: feed-end-count 360ms ease-out 480ms forwards;
-}
-@keyframes feed-end-count {
-  to { opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .feed-end-text, .feed-end-count { animation: none; opacity: 1; clip-path: none; }
-  .feed-end-caret { display: none; }
-}
+   End-of-feed marker — see .feed-end-mark / .feed-end-count below in
+   the Feed footer block. The old typewriter-reveal + 3-blink caret
+   was retired (the blink was distracting on a quiet bottom-of-page
+   moment; it read as something still loading). */
 
 /* ────────────────────────────────────────────────────────────────
    .live-dot — 5px phosphor dot used as a brand-mark live-system
@@ -500,29 +465,39 @@
 .t-act.is-favorited  { background: var(--color-favorite);   border-color: transparent; }
 .t-act.is-downloaded { background: var(--color-downloaded); border-color: transparent; }
 
-/* ── Feed footer (loading / retry / end states) ────────────────── */
+/* ── Feed footer (loading / retry / end states) ──────────────────
+   Vertical column layout; the message sits above its affordance
+   (spinner for loading, button for retry, count for end). No flex
+   rules sandwiching the text; no blinking cursors. Quiet by default,
+   accent-tinted on the parts that mean "happening" or "actionable". */
 
 .feed-foot {
-  display: flex; align-items: center; justify-content: center;
-  padding: 36px 16px 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 64px 16px 48px;
   font-family: var(--font-sans);
+}
+.feed-foot__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--color-muted);
 }
-.feed-foot__rule {
-  flex: 1; max-width: 160px; height: 1px;
-  background: var(--color-hair);
+.feed-foot__label--warn {
+  color: oklch(58% 0.13 50);
 }
-.feed-foot__inner {
-  display: inline-flex; align-items: center; gap: 14px;
-  padding: 0 18px;
+.dark .feed-foot__label--warn {
+  color: oklch(72% 0.13 50);
 }
-
-.spinner {
-  width: 14px; height: 14px;
+.feed-spinner {
+  width: 20px; height: 20px;
   border-radius: 50%;
   border: 2px solid var(--color-hair);
   border-top-color: var(--color-accent);
-  animation: spin 700ms linear infinite;
+  animation: spin 760ms linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -534,7 +509,7 @@
   100% { transform: translateX(420%); }
 }
 
-.btn-load-more {
+.feed-foot__btn {
   padding: 9px 22px;
   border-radius: 999px;
   border: 1px solid var(--color-hair);
@@ -543,19 +518,91 @@
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 500;
-  display: inline-flex; align-items: center; gap: 10px;
-  transition: background 200ms, border-color 200ms, transform 100ms;
+  display: inline-flex; align-items: center; gap: 9px;
+  transition: background 200ms ease, border-color 200ms ease, color 200ms ease, transform 100ms ease;
   cursor: pointer;
 }
-.btn-load-more:hover {
+.feed-foot__btn:hover {
   background: var(--color-paper-2);
-  border-color: var(--color-ink-2);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
-.btn-load-more:active:not(:disabled) { transform: scale(0.97); }
-.btn-load-more__warn {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: #d18a3a;
-  box-shadow: 0 0 0 3px oklch(94% 0.05 70);
+.feed-foot__btn:active:not(:disabled) { transform: scale(0.97); }
+
+/* End-of-feed marker — no animation, no rules, no caret. Big italic
+   display set against the page mesh; tiny mono count below it. */
+.feed-foot--end {
+  padding: 96px 16px 80px;
+  gap: 14px;
+}
+.feed-end-mark {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(22px, 2.2vw, 30px);
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: var(--color-ink-2);
+  text-align: center;
+}
+.feed-end-mark em {
+  font-style: italic;
+  color: var(--color-accent);
+}
+.feed-end-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+/* ── Back-to-top floating pill ─────────────────────────────────── */
+
+.back-to-top {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 30;
+  width: 44px; height: 44px;
+  border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: oklch(98% 0.005 240 / 0.62);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  border: 1px solid var(--color-hair);
+  color: var(--color-ink-2);
+  box-shadow: 0 8px 24px -8px oklch(0% 0 0 / 0.18);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition: opacity 280ms var(--ease-out-quart),
+              transform 280ms var(--ease-out-quart),
+              background 200ms ease,
+              color 200ms ease,
+              border-color 200ms ease;
+}
+.dark .back-to-top {
+  background: oklch(14% 0.018 240 / 0.72);
+  border-color: var(--color-hair-soft);
+  color: oklch(86% 0.012 240);
+  box-shadow: 0 8px 24px -8px oklch(0% 0 0 / 0.5);
+}
+.back-to-top.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.back-to-top:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  transform: translateY(-2px);
+}
+.back-to-top:active { transform: translateY(0) scale(0.96); }
+@media (prefers-reduced-motion: reduce) {
+  .back-to-top { transition: opacity 200ms ease; transform: none; }
+  .back-to-top.is-visible { transform: none; }
+  .back-to-top:hover { transform: none; }
 }
 
 /* ── Detail page · action grid ────────────────────────────────────
