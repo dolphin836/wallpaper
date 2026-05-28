@@ -1084,6 +1084,13 @@ export default function WallpaperDetailPage() {
                       <div className="mono text-[10px] tracking-[0.14em] mt-2" style={{ color: 'rgba(255,255,255,0.55)' }}>
                         {userBalance} <span className="text-accent">→</span> {userBalance - downloadCost} COINS REMAINING
                       </div>
+                      <Link
+                        to="/upload"
+                        className="mono text-[10px] tracking-[0.14em] mt-1.5 inline-flex items-center gap-1 no-underline transition-colors duration-200 hover:text-accent"
+                        style={{ color: 'rgba(255,255,255,0.4)' }}
+                      >
+                        UPLOAD ONE TO REFILL <span aria-hidden>→</span>
+                      </Link>
                     </div>
                     <div className="flex flex-col gap-2 flex-shrink-0">
                       <button
@@ -1092,7 +1099,12 @@ export default function WallpaperDetailPage() {
                         className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white font-semibold text-[13px] disabled:opacity-60 whitespace-nowrap"
                         style={{ background: 'var(--color-accent)' }}
                       >
-                        {dlLoading ? <AiOutlineLoading3Quarters size={14} className="animate-spin" /> : <><AiOutlineCheckCircle size={14} /> Yes, exchange</>}
+                        {dlLoading ? <AiOutlineLoading3Quarters size={14} className="animate-spin" /> : (
+                          <>
+                            <span className="w-2.5 h-2.5 rounded-full bg-white shadow-[inset_0_-2px_0_oklch(80%_0.18_60),inset_0_1px_0_oklch(98%_0.04_60)]" aria-hidden />
+                            Yes, trade
+                          </>
+                        )}
                       </button>
                       <button
                         onClick={handleConfirmCancel}
@@ -1111,7 +1123,7 @@ export default function WallpaperDetailPage() {
                       className="appearance-none w-[13px] h-[13px] rounded-sm cursor-pointer checked:bg-accent transition-colors"
                       style={{ border: '1px solid rgba(255,255,255,0.4)' }}
                     />
-                    Don't ask again for this session
+                    Skip confirm next time
                   </label>
                 </div>
               ) : (
@@ -1140,8 +1152,15 @@ export default function WallpaperDetailPage() {
                     {dlLoading
                       ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
                       : dlDone
-                        ? <><AiOutlineCheckCircle size={15} /> Downloaded</>
-                        : <><AiOutlineDownload size={15} /> Download original</>}
+                        ? <><AiOutlineCheckCircle size={15} /> {isOwner ? 'Downloaded' : 'Traded'}</>
+                        : isOwner
+                          ? <><AiOutlineDownload size={15} /> Download original</>
+                          : (
+                            <>
+                              <span className="w-2.5 h-2.5 rounded-full bg-white shadow-[inset_0_-2px_0_oklch(80%_0.18_60),inset_0_1px_0_oklch(98%_0.04_60)]" aria-hidden />
+                              Trade for {downloadCost || 1}
+                            </>
+                          )}
                   </button>
                 </div>
               )}
