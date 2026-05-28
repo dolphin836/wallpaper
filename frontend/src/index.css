@@ -444,12 +444,13 @@
   @keyframes trade-flash-static { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
 }
 
-/* Tile action rail — used by .tile-cell (discover salon variant) AND
-   by .h3-tile (home / weekly variants). Same chrome, same hover
-   reveal; the host class differs because the two surfaces have
-   different overall tile chrome. */
+/* Tile action rail — shared by .tile-cell (discover salon),
+   .h3-tile (home / weekly variants), and .cd-frame (collection
+   framed prints). Same chrome, same hover reveal; the host class
+   differs per surface. */
 .tile-cell .tile-actions,
-.h3-tile .tile-actions {
+.h3-tile .tile-actions,
+.cd-frame .tile-actions {
   position: absolute;
   right: 10px;
   bottom: 10px;
@@ -465,7 +466,9 @@
 .tile-cell:hover .tile-actions,
 .tile-cell:focus-within .tile-actions,
 .h3-tile:hover .tile-actions,
-.h3-tile:focus-within .tile-actions {
+.h3-tile:focus-within .tile-actions,
+.cd-frame:hover .tile-actions,
+.cd-frame:focus-within .tile-actions {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
@@ -1069,6 +1072,72 @@
   margin-bottom: 20px;
   border-bottom: 1px solid color-mix(in oklch, var(--c-accent) 25%, var(--color-hair));
 }
+
+/* Framed print tile — paper mat + image inset, gallery hang feel.
+   The outer .cd-frame IS the mat (paper bg + thin border + soft
+   drop shadow + small radius); the inner .cd-mat is the image
+   chamber (slightly rounded, paper-2 bg behind the photo). 3:4
+   portrait so the wall reads as a tall hang of editorial prints. */
+.cd-frame {
+  position: relative;
+  display: block;
+  aspect-ratio: 3/4;
+  padding: 12px;
+  background: var(--color-paper);
+  border: 1px solid var(--color-hair);
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--color-ink);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.45),
+    0 8px 22px -10px oklch(0% 0 0 / 0.22);
+  transition: transform 380ms var(--ease-out-quart),
+              box-shadow 380ms var(--ease-out-quart),
+              border-color 280ms ease;
+  animation: cd-frame-in 480ms var(--ease-out-quart) both;
+}
+@keyframes cd-frame-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.dark .cd-frame {
+  background: var(--color-paper-2);
+  border-color: var(--color-hair-soft);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.06),
+    0 8px 22px -10px oklch(0% 0 0 / 0.55);
+}
+.cd-frame:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in oklch, var(--c-accent) 35%, var(--color-hair));
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.45),
+    0 22px 44px -16px color-mix(in oklch, var(--c-accent) 35%, oklch(0% 0 0 / 0.32));
+}
+.dark .cd-frame:hover {
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.06),
+    0 22px 44px -16px color-mix(in oklch, var(--c-accent) 45%, oklch(0% 0 0 / 0.7));
+}
+.cd-mat {
+  position: relative;
+  width: 100%; height: 100%;
+  background: var(--color-paper-2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.cd-frame-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transition: opacity 400ms ease, transform 700ms var(--ease-out-quart);
+}
+.cd-frame-img.is-loaded { opacity: 1; }
+.cd-frame:hover .cd-frame-img { transform: scale(1.04); }
+/* Skeleton variant: mat-shaped placeholder while loading. */
+.cd-frame.skeleton-card { background: var(--color-paper-2); }
+.cd-frame.skeleton-card::after { border-radius: 3px; }
 
 /* ══════════════════════════════════════════════════════════════════════
    Weekly Picks family — list + detail share the same magazine-issue

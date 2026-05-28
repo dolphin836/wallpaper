@@ -1,10 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
 import InAppConfirm from '../components/InAppConfirm';
 import {
   AiFillHeart,
   AiOutlineHeart,
+  AiFillStar,
+  AiOutlineStar,
+  AiOutlineDownload,
+  AiOutlineCheckCircle,
+  AiOutlineLoading3Quarters,
   AiOutlineDelete,
   AiOutlineEdit,
   AiOutlineClose,
@@ -23,11 +28,88 @@ import {
   getUserProfile,
 } from '../api';
 import { useAuthStore } from '../store/auth';
-import WallpaperGrid from '../components/WallpaperGrid';
+import { useWallpaperActions } from '../hooks/useWallpaperActions';
 import Pagination from '../components/Pagination';
 import EmptyState from '../components/EmptyState';
 
 const PAGE_SIZE = 12;
+
+/* Framed-print tile — paper mat + image + hover action rail. Modal
+   navigation via location.state.background so clicking opens the
+   detail overlay (same UX as discover salon tiles). */
+function FramedTile({ wallpaper: w, index }: { wallpaper: Wallpaper; index: number }) {
+  const location = useLocation();
+  const acts = useWallpaperActions(w);
+  const [loaded, setLoaded] = useState(false);
+  const stop = (e: React.MouseEvent, fn: () => void) => {
+    e.preventDefault();
+    e.stopPropagation();
+    fn();
+  };
+  return (
+    <Link
+      to={`/wallpaper/${w.slug || w.id}`}
+      state={{ background: location, initialWallpaper: w }}
+      className="cd-frame"
+      style={{ animationDelay: `${index * 35}ms` }}
+    >
+      <div className="cd-mat">
+        <img
+          src={w.preview_url || w.thumb_url}
+          alt={w.title || `Wallpaper ${w.id}`}
+          loading="lazy"
+          className={`cd-frame-img${loaded ? ' is-loaded' : ''}`}
+          onLoad={() => setLoaded(true)}
+          onError={() => setLoaded(true)}
+          style={{ backgroundColor: w.dominant_color || undefined }}
+        />
+        <div className="tile-actions">
+          <button
+            type="button"
+            onClick={(e) => stop(e, acts.handleFavorite)}
+            disabled={acts.favLoading}
+            className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
+            title={acts.favorited ? 'Unfavorite' : 'Favorite'}
+          >
+            {acts.favLoading
+              ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
+              : acts.favorited
+                ? <AiFillStar size={15} />
+                : <AiOutlineStar size={15} />}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => stop(e, acts.handleLike)}
+            disabled={acts.likeLoading}
+            className={`t-act ${acts.liked ? 'is-liked' : ''}`}
+            title={acts.liked ? 'Unlike' : 'Like'}
+          >
+            {acts.likeLoading
+              ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
+              : acts.liked
+                ? <AiFillHeart size={15} />
+                : <AiOutlineHeart size={15} />}
+          </button>
+          {acts.canDownload && (
+            <button
+              type="button"
+              onClick={(e) => stop(e, acts.handleDownload)}
+              disabled={acts.downloading}
+              className={`t-act ${acts.downloaded ? 'is-downloaded' : ''}`}
+              title={acts.downloaded ? 'Downloaded' : 'Download (1 coin)'}
+            >
+              {acts.downloading
+                ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
+                : acts.downloaded
+                  ? <AiOutlineCheckCircle size={15} />
+                  : <AiOutlineDownload size={15} />}
+            </button>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 function relativeTime(iso: string): string {
   const dt = new Date(iso).getTime();
@@ -359,25 +441,29 @@ export default function CollectionDetailPage() {
             </span>
           </div>
 
-          {/* Salon-wall mosaic — 11-col CSS grid with mixed col/row
-              spans gives an "art-gallery hang" rhythm. Distinct from
-              Discover (uniform Grid or row-justified) and from Weekly
-              (5-up 4:5 portrait tiles). Reads as a curated wall of
-              pieces, not a catalog. */}
+          {/* Framed-prints grid — each wallpaper sits inside a paper
+              "mat" with a hairline border + soft drop shadow, like a
+              framed print on a gallery wall. 3:4 portrait keeps the
+              eye moving down the wall; hover lifts the frame, the
+              mat edge tints to the collection's accent, and the
+              action rail (favorite/like/download) fades in over the
+              image. Distinct from Weekly's 5-up 4:5 portrait tiles
+              (no mat, no border — those read as 'magazine spread')
+              and Discover's edge-to-edge utility grid. */}
           {loadingPage && visible.length === 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="tile-cell skeleton-card aspect-[3/2]" />
+                <div key={i} className="cd-frame skeleton-card" />
               ))}
             </div>
           ) : visible.length === 0 ? (
             <div className="text-center py-20 text-muted text-sm">No wallpapers in this collection yet.</div>
           ) : (
-            <WallpaperGrid
-              wallpapers={visible}
-              viewMode="salon"
-              sizeMode="md"
-            />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+              {visible.map((w, i) => (
+                <FramedTile key={w.id} wallpaper={w} index={i} />
+              ))}
+            </div>
           )}
 
           <Pagination current={currentPage} total={total} onChange={setCurrentPage} />
