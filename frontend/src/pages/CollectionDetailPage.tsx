@@ -31,6 +31,7 @@ import { useAuthStore } from '../store/auth';
 import { useWallpaperActions } from '../hooks/useWallpaperActions';
 import Pagination from '../components/Pagination';
 import EmptyState from '../components/EmptyState';
+import ErrorState from '../components/ErrorState';
 
 const PAGE_SIZE = 12;
 
@@ -185,6 +186,7 @@ export default function CollectionDetailPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadingPage, setLoadingPage] = useState(false);
+  const [error, setError] = useState(false);
   const [liking, setLiking] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
@@ -195,6 +197,7 @@ export default function CollectionDetailPage() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
+    setError(false);
     getCollection(id)
       .then(async (res) => {
         const c = res.data.data;
@@ -207,7 +210,12 @@ export default function CollectionDetailPage() {
           setCurator(u.data.data);
         } catch { /* curator info optional */ }
       })
-      .catch(() => toast.error('Failed to load collection'))
+      .catch((e) => {
+        // 404 stays an explicit 'not found' (handled below via the
+        // collection null path with EmptyState). Anything else is a
+        // server/network failure — surface the shared retry UI.
+        if (e?.response?.status !== 404) setError(true);
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -337,6 +345,7 @@ export default function CollectionDetailPage() {
   // Not-found state stays an explicit empty view; everything else
   // (initial load) renders the full structure with skeletons so the
   // page doesn't reflow once data lands.
+  if (!loading && !collection && error) return <ErrorState />;
   if (!loading && !collection) return <EmptyState message="Collection not found." />;
 
   const isOwner = !!collection && user?.id === collection.user_id;

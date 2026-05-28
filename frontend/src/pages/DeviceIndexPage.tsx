@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import toast from 'react-hot-toast';
 import type { DeviceProfile } from '../types';
 import { getDevices } from '../api';
 import PageMeta from '../components/PageMeta';
+import ErrorState from '../components/ErrorState';
 
 interface DeviceWithCount extends DeviceProfile {
   wallpaper_count: number;
@@ -16,11 +16,12 @@ interface DeviceWithCount extends DeviceProfile {
 export default function DeviceIndexPage() {
   const [devices, setDevices] = useState<DeviceWithCount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     getDevices()
-      .then((res) => setDevices(res.data.data as unknown as DeviceWithCount[]))
-      .catch(() => toast.error('Failed to load devices'))
+      .then((res) => { setDevices(res.data.data as unknown as DeviceWithCount[]); setError(false); })
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -66,8 +67,11 @@ export default function DeviceIndexPage() {
           </p>
         </header>
 
+        {/* ─── Error ─── */}
+        {error && devices.length === 0 && <ErrorState />}
+
         {/* ─── Loading ─── */}
-        {loading && groups.length === 0 && (
+        {!error && loading && groups.length === 0 && (
           <div className="space-y-9">
             {[0, 1, 2, 3].map((i) => (
               <div key={i}>

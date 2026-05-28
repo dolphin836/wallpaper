@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import toast from 'react-hot-toast';
 import type { UserListItem } from '../types';
 import { getUsers } from '../api';
 import PageMeta from '../components/PageMeta';
 import Pagination from '../components/Pagination';
 import Avatar from '../components/Avatar';
+import ErrorState from '../components/ErrorState';
 import { UploaderListSkeleton } from '../components/Skeletons';
 
 type Sort = 'recent' | 'uploads' | 'coins';
@@ -34,6 +34,7 @@ export default function UploadersPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   // The "Top this month" / "Most uploaded" / "Recently joined" chips map to
   // the existing sort options. "Following" is in the design but the product
   // has no follow feature yet, so we skip that chip.
@@ -46,8 +47,9 @@ export default function UploadersPage() {
       const res = await getUsers({ page: p, limit: PAGE_SIZE, sort: apiSort });
       setItems(res.data.data.items ?? []);
       setTotal(res.data.data.total);
+      setError(false);
     } catch {
-      toast.error('Failed to load uploaders');
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -94,6 +96,8 @@ export default function UploadersPage() {
         {/* List */}
         {loading && items.length === 0 ? (
           <UploaderListSkeleton count={6} />
+        ) : error && items.length === 0 ? (
+          <ErrorState />
         ) : items.length === 0 ? (
           <div className="text-center py-20 text-muted text-sm">No uploaders yet.</div>
         ) : (

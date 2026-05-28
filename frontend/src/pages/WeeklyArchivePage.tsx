@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { AiOutlineArrowRight } from 'react-icons/ai';
 import { getWeeklyArchive, type WeeklyArchiveEntry } from '../api';
 import PageMeta from '../components/PageMeta';
+import ErrorState from '../components/ErrorState';
 
 const MONTH_ABBR = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -24,11 +25,13 @@ function fmtDate(d: Date) {
 export default function WeeklyArchivePage() {
   const [rows, setRows] = useState<WeeklyArchiveEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(0); // 0 = most recent
 
   useEffect(() => {
     getWeeklyArchive(100)
-      .then((r) => setRows(r.data.data || []))
+      .then((r) => { setRows(r.data.data || []); setError(false); })
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -74,6 +77,8 @@ export default function WeeklyArchivePage() {
             </div>
             <div className="w-archive-cover skeleton-card" style={{ aspectRatio: '16/10' }} />
           </div>
+        ) : error ? (
+          <ErrorState />
         ) : rows.length === 0 ? (
           <div className="rounded-xl border border-hair bg-paper p-8 text-center text-ink-2 max-w-xl">
             No weekly drops have been published yet.

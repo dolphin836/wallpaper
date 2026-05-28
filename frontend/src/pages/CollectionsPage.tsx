@@ -7,6 +7,7 @@ import type { Collection } from '../types';
 import { getCollections, createCollection } from '../api';
 import { useAuthStore } from '../store/auth';
 import PageMeta from '../components/PageMeta';
+import ErrorState from '../components/ErrorState';
 import Pagination from '../components/Pagination';
 
 type Filter = 'all' | 'yours';
@@ -31,6 +32,7 @@ export default function CollectionsPage() {
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const [current, setCurrent] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [filter, setFilter] = useState<Filter>('all');
   const [showCreate, setShowCreate] = useState(false);
 
@@ -62,8 +64,9 @@ export default function CollectionsPage() {
       if (typeof total === 'number') {
         setServerTotal(total);
       }
+      setError(false);
     } catch {
-      toast.error('Failed to load collections');
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -137,6 +140,8 @@ export default function CollectionsPage() {
               </div>
             ))}
           </div>
+        ) : error && visible.length === 0 ? (
+          <ErrorState />
         ) : visible.length === 0 ? (
           <div className="text-center py-20 text-muted text-sm">
             {filter === 'yours' ? "You haven't created any collections yet." : 'No collections yet.'}

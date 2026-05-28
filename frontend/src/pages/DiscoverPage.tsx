@@ -10,6 +10,7 @@ import WallpaperGrid from '../components/WallpaperGrid';
 import { SIZE_HEIGHTS, SALON_ROW_BY_SIZE } from '../components/WallpaperGrid';
 import type { ViewMode, SizeMode } from '../components/WallpaperGrid';
 import PageMeta from '../components/PageMeta';
+import ErrorState from '../components/ErrorState';
 
 function getScreenResolution() {
   const dpr = window.devicePixelRatio || 1;
@@ -718,6 +719,10 @@ export default function DiscoverPage() {
 
         {loading ? (
           <SkeletonRows viewMode={viewMode} sizeMode={sizeMode} rowHeight={SIZE_HEIGHTS[sizeMode]} />
+        ) : loadError && wallpapers.length === 0 ? (
+          // Initial fetch failed with nothing rendered — full-page
+          // error UI. Retry button reloads (re-runs every fetch).
+          <ErrorState />
         ) : (
           <>
             <WallpaperGrid
@@ -730,7 +735,11 @@ export default function DiscoverPage() {
             <FeedFooter
               state={footerState}
               count={wallpapers.length}
-              onRetry={() => fetchWallpapers(false)}
+              // Pagination retry — pass reset=true so a re-attempt
+              // starts from the beginning (the legacy false-arg call
+              // bailed when hasMore was false, which it always was
+              // on a failed first load).
+              onRetry={() => fetchWallpapers(true)}
             />
           </>
         )}

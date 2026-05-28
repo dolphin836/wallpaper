@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { getWeeklyCurrent, getWallpapers, getCollections, type WeeklyCurrent } from '../api';
 import type { Wallpaper, Collection } from '../types';
 import PageMeta from '../components/PageMeta';
+import ErrorState from '../components/ErrorState';
 import WallpaperTile, { ResChip } from '../components/WallpaperTile';
 
 /**
@@ -16,6 +17,11 @@ import WallpaperTile, { ResChip } from '../components/WallpaperTile';
 export default function HomePage() {
   const [data, setData] = useState<WeeklyCurrent | null>(null);
   const [loading, setLoading] = useState(true);
+  // Top-level error: the weekly fetch is the page's spine; if it
+  // failed (likely a 502 / server outage), every secondary row also
+  // probably failed. Show the shared ErrorState instead of a blank
+  // skeleton sea.
+  const [weeklyError, setWeeklyError] = useState(false);
 
   // Independent rows — failure of one section shouldn't blank the page.
   const [aiItems, setAiItems] = useState<Wallpaper[]>([]);
@@ -27,8 +33,8 @@ export default function HomePage() {
 
   useEffect(() => {
     getWeeklyCurrent()
-      .then((r) => setData(r.data.data))
-      .catch(() => { /* keep skeletons hidden — section just won't render */ })
+      .then((r) => { setData(r.data.data); setWeeklyError(false); })
+      .catch(() => setWeeklyError(true))
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => {
@@ -130,6 +136,13 @@ export default function HomePage() {
       <div className="h3-home-mesh" aria-hidden />
 
       <main className="h3-home-main px-6 sm:px-10 lg:px-14 py-10 max-w-[1600px] mx-auto">
+        {/* If the weekly spine failed AND no secondary row arrived,
+            the server's down — show the shared error state instead of
+            an empty page of skeletons. */}
+        {weeklyError && !data && aiItems.length === 0 && videoItems.length === 0 && collections.length === 0 ? (
+          <ErrorState />
+        ) : (
+          <>
         {/* ───── Hero ───── */}
         {loading
           ? <div className="h3-tile skeleton-card" style={{ aspectRatio: '16 / 9', borderRadius: 24 }} />
@@ -209,6 +222,8 @@ export default function HomePage() {
                 : collections.slice(0, 4).map((c) => <CollectionTile key={c.id} c={c} onHover={handleTileHover} />)}
             </div>
           </section>
+        )}
+          </>
         )}
       </main>
     </div>

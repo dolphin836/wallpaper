@@ -4,6 +4,7 @@ import { AiOutlineArrowLeft } from 'react-icons/ai';
 import { getWeeklyByWeek, type WeeklyPicked } from '../api';
 import type { Wallpaper } from '../types';
 import PageMeta from '../components/PageMeta';
+import ErrorState from '../components/ErrorState';
 import WallpaperTile, { ResChip } from '../components/WallpaperTile';
 
 const MONTH_ABBR = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
@@ -76,6 +77,7 @@ export default function WeeklyWeekPage() {
   const [rows, setRows] = useState<WeeklyPicked[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [error, setError] = useState(false);
 
   // Mesh palette is driven by the hero by default, swapped on tile
   // hover to that tile's palette/dominant — same pattern as the
@@ -117,10 +119,12 @@ export default function WeeklyWeekPage() {
     if (!y || !w) return;
     setLoading(true);
     setNotFound(false);
+    setError(false);
     getWeeklyByWeek(y, w)
       .then((r) => setRows(r.data.data?.picks || []))
       .catch((e) => {
         if (e?.response?.status === 404) setNotFound(true);
+        else setError(true);
       })
       .finally(() => setLoading(false));
   }, [year, week]);
@@ -184,6 +188,8 @@ export default function WeeklyWeekPage() {
               ))}
             </div>
           </>
+        ) : error ? (
+          <ErrorState />
         ) : notFound ? (
           <div className="rounded-xl border border-hair bg-paper p-8 text-center text-ink-2 max-w-xl">
             No weekly drop for that week.

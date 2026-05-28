@@ -43,6 +43,7 @@ import {
 import { useAuthStore } from '../store/auth';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
+import ErrorState from '../components/ErrorState';
 import AvatarStack from '../components/AvatarStack';
 import AddToCollectionModal from '../components/AddToCollectionModal';
 
@@ -171,6 +172,7 @@ export default function WallpaperDetailPage() {
     : undefined;
   const [variants, setVariants] = useState<WallpaperVariant[]>([]);
   const [loading, setLoading] = useState(!initialWallpaper);
+  const [error, setError] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
@@ -284,8 +286,8 @@ export default function WallpaperDetailPage() {
           .then((res) => setEngagements(res.data.data))
           .catch(() => { /* non-critical */ });
       })
-      .catch(() => {
-        if (!initialWallpaper) toast.error('Failed to load wallpaper');
+      .catch((e) => {
+        if (!initialWallpaper && e?.response?.status !== 404) setError(true);
       })
       .finally(() => setLoading(false));
     // initialWallpaper is read once from navigation state; intentionally not a dep.
@@ -475,6 +477,7 @@ export default function WallpaperDetailPage() {
   };
 
   if (loading) return <Spinner />;
+  if (!wallpaper && error) return <ErrorState />;
   if (!wallpaper) return <EmptyState message="Wallpaper not found." />;
 
   const isOwner = user?.id === wallpaper.user_id;

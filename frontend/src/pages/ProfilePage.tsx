@@ -36,6 +36,7 @@ import {
 import { useAuthStore } from '../store/auth';
 import PageMeta from '../components/PageMeta';
 import EmptyState from '../components/EmptyState';
+import ErrorState from '../components/ErrorState';
 import {
   ProfileSkeleton,
   WallpaperGridSkeleton,
@@ -101,6 +102,7 @@ export default function ProfilePage() {
 
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   // ─── Tab state ─── URL-driven: /user/:username[/:tab]. Missing tab
   // segment means the implicit default ("uploads"). Unknown tab slugs
@@ -266,9 +268,12 @@ export default function ProfilePage() {
     setCollections([]); setCollectionsLoaded(false);
     setTxs([]); setTxPage(1); setTxCursors([0]); setTxTotal(0); setTxLoaded(false);
 
+    setError(false);
     getUserProfile(username)
       .then((res) => setUser(res.data.data))
-      .catch(() => toast.error('Failed to load profile'))
+      .catch((e) => {
+        if (e?.response?.status !== 404) setError(true);
+      })
       .finally(() => setLoading(false));
   }, [username]);
 
@@ -384,6 +389,7 @@ export default function ProfilePage() {
       </div>
     );
   }
+  if (!user && error) return <ErrorState />;
   if (!user) return <EmptyState message="User not found." />;
 
   const display = user.nickname || user.username;

@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import toast from 'react-hot-toast';
 import type { DeviceProfile, Wallpaper } from '../types';
 import { getDeviceBySlug, getWallpapersForDevice } from '../api';
 import PageMeta from '../components/PageMeta';
 import WallpaperCard from '../components/WallpaperCard';
+import ErrorState from '../components/ErrorState';
 import { WallpaperGridSkeleton } from '../components/Skeletons';
 
 // SEO long-tail landing for one device profile. The route is /wallpapers-for/:slug
@@ -22,10 +22,12 @@ export default function DeviceWallpapersPage() {
   const [loadingDevice, setLoadingDevice] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     setLoadingDevice(true);
     setNotFound(false);
+    setError(false);
     getDeviceBySlug(slug)
       .then((res) => {
         setDevice(res.data.data.device);
@@ -33,7 +35,7 @@ export default function DeviceWallpapersPage() {
       })
       .catch((e) => {
         if (e?.response?.status === 404) setNotFound(true);
-        else toast.error('Failed to load device');
+        else setError(true);
       })
       .finally(() => setLoadingDevice(false));
   }, [slug]);
@@ -51,7 +53,9 @@ export default function DeviceWallpapersPage() {
       setCursor(has_more ? next_cursor : undefined);
       setHasMore(has_more);
     } catch {
-      toast.error('Failed to load wallpapers');
+      // Pagination failure — silent here; the loadingList flag flips
+      // back and the user can scroll/retry. The top-level error state
+      // only fires for the device fetch failure.
     } finally {
       setLoadingList(false);
     }
@@ -62,6 +66,16 @@ export default function DeviceWallpapersPage() {
     if (device) fetchPage(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device?.id]);
+
+  // ─── Server / network error ───
+  if (error && !device) {
+    return (
+      <div className="bg-paper text-ink min-h-full">
+        <PageMeta title="Couldn't load device" description="Server error" />
+        <ErrorState />
+      </div>
+    );
+  }
 
   // ─── 404 ───
   if (notFound) {
