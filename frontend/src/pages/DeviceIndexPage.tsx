@@ -46,24 +46,27 @@ export default function DeviceIndexPage() {
   const totalDevices = devices.length;
 
   return (
-    <div className="bg-paper text-ink min-h-full">
+    <div className="devices-page min-h-full">
+      <div className="devices-mesh" aria-hidden />
       <PageMeta
         title="Wallpapers by Device — Pixel-Perfect Downloads for Every Screen"
         description="Browse wallpapers cropped for forty-plus device profiles, from the iMac 27″ Retina to the iPhone 16 Pro Max. Pick your device, find the right wallpaper at the exact pixel size."
       />
 
-      <div className="px-6 sm:px-10 pt-7 pb-12 max-w-[1100px] mx-auto">
+      <div className="relative z-10 px-6 sm:px-10 lg:px-14 py-12 max-w-[1280px] mx-auto">
 
         {/* ─── Hero ─── */}
-        <header className="mb-9">
-          <div className="kicker text-muted">Wallpapers for · {totalDevices || '—'} devices</div>
-          <h1 className="display text-[40px] sm:text-[56px] leading-[0.96] mt-2 tracking-[-0.02em] text-ink">
-            Pick a screen. <span className="italic-d">We have a wallpaper for it.</span>
+        <header className="mb-12">
+          <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
+            Devices · {totalDevices || '—'} profiles
+          </div>
+          <h1 className="display text-[clamp(36px,4vw,56px)] leading-[1.05] mt-2 tracking-[-0.012em] text-ink">
+            Pick a screen. <em className="devices-title-tail">Pixel-perfect, always.</em>
           </h1>
-          <p className="text-[15px] leading-[1.55] text-ink-2 mt-5 max-w-[640px]">
-            Every wallpaper in the archive is automatically resized for
-            the device profiles below. Click yours to see all wallpapers
-            cropped exactly for that screen.
+          <p className="text-[15px] leading-[1.55] text-ink-2 mt-4 max-w-[640px]">
+            Every wallpaper in the archive is automatically resized for the
+            device profiles below. Click yours to see all wallpapers cropped
+            exactly for that screen.
           </p>
         </header>
 
@@ -72,13 +75,13 @@ export default function DeviceIndexPage() {
 
         {/* ─── Loading ─── */}
         {!error && loading && groups.length === 0 && (
-          <div className="space-y-9">
+          <div className="space-y-10">
             {[0, 1, 2, 3].map((i) => (
               <div key={i}>
-                <div className="h-3 w-32 bg-paper-3 skeleton-card mb-4" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="device-skel-head skeleton-card" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                   {[0, 1, 2, 3, 4, 5].map((j) => (
-                    <div key={j} className="h-[64px] bg-paper-3 skeleton-card" />
+                    <div key={j} className="device-card skeleton-card" />
                   ))}
                 </div>
               </div>
@@ -88,14 +91,14 @@ export default function DeviceIndexPage() {
 
         {/* ─── Groups ─── */}
         {groups.map((g) => (
-          <section key={g.platform} className="mb-9">
-            <div className="flex items-baseline justify-between mb-4">
-              <h2 className="display text-[24px] leading-tight text-ink">{g.label}</h2>
-              <span className="mono text-[10px] tracking-[0.14em] uppercase text-muted">
+          <section key={g.platform} className="mb-10">
+            <div className="flex items-baseline justify-between mb-4 pb-2 border-b border-hair">
+              <h2 className="display text-[24px] leading-tight tracking-[-0.005em] text-ink">{g.label}</h2>
+              <span className="mono text-[10px] tracking-[0.16em] uppercase text-muted">
                 {g.items.length} {g.items.length === 1 ? 'device' : 'devices'}
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {g.items.map((d) => (
                 <DeviceCard key={d.id} device={d} />
               ))}
@@ -108,24 +111,51 @@ export default function DeviceIndexPage() {
   );
 }
 
+// Mini "device frame" indicator next to each card — a thin rectangle
+// rendered at the device's true aspect ratio. Phones get a high corner
+// radius, tablets medium, laptops/desktops low. Pure CSS, no SVG.
+function DeviceFrame({ d }: { d: DeviceWithCount }) {
+  const aspect = d.width / d.height;
+  // Portrait phones / tablets are tall; landscape laptops / desktops
+  // are wide. Cap the visual width at 36px so the frame doesn't
+  // dominate the row.
+  const width = aspect >= 1 ? 36 : 36 * aspect;
+  const height = aspect >= 1 ? 36 / aspect : 36;
+  const radius =
+    d.platform === 'phone' ? 5 :
+    d.platform === 'tablet' ? 4 :
+    d.platform === 'laptop' ? 2.5 :
+    2;
+  return (
+    <span
+      className="device-frame"
+      style={{ width, height, borderRadius: radius }}
+      aria-hidden
+    />
+  );
+}
+
 function DeviceCard({ device }: { device: DeviceWithCount }) {
   const count = device.wallpaper_count;
   return (
     <Link
       to={`/wallpapers-for/${device.slug}`}
-      className="group block border border-hair bg-paper hover:border-ink-2 hover:bg-paper-2 transition-colors no-underline"
+      className="device-card group"
     >
-      <div className="px-4 py-3.5 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[14.5px] font-medium text-ink truncate">
-            {device.name}
-          </div>
-          <div className="mono text-[10px] tracking-[0.06em] text-muted mt-0.5">
-            {device.brand} · {device.width.toLocaleString()}×{device.height.toLocaleString()}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <DeviceFrame d={device} />
+          <div className="min-w-0">
+            <div className="text-[14.5px] font-medium text-ink truncate">
+              {device.name}
+            </div>
+            <div className="mono text-[10px] tracking-[0.06em] text-muted mt-0.5 tabular-nums">
+              {device.brand} · {device.width.toLocaleString()}×{device.height.toLocaleString()}
+            </div>
           </div>
         </div>
         <div className="text-right flex-shrink-0">
-          <div className="display text-[18px] leading-none text-ink">
+          <div className="display text-[18px] leading-none text-ink tabular-nums">
             {count.toLocaleString()}
           </div>
           <div className="mono text-[9px] tracking-[0.14em] uppercase text-muted mt-1">

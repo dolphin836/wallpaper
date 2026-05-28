@@ -60,19 +60,22 @@ export default function UploadersPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="bg-paper text-ink min-h-full">
+    <div className="uploaders-page min-h-full">
+      <div className="uploaders-mesh" aria-hidden />
       <PageMeta
         title="Uploaders"
         description="The people behind Wallpaper Exchange — top contributors and recent arrivals."
       />
 
-      <div className="px-6 sm:px-10 pt-7">
+      <div className="relative z-10 max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 py-12">
         {/* Header */}
-        <div className="flex items-end justify-between gap-6 flex-wrap mb-6">
+        <div className="flex items-end justify-between gap-6 flex-wrap mb-10">
           <div>
-            <div className="kicker text-muted">Contributors · {total}</div>
-            <h1 className="display text-[40px] sm:text-[56px] leading-[0.96] mt-2 tracking-[-0.02em] text-ink">
-              The people behind <span className="italic-d">the wall.</span>
+            <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
+              Contributors · {total}
+            </div>
+            <h1 className="display text-[clamp(36px,4vw,52px)] leading-[1.05] mt-2 tracking-[-0.012em] text-ink">
+              The people behind <em className="uploaders-title-tail">the wall</em>.
             </h1>
           </div>
 
@@ -101,7 +104,7 @@ export default function UploadersPage() {
         ) : items.length === 0 ? (
           <div className="text-center py-20 text-muted text-sm">No uploaders yet.</div>
         ) : (
-          <div>
+          <div className="flex flex-col gap-3">
             {items.map((u) => <UploaderRow key={u.id} u={u} />)}
           </div>
         )}
@@ -129,7 +132,7 @@ function UploaderRow({ u }: { u: UserListItem }) {
   return (
     <Link
       to={`/user/${u.username}`}
-      className={`grid ${gridCols} gap-4 md:gap-5 lg:gap-6 items-center py-5 border-b border-hair no-underline text-ink hover:bg-paper-2 transition-colors`}
+      className={`uploader-row grid ${gridCols} gap-4 md:gap-5 lg:gap-6 items-center px-5 py-4 no-underline text-ink`}
     >
       <Avatar
         src={u.avatar_url}

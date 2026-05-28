@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import type { DeviceProfile, Wallpaper } from '../types';
 import { getDeviceBySlug, getWallpapersForDevice } from '../api';
@@ -105,8 +105,17 @@ export default function DeviceWallpapersPage() {
     );
   }
 
+  const deviceAspect = device ? device.width / device.height : 16 / 9;
+  const featuredCover = wallpapers[0]?.preview_url || wallpapers[0]?.thumb_url;
+  const frameRadius =
+    device?.platform === 'phone' ? 28 :
+    device?.platform === 'tablet' ? 16 :
+    device?.platform === 'laptop' ? 8 :
+    8;
+
   return (
-    <div className="bg-paper text-ink min-h-full">
+    <div className="devices-page min-h-full">
+      <div className="devices-mesh" aria-hidden />
       <PageMeta
         title={device ? `${device.name} Wallpapers — ${device.width} × ${device.height} pixel-perfect downloads` : 'Wallpapers'}
         description={
@@ -117,37 +126,80 @@ export default function DeviceWallpapersPage() {
         image={wallpapers[0]?.preview_url || wallpapers[0]?.thumb_url}
       />
 
-      <div className="px-6 sm:px-10 pt-7 pb-12 max-w-[1200px] mx-auto">
+      <div className="relative z-10 px-6 sm:px-10 lg:px-14 py-10 max-w-[1280px] mx-auto">
 
-        {/* ─── Hero ─── */}
-        <header className="mb-7">
-          <div className="kicker text-muted">Wallpapers for · {device?.brand || '—'}</div>
-          {loadingDevice ? (
-            <div className="display text-[40px] sm:text-[56px] leading-[0.96] mt-2 tracking-[-0.02em] text-paper-3 bg-paper-3 inline-block w-[60%] h-[56px] skeleton-card" />
-          ) : (
-            <h1 className="display text-[40px] sm:text-[56px] leading-[0.96] mt-2 tracking-[-0.02em] text-ink">
-              {device?.name}
-            </h1>
-          )}
-          {device && (
-            <div className="mono text-[11px] tracking-[0.12em] uppercase text-muted mt-3 flex flex-wrap gap-x-4 gap-y-1">
-              <span>{device.width.toLocaleString()} × {device.height.toLocaleString()} px</span>
-              {device.ppi > 0 && <span>· {device.ppi} ppi</span>}
-              <span>· {wallpaperCount.toLocaleString()} wallpapers</span>
+        {/* ─── Hero: device frame + spec block ───
+            Two-column layout: a screen frame at the device's real
+            aspect ratio (the first wallpaper from the grid stands in
+            as 'what one of these looks like on this device') paired
+            with a mono spec table on the right. Phones / tablets get
+            big corner radii so the frame reads as that device class
+            without needing per-device silhouettes. */}
+        <header className="dev-hero">
+          <div className="dev-hero-left">
+            <div
+              className="dev-frame"
+              style={{
+                aspectRatio: `${device?.width || 16} / ${device?.height || 9}`,
+                borderRadius: frameRadius,
+              }}
+              aria-hidden
+            >
+              {featuredCover ? (
+                <img src={featuredCover} alt="" />
+              ) : (
+                <div className="dev-frame-empty" />
+              )}
             </div>
-          )}
+          </div>
+
+          <div className="dev-hero-right">
+            <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
+              Wallpapers for · {device?.brand || '—'}
+            </div>
+            {loadingDevice ? (
+              <div className="c-detail-skel-bar h-[44px] w-2/3 mt-3" />
+            ) : (
+              <h1 className="display text-[clamp(34px,3.8vw,52px)] leading-[1.05] mt-2 tracking-[-0.012em] text-ink">
+                {device?.name}
+              </h1>
+            )}
+            {device && (
+              <>
+                <div className="dev-spec-grid">
+                  <DevSpec label="Resolution" value={`${device.width.toLocaleString()} × ${device.height.toLocaleString()}`} />
+                  {device.ppi > 0 && <DevSpec label="PPI" value={`${device.ppi}`} />}
+                  <DevSpec label="Aspect" value={(deviceAspect).toFixed(2)} />
+                  <DevSpec label="Wallpapers" value={wallpaperCount.toLocaleString()} />
+                </div>
+              </>
+            )}
+          </div>
         </header>
 
-        {/* ─── Grid ─── */}
+        {/* ─── Grid ───
+            Each cell renders at the device's exact aspect ratio so
+            the wall reads as 'these all fit your screen' — not a
+            generic 3:2 catalog. */}
         {loadingList && wallpapers.length === 0 ? (
           <WallpaperGridSkeleton count={8} cols="4" />
         ) : wallpapers.length === 0 && !loadingDevice ? (
           <EmptyForDevice device={device} />
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className={`grid gap-4 ${
+              deviceAspect < 0.8 ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6'  // phone-ish portrait → more cols
+              : deviceAspect < 1.2 ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' // square-ish tablet → mid
+              : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'                     // landscape laptop/desktop
+            }`}>
               {wallpapers.map((wp) => (
-                <WallpaperCard key={wp.id} wallpaper={wp} fixedAspect hideActions />
+                <div
+                  key={wp.id}
+                  className="relative"
+                  style={{ aspectRatio: `${device?.width || 16} / ${device?.height || 9}` }}
+                >
+                  <WallpaperCard wallpaper={wp} layout="salon" fillHeight hideActions />
+                </div>
               ))}
             </div>
 
@@ -160,12 +212,13 @@ export default function DeviceWallpapersPage() {
           </>
         )}
 
-        {/* ─── Device spec block ─── */}
+        {/* ─── Footer copy ─── */}
         {device && (
-          <section className="mt-12 border-t border-hair pt-7">
-            <div className="label-rule mb-3">About the {device.name}</div>
-            <DeviceSpecGrid device={device} />
-            <p className="text-[13px] leading-[1.6] text-ink-2 mt-5 max-w-[640px]">
+          <section className="mt-14 border-t border-hair pt-7">
+            <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted mb-3">
+              About the {device.name}
+            </div>
+            <p className="text-[13px] leading-[1.65] text-ink-2 max-w-[640px]">
               Every wallpaper on this page has a variant cropped exactly for
               the {device.name}'s {device.width.toLocaleString()} × {device.height.toLocaleString()} display. Click into
               any wallpaper to see the per-device download list — or use the
@@ -176,6 +229,15 @@ export default function DeviceWallpapersPage() {
         )}
 
       </div>
+    </div>
+  );
+}
+
+function DevSpec({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="dev-spec">
+      <div className="dev-spec-label">{label}</div>
+      <div className="dev-spec-value">{value}</div>
     </div>
   );
 }
@@ -233,24 +295,5 @@ function LoadMoreFooter({
   );
 }
 
-function DeviceSpecGrid({ device }: { device: DeviceProfile }) {
-  const orientation = useMemo(() => device.height > device.width ? 'Portrait' : 'Landscape', [device]);
-  const platformLabel = device.platform.charAt(0).toUpperCase() + device.platform.slice(1);
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 border border-hair border-r-0">
-      <SpecCell label="Brand" value={device.brand} />
-      <SpecCell label="Platform" value={platformLabel} />
-      <SpecCell label="Resolution" value={`${device.width.toLocaleString()} × ${device.height.toLocaleString()}`} />
-      <SpecCell label="Orientation" value={orientation} />
-    </div>
-  );
-}
-
-function SpecCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="px-3 py-2.5 sm:px-3.5 sm:py-3 border-r border-hair">
-      <div className="mono text-[9px] tracking-[0.14em] uppercase text-muted">{label}</div>
-      <div className="text-[14px] font-medium text-ink mt-1 truncate">{value}</div>
-    </div>
-  );
-}
+// DeviceSpecGrid / SpecCell removed — replaced inline by the new
+// .dev-spec-grid + DevSpec components in the hero column.
