@@ -7,6 +7,12 @@ export const register = (data: { username: string; email: string; password: stri
 export const login = (data: { email: string; password: string }) =>
   client.post<ApiResponse<AuthResponse>>('/auth/login', data);
 
+// Verify the current token + return the latest user payload. Called on app
+// boot so we can detect a server-expired session (the client otherwise
+// trusts localStorage and shows "logged in" until the user triggers a
+// real authenticated call).
+export const getMe = () => client.get<ApiResponse<User>>('/users/me');
+
 export const getWallpapers = (params: {
   cursor?: number;
   limit?: number;

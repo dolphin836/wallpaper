@@ -25,13 +25,32 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
+// On any 401, clear local auth so the store doesn't keep a stale "logged
+// in" view, then bounce to /login with a marker so the page can show a
+// session-expired toast. The previous version only wiped localStorage and
+// did a full reload; that worked but the Zustand store was still holding
+// the old user in memory until the reload landed.
+let onAuthExpired: (() => void) | null = null;
+export function setAuthExpiredHandler(fn: () => void) {
+  onAuthExpired = fn;
+}
+
 client.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      const wasAuthed = !!localStorage.getItem('token');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      // Surface to the app (store reset + toast). Only fire when the user
+      // actually was authenticated; otherwise a 401 on a public guarded
+      // endpoint would falsely "kick them out" of nothing.
+      if (wasAuthed && onAuthExpired) onAuthExpired();
+      // Hard navigation kept as a last-resort fallback; in normal flow
+      // the React layer will redirect via Router after auth state clears.
+      if (wasAuthed && !window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login?expired=1';
+      }
     }
     return Promise.reject(error);
   }

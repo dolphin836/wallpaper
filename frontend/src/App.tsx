@@ -1,5 +1,10 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
+import { useAuthStore } from './store/auth';
+import { getMe } from './api';
+import { setAuthExpiredHandler } from './api/client';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import DiscoverPage from './pages/DiscoverPage';
@@ -35,6 +40,35 @@ import AdminWorkers from './pages/admin/WorkersPage';
 function AppRoutes() {
   const location = useLocation();
   const background = (location.state as { background?: Location })?.background;
+
+  // ── Session-validity guard ──
+  // The client trusts localStorage on first paint, so a token that expired
+  // server-side leaves the UI showing "logged in" until the user triggers
+  // an authenticated call. Two pieces:
+  //   1. Wire a 401 handler that resets the Zustand store + toasts the user
+  //      (otherwise the interceptor only wipes localStorage; in-memory
+  //      isAuthenticated stays true until a hard reload).
+  //   2. On boot, if we claim authenticated, validate with GET /users/me.
+  //      A 401 there cascades into the same handler.
+  useEffect(() => {
+    setAuthExpiredHandler(() => {
+      useAuthStore.getState().logout();
+      toast.error('Session expired. Please sign in again.');
+    });
+    if (useAuthStore.getState().isAuthenticated) {
+      // 401 already handled by the interceptor; swallow other errors so
+      // a transient network blip doesn't sign people out.
+      getMe()
+        .then((r) => {
+          // Refresh cached user payload while we're here — coins / username
+          // might have changed in another tab.
+          if (r.data?.data) {
+            useAuthStore.getState().updateUser(r.data.data);
+          }
+        })
+        .catch(() => { /* handled or network — keep current state */ });
+    }
+  }, []);
 
   return (
     <>
