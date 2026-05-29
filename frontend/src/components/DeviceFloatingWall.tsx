@@ -391,9 +391,14 @@ export default function DeviceFloatingWall({
         );
       })}
       {/* Pending placeholders — skeleton tiles for the in-flight
-          page. Same shape and position as real DevWallSlots, but
-          without spring/dent (they're transient; the user only
-          sees them while the API call is in flight). */}
+          page. Outer slot is absolutely positioned; the inner card
+          carries the skeleton shimmer + dev-spec-card chrome.
+          They must be separate elements because .dev-wall-slot
+          (position: absolute) and .dev-spec-card (position:
+          relative) both set `position`, and the latter loses
+          when combined on the same node — the placeholder ended
+          up in normal flow at the top of the wall instead of at
+          the bottom. */}
       {pendingCount > 0 && Array.from({ length: pendingCount }).map((_, k) => {
         const i = wallpapers.length + k;
         const pos = tilePositions[i];
@@ -401,15 +406,19 @@ export default function DeviceFloatingWall({
         return (
           <div
             key={`pending-${k}`}
-            className="dev-wall-slot dev-spec-card skeleton-card"
+            className="dev-wall-slot"
             style={{
               transform: `translate(${pos.left}px, ${pos.top}px)`,
               width: pos.w,
               height: pos.h,
-              animationDelay: `${k * 30}ms`,
             }}
             aria-hidden
-          />
+          >
+            <div
+              className="dev-spec-card skeleton-card"
+              style={{ width: '100%', height: '100%', animationDelay: `${k * 30}ms` }}
+            />
+          </div>
         );
       })}
     </div>
