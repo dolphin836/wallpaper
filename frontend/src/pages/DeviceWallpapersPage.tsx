@@ -333,23 +333,48 @@ export default function DeviceWallpapersPage() {
   // is the same 70% hysteresis that drives the live tile reflow.
   const [parkedCell, setParkedCell] = useState({ col: 0, row: 0 });
 
-  // When not dragging, settle to parkedCell's exact pixel coords.
-  // Previous iteration also layered a scroll-follow offset to keep
-  // the preview always visible, but the follow Y rarely landed on
-  // a clean cell boundary — once the user stopped scrolling, the
-  // preview's resting Y was off-grid and it visually overlapped
-  // neighbouring tiles. The user is fine with the preview
-  // scrolling off-screen with the wall, so we lock the settle Y
-  // to the parked cell's exact coordinate and let normal scroll
-  // carry it.
+  // Scroll-follow as INTEGER rows. The old continuous follow Y left
+  // preview off-grid when scroll stopped (overlapping tiles); fully
+  // removing follow made the mockup scroll out of view with the
+  // wall. Tracking the follow position as a row index means the
+  // preview hops cell-by-cell as the user scrolls — always
+  // cell-aligned, always visible until the wall ends.
+  const [scrollFollowRow, setScrollFollowRow] = useState(0);
+  useEffect(() => {
+    const update = () => {
+      if (!wallEl || tileH <= 0) return;
+      const rect = wallEl.getBoundingClientRect();
+      const headerInset = 100;
+      const targetY = Math.max(0, headerInset - rect.top);
+      const cellH = tileH + gap;
+      const maxRow = Math.max(0, Math.floor((rect.height - previewH) / cellH));
+      // round → preview snaps to the closest row, integer always.
+      setScrollFollowRow(Math.min(maxRow, Math.max(0, Math.round(targetY / cellH))));
+    };
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [wallEl, previewH, tileH, gap]);
+
+  // Settle target: parkedCell column always; row = max(parked,
+  // scrollFollowRow) so the preview never drifts above its parked
+  // row but slides down (in cell increments) as the user scrolls
+  // past it. Both axes land on exact cell coords, so the preview
+  // resting position is always clean — no half-cell overlap with
+  // neighbouring tiles when scroll stops.
   useEffect(() => {
     if (isDragging) return;
     const targetX = parkedCell.col * (tileW + gap);
-    const targetY = parkedCell.row * (tileH + gap);
+    const targetRow = Math.max(parkedCell.row, scrollFollowRow);
+    const targetY = targetRow * (tileH + gap);
     const ax = animate(previewX, targetX, { type: 'spring', stiffness: 220, damping: 28 });
     const ay = animate(previewY, targetY, { type: 'spring', stiffness: 220, damping: 28 });
     return () => { ax.stop(); ay.stop(); };
-  }, [isDragging, parkedCell.col, parkedCell.row, tileW, tileH, gap, previewX, previewY]);
+  }, [isDragging, parkedCell.col, parkedCell.row, scrollFollowRow, tileW, tileH, gap, previewX, previewY]);
 
   // Mirror the preview's continuous motion into discrete grid cell
   // coordinates that the tile-placement logic reads. Throttled by
