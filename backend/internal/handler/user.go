@@ -598,12 +598,13 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		for i, it := range items {
 			ids[i] = it.ID
 		}
-		thumbs, err := h.userRepo.RecentThumbsForUsers(r.Context(), ids)
+		thumbs, tints, err := h.userRepo.RecentThumbsForUsers(r.Context(), ids)
 		if err != nil {
 			slog.WarnContext(r.Context(), "recent thumbs lookup failed (non-fatal)", "error", err)
 		} else {
 			for i := range items {
 				items[i].RecentThumbs = thumbs[items[i].ID]
+				items[i].RecentTints = tints[items[i].ID]
 			}
 		}
 		downloads, err := h.userRepo.TotalDownloadsForUsers(r.Context(), ids)

@@ -657,6 +657,7 @@
    gold 'TOP N' badge in the top-right corner. */
 .uploader-card {
   position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -664,6 +665,7 @@
   border-radius: 14px;
   background: var(--color-paper);
   border: 1px solid var(--color-hair);
+  overflow: hidden;
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.5),
     0 4px 14px -8px oklch(0% 0 0 / 0.18);
@@ -686,6 +688,48 @@
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.5),
     0 14px 28px -12px oklch(0% 0 0 / 0.24);
+}
+
+/* Per-card colour aura — three radial gradients using the
+   --u-c1/c2/c3 colour-stops set inline from either the user's
+   recent wallpapers' dominant colours or a hash-derived triad
+   for users with no uploads. Slow drift animation (24s,
+   staggered per card via --u-aura-delay) keeps the page
+   gently alive without becoming distracting. Sits at z-index
+   -1 inside the card's stacking context (isolation: isolate)
+   so it's behind the content but bounded by the card edges. */
+.uploader-card-aura {
+  position: absolute;
+  inset: -20%;
+  z-index: -1;
+  background:
+    radial-gradient(40% 40% at 22% 24%, var(--u-c1, oklch(85% 0.06 60)) 0%, transparent 60%),
+    radial-gradient(45% 45% at 78% 26%, var(--u-c2, oklch(83% 0.07 30)) 0%, transparent 55%),
+    radial-gradient(50% 50% at 50% 92%, var(--u-c3, oklch(88% 0.04 80)) 0%, transparent 60%);
+  filter: blur(36px) saturate(1.35);
+  opacity: 0.32;
+  animation: uploader-aura-drift 26s ease-in-out infinite alternate;
+  animation-delay: var(--u-aura-delay, 0s);
+  transition: opacity 400ms ease;
+}
+.dark .uploader-card-aura {
+  opacity: 0.42;
+  filter: blur(36px) saturate(1.7);
+}
+.uploader-card:hover .uploader-card-aura {
+  opacity: 0.48;
+}
+.dark .uploader-card:hover .uploader-card-aura {
+  opacity: 0.58;
+}
+@keyframes uploader-aura-drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(-2%, 1.5%) scale(1.04); }
+  66%  { transform: translate(1.5%, -1.5%) scale(0.98); }
+  100% { transform: translate(-0.5%, 0.5%) scale(1.02); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .uploader-card-aura { animation: none; }
 }
 
 /* Top-3 contributors. Accent border + accent halo + a gold pill

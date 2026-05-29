@@ -123,6 +123,10 @@ type UserListItem struct {
 	WallpaperCount int64    `json:"wallpaper_count"`
 	TotalDownloads int64    `gorm:"-" json:"total_downloads"`
 	RecentThumbs   []string `gorm:"-" json:"recent_thumbs,omitempty"`
+	// Parallel to RecentThumbs — the dominant_color of each recent
+	// wallpaper. SPA uses these as the per-card colour-aura stops so
+	// every contributor's card has a unique tint.
+	RecentTints    []string `gorm:"-" json:"recent_tints,omitempty"`
 }
 
 // TotalDownloadsForUsers returns each user's aggregate download
@@ -160,19 +164,21 @@ func (r *UserRepo) TotalDownloadsForUsers(ctx context.Context, ids []int64) (map
 // page to build a 3×3 mosaic per contributor. One round-trip via
 // a window function — at the handler's 50-user cap that's at most
 // 450 small rows.
-func (r *UserRepo) RecentThumbsForUsers(ctx context.Context, ids []int64) (map[int64][]string, error) {
-	out := make(map[int64][]string, len(ids))
+func (r *UserRepo) RecentThumbsForUsers(ctx context.Context, ids []int64) (thumbs map[int64][]string, tints map[int64][]string, _ error) {
+	thumbs = make(map[int64][]string, len(ids))
+	tints = make(map[int64][]string, len(ids))
 	if len(ids) == 0 {
-		return out, nil
+		return thumbs, tints, nil
 	}
 	type row struct {
-		UserID   int64  `gorm:"column:user_id"`
-		ThumbURL string `gorm:"column:thumb_url"`
+		UserID        int64  `gorm:"column:user_id"`
+		ThumbURL      string `gorm:"column:thumb_url"`
+		DominantColor string `gorm:"column:dominant_color"`
 	}
 	var rows []row
 	err := r.db.WithContext(ctx).Raw(`
-		SELECT user_id, thumb_url FROM (
-			SELECT user_id, thumb_url,
+		SELECT user_id, thumb_url, dominant_color FROM (
+			SELECT user_id, thumb_url, dominant_color,
 			       ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC, id DESC) AS rn
 			  FROM wallpapers
 			 WHERE user_id IN ? AND status = 1 AND thumb_url <> ''
@@ -181,12 +187,15 @@ func (r *UserRepo) RecentThumbsForUsers(ctx context.Context, ids []int64) (map[i
 		ORDER BY user_id, rn
 	`, ids).Scan(&rows).Error
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, r := range rows {
-		out[r.UserID] = append(out[r.UserID], r.ThumbURL)
+		thumbs[r.UserID] = append(thumbs[r.UserID], r.ThumbURL)
+		if r.DominantColor != "" {
+			tints[r.UserID] = append(tints[r.UserID], r.DominantColor)
+		}
 	}
-	return out, nil
+	return thumbs, tints, nil
 }
 
 func (r *UserRepo) IsAdmin(ctx context.Context, id int64) (bool, error) {

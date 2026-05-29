@@ -65,14 +65,11 @@ export default function UploadersPage() {
 
       <div className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-12">
         {/* Header */}
-        <div className="flex items-end justify-between gap-6 flex-wrap mb-10">
+        <div className="flex items-end justify-between gap-6 flex-wrap mb-8">
           <div>
             <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
               Contributors · {total}
             </div>
-            <h1 className="display text-[clamp(36px,4vw,52px)] leading-[1.05] mt-2 tracking-[-0.012em] text-ink">
-              The people behind <em className="uploaders-title-tail">the wall</em>.
-            </h1>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -136,6 +133,37 @@ export default function UploadersPage() {
   );
 }
 
+// Tints — three CSS-var colour stops powering the per-card aura.
+// Preference order: (1) the user's recent wallpapers' dominant
+// colours from the API, (2) a deterministic hash of the username
+// when they haven't uploaded anything yet, so every card still
+// has its own colour signal.
+function hashHue(s: string, seed = 0): number {
+  let h = seed;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h) + s.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
+}
+function resolveTints(u: UserListItem): [string, string, string] {
+  const t = u.recent_tints ?? [];
+  if (t.length >= 3) return [t[0], t[1], t[2]];
+  if (t.length === 2) return [t[0], t[1], t[0]];
+  if (t.length === 1) return [t[0], t[0], t[0]];
+  // No uploads — derive a stable triad from the username so every
+  // user still gets a unique-feeling card.
+  const name = u.username || String(u.id);
+  const base = hashHue(name) % 360;
+  const h2 = (base + 60 + hashHue(name, 17) % 80) % 360;
+  const h3 = (base + 180 + hashHue(name, 31) % 60) % 360;
+  return [
+    `oklch(80% 0.10 ${base})`,
+    `oklch(78% 0.12 ${h2})`,
+    `oklch(82% 0.08 ${h3})`,
+  ];
+}
+
 // Uploader card — identity-first.
 // Hero: avatar (with accent ring for top-3 contributors on the
 // page) + nickname + @handle + optional bio. Middle: a 3-cell stat
@@ -148,8 +176,22 @@ function UploaderWallCard({ u, rank }: { u: UserListItem; rank: number }) {
   const display = u.nickname || u.username;
   const thumbs = (u.recent_thumbs ?? []).slice(0, 3);
   const isTop = rank <= 3 && u.wallpaper_count > 0;
+  const [c1, c2, c3] = resolveTints(u);
+  // Per-card animation delay so neighbours don't drift in lockstep
+  // — staggered up to ~9s via the user id modulo.
+  const auraStyle = {
+    ['--u-c1' as string]: c1,
+    ['--u-c2' as string]: c2,
+    ['--u-c3' as string]: c3,
+    ['--u-aura-delay' as string]: `${(u.id % 9) * 1.1}s`,
+  } as React.CSSProperties;
   return (
-    <Link to={`/user/${u.username}`} className={`uploader-card no-underline${isTop ? ' is-top' : ''}`}>
+    <Link
+      to={`/user/${u.username}`}
+      className={`uploader-card no-underline${isTop ? ' is-top' : ''}`}
+      style={auraStyle}
+    >
+      <div className="uploader-card-aura" aria-hidden />
       {isTop && (
         <span className="uploader-card-badge" title="Top contributor">
           ★ TOP {rank}

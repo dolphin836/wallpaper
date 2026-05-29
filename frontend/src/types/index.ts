@@ -18,6 +18,7 @@ export interface UserListItem extends User {
   wallpaper_count: number;
   total_downloads?: number;
   recent_thumbs?: string[];
+  recent_tints?: string[];
 }
 
 export interface CoinTransaction {
