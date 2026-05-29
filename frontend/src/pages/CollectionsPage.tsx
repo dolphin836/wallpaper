@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { AiOutlinePlus } from 'react-icons/ai';
@@ -79,8 +79,31 @@ export default function CollectionsPage() {
   // the very first request is in flight.
   const total = serverTotal !== null ? Math.max(1, Math.ceil(serverTotal / PAGE_SIZE)) : 1;
 
+  // Page-mesh palette is driven by whichever collection card the
+  // cursor is hovering over — we read up to three dominant colours
+  // from that collection's recent_tiles and stamp them as
+  // --c-list-c1/c2/c3 on the page root. The CSS .c-list-mesh
+  // radials read those vars, so the soft cloud behind the grid
+  // tracks the card. On mouse-leave the vars are removed and the
+  // mesh falls back to its default neutral triad.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const applyTints = useCallback((tints: string[] | null) => {
+    const root = rootRef.current;
+    if (!root) return;
+    if (!tints || tints.length === 0) {
+      root.style.removeProperty('--c-list-c1');
+      root.style.removeProperty('--c-list-c2');
+      root.style.removeProperty('--c-list-c3');
+      return;
+    }
+    const [c1, c2 = c1, c3 = c1] = tints;
+    root.style.setProperty('--c-list-c1', c1);
+    root.style.setProperty('--c-list-c2', c2);
+    root.style.setProperty('--c-list-c3', c3);
+  }, []);
+
   return (
-    <div className="c-list min-h-full">
+    <div ref={rootRef} className="c-list min-h-full">
       <div className="c-list-mesh" aria-hidden />
       <PageMeta
         title={isThemes ? 'Editor Themes' : 'Collections'}
@@ -149,7 +172,7 @@ export default function CollectionsPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
             {visible.map((c) => (
-              <CollectionTile key={c.id} collection={c} />
+              <CollectionTile key={c.id} collection={c} onTintsChange={applyTints} />
             ))}
           </div>
         )}
@@ -179,7 +202,13 @@ export default function CollectionsPage() {
    below: mono kicker · display title · mono meta. Distinct from the
    old 3-photo composition; reads as "an album on a shelf" instead
    of "a mosaic preview". */
-function CollectionTile({ collection: c }: { collection: Collection }) {
+function CollectionTile({
+  collection: c,
+  onTintsChange,
+}: {
+  collection: Collection;
+  onTintsChange?: (tints: string[] | null) => void;
+}) {
   const accent = c.accent_color || 'var(--color-accent)';
   // Cover source priority:
   //   1. first recent_tile's preview_url (1600px wide, sharpest)
@@ -200,6 +229,19 @@ function CollectionTile({ collection: c }: { collection: Collection }) {
       to={`/collections/${c.slug}`}
       className="c-tile no-underline"
       style={{ '--c-accent': accent } as React.CSSProperties}
+      onMouseEnter={() => {
+        // Push up to three dominant colours from this collection's
+        // recent tiles for the page-mesh radials. Drop accent_color
+        // in as a fourth fallback so themed collections (kind=1)
+        // always have at least one strong colour to paint with.
+        const tints = (c.recent_tiles ?? [])
+          .map((t) => t.dominant_color)
+          .filter((s): s is string => Boolean(s))
+          .slice(0, 3);
+        if (tints.length === 0 && c.accent_color) tints.push(c.accent_color);
+        if (tints.length > 0) onTintsChange?.(tints);
+      }}
+      onMouseLeave={() => onTintsChange?.(null)}
     >
       <div className="c-tile-frame">
         {src ? (

@@ -2134,21 +2134,28 @@
 
 /* List mesh: cool/neutral lavender + sand so individual collection
    accents have room to shine. Subtle drift. */
+/* Page mesh — three radials whose colour stops fall through to a
+   neutral default but can be overridden by setting --c-list-c1/c2/c3
+   on the page root (CollectionsPage applyTints does this when a
+   collection card is hovered). The transition makes the swap feel
+   like the background is tinted *by* the card under the cursor,
+   not abruptly replaced. */
 .c-list-mesh {
   position: fixed; inset: 0; z-index: 0;
   background:
-    radial-gradient(40% 40% at 22% 30%, oklch(88% 0.04 280 / 0.45) 0%, transparent 60%),
-    radial-gradient(45% 45% at 78% 22%, oklch(90% 0.03 240 / 0.45) 0%, transparent 55%),
-    radial-gradient(50% 50% at 50% 80%, oklch(92% 0.03 100 / 0.40) 0%, transparent 62%);
+    radial-gradient(40% 40% at 22% 30%, var(--c-list-c1, oklch(88% 0.04 280 / 0.45)) 0%, transparent 60%),
+    radial-gradient(45% 45% at 78% 22%, var(--c-list-c2, oklch(90% 0.03 240 / 0.45)) 0%, transparent 55%),
+    radial-gradient(50% 50% at 50% 80%, var(--c-list-c3, oklch(92% 0.03 100 / 0.40)) 0%, transparent 62%);
   filter: blur(80px) saturate(1.3);
   pointer-events: none;
   animation: w-weekly-drift 36s ease-in-out infinite alternate;
+  transition: background 700ms ease;
 }
 .dark .c-list-mesh {
   background:
-    radial-gradient(40% 40% at 22% 30%, oklch(26% 0.06 280 / 0.55) 0%, transparent 60%),
-    radial-gradient(45% 45% at 78% 22%, oklch(24% 0.05 240 / 0.55) 0%, transparent 55%),
-    radial-gradient(50% 50% at 50% 80%, oklch(28% 0.05 100 / 0.50) 0%, transparent 62%);
+    radial-gradient(40% 40% at 22% 30%, var(--c-list-c1, oklch(26% 0.06 280 / 0.55)) 0%, transparent 60%),
+    radial-gradient(45% 45% at 78% 22%, var(--c-list-c2, oklch(24% 0.05 240 / 0.55)) 0%, transparent 55%),
+    radial-gradient(50% 50% at 50% 80%, var(--c-list-c3, oklch(28% 0.05 100 / 0.50)) 0%, transparent 62%);
   filter: blur(80px) saturate(1.7);
 }
 
