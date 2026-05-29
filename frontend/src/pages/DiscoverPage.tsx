@@ -10,6 +10,8 @@ import { useAuthStore } from '../store/auth';
 import WallpaperGrid from '../components/WallpaperGrid';
 import { SIZE_HEIGHTS, SALON_ROW_BY_SIZE } from '../components/WallpaperGrid';
 import type { ViewMode, SizeMode } from '../components/WallpaperGrid';
+import DeviceFloatingWall from '../components/DeviceFloatingWall';
+import { useCurrentDevice } from '../hooks/useCurrentDevice';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
 
@@ -432,6 +434,13 @@ export default function DiscoverPage() {
 
   const screen = useMemo(() => getScreenResolution(), []);
 
+  // Detect the visitor's actual device profile so grid mode can
+  // render the draggable mockup wall ("device floating island")
+  // tuned to *their* screen aspect. If detection fails (uncommon
+  // resolution, no match), the page silently falls back to the
+  // standard WallpaperGrid grid view.
+  const { device: currentDevice } = useCurrentDevice();
+
   const handleViewChange = (mode: ViewMode) => {
     setViewMode(mode);
     localStorage.setItem('wallpaper_view_mode', mode);
@@ -692,12 +701,39 @@ export default function DiscoverPage() {
           <ErrorState />
         ) : (
           <>
-            <WallpaperGrid
-              wallpapers={wallpapers}
-              viewMode={viewMode}
-              sizeMode={sizeMode}
-              staggerFrom={staggerFrom}
-            />
+            {viewMode === 'grid' && currentDevice ? (
+              // Grid mode + a recognised device → the draggable
+              // floating-island wall, same interaction as the
+              // /wallpapers-for/<device> page but parameterised
+              // to *this* visitor's device. Tiles are positioned
+              // absolutely on a measured canvas and dent inward
+              // as the mockup encroaches on them.
+              <DeviceFloatingWall
+                device={currentDevice}
+                wallpapers={wallpapers}
+                colsForWidth={(w) => {
+                  // sizeMode-aware cols: 'lg' biases toward bigger
+                  // cards, 'md' toward denser.
+                  if (sizeMode === 'lg') {
+                    if (w >= 1500) return 4;
+                    if (w >= 1000) return 3;
+                    return 2;
+                  }
+                  // md (default high-density)
+                  if (w >= 1700) return 5;
+                  if (w >= 1100) return 4;
+                  if (w >= 760)  return 3;
+                  return 2;
+                }}
+              />
+            ) : (
+              <WallpaperGrid
+                wallpapers={wallpapers}
+                viewMode={viewMode}
+                sizeMode={sizeMode}
+                staggerFrom={staggerFrom}
+              />
+            )}
             <div ref={attachSentinel} />
             <FeedFooter
               state={footerState}
