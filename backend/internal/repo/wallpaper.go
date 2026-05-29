@@ -220,21 +220,48 @@ func (r *WallpaperRepo) UpdateStatus(ctx context.Context, id int64, status int16
 }
 
 func (r *WallpaperRepo) UpdateProcessed(ctx context.Context, id int64, thumbURL, previewURL string, width, height int, dominantColor, colorPalette string) error {
+	updates := map[string]any{
+		"thumb_url":      thumbURL,
+		"preview_url":    previewURL,
+		"width":          width,
+		"height":         height,
+		"dominant_color": dominantColor,
+		"color_palette":  colorPalette,
+		// Status transition uses a SQL CASE so reprocess preserves
+		// the existing publication state:
+		//   Processing (0) → PendingReview (5): first-time upload
+		//     just finished the image pipeline; admin needs to review.
+		//   Published (1) → Published: an admin / CLI re-queued an
+		//     already-live wallpaper (e.g., `recompress` to refresh
+		//     previews after a worker-side change); keep it live.
+		//   Removed (3) → Removed, Duplicate (4) → Duplicate,
+		//     Rejected (6) → Rejected: terminal states stay put.
+		//   PendingReview (5) → PendingReview, Failed (2) →
+		//     PendingReview: a re-run from a non-terminal state
+		//     means the artifacts were regenerated and should be
+		//     looked at again.
+		// This was previously a hard-coded PendingReview, which
+		// silently un-published 800+ live wallpapers when the
+		// recompress CLI was used to refresh derived artifacts.
+		"status": gorm.Expr(`CASE
+			WHEN status = ? THEN ?
+			WHEN status = ? THEN ?
+			WHEN status = ? THEN ?
+			WHEN status = ? THEN ?
+			WHEN status = ? THEN ?
+			ELSE ?
+		END`,
+			model.WallpaperStatusPublished, model.WallpaperStatusPublished,
+			model.WallpaperStatusRemoved, model.WallpaperStatusRemoved,
+			model.WallpaperStatusDuplicate, model.WallpaperStatusDuplicate,
+			model.WallpaperStatusRejected, model.WallpaperStatusRejected,
+			model.WallpaperStatusPendingReview, model.WallpaperStatusPendingReview,
+			model.WallpaperStatusPendingReview),
+	}
 	return r.db.WithContext(ctx).
 		Model(&model.Wallpaper{}).
 		Where("id = ?", id).
-		Updates(map[string]any{
-			"thumb_url":      thumbURL,
-			"preview_url":    previewURL,
-			"width":          width,
-			"height":         height,
-			"dominant_color": dominantColor,
-			"color_palette":  colorPalette,
-			// New uploads land in the review queue rather than going
-			// straight live. Admin moves the row to Published via
-			// AdminApprove (sets status=1 + clears rejection_reason).
-			"status":         model.WallpaperStatusPendingReview,
-		}).Error
+		Updates(updates).Error
 }
 
 // UpdateTranscodedInput carries the post-transcode metadata the

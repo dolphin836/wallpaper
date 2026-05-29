@@ -264,6 +264,22 @@ func extractFrameIndex(path string) int {
 }
 
 func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedEvent) error {
+	// Videos use a separate transcode pipeline (mp4 → poster +
+	// preview_video_url) — they should never go through the image
+	// worker. Until the recompress CLI grew a status filter, they
+	// were getting re-queued here too, and `image.Decode` on raw
+	// mp4 bytes always returned "unknown format" → row marked
+	// Failed → wallpaper disappeared from the site. Skip them
+	// cleanly: log + nil-return so the Kafka event commits without
+	// touching the row.
+	if wp, _ := w.wpRepo.GetByIDAnyStatus(ctx, event.WallpaperID); wp != nil && strings.HasPrefix(wp.FileType, "video/") {
+		slog.InfoContext(ctx, "skipping video in image worker",
+			"wallpaper_id", event.WallpaperID,
+			"file_type", wp.FileType,
+		)
+		return nil
+	}
+
 	obj, err := w.storage.GetObject(ctx, event.ObjectKey)
 	if err != nil {
 		return fmt.Errorf("get original: %w", err)
