@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import {
   AiOutlineHeart, AiFillHeart,
@@ -11,6 +11,7 @@ import { getDeviceBySlug, getWallpapersForDevice } from '../api';
 import { useWallpaperActions } from '../hooks/useWallpaperActions';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
+import FeedFooter, { type FooterState } from '../components/FeedFooter';
 import { WallpaperGridSkeleton } from '../components/Skeletons';
 
 // SEO long-tail landing for one device profile. The route is /wallpapers-for/:slug
@@ -29,6 +30,16 @@ export default function DeviceWallpapersPage() {
   const [loadingList, setLoadingList] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState(false);
+  // Pagination failure state for the infinite-scroll feed. Top-level
+  // `error` covers the device fetch; this covers a load-more hiccup so
+  // the FeedFooter can offer a Try-again pill.
+  const [loadError, setLoadError] = useState(false);
+  // Refs to keep IntersectionObserver's callback closure-free.
+  const cursorRef = useRef(cursor);
+  const hasMoreRef = useRef(hasMore);
+  const busyRef = useRef(false);
+  cursorRef.current = cursor;
+  hasMoreRef.current = hasMore;
 
   useEffect(() => {
     setLoadingDevice(true);
@@ -47,31 +58,82 @@ export default function DeviceWallpapersPage() {
   }, [slug]);
 
   const fetchPage = useCallback(async (reset: boolean) => {
-    if (!device || loadingList) return;
+    if (!device) return;
+    if (!reset && (busyRef.current || !hasMoreRef.current)) return;
+    busyRef.current = true;
     setLoadingList(true);
     try {
       const res = await getWallpapersForDevice(slug, {
-        cursor: reset ? undefined : cursor,
-        limit: 20,
+        cursor: reset ? undefined : cursorRef.current,
+        limit: 24,
       });
       const { items, next_cursor, has_more } = res.data.data;
-      setWallpapers((prev) => reset ? items : [...prev, ...items]);
+      let appendedFresh = 0;
+      setWallpapers((prev) => {
+        if (reset) {
+          appendedFresh = items.length;
+          return items;
+        }
+        // Defensive dedupe — same shape as Discover. Backend should
+        // never repeat ids in a forward scan, but if it ever does the
+        // SPA won't render dupes.
+        const seen = new Set(prev.map((w) => w.id));
+        const fresh = items.filter((w) => !seen.has(w.id));
+        appendedFresh = fresh.length;
+        return [...prev, ...fresh];
+      });
+      const cursorStalled = !reset && next_cursor === cursorRef.current;
       setCursor(has_more ? next_cursor : undefined);
-      setHasMore(has_more);
+      setHasMore(has_more && !cursorStalled && (reset || appendedFresh > 0));
+      setLoadError(false);
     } catch {
-      // Pagination failure — silent here; the loadingList flag flips
-      // back and the user can scroll/retry. The top-level error state
-      // only fires for the device fetch failure.
+      setLoadError(true);
     } finally {
       setLoadingList(false);
+      busyRef.current = false;
     }
-  }, [device, slug, cursor, loadingList]);
+  }, [device, slug]);
 
   // First page once we've resolved the device.
   useEffect(() => {
     if (device) fetchPage(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device?.id]);
+
+  // IntersectionObserver — fires fetchPage(false) when the sentinel
+  // enters a ~2-screen buffer above the viewport bottom. Re-attaches
+  // every time the sentinel ref reaches the DOM (handles the case
+  // where loading replaces sentinel with the skeleton placeholder).
+  const fetchPageRef = useRef(fetchPage);
+  fetchPageRef.current = fetchPage;
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const attachSentinel = useCallback((el: HTMLDivElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) fetchPageRef.current(false);
+      },
+      { rootMargin: `${window.innerHeight * 2}px 0px` },
+    );
+    obs.observe(el);
+    observerRef.current = obs;
+  }, []);
+
+  // Belt + braces: after a fetch the list grows but the observer
+  // only fires on STATE CHANGE; if the new page didn't push the
+  // sentinel out of the trigger zone, re-check on the next frame.
+  useEffect(() => {
+    if (loadingList || !hasMore) return;
+    const id = requestAnimationFrame(() => {
+      if (busyRef.current || !hasMoreRef.current) return;
+      fetchPageRef.current(false);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [wallpapers.length, loadingList, hasMore]);
 
   // ─── Server / network error ───
   if (error && !device) {
@@ -196,11 +258,16 @@ export default function DeviceWallpapersPage() {
                   ))}
                 </div>
 
-                <LoadMoreFooter
-                  loading={loadingList}
-                  hasMore={hasMore}
-                  empty={wallpapers.length === 0}
-                  onLoadMore={() => fetchPage(false)}
+                <div ref={attachSentinel} />
+                <FeedFooter
+                  state={(
+                    loadError ? 'retry'
+                    : loadingList && hasMore ? 'loading'
+                    : !hasMore && wallpapers.length > 0 ? 'end'
+                    : 'idle'
+                  ) as FooterState}
+                  count={wallpapers.length}
+                  onRetry={() => fetchPage(false)}
                 />
               </>
             )}
@@ -458,37 +525,8 @@ function EmptyForDevice({ device }: { device: DeviceProfile | null }) {
   );
 }
 
-function LoadMoreFooter({
-  loading, hasMore, empty, onLoadMore,
-}: { loading: boolean; hasMore: boolean; empty: boolean; onLoadMore: () => void }) {
-  if (empty) return null;
-  if (loading) {
-    return (
-      <div className="text-center mt-8 mono text-[10px] tracking-[0.14em] uppercase text-muted">
-        Loading more…
-      </div>
-    );
-  }
-  if (hasMore) {
-    return (
-      <div className="text-center mt-8">
-        <button
-          onClick={onLoadMore}
-          className="inline-flex px-5 py-2 rounded-full border border-hair text-ink-2 text-[12px] font-medium hover:bg-paper-2 hover:border-ink-2 transition-colors"
-        >
-          Load more
-        </button>
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-center justify-center gap-3 mt-10">
-      <span className="w-8 h-px bg-hair" />
-      <span className="mono text-[10px] tracking-[0.18em] uppercase text-muted">End</span>
-      <span className="w-8 h-px bg-hair" />
-    </div>
-  );
-}
+// LoadMoreFooter removed — replaced by the shared FeedFooter +
+// IntersectionObserver-driven infinite scroll.
 
 // DeviceSpecGrid / SpecCell removed — replaced inline by the new
 // .dev-spec-grid + DevSpec components in the hero column.

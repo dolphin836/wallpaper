@@ -1011,7 +1011,12 @@
   display: grid;
   grid-template-columns: 1fr minmax(280px, 380px);
   gap: 56px;
-  align-items: start;
+  /* align-items: stretch (default) — without this the right aside
+     only occupies its own content height, position:sticky inside
+     stops following once the user scrolls past the aside's bottom,
+     and the mockup snaps out of viewport center for the rest of the
+     scroll. Stretching to match the left column gives sticky the
+     full vertical rail it needs to stay centered the whole way down. */
 }
 @media (max-width: 960px) {
   .dev-page-grid {

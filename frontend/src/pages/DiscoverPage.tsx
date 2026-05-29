@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AiOutlineAppstore, AiOutlineBars, AiOutlineReload } from 'react-icons/ai';
+import { AiOutlineAppstore, AiOutlineBars } from 'react-icons/ai';
+import FeedFooter, { type FooterState } from '../components/FeedFooter';
 import toast from 'react-hot-toast';
 import type { Wallpaper, Category } from '../types';
 import { getWallpapers, getForYouWallpapers, getCategories } from '../api';
@@ -157,43 +158,9 @@ function SkeletonRows({
   );
 }
 
-type FooterState = 'idle' | 'loading' | 'retry' | 'end';
-
-function FeedFooter({ state, count, onRetry }: { state: FooterState; count: number; onRetry: () => void }) {
-  if (state === 'idle') return null;
-  if (state === 'loading') {
-    return (
-      <div className="feed-foot">
-        <span className="feed-spinner" aria-hidden />
-        <span className="feed-foot__label">Loading more wallpapers</span>
-      </div>
-    );
-  }
-  if (state === 'retry') {
-    return (
-      <div className="feed-foot">
-        <span className="feed-foot__label feed-foot__label--warn">
-          Couldn't auto-load · network hiccup
-        </span>
-        <button className="feed-foot__btn" onClick={onRetry}>
-          <AiOutlineReload size={13} />
-          Try again
-        </button>
-      </div>
-    );
-  }
-  // end — no animation, no blinking caret. Just a quiet editorial mark.
-  return (
-    <div className="feed-foot feed-foot--end">
-      <div className="feed-end-mark">
-        <em>end</em> of the archive.
-      </div>
-      <div className="feed-end-count">
-        {count.toLocaleString()} wallpapers
-      </div>
-    </div>
-  );
-}
+// FeedFooter moved to components/FeedFooter.tsx — shared with the
+// DeviceWallpapersPage infinite-scroll feed. Same loading / retry /
+// end vocabulary, same CSS.
 
 // Back-to-top floating pill. Pinned to the right edge of the centered
 // content column (max-w 1600px) — not the viewport edge — at 100px
