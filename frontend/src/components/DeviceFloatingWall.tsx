@@ -6,6 +6,7 @@ import {
   motion, useMotionValue, useTransform, useSpring, animate,
   type MotionValue,
 } from 'framer-motion';
+import justifiedLayout from 'justified-layout';
 import {
   AiOutlineHeart, AiFillHeart,
   AiOutlineStar, AiFillStar,
@@ -49,9 +50,16 @@ const DEFAULT_COLS_FOR_WIDTH = (w: number): number => {
 export interface DeviceFloatingWallProps {
   device: DeviceProfile;
   wallpapers: Wallpaper[];
-  /** Optional viewport→cols mapping. Default targets ~4 cols at
-   *  the page's 1600px max-width inside a 2560-wide viewport. */
+  /** Layout style: 'grid' (uniform device-aspect cells, default) or
+   *  'justified' (variable-width tiles via justified-layout with the
+   *  preview pinned at top-left and a narrow strip of tiles next to
+   *  it). */
+  mode?: 'grid' | 'justified';
+  /** Optional viewport→cols mapping for 'grid' mode. */
   colsForWidth?: (w: number) => number;
+  /** Target row height for 'justified' mode (matches WallpaperGrid
+   *  SIZE_HEIGHTS). Ignored in grid mode. */
+  justifiedRowHeight?: number;
   /** Notify the parent when the currently-featured wallpaper
    *  changes (hover). Used by DeviceWallpapersPage to drive the
    *  page-mesh palette. */
@@ -61,7 +69,9 @@ export interface DeviceFloatingWallProps {
 export default function DeviceFloatingWall({
   device,
   wallpapers,
+  mode = 'grid',
   colsForWidth = DEFAULT_COLS_FOR_WIDTH,
+  justifiedRowHeight = 280,
   onFeatureChange,
 }: DeviceFloatingWallProps) {
   const deviceAspect = (device.width || 16) / (device.height || 9);
@@ -95,14 +105,31 @@ export default function DeviceFloatingWall({
 
   const cols = useMemo(() => colsForWidth(wallWidth), [wallWidth, colsForWidth]);
   const gap = 12;
+  // Grid-mode tile dimensions (uniform). Ignored in justified mode
+  // but kept here so the preview size derivation in grid mode is
+  // unchanged.
   const tileW = wallWidth > 0 ? (wallWidth - gap * (cols - 1)) / cols : 0;
   const rawTileH = tileW / (deviceAspect || 1.78);
   const tileH = Math.max(140, Math.min(480, rawTileH));
 
   const previewColSpan = 2;
   const previewRowSpan = 2;
-  const previewW = tileW * previewColSpan + gap * (previewColSpan - 1);
-  const previewH = tileH * previewRowSpan + gap * (previewRowSpan - 1);
+  const { previewW, previewH } = useMemo(() => {
+    if (mode === 'grid') {
+      return {
+        previewW: tileW * previewColSpan + gap * (previewColSpan - 1),
+        previewH: tileH * previewRowSpan + gap * (previewRowSpan - 1),
+      };
+    }
+    // Justified mode: size the preview from the target row height
+    // (≈2 rows tall) and the device's natural aspect, capped to a
+    // sensible fraction of the wall so tiles still fit next to it.
+    const idealH = 2 * justifiedRowHeight + gap;
+    const idealW = idealH * deviceAspect;
+    const cap = Math.max(220, wallWidth * 0.48);
+    const w = Math.min(idealW, cap);
+    return { previewW: w, previewH: w / deviceAspect };
+  }, [mode, tileW, tileH, deviceAspect, justifiedRowHeight, wallWidth]);
 
   // Mockup sizing — solve for the largest aspect-correct screen
   // rect that fits the available content area minus padding,
@@ -133,9 +160,14 @@ export default function DeviceFloatingWall({
 
   // Scroll-follow row — integer row index, snaps preview cell-
   // by-cell as the user scrolls past it, keeping the mockup
-  // visible without breaking grid alignment.
+  // visible without breaking grid alignment. Grid mode only;
+  // justified mode keeps the preview at top-left.
   const [scrollFollowRow, setScrollFollowRow] = useState(0);
   useEffect(() => {
+    if (mode !== 'grid') {
+      setScrollFollowRow(0);
+      return;
+    }
     const update = () => {
       if (!wallEl || tileH <= 0) return;
       const rect = wallEl.getBoundingClientRect();
@@ -152,26 +184,33 @@ export default function DeviceFloatingWall({
       window.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
     };
-  }, [wallEl, previewH, tileH, gap]);
+  }, [mode, wallEl, previewH, tileH, gap]);
 
-  // Settle target on drag end / scroll change — parked col fixed;
-  // row = max(parked, scrollFollowRow) so preview slides down with
-  // scroll but never above its parked row.
+  // Settle target on drag end / scroll change.
+  //   Grid mode: parked col fixed; row = max(parked, scrollFollowRow)
+  //     so preview slides down with scroll but never above parked.
+  //   Justified mode: preview always returns to (0, 0) — no cell
+  //     snap, just free drag-and-spring-back-home.
   useEffect(() => {
     if (isDragging) return;
-    const targetX = parkedCell.col * (tileW + gap);
-    const targetRow = Math.max(parkedCell.row, scrollFollowRow);
-    const targetY = targetRow * (tileH + gap);
+    let targetX = 0;
+    let targetY = 0;
+    if (mode === 'grid') {
+      targetX = parkedCell.col * (tileW + gap);
+      const targetRow = Math.max(parkedCell.row, scrollFollowRow);
+      targetY = targetRow * (tileH + gap);
+    }
     const ax = animate(previewX, targetX, { type: 'spring', stiffness: 220, damping: 28 });
     const ay = animate(previewY, targetY, { type: 'spring', stiffness: 220, damping: 28 });
     return () => { ax.stop(); ay.stop(); };
-  }, [isDragging, parkedCell.col, parkedCell.row, scrollFollowRow, tileW, tileH, gap, previewX, previewY]);
+  }, [mode, isDragging, parkedCell.col, parkedCell.row, scrollFollowRow, tileW, tileH, gap, previewX, previewY]);
 
-  // 70% hysteresis snap for the running preview cell — same
-  // threshold the tile reflow uses.
+  // 70% hysteresis snap for the running preview cell — grid mode
+  // only (justified has no notion of discrete cells, preview stays
+  // at home (0, 0) regardless).
   const SNAP_THRESHOLD = 0.7;
   const previewColMV = useTransform(previewX, (x) => {
-    if (tileW <= 0) return 0;
+    if (mode !== 'grid' || tileW <= 0) return 0;
     const cellW = tileW + gap;
     const base = Math.floor(x / cellW);
     const progress = (x - base * cellW) / cellW;
@@ -179,7 +218,7 @@ export default function DeviceFloatingWall({
     return Math.max(0, Math.min(cols - previewColSpan, c));
   });
   const previewRowMV = useTransform(previewY, (y) => {
-    if (tileH <= 0) return 0;
+    if (mode !== 'grid' || tileH <= 0) return 0;
     const cellH = tileH + gap;
     const base = Math.floor(y / cellH);
     const progress = (y - base * cellH) / cellH;
@@ -188,38 +227,104 @@ export default function DeviceFloatingWall({
   });
   const [previewCell, setPreviewCell] = useState({ col: 0, row: 0 });
   useEffect(() => {
+    if (mode !== 'grid') {
+      setPreviewCell({ col: 0, row: 0 });
+      return;
+    }
     const u1 = previewColMV.on('change', (v) => setPreviewCell((p) => p.col === v ? p : { ...p, col: v }));
     const u2 = previewRowMV.on('change', (v) => setPreviewCell((p) => p.row === v ? p : { ...p, row: v }));
     return () => { u1(); u2(); };
-  }, [previewColMV, previewRowMV]);
+  }, [mode, previewColMV, previewRowMV]);
 
-  // Walk grid in row-major order, skipping cells inside the
-  // preview's current footprint.
-  const tilePositions = useMemo(() => {
-    const out: { col: number; row: number }[] = [];
+  // Tile positions — array of { left, top, w, h } per wallpaper,
+  // computed per mode.
+  //
+  // GRID: walk row-major, skip cells inside the preview's current
+  // footprint (driven by previewCell, which moves with the 70%
+  // hysteresis snap).
+  //
+  // JUSTIFIED: two-pass justified-layout. Pass 1 fits as many
+  // items as it can into a narrow strip next to the preview (width
+  // = wallWidth - previewW - gap, target row height ≈ previewH/2);
+  // pass 2 lays the remainder below the preview row at full width.
+  // Result reads as "wallpapers naturally flow around the device
+  // at top-left" instead of "preview occludes a chunk of the wall".
+  const tilePositions = useMemo<{ left: number; top: number; w: number; h: number }[]>(() => {
     const n = wallpapers.length;
-    if (n === 0 || cols <= 0) return out;
-    const { col: pc, row: pr } = previewCell;
-    const pcsEnd = pc + previewColSpan;
-    const prsEnd = pr + previewRowSpan;
-    let r = 0, c = 0;
-    while (out.length < n) {
-      const inPreview = c >= pc && c < pcsEnd && r >= pr && r < prsEnd;
-      if (!inPreview) out.push({ col: c, row: r });
-      c++;
-      if (c >= cols) { c = 0; r++; }
-      if (r > n + 4) break;
+    if (n === 0 || wallWidth <= 0) return [];
+    if (mode === 'grid') {
+      if (cols <= 0 || tileW <= 0) return [];
+      const out: { left: number; top: number; w: number; h: number }[] = [];
+      const { col: pc, row: pr } = previewCell;
+      const pcsEnd = pc + previewColSpan;
+      const prsEnd = pr + previewRowSpan;
+      let r = 0, c = 0;
+      while (out.length < n) {
+        const inPreview = c >= pc && c < pcsEnd && r >= pr && r < prsEnd;
+        if (!inPreview) {
+          out.push({
+            left: c * (tileW + gap),
+            top: r * (tileH + gap),
+            w: tileW,
+            h: tileH,
+          });
+        }
+        c++;
+        if (c >= cols) { c = 0; r++; }
+        if (r > n + 4) break;
+      }
+      return out;
+    }
+    // Justified two-pass layout
+    const ratios = wallpapers.map((w) => (w.width > 0 && w.height > 0 ? w.width / w.height : 4 / 3));
+    const narrowW = Math.max(160, wallWidth - previewW - gap);
+    const stripRowH = Math.max(140, (previewH - gap) / 2);
+    const stripRes = justifiedLayout(ratios, {
+      containerWidth: narrowW,
+      containerPadding: 0,
+      boxSpacing: gap,
+      targetRowHeight: stripRowH,
+      showWidows: false,
+      forceAspectRatio: false,
+    });
+    // How many items fit within the preview's vertical footprint?
+    let pass1 = 0;
+    for (const b of stripRes.boxes) {
+      if (b.top + b.height > previewH + 1) break;
+      pass1++;
+    }
+    const restRatios = ratios.slice(pass1);
+    const restRes = restRatios.length > 0
+      ? justifiedLayout(restRatios, {
+          containerWidth: wallWidth,
+          containerPadding: 0,
+          boxSpacing: gap,
+          targetRowHeight: justifiedRowHeight,
+          showWidows: true,
+          forceAspectRatio: false,
+        })
+      : { boxes: [] as { left: number; top: number; width: number; height: number }[] };
+    const out: { left: number; top: number; w: number; h: number }[] = [];
+    for (let i = 0; i < pass1; i++) {
+      const b = stripRes.boxes[i];
+      out.push({ left: b.left + previewW + gap, top: b.top, w: b.width, h: b.height });
+    }
+    for (let i = 0; i < restRatios.length; i++) {
+      const b = restRes.boxes[i];
+      out.push({ left: b.left, top: b.top + previewH + gap, w: b.width, h: b.height });
     }
     return out;
-  }, [wallpapers.length, cols, previewCell.col, previewCell.row]);
+  }, [mode, wallpapers, wallWidth, cols, tileW, tileH, gap, previewCell.col, previewCell.row, previewW, previewH, justifiedRowHeight]);
 
   const wallHeight = useMemo(() => {
-    if (cols <= 0 || wallpapers.length === 0) return previewH;
-    const lastTile = tilePositions[tilePositions.length - 1];
-    const lastTileBottom = lastTile ? (lastTile.row + 1) * tileH + lastTile.row * gap : 0;
-    const previewBottom = (previewCell.row + previewRowSpan) * tileH + (previewCell.row + previewRowSpan - 1) * gap;
-    return Math.max(lastTileBottom, previewBottom);
-  }, [tilePositions, tileH, gap, previewCell.row, previewH, cols, wallpapers.length]);
+    if (wallpapers.length === 0) return previewH;
+    let maxBottom = previewH; // preview always claims its footprint
+    for (const p of tilePositions) {
+      const bottom = p.top + p.h;
+      if (bottom > maxBottom) maxBottom = bottom;
+    }
+    return maxBottom;
+  }, [tilePositions, previewH, wallpapers.length]);
 
   return (
     <div ref={wallRef} className="dev-wall-area" style={{ height: wallHeight }}>
@@ -238,7 +343,12 @@ export default function DeviceFloatingWall({
           onDragStart={() => setIsDragging(true)}
           onDragEnd={() => {
             setIsDragging(false);
-            setParkedCell({ col: previewCell.col, row: previewCell.row });
+            // Only grid mode "parks" the preview at the discrete
+            // cell the user reached; justified mode always springs
+            // back to (0, 0) home.
+            if (mode === 'grid') {
+              setParkedCell({ col: previewCell.col, row: previewCell.row });
+            }
           }}
           whileDrag={{ scale: 1.02, cursor: 'grabbing' }}
           style={{
@@ -321,11 +431,10 @@ export default function DeviceFloatingWall({
             index={i}
             isFeatured={i === featuredIdx}
             onHover={onTileHover}
-            targetCol={pos.col}
-            targetRow={pos.row}
-            tileW={tileW}
-            tileH={tileH}
-            gap={gap}
+            targetLeft={pos.left}
+            targetTop={pos.top}
+            tileW={pos.w}
+            tileH={pos.h}
             previewX={previewX}
             previewY={previewY}
             previewW={previewW}
@@ -343,8 +452,8 @@ export default function DeviceFloatingWall({
    overall interaction model. */
 function DevWallSlot({
   wp, device, index, isFeatured, onHover,
-  targetCol, targetRow,
-  tileW, tileH, gap,
+  targetLeft, targetTop,
+  tileW, tileH,
   previewX, previewY, previewW, previewH,
 }: {
   wp: Wallpaper;
@@ -352,22 +461,19 @@ function DevWallSlot({
   index: number;
   isFeatured: boolean;
   onHover: (idx: number) => void;
-  targetCol: number;
-  targetRow: number;
+  targetLeft: number;
+  targetTop: number;
   tileW: number;
   tileH: number;
-  gap: number;
   previewX: MotionValue<number>;
   previewY: MotionValue<number>;
   previewW: number;
   previewH: number;
 }) {
-  const cellTargetX = targetCol * (tileW + gap);
-  const cellTargetY = targetRow * (tileH + gap);
-  const cellX = useSpring(cellTargetX, { stiffness: 240, damping: 28, mass: 0.6 });
-  const cellY = useSpring(cellTargetY, { stiffness: 240, damping: 28, mass: 0.6 });
-  useEffect(() => { cellX.set(cellTargetX); }, [cellTargetX, cellX]);
-  useEffect(() => { cellY.set(cellTargetY); }, [cellTargetY, cellY]);
+  const cellX = useSpring(targetLeft, { stiffness: 240, damping: 28, mass: 0.6 });
+  const cellY = useSpring(targetTop, { stiffness: 240, damping: 28, mass: 0.6 });
+  useEffect(() => { cellX.set(targetLeft); }, [targetLeft, cellX]);
+  useEffect(() => { cellY.set(targetTop); }, [targetTop, cellY]);
 
   const computeSquish = (cx: number, cy: number, px: number, py: number) => {
     if (tileW <= 0 || tileH <= 0) return null;

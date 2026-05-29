@@ -746,30 +746,31 @@ export default function DiscoverPage() {
           <ErrorState />
         ) : (
           <>
-            {viewMode === 'grid' && currentDevice ? (
-              // Grid mode + a recognised device → the draggable
-              // floating-island wall, same interaction as the
-              // /wallpapers-for/<device> page but parameterised
-              // to *this* visitor's device. Tiles are positioned
-              // absolutely on a measured canvas and dent inward
-              // as the mockup encroaches on them.
+            {currentDevice && viewMode !== 'salon' ? (
+              // Recognised device + non-salon view → floating-
+              // island wall, same interaction as the device-detail
+              // page. 'grid' uses uniform device-aspect cells with
+              // cell-snap drag; 'justified' uses two-pass
+              // justified-layout with the preview pinned at top-
+              // left and a strip of tiles flowing next to it.
+              // Salon mode keeps the legacy mosaic layout
+              // (mixed-span tiles don't map to the 2×2 preview).
               <DeviceFloatingWall
                 device={currentDevice}
                 wallpapers={wallpapers}
+                mode={viewMode === 'justified' ? 'justified' : 'grid'}
                 colsForWidth={(w) => {
-                  // sizeMode-aware cols: 'lg' biases toward bigger
-                  // cards, 'md' toward denser.
                   if (sizeMode === 'lg') {
                     if (w >= 1500) return 4;
                     if (w >= 1000) return 3;
                     return 2;
                   }
-                  // md (default high-density)
                   if (w >= 1700) return 5;
                   if (w >= 1100) return 4;
                   if (w >= 760)  return 3;
                   return 2;
                 }}
+                justifiedRowHeight={SIZE_HEIGHTS[sizeMode]}
               />
             ) : (
               <WallpaperGrid
