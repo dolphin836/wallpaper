@@ -83,6 +83,11 @@ export interface WeeklyArchiveEntry {
   count: number;
   cover_url: string;
   accent_color?: string;
+  // Cover wallpaper's extracted palette + dominant colour, used by
+  // the archive page to tint its mesh when the user selects an
+  // issue from the timeline.
+  dominant_color?: string;
+  color_palette?: string;
 }
 export interface WeeklyCurrent {
   year: number;

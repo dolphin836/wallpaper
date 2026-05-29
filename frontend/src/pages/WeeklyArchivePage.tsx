@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AiOutlineArrowRight } from 'react-icons/ai';
 import { getWeeklyArchive, type WeeklyArchiveEntry } from '../api';
@@ -49,8 +49,44 @@ export default function WeeklyArchivePage() {
     setCoverLoaded(false);
   }, [selected?.year, selected?.week]);
 
+  // Apply the selected issue's palette to the page-mesh CSS vars.
+  // Same pattern as WeeklyWeekPage: split color_palette by comma
+  // and take three stops; fall back to dominant_color when there's
+  // no palette; otherwise leave the defaults. Scoped to this page
+  // by setting on rootRef instead of :root.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    if (!selected) {
+      root.style.removeProperty('--w-c1');
+      root.style.removeProperty('--w-c2');
+      root.style.removeProperty('--w-c3');
+      return;
+    }
+    const parts = (selected.color_palette || '')
+      .split(',').map((s) => s.trim()).filter(Boolean);
+    if (parts.length >= 3) {
+      root.style.setProperty('--w-c1', parts[0]);
+      root.style.setProperty('--w-c2', parts[Math.floor(parts.length / 2)]);
+      root.style.setProperty('--w-c3', parts[parts.length - 1]);
+    } else if (selected.dominant_color) {
+      root.style.setProperty('--w-c1', selected.dominant_color);
+      root.style.setProperty('--w-c2', selected.dominant_color);
+      root.style.setProperty('--w-c3', selected.dominant_color);
+    } else if (selected.accent_color) {
+      root.style.setProperty('--w-c1', selected.accent_color);
+      root.style.setProperty('--w-c2', selected.accent_color);
+      root.style.setProperty('--w-c3', selected.accent_color);
+    } else {
+      root.style.removeProperty('--w-c1');
+      root.style.removeProperty('--w-c2');
+      root.style.removeProperty('--w-c3');
+    }
+  }, [selected?.year, selected?.week, selected?.color_palette, selected?.dominant_color, selected?.accent_color]);
+
   return (
-    <div className="w-weekly-archive min-h-full">
+    <div ref={rootRef} className="w-weekly-archive min-h-full">
       <div className="w-weekly-mesh" aria-hidden />
       <PageMeta
         title="Past Weekly Drops"

@@ -314,6 +314,13 @@ type ArchiveEntry struct {
 	Count       int    `json:"count"`
 	CoverURL    string `json:"cover_url"`
 	AccentColor string `json:"accent_color,omitempty"`
+	// Cover wallpaper's extracted palette + dominant colour. The
+	// SPA archive page sets these on its root as --w-c1/c2/c3 when
+	// the user picks an issue from the timeline so the page-mesh
+	// tracks the selected week's colour signature, same pattern as
+	// WeeklyWeekPage. Omit when missing (no extracted palette).
+	DominantColor string `json:"dominant_color,omitempty"`
+	ColorPalette  string `json:"color_palette,omitempty"`
 }
 
 // Archive returns every past pick slate, newest first, paginated by
@@ -343,7 +350,9 @@ func (r *WeeklyPickRepo) Archive(ctx context.Context, limit int) ([]ArchiveEntry
 		SELECT DISTINCT ON (slate.year, slate.week)
 		       slate.year, slate.week, slate.cnt AS count,
 		       COALESCE(w.preview_url, w.thumb_url, '') AS cover_url,
-		       COALESCE(tc.accent_color, '') AS accent_color
+		       COALESCE(tc.accent_color, '') AS accent_color,
+		       COALESCE(w.dominant_color, '') AS dominant_color,
+		       COALESCE(w.color_palette, '') AS color_palette
 		FROM (
 		    SELECT year, week, COUNT(*) AS cnt
 		    FROM weekly_picks
