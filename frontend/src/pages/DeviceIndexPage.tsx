@@ -73,22 +73,49 @@ export default function DeviceIndexPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Group by platform in a fixed render order.
+  // Group by aspect ratio (square-ish first, ultrawide last). The
+  // device.width / device.height ratio snaps to the nearest common
+  // standard (16:9, 16:10, 4:3, 19.5:9, …) within ±0.04. Anything
+  // farther becomes its own 'custom' bucket label. Always reduced to
+  // landscape orientation (max/min) so a phone in portrait still
+  // joins the same bucket as a tablet with the same ratio sideways.
   const groups = useMemo(() => {
-    const order: Array<DeviceProfile['platform']> = ['desktop', 'laptop', 'tablet', 'phone'];
-    const labels: Record<string, string> = {
-      desktop: 'Desktops',
-      laptop: 'Laptops',
-      tablet: 'Tablets',
-      phone: 'Phones',
+    const known: Array<{ r: number; label: string }> = [
+      { r: 5 / 4,    label: '5:4' },
+      { r: 4 / 3,    label: '4:3' },
+      { r: 3 / 2,    label: '3:2' },
+      { r: 16 / 10,  label: '16:10' },
+      { r: 16 / 9,   label: '16:9' },
+      { r: 19 / 9,   label: '19:9' },
+      { r: 19.5 / 9, label: '19.5:9' },
+      { r: 20 / 9,   label: '20:9' },
+      { r: 21 / 9,   label: '21:9' },
+    ];
+    const bucketFor = (d: DeviceProfile): string => {
+      const a = Math.max(d.width, d.height) / Math.min(d.width, d.height);
+      let best = known[0]; let bestDiff = Math.abs(a - best.r);
+      for (const k of known) {
+        const diff = Math.abs(a - k.r);
+        if (diff < bestDiff) { best = k; bestDiff = diff; }
+      }
+      if (bestDiff <= 0.04) return best.label;
+      // Fallback to a clean N.NN:1 string for outliers (rare).
+      return `${a.toFixed(2)}:1`;
     };
-    return order
-      .map((platform) => ({
-        platform,
-        label: labels[platform] || platform,
-        items: devices.filter((d) => d.platform === platform),
-      }))
-      .filter((g) => g.items.length > 0);
+    const bucketOrder = (label: string): number => {
+      const i = known.findIndex((k) => k.label === label);
+      return i === -1 ? known.length + 1 : i;
+    };
+    const map = new Map<string, DeviceWithCount[]>();
+    for (const d of devices) {
+      const key = bucketFor(d);
+      const arr = map.get(key) || [];
+      arr.push(d);
+      map.set(key, arr);
+    }
+    return Array.from(map.entries())
+      .map(([label, items]) => ({ label, items }))
+      .sort((a, b) => bucketOrder(a.label) - bucketOrder(b.label));
   }, [devices]);
 
   const totalDevices = devices.length;
@@ -155,11 +182,14 @@ export default function DeviceIndexPage() {
           </div>
         )}
 
-        {/* ─── Groups ─── */}
+        {/* ─── Groups (by aspect ratio) ─── */}
         {groups.map((g) => (
-          <section key={g.platform} className="mb-10">
+          <section key={g.label} className="mb-10">
             <div className="flex items-baseline justify-between mb-4 pb-2 border-b border-hair">
-              <h2 className="display text-[24px] leading-tight tracking-[-0.005em] text-ink">{g.label}</h2>
+              <h2 className="display text-[24px] leading-tight tracking-[-0.005em] text-ink">
+                <span className="mono tabular-nums tracking-[0.02em] text-[20px]">{g.label}</span>
+                <span className="text-muted text-[16px] mono tracking-[0.18em] uppercase ml-3"> · aspect</span>
+              </h2>
               <span className="mono text-[10px] tracking-[0.16em] uppercase text-muted">
                 {g.items.length} {g.items.length === 1 ? 'device' : 'devices'}
               </span>

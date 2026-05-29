@@ -555,40 +555,46 @@
 .dev-spec-card:hover .dev-spec-card-img {
   transform: scale(1.04);
 }
-.dev-spec-card-strip {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+/* Top-left sequence badge on each dev tile — small mono pill so the
+   grid reads as an ordered set ('№ 01' … '№ 47') and the running
+   number visible alongside the sticky frame matches. */
+.dev-spec-card-seq-badge {
+  position: absolute;
+  top: 8px; left: 8px;
+  z-index: 4;
+  padding: 2px 7px;
+  border-radius: 999px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
+  font-weight: 600;
   letter-spacing: 0.08em;
-  color: var(--color-ink-2);
-  background: var(--color-paper);
-  border-top: 1px solid var(--color-hair);
+  background: oklch(98% 0.005 240 / 0.78);
+  color: oklch(34% 0.03 240);
+  backdrop-filter: blur(6px);
 }
-.dark .dev-spec-card-strip {
-  background: var(--color-paper-2);
-  border-top-color: var(--color-hair-soft);
+.dark .dev-spec-card-seq-badge {
+  background: oklch(14% 0.018 240 / 0.78);
+  color: oklch(86% 0.012 240);
 }
-.dev-spec-card-icon {
-  display: inline-flex;
-  align-items: center; justify-content: center;
-  color: oklch(38% 0.03 240);
+
+/* Featured tile (the one currently shown in the sticky frame) gets
+   the accent border + faint accent halo so the user can map the
+   right-column preview back to its source tile in the grid. */
+.dev-spec-card.is-featured {
+  border-color: var(--color-accent);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 0 0 2px oklch(72% 0.16 50 / 0.20),
+    0 10px 26px -10px color-mix(in oklch, var(--color-accent) 30%, oklch(0% 0 0 / 0.28));
 }
-.dark .dev-spec-card-icon { color: oklch(72% 0.03 240); }
-.dev-spec-card-res {
-  font-variant-numeric: tabular-nums;
-  font-size: 10.5px;
-  color: var(--color-ink);
-  font-weight: 500;
-  letter-spacing: 0.04em;
+.dev-spec-card.is-featured .dev-spec-card-screen::before,
+.dev-spec-card.is-featured .dev-spec-card-screen::after {
+  border-color: var(--color-accent);
+  width: 14px; height: 14px;
 }
-.dev-spec-card-seq {
-  text-align: right;
-  letter-spacing: 0.14em;
-  color: var(--color-muted);
+.dev-spec-card.is-featured .dev-spec-card-seq-badge {
+  background: var(--color-accent);
+  color: oklch(99% 0 0);
 }
 
 .t-act {
@@ -888,22 +894,34 @@
   background: var(--color-paper-2);
 }
 
-/* Device-detail hero: two-column grid. Left = device mockup (real-
-   feeling chrome per platform: laptop deck, phone notch, monitor
-   stand, iMac chin). Right = title + mono spec grid. */
-.dev-hero {
+/* Device-detail page layout: left column = title + scrolling grid,
+   right column = sticky mockup that reflects whichever tile is
+   hovered. The mockup re-anchors itself near the top of the viewport
+   so it stays in view as the user scrolls through the grid. On
+   narrower screens (< 960px) the right column moves above the
+   grid and stops being sticky. */
+.dev-page-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 560px) 1fr;
+  grid-template-columns: 1fr minmax(280px, 380px);
   gap: 56px;
-  margin-bottom: 56px;
-  align-items: center;
+  align-items: start;
 }
-@media (max-width: 840px) {
-  .dev-hero { grid-template-columns: 1fr; gap: 32px; }
+@media (max-width: 960px) {
+  .dev-page-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .dev-page-grid .dev-page-right { order: -1; }
+  .dev-page-grid .dev-page-sticky { position: static; }
 }
-.dev-hero-left {
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px 0;
+.dev-page-sticky {
+  position: sticky;
+  top: 100px;
+}
+.dev-page-preview-meta {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-hair);
 }
 
 /* ── .dev-mockup — platform-specific device chrome ─────────────── */

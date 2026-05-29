@@ -1,40 +1,17 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
-import {
-  MdPhoneIphone, MdPhoneAndroid,
-  MdTabletMac, MdTabletAndroid,
-  MdLaptopMac, MdLaptopWindows, MdLaptopChromebook,
-  MdDesktopMac, MdDesktopWindows,
-  MdDevices,
-} from 'react-icons/md';
 import {
   AiOutlineHeart, AiFillHeart,
   AiOutlineStar, AiFillStar,
   AiOutlineDownload, AiOutlineCheckCircle,
   AiOutlineLoading3Quarters,
 } from 'react-icons/ai';
-import type { IconType } from 'react-icons';
 import type { DeviceProfile, Wallpaper } from '../types';
 import { getDeviceBySlug, getWallpapersForDevice } from '../api';
 import { useWallpaperActions } from '../hooks/useWallpaperActions';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
 import { WallpaperGridSkeleton } from '../components/Skeletons';
-
-function deviceIcon(d: DeviceProfile | null): IconType {
-  if (!d) return MdDevices;
-  const brand = (d.brand || '').toLowerCase();
-  const isApple = brand === 'apple';
-  const isChromebook = brand.includes('chromebook') || /chrome ?os/i.test(d.name);
-  switch (d.platform) {
-    case 'phone':   return isApple ? MdPhoneIphone : MdPhoneAndroid;
-    case 'tablet':  return isApple ? MdTabletMac : MdTabletAndroid;
-    case 'laptop':  return isChromebook ? MdLaptopChromebook : isApple ? MdLaptopMac : MdLaptopWindows;
-    case 'desktop': return isApple ? MdDesktopMac : MdDesktopWindows;
-    default:        return MdDevices;
-  }
-}
 
 // SEO long-tail landing for one device profile. The route is /wallpapers-for/:slug
 // (e.g. /wallpapers-for/iphone-16-pro). Page survives "no matches" gracefully
@@ -135,17 +112,15 @@ export default function DeviceWallpapersPage() {
   }
 
   const deviceAspect = device ? device.width / device.height : 16 / 9;
-  const featuredCover = wallpapers[0]?.preview_url || wallpapers[0]?.thumb_url;
-  // Hover-driven floating mockup: a single portal-rendered preview
-  // follows whichever tile is hovered. We track the wallpaper + the
-  // tile's rect; the FloatingMockup positions itself left/right of
-  // the rect based on available room. Lifting state here (rather
-  // than per-tile) means only one mockup ever paints.
-  const [hovered, setHovered] = useState<{ wp: Wallpaper; rect: DOMRect } | null>(null);
-  const onTileEnter = useCallback((wp: Wallpaper, el: HTMLElement) => {
-    setHovered({ wp, rect: el.getBoundingClientRect() });
-  }, []);
-  const onTileLeave = useCallback(() => setHovered(null), []);
+  // Sticky-frame state: the right-column mockup always shows whichever
+  // wallpaper the cursor most recently hovered. Defaults to the first
+  // pick so the frame is never empty. We *don't* reset on mouse-leave
+  // so the frame doesn't flicker back to the default while the cursor
+  // travels between tiles.
+  const [featuredIdx, setFeaturedIdx] = useState(0);
+  const featured = wallpapers[featuredIdx] ?? wallpapers[0] ?? null;
+  const featuredCover = featured?.preview_url || featured?.thumb_url;
+  const onTileHover = useCallback((idx: number) => setFeaturedIdx(idx), []);
   // CSS class hook for the platform-specific device chrome (keyboard
   // base, phone notch, monitor stand, etc). See .dev-mockup.* in
   // index.css.
@@ -167,153 +142,158 @@ export default function DeviceWallpapersPage() {
 
       <div className="relative z-10 px-6 sm:px-10 lg:px-14 py-10 max-w-[1600px] mx-auto">
 
-        {/* ─── Hero: device frame + spec block ───
-            Two-column layout: a screen frame at the device's real
-            aspect ratio (the first wallpaper from the grid stands in
-            as 'what one of these looks like on this device') paired
-            with a mono spec table on the right. Phones / tablets get
-            big corner radii so the frame reads as that device class
-            without needing per-device silhouettes. */}
-        <header className="dev-hero">
-          <div className="dev-hero-left">
-            <div
-              className={`${mockupClass}${isAppleDesktop ? ' is-imac' : ''}`}
-              style={{
-                ['--dev-aspect' as string]: `${device?.width || 16} / ${device?.height || 9}`,
-              } as React.CSSProperties}
-              aria-hidden
-            >
-              <div className="dev-mockup-screen">
-                {featuredCover ? (
-                  <img src={featuredCover} alt="" />
-                ) : (
-                  <div className="dev-frame-empty" />
-                )}
+        <div className="dev-page-grid">
+          {/* LEFT — title + scrolling wallpaper grid. */}
+          <div className="dev-page-left min-w-0">
+            <header className="mb-8">
+              <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
+                Wallpapers for · {device?.brand || '—'}
               </div>
-              {/* Platform-specific chrome — phone gets a notch, laptop
-                  a keyboard deck, desktop a stand, iMac a chin. CSS
-                  draws everything; no per-device assets. */}
-              {device?.platform === 'phone' && <span className="dev-mockup-notch" aria-hidden />}
-              {device?.platform === 'laptop' && (
-                <>
-                  <span className="dev-mockup-laptop-base" aria-hidden />
-                  <span className="dev-mockup-laptop-notch" aria-hidden />
-                </>
+              {loadingDevice ? (
+                <div className="c-detail-skel-bar h-[44px] w-2/3 mt-3" />
+              ) : (
+                <h1 className="display text-[clamp(34px,3.8vw,52px)] leading-[1.05] mt-2 tracking-[-0.012em] text-ink">
+                  {device?.name}
+                </h1>
               )}
-              {device?.platform === 'desktop' && !isAppleDesktop && (
-                <>
-                  <span className="dev-mockup-stand-neck" aria-hidden />
-                  <span className="dev-mockup-stand-foot" aria-hidden />
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="dev-hero-right">
-            <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
-              Wallpapers for · {device?.brand || '—'}
-            </div>
-            {loadingDevice ? (
-              <div className="c-detail-skel-bar h-[44px] w-2/3 mt-3" />
-            ) : (
-              <h1 className="display text-[clamp(34px,3.8vw,52px)] leading-[1.05] mt-2 tracking-[-0.012em] text-ink">
-                {device?.name}
-              </h1>
-            )}
-            {device && (
-              <>
-                <div className="dev-spec-grid">
-                  <DevSpec label="Resolution" value={`${device.width.toLocaleString()} × ${device.height.toLocaleString()}`} />
-                  {device.ppi > 0 && <DevSpec label="PPI" value={`${device.ppi}`} />}
-                  <DevSpec label="Aspect" value={(deviceAspect).toFixed(2)} />
-                  <DevSpec label="Wallpapers" value={wallpaperCount.toLocaleString()} />
+              {device && (
+                <div className="mono text-[11px] tracking-[0.18em] uppercase text-muted mt-3 flex flex-wrap gap-x-4 gap-y-1 tabular-nums">
+                  <span>{device.width.toLocaleString()} × {device.height.toLocaleString()}</span>
+                  {device.ppi > 0 && <span>· {device.ppi} ppi</span>}
+                  <span>· {deviceAspect.toFixed(2)}:1</span>
+                  <span>· {wallpaperCount.toLocaleString()} wallpapers</span>
                 </div>
+              )}
+            </header>
+
+            {/* Grid — each cell at device aspect so the wall reads as
+                'these all fit'. Hover a tile to swap it into the
+                sticky frame on the right. */}
+            {loadingList && wallpapers.length === 0 ? (
+              <WallpaperGridSkeleton count={8} cols="4" />
+            ) : wallpapers.length === 0 && !loadingDevice ? (
+              <EmptyForDevice device={device} />
+            ) : (
+              <>
+                <div className={`grid gap-3 ${
+                  deviceAspect < 0.8 ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-4' // phone portrait → narrower cols
+                  : deviceAspect < 1.2 ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-3' // tablet
+                  : 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-3'                    // laptop / desktop landscape
+                }`}>
+                  {wallpapers.map((wp, i) => (
+                    <DevTile
+                      key={wp.id}
+                      wallpaper={wp}
+                      device={device}
+                      index={i}
+                      isFeatured={i === featuredIdx}
+                      onHover={onTileHover}
+                    />
+                  ))}
+                </div>
+
+                <LoadMoreFooter
+                  loading={loadingList}
+                  hasMore={hasMore}
+                  empty={wallpapers.length === 0}
+                  onLoadMore={() => fetchPage(false)}
+                />
               </>
             )}
-          </div>
-        </header>
 
-        {/* ─── Grid ───
-            Each cell renders at the device's exact aspect ratio so
-            the wall reads as 'these all fit your screen' — not a
-            generic 3:2 catalog. */}
-        {loadingList && wallpapers.length === 0 ? (
-          <WallpaperGridSkeleton count={8} cols="4" />
-        ) : wallpapers.length === 0 && !loadingDevice ? (
-          <EmptyForDevice device={device} />
-        ) : (
-          <>
-            <div className={`grid gap-4 ${
-              deviceAspect < 0.8 ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-6'  // phone-ish portrait → more cols
-              : deviceAspect < 1.2 ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' // square-ish tablet → mid
-              : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'                     // landscape laptop/desktop
-            }`}>
-              {wallpapers.map((wp, i) => (
-                <DevSpecCard
-                  key={wp.id}
-                  wallpaper={wp}
-                  device={device}
-                  index={i}
-                  onEnter={onTileEnter}
-                  onLeave={onTileLeave}
-                />
-              ))}
-            </div>
-            {hovered && device && (
-              <FloatingMockup wp={hovered.wp} device={device} anchorRect={hovered.rect} />
+            {/* Footer copy */}
+            {device && (
+              <section className="mt-14 border-t border-hair pt-7">
+                <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted mb-3">
+                  About the {device.name}
+                </div>
+                <p className="text-[13px] leading-[1.65] text-ink-2 max-w-[640px]">
+                  Every wallpaper on this page has a variant cropped exactly for
+                  the {device.name}'s {device.width.toLocaleString()} × {device.height.toLocaleString()} display. Click into
+                  any wallpaper to see the per-device download list — or use the
+                  Download button on the detail page, which automatically picks
+                  the right variant for your current screen.
+                </p>
+              </section>
             )}
+          </div>
 
-            <LoadMoreFooter
-              loading={loadingList}
-              hasMore={hasMore}
-              empty={wallpapers.length === 0}
-              onLoadMore={() => fetchPage(false)}
-            />
-          </>
-        )}
+          {/* RIGHT — sticky device mockup showing the hovered tile.
+              On wide screens it stays in view as the user scrolls the
+              grid; on narrow screens this column moves above the grid
+              via the dev-page-grid responsive collapse. */}
+          <aside className="dev-page-right">
+            <div className="dev-page-sticky">
+              <div
+                className={`${mockupClass}${isAppleDesktop ? ' is-imac' : ''}`}
+                style={{
+                  ['--dev-aspect' as string]: `${device?.width || 16} / ${device?.height || 9}`,
+                } as React.CSSProperties}
+                aria-hidden
+              >
+                <div className="dev-mockup-screen">
+                  {featuredCover ? (
+                    <img src={featuredCover} alt="" />
+                  ) : (
+                    <div className="dev-frame-empty" />
+                  )}
+                </div>
+                {device?.platform === 'phone' && <span className="dev-mockup-notch" aria-hidden />}
+                {device?.platform === 'laptop' && (
+                  <>
+                    <span className="dev-mockup-laptop-base" aria-hidden />
+                    <span className="dev-mockup-laptop-notch" aria-hidden />
+                  </>
+                )}
+                {device?.platform === 'desktop' && !isAppleDesktop && (
+                  <>
+                    <span className="dev-mockup-stand-neck" aria-hidden />
+                    <span className="dev-mockup-stand-foot" aria-hidden />
+                  </>
+                )}
+              </div>
 
-        {/* ─── Footer copy ─── */}
-        {device && (
-          <section className="mt-14 border-t border-hair pt-7">
-            <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted mb-3">
-              About the {device.name}
+              {featured && (
+                <div className="dev-page-preview-meta">
+                  <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
+                    Previewing · № {String(featuredIdx + 1).padStart(2, '0')} / {wallpaperCount}
+                  </div>
+                  <div className="display text-[18px] leading-tight mt-1 text-ink line-clamp-1">
+                    {featured.title || `Wallpaper ${featured.id}`}
+                  </div>
+                  {device && (
+                    <div className="mono text-[10px] tracking-[0.14em] uppercase text-muted mt-2 tabular-nums">
+                      Cropped to {device.width} × {device.height}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <p className="text-[13px] leading-[1.65] text-ink-2 max-w-[640px]">
-              Every wallpaper on this page has a variant cropped exactly for
-              the {device.name}'s {device.width.toLocaleString()} × {device.height.toLocaleString()} display. Click into
-              any wallpaper to see the per-device download list — or use the
-              Download button on the detail page, which automatically picks
-              the right variant for your current screen.
-            </p>
-          </section>
-        )}
+          </aside>
+        </div>
 
       </div>
     </div>
   );
 }
 
-/* Spec card — the new tile for the device-detail grid. Wallpaper at
-   device aspect inside a thin steel border + corner brackets, with a
-   bottom info strip carrying the device icon, mono resolution, and
-   sequence number (01/24 style). Hover lifts the card, brings actions
-   in over the image. Reads as 'an index card from a spec book' — a
-   distinct treatment vs Discover salon / Weekly portrait / Collection
-   framed-mat. */
-function DevSpecCard({
-  wallpaper: w, device, index, onEnter, onLeave,
+/* Device tile — simple wallpaper card at device aspect, with a
+   sequence badge + action rail on hover. Hovering bumps the parent's
+   featuredIdx so the right-column sticky mockup re-renders this
+   tile's wallpaper. The wallpaper-on-device 'try it on' read happens
+   in the sticky frame, not here. */
+function DevTile({
+  wallpaper: w, device, index, isFeatured, onHover,
 }: {
   wallpaper: Wallpaper;
   device: DeviceProfile | null;
   index: number;
-  onEnter: (w: Wallpaper, el: HTMLElement) => void;
-  onLeave: () => void;
+  isFeatured: boolean;
+  onHover: (idx: number) => void;
 }) {
   const location = useLocation();
   const acts = useWallpaperActions(w);
-  const Icon = deviceIcon(device);
   const aspect = device ? `${device.width} / ${device.height}` : '16 / 9';
-  const ref = useRef<HTMLAnchorElement | null>(null);
   const stop = (e: React.MouseEvent, fn: () => void) => {
     e.preventDefault();
     e.stopPropagation();
@@ -323,12 +303,11 @@ function DevSpecCard({
     <Link
       to={`/wallpaper/${w.slug || w.id}`}
       state={{ background: location, initialWallpaper: w }}
-      ref={ref}
-      className="dev-spec-card"
+      className={`dev-spec-card${isFeatured ? ' is-featured' : ''}`}
       style={{ animationDelay: `${index * 30}ms` }}
-      onMouseEnter={() => { if (ref.current) onEnter(w, ref.current); }}
-      onMouseLeave={onLeave}
+      onMouseEnter={() => onHover(index)}
     >
+      <span className="dev-spec-card-seq-badge">№ {String(index + 1).padStart(2, '0')}</span>
       <div className="dev-spec-card-screen" style={{ aspectRatio: aspect }}>
         <img
           src={w.preview_url || w.thumb_url}
@@ -384,117 +363,13 @@ function DevSpecCard({
           )}
         </div>
       </div>
-      <div className="dev-spec-card-strip">
-        <span className="dev-spec-card-icon" aria-hidden><Icon size={13} /></span>
-        <span className="dev-spec-card-res">
-          {device ? `${device.width}×${device.height}` : `${w.width}×${w.height}`}
-        </span>
-        <span className="dev-spec-card-seq">
-          № {String(index + 1).padStart(2, '0')}
-        </span>
-      </div>
     </Link>
   );
 }
 
-/* Floating mockup — single portaled element that follows whichever
-   spec-card is hovered. Renders a mini version of the device hero's
-   chrome (.dev-mockup family) with the hovered wallpaper inside, so
-   the user gets to see "what this looks like on the device" before
-   committing to click. Positions itself to the right of the anchor
-   when there's room, otherwise flips to the left; vertically biased
-   to keep within the viewport. */
-function FloatingMockup({
-  wp, device, anchorRect,
-}: {
-  wp: Wallpaper;
-  device: DeviceProfile;
-  anchorRect: DOMRect;
-}) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-  if (!mounted) return null;
-
-  // Phone-shaped mockups are narrow + tall; landscape mockups are
-  // wide + short. Pick a target width per platform so the popup
-  // always sits at a similar visible footprint.
-  const targetWidth =
-    device.platform === 'phone' ? 200 :
-    device.platform === 'tablet' ? 240 :
-    300;
-  const aspect = device.width / device.height;
-  // Estimated height including platform chrome (laptop deck +14,
-  // desktop stand +36, iMac chin already in border, phone notch
-  // already inside, tablet nothing extra). Reserved so vertical
-  // clamping has the right target.
-  const chromeExtra =
-    device.platform === 'laptop' ? 22 :
-    device.platform === 'desktop' && device.brand?.toLowerCase() !== 'apple' ? 40 :
-    0;
-  const estHeight = targetWidth / aspect + chromeExtra;
-
-  const GAP = 18;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const rightSpace = vw - anchorRect.right - GAP;
-  const placeRight = rightSpace >= targetWidth;
-  const left = placeRight
-    ? anchorRect.right + GAP
-    : Math.max(GAP, anchorRect.left - targetWidth - GAP);
-  // Bias vertical: align top with anchor top, but clamp to viewport.
-  const idealTop = anchorRect.top + (anchorRect.height - estHeight) / 2;
-  const top = Math.max(20, Math.min(vh - estHeight - 20, idealTop));
-
-  const isAppleDesktop = device.platform === 'desktop' && (device.brand || '').toLowerCase() === 'apple';
-  const mockupClass = `dev-mockup is-${device.platform}${isAppleDesktop ? ' is-imac' : ''} is-floating${placeRight ? '' : ' is-left'}`;
-
-  return createPortal(
-    <div
-      className="dev-tile-mockup-host"
-      style={{
-        position: 'fixed',
-        left,
-        top,
-        width: targetWidth,
-        pointerEvents: 'none',
-        zIndex: 50,
-      }}
-    >
-      <div
-        className={mockupClass}
-        style={{ ['--dev-aspect' as string]: `${device.width} / ${device.height}` } as React.CSSProperties}
-        aria-hidden
-      >
-        <div className="dev-mockup-screen">
-          <img src={wp.preview_url || wp.thumb_url} alt="" />
-        </div>
-        {device.platform === 'phone' && <span className="dev-mockup-notch" />}
-        {device.platform === 'laptop' && (
-          <>
-            <span className="dev-mockup-laptop-base" />
-            <span className="dev-mockup-laptop-notch" />
-          </>
-        )}
-        {device.platform === 'desktop' && !isAppleDesktop && (
-          <>
-            <span className="dev-mockup-stand-neck" />
-            <span className="dev-mockup-stand-foot" />
-          </>
-        )}
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-function DevSpec({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="dev-spec">
-      <div className="dev-spec-label">{label}</div>
-      <div className="dev-spec-value">{value}</div>
-    </div>
-  );
-}
+// FloatingMockup retired — replaced by the right-column sticky frame
+// pattern. Hovering a tile bumps featuredIdx; the sticky frame on
+// the right stays in view and always reflects the current pick.
 
 // ─── Sub-components ─────────────────────────────────────────────────
 
