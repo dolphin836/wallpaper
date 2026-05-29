@@ -1,15 +1,12 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AiOutlineAppstore, AiOutlineBars } from 'react-icons/ai';
 import FeedFooter, { type FooterState } from '../components/FeedFooter';
 import toast from 'react-hot-toast';
 import type { Wallpaper, Category } from '../types';
 import { getWallpapers, getForYouWallpapers, getCategories } from '../api';
 import { useAuthStore } from '../store/auth';
-import WallpaperGrid from '../components/WallpaperGrid';
-import { SIZE_HEIGHTS, SALON_ROW_BY_SIZE } from '../components/WallpaperGrid';
-import type { ViewMode, SizeMode } from '../components/WallpaperGrid';
+import type { SizeMode } from '../components/WallpaperGrid';
 import DeviceFloatingWall from '../components/DeviceFloatingWall';
 import { useCurrentDevice } from '../hooks/useCurrentDevice';
 import PageMeta from '../components/PageMeta';
@@ -35,50 +32,27 @@ const GRID_BREAKPOINT_COLS: Record<SizeMode, [number, number, number, number]> =
   sm: [3, 4, 6, 8],
 };
 
-function calculatePageSize(
-  viewMode: ViewMode,
-  sizeMode: SizeMode,
-  screens = 5,
-): number {
+function calculatePageSize(sizeMode: SizeMode, screens = 5): number {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const containerWidth = vw - 48;
   const gap = 16;
+  const bp = GRID_BREAKPOINT_COLS[sizeMode];
+  let cols: number;
+  if (containerWidth >= 1024) cols = bp[3];
+  else if (containerWidth >= 768) cols = bp[2];
+  else if (containerWidth >= 640) cols = bp[1];
+  else cols = bp[0];
+  const cardWidth = (containerWidth - gap * (cols - 1)) / cols;
+  const cardHeight = cardWidth * 0.75;
+  const rowsPerScreen = Math.max(1, Math.floor(vh / (cardHeight + gap)));
+  const count = cols * rowsPerScreen * screens;
 
-  let count: number;
-
-  if (viewMode === 'grid') {
-    const bp = GRID_BREAKPOINT_COLS[sizeMode];
-    let cols: number;
-    if (containerWidth >= 1024) cols = bp[3];
-    else if (containerWidth >= 768) cols = bp[2];
-    else if (containerWidth >= 640) cols = bp[1];
-    else cols = bp[0];
-
-    const cardWidth = (containerWidth - gap * (cols - 1)) / cols;
-    const cardHeight = cardWidth * 0.75;
-    const rowsPerScreen = Math.max(1, Math.floor(vh / (cardHeight + gap)));
-    count = cols * rowsPerScreen * screens;
-  } else if (viewMode === 'salon') {
-    // Salon layout: 11-col CSS grid with mixed-span tiles, ~2.7 tiles per
-    // pattern row on average. Estimate using the row height and a tile-per-
-    // pattern-row coefficient instead of average aspect ratio.
-    const rowHeight = SALON_ROW_BY_SIZE[sizeMode];
-    const rowsPerScreen = Math.max(1, Math.floor(vh / (rowHeight + 8)));
-    // Each "pattern cycle" spans ~5 rows and holds 10 tiles → 2 tiles per row.
-    count = Math.round(rowsPerScreen * 2.5 * screens);
-  } else {
-    // justified (legacy)
-    const rowHeight = SIZE_HEIGHTS[sizeMode];
-    const avgAspect = 1.6;
-    const itemsPerRow = Math.max(1, Math.floor(containerWidth / (rowHeight * avgAspect + gap)));
-    const rowsPerScreen = Math.max(1, Math.floor(vh / (rowHeight + gap)));
-    count = itemsPerRow * rowsPerScreen * screens;
-  }
-
-  // 40 = ~1 row of tiles + some buffer for the floating-wall
-  // preview slot (which absorbs 4 cells before any tiles render).
-  return Math.max(40, Math.min(200, count));
+  // 40 = ~1 row of tiles + buffer for the floating-wall preview
+  // slot. Ceiling 100 dodges the backend service-layer clamp
+  // (anything > 100 there gets reset to the default 20 — the
+  // exact symptom of the "All shows only 20" report).
+  return Math.max(40, Math.min(100, count));
 }
 
 const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent);
@@ -97,106 +71,51 @@ const FILTER_LABELS: Record<FilterMode, string> = {
   video:       'Video',
 };
 
-// Default view mode = 'justified' (justified-layout library, uniform row
-// height) — what the page used to ship. 'salon' (mosaic) is implemented in
-// WallpaperGrid but no longer surfaced through the toggle; the saved value
-// still round-trips so anyone who explicitly picked it before keeps it.
-function readSavedViewMode(): ViewMode {
-  const raw = localStorage.getItem('wallpaper_view_mode');
-  if (raw === 'salon' || raw === 'justified' || raw === 'grid') {
-    return raw;
-  }
-  return 'grid';
-}
-
 function SkeletonRows({
-  viewMode,
   sizeMode,
-  rowHeight = 260,
   device,
-}: { viewMode: ViewMode; sizeMode: SizeMode; rowHeight?: number; device?: { width: number; height: number; platform: string } | null }) {
-  // Grid mode lays out fixed-aspect cells in a CSS grid — match the real
-  // breakpoint counts in GRID_BREAKPOINT_COLS so the skeleton occupies
-  // the same footprint at every viewport size.
-  if (viewMode === 'grid') {
-    const bp = GRID_BREAKPOINT_COLS[sizeMode];
-    const count = bp[3] * 4;
-    const cols =
-      sizeMode === 'lg' ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3'
-      : sizeMode === 'md' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
-      : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8';
+}: { sizeMode: SizeMode; device: { width: number; height: number; platform: string } | null }) {
+  // Floating-wall-shaped skeleton: first cell mimics the glass
+  // mockup card spanning 2×2, the rest use the device's actual
+  // aspect so the placeholder footprint matches what's coming.
+  const bp = GRID_BREAKPOINT_COLS[sizeMode];
+  const count = bp[3] * 4;
+  const cols =
+    sizeMode === 'lg' ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3'
+    : sizeMode === 'md' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+    : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8';
 
-    // If a current device was detected, the live render uses the
-    // floating-wall layout (DeviceFloatingWall). Mirror it in the
-    // skeleton: first cell is a glass mockup card spanning 2×2,
-    // remaining cells use the device's true aspect so the
-    // skeleton footprint matches what comes next.
-    if (device) {
-      const aspect = `${device.width || 16} / ${device.height || 9}`;
-      const previewAspect = `${(device.width || 16) * 2} / ${(device.height || 9) * 2}`;
-      return (
-        <div className={`grid gap-3 ${cols}`}>
-          <div
-            className="dev-preview-skel"
-            style={{
-              gridColumn: 'span 2',
-              gridRow: 'span 2',
-              aspectRatio: previewAspect,
-            }}
-            aria-hidden
-          >
-            <div className="dev-preview-skel-mockup skeleton-card" />
-            <div className="dev-preview-skel-toggles">
-              <span className="skeleton-card" />
-              <span className="skeleton-card" />
-              <span className="skeleton-card" />
-            </div>
-          </div>
-          {Array.from({ length: Math.max(0, count - 4) }).map((_, i) => (
-            <div
-              key={i}
-              className="dev-spec-card skeleton-card"
-              style={{
-                aspectRatio: aspect,
-                animationDelay: `${i * 30}ms`,
-              }}
-            />
-          ))}
-        </div>
-      );
-    }
-
-    return (
-      <div className={`grid gap-4 ${cols}`}>
-        {Array.from({ length: count }).map((_, i) => (
-          <div
-            key={i}
-            className="tile-cell skeleton-card aspect-[3/2]"
-            style={{ animationDelay: `${i * 60}ms` }}
-          />
-        ))}
-      </div>
-    );
-  }
-  // Justified / salon — three rows of mixed-width tiles at the target row
-  // height. Approximate but reads as "content will land here."
-  const rows = [
-    [3, 4, 3],
-    [2, 3, 3, 3],
-    [4, 3, 4],
-  ];
+  const aspect = device ? `${device.width || 16} / ${device.height || 9}` : '16 / 9';
+  const previewAspect = device
+    ? `${(device.width || 16) * 2} / ${(device.height || 9) * 2}`
+    : '32 / 18';
   return (
-    <div className="flex flex-col gap-4">
-      {rows.map((row, ri) => (
-        <div key={ri} className="flex gap-4" style={{ height: rowHeight }}>
-          {row.map((flex, ci) => (
-            <div
-              key={ci}
-              className="tile-cell skeleton-card"
-              style={{ flex, animationDelay: `${(ri * row.length + ci) * 80}ms` }}
-            />
-          ))}
+    <div className={`grid gap-3 ${cols}`}>
+      <div
+        className="dev-preview-skel"
+        style={{
+          gridColumn: 'span 2',
+          gridRow: 'span 2',
+          aspectRatio: previewAspect,
+        }}
+        aria-hidden
+      >
+        <div className="dev-preview-skel-mockup skeleton-card" />
+        <div className="dev-preview-skel-toggles">
+          <span className="skeleton-card" />
+          <span className="skeleton-card" />
+          <span className="skeleton-card" />
         </div>
+      </div>
+      {Array.from({ length: Math.max(0, count - 4) }).map((_, i) => (
+        <div
+          key={i}
+          className="dev-spec-card skeleton-card"
+          style={{
+            aspectRatio: aspect,
+            animationDelay: `${i * 30}ms`,
+          }}
+        />
       ))}
     </div>
   );
@@ -324,33 +243,14 @@ function FilterDropdown(p: FilterDropdownProps) {
   );
 }
 
-interface ViewSizeControlsProps {
-  viewMode: ViewMode;
-  onView: (v: ViewMode) => void;
+interface SizeControlsProps {
   sizeMode: SizeMode;
   onSize: (s: SizeMode) => void;
 }
 
-function ViewSizeControls(p: ViewSizeControlsProps) {
+function SizeControls(p: SizeControlsProps) {
   return (
     <>
-      {/* View toggle — icon + label, icon first. Grid is the editorial
-          default (uniform 3:2 cards in a CSS grid); Justified packs by
-          the justified-layout library at a uniform row height. Salon
-          (mosaic) is no longer surfaced here — saved value still
-          round-trips for users who picked it before. */}
-      <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-lg">
-        <button
-          onClick={() => p.onView('grid')}
-          title="Grid"
-          className={`h-[26px] px-2.5 rounded-[5px] inline-flex items-center gap-1.5 text-[11px] transition-colors ${p.viewMode === 'grid' ? 'bg-ink text-paper' : 'text-muted hover:text-ink-2'}`}
-        ><AiOutlineBars size={13} /><span>Grid</span></button>
-        <button
-          onClick={() => p.onView('justified')}
-          title="Justified"
-          className={`h-[26px] px-2.5 rounded-[5px] inline-flex items-center gap-1.5 text-[11px] transition-colors ${p.viewMode === 'justified' || p.viewMode === 'salon' ? 'bg-ink text-paper' : 'text-muted hover:text-ink-2'}`}
-        ><AiOutlineAppstore size={13} /><span>Justified</span></button>
-      </div>
       <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-lg">
         {(['md', 'lg'] as SizeMode[]).map((k) => {
           const on = p.sizeMode === k;
@@ -457,36 +357,24 @@ export default function DiscoverPage() {
   const hasMoreRef = useRef(hasMore);
   cursorRef.current = cursor;
   hasMoreRef.current = hasMore;
-  const [viewMode, setViewMode] = useState<ViewMode>(readSavedViewMode);
   const [sizeMode, setSizeMode] = useState<SizeMode>(() => {
-    // SM was retired from the UI (too small to read; not worth the
-    // toggle slot). Saved 'sm' from older sessions silently bumps to
-    // 'md' on read so users land on something visible. New default
-    // is 'lg' — poster scale fits the editorial Liquid Surface
-    // direction better than mid-density.
+    // SM was retired from the UI; saved 'sm' from older sessions
+    // silently bumps to 'md'. New default is 'lg'.
     const saved = localStorage.getItem('wallpaper_size_mode') as SizeMode | null;
     if (saved === 'md' || saved === 'lg') return saved;
     if (saved === 'sm') return 'md';
     return 'lg';
   });
-  const viewModeRef = useRef(viewMode);
   const sizeModeRef = useRef(sizeMode);
-  viewModeRef.current = viewMode;
   sizeModeRef.current = sizeMode;
 
   const screen = useMemo(() => getScreenResolution(), []);
 
-  // Detect the visitor's actual device profile so grid mode can
-  // render the draggable mockup wall ("device floating island")
-  // tuned to *their* screen aspect. If detection fails (uncommon
-  // resolution, no match), the page silently falls back to the
-  // standard WallpaperGrid grid view.
+  // Detect the visitor's actual device profile so the floating-
+  // wall layout can size itself to *their* screen aspect.
+  // Synthetic fallback from window.screen ensures device is never
+  // null after first render, so we always run the floating wall.
   const { device: currentDevice } = useCurrentDevice();
-
-  const handleViewChange = (mode: ViewMode) => {
-    setViewMode(mode);
-    localStorage.setItem('wallpaper_view_mode', mode);
-  };
 
   const handleSizeChange = (size: SizeMode) => {
     setSizeMode(size);
@@ -494,7 +382,7 @@ export default function DiscoverPage() {
   };
 
   const busyRef = useRef(false);
-  const [staggerFrom, setStaggerFrom] = useState(0);
+  const [, setStaggerFrom] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
 
   const fetchWallpapers = useCallback(async (reset: boolean) => {
@@ -522,7 +410,7 @@ export default function DiscoverPage() {
       }
       const params: Parameters<typeof getWallpapers>[0] = {
         cursor: reset ? undefined : cursorRef.current,
-        limit: calculatePageSize(viewModeRef.current, sizeModeRef.current),
+        limit: calculatePageSize(sizeModeRef.current),
       };
       switch (filterMode) {
         case 'trending':
@@ -709,9 +597,7 @@ export default function DiscoverPage() {
               ddRef={filterRef}
               isAuthenticated={isAuthenticated}
             />
-            <ViewSizeControls
-              viewMode={viewMode}
-              onView={handleViewChange}
+            <SizeControls
               sizeMode={sizeMode}
               onSize={handleSizeChange}
             />
@@ -736,64 +622,34 @@ export default function DiscoverPage() {
         )}
 
         {loading ? (
-          <SkeletonRows
-            viewMode={viewMode}
-            sizeMode={sizeMode}
-            rowHeight={SIZE_HEIGHTS[sizeMode]}
-            device={currentDevice}
-          />
+          <SkeletonRows sizeMode={sizeMode} device={currentDevice} />
         ) : loadError && wallpapers.length === 0 ? (
-          // Initial fetch failed with nothing rendered — full-page
-          // error UI. Retry button reloads (re-runs every fetch).
           <ErrorState />
-        ) : (
+        ) : currentDevice ? (
           <>
-            {currentDevice && viewMode !== 'salon' ? (
-              // Recognised device + non-salon view → floating-
-              // island wall, same interaction as the device-detail
-              // page. 'grid' uses uniform device-aspect cells with
-              // cell-snap drag; 'justified' uses two-pass
-              // justified-layout with the preview pinned at top-
-              // left and a strip of tiles flowing next to it.
-              // Salon mode keeps the legacy mosaic layout
-              // (mixed-span tiles don't map to the 2×2 preview).
-              <DeviceFloatingWall
-                device={currentDevice}
-                wallpapers={wallpapers}
-                mode={viewMode === 'justified' ? 'justified' : 'grid'}
-                colsForWidth={(w) => {
-                  if (sizeMode === 'lg') {
-                    if (w >= 1500) return 4;
-                    if (w >= 1000) return 3;
-                    return 2;
-                  }
-                  if (w >= 1700) return 5;
-                  if (w >= 1100) return 4;
-                  if (w >= 760)  return 3;
+            <DeviceFloatingWall
+              device={currentDevice}
+              wallpapers={wallpapers}
+              colsForWidth={(w) => {
+                if (sizeMode === 'lg') {
+                  if (w >= 1500) return 4;
+                  if (w >= 1000) return 3;
                   return 2;
-                }}
-                justifiedRowHeight={SIZE_HEIGHTS[sizeMode]}
-              />
-            ) : (
-              <WallpaperGrid
-                wallpapers={wallpapers}
-                viewMode={viewMode}
-                sizeMode={sizeMode}
-                staggerFrom={staggerFrom}
-              />
-            )}
+                }
+                if (w >= 1700) return 5;
+                if (w >= 1100) return 4;
+                if (w >= 760)  return 3;
+                return 2;
+              }}
+            />
             <div ref={attachSentinel} />
             <FeedFooter
               state={footerState}
               count={wallpapers.length}
-              // Pagination retry — pass reset=true so a re-attempt
-              // starts from the beginning (the legacy false-arg call
-              // bailed when hasMore was false, which it always was
-              // on a failed first load).
               onRetry={() => fetchWallpapers(true)}
             />
           </>
-        )}
+        ) : null}
       </main>
       </div>
       <BackToTop />
