@@ -233,17 +233,26 @@ export default function DeviceWallpapersPage() {
   //     placement, but framer-motion's animate prop on x/y does.
   //   - Drag bounds, scroll-follow, and ripple-on-contact all need
   //     pixel-accurate positions.
-  const wallRef = useRef<HTMLDivElement>(null);
+  // Callback ref so we re-measure when the wall area actually
+  // mounts. The wall is rendered conditionally (after the loading
+  // skeleton resolves), so a plain useRef + useLayoutEffect with
+  // deps=[] would only fire on initial mount when the ref is null,
+  // never set up the ResizeObserver, and leave wallWidth=0
+  // forever — every tile ends up rendered 0px wide. Tracking the
+  // element in state lets the effect re-fire when it appears.
+  const [wallEl, setWallEl] = useState<HTMLDivElement | null>(null);
+  const wallRef = useCallback((el: HTMLDivElement | null) => {
+    setWallEl(el);
+  }, []);
   const [wallWidth, setWallWidth] = useState(0);
   useLayoutEffect(() => {
-    if (!wallRef.current) return;
-    const el = wallRef.current;
-    const update = () => setWallWidth(el.clientWidth);
+    if (!wallEl) return;
+    const update = () => setWallWidth(wallEl.clientWidth);
     update();
     const ro = new ResizeObserver(update);
-    ro.observe(el);
+    ro.observe(wallEl);
     return () => ro.disconnect();
-  }, []);
+  }, [wallEl]);
 
   // Responsive column count derived from the wall's actual width.
   // The hard breakpoints aim for ~260-380px tile cells across the
@@ -287,9 +296,8 @@ export default function DeviceWallpapersPage() {
   const [scrollFollowY, setScrollFollowY] = useState(0);
   useEffect(() => {
     const update = () => {
-      const wall = wallRef.current;
-      if (!wall) return;
-      const rect = wall.getBoundingClientRect();
+      if (!wallEl) return;
+      const rect = wallEl.getBoundingClientRect();
       // Top inset matches the page header / sticky nav so the
       // mockup doesn't slip under the chrome.
       const inset = 100;
@@ -306,7 +314,7 @@ export default function DeviceWallpapersPage() {
       window.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
     };
-  }, [previewH]);
+  }, [previewH, wallEl]);
 
   // When not dragging, the preview animates toward (0, scrollFollowY)
   // — its top-left "home" column with the scroll-follow Y. During
