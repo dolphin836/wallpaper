@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import {
   AiOutlineHeart, AiFillHeart,
@@ -217,6 +218,174 @@ export default function DeviceWallpapersPage() {
   const mockupClass = device ? `dev-mockup is-${device.platform}` : 'dev-mockup';
   const isAppleDesktop = device?.platform === 'desktop' && (device?.brand || '').toLowerCase() === 'apple';
 
+  // ── Floating-island layout state ─────────────────────────────
+  // The wallpaper grid is no longer a CSS Grid — it's a measured
+  // canvas of absolutely-positioned tiles. The device mockup is a
+  // draggable motion.div that "sits" in the top-left and pushes
+  // tiles out of its way as it moves. When the user releases drag,
+  // tiles flow back into the cells the mockup vacated.
+  //
+  // Why absolute positioning instead of CSS Grid:
+  //   - We need continuous (sub-cell) preview motion for the drag
+  //     interaction; grid placement is integer-only.
+  //   - Tiles need to spring-animate between cells as the preview's
+  //     occupied region changes; CSS Grid doesn't animate cell
+  //     placement, but framer-motion's animate prop on x/y does.
+  //   - Drag bounds, scroll-follow, and ripple-on-contact all need
+  //     pixel-accurate positions.
+  const wallRef = useRef<HTMLDivElement>(null);
+  const [wallWidth, setWallWidth] = useState(0);
+  useLayoutEffect(() => {
+    if (!wallRef.current) return;
+    const el = wallRef.current;
+    const update = () => setWallWidth(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Responsive column count derived from the wall's actual width.
+  // The hard breakpoints aim for ~260-380px tile cells across the
+  // range so the wall feels equally "dense" at every viewport.
+  const cols = useMemo(() => {
+    if (wallWidth >= 1500) return 6;
+    if (wallWidth >= 1200) return 5;
+    if (wallWidth >= 900)  return 4;
+    if (wallWidth >= 640)  return 3;
+    return 2;
+  }, [wallWidth]);
+
+  const gap = 12;
+  // Tile dimensions: width from container/cols, height from device
+  // aspect ratio. Clamped to keep the wall sane on extreme aspects
+  // (e.g., 32:9 ultrawide tile would otherwise be ~80px tall).
+  const tileW = wallWidth > 0 ? (wallWidth - gap * (cols - 1)) / cols : 0;
+  const rawTileH = tileW / (deviceAspect || 1.78);
+  const tileH = Math.max(140, Math.min(480, rawTileH));
+
+  const isPhone = device?.platform === 'phone';
+  const previewColSpan = 2;
+  const previewRowSpan = isPhone ? 1 : 2;
+  const previewW = tileW * previewColSpan + gap * (previewColSpan - 1);
+  const previewH = tileH * previewRowSpan + gap * (previewRowSpan - 1);
+
+  // Preview's pixel position relative to the wall's top-left,
+  // tracked as motion values so framer-motion can spring/animate
+  // them without React re-rendering the whole tree on every frame.
+  const previewX = useMotionValue(0);
+  const previewY = useMotionValue(0);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Scroll-follow: when the user has scrolled the wall enough that
+  // the top of the page is below the preview's home row, the
+  // preview's resting Y shifts downward to stay in view. The
+  // tile-placement logic treats this shifted Y just like a drag —
+  // tiles flow around the preview's *current* grid cell, wherever
+  // it happens to be. (User goal: 'preview always visible while
+  // scrolling, leaves moving relative to the boat'.)
+  const [scrollFollowY, setScrollFollowY] = useState(0);
+  useEffect(() => {
+    const update = () => {
+      const wall = wallRef.current;
+      if (!wall) return;
+      const rect = wall.getBoundingClientRect();
+      // Top inset matches the page header / sticky nav so the
+      // mockup doesn't slip under the chrome.
+      const inset = 100;
+      const targetY = Math.max(0, inset - rect.top);
+      // But never push the preview below the bottom edge of the
+      // wall, otherwise it'd float off into empty space.
+      const maxY = Math.max(0, rect.height - previewH - 8);
+      setScrollFollowY(Math.min(targetY, maxY));
+    };
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [previewH]);
+
+  // When not dragging, the preview animates toward (0, scrollFollowY)
+  // — its top-left "home" column with the scroll-follow Y. During
+  // drag, framer-motion owns x/y directly via the drag handlers.
+  useEffect(() => {
+    if (isDragging) return;
+    const ax = animate(previewX, 0, { type: 'spring', stiffness: 220, damping: 28 });
+    const ay = animate(previewY, scrollFollowY, { type: 'spring', stiffness: 220, damping: 28 });
+    return () => { ax.stop(); ay.stop(); };
+  }, [isDragging, scrollFollowY, previewX, previewY]);
+
+  // Mirror the preview's continuous motion into discrete grid cell
+  // coordinates that the tile-placement logic reads. Throttled by
+  // motion-value 'change' events (one tick per animation frame),
+  // which is plenty fast for the reflow to feel responsive while
+  // keeping React renders to one per actual cell change.
+  const previewColMV = useTransform(previewX, (x) => {
+    if (tileW <= 0) return 0;
+    const c = Math.round(x / (tileW + gap));
+    return Math.max(0, Math.min(cols - previewColSpan, c));
+  });
+  const previewRowMV = useTransform(previewY, (y) => {
+    if (tileH <= 0) return 0;
+    return Math.max(0, Math.round(y / (tileH + gap)));
+  });
+  const [previewCell, setPreviewCell] = useState({ col: 0, row: 0 });
+  useEffect(() => {
+    const u1 = previewColMV.on('change', (v) => setPreviewCell((p) => p.col === v ? p : { ...p, col: v }));
+    const u2 = previewRowMV.on('change', (v) => setPreviewCell((p) => p.row === v ? p : { ...p, row: v }));
+    return () => { u1(); u2(); };
+  }, [previewColMV, previewRowMV]);
+
+  // Walk the grid in row-major order, skip cells that fall inside
+  // the preview's footprint, and assign each tile the next free
+  // cell. As the preview moves, this mapping shifts — tiles spring
+  // to their new (col, row) via motion.div animate on x/y.
+  const tilePositions = useMemo(() => {
+    const out: { col: number; row: number }[] = [];
+    const n = wallpapers.length;
+    if (!device || n === 0 || cols <= 0) return out;
+    const { col: pc, row: pr } = previewCell;
+    const pcsEnd = pc + previewColSpan;
+    const prsEnd = pr + previewRowSpan;
+    let r = 0, c = 0;
+    while (out.length < n) {
+      const inPreview = c >= pc && c < pcsEnd && r >= pr && r < prsEnd;
+      if (!inPreview) {
+        out.push({ col: c, row: r });
+      }
+      c++;
+      if (c >= cols) { c = 0; r++; }
+      // Safety net for pathological inputs (shouldn't happen).
+      if (r > n + 4) break;
+    }
+    return out;
+  }, [wallpapers.length, cols, previewCell.col, previewCell.row, previewColSpan, previewRowSpan, device]);
+
+  // Total wall height — enough rows to hold all tiles plus the
+  // preview footprint, no matter where the preview is parked.
+  const wallHeight = useMemo(() => {
+    if (!device || cols <= 0 || wallpapers.length === 0) {
+      return previewH; // just the preview during empty/initial state
+    }
+    const lastTile = tilePositions[tilePositions.length - 1];
+    const lastTileBottom = lastTile ? (lastTile.row + 1) * tileH + lastTile.row * gap : 0;
+    const previewBottom = (previewCell.row + previewRowSpan) * tileH + (previewCell.row + previewRowSpan - 1) * gap;
+    return Math.max(lastTileBottom, previewBottom);
+  }, [tilePositions, tileH, gap, previewCell.row, previewRowSpan, previewH, device, cols, wallpapers.length]);
+
+  // Ripple-on-contact: tiles immediately adjacent to the preview's
+  // current footprint get a class that triggers a soft scaling +
+  // shadow ripple. Cheap CSS — no per-frame JS.
+  const isTileAdjacent = useCallback((col: number, row: number) => {
+    const { col: pc, row: pr } = previewCell;
+    const colNear = col >= pc - 1 && col < pc + previewColSpan + 1;
+    const rowNear = row >= pr - 1 && row < pr + previewRowSpan + 1;
+    return colNear && rowNear;
+  }, [previewCell, previewColSpan, previewRowSpan]);
+
   return (
     <div ref={rootRef} className="devices-page min-h-full">
       <div className="devices-mesh" aria-hidden />
@@ -253,32 +422,21 @@ export default function DeviceWallpapersPage() {
           )}
         </header>
 
-        {/* Wallpaper grid — first cell is the device mockup itself.
-            The mockup spans 2 cols × 1 row on phones (portrait
-            wallpapers are tall, one row is enough vertical) and
-            2 cols × 2 rows on tablet/laptop/desktop (landscape +
-            larger preview needs more height). grid-auto-flow: dense
-            backfills the remaining cells with wallpaper tiles, so
-            the preview reads as a top-left island the wall flows
-            around. Inside the preview cell the actual mockup is
-            position: sticky so it follows the viewport when the
-            user scrolls through the wallpapers. */}
+        {/* Floating-island wall. The wallpaper "grid" is an absolutely
+            positioned canvas, not CSS Grid — see the comment block
+            on layout state above for why. The device mockup is a
+            draggable motion.div pinned at the top-left by default;
+            tiles flow around its current footprint via the
+            tilePositions mapping, and spring to their new cells when
+            the mockup moves. Scroll-follow keeps the mockup in view
+            as the user scrolls past the wall's top. */}
         {loadingList && wallpapers.length === 0 ? (
-          // Skeleton mirrors the real layout: same preview cell
-          // footprint + same cols + same per-tile aspect.
-          <div className={`dev-wall-grid grid gap-3 ${
-            deviceAspect < 0.8 ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-4'
-            : deviceAspect < 1.2 ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-3'
-            : 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-3'
-          }`}>
-            <div
-              className="dev-preview-cell skeleton-card"
-              style={{
-                ['--dev-preview-row-span' as string]:
-                  device?.platform === 'phone' ? 1 : 2,
-              } as React.CSSProperties}
-            />
-            {Array.from({ length: 4 * (deviceAspect < 0.8 ? 4 : 3) }).map((_, i) => (
+          // Skeleton: still uses a plain CSS grid since absolute
+          // positioning needs measured wallWidth which isn't ready
+          // yet on first render.
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="skeleton-card" style={{ aspectRatio: `${(device?.width || 16) * 2} / ${(device?.height || 9) * (device?.platform === 'phone' ? 1 : 2)}`, gridColumn: 'span 2', gridRow: device?.platform === 'phone' ? 'auto' : 'span 2' }} />
+            {Array.from({ length: 12 }).map((_, i) => (
               <div
                 key={i}
                 className="dev-spec-card skeleton-card"
@@ -293,94 +451,133 @@ export default function DeviceWallpapersPage() {
           <EmptyForDevice device={device} />
         ) : (
           <>
-            <div className={`dev-wall-grid grid gap-3 ${
-              deviceAspect < 0.8 ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-4' // phone portrait → narrower cols
-              : deviceAspect < 1.2 ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-3' // tablet
-              : 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-3'                    // laptop / desktop landscape
-            }`}>
-              {device && (
-                <div
-                  className="dev-preview-cell"
+            <div
+              ref={wallRef}
+              className="dev-wall-area"
+              style={{ height: wallHeight }}
+            >
+              {/* Draggable device mockup. dragConstraints clamp it
+                  to the wall's rectangle, so the user can shove it
+                  around but never out into empty space. dragElastic
+                  is low (0.06) so the edges feel firm — this isn't
+                  a free-fly toy, it's a heavy preview frame. On
+                  drag end the spring-animate effect above pulls it
+                  back to (0, scrollFollowY). */}
+              {device && wallWidth > 0 && (
+                <motion.div
+                  className={`dev-preview-floating${isDragging ? ' is-dragging' : ''}`}
+                  drag
+                  dragConstraints={{
+                    left: 0,
+                    top: 0,
+                    right: Math.max(0, wallWidth - previewW),
+                    bottom: Math.max(0, wallHeight - previewH),
+                  }}
+                  dragElastic={0.06}
+                  dragMomentum={false}
+                  onDragStart={() => setIsDragging(true)}
+                  onDragEnd={() => setIsDragging(false)}
+                  whileDrag={{ scale: 1.02, cursor: 'grabbing' }}
                   style={{
-                    ['--dev-preview-row-span' as string]:
-                      device.platform === 'phone' ? 1 : 2,
-                  } as React.CSSProperties}
+                    x: previewX,
+                    y: previewY,
+                    width: previewW,
+                    height: previewH,
+                  }}
                 >
-                  <div className="dev-preview-sticky">
+                  <div
+                    className="dev-page-sticky-inner"
+                    style={{
+                      ['--featured-bg' as string]: featuredCover ? `url(${JSON.stringify(featuredCover)})` : 'none',
+                    } as React.CSSProperties}
+                  >
+                    <div className="dev-page-sticky-bg" aria-hidden />
                     <div
-                      className="dev-page-sticky-inner"
+                      className={`${mockupClass}${isAppleDesktop ? ' is-imac' : ''}`}
                       style={{
-                        ['--featured-bg' as string]: featuredCover ? `url(${JSON.stringify(featuredCover)})` : 'none',
+                        ['--dev-aspect' as string]: `${device.width || 16} / ${device.height || 9}`,
                       } as React.CSSProperties}
+                      aria-hidden
                     >
-                      <div className="dev-page-sticky-bg" aria-hidden />
-                      <div
-                        className={`${mockupClass}${isAppleDesktop ? ' is-imac' : ''}`}
-                        style={{
-                          ['--dev-aspect' as string]: `${device.width || 16} / ${device.height || 9}`,
-                        } as React.CSSProperties}
-                        aria-hidden
-                      >
-                        <div className="dev-mockup-screen">
-                          {featuredCover ? (
-                            <img src={featuredCover} alt="" />
-                          ) : (
-                            <div className="dev-frame-empty" />
-                          )}
-                          {previewMode === 'lock' && (
-                            <PreviewLockOverlay platform={device.platform} />
-                          )}
-                          {previewMode === 'home' && (
-                            <PreviewHomeOverlay platform={device.platform} />
-                          )}
-                        </div>
-                        {device.platform === 'phone' && <span className="dev-mockup-notch" aria-hidden />}
-                        {device.platform === 'laptop' && (
-                          <>
-                            <span className="dev-mockup-laptop-base" aria-hidden />
-                            <span className="dev-mockup-laptop-notch" aria-hidden />
-                          </>
+                      <div className="dev-mockup-screen">
+                        {featuredCover ? (
+                          <img src={featuredCover} alt="" draggable={false} />
+                        ) : (
+                          <div className="dev-frame-empty" />
                         )}
-                        {device.platform === 'desktop' && !isAppleDesktop && (
-                          <>
-                            <span className="dev-mockup-stand-neck" aria-hidden />
-                            <span className="dev-mockup-stand-foot" aria-hidden />
-                          </>
+                        {previewMode === 'lock' && (
+                          <PreviewLockOverlay platform={device.platform} />
+                        )}
+                        {previewMode === 'home' && (
+                          <PreviewHomeOverlay platform={device.platform} />
                         )}
                       </div>
+                      {device.platform === 'phone' && <span className="dev-mockup-notch" aria-hidden />}
+                      {device.platform === 'laptop' && (
+                        <>
+                          <span className="dev-mockup-laptop-base" aria-hidden />
+                          <span className="dev-mockup-laptop-notch" aria-hidden />
+                        </>
+                      )}
+                      {device.platform === 'desktop' && !isAppleDesktop && (
+                        <>
+                          <span className="dev-mockup-stand-neck" aria-hidden />
+                          <span className="dev-mockup-stand-foot" aria-hidden />
+                        </>
+                      )}
+                    </div>
 
-                      {/* Preview-mode toggles. Three pill buttons —
-                          Plain (just the wallpaper), Home (dock +
-                          status bar / menu bar), Lock (centered
-                          clock + date). */}
-                      <div className="dev-mode-toggles" role="radiogroup" aria-label="Preview mode">
-                        {(['plain', 'home', 'lock'] as const).map((m) => (
-                          <button
-                            key={m}
-                            type="button"
-                            role="radio"
-                            aria-checked={previewMode === m}
-                            onClick={() => setPreviewMode(m)}
-                            className={`dev-mode-pill${previewMode === m ? ' is-on' : ''}`}
-                          >
-                            {m === 'plain' ? 'Plain' : m === 'home' ? 'Home' : 'Lock'}
-                          </button>
-                        ))}
-                      </div>
+                    <div className="dev-mode-toggles" role="radiogroup" aria-label="Preview mode">
+                      {(['plain', 'home', 'lock'] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          role="radio"
+                          aria-checked={previewMode === m}
+                          onClick={() => setPreviewMode(m)}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          className={`dev-mode-pill${previewMode === m ? ' is-on' : ''}`}
+                        >
+                          {m === 'plain' ? 'Plain' : m === 'home' ? 'Home' : 'Lock'}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                </div>
+                </motion.div>
               )}
-              {wallpapers.map((wp, i) => (
-                <DevTile
-                  key={wp.id}
-                  wallpaper={wp}
-                  device={device}
-                  index={i}
-                  isFeatured={i === featuredIdx}
-                  onHover={onTileHover}
-                />
-              ))}
+
+              {/* Absolutely-positioned wallpaper tiles. Each one
+                  animates its (x, y) toward the cell assigned by
+                  tilePositions[i]; framer-motion's spring smooths
+                  the reflow when the preview moves. Tiles within
+                  one cell of the preview footprint get a 'rippled'
+                  class for the contact-edge wave. */}
+              {wallpapers.map((wp, i) => {
+                const pos = tilePositions[i];
+                if (!pos) return null;
+                const adj = isTileAdjacent(pos.col, pos.row);
+                return (
+                  <motion.div
+                    key={wp.id}
+                    className={`dev-wall-slot${adj ? ' is-rippled' : ''}`}
+                    initial={false}
+                    animate={{
+                      x: pos.col * (tileW + gap),
+                      y: pos.row * (tileH + gap),
+                    }}
+                    transition={{ type: 'spring', stiffness: 230, damping: 28, mass: 0.6 }}
+                    style={{ width: tileW, height: tileH }}
+                  >
+                    <DevTile
+                      wallpaper={wp}
+                      device={device}
+                      index={i}
+                      isFeatured={i === featuredIdx}
+                      onHover={onTileHover}
+                    />
+                  </motion.div>
+                );
+              })}
             </div>
 
             <div ref={attachSentinel} />

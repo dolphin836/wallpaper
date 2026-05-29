@@ -1274,51 +1274,87 @@
   background: var(--color-paper-2);
 }
 
-/* Device-detail wallpaper grid. The device mockup is the first
-   child of the grid, not a separate right-column aside — it
-   occupies a 2-col × 1-row footprint on phones and 2-col × 2-row
-   on tablet / laptop / desktop, with grid-auto-flow: dense so the
-   wallpaper tiles backfill the remaining cells. Visually reads
-   as 'the device sitting at the top-left of its wall, with the
-   wall flowing around it'. Inside the cell the mockup is sticky
-   so it follows the viewport while the user scrolls past. */
-.dev-wall-grid {
-  grid-auto-flow: dense;
-  align-items: start;
+/* Device-detail floating-island wall. The wallpaper "grid" is an
+   absolutely-positioned canvas, not CSS Grid — see the layout-
+   state comment in DeviceWallpapersPage.tsx for the rationale.
+   Tiles are slot wrappers placed by JS via framer-motion x/y; the
+   preview is a draggable motion.div that pushes tiles out of its
+   way as it moves. */
+.dev-wall-area {
+  position: relative;
+  width: 100%;
+  /* height is set inline from wallHeight in the page component. */
+  touch-action: pan-y; /* keep vertical scroll natural; drag handles
+                          its own horizontal pointer-down. */
 }
-.dev-preview-cell {
-  grid-column: 1 / span 2;
-  grid-row: span var(--dev-preview-row-span, 2);
-  align-self: stretch;
-  /* Slight inset so the mockup doesn't crowd the wall tiles. */
-  padding: 0 4px 4px 0;
+.dev-wall-slot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
 }
-@media (max-width: 720px) {
-  /* On very small viewports the 2-col preview collapses to full
-     width and goes static — sticky inside a tiny cell isn't worth
-     fighting for there. */
-  .dev-preview-cell {
-    grid-column: 1 / -1;
-    grid-row: auto;
-    padding: 0;
+/* The Link inside DevTile fills the slot exactly. The
+   .dev-spec-card-screen inside still uses aspectRatio for the
+   device aspect, but the outer card stretches to 100/100% so
+   any leftover slot-cell space wraps the card cleanly. */
+.dev-wall-slot > .dev-spec-card {
+  width: 100%;
+  height: 100%;
+}
+.dev-wall-slot > .dev-spec-card > .dev-spec-card-screen {
+  flex: 1;
+  height: 100%;
+  /* Reset the inline aspectRatio's effect; the slot already sized
+     us to the device aspect so we just want to fill. */
+  aspect-ratio: auto !important;
+}
+/* Tiles adjacent to the preview footprint pulse with a soft
+   shadow / scale tick — the "ripple at contact edge" the user
+   asked for. Uses transform so it doesn't trigger layout. */
+.dev-wall-slot.is-rippled {
+  z-index: 1;
+}
+.dev-wall-slot.is-rippled > .dev-spec-card {
+  animation: dev-tile-ripple 1.6s ease-in-out infinite;
+}
+@keyframes dev-tile-ripple {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 oklch(70% 0.08 250 / 0);
+  }
+  50% {
+    transform: scale(1.014);
+    box-shadow: 0 8px 22px -10px oklch(70% 0.12 250 / 0.35);
   }
 }
-.dev-preview-sticky {
-  position: sticky;
-  top: 100px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Capped so the mockup never overlaps the page header when the
-     cell is tall enough for sticky to engage. */
-  max-height: calc(100vh - 140px);
+@media (prefers-reduced-motion: reduce) {
+  .dev-wall-slot.is-rippled > .dev-spec-card { animation: none; }
 }
-@media (max-width: 720px) {
-  .dev-preview-sticky {
-    position: static;
-    max-height: none;
-  }
+
+/* The draggable preview. position: absolute so it sits on the
+   wall canvas; x/y are driven by framer-motion. Cursor + subtle
+   shadow lift on hover hint at draggability; whileDrag scales it
+   1.02× for tactile feedback. */
+.dev-preview-floating {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  cursor: grab;
+  will-change: transform;
+  /* The visual frame inside (.dev-page-sticky-inner) already has
+     its own shadow + glass card, so this wrapper is invisible. */
 }
+.dev-preview-floating.is-dragging {
+  cursor: grabbing;
+  z-index: 6;
+}
+.dev-preview-floating > .dev-page-sticky-inner {
+  width: 100%;
+  height: 100%;
+  /* Inner card fills the motion.div's measured w/h exactly. */
+}
+
 /* Sticky frame — a glass-card holding the mockup + mode toggles.
    The featured wallpaper itself paints a heavily-blurred backdrop
    inside the card via .dev-page-sticky-bg (the --featured-bg URL
