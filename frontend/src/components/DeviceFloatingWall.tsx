@@ -121,14 +121,30 @@ export default function DeviceFloatingWall({
         previewH: tileH * previewRowSpan + gap * (previewRowSpan - 1),
       };
     }
-    // Justified mode: size the preview from the target row height
-    // (≈2 rows tall) and the device's natural aspect, capped to a
-    // sensible fraction of the wall so tiles still fit next to it.
-    const idealH = 2 * justifiedRowHeight + gap;
-    const idealW = idealH * deviceAspect;
-    const cap = Math.max(220, wallWidth * 0.48);
-    const w = Math.min(idealW, cap);
-    return { previewW: w, previewH: w / deviceAspect };
+    // Justified mode: size the preview to an *integer* number of
+    // justified rows so tiles in the side strip share the same
+    // exact row height as the rest of the wall (avoids the gap
+    // below short strip tiles). Walk N = 1..3 picking the largest
+    // that still leaves a reasonable side-strip width (~280px).
+    const minStripW = 280;
+    const maxPreviewW = Math.max(160, wallWidth - minStripW - gap);
+    let bestN = 1;
+    for (let N = 1; N <= 3; N++) {
+      const h = N * justifiedRowHeight + (N - 1) * gap;
+      const w = h * deviceAspect;
+      if (w > maxPreviewW) break;
+      bestN = N;
+    }
+    let previewH = bestN * justifiedRowHeight + (bestN - 1) * gap;
+    let previewW = previewH * deviceAspect;
+    // If even N=1 overflows the cap (very narrow wall), shrink the
+    // preview proportionally and accept that strip tiles will be
+    // shorter than the rest of the wall.
+    if (previewW > maxPreviewW) {
+      previewW = maxPreviewW;
+      previewH = previewW / deviceAspect;
+    }
+    return { previewW, previewH };
   }, [mode, tileW, tileH, deviceAspect, justifiedRowHeight, wallWidth]);
 
   // Mockup sizing — solve for the largest aspect-correct screen
@@ -158,24 +174,27 @@ export default function DeviceFloatingWall({
   const [isDragging, setIsDragging] = useState(false);
   const [parkedCell, setParkedCell] = useState({ col: 0, row: 0 });
 
-  // Scroll-follow row — integer row index, snaps preview cell-
-  // by-cell as the user scrolls past it, keeping the mockup
-  // visible without breaking grid alignment. Grid mode only;
-  // justified mode keeps the preview at top-left.
-  const [scrollFollowRow, setScrollFollowRow] = useState(0);
+  // Scroll-follow Y — keeps the preview in view as the user scrolls
+  // through the wall. Grid mode snaps to integer rows so the
+  // preview stays cell-aligned; justified mode is continuous since
+  // there's no cell grid to align to.
+  const [scrollFollowY, setScrollFollowY] = useState(0);
   useEffect(() => {
-    if (mode !== 'grid') {
-      setScrollFollowRow(0);
-      return;
-    }
     const update = () => {
-      if (!wallEl || tileH <= 0) return;
+      if (!wallEl) return;
       const rect = wallEl.getBoundingClientRect();
       const headerInset = 100;
       const targetY = Math.max(0, headerInset - rect.top);
-      const cellH = tileH + gap;
-      const maxRow = Math.max(0, Math.floor((rect.height - previewH) / cellH));
-      setScrollFollowRow(Math.min(maxRow, Math.max(0, Math.round(targetY / cellH))));
+      const maxY = Math.max(0, rect.height - previewH);
+      if (mode === 'grid') {
+        if (tileH <= 0) return;
+        const cellH = tileH + gap;
+        const maxRow = Math.max(0, Math.floor(maxY / cellH));
+        const row = Math.min(maxRow, Math.max(0, Math.round(targetY / cellH)));
+        setScrollFollowY(row * cellH);
+      } else {
+        setScrollFollowY(Math.min(maxY, targetY));
+      }
     };
     update();
     window.addEventListener('scroll', update, { passive: true });
@@ -187,23 +206,24 @@ export default function DeviceFloatingWall({
   }, [mode, wallEl, previewH, tileH, gap]);
 
   // Settle target on drag end / scroll change.
-  //   Grid mode: parked col fixed; row = max(parked, scrollFollowRow)
-  //     so preview slides down with scroll but never above parked.
-  //   Justified mode: preview always returns to (0, 0) — no cell
-  //     snap, just free drag-and-spring-back-home.
+  //   Grid: parked col fixed; row = max(parked baseY, scrollFollowY).
+  //   Justified: no cell snap; preview hovers at scrollFollowY so it
+  //     stays in view as the user scrolls the wall.
   useEffect(() => {
     if (isDragging) return;
     let targetX = 0;
     let targetY = 0;
     if (mode === 'grid') {
       targetX = parkedCell.col * (tileW + gap);
-      const targetRow = Math.max(parkedCell.row, scrollFollowRow);
-      targetY = targetRow * (tileH + gap);
+      const baseY = parkedCell.row * (tileH + gap);
+      targetY = Math.max(baseY, scrollFollowY);
+    } else {
+      targetY = scrollFollowY;
     }
     const ax = animate(previewX, targetX, { type: 'spring', stiffness: 220, damping: 28 });
     const ay = animate(previewY, targetY, { type: 'spring', stiffness: 220, damping: 28 });
     return () => { ax.stop(); ay.stop(); };
-  }, [mode, isDragging, parkedCell.col, parkedCell.row, scrollFollowRow, tileW, tileH, gap, previewX, previewY]);
+  }, [mode, isDragging, parkedCell.col, parkedCell.row, scrollFollowY, tileW, tileH, gap, previewX, previewY]);
 
   // 70% hysteresis snap for the running preview cell — grid mode
   // only (justified has no notion of discrete cells, preview stays
@@ -278,13 +298,15 @@ export default function DeviceFloatingWall({
     // Justified two-pass layout
     const ratios = wallpapers.map((w) => (w.width > 0 && w.height > 0 ? w.width / w.height : 4 / 3));
     const narrowW = Math.max(160, wallWidth - previewW - gap);
-    const stripRowH = Math.max(140, (previewH - gap) / 2);
+    // Use the SAME target row height as the rest of the wall — the
+    // preview is sized to an integer N rows above, so up to N rows
+    // of full-height tiles align cleanly next to it.
     const stripRes = justifiedLayout(ratios, {
       containerWidth: narrowW,
       containerPadding: 0,
       boxSpacing: gap,
-      targetRowHeight: stripRowH,
-      showWidows: false,
+      targetRowHeight: justifiedRowHeight,
+      showWidows: true,
       forceAspectRatio: false,
     });
     // How many items fit within the preview's vertical footprint?
