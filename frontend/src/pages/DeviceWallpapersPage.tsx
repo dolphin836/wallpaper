@@ -58,7 +58,12 @@ export default function DeviceWallpapersPage() {
     try {
       const res = await getWallpapersForDevice(slug, {
         cursor: reset ? undefined : cursorRef.current,
-        limit: 24,
+        // 48 items per page: well under the backend's service-
+        // layer cap (100), but big enough that pagination keeps
+        // up with fast scroll. Combined with the 24-tile pending
+        // buffer + 4-viewport IO rootMargin, scrolling shouldn't
+        // outrun the wall's growth.
+        limit: 48,
       });
       const { items, next_cursor, has_more } = res.data.data;
       let appendedFresh = 0;
