@@ -1274,42 +1274,50 @@
   background: var(--color-paper-2);
 }
 
-/* Device-detail page layout: left column = title + scrolling grid,
-   right column = sticky mockup that reflects whichever tile is
-   hovered. The mockup re-anchors itself near the top of the viewport
-   so it stays in view as the user scrolls through the grid. On
-   narrower screens (< 960px) the right column moves above the
-   grid and stops being sticky. */
-.dev-page-grid {
-  display: grid;
-  grid-template-columns: 1fr minmax(280px, 380px);
-  gap: 56px;
-  /* align-items: stretch (default) — without this the right aside
-     only occupies its own content height, position:sticky inside
-     stops following once the user scrolls past the aside's bottom,
-     and the mockup snaps out of viewport center for the rest of the
-     scroll. Stretching to match the left column gives sticky the
-     full vertical rail it needs to stay centered the whole way down. */
+/* Device-detail wallpaper grid. The device mockup is the first
+   child of the grid, not a separate right-column aside — it
+   occupies a 2-col × 1-row footprint on phones and 2-col × 2-row
+   on tablet / laptop / desktop, with grid-auto-flow: dense so the
+   wallpaper tiles backfill the remaining cells. Visually reads
+   as 'the device sitting at the top-left of its wall, with the
+   wall flowing around it'. Inside the cell the mockup is sticky
+   so it follows the viewport while the user scrolls past. */
+.dev-wall-grid {
+  grid-auto-flow: dense;
+  align-items: start;
 }
-@media (max-width: 960px) {
-  .dev-page-grid {
-    grid-template-columns: 1fr;
-    gap: 32px;
+.dev-preview-cell {
+  grid-column: 1 / span 2;
+  grid-row: span var(--dev-preview-row-span, 2);
+  align-self: stretch;
+  /* Slight inset so the mockup doesn't crowd the wall tiles. */
+  padding: 0 4px 4px 0;
+}
+@media (max-width: 720px) {
+  /* On very small viewports the 2-col preview collapses to full
+     width and goes static — sticky inside a tiny cell isn't worth
+     fighting for there. */
+  .dev-preview-cell {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    padding: 0;
   }
-  .dev-page-grid .dev-page-right { order: -1; }
-  .dev-page-grid .dev-page-sticky { position: static; }
 }
-/* Sticky aside: occupies the visible viewport area minus a top
-   offset; mockup + mode toggles flex-center inside. As the user
-   scrolls the grid, this whole vertical band stays in place with
-   the mockup hovering at the middle of the viewport rather than
-   pinned to the top. */
-.dev-page-sticky {
+.dev-preview-sticky {
   position: sticky;
   top: 100px;
-  height: calc(100vh - 140px);
   display: flex;
   align-items: center;
+  justify-content: center;
+  /* Capped so the mockup never overlaps the page header when the
+     cell is tall enough for sticky to engage. */
+  max-height: calc(100vh - 140px);
+}
+@media (max-width: 720px) {
+  .dev-preview-sticky {
+    position: static;
+    max-height: none;
+  }
 }
 /* Sticky frame — a glass-card holding the mockup + mode toggles.
    The featured wallpaper itself paints a heavily-blurred backdrop
@@ -1363,13 +1371,6 @@
   opacity: 0.5;
   filter: blur(48px) saturate(1.7) brightness(0.92);
 }
-@media (max-width: 960px) {
-  .dev-page-sticky {
-    height: auto;
-    align-items: stretch;
-  }
-}
-
 /* Mode pills under the mockup — three radio-style toggles
    (Plain / Home / Lock). Active pill goes ink-on-paper; idle pills
    stay paper-on-hair. */

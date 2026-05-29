@@ -232,177 +232,186 @@ export default function DeviceWallpapersPage() {
 
       <div className="relative z-10 px-6 sm:px-10 lg:px-14 py-10 max-w-[1600px] mx-auto">
 
-        <div className="dev-page-grid">
-          {/* LEFT — title + scrolling wallpaper grid. */}
-          <div className="dev-page-left min-w-0">
-            <header className="mb-8">
-              <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
-                Wallpapers for · {device?.brand || '—'}
-              </div>
-              {loadingDevice ? (
-                <div className="c-detail-skel-bar h-[44px] w-2/3 mt-3" />
-              ) : (
-                <h1 className="display text-[clamp(34px,3.8vw,52px)] leading-[1.05] mt-2 tracking-[-0.012em] text-ink">
-                  {device?.name}
-                </h1>
-              )}
-              {device && (
-                <div className="mono text-[11px] tracking-[0.18em] uppercase text-muted mt-3 flex flex-wrap gap-x-4 gap-y-1 tabular-nums">
-                  <span>{device.width.toLocaleString()} × {device.height.toLocaleString()}</span>
-                  {device.ppi > 0 && <span>· {device.ppi} ppi</span>}
-                  <span>· {deviceAspect.toFixed(2)}:1</span>
-                  <span>· {wallpaperCount.toLocaleString()} wallpapers</span>
-                </div>
-              )}
-            </header>
-
-            {/* Grid — each cell at device aspect so the wall reads as
-                'these all fit'. Hover a tile to swap it into the
-                sticky frame on the right. */}
-            {loadingList && wallpapers.length === 0 ? (
-              // 4 rows × cols-at-lg of the actual grid, each cell at
-              // the device's true aspect — so the skeleton occupies
-              // the same footprint the real grid will fill.
-              <div className={`grid gap-3 ${
-                deviceAspect < 0.8 ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-4'
-                : deviceAspect < 1.2 ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-3'
-                : 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-3'
-              }`}>
-                {Array.from({ length: 4 * (deviceAspect < 0.8 ? 4 : 3) }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="dev-spec-card skeleton-card"
-                    style={{
-                      aspectRatio: `${device?.width || 16} / ${device?.height || 9}`,
-                      animationDelay: `${i * 30}ms`,
-                    }}
-                  />
-                ))}
-              </div>
-            ) : wallpapers.length === 0 && !loadingDevice ? (
-              <EmptyForDevice device={device} />
-            ) : (
-              <>
-                <div className={`grid gap-3 ${
-                  deviceAspect < 0.8 ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-4' // phone portrait → narrower cols
-                  : deviceAspect < 1.2 ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-3' // tablet
-                  : 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-3'                    // laptop / desktop landscape
-                }`}>
-                  {wallpapers.map((wp, i) => (
-                    <DevTile
-                      key={wp.id}
-                      wallpaper={wp}
-                      device={device}
-                      index={i}
-                      isFeatured={i === featuredIdx}
-                      onHover={onTileHover}
-                    />
-                  ))}
-                </div>
-
-                <div ref={attachSentinel} />
-                <FeedFooter
-                  state={(
-                    loadError ? 'retry'
-                    : loadingList && hasMore ? 'loading'
-                    : !hasMore && wallpapers.length > 0 ? 'end'
-                    : 'idle'
-                  ) as FooterState}
-                  count={wallpapers.length}
-                  onRetry={() => fetchPage(false)}
-                />
-              </>
-            )}
-
-            {/* Footer copy */}
-            {device && (
-              <section className="mt-14 border-t border-hair pt-7">
-                <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted mb-3">
-                  About the {device.name}
-                </div>
-                <p className="text-[13px] leading-[1.65] text-ink-2 max-w-[640px]">
-                  Every wallpaper on this page has a variant cropped exactly for
-                  the {device.name}'s {device.width.toLocaleString()} × {device.height.toLocaleString()} display. Click into
-                  any wallpaper to see the per-device download list — or use the
-                  Download button on the detail page, which automatically picks
-                  the right variant for your current screen.
-                </p>
-              </section>
-            )}
+        <header className="mb-8">
+          <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
+            Wallpapers for · {device?.brand || '—'}
           </div>
-
-          {/* RIGHT — sticky device mockup showing the hovered tile.
-              On wide screens it stays in view as the user scrolls the
-              grid; on narrow screens this column moves above the grid
-              via the dev-page-grid responsive collapse. */}
-          <aside className="dev-page-right">
-            <div className="dev-page-sticky">
-              <div
-                className="dev-page-sticky-inner"
-                style={{
-                  ['--featured-bg' as string]: featuredCover ? `url(${JSON.stringify(featuredCover)})` : 'none',
-                } as React.CSSProperties}
-              >
-                <div className="dev-page-sticky-bg" aria-hidden />
-                <div
-                  className={`${mockupClass}${isAppleDesktop ? ' is-imac' : ''}`}
-                  style={{
-                    ['--dev-aspect' as string]: `${device?.width || 16} / ${device?.height || 9}`,
-                  } as React.CSSProperties}
-                  aria-hidden
-                >
-                  <div className="dev-mockup-screen">
-                    {featuredCover ? (
-                      <img src={featuredCover} alt="" />
-                    ) : (
-                      <div className="dev-frame-empty" />
-                    )}
-                    {previewMode === 'lock' && device && (
-                      <PreviewLockOverlay platform={device.platform} />
-                    )}
-                    {previewMode === 'home' && device && (
-                      <PreviewHomeOverlay platform={device.platform} />
-                    )}
-                  </div>
-                  {device?.platform === 'phone' && <span className="dev-mockup-notch" aria-hidden />}
-                  {device?.platform === 'laptop' && (
-                    <>
-                      <span className="dev-mockup-laptop-base" aria-hidden />
-                      <span className="dev-mockup-laptop-notch" aria-hidden />
-                    </>
-                  )}
-                  {device?.platform === 'desktop' && !isAppleDesktop && (
-                    <>
-                      <span className="dev-mockup-stand-neck" aria-hidden />
-                      <span className="dev-mockup-stand-foot" aria-hidden />
-                    </>
-                  )}
-                </div>
-
-                {/* Preview-mode toggles. Three pill buttons — Plain
-                    (just the wallpaper), Home (dock + status bar /
-                    menu bar), Lock (centered clock + date). Same set
-                    of states common preview tools surface. */}
-                {device && (
-                  <div className="dev-mode-toggles" role="radiogroup" aria-label="Preview mode">
-                    {(['plain', 'home', 'lock'] as const).map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        role="radio"
-                        aria-checked={previewMode === m}
-                        onClick={() => setPreviewMode(m)}
-                        className={`dev-mode-pill${previewMode === m ? ' is-on' : ''}`}
-                      >
-                        {m === 'plain' ? 'Plain' : m === 'home' ? 'Home' : 'Lock'}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+          {loadingDevice ? (
+            <div className="c-detail-skel-bar h-[44px] w-2/3 mt-3" />
+          ) : (
+            <h1 className="display text-[clamp(34px,3.8vw,52px)] leading-[1.05] mt-2 tracking-[-0.012em] text-ink">
+              {device?.name}
+            </h1>
+          )}
+          {device && (
+            <div className="mono text-[11px] tracking-[0.18em] uppercase text-muted mt-3 flex flex-wrap gap-x-4 gap-y-1 tabular-nums">
+              <span>{device.width.toLocaleString()} × {device.height.toLocaleString()}</span>
+              {device.ppi > 0 && <span>· {device.ppi} ppi</span>}
+              <span>· {deviceAspect.toFixed(2)}:1</span>
+              <span>· {wallpaperCount.toLocaleString()} wallpapers</span>
             </div>
-          </aside>
-        </div>
+          )}
+        </header>
+
+        {/* Wallpaper grid — first cell is the device mockup itself.
+            The mockup spans 2 cols × 1 row on phones (portrait
+            wallpapers are tall, one row is enough vertical) and
+            2 cols × 2 rows on tablet/laptop/desktop (landscape +
+            larger preview needs more height). grid-auto-flow: dense
+            backfills the remaining cells with wallpaper tiles, so
+            the preview reads as a top-left island the wall flows
+            around. Inside the preview cell the actual mockup is
+            position: sticky so it follows the viewport when the
+            user scrolls through the wallpapers. */}
+        {loadingList && wallpapers.length === 0 ? (
+          // Skeleton mirrors the real layout: same preview cell
+          // footprint + same cols + same per-tile aspect.
+          <div className={`dev-wall-grid grid gap-3 ${
+            deviceAspect < 0.8 ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-4'
+            : deviceAspect < 1.2 ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-3'
+            : 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-3'
+          }`}>
+            <div
+              className="dev-preview-cell skeleton-card"
+              style={{
+                ['--dev-preview-row-span' as string]:
+                  device?.platform === 'phone' ? 1 : 2,
+              } as React.CSSProperties}
+            />
+            {Array.from({ length: 4 * (deviceAspect < 0.8 ? 4 : 3) }).map((_, i) => (
+              <div
+                key={i}
+                className="dev-spec-card skeleton-card"
+                style={{
+                  aspectRatio: `${device?.width || 16} / ${device?.height || 9}`,
+                  animationDelay: `${i * 30}ms`,
+                }}
+              />
+            ))}
+          </div>
+        ) : wallpapers.length === 0 && !loadingDevice ? (
+          <EmptyForDevice device={device} />
+        ) : (
+          <>
+            <div className={`dev-wall-grid grid gap-3 ${
+              deviceAspect < 0.8 ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-4' // phone portrait → narrower cols
+              : deviceAspect < 1.2 ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-3' // tablet
+              : 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-3'                    // laptop / desktop landscape
+            }`}>
+              {device && (
+                <div
+                  className="dev-preview-cell"
+                  style={{
+                    ['--dev-preview-row-span' as string]:
+                      device.platform === 'phone' ? 1 : 2,
+                  } as React.CSSProperties}
+                >
+                  <div className="dev-preview-sticky">
+                    <div
+                      className="dev-page-sticky-inner"
+                      style={{
+                        ['--featured-bg' as string]: featuredCover ? `url(${JSON.stringify(featuredCover)})` : 'none',
+                      } as React.CSSProperties}
+                    >
+                      <div className="dev-page-sticky-bg" aria-hidden />
+                      <div
+                        className={`${mockupClass}${isAppleDesktop ? ' is-imac' : ''}`}
+                        style={{
+                          ['--dev-aspect' as string]: `${device.width || 16} / ${device.height || 9}`,
+                        } as React.CSSProperties}
+                        aria-hidden
+                      >
+                        <div className="dev-mockup-screen">
+                          {featuredCover ? (
+                            <img src={featuredCover} alt="" />
+                          ) : (
+                            <div className="dev-frame-empty" />
+                          )}
+                          {previewMode === 'lock' && (
+                            <PreviewLockOverlay platform={device.platform} />
+                          )}
+                          {previewMode === 'home' && (
+                            <PreviewHomeOverlay platform={device.platform} />
+                          )}
+                        </div>
+                        {device.platform === 'phone' && <span className="dev-mockup-notch" aria-hidden />}
+                        {device.platform === 'laptop' && (
+                          <>
+                            <span className="dev-mockup-laptop-base" aria-hidden />
+                            <span className="dev-mockup-laptop-notch" aria-hidden />
+                          </>
+                        )}
+                        {device.platform === 'desktop' && !isAppleDesktop && (
+                          <>
+                            <span className="dev-mockup-stand-neck" aria-hidden />
+                            <span className="dev-mockup-stand-foot" aria-hidden />
+                          </>
+                        )}
+                      </div>
+
+                      {/* Preview-mode toggles. Three pill buttons —
+                          Plain (just the wallpaper), Home (dock +
+                          status bar / menu bar), Lock (centered
+                          clock + date). */}
+                      <div className="dev-mode-toggles" role="radiogroup" aria-label="Preview mode">
+                        {(['plain', 'home', 'lock'] as const).map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            role="radio"
+                            aria-checked={previewMode === m}
+                            onClick={() => setPreviewMode(m)}
+                            className={`dev-mode-pill${previewMode === m ? ' is-on' : ''}`}
+                          >
+                            {m === 'plain' ? 'Plain' : m === 'home' ? 'Home' : 'Lock'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {wallpapers.map((wp, i) => (
+                <DevTile
+                  key={wp.id}
+                  wallpaper={wp}
+                  device={device}
+                  index={i}
+                  isFeatured={i === featuredIdx}
+                  onHover={onTileHover}
+                />
+              ))}
+            </div>
+
+            <div ref={attachSentinel} />
+            <FeedFooter
+              state={(
+                loadError ? 'retry'
+                : loadingList && hasMore ? 'loading'
+                : !hasMore && wallpapers.length > 0 ? 'end'
+                : 'idle'
+              ) as FooterState}
+              count={wallpapers.length}
+              onRetry={() => fetchPage(false)}
+            />
+          </>
+        )}
+
+        {/* Footer copy */}
+        {device && (
+          <section className="mt-14 border-t border-hair pt-7">
+            <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted mb-3">
+              About the {device.name}
+            </div>
+            <p className="text-[13px] leading-[1.65] text-ink-2 max-w-[640px]">
+              Every wallpaper on this page has a variant cropped exactly for
+              the {device.name}'s {device.width.toLocaleString()} × {device.height.toLocaleString()} display. Click into
+              any wallpaper to see the per-device download list — or use the
+              Download button on the detail page, which automatically picks
+              the right variant for your current screen.
+            </p>
+          </section>
+        )}
 
       </div>
     </div>
