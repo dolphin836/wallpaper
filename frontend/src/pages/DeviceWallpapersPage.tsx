@@ -272,9 +272,13 @@ export default function DeviceWallpapersPage() {
   const rawTileH = tileW / (deviceAspect || 1.78);
   const tileH = Math.max(140, Math.min(480, rawTileH));
 
-  const isPhone = device?.platform === 'phone';
   const previewColSpan = 2;
-  const previewRowSpan = isPhone ? 1 : 2;
+  // Uniform 2×2 footprint across all platforms. Phone was 2×1
+  // initially to mirror its single-tile height, but with the
+  // tighter mockup sizing the 1-row cell felt cramped — the
+  // mockup ended up tiny next to the wallpapers. 2×2 gives the
+  // phone preview the same visual weight as desktop / tablet.
+  const previewRowSpan = 2;
   const previewW = tileW * previewColSpan + gap * (previewColSpan - 1);
   const previewH = tileH * previewRowSpan + gap * (previewRowSpan - 1);
 
@@ -490,9 +494,9 @@ export default function DeviceWallpapersPage() {
               className="dev-preview-skel"
               style={{
                 gridColumn: 'span 2',
-                gridRow: device?.platform === 'phone' ? 'auto' : 'span 2',
+                gridRow: 'span 2',
                 aspectRatio: device
-                  ? `${device.width * 2} / ${device.height * (device.platform === 'phone' ? 1 : 2)}`
+                  ? `${device.width * 2} / ${device.height * 2}`
                   : '32 / 18',
               }}
               aria-hidden
