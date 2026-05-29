@@ -4106,3 +4106,592 @@
   100% { transform: translate(-0.5%, 0.5%) scale(1.01); }
 }
 .d3-discover-main { position: relative; z-index: 1; }
+
+/* ─── Upload page (Contribute) ─────────────────────────────────────
+   Drop-zone-first canvas with a warm amber mesh — reads as
+   "creative studio" rather than the cooler steel of the device
+   pages. The drop zone is the page's primary affordance and gets
+   the biggest visual treatment; the queue grid below mirrors
+   .dev-spec-card chrome so the family stays consistent. */
+.upload-page {
+  position: relative;
+  isolation: isolate;
+  min-height: 100%;
+  background: var(--color-paper);
+}
+.upload-mesh {
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(40% 40% at 22% 26%, oklch(94% 0.05 65 / 0.50) 0%, transparent 60%),
+    radial-gradient(45% 45% at 78% 78%, oklch(92% 0.06 38 / 0.42) 0%, transparent 55%),
+    radial-gradient(45% 45% at 50% 50%, oklch(95% 0.03 85 / 0.30) 0%, transparent 65%);
+  filter: blur(80px) saturate(1.25);
+  pointer-events: none;
+}
+.dark .upload-mesh {
+  background:
+    radial-gradient(40% 40% at 22% 26%, oklch(28% 0.05 65 / 0.55) 0%, transparent 60%),
+    radial-gradient(45% 45% at 78% 78%, oklch(26% 0.06 40 / 0.48) 0%, transparent 55%),
+    radial-gradient(45% 45% at 50% 50%, oklch(30% 0.04 90 / 0.35) 0%, transparent 65%);
+  filter: blur(80px) saturate(1.7);
+}
+.upload-title-tail {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--color-accent);
+}
+
+/* Review-flow notice — a glass card with an accent dot, sits
+   below the headline and above the drop zone. */
+.upload-notice {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  gap: 14px;
+  align-items: start;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklch, var(--color-accent) 30%, var(--color-hair));
+  background: color-mix(in oklch, var(--color-accent) 5%, var(--color-paper));
+  max-width: 720px;
+}
+.upload-notice-dot {
+  width: 10px; height: 10px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-accent) 22%, transparent);
+}
+
+/* Drop canvas — a generous glass card with dashed border that
+   thickens + tints accent on drag. Compact variant (when files
+   are already queued) shrinks to a thin "add more" affordance
+   so the queue stays the focus. */
+.upload-drop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 56px 24px 60px;
+  border-radius: 18px;
+  border: 2px dashed color-mix(in oklch, var(--color-accent) 28%, var(--color-hair));
+  background: color-mix(in oklch, var(--color-accent) 4%, var(--color-paper));
+  cursor: pointer;
+  transition: border-color 240ms ease, background 240ms ease, transform 220ms var(--ease-out-quart);
+}
+.dark .upload-drop {
+  border-color: color-mix(in oklch, var(--color-accent) 36%, var(--color-hair-soft));
+  background: color-mix(in oklch, var(--color-accent) 7%, var(--color-paper-2));
+}
+.upload-drop:hover {
+  border-color: color-mix(in oklch, var(--color-accent) 55%, var(--color-hair));
+  background: color-mix(in oklch, var(--color-accent) 8%, var(--color-paper));
+}
+.upload-drop.is-active {
+  border-color: var(--color-accent);
+  background: color-mix(in oklch, var(--color-accent) 14%, var(--color-paper));
+  transform: scale(1.005);
+}
+.upload-drop.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.upload-drop.is-compact {
+  padding: 14px 18px;
+  flex-direction: row;
+  gap: 14px;
+}
+.upload-drop-icon {
+  width: 76px; height: 76px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+  background: color-mix(in oklch, var(--color-accent) 14%, var(--color-paper));
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.5), 0 6px 18px -8px color-mix(in oklch, var(--color-accent) 40%, oklch(0% 0 0 / 0.18));
+}
+.upload-drop.is-compact .upload-drop-icon {
+  width: 42px; height: 42px;
+}
+.upload-drop-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  justify-content: center;
+  margin-top: 18px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.upload-drop-add {
+  background: transparent;
+  border: 1px solid color-mix(in oklch, var(--color-accent) 36%, var(--color-hair));
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 200ms ease, color 200ms ease, background 200ms ease;
+}
+.upload-drop-add:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: color-mix(in oklch, var(--color-accent) 8%, transparent);
+}
+.upload-drop-add:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Queue grid — uses dev-spec-card chrome via .upload-tile so the
+   tile vocabulary matches the device pages exactly. Each tile
+   stacks: media + status overlay (top) + tiny mono index +
+   filename (bottom). */
+.upload-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+@media (min-width: 640px) {
+  .upload-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 900px) {
+  .upload-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (min-width: 1200px) {
+  .upload-grid { grid-template-columns: repeat(5, 1fr); }
+}
+.upload-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.upload-tile-screen {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--color-paper-2);
+  border: 1px solid color-mix(in oklch, oklch(50% 0.03 240) 28%, var(--color-hair));
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 4px 12px -6px oklch(28% 0.04 240 / 0.28);
+  transition: border-color 240ms ease, box-shadow 240ms ease;
+}
+.upload-tile.is-success .upload-tile-screen {
+  border-color: color-mix(in oklch, oklch(72% 0.18 145) 50%, var(--color-hair));
+}
+.upload-tile.is-error .upload-tile-screen {
+  border-color: color-mix(in oklch, oklch(60% 0.20 25) 55%, var(--color-hair));
+}
+.upload-tile-media {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  background: oklch(20% 0.02 240);
+}
+.upload-tile-heic {
+  width: 100%; height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: linear-gradient(135deg, var(--color-paper-2), var(--color-paper));
+  color: var(--color-muted);
+}
+.upload-tile-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: oklch(20% 0.02 240 / 0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.upload-tile-overlay.is-error {
+  background: oklch(40% 0.18 25 / 0.50);
+}
+.upload-tile-overlay.is-success {
+  background: oklch(55% 0.16 145 / 0.42);
+}
+.upload-tile-progress {
+  width: 70%;
+  height: 4px;
+  border-radius: 999px;
+  background: oklch(98% 0 0 / 0.32);
+  overflow: hidden;
+}
+.upload-tile-progress-fill {
+  height: 100%;
+  background: var(--color-paper);
+  border-radius: 999px;
+  transition: width 200ms ease;
+}
+.upload-tile-badge {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-paper);
+}
+.upload-tile-badge.is-success {
+  background: oklch(58% 0.18 145);
+  box-shadow: 0 4px 14px -4px oklch(58% 0.18 145 / 0.55);
+}
+.upload-tile-badge.is-error {
+  background: oklch(55% 0.21 25);
+  box-shadow: 0 4px 14px -4px oklch(55% 0.21 25 / 0.55);
+}
+.upload-tile-x {
+  position: absolute;
+  top: 6px; right: 6px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: oklch(20% 0.02 240 / 0.6);
+  color: var(--color-paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 180ms ease, background 180ms ease;
+  z-index: 4;
+}
+.upload-tile-screen:hover .upload-tile-x { opacity: 1; }
+.upload-tile-x:hover { background: oklch(20% 0.02 240 / 0.85); }
+.upload-tile-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+  min-width: 0;
+}
+
+/* Sticky submit bar — sits at the bottom of viewport while
+   files are queued. Glass-card chrome, progress fill across the
+   inner width when uploading. */
+.upload-bar {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: 0;
+  z-index: 30;
+  border-top: 1px solid var(--color-hair);
+  background: color-mix(in oklch, var(--color-paper) 88%, transparent);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow: 0 -10px 36px -16px oklch(0% 0 0 / 0.18);
+}
+.dark .upload-bar {
+  background: color-mix(in oklch, var(--color-paper-2) 88%, transparent);
+  border-top-color: var(--color-hair-soft);
+}
+.upload-bar.is-done {
+  background: color-mix(in oklch, oklch(72% 0.18 145) 6%, var(--color-paper));
+}
+.upload-bar-progress {
+  height: 4px;
+  flex: 1;
+  border-radius: 999px;
+  background: var(--color-paper-2);
+  overflow: hidden;
+}
+.upload-bar-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent), color-mix(in oklch, var(--color-accent) 70%, var(--color-ink)));
+  border-radius: 999px;
+  transition: width 200ms ease;
+}
+.upload-bar-link {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  padding: 8px 12px;
+  border-radius: 999px;
+  transition: color 200ms ease, background 200ms ease;
+  text-decoration: none;
+}
+.upload-bar-link:hover {
+  color: var(--color-ink-2);
+  background: var(--color-paper-2);
+}
+.upload-bar-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 200ms ease, transform 140ms var(--ease-out-quart), box-shadow 200ms ease;
+  box-shadow: 0 6px 18px -8px oklch(20% 0.02 240 / 0.45);
+}
+.upload-bar-go:hover:not(:disabled) {
+  background: var(--color-ink-2);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px -8px oklch(20% 0.02 240 / 0.55);
+}
+.upload-bar-go:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+/* ─── Profile page ────────────────────────────────────────────────
+   Editorial hero (avatar + name + balance card) over a neutral
+   page mesh, then the existing .ptabs row, then the per-tab
+   panels (unchanged). Mesh stays cool steel so it doesn't fight
+   whatever the user's uploads bring. */
+.profile-page {
+  position: relative;
+  isolation: isolate;
+  min-height: 100%;
+  background: var(--color-paper);
+}
+.profile-mesh {
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(40% 40% at 22% 26%, oklch(92% 0.03 240 / 0.42) 0%, transparent 60%),
+    radial-gradient(45% 45% at 78% 76%, oklch(93% 0.04 60 / 0.36) 0%, transparent 55%),
+    radial-gradient(45% 45% at 50% 50%, oklch(95% 0.02 220 / 0.28) 0%, transparent 65%);
+  filter: blur(80px) saturate(1.15);
+  pointer-events: none;
+}
+.dark .profile-mesh {
+  background:
+    radial-gradient(40% 40% at 22% 26%, oklch(26% 0.04 240 / 0.52) 0%, transparent 60%),
+    radial-gradient(45% 45% at 78% 76%, oklch(28% 0.05 60 / 0.40) 0%, transparent 55%),
+    radial-gradient(45% 45% at 50% 50%, oklch(28% 0.03 220 / 0.34) 0%, transparent 65%);
+  filter: blur(80px) saturate(1.6);
+}
+
+/* Profile hero — three-column layout on lg, stacked on narrower.
+   Avatar + identity + right-side card. Sits above the tabs and
+   gets a hairline divider underneath so the .ptabs row anchors
+   cleanly. */
+.profile-hero {
+  display: grid;
+  grid-template-columns: 140px 1fr auto;
+  gap: 28px;
+  align-items: center;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--color-hair);
+}
+.dark .profile-hero { border-bottom-color: var(--color-hair-soft); }
+@media (max-width: 880px) {
+  .profile-hero {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+}
+
+.profile-hero-avatar {
+  position: relative;
+  width: 140px;
+  height: 140px;
+}
+.profile-hero-avatar-frame {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid var(--color-hair);
+  background: var(--color-paper-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 12px 32px -14px oklch(0% 0 0 / 0.25);
+}
+.dark .profile-hero-avatar-frame {
+  border-color: var(--color-hair-soft);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.06),
+    0 12px 32px -14px oklch(0% 0 0 / 0.55);
+}
+.profile-hero-avatar-frame img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.profile-hero-avatar-edit {
+  position: absolute;
+  bottom: 4px; right: 4px;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border: 3px solid var(--color-paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 200ms ease, transform 140ms var(--ease-out-quart);
+  box-shadow: 0 6px 16px -6px oklch(20% 0.02 240 / 0.4);
+}
+.profile-hero-avatar-edit:hover {
+  background: var(--color-ink-2);
+  transform: translateY(-1px);
+}
+
+.profile-hero-id { min-width: 0; }
+.profile-hero-bio {
+  margin-top: 14px;
+  padding-left: 14px;
+  border-left: 2px solid color-mix(in oklch, var(--color-accent) 50%, var(--color-hair));
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--color-ink-2);
+  max-width: 640px;
+}
+.profile-hero-edit-name {
+  width: 100%;
+  padding: 10px 14px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 32px;
+  letter-spacing: -0.012em;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border: 1px solid var(--color-hair);
+  border-radius: 10px;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+.dark .profile-hero-edit-name {
+  background: var(--color-paper-2);
+  border-color: var(--color-hair-soft);
+}
+.profile-hero-edit-name:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+.profile-hero-edit-bio {
+  width: 100%;
+  padding: 10px 14px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  background: var(--color-paper);
+  color: var(--color-ink-2);
+  border: 1px solid var(--color-hair);
+  border-radius: 10px;
+  resize: none;
+  transition: border-color 180ms ease;
+}
+.dark .profile-hero-edit-bio {
+  background: var(--color-paper-2);
+  border-color: var(--color-hair-soft);
+}
+.profile-hero-edit-bio:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+/* Right side card + actions. Card is a deep ink panel with the
+   coin balance as the headline number. */
+.profile-hero-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  min-width: 220px;
+}
+@media (max-width: 880px) {
+  .profile-hero-right {
+    align-items: stretch;
+    min-width: 0;
+  }
+}
+.profile-hero-balance {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  padding: 16px 20px 18px;
+  border-radius: 14px;
+  min-width: 220px;
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.08),
+    0 14px 32px -14px oklch(20% 0.02 240 / 0.55);
+}
+.profile-hero-balance .kicker {
+  color: oklch(99% 0 0 / 0.55);
+}
+.profile-hero-balance-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 8px;
+}
+.profile-hero-balance-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 0 4px oklch(72% 0.16 50 / 0.22);
+  margin-bottom: 2px;
+}
+.profile-hero-balance-num {
+  font-size: clamp(36px, 4.4vw, 52px);
+  line-height: 1;
+  color: var(--color-accent);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.profile-hero-balance-unit {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: oklch(99% 0 0 / 0.55);
+  text-transform: uppercase;
+}
+
+.profile-hero-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+@media (max-width: 880px) {
+  .profile-hero-actions { justify-content: stretch; }
+  .profile-hero-actions > * { flex: 1; justify-content: center; }
+}
+.profile-hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border: 1px solid var(--color-hair);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+.dark .profile-hero-pill {
+  background: var(--color-paper-2);
+  border-color: var(--color-hair-soft);
+}
+.profile-hero-pill:hover {
+  background: var(--color-paper-2);
+  border-color: var(--color-ink-2);
+}
+.profile-hero-pill.is-primary {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border-color: var(--color-ink);
+}
+.profile-hero-pill.is-primary:hover {
+  background: var(--color-ink-2);
+  border-color: var(--color-ink-2);
+}

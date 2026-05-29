@@ -416,13 +416,16 @@ export default function ProfilePage() {
   const tabs = isOwner ? allTabs : allTabs.filter((t) => !t.ownerOnly);
 
   return (
-    <div className="bg-paper text-ink min-h-full px-6 sm:px-10 pt-7 pb-10">
+    <div className="profile-page min-h-full">
+      <div className="profile-mesh" aria-hidden />
       <PageMeta
         title={`${display}'s profile`}
         description={`Wallpapers, collections, and uploads from ${display} on Wallpaper Exchange.`}
         image={user.avatar_url}
         type="profile"
       />
+
+      <main className="relative z-10 max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 pt-10 pb-16">
 
       <ProfileHeader
         user={user}
@@ -551,6 +554,7 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+      </main>
     </div>
   );
 }
@@ -581,20 +585,20 @@ function ProfileHeader(p: ProfileHeaderProps) {
   const initial = display.charAt(0).toUpperCase();
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[120px_1fr_auto] gap-6 pb-6 border-b border-hair">
-      {/* Avatar */}
-      <div className="relative w-[120px] h-[120px]">
-        <div className="w-full h-full rounded-full overflow-hidden bg-paper-2 border border-hair flex items-center justify-center display text-[48px] text-ink">
+    <header className="profile-hero">
+      {/* Avatar — bigger now (140px), centered with the title row. */}
+      <div className="profile-hero-avatar">
+        <div className="profile-hero-avatar-frame">
           {p.user.avatar_url
-            ? <img src={p.user.avatar_url} alt="" className="w-full h-full object-cover" />
-            : initial}
+            ? <img src={p.user.avatar_url} alt="" />
+            : <span className="display text-[56px] text-ink">{initial}</span>}
         </div>
         {p.isOwner && (
           <>
             <button
               onClick={p.onAvatarPick}
               title="Change avatar"
-              className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-ink text-paper flex items-center justify-center border-2 border-paper hover:bg-ink-2 transition-colors"
+              className="profile-hero-avatar-edit"
             >
               <AiOutlineCamera size={14} />
             </button>
@@ -609,22 +613,21 @@ function ProfileHeader(p: ProfileHeaderProps) {
         )}
       </div>
 
-      {/* Identity */}
-      <div className="min-w-0">
+      {/* Identity column */}
+      <div className="profile-hero-id">
         <div className="kicker text-muted">
           Contributor · Member since {formatJoined(p.user.created_at)}
         </div>
 
         {p.editing ? (
-          <div className="mt-3 space-y-3 max-w-[480px]">
+          <div className="mt-3 space-y-3 max-w-[520px]">
             <input
               autoFocus
               value={p.editNickname}
               onChange={(e) => p.onEditNicknameChange(e.target.value)}
               maxLength={64}
               placeholder="Nickname"
-              className="w-full px-4 py-3 display text-[36px] leading-tight bg-paper text-ink focus:outline-none focus:border-ink"
-              style={{ border: '1px solid var(--color-hair)' }}
+              className="profile-hero-edit-name display"
             />
             <textarea
               value={p.editBio}
@@ -632,74 +635,79 @@ function ProfileHeader(p: ProfileHeaderProps) {
               maxLength={500}
               rows={3}
               placeholder="Signature, motto, anything you want here"
-              className="w-full px-4 py-3 italic-d text-[16px] bg-paper text-ink-2 focus:outline-none focus:border-ink resize-none"
-              style={{ border: '1px solid var(--color-hair)' }}
+              className="profile-hero-edit-bio"
             />
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center flex-wrap">
               <button onClick={p.onSaveProfile} disabled={p.savingProfile || !p.editNickname.trim()}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium disabled:opacity-50">
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium disabled:opacity-50 hover:bg-ink-2 transition-colors">
                 <AiOutlineCheck size={13} /> {p.savingProfile ? 'Saving…' : 'Save'}
               </button>
               <button onClick={p.onCancelEdit}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-hair text-ink-2 text-[12px] font-medium hover:bg-paper-2">
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-hair text-ink-2 text-[12px] font-medium hover:bg-paper-2 transition-colors">
                 <AiOutlineClose size={13} /> Cancel
               </button>
-              <span className="text-[11px] text-muted self-center ml-1">Username @{p.user.username} can't be changed</span>
+              <span className="text-[11px] text-muted">
+                Username @{p.user.username} can't be changed
+              </span>
             </div>
           </div>
         ) : (
           <>
-            <h1 className="display text-[40px] sm:text-[48px] leading-tight tracking-[-0.02em] mt-1 text-ink">
+            <h1 className="display text-[clamp(38px,4.8vw,60px)] leading-[1.02] tracking-[-0.018em] mt-2 text-ink">
               {display}
             </h1>
-            <div className="mono text-[12px] text-muted tracking-[0.04em] mt-1.5">
-              @{p.user.username}{p.isOwner && p.user.email ? ` · ${p.user.email}` : ''}
+            <div className="mono text-[12px] text-muted tracking-[0.06em] mt-2">
+              @{p.user.username}
+              {p.isOwner && p.user.email ? ` · ${p.user.email}` : ''}
             </div>
             {p.user.bio && (
-              <p className="display italic-d text-[18px] text-ink-2 mt-3 leading-[1.4]">
-                “{p.user.bio}”
+              <p className="profile-hero-bio">
+                {p.user.bio}
               </p>
             )}
           </>
         )}
       </div>
 
-      {/* Right column — balance + actions (owner only) */}
-      <div className="flex flex-col items-stretch lg:items-end gap-3 min-w-[200px]">
+      {/* Right column — balance card + owner action pills. The
+          balance card stays prominent (it's the user's primary
+          state question on this page); actions are pill row
+          below. */}
+      <div className="profile-hero-right">
         {p.isOwner && !p.editing && (
-          <div className="bg-ink text-paper p-4 min-w-[200px]">
-            <div className="kicker" style={{ color: 'rgba(255,255,255,0.55)' }}>Your balance</div>
-            <div className="flex items-baseline gap-2 mt-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-accent inline-block" />
-              <span className="display text-[44px] sm:text-[56px] text-accent leading-none">{p.balance}</span>
-              <span className="mono text-[10px] tracking-[0.14em]" style={{ color: 'rgba(255,255,255,0.55)' }}>COINS</span>
+          <div className="profile-hero-balance">
+            <div className="kicker">Balance</div>
+            <div className="profile-hero-balance-row">
+              <span className="profile-hero-balance-dot" aria-hidden />
+              <span className="display profile-hero-balance-num">{p.balance}</span>
+              <span className="mono profile-hero-balance-unit">COINS</span>
             </div>
           </div>
         )}
         {p.isOwner && !p.editing && (
-          <div className="flex gap-2 flex-wrap lg:justify-end">
+          <div className="profile-hero-actions">
             <button
               onClick={p.onStartEdit}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-hair text-ink text-[12px] font-medium hover:bg-paper-2"
+              className="profile-hero-pill"
             >
               <AiOutlineEdit size={13} /> Edit profile
             </button>
             <button
               onClick={p.onChangePassword}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-hair text-ink-2 text-[12px] font-medium hover:bg-paper-2"
+              className="profile-hero-pill"
             >
               Password
             </button>
             <Link
               to="/upload"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium no-underline hover:bg-ink-2"
+              className="profile-hero-pill is-primary no-underline"
             >
               <AiOutlinePlus size={13} /> Upload
             </Link>
           </div>
         )}
       </div>
-    </div>
+    </header>
   );
 }
 

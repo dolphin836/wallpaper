@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import * as tus from 'tus-js-client';
 import { resolveBaseURL } from '../api/client';
@@ -27,6 +27,10 @@ interface UploadFile {
   progress: number;
   error?: string;
 }
+
+const isVideoFile = (f: File) =>
+  (f.type || '').startsWith('video/') ||
+  /\.(mp4|mov|webm|mkv)$/i.test(f.name);
 
 export default function UploadPage() {
   usePageTitle('Upload');
@@ -57,8 +61,6 @@ export default function UploadPage() {
 
     // Mixed-batch rules. Videos process one-at-a-time through the tus
     // resumable endpoint, images stay on the existing multipart route.
-    // We don't combine them in a single batch — easier to reason about
-    // and the failure modes are very different.
     const incomingHasVideo = sizeOK.some((f) => isVideoFile(f));
     const existingHasVideo = files.some((f) => isVideoFile(f.file));
     const existingHasImage = files.some((f) => !isVideoFile(f.file));
@@ -84,7 +86,6 @@ export default function UploadPage() {
       const heic = /\.heic$/i.test(f.name) || f.type === 'image/heic' || f.type === 'image/heif';
       return {
         file: f,
-        // <video poster> consumes object URLs identically to <img>.
         preview: heic ? '' : URL.createObjectURL(f),
         status: 'pending' as FileStatus,
         progress: 0,
@@ -92,12 +93,6 @@ export default function UploadPage() {
     });
     setFiles((prev) => [...prev, ...newFiles]);
   }, [files]);
-
-  // Single source of truth for "is this video?" — used by onDrop,
-  // handleUpload, and the per-row card to decide between img/video.
-  const isVideoFile = (f: File) =>
-    (f.type || '').startsWith('video/') ||
-    /\.(mp4|mov|webm|mkv)$/i.test(f.name);
 
   const removeFile = (index: number) => {
     if (uploading) return;
@@ -107,7 +102,7 @@ export default function UploadPage() {
     });
   };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     accept: {
       'image/*': [],
@@ -121,6 +116,7 @@ export default function UploadPage() {
     maxFiles: MAX_FILES,
     maxSize: MAX_SIZE,
     disabled: uploading,
+    noClick: files.length > 0, // After first file, the dropzone shrinks; clicks go through the "Add more" button below.
   });
 
   const tusRef = useRef<tus.Upload | null>(null);
@@ -129,6 +125,7 @@ export default function UploadPage() {
     return () => {
       files.forEach((f) => URL.revokeObjectURL(f.preview));
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const updateFile = (index: number, updates: Partial<UploadFile>) => {
@@ -169,9 +166,6 @@ export default function UploadPage() {
     setUploading(false);
     track('upload_complete', { succeeded: success, failed });
     if (failed === 0) {
-      // Different messaging for video vs image batches — videos always
-      // route through admin review; image uploads ALSO route through
-      // review now (post-Phase 1 policy), so the wording is unified.
       toast.success(
         success === 1
           ? 'Upload received — pending admin review. You\'ll see it in your profile once approved.'
@@ -214,17 +208,6 @@ export default function UploadPage() {
       xhr.send(formData);
     });
 
-  // Video uploads use tus.io for resume-on-disconnect. The endpoint is
-  // wired with auth + 200 MB cap on the backend; we just hand it the
-  // file + metadata.
-  //
-  // The endpoint MUST be an absolute https URL. tus-js-client builds
-  // its PATCH/HEAD calls from the Location header the server returns,
-  // and the Location header tusd produces is "<scheme>://<host>/...".
-  // If we pass a relative endpoint here, tus-js-client resolves it
-  // against window.location for the POST, but the server's Location
-  // response decides the protocol for the follow-up PATCH — so we
-  // force https on both sides explicitly.
   const uploadVideoTus = (i: number, f: File) =>
     new Promise<void>((resolve, reject) => {
       const token = localStorage.getItem('token');
@@ -255,173 +238,262 @@ export default function UploadPage() {
 
   const totalDone = files.filter((f) => f.status === 'success').length;
   const totalError = files.filter((f) => f.status === 'error').length;
+  const totalPending = files.filter((f) => f.status === 'pending' || f.status === 'uploading').length;
   const overallProgress = files.length > 0 ? Math.round((totalDone / files.length) * 100) : 0;
+  const allDone = files.length > 0 && files.every((f) => f.status === 'success');
 
   if (!isAuthenticated) return null;
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-6">
-      <h1 className="text-2xl font-bold text-ink mb-2">Upload Wallpapers</h1>
-      <div className="text-sm text-ink-2 mb-2 max-w-2xl">
-        Drop images (JPG / PNG / HEIC, up to {MAX_FILES} at a time) or a single video
-        (MP4 / MOV / WebM / MKV). Each file is capped at 200&nbsp;MB.
-      </div>
-      <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-6 max-w-2xl">
-        <strong>All uploads go through admin review</strong> before showing up publicly. You&apos;ll see
-        the status on your profile — videos may take a minute longer because we re-encode them.
-      </div>
+    <div className="upload-page min-h-full">
+      <div className="upload-mesh" aria-hidden />
 
-      <div
-        {...getRootProps()}
-        className={`border-2 border-dashed rounded-2xl p-8 text-center transition-colors duration-200 ${
-          uploading
-            ? 'border-hair bg-paper-2 cursor-not-allowed'
-            : isDragActive
-              ? 'border-ink bg-paper-3 cursor-pointer'
-              : 'border-hair bg-paper-2 hover:border-ink hover:bg-paper-3 cursor-pointer'
-        }`}
-      >
-        <input {...getInputProps()} />
-        <div className="space-y-3">
-          <AiOutlineCloudUpload className="mx-auto text-muted" size={48} />
-          <p className="text-sm text-ink-2">
-            Drag & drop images here, or click to select
+      <div className="relative z-10 max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 py-10 pb-32">
+        {/* Editorial header */}
+        <header className="mb-10">
+          <div className="kicker text-muted">Contribute · Wallpaper Exchange</div>
+          <h1 className="display text-[clamp(36px,5vw,64px)] leading-[1.02] mt-3 tracking-[-0.015em] text-ink">
+            Share <span className="upload-title-tail">what's on your screen.</span>
+          </h1>
+          <p className="text-ink-2 mt-4 max-w-[640px] text-[14.5px] leading-relaxed">
+            Drop images (JPG / PNG / HEIC, up to {MAX_FILES} at a time) or a single video
+            (MP4 / MOV / WebM / MKV). Each file capped at 200 MB. Every upload earns one coin
+            once it clears review.
           </p>
-          <p className="text-xs text-muted">
-            JPG, PNG, HEIC (macOS Dynamic Wallpaper) &middot; Max 200MB &middot; Up to {MAX_FILES} files
-          </p>
+        </header>
+
+        {/* Review-flow notice */}
+        <div className="upload-notice mb-8">
+          <div className="upload-notice-dot" aria-hidden />
+          <div>
+            <div className="mono text-[10px] tracking-[0.18em] uppercase text-ink-2 mb-1">Admin review</div>
+            <p className="text-[13px] leading-[1.55] text-ink-2">
+              Everything goes through review before showing up publicly. You can see status on your profile —
+              videos may take a minute longer because we transcode them.
+            </p>
+          </div>
         </div>
+
+        {/* Drop canvas */}
+        <div
+          {...getRootProps()}
+          className={`upload-drop${isDragActive ? ' is-active' : ''}${uploading ? ' is-disabled' : ''}${
+            files.length > 0 ? ' is-compact' : ''
+          }`}
+        >
+          <input {...getInputProps()} />
+          <div className="upload-drop-icon" aria-hidden>
+            <AiOutlineCloudUpload size={files.length > 0 ? 28 : 44} />
+          </div>
+          {files.length === 0 ? (
+            <>
+              <p className="display text-[24px] sm:text-[28px] text-ink leading-tight mt-3">
+                Drop {isDragActive ? 'them' : 'images'} here
+              </p>
+              <p className="text-ink-2 text-[13px] mt-2 max-w-md">
+                or <button type="button" onClick={open} className="text-ink underline underline-offset-2 decoration-1 hover:text-accent">click to pick from your computer</button>
+              </p>
+              <div className="upload-drop-meta">
+                <span>JPG · PNG · HEIC</span>
+                <span>·</span>
+                <span>MP4 · MOV · WebM</span>
+                <span>·</span>
+                <span>≤ 200 MB</span>
+                <span>·</span>
+                <span>Up to {MAX_FILES} files</span>
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={open}
+              disabled={uploading || files.length >= MAX_FILES}
+              className="upload-drop-add"
+            >
+              Add more · {files.length} / {MAX_FILES}
+            </button>
+          )}
+        </div>
+
+        {files.length > 0 && (
+          <section className="mt-10">
+            <div className="label-rule mb-4">
+              Queue · {files.length} {totalDone > 0 && <span className="text-accent">· {totalDone} done</span>}
+              {totalError > 0 && <span className="text-red-500"> · {totalError} failed</span>}
+            </div>
+
+            <div className="upload-grid">
+              {files.map((f, idx) => (
+                <UploadTile
+                  key={idx}
+                  file={f}
+                  index={idx}
+                  uploading={uploading}
+                  onRemove={() => removeFile(idx)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
+      {/* Sticky submit bar — sits at the bottom of viewport while
+          files are queued. Single-axis affordance so the user
+          always knows where the "Upload" button is. */}
       {files.length > 0 && (
-        <>
-          {/* Overall progress bar */}
-          {uploading && (
-            <div className="mt-6">
-              <div className="flex items-center justify-between text-sm text-ink-2 mb-2">
-                <span>Uploading {totalDone}/{files.length}</span>
-                <span>{overallProgress}%</span>
-              </div>
-              <div className="h-2 bg-paper-3 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-ink rounded-full transition-all duration-300"
-                  style={{ width: `${overallProgress}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
-            {files.map((f, idx) => (
-              <div key={idx} className="relative group">
-                <div className="aspect-square relative rounded-lg overflow-hidden">
-                  {f.preview && isVideoFile(f.file) ? (
-                    // <video> with the object URL gives a real
-                    // moving thumbnail; muted+loop+playsInline so
-                    // it autoplays without scaring users.
-                    <video
-                      src={f.preview}
-                      muted
-                      loop
-                      playsInline
-                      autoPlay
-                      className={`w-full h-full object-cover bg-black transition-opacity duration-200 ${
-                        f.status === 'uploading' ? 'opacity-60' : f.status === 'error' ? 'opacity-40' : ''
-                      }`}
+        <div className={`upload-bar${allDone ? ' is-done' : ''}`}>
+          <div className="max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 py-3.5 flex items-center gap-4">
+            <div className="flex-1 min-w-0">
+              {uploading ? (
+                <div className="flex items-center gap-3">
+                  <div className="upload-bar-progress">
+                    <div
+                      className="upload-bar-progress-fill"
+                      style={{ width: `${overallProgress}%` }}
                     />
-                  ) : f.preview ? (
-                    <img
-                      src={f.preview}
-                      alt=""
-                      className={`w-full h-full object-cover transition-opacity duration-200 ${
-                        f.status === 'uploading' ? 'opacity-60' : f.status === 'error' ? 'opacity-40' : ''
-                      }`}
-                    />
-                  ) : (
-                    <div className={`w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-ink to-ink-2 ${
-                      f.status === 'uploading' ? 'opacity-60' : f.status === 'error' ? 'opacity-40' : ''
-                    }`}>
-                      <svg width="24" height="24" viewBox="0 0 384 512" fill="white" className="mb-2 opacity-60"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
-                      <span className="text-[10px] text-white/50 font-medium text-center px-1 truncate w-full">{f.file.name}</span>
-                    </div>
-                  )}
-
-                  {/* Per-file progress overlay */}
-                  {f.status === 'uploading' && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20">
-                      <AiOutlineLoading3Quarters size={24} className="text-white animate-spin mb-2" />
-                      <div className="w-3/4 h-1.5 bg-white/30 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-white rounded-full transition-all duration-200"
-                          style={{ width: `${f.progress}%` }}
-                        />
-                      </div>
-                      <span className="text-white text-xs mt-1 font-medium">{f.progress}%</span>
-                    </div>
-                  )}
-
-                  {/* Success overlay */}
-                  {f.status === 'success' && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-                        <AiOutlineCheck size={22} className="text-white" />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Error overlay */}
-                  {f.status === 'error' && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 px-2">
-                      <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center mb-1.5">
-                        <AiOutlineCloseCircle size={22} className="text-white" />
-                      </div>
-                      {f.error && (
-                        <span className="text-[10px] text-white/90 text-center leading-tight line-clamp-2">
-                          {f.error}
-                        </span>
-                      )}
-                    </div>
+                  </div>
+                  <span className="mono text-[11px] tracking-[0.06em] text-ink-2 tabular-nums shrink-0">
+                    {totalDone}/{files.length} · {overallProgress}%
+                  </span>
+                </div>
+              ) : allDone ? (
+                <div className="flex items-center gap-2 text-ink">
+                  <AiOutlineCheck size={16} className="text-accent" />
+                  <span className="text-[13px]">All set — redirecting to your profile…</span>
+                </div>
+              ) : (
+                <div className="text-[13px] text-ink-2">
+                  {totalPending} {totalPending === 1 ? 'file' : 'files'} ready to upload
+                  {totalError > 0 && (
+                    <span className="text-red-500"> · {totalError} need a retry</span>
                   )}
                 </div>
-
-                {/* Remove button — only when not uploading */}
-                {!uploading && f.status !== 'success' && (
-                  <button
-                    onClick={() => removeFile(idx)}
-                    className="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <AiOutlineClose size={14} />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6 flex items-center justify-between">
-            <div className="text-sm text-muted">
-              <span>{files.length} images</span>
-              {totalDone > 0 && <span className="text-green-600 ml-2">{totalDone} done</span>}
-              {totalError > 0 && <span className="text-red-500 ml-2">{totalError} failed</span>}
+              )}
             </div>
+
+            {!uploading && !allDone && (
+              <Link
+                to={user?.username ? `/user/${user.username}` : '/'}
+                className="upload-bar-link"
+              >
+                Cancel
+              </Link>
+            )}
+
             <button
               onClick={handleUpload}
-              disabled={uploading || files.every((f) => f.status === 'success')}
-              className="px-6 py-3 text-sm font-medium text-paper bg-ink hover:bg-ink-2 rounded-lg transition-colors duration-200 disabled:opacity-50"
+              disabled={uploading || allDone}
+              className="upload-bar-go"
             >
               {uploading ? (
-                <span className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <>
+                  <AiOutlineLoading3Quarters size={14} className="animate-spin" />
                   Uploading
-                </span>
+                </>
               ) : totalError > 0 ? (
-                'Retry Failed'
+                'Retry failed'
+              ) : allDone ? (
+                'Done'
               ) : (
-                'Upload'
+                <>Upload {files.length} {files.length === 1 ? 'file' : 'files'} →</>
               )}
             </button>
           </div>
-        </>
+        </div>
       )}
+    </div>
+  );
+}
+
+/* Single file tile — preview thumb + status overlay. Matches the
+   .dev-spec-card chrome from the device pages so the queue reads
+   as part of the same family. */
+function UploadTile({
+  file: f,
+  index,
+  uploading,
+  onRemove,
+}: {
+  file: UploadFile;
+  index: number;
+  uploading: boolean;
+  onRemove: () => void;
+}) {
+  const isVideo = isVideoFile(f.file);
+  return (
+    <div className={`upload-tile${f.status === 'error' ? ' is-error' : ''}${f.status === 'success' ? ' is-success' : ''}`}>
+      <div className="upload-tile-screen">
+        {f.preview && isVideo ? (
+          <video
+            src={f.preview}
+            muted
+            loop
+            playsInline
+            autoPlay
+            className="upload-tile-media"
+          />
+        ) : f.preview ? (
+          <img src={f.preview} alt="" className="upload-tile-media" />
+        ) : (
+          <div className="upload-tile-heic">
+            <svg width="22" height="22" viewBox="0 0 384 512" fill="currentColor" aria-hidden>
+              <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
+            </svg>
+            <span className="mono text-[9px] tracking-[0.06em] text-muted truncate w-full text-center px-1 mt-1">
+              {f.file.name}
+            </span>
+          </div>
+        )}
+
+        {f.status === 'uploading' && (
+          <div className="upload-tile-overlay">
+            <AiOutlineLoading3Quarters size={20} className="text-paper animate-spin mb-2" />
+            <div className="upload-tile-progress">
+              <div className="upload-tile-progress-fill" style={{ width: `${f.progress}%` }} />
+            </div>
+            <span className="mono text-[10px] tracking-[0.06em] text-paper mt-1.5 tabular-nums">
+              {f.progress}%
+            </span>
+          </div>
+        )}
+
+        {f.status === 'success' && (
+          <div className="upload-tile-overlay is-success" aria-hidden>
+            <div className="upload-tile-badge is-success">
+              <AiOutlineCheck size={20} />
+            </div>
+          </div>
+        )}
+
+        {f.status === 'error' && (
+          <div className="upload-tile-overlay is-error">
+            <div className="upload-tile-badge is-error">
+              <AiOutlineCloseCircle size={20} />
+            </div>
+            {f.error && (
+              <span className="text-[10px] text-paper text-center leading-snug mt-2 px-2 line-clamp-2">
+                {f.error}
+              </span>
+            )}
+          </div>
+        )}
+
+        {!uploading && f.status !== 'success' && (
+          <button
+            onClick={onRemove}
+            title="Remove"
+            className="upload-tile-x"
+          >
+            <AiOutlineClose size={13} />
+          </button>
+        )}
+      </div>
+      <div className="upload-tile-foot">
+        <span className="mono text-[10px] text-muted tabular-nums">
+          {String(index + 1).padStart(2, '0')}
+        </span>
+        <span className="text-[11px] text-ink-2 truncate min-w-0">{f.file.name}</span>
+      </div>
     </div>
   );
 }
