@@ -645,143 +645,147 @@
   font-weight: 500;
   color: var(--color-accent);
 }
-/* Wall-of-work uploader card — square mosaic of the contributor's
-   recent wallpapers (3×3, padded with paper-2 cells when they have
-   fewer than 9), with a frosted strip at the bottom carrying
-   avatar + handle + count. The wallpapers themselves do the
-   identifying — you can tell what someone makes before you read
-   their name. */
-.uploader-wall {
+/* Uploader card — one wallpaper as the face of each contributor.
+   Single big image (4:5 portrait) + bottom gradient scrim with
+   avatar + handle + count overlaid in white. On hover the image
+   cycles through up to 9 of this user's recent uploads (driven
+   from JS), so a quick scan tells you what each contributor's
+   work looks like. Simpler than the old 3×3 mosaic and easier to
+   parse at a glance. */
+.uploader-card {
   position: relative;
   display: block;
+  aspect-ratio: 4 / 5;
   border-radius: 14px;
   overflow: hidden;
   background: var(--color-paper-2);
   border: 1px solid var(--color-hair);
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.5),
-    0 4px 14px -8px oklch(0% 0 0 / 0.18);
-  transition: transform 280ms var(--ease-out-quart),
+    0 4px 14px -8px oklch(0% 0 0 / 0.20);
+  text-decoration: none;
+  color: oklch(99% 0 0);
+  transition: transform 320ms var(--ease-out-quart),
               border-color 220ms ease,
-              box-shadow 280ms var(--ease-out-quart);
+              box-shadow 320ms var(--ease-out-quart);
 }
-.dark .uploader-wall {
-  background: var(--color-paper-2);
+.dark .uploader-card {
   border-color: var(--color-hair-soft);
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.06),
-    0 4px 14px -8px oklch(0% 0 0 / 0.5);
+    0 4px 14px -8px oklch(0% 0 0 / 0.55);
 }
-.uploader-wall:hover {
-  transform: translateY(-2px);
-  border-color: color-mix(in oklch, var(--color-accent) 50%, var(--color-hair));
+.uploader-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in oklch, var(--color-accent) 55%, var(--color-hair));
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.5),
-    0 14px 28px -12px oklch(0% 0 0 / 0.24);
+    0 18px 36px -14px oklch(0% 0 0 / 0.30);
 }
-.dark .uploader-wall:hover {
-  border-color: color-mix(in oklch, var(--color-accent) 55%, var(--color-hair-soft));
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.06),
-    0 14px 28px -12px oklch(0% 0 0 / 0.6);
-}
-
-/* 3×3 mosaic occupies the top of the card (aspect 1:1 = a square
-   wall). Each cell is its own image; missing slots show a paper-2
-   empty tile so the geometry never breaks. Hairline gaps via
-   background-color showing through 1px gaps. */
-.uploader-wall-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  gap: 1px;
-  aspect-ratio: 1 / 1;
-  background: var(--color-hair);
-}
-.dark .uploader-wall-grid { background: var(--color-hair-soft); }
-.uploader-wall-cell {
-  position: relative;
-  overflow: hidden;
-  background: var(--color-paper-2);
-}
-.uploader-wall-cell img {
+.uploader-card-img {
+  position: absolute; inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 700ms var(--ease-out-quart),
-              filter 700ms ease;
+  transition: transform 800ms var(--ease-out-quart),
+              opacity 400ms ease;
 }
-.uploader-wall:hover .uploader-wall-cell img {
+.uploader-card:hover .uploader-card-img {
   transform: scale(1.04);
 }
-.uploader-wall-empty {
-  width: 100%; height: 100%;
-  background: var(--color-paper-2);
+.uploader-card-empty {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, oklch(92% 0.02 230), oklch(86% 0.025 240));
+  color: var(--color-muted);
+}
+.dark .uploader-card-empty {
+  background: linear-gradient(135deg, oklch(30% 0.03 230), oklch(24% 0.04 240));
+}
+.uploader-card-scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg,
+    transparent 45%,
+    oklch(0% 0 0 / 0.25) 65%,
+    oklch(0% 0 0 / 0.65) 100%);
+  pointer-events: none;
 }
 
-/* Bottom strip — avatar + name + handle + count. Sits below the
-   mosaic on a paper bg with a fine top hairline. */
-.uploader-wall-strip {
+/* Bottom-left info block — avatar + name + handle + right-edge
+   count. White text on the scrim. */
+.uploader-card-info {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 14px 16px 16px;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  background: var(--color-paper);
-  border-top: 1px solid var(--color-hair);
+  align-items: flex-end;
+  gap: 10px;
 }
-.dark .uploader-wall-strip {
-  background: var(--color-paper-2);
-  border-top-color: var(--color-hair-soft);
+.uploader-card-avatar {
+  border: 1.5px solid oklch(100% 0 0 / 0.7);
+  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.3);
+  flex-shrink: 0;
 }
-.uploader-wall-name {
+.uploader-card-text {
+  flex: 1; min-width: 0;
+}
+.uploader-card-name {
   font-family: var(--font-display);
   font-size: 18px;
   line-height: 1.15;
   letter-spacing: -0.005em;
-  color: var(--color-ink);
+  color: oklch(99% 0 0);
+  text-shadow: 0 1px 8px oklch(0% 0 0 / 0.5);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.uploader-wall-meta {
+.uploader-card-handle {
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.06em;
-  color: var(--color-muted);
+  letter-spacing: 0.08em;
+  color: oklch(100% 0 0 / 0.75);
   margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 4px oklch(0% 0 0 / 0.4);
 }
-.uploader-wall-count { text-align: right; flex-shrink: 0; }
-.uploader-wall-count-num {
+.uploader-card-count {
+  flex-shrink: 0;
+  display: flex; flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.uploader-card-count-num {
   font-family: var(--font-display);
   font-size: 22px;
   line-height: 1;
-  color: var(--color-ink);
+  color: oklch(99% 0 0);
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 8px oklch(0% 0 0 / 0.5);
 }
-.uploader-wall-count-label {
+.uploader-card-count-label {
   font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.16em;
+  font-size: 8px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--color-muted);
-  margin-top: 4px;
+  color: oklch(100% 0 0 / 0.78);
+  text-shadow: 0 1px 4px oklch(0% 0 0 / 0.4);
 }
 
-/* Skeleton variant — same chrome, paper-2 shimmer for cells and
-   short bars for the strip text. */
-.uploader-wall-strip.is-skel { gap: 12px; }
-.uploader-wall-skel-avatar {
-  width: 36px; height: 36px;
+/* Skeleton — paper-2 empty fill + the existing scrim/info shapes
+   replaced with bar placeholders. */
+.uploader-card-skel-avatar {
+  width: 32px; height: 32px;
   border-radius: 50%;
   background: var(--color-paper-2);
+  border: 1.5px solid oklch(100% 0 0 / 0.5);
   flex-shrink: 0;
 }
-.uploader-wall-skel-bar {
+.uploader-card-skel-bar {
   border-radius: 4px;
-  background: var(--color-paper-2);
+  background: oklch(100% 0 0 / 0.4);
 }
 
 /* ══════════════════════════════════════════════════════════════════════
