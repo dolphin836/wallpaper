@@ -354,18 +354,21 @@ func (w *ImageWorker) generateThumbAndPreview(ctx context.Context, img image.Ima
 
 	bounds := img.Bounds()
 
-	// preview: 1600px wide, watermarked. Serves *both* the home card (loaded
-	// after the 400px thumb LQIP fades in) and the detail-page hero — loading
-	// it once on the home feed means the browser HTTP cache already has it
-	// when the user opens a detail page, so detail navigation is instant.
+	// preview: 1600px wide, no watermark. Serves *both* the home card
+	// (loaded after the 400px thumb LQIP fades in) and the detail-page
+	// hero — loading it once on the home feed means the browser HTTP
+	// cache already has it when the user opens a detail page, so detail
+	// navigation is instant. Watermarking was dropped 2026-05: the
+	// "Wallpaper Exchange" stamp in the bottom-right read like stock
+	// noise and never deterred anyone from screenshotting; the only real
+	// protection (full-res original behind auth/coin gate) is unchanged.
 	previewWidth := uint(1600)
 	if bounds.Dx() < 1600 {
 		previewWidth = uint(bounds.Dx())
 	}
 	preview := resize.Resize(previewWidth, 0, img, resize.Lanczos3)
-	watermarked := addWatermark(preview)
 	previewBuf := new(bytes.Buffer)
-	if err := webp.Encode(previewBuf, watermarked, &webp.Options{Quality: 80}); err != nil {
+	if err := webp.Encode(previewBuf, preview, &webp.Options{Quality: 80}); err != nil {
 		return fmt.Errorf("encode preview: %w", err)
 	}
 	previewKey := fmt.Sprintf("previews/%s.webp", uuid.New().String())
