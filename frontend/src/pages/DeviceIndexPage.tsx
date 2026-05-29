@@ -13,6 +13,29 @@ import { getDevices } from '../api';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
 
+// Best-effort 'what device is the user on' lookup. Computes the
+// browser's physical pixel resolution (screen × devicePixelRatio)
+// and finds an exact (or ±2px fuzzy) match in the profile list.
+// Handles portrait/landscape swap so a phone held sideways still
+// matches. Returns null when nothing fits.
+function useCurrentDeviceId(devices: DeviceProfile[]): number | null {
+  return useMemo(() => {
+    if (typeof window === 'undefined' || !devices.length) return null;
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.round(window.screen.width * dpr);
+    const h = Math.round(window.screen.height * dpr);
+    const exact = devices.find((d) =>
+      (d.width === w && d.height === h) || (d.width === h && d.height === w),
+    );
+    if (exact) return exact.id;
+    const fuzzy = devices.find((d) =>
+      (Math.abs(d.width - w) <= 2 && Math.abs(d.height - h) <= 2) ||
+      (Math.abs(d.width - h) <= 2 && Math.abs(d.height - w) <= 2),
+    );
+    return fuzzy?.id ?? null;
+  }, [devices]);
+}
+
 // Brand-aware platform icon. We don't ship per-device renders (would
 // require hundreds of bespoke assets); instead we pick a Material
 // Design icon that matches platform + brand so an Apple laptop reads
@@ -69,6 +92,10 @@ export default function DeviceIndexPage() {
   }, [devices]);
 
   const totalDevices = devices.length;
+  const currentDeviceId = useCurrentDeviceId(devices);
+  const currentDevice = currentDeviceId
+    ? devices.find((d) => d.id === currentDeviceId) ?? null
+    : null;
 
   return (
     <div className="devices-page min-h-full">
@@ -94,6 +121,20 @@ export default function DeviceIndexPage() {
             exactly for that screen.
           </p>
         </header>
+
+        {/* ─── Current-device callout ───
+            Best-effort match against screen × DPR. Quietly absent when
+            no profile matches the user's actual resolution. */}
+        {currentDevice && (
+          <Link to={`/wallpapers-for/${currentDevice.slug}`} className="device-current-callout">
+            <span className="device-current-dot" aria-hidden />
+            <span className="device-current-text">
+              You're on the <strong>{currentDevice.name}</strong>
+              <span className="device-current-meta"> · {currentDevice.width}×{currentDevice.height}</span>
+            </span>
+            <span className="device-current-cta">See its wallpapers →</span>
+          </Link>
+        )}
 
         {/* ─── Error ─── */}
         {error && devices.length === 0 && <ErrorState />}
@@ -125,7 +166,7 @@ export default function DeviceIndexPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {g.items.map((d) => (
-                <DeviceCard key={d.id} device={d} />
+                <DeviceCard key={d.id} device={d} isCurrent={d.id === currentDeviceId} />
               ))}
             </div>
           </section>
@@ -136,14 +177,15 @@ export default function DeviceIndexPage() {
   );
 }
 
-function DeviceCard({ device }: { device: DeviceWithCount }) {
+function DeviceCard({ device, isCurrent }: { device: DeviceWithCount; isCurrent: boolean }) {
   const count = device.wallpaper_count;
   const Icon = iconFor(device);
   return (
     <Link
       to={`/wallpapers-for/${device.slug}`}
-      className="device-card group"
+      className={`device-card group${isCurrent ? ' is-current' : ''}`}
     >
+      {isCurrent && <span className="device-card-badge">Your device</span>}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3.5 min-w-0">
           <span className="device-icon" aria-hidden>
