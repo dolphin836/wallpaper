@@ -111,19 +111,59 @@ function SkeletonRows({
   viewMode,
   sizeMode,
   rowHeight = 260,
-}: { viewMode: ViewMode; sizeMode: SizeMode; rowHeight?: number }) {
+  device,
+}: { viewMode: ViewMode; sizeMode: SizeMode; rowHeight?: number; device?: { width: number; height: number; platform: string } | null }) {
   // Grid mode lays out fixed-aspect cells in a CSS grid — match the real
   // breakpoint counts in GRID_BREAKPOINT_COLS so the skeleton occupies
   // the same footprint at every viewport size.
   if (viewMode === 'grid') {
     const bp = GRID_BREAKPOINT_COLS[sizeMode];
-    // 4 rows worth of skeleton tiles — first paint reads as a full
-    // screen of feed instead of two thin rows hovering at the top.
     const count = bp[3] * 4;
     const cols =
       sizeMode === 'lg' ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3'
       : sizeMode === 'md' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
       : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8';
+
+    // If a current device was detected, the live render uses the
+    // floating-wall layout (DeviceFloatingWall). Mirror it in the
+    // skeleton: first cell is a glass mockup card spanning 2×2,
+    // remaining cells use the device's true aspect so the
+    // skeleton footprint matches what comes next.
+    if (device) {
+      const aspect = `${device.width || 16} / ${device.height || 9}`;
+      const previewAspect = `${(device.width || 16) * 2} / ${(device.height || 9) * 2}`;
+      return (
+        <div className={`grid gap-3 ${cols}`}>
+          <div
+            className="dev-preview-skel"
+            style={{
+              gridColumn: 'span 2',
+              gridRow: 'span 2',
+              aspectRatio: previewAspect,
+            }}
+            aria-hidden
+          >
+            <div className="dev-preview-skel-mockup skeleton-card" />
+            <div className="dev-preview-skel-toggles">
+              <span className="skeleton-card" />
+              <span className="skeleton-card" />
+              <span className="skeleton-card" />
+            </div>
+          </div>
+          {Array.from({ length: Math.max(0, count - 4) }).map((_, i) => (
+            <div
+              key={i}
+              className="dev-spec-card skeleton-card"
+              style={{
+                aspectRatio: aspect,
+                animationDelay: `${i * 30}ms`,
+              }}
+            />
+          ))}
+        </div>
+      );
+    }
+
     return (
       <div className={`grid gap-4 ${cols}`}>
         {Array.from({ length: count }).map((_, i) => (
@@ -694,7 +734,12 @@ export default function DiscoverPage() {
         )}
 
         {loading ? (
-          <SkeletonRows viewMode={viewMode} sizeMode={sizeMode} rowHeight={SIZE_HEIGHTS[sizeMode]} />
+          <SkeletonRows
+            viewMode={viewMode}
+            sizeMode={sizeMode}
+            rowHeight={SIZE_HEIGHTS[sizeMode]}
+            device={currentDevice}
+          />
         ) : loadError && wallpapers.length === 0 ? (
           // Initial fetch failed with nothing rendered — full-page
           // error UI. Retry button reloads (re-runs every fetch).
