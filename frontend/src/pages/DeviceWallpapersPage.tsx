@@ -284,19 +284,29 @@ export default function DeviceWallpapersPage() {
 
   // Mockup sizing inside the floating card — computed in JS because
   // CSS max-width / max-height couldn't reliably contain a 9:19.5
-  // phone aspect inside a 1-row cell with the chrome elements (mode
-  // pills + gap + padding). Solve for the largest aspect-correct
-  // rectangle that fits the available content area, applied as
-  // explicit width on .dev-mockup. Padding values are kept in sync
-  // with the .dev-preview-floating > .dev-page-sticky-inner CSS.
+  // phone aspect inside a fixed-height cell with the chrome elements
+  // (mode pills + gap + padding). Solve for the largest aspect-
+  // correct *screen* rectangle that fits the available content
+  // area, then apply the width as inline style on .dev-mockup.
+  //
+  // chromeH accounts for the bits that sit OUTSIDE the screen:
+  // - non-Apple desktop: stand-neck 28px + stand-foot 8px = 36
+  // - laptop: base 14px + 4px margin = 18
+  // - iMac / phone / tablet: 0 (chrome is inside or absent)
+  // Without this, the desktop monitor's stand was overflowing the
+  // bottom of the floating card.
   const mockupSize = useMemo(() => {
     if (!device || previewW <= 0 || previewH <= 0) return { w: 0, h: 0 };
     const padX = 28; // 14 + 14
     const padY = 26; // 14 + 12
     const togglesH = 30;
     const innerGap = 12;
+    const isAppleDsk = device.platform === 'desktop' && (device.brand || '').toLowerCase() === 'apple';
+    let chromeH = 0;
+    if (device.platform === 'desktop' && !isAppleDsk) chromeH = 36;
+    else if (device.platform === 'laptop') chromeH = 18;
     const availW = Math.max(40, previewW - padX);
-    const availH = Math.max(40, previewH - padY - togglesH - innerGap);
+    const availH = Math.max(40, previewH - padY - togglesH - innerGap - chromeH);
     const ratio = (device.width || 16) / (device.height || 9);
     // Largest aspect-correct rect: pick whichever bound is tighter.
     const widthBoundH = availW / ratio;
