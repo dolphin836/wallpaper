@@ -1361,6 +1361,17 @@
   gap: 12px;
   justify-content: center;
 }
+/* Drop the global .dev-mockup max-width caps inside the floating
+   frame — they're set for the right-column-aside layout
+   (max-width: 220px on phone, 540px on desktop) and would clip
+   the JS-computed mockupSize, which goes much larger now that
+   phones get a 2×2 cell. The page component already solves for an
+   aspect-correct rectangle that fits the cell exactly. */
+.dev-preview-floating .dev-mockup,
+.dev-preview-floating .dev-mockup.is-phone,
+.dev-preview-floating .dev-mockup.is-tablet {
+  max-width: none;
+}
 
 /* Skeleton placeholder for the preview position — same glass
    look, same footprint, so the page doesn't jump when the live
