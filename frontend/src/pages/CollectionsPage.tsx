@@ -181,15 +181,20 @@ export default function CollectionsPage() {
    of "a mosaic preview". */
 function CollectionTile({ collection: c }: { collection: Collection }) {
   const accent = c.accent_color || 'var(--color-accent)';
-  // Cover fallback chain: cover_url → first recent_tile's preview/
-  // thumb → empty state. Some legacy collections still carry a
-  // stale cover_url pointing at the old .jpg objects that got
-  // cleaned up when the worker switched to .webp; the onError
-  // handler silently swaps the src to a fresh tile so the user
-  // sees an image instead of a broken-image placeholder.
+  // Cover source priority:
+  //   1. first recent_tile's preview_url (1600px wide, sharpest)
+  //   2. collection.cover_url (may be a 400px thumb from legacy
+  //      auto-backfill — only used when no tile is available)
+  //   3. first recent_tile's thumb_url
+  // The tile frame is rendered at ~480px square on lg grids
+  // (960px on 2× Retina), so using a 400px thumb cropped + scaled
+  // up reads visibly blurry. Preview wins whenever it exists.
+  // Legacy stale .jpg cover_urls (cleaned up when the worker
+  // switched to .webp) still get caught by the onError fallback.
   const firstTile = c.recent_tiles?.[0];
-  const fallbackSrc = firstTile?.preview_url || firstTile?.thumb_url || '';
-  const [src, setSrc] = useState(c.cover_url || fallbackSrc);
+  const preferred = firstTile?.preview_url || c.cover_url || firstTile?.thumb_url || '';
+  const fallbackSrc = firstTile?.thumb_url || '';
+  const [src, setSrc] = useState(preferred);
   return (
     <Link
       to={`/collections/${c.slug}`}

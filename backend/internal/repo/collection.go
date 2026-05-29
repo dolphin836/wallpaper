@@ -155,12 +155,23 @@ func (r *CollectionRepo) AddWallpaper(ctx context.Context, collectionID, wallpap
 		return fmt.Errorf("update wallpaper_count: %w", err)
 	}
 
+	// Auto-fill the collection cover from the first wallpaper added.
+	// Use preview_url (1600px wide) not thumb_url (400px) — the tile
+	// frame is 1:1 and gets rendered at ~480px on lg grids, so a
+	// 400px-wide 4:3 thumb gets cropped + upscaled and reads blurry.
+	// Fall back to thumb_url only if preview is missing (legacy rows).
 	var col model.Collection
 	if err := r.db.WithContext(ctx).Select("cover_url").Where("id = ?", collectionID).First(&col).Error; err == nil && col.CoverURL == "" {
 		var wp model.Wallpaper
-		if err := r.db.WithContext(ctx).Select("thumb_url").Where("id = ?", wallpaperID).First(&wp).Error; err == nil && wp.ThumbURL != "" {
-			if err := r.db.WithContext(ctx).Model(&model.Collection{}).Where("id = ?", collectionID).Update("cover_url", wp.ThumbURL).Error; err != nil {
-				return fmt.Errorf("update cover_url: %w", err)
+		if err := r.db.WithContext(ctx).Select("thumb_url, preview_url").Where("id = ?", wallpaperID).First(&wp).Error; err == nil {
+			cover := wp.PreviewURL
+			if cover == "" {
+				cover = wp.ThumbURL
+			}
+			if cover != "" {
+				if err := r.db.WithContext(ctx).Model(&model.Collection{}).Where("id = ?", collectionID).Update("cover_url", cover).Error; err != nil {
+					return fmt.Errorf("update cover_url: %w", err)
+				}
 			}
 		}
 	}
