@@ -500,7 +500,7 @@ export default function DiscoverPage() {
       (entries) => {
         if (entries[0].isIntersecting) fetchWallpapersRef.current(false);
       },
-      { rootMargin: `${window.innerHeight * 2}px 0px` },
+      { rootMargin: `${window.innerHeight * 4}px 0px` },
     );
     obs.observe(el);
     observerRef.current = obs;
@@ -528,8 +528,8 @@ export default function DiscoverPage() {
       const el = sentinelRef.current;
       if (!el || busyRef.current || !hasMoreRef.current) return;
       const rect = el.getBoundingClientRect();
-      // Trigger zone = viewport bottom + rootMargin = vh + 2vh = 3vh from viewport top.
-      if (rect.top <= window.innerHeight * 3) {
+      // Trigger zone = viewport bottom + rootMargin = vh + 4vh = 5vh from viewport top.
+      if (rect.top <= window.innerHeight * 5) {
         fetchWallpapersRef.current(false);
       }
     });
@@ -638,7 +638,7 @@ export default function DiscoverPage() {
               // the grid. Belt-and-braces fires the fetch as the
               // user gets close; tiles slot into the pending
               // positions seamlessly when the response lands.
-              pendingCount={hasMore ? 16 : 0}
+              pendingCount={hasMore ? 24 : 0}
               colsForWidth={(w) => {
                 if (sizeMode === 'lg') {
                   if (w >= 1500) return 4;

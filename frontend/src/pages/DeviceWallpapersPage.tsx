@@ -110,7 +110,7 @@ export default function DeviceWallpapersPage() {
       (entries) => {
         if (entries[0].isIntersecting) fetchPageRef.current(false);
       },
-      { rootMargin: `${window.innerHeight * 2}px 0px` },
+      { rootMargin: `${window.innerHeight * 4}px 0px` },
     );
     obs.observe(el);
     observerRef.current = obs;
@@ -286,7 +286,7 @@ export default function DeviceWallpapersPage() {
               // scrolling so the preview's follow never outruns
               // the rendered content, and surfaces a continuous
               // "more coming" cue inside the wall.
-              pendingCount={hasMore && wallpapers.length > 0 ? 16 : 0}
+              pendingCount={hasMore && wallpapers.length > 0 ? 24 : 0}
             />
             <div ref={attachSentinel} />
             <FeedFooter
