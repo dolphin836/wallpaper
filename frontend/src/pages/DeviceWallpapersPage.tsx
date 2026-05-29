@@ -187,6 +187,31 @@ export default function DeviceWallpapersPage() {
   // status bar), Lock (centered clock + date). Same three modes most
   // device preview tools surface. Mutually exclusive.
   const [previewMode, setPreviewMode] = useState<'plain' | 'home' | 'lock'>('plain');
+
+  // Page mesh + sticky-frame backdrop both pick up colour from the
+  // currently-featured wallpaper. Hovering a tile changes featuredIdx
+  // which → ripples through both via this effect.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    if (!featured) {
+      root.style.removeProperty('--d-c1');
+      root.style.removeProperty('--d-c2');
+      root.style.removeProperty('--d-c3');
+      return;
+    }
+    const palette = (featured.color_palette || '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (palette.length >= 3) {
+      root.style.setProperty('--d-c1', palette[0]);
+      root.style.setProperty('--d-c2', palette[Math.floor(palette.length / 2)]);
+      root.style.setProperty('--d-c3', palette[palette.length - 1]);
+    } else if (featured.dominant_color) {
+      root.style.setProperty('--d-c1', featured.dominant_color);
+      root.style.setProperty('--d-c2', featured.dominant_color);
+      root.style.setProperty('--d-c3', featured.dominant_color);
+    }
+  }, [featured?.id, featured?.color_palette, featured?.dominant_color]);
   // CSS class hook for the platform-specific device chrome (keyboard
   // base, phone notch, monitor stand, etc). See .dev-mockup.* in
   // index.css.
@@ -194,7 +219,7 @@ export default function DeviceWallpapersPage() {
   const isAppleDesktop = device?.platform === 'desktop' && (device?.brand || '').toLowerCase() === 'apple';
 
   return (
-    <div className="devices-page min-h-full">
+    <div ref={rootRef} className="devices-page min-h-full">
       <div className="devices-mesh" aria-hidden />
       <PageMeta
         title={device ? `${device.name} Wallpapers — ${device.width} × ${device.height} pixel-perfect downloads` : 'Wallpapers'}
@@ -295,7 +320,13 @@ export default function DeviceWallpapersPage() {
               via the dev-page-grid responsive collapse. */}
           <aside className="dev-page-right">
             <div className="dev-page-sticky">
-              <div className="dev-page-sticky-inner">
+              <div
+                className="dev-page-sticky-inner"
+                style={{
+                  ['--featured-bg' as string]: featuredCover ? `url(${JSON.stringify(featuredCover)})` : 'none',
+                } as React.CSSProperties}
+              >
+                <div className="dev-page-sticky-bg" aria-hidden />
                 <div
                   className={`${mockupClass}${isAppleDesktop ? ' is-imac' : ''}`}
                   style={{

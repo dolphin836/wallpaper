@@ -796,21 +796,29 @@
   isolation: isolate;
   min-height: 100%;
   background: var(--color-paper);
+  /* Steel default; JS overrides --d-c1/c2/c3 with the featured
+     wallpaper's palette on hover so the mesh tracks the user's
+     current pick. Same recipe as home / weekly / collection. */
+  --d-c1: oklch(90% 0.03 230 / 0.45);
+  --d-c2: oklch(92% 0.02 250 / 0.40);
+  --d-c3: oklch(94% 0.02 220 / 0.32);
+}
+.dark .devices-page {
+  --d-c1: oklch(26% 0.04 230 / 0.55);
+  --d-c2: oklch(24% 0.03 250 / 0.48);
+  --d-c3: oklch(28% 0.04 220 / 0.40);
 }
 .devices-mesh {
   position: fixed; inset: 0; z-index: 0;
   background:
-    radial-gradient(40% 40% at 25% 28%, oklch(90% 0.03 230 / 0.45) 0%, transparent 60%),
-    radial-gradient(45% 45% at 75% 78%, oklch(92% 0.02 250 / 0.40) 0%, transparent 55%),
-    radial-gradient(45% 45% at 50% 50%, oklch(94% 0.02 220 / 0.32) 0%, transparent 65%);
+    radial-gradient(40% 40% at 25% 28%, var(--d-c1) 0%, transparent 60%),
+    radial-gradient(45% 45% at 75% 78%, var(--d-c2) 0%, transparent 55%),
+    radial-gradient(45% 45% at 50% 50%, var(--d-c3) 0%, transparent 65%);
   filter: blur(80px) saturate(1.0);
   pointer-events: none;
+  transition: background 1000ms ease;
 }
 .dark .devices-mesh {
-  background:
-    radial-gradient(40% 40% at 25% 28%, oklch(26% 0.04 230 / 0.55) 0%, transparent 60%),
-    radial-gradient(45% 45% at 75% 78%, oklch(24% 0.03 250 / 0.48) 0%, transparent 55%),
-    radial-gradient(45% 45% at 50% 50%, oklch(28% 0.04 220 / 0.40) 0%, transparent 65%);
   filter: blur(80px) saturate(1.4);
 }
 .devices-title-tail {
@@ -1038,12 +1046,57 @@
   display: flex;
   align-items: center;
 }
+/* Sticky frame — a glass-card holding the mockup + mode toggles.
+   The featured wallpaper itself paints a heavily-blurred backdrop
+   inside the card via .dev-page-sticky-bg (the --featured-bg URL
+   is set inline on this element). Reads as 'the device is sitting
+   on a soft cloud of its current wallpaper', tying the mockup to
+   the colour of whatever the user is currently looking at. */
 .dev-page-sticky-inner {
+  position: relative;
   width: 100%;
+  padding: 26px 22px;
+  border-radius: 22px;
+  border: 1px solid var(--color-hair);
+  background: oklch(98% 0.005 240 / 0.55);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 14px 36px -16px oklch(0% 0 0 / 0.25);
+  overflow: hidden;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 22px;
+  transition: background 600ms ease, border-color 400ms ease;
+}
+.dark .dev-page-sticky-inner {
+  background: oklch(14% 0.018 240 / 0.5);
+  border-color: var(--color-hair-soft);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.06),
+    0 14px 36px -16px oklch(0% 0 0 / 0.6);
+}
+/* Blurred-wallpaper backdrop. Over-extends the container with
+   negative inset so the blur's faded edges don't show as a hard
+   stripe along the frame border. Saturated + dimmed so it reads as
+   a 'glow under the device' rather than a competing image. */
+.dev-page-sticky-bg {
+  position: absolute;
+  inset: -14%;
+  background-image: var(--featured-bg, none);
+  background-size: cover;
+  background-position: center;
+  filter: blur(48px) saturate(1.5);
+  opacity: 0.62;
+  z-index: -1;
+  transition: opacity 700ms ease;
+}
+.dark .dev-page-sticky-bg {
+  opacity: 0.5;
+  filter: blur(48px) saturate(1.7) brightness(0.92);
 }
 @media (max-width: 960px) {
   .dev-page-sticky {
