@@ -323,50 +323,23 @@ export default function DeviceWallpapersPage() {
   // is the same 70% hysteresis that drives the live tile reflow.
   const [parkedCell, setParkedCell] = useState({ col: 0, row: 0 });
 
-  // Scroll-follow: when the user has scrolled the wall enough that
-  // the top of the page is below the preview's home row, the
-  // preview's resting Y shifts downward to stay in view. The
-  // tile-placement logic treats this shifted Y just like a drag —
-  // tiles flow around the preview's *current* grid cell, wherever
-  // it happens to be. (User goal: 'preview always visible while
-  // scrolling, leaves moving relative to the boat'.)
-  const [scrollFollowY, setScrollFollowY] = useState(0);
-  useEffect(() => {
-    const update = () => {
-      if (!wallEl) return;
-      const rect = wallEl.getBoundingClientRect();
-      // Top inset matches the page header / sticky nav so the
-      // mockup doesn't slip under the chrome.
-      const inset = 100;
-      const targetY = Math.max(0, inset - rect.top);
-      // But never push the preview below the bottom edge of the
-      // wall, otherwise it'd float off into empty space.
-      const maxY = Math.max(0, rect.height - previewH - 8);
-      setScrollFollowY(Math.min(targetY, maxY));
-    };
-    update();
-    window.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', update);
-    return () => {
-      window.removeEventListener('scroll', update);
-      window.removeEventListener('resize', update);
-    };
-  }, [previewH, wallEl]);
-
-  // When not dragging, settle to parkedCell's pixel coords. Scroll-
-  // follow acts as a Y *floor* — preview can't scroll above its
-  // parked row but tracks the viewport when the user scrolls past
-  // that row, keeping the mockup always visible. During drag,
-  // framer-motion owns x/y directly via the drag handlers.
+  // When not dragging, settle to parkedCell's exact pixel coords.
+  // Previous iteration also layered a scroll-follow offset to keep
+  // the preview always visible, but the follow Y rarely landed on
+  // a clean cell boundary — once the user stopped scrolling, the
+  // preview's resting Y was off-grid and it visually overlapped
+  // neighbouring tiles. The user is fine with the preview
+  // scrolling off-screen with the wall, so we lock the settle Y
+  // to the parked cell's exact coordinate and let normal scroll
+  // carry it.
   useEffect(() => {
     if (isDragging) return;
     const targetX = parkedCell.col * (tileW + gap);
-    const baseY = parkedCell.row * (tileH + gap);
-    const targetY = Math.max(baseY, scrollFollowY);
+    const targetY = parkedCell.row * (tileH + gap);
     const ax = animate(previewX, targetX, { type: 'spring', stiffness: 220, damping: 28 });
     const ay = animate(previewY, targetY, { type: 'spring', stiffness: 220, damping: 28 });
     return () => { ax.stop(); ay.stop(); };
-  }, [isDragging, parkedCell.col, parkedCell.row, scrollFollowY, tileW, tileH, gap, previewX, previewY]);
+  }, [isDragging, parkedCell.col, parkedCell.row, tileW, tileH, gap, previewX, previewY]);
 
   // Mirror the preview's continuous motion into discrete grid cell
   // coordinates that the tile-placement logic reads. Throttled by
