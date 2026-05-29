@@ -281,6 +281,11 @@ export default function DeviceWallpapersPage() {
               device={device}
               wallpapers={wallpapers}
               onFeatureChange={setFeatured}
+              // Reserve skeleton placeholders for the in-flight
+              // page while pagination is loading — keeps the
+              // preview's scroll-follow tracking smoothly and
+              // surfaces a clear "loading" cue inside the wall.
+              pendingCount={loadingList && hasMore && wallpapers.length > 0 ? 8 : 0}
             />
             <div ref={attachSentinel} />
             <FeedFooter

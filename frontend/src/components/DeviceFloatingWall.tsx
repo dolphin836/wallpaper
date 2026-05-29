@@ -55,6 +55,11 @@ export interface DeviceFloatingWallProps {
    *  changes (hover). Used by DeviceWallpapersPage to drive the
    *  page-mesh palette. */
   onFeatureChange?: (wp: Wallpaper | null) => void;
+  /** Reserve N skeleton tiles at the end of the wall while a
+   *  pagination fetch is in flight. The wall grows to include
+   *  them so the preview can scroll-follow into the loading area
+   *  instead of stalling at the bottom of the last real tile. */
+  pendingCount?: number;
 }
 
 export default function DeviceFloatingWall({
@@ -62,6 +67,7 @@ export default function DeviceFloatingWall({
   wallpapers,
   colsForWidth = DEFAULT_COLS_FOR_WIDTH,
   onFeatureChange,
+  pendingCount = 0,
 }: DeviceFloatingWallProps) {
   const deviceAspect = (device.width || 16) / (device.height || 9);
   const mockupClass = `dev-mockup is-${device.platform}`;
@@ -233,16 +239,20 @@ export default function DeviceFloatingWall({
   //
   // Walk row-major, skip cells inside the preview's current
   // footprint (driven by previewCell, which moves with the 70%
-  // hysteresis snap).
+  // hysteresis snap). Length = wallpapers + pending placeholders;
+  // the parent passes pendingCount > 0 while a paginated fetch is
+  // in flight, so the wall reserves space for the incoming tiles
+  // and the scroll-follow preview has somewhere to go instead of
+  // jamming at the last loaded row.
+  const totalCount = wallpapers.length + pendingCount;
   const tilePositions = useMemo<{ left: number; top: number; w: number; h: number }[]>(() => {
-    const n = wallpapers.length;
-    if (n === 0 || wallWidth <= 0 || cols <= 0 || tileW <= 0) return [];
+    if (totalCount === 0 || wallWidth <= 0 || cols <= 0 || tileW <= 0) return [];
     const out: { left: number; top: number; w: number; h: number }[] = [];
     const { col: pc, row: pr } = previewCell;
     const pcsEnd = pc + previewColSpan;
     const prsEnd = pr + previewRowSpan;
     let r = 0, c = 0;
-    while (out.length < n) {
+    while (out.length < totalCount) {
       const inPreview = c >= pc && c < pcsEnd && r >= pr && r < prsEnd;
       if (!inPreview) {
         out.push({
@@ -254,10 +264,10 @@ export default function DeviceFloatingWall({
       }
       c++;
       if (c >= cols) { c = 0; r++; }
-      if (r > n + 4) break;
+      if (r > totalCount + 4) break;
     }
     return out;
-  }, [wallpapers.length, wallWidth, cols, tileW, tileH, gap, previewCell.col, previewCell.row]);
+  }, [totalCount, wallWidth, cols, tileW, tileH, gap, previewCell.col, previewCell.row]);
 
   const wallHeight = useMemo(() => {
     if (wallpapers.length === 0) return previewH;
@@ -377,6 +387,28 @@ export default function DeviceFloatingWall({
             previewY={previewY}
             previewW={previewW}
             previewH={previewH}
+          />
+        );
+      })}
+      {/* Pending placeholders — skeleton tiles for the in-flight
+          page. Same shape and position as real DevWallSlots, but
+          without spring/dent (they're transient; the user only
+          sees them while the API call is in flight). */}
+      {pendingCount > 0 && Array.from({ length: pendingCount }).map((_, k) => {
+        const i = wallpapers.length + k;
+        const pos = tilePositions[i];
+        if (!pos) return null;
+        return (
+          <div
+            key={`pending-${k}`}
+            className="dev-wall-slot dev-spec-card skeleton-card"
+            style={{
+              transform: `translate(${pos.left}px, ${pos.top}px)`,
+              width: pos.w,
+              height: pos.h,
+              animationDelay: `${k * 30}ms`,
+            }}
+            aria-hidden
           />
         );
       })}

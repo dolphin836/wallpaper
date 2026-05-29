@@ -630,6 +630,13 @@ export default function DiscoverPage() {
             <DeviceFloatingWall
               device={currentDevice}
               wallpapers={wallpapers}
+              // While the pagination fetch is in flight, reserve
+              // a row's worth of skeleton tiles at the bottom of
+              // the wall. Lets the preview keep tracking the
+              // scroll into the loading area instead of jamming
+              // at the last real tile, and gives a visible
+              // "more is coming" cue inside the grid.
+              pendingCount={loadingMore && hasMore ? 8 : 0}
               colsForWidth={(w) => {
                 if (sizeMode === 'lg') {
                   if (w >= 1500) return 4;
