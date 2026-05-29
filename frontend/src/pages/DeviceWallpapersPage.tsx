@@ -121,6 +121,10 @@ export default function DeviceWallpapersPage() {
   const featured = wallpapers[featuredIdx] ?? wallpapers[0] ?? null;
   const featuredCover = featured?.preview_url || featured?.thumb_url;
   const onTileHover = useCallback((idx: number) => setFeaturedIdx(idx), []);
+  // Preview mode — Plain (just wallpaper), Home (dock + menu bar /
+  // status bar), Lock (centered clock + date). Same three modes most
+  // device preview tools surface. Mutually exclusive.
+  const [previewMode, setPreviewMode] = useState<'plain' | 'home' | 'lock'>('plain');
   // CSS class hook for the platform-specific device chrome (keyboard
   // base, phone notch, monitor stand, etc). See .dev-mockup.* in
   // index.css.
@@ -224,50 +228,63 @@ export default function DeviceWallpapersPage() {
               via the dev-page-grid responsive collapse. */}
           <aside className="dev-page-right">
             <div className="dev-page-sticky">
-              <div
-                className={`${mockupClass}${isAppleDesktop ? ' is-imac' : ''}`}
-                style={{
-                  ['--dev-aspect' as string]: `${device?.width || 16} / ${device?.height || 9}`,
-                } as React.CSSProperties}
-                aria-hidden
-              >
-                <div className="dev-mockup-screen">
-                  {featuredCover ? (
-                    <img src={featuredCover} alt="" />
-                  ) : (
-                    <div className="dev-frame-empty" />
+              <div className="dev-page-sticky-inner">
+                <div
+                  className={`${mockupClass}${isAppleDesktop ? ' is-imac' : ''}`}
+                  style={{
+                    ['--dev-aspect' as string]: `${device?.width || 16} / ${device?.height || 9}`,
+                  } as React.CSSProperties}
+                  aria-hidden
+                >
+                  <div className="dev-mockup-screen">
+                    {featuredCover ? (
+                      <img src={featuredCover} alt="" />
+                    ) : (
+                      <div className="dev-frame-empty" />
+                    )}
+                    {previewMode === 'lock' && device && (
+                      <PreviewLockOverlay platform={device.platform} />
+                    )}
+                    {previewMode === 'home' && device && (
+                      <PreviewHomeOverlay platform={device.platform} />
+                    )}
+                  </div>
+                  {device?.platform === 'phone' && <span className="dev-mockup-notch" aria-hidden />}
+                  {device?.platform === 'laptop' && (
+                    <>
+                      <span className="dev-mockup-laptop-base" aria-hidden />
+                      <span className="dev-mockup-laptop-notch" aria-hidden />
+                    </>
+                  )}
+                  {device?.platform === 'desktop' && !isAppleDesktop && (
+                    <>
+                      <span className="dev-mockup-stand-neck" aria-hidden />
+                      <span className="dev-mockup-stand-foot" aria-hidden />
+                    </>
                   )}
                 </div>
-                {device?.platform === 'phone' && <span className="dev-mockup-notch" aria-hidden />}
-                {device?.platform === 'laptop' && (
-                  <>
-                    <span className="dev-mockup-laptop-base" aria-hidden />
-                    <span className="dev-mockup-laptop-notch" aria-hidden />
-                  </>
-                )}
-                {device?.platform === 'desktop' && !isAppleDesktop && (
-                  <>
-                    <span className="dev-mockup-stand-neck" aria-hidden />
-                    <span className="dev-mockup-stand-foot" aria-hidden />
-                  </>
+
+                {/* Preview-mode toggles. Three pill buttons — Plain
+                    (just the wallpaper), Home (dock + status bar /
+                    menu bar), Lock (centered clock + date). Same set
+                    of states common preview tools surface. */}
+                {device && (
+                  <div className="dev-mode-toggles" role="radiogroup" aria-label="Preview mode">
+                    {(['plain', 'home', 'lock'] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        role="radio"
+                        aria-checked={previewMode === m}
+                        onClick={() => setPreviewMode(m)}
+                        className={`dev-mode-pill${previewMode === m ? ' is-on' : ''}`}
+                      >
+                        {m === 'plain' ? 'Plain' : m === 'home' ? 'Home' : 'Lock'}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
-
-              {featured && (
-                <div className="dev-page-preview-meta">
-                  <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
-                    Previewing · № {String(featuredIdx + 1).padStart(2, '0')} / {wallpaperCount}
-                  </div>
-                  <div className="display text-[18px] leading-tight mt-1 text-ink line-clamp-1">
-                    {featured.title || `Wallpaper ${featured.id}`}
-                  </div>
-                  {device && (
-                    <div className="mono text-[10px] tracking-[0.14em] uppercase text-muted mt-2 tabular-nums">
-                      Cropped to {device.width} × {device.height}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </aside>
         </div>
@@ -307,7 +324,6 @@ function DevTile({
       style={{ animationDelay: `${index * 30}ms` }}
       onMouseEnter={() => onHover(index)}
     >
-      <span className="dev-spec-card-seq-badge">№ {String(index + 1).padStart(2, '0')}</span>
       <div className="dev-spec-card-screen" style={{ aspectRatio: aspect }}>
         <img
           src={w.preview_url || w.thumb_url}
@@ -370,6 +386,56 @@ function DevTile({
 // FloatingMockup retired — replaced by the right-column sticky frame
 // pattern. Hovering a tile bumps featuredIdx; the sticky frame on
 // the right stays in view and always reflects the current pick.
+
+/* PreviewLockOverlay — large centered clock + date + a subtle scrim,
+   mirrors the iOS/macOS lock-screen typography. Time pulled from the
+   live clock (formats per platform: iOS = HH:MM, macOS = HH:MM); date
+   uses the user's locale. */
+function PreviewLockOverlay({ platform }: { platform: DeviceProfile['platform'] }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(id);
+  }, []);
+  const time = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+  const date = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  // Phones bias the clock toward the top (under the notch). Laptop/
+  // desktop bias more toward middle — closer to the macOS login look.
+  const topAnchor = platform === 'phone' ? '14%' : platform === 'tablet' ? '20%' : '32%';
+  return (
+    <div className="dev-overlay-lock" style={{ paddingTop: topAnchor }} aria-hidden>
+      <div className="dev-overlay-lock-time">{time}</div>
+      <div className="dev-overlay-lock-date">{date}</div>
+    </div>
+  );
+}
+
+/* PreviewHomeOverlay — a dock of small icon squares pinned to the
+   bottom + (for laptop/desktop) a thin menu bar at the top.
+   Different layouts by platform so the overlay reads like the real
+   thing without committing to brand-specific assets. */
+function PreviewHomeOverlay({ platform }: { platform: DeviceProfile['platform'] }) {
+  // Six distinctly-coloured "app" dots — different hue per icon so
+  // the dock reads as a real one without showing actual brand logos.
+  const HUES = [25, 90, 150, 210, 280, 330];
+  const dockSize = platform === 'phone' ? 5 : 6;
+  return (
+    <div className="dev-overlay-home" aria-hidden>
+      {(platform === 'laptop' || platform === 'desktop') && (
+        <div className="dev-overlay-menubar" />
+      )}
+      <div className={`dev-overlay-dock is-${platform}`}>
+        {HUES.slice(0, dockSize).map((h, i) => (
+          <span
+            key={i}
+            className="dev-overlay-dock-icon"
+            style={{ ['--ico-h' as string]: String(h) } as React.CSSProperties}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ─── Sub-components ─────────────────────────────────────────────────
 

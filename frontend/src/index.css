@@ -914,14 +914,141 @@
   .dev-page-grid .dev-page-right { order: -1; }
   .dev-page-grid .dev-page-sticky { position: static; }
 }
+/* Sticky aside: occupies the visible viewport area minus a top
+   offset; mockup + mode toggles flex-center inside. As the user
+   scrolls the grid, this whole vertical band stays in place with
+   the mockup hovering at the middle of the viewport rather than
+   pinned to the top. */
 .dev-page-sticky {
   position: sticky;
   top: 100px;
+  height: calc(100vh - 140px);
+  display: flex;
+  align-items: center;
 }
-.dev-page-preview-meta {
-  margin-top: 22px;
-  padding-top: 16px;
-  border-top: 1px solid var(--color-hair);
+.dev-page-sticky-inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+@media (max-width: 960px) {
+  .dev-page-sticky {
+    height: auto;
+    align-items: stretch;
+  }
+}
+
+/* Mode pills under the mockup — three radio-style toggles
+   (Plain / Home / Lock). Active pill goes ink-on-paper; idle pills
+   stay paper-on-hair. */
+.dev-mode-toggles {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  background: var(--color-paper-2);
+  border: 1px solid var(--color-hair);
+  border-radius: 999px;
+}
+.dev-mode-pill {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 200ms ease, color 200ms ease;
+}
+.dev-mode-pill:hover { color: var(--color-ink-2); }
+.dev-mode-pill.is-on {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+/* Lock-screen overlay — centered clock + date with subtle scrim. */
+.dev-overlay-lock {
+  position: absolute; inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  color: oklch(99% 0 0);
+  background: linear-gradient(180deg,
+    oklch(0% 0 0 / 0.32) 0%,
+    oklch(0% 0 0 / 0.05) 35%,
+    transparent 60%,
+    oklch(0% 0 0 / 0.30) 100%);
+  text-shadow: 0 2px 18px oklch(0% 0 0 / 0.55);
+  z-index: 2;
+}
+.dev-overlay-lock-time {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: clamp(34px, 9cqw, 78px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.dev-overlay-lock-date {
+  margin-top: 6px;
+  font-family: var(--font-sans);
+  font-size: clamp(11px, 1.6cqw, 15px);
+  font-weight: 500;
+  opacity: 0.92;
+  letter-spacing: 0.01em;
+}
+/* container-query units (cqw) need a container context on the
+   screen element so the overlay scales with the mockup, not the
+   viewport. */
+.dev-mockup-screen { container-type: inline-size; }
+
+/* Home-screen overlay — bottom dock for all platforms, plus a thin
+   menubar at the top for laptop/desktop. Icon dots use a per-icon
+   --ico-h hue so the dock reads as a real one without brand assets. */
+.dev-overlay-home {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  display: flex; flex-direction: column;
+  z-index: 2;
+}
+.dev-overlay-menubar {
+  height: 3%;
+  min-height: 6px;
+  background: oklch(98% 0 0 / 0.32);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid oklch(0% 0 0 / 0.08);
+}
+.dev-overlay-dock {
+  margin: auto auto 5% auto;
+  padding: 5px 6px;
+  border-radius: 999px;
+  background: oklch(98% 0 0 / 0.28);
+  backdrop-filter: blur(10px);
+  border: 1px solid oklch(100% 0 0 / 0.35);
+  display: grid;
+  grid-auto-flow: column;
+  gap: 5px;
+  align-items: center;
+}
+.dev-overlay-dock.is-phone   { padding: 5px 6px; gap: 5px; }
+.dev-overlay-dock.is-tablet  { padding: 6px 8px; gap: 7px; }
+.dev-overlay-dock.is-laptop,
+.dev-overlay-dock.is-desktop { padding: 6px 10px; gap: 9px; }
+.dev-overlay-dock-icon {
+  width: clamp(12px, 4cqw, 28px);
+  height: clamp(12px, 4cqw, 28px);
+  border-radius: 22%;
+  background: linear-gradient(135deg,
+    oklch(80% 0.16 var(--ico-h, 30)) 0%,
+    oklch(58% 0.20 var(--ico-h, 30)) 100%);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.4),
+              0 1px 2px oklch(0% 0 0 / 0.18);
 }
 
 /* ── .dev-mockup — platform-specific device chrome ─────────────── */
