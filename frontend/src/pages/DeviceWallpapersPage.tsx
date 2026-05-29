@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { motion, useMotionValue, useTransform, useSpring, animate, type MotionValue } from 'framer-motion';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import {
   AiOutlineHeart, AiFillHeart,
@@ -254,14 +254,13 @@ export default function DeviceWallpapersPage() {
     return () => ro.disconnect();
   }, [wallEl]);
 
-  // Responsive column count derived from the wall's actual width.
-  // The hard breakpoints aim for ~260-380px tile cells across the
-  // range so the wall feels equally "dense" at every viewport.
+  // Responsive column count from the wall's actual width. Tuned so
+  // 2560×1440 viewports get 4 cols (the user's target), with one
+  // step up for ultrawide and gradual step-down on narrower screens.
   const cols = useMemo(() => {
-    if (wallWidth >= 1500) return 6;
-    if (wallWidth >= 1200) return 5;
-    if (wallWidth >= 900)  return 4;
-    if (wallWidth >= 640)  return 3;
+    if (wallWidth >= 1800) return 5;
+    if (wallWidth >= 1100) return 4;
+    if (wallWidth >= 760)  return 3;
     return 2;
   }, [wallWidth]);
 
@@ -331,14 +330,27 @@ export default function DeviceWallpapersPage() {
   // motion-value 'change' events (one tick per animation frame),
   // which is plenty fast for the reflow to feel responsive while
   // keeping React renders to one per actual cell change.
+  // Hysteresis snap — preview only flips to the next discrete cell
+  // once its centre is ~70% past the boundary, not 50%. Together
+  // with the per-tile squish (DevWallSlot), this is what makes the
+  // wall feel like the preview is pressing *into* the wallpapers
+  // before they pop past it rather than swapping at midpoint.
+  const SNAP_THRESHOLD = 0.7;
   const previewColMV = useTransform(previewX, (x) => {
     if (tileW <= 0) return 0;
-    const c = Math.round(x / (tileW + gap));
+    const cellW = tileW + gap;
+    const base = Math.floor(x / cellW);
+    const progress = (x - base * cellW) / cellW;
+    const c = progress > SNAP_THRESHOLD ? base + 1 : base;
     return Math.max(0, Math.min(cols - previewColSpan, c));
   });
   const previewRowMV = useTransform(previewY, (y) => {
     if (tileH <= 0) return 0;
-    return Math.max(0, Math.round(y / (tileH + gap)));
+    const cellH = tileH + gap;
+    const base = Math.floor(y / cellH);
+    const progress = (y - base * cellH) / cellH;
+    const r = progress > SNAP_THRESHOLD ? base + 1 : base;
+    return Math.max(0, r);
   });
   const [previewCell, setPreviewCell] = useState({ col: 0, row: 0 });
   useEffect(() => {
@@ -383,16 +395,6 @@ export default function DeviceWallpapersPage() {
     const previewBottom = (previewCell.row + previewRowSpan) * tileH + (previewCell.row + previewRowSpan - 1) * gap;
     return Math.max(lastTileBottom, previewBottom);
   }, [tilePositions, tileH, gap, previewCell.row, previewRowSpan, previewH, device, cols, wallpapers.length]);
-
-  // Ripple-on-contact: tiles immediately adjacent to the preview's
-  // current footprint get a class that triggers a soft scaling +
-  // shadow ripple. Cheap CSS — no per-frame JS.
-  const isTileAdjacent = useCallback((col: number, row: number) => {
-    const { col: pc, row: pr } = previewCell;
-    const colNear = col >= pc - 1 && col < pc + previewColSpan + 1;
-    const rowNear = row >= pr - 1 && row < pr + previewRowSpan + 1;
-    return colNear && rowNear;
-  }, [previewCell, previewColSpan, previewRowSpan]);
 
   return (
     <div ref={rootRef} className="devices-page min-h-full">
@@ -441,9 +443,28 @@ export default function DeviceWallpapersPage() {
         {loadingList && wallpapers.length === 0 ? (
           // Skeleton: still uses a plain CSS grid since absolute
           // positioning needs measured wallWidth which isn't ready
-          // yet on first render.
+          // yet on first render. The first cell mimics the device
+          // mockup card — same glass surface, same span footprint —
+          // so the page doesn't shift when the live wall takes over.
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            <div className="skeleton-card" style={{ aspectRatio: `${(device?.width || 16) * 2} / ${(device?.height || 9) * (device?.platform === 'phone' ? 1 : 2)}`, gridColumn: 'span 2', gridRow: device?.platform === 'phone' ? 'auto' : 'span 2' }} />
+            <div
+              className="dev-preview-skel"
+              style={{
+                gridColumn: 'span 2',
+                gridRow: device?.platform === 'phone' ? 'auto' : 'span 2',
+                aspectRatio: device
+                  ? `${device.width * 2} / ${device.height * (device.platform === 'phone' ? 1 : 2)}`
+                  : '32 / 18',
+              }}
+              aria-hidden
+            >
+              <div className="dev-preview-skel-mockup skeleton-card" />
+              <div className="dev-preview-skel-toggles">
+                <span className="skeleton-card" />
+                <span className="skeleton-card" />
+                <span className="skeleton-card" />
+              </div>
+            </div>
             {Array.from({ length: 12 }).map((_, i) => (
               <div
                 key={i}
@@ -554,36 +575,36 @@ export default function DeviceWallpapersPage() {
                 </motion.div>
               )}
 
-              {/* Absolutely-positioned wallpaper tiles. Each one
-                  animates its (x, y) toward the cell assigned by
-                  tilePositions[i]; framer-motion's spring smooths
-                  the reflow when the preview moves. Tiles within
-                  one cell of the preview footprint get a 'rippled'
-                  class for the contact-edge wave. */}
+              {/* Each tile is a DevWallSlot — owns a useSpring for
+                  its assigned cell position and a useTransform that
+                  reads the preview's live continuous coords to
+                  apply push + squish based on the actual bbox
+                  overlap. As the preview drifts (drag or scroll-
+                  follow), tiles compress / get pushed away from it
+                  every frame, no React re-renders. When the
+                  preview's discrete cell flips (snap), the cell-
+                  target springs the tile to its new home. */}
               {wallpapers.map((wp, i) => {
                 const pos = tilePositions[i];
                 if (!pos) return null;
-                const adj = isTileAdjacent(pos.col, pos.row);
                 return (
-                  <motion.div
+                  <DevWallSlot
                     key={wp.id}
-                    className={`dev-wall-slot${adj ? ' is-rippled' : ''}`}
-                    initial={false}
-                    animate={{
-                      x: pos.col * (tileW + gap),
-                      y: pos.row * (tileH + gap),
-                    }}
-                    transition={{ type: 'spring', stiffness: 230, damping: 28, mass: 0.6 }}
-                    style={{ width: tileW, height: tileH }}
-                  >
-                    <DevTile
-                      wallpaper={wp}
-                      device={device}
-                      index={i}
-                      isFeatured={i === featuredIdx}
-                      onHover={onTileHover}
-                    />
-                  </motion.div>
+                    wp={wp}
+                    device={device}
+                    index={i}
+                    isFeatured={i === featuredIdx}
+                    onHover={onTileHover}
+                    targetCol={pos.col}
+                    targetRow={pos.row}
+                    tileW={tileW}
+                    tileH={tileH}
+                    gap={gap}
+                    previewX={previewX}
+                    previewY={previewY}
+                    previewW={previewW}
+                    previewH={previewH}
+                  />
                 );
               })}
             </div>
@@ -628,6 +649,116 @@ export default function DeviceWallpapersPage() {
    featuredIdx so the right-column sticky mockup re-renders this
    tile's wallpaper. The wallpaper-on-device 'try it on' read happens
    in the sticky frame, not here. */
+/* DevWallSlot — one wallpaper tile, absolutely positioned with
+   per-tile motion. The slot owns:
+     - cellX / cellY: useSpring values targeted at the assigned grid
+       cell. When the parent recomputes tilePositions (because the
+       preview snapped to a new discrete cell), these springs glide
+       the tile to its new home.
+     - finalX / finalY / scaleX / scaleY: useTransform values that
+       read the preview's continuous motion every frame and apply a
+       push displacement + axis-aligned compression based on the
+       bbox overlap between this tile's current cell footprint and
+       the preview's current pixel rect. This is what makes
+       wallpapers feel "squished" by the preview before it pops
+       past — they shrink along the contact axis and slide
+       perpendicular to it.
+   No React re-renders happen during scroll or drag; framer-motion
+   updates the transform style directly on the DOM. */
+function DevWallSlot({
+  wp, device, index, isFeatured, onHover,
+  targetCol, targetRow,
+  tileW, tileH, gap,
+  previewX, previewY, previewW, previewH,
+}: {
+  wp: Wallpaper;
+  device: DeviceProfile | null;
+  index: number;
+  isFeatured: boolean;
+  onHover: (idx: number) => void;
+  targetCol: number;
+  targetRow: number;
+  tileW: number;
+  tileH: number;
+  gap: number;
+  previewX: MotionValue<number>;
+  previewY: MotionValue<number>;
+  previewW: number;
+  previewH: number;
+}) {
+  const cellTargetX = targetCol * (tileW + gap);
+  const cellTargetY = targetRow * (tileH + gap);
+  const cellX = useSpring(cellTargetX, { stiffness: 240, damping: 28, mass: 0.6 });
+  const cellY = useSpring(cellTargetY, { stiffness: 240, damping: 28, mass: 0.6 });
+  useEffect(() => { cellX.set(cellTargetX); }, [cellTargetX, cellX]);
+  useEffect(() => { cellY.set(cellTargetY); }, [cellTargetY, cellY]);
+
+  // bbox overlap helper that runs per-frame inside useTransform.
+  // Returns null when no overlap so callers can short-circuit.
+  const computeSquish = (cx: number, cy: number, px: number, py: number) => {
+    if (tileW <= 0 || tileH <= 0) return null;
+    const xOv = Math.max(0, Math.min(cx + tileW, px + previewW) - Math.max(cx, px));
+    const yOv = Math.max(0, Math.min(cy + tileH, py + previewH) - Math.max(cy, py));
+    if (xOv === 0 || yOv === 0) return null;
+    // Direction from preview centre to tile centre — sign of dx/dy
+    // tells us which way to push.
+    const dx = (cx + tileW / 2) - (px + previewW / 2);
+    const dy = (cy + tileH / 2) - (py + previewH / 2);
+    // Push along the *minor* overlap axis so the tile slides
+    // around the preview rather than away from its centre. (If
+    // most of the overlap is horizontal, the tile must move
+    // vertically to escape; vice versa.)
+    const xRatio = xOv / tileW;
+    const yRatio = yOv / tileH;
+    let pushX = 0;
+    let pushY = 0;
+    const STRENGTH = 0.42;
+    if (xRatio > yRatio) {
+      pushY = Math.sign(dy || 1) * yOv * STRENGTH;
+    } else {
+      pushX = Math.sign(dx || 1) * xOv * STRENGTH;
+    }
+    // Compression caps so tiles don't dissolve.
+    const SX_MIN = 0.84;
+    const SY_MIN = 0.84;
+    const sx = Math.max(SX_MIN, 1 - 0.18 * xRatio);
+    const sy = Math.max(SY_MIN, 1 - 0.18 * yRatio);
+    return { pushX, pushY, sx, sy };
+  };
+
+  const x = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
+    const s = computeSquish(cx as number, cy as number, px as number, py as number);
+    return (cx as number) + (s?.pushX ?? 0);
+  });
+  const y = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
+    const s = computeSquish(cx as number, cy as number, px as number, py as number);
+    return (cy as number) + (s?.pushY ?? 0);
+  });
+  const scaleX = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
+    const s = computeSquish(cx as number, cy as number, px as number, py as number);
+    return s?.sx ?? 1;
+  });
+  const scaleY = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
+    const s = computeSquish(cx as number, cy as number, px as number, py as number);
+    return s?.sy ?? 1;
+  });
+
+  return (
+    <motion.div
+      className="dev-wall-slot"
+      style={{ x, y, scaleX, scaleY, width: tileW, height: tileH }}
+    >
+      <DevTile
+        wallpaper={wp}
+        device={device}
+        index={index}
+        isFeatured={isFeatured}
+        onHover={onHover}
+      />
+    </motion.div>
+  );
+}
+
 function DevTile({
   wallpaper: w, device, index, isFeatured, onHover,
 }: {

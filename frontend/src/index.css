@@ -1352,7 +1352,78 @@
 .dev-preview-floating > .dev-page-sticky-inner {
   width: 100%;
   height: 100%;
-  /* Inner card fills the motion.div's measured w/h exactly. */
+  /* Inner card fills the motion.div's measured w/h exactly. Tight
+     padding so the mockup gets visible breathing room. */
+  padding: 18px 18px 14px;
+  gap: 12px;
+}
+/* Cap mockup size *inside the floating frame* so it can't overflow
+   the card, especially for portrait phones whose 9:19.5 aspect at
+   the global max-width: 220px makes them ~480px tall — way more
+   than a 1-row preview cell can hold. Both axes capped; aspect-
+   ratio on .dev-mockup-screen still picks the smaller dimension. */
+.dev-preview-floating .dev-mockup {
+  max-width: min(78%, 540px);
+  max-height: calc(100% - 56px); /* leave room for toggles + gap */
+}
+.dev-preview-floating .dev-mockup.is-phone {
+  max-width: min(38%, 220px);
+  max-height: calc(100% - 56px);
+}
+.dev-preview-floating .dev-mockup.is-tablet {
+  max-width: min(60%, 340px);
+  max-height: calc(100% - 56px);
+}
+/* When max-height kicks in, drive the mockup-screen by height
+   instead of width so it stays shorter than the cell. The
+   aspect-ratio var still keeps width and height proportional. */
+.dev-preview-floating .dev-mockup-screen {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+}
+.dev-preview-floating .dev-mockup.is-phone .dev-mockup-screen,
+.dev-preview-floating .dev-mockup.is-tablet .dev-mockup-screen {
+  /* Phones / tablets fit the screen to the mockup's chrome width
+     since their portrait aspect is what's driving the cap. */
+  width: 100%;
+  height: auto;
+}
+
+/* Skeleton placeholder for the preview position — same glass
+   look, same footprint, so the page doesn't jump when the live
+   floating preview takes over. */
+.dev-preview-skel {
+  position: relative;
+  border-radius: 22px;
+  border: 1px solid var(--color-hair);
+  background: oklch(98% 0.005 240 / 0.55);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 18px;
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 14px 36px -16px oklch(0% 0 0 / 0.25);
+}
+.dark .dev-preview-skel {
+  background: oklch(14% 0.018 240 / 0.5);
+  border-color: var(--color-hair-soft);
+}
+.dev-preview-skel-mockup {
+  width: 62%;
+  height: 60%;
+  border-radius: 10px;
+}
+.dev-preview-skel-toggles {
+  display: flex;
+  gap: 8px;
+}
+.dev-preview-skel-toggles > span {
+  width: 44px; height: 22px;
+  border-radius: 999px;
 }
 
 /* Sticky frame — a glass-card holding the mockup + mode toggles.
