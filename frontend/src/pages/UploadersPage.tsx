@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { MdEmojiEvents } from 'react-icons/md';
 import type { UserListItem } from '../types';
 import { getUsers } from '../api';
 import PageMeta from '../components/PageMeta';
@@ -193,18 +194,27 @@ function UploaderWallCard({ u, rank }: { u: UserListItem; rank: number }) {
     >
       <div className="uploader-card-aura" aria-hidden />
       {isTop && (
-        <span className="uploader-card-badge" title="Top contributor">
-          ★ TOP {rank}
+        <span
+          className={`uploader-card-badge is-rank-${rank}`}
+          title={`Top ${rank} contributor`}
+        >
+          <MdEmojiEvents size={12} />
+          <span>TOP {rank}</span>
         </span>
       )}
 
       <div className="uploader-card-head">
-        <Avatar
-          src={u.avatar_url}
-          name={display}
-          size={64}
-          className="uploader-card-avatar"
-        />
+        {/* Three-segment conic ring around the avatar — the user's
+            recent dominant colours rotated 120° each. Pure-CSS,
+            same colour stops as the aura behind the card. */}
+        <span className="uploader-card-ring" aria-hidden>
+          <Avatar
+            src={u.avatar_url}
+            name={display}
+            size={60}
+            className="uploader-card-avatar"
+          />
+        </span>
         <div className="uploader-card-id">
           <div className="uploader-card-name">{display}</div>
           <div className="uploader-card-handle">@{u.username}</div>
@@ -257,7 +267,9 @@ function UploaderWallSkeleton({ count }: { count: number }) {
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="uploader-card is-skel">
           <div className="uploader-card-head">
-            <div className="uploader-card-skel-avatar" />
+            <span className="uploader-card-ring is-skel" aria-hidden>
+              <span className="uploader-card-skel-avatar" />
+            </span>
             <div className="uploader-card-id">
               <div className="uploader-card-skel-bar" style={{ width: '50%', height: 14 }} />
               <div className="uploader-card-skel-bar mt-2" style={{ width: '35%', height: 9 }} />
