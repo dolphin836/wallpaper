@@ -630,13 +630,15 @@ export default function DiscoverPage() {
             <DeviceFloatingWall
               device={currentDevice}
               wallpapers={wallpapers}
-              // While the pagination fetch is in flight, reserve
-              // a row's worth of skeleton tiles at the bottom of
-              // the wall. Lets the preview keep tracking the
-              // scroll into the loading area instead of jamming
-              // at the last real tile, and gives a visible
-              // "more is coming" cue inside the grid.
-              pendingCount={loadingMore && hasMore ? 8 : 0}
+              // Whenever there's more to load, reserve a few rows
+              // of skeleton tiles at the bottom of the wall. They
+              // soak up fast scrolling so the preview's follow
+              // never outruns the rendered content, and they
+              // surface a continuous "more coming" cue inside
+              // the grid. Belt-and-braces fires the fetch as the
+              // user gets close; tiles slot into the pending
+              // positions seamlessly when the response lands.
+              pendingCount={hasMore ? 16 : 0}
               colsForWidth={(w) => {
                 if (sizeMode === 'lg') {
                   if (w >= 1500) return 4;
