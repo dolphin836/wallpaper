@@ -124,10 +124,12 @@ type UserListItem struct {
 	RecentThumbs   []string `gorm:"-" json:"recent_thumbs,omitempty"`
 }
 
-// RecentThumbsForUsers returns the 3 most recently published wallpaper thumb
-// URLs per user, keyed by user id. Empty slice for users with no published
-// wallpapers. One round-trip via window function — cheap up to ~50 users per
-// page (the api caps `limit` at 50 in the handler).
+// RecentThumbsForUsers returns up to 9 of each user's most recently
+// published wallpaper thumb URLs, keyed by user id. Empty slice for
+// users with no published wallpapers. Used by the SPA Uploaders
+// page to build a 3×3 mosaic per contributor. One round-trip via
+// a window function — at the handler's 50-user cap that's at most
+// 450 small rows.
 func (r *UserRepo) RecentThumbsForUsers(ctx context.Context, ids []int64) (map[int64][]string, error) {
 	out := make(map[int64][]string, len(ids))
 	if len(ids) == 0 {
@@ -145,7 +147,7 @@ func (r *UserRepo) RecentThumbsForUsers(ctx context.Context, ids []int64) (map[i
 			  FROM wallpapers
 			 WHERE user_id IN ? AND status = 1 AND thumb_url <> ''
 		) ranked
-		WHERE rn <= 3
+		WHERE rn <= 9
 		ORDER BY user_id, rn
 	`, ids).Scan(&rows).Error
 	if err != nil {

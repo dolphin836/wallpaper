@@ -6,7 +6,6 @@ import PageMeta from '../components/PageMeta';
 import Pagination from '../components/Pagination';
 import Avatar from '../components/Avatar';
 import ErrorState from '../components/ErrorState';
-import { UploaderListSkeleton } from '../components/Skeletons';
 
 type Sort = 'recent' | 'uploads' | 'coins';
 const PAGE_SIZE = 12;
@@ -96,16 +95,20 @@ export default function UploadersPage() {
           </div>
         </div>
 
-        {/* List */}
+        {/* Wall of work — each contributor is a 3×3 mosaic of their
+            recent wallpapers, with a frosted strip at the bottom
+            carrying avatar + handle + upload count. The work IS the
+            card; scanning the page tells you what each person makes
+            before you read a single name. */}
         {loading && items.length === 0 ? (
-          <UploaderListSkeleton count={6} />
+          <UploaderWallSkeleton count={9} />
         ) : error && items.length === 0 ? (
           <ErrorState />
         ) : items.length === 0 ? (
           <div className="text-center py-20 text-muted text-sm">No uploaders yet.</div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {items.map((u) => <UploaderRow key={u.id} u={u} />)}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {items.map((u) => <UploaderWallCard key={u.id} u={u} />)}
           </div>
         )}
 
@@ -115,62 +118,72 @@ export default function UploadersPage() {
   );
 }
 
-function UploaderRow({ u }: { u: UserListItem }) {
+// Wall-of-work card — the contributor's actual wallpapers, tiled
+// 3×3 (or partial). Footer strip at the bottom carries avatar +
+// handle + count. Click → user profile. Hover: thumbs scale 1.02,
+// footer brightens.
+function UploaderWallCard({ u }: { u: UserListItem }) {
   const display = u.nickname || u.username;
-  // We don't aggregate per-user download / like totals in the schema yet
-  // (counts live on each wallpaper row), so the design's 3-column stats
-  // grid is reduced to just UPLOADS until we have honest numbers for the
-  // other two.
-  const works = u.recent_thumbs ?? [];
-  // Collapse the trailing thumbnail column when the uploader has no
-  // wallpapers — otherwise the UPLOADS block sits awkwardly far from
-  // the right edge with a 220–280px void next to it.
-  const gridCols = works.length > 0
-    ? 'grid-cols-[68px_1fr] md:grid-cols-[68px_1fr_auto] lg:grid-cols-[68px_1fr_auto_220px] xl:grid-cols-[68px_1fr_auto_280px]'
-    : 'grid-cols-[68px_1fr] md:grid-cols-[68px_1fr_auto]';
-
+  const thumbs = (u.recent_thumbs ?? []).slice(0, 9);
+  // Always 9 cells; empty slots fill with a paper-2 tile so the
+  // mosaic geometry stays consistent regardless of upload count.
+  const cells = Array.from({ length: 9 }, (_, i) => thumbs[i] || null);
   return (
-    <Link
-      to={`/user/${u.username}`}
-      className={`uploader-row grid ${gridCols} gap-4 md:gap-5 lg:gap-6 items-center px-5 py-4 no-underline text-ink`}
-    >
-      <Avatar
-        src={u.avatar_url}
-        name={display}
-        size={68}
-        className="border border-hair flex-shrink-0"
-      />
-
-      <div className="min-w-0">
-        <div className="display text-[22px] sm:text-[24px] leading-tight">{display}</div>
-        <div className="mono text-[11px] tracking-[0.04em] text-muted mt-1">
-          @{u.username} <span className="mx-1.5">·</span> joined {formatJoined(u.created_at)}
-        </div>
-        {u.bio && (
-          <p className="text-[13px] text-ink-2 leading-snug mt-2 max-w-[460px] line-clamp-2">
-            {u.bio}
-          </p>
-        )}
+    <Link to={`/user/${u.username}`} className="uploader-wall no-underline text-ink">
+      <div className="uploader-wall-grid" aria-hidden>
+        {cells.map((src, i) => (
+          <div key={i} className="uploader-wall-cell">
+            {src
+              ? <img src={src} alt="" loading="lazy" />
+              : <div className="uploader-wall-empty" />}
+          </div>
+        ))}
       </div>
-
-      <div className="hidden md:block text-right mono">
-        <div className="text-[9px] tracking-[0.14em] text-muted">UPLOADS</div>
-        <div className="display text-[22px] leading-none mt-1">{formatNumber(u.wallpaper_count)}</div>
-      </div>
-
-      {/* Show up to 3 most recent thumbnails. Uploaders with zero uploads
-          render no thumbnail strip at all (the column collapses); 1–2
-          uploads render only the slots that have content — no empty
-          placeholder squares. */}
-      {works.length > 0 && (
-        <div className="hidden lg:grid grid-cols-3 gap-1.5">
-          {works.slice(0, 3).map((thumb, i) => (
-            <div key={i} className="aspect-square border border-hair overflow-hidden bg-paper-3 rounded">
-              <img src={thumb} alt="" loading="lazy" className="w-full h-full object-cover" />
-            </div>
-          ))}
+      <div className="uploader-wall-strip">
+        <Avatar
+          src={u.avatar_url}
+          name={display}
+          size={36}
+          className="flex-shrink-0"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="uploader-wall-name">{display}</div>
+          <div className="uploader-wall-meta">
+            @{u.username} · joined {formatJoined(u.created_at)}
+          </div>
         </div>
-      )}
+        <div className="uploader-wall-count">
+          <div className="uploader-wall-count-num">{formatNumber(u.wallpaper_count)}</div>
+          <div className="uploader-wall-count-label">{u.wallpaper_count === 1 ? 'upload' : 'uploads'}</div>
+        </div>
+      </div>
     </Link>
+  );
+}
+
+// Skeleton variant — same chrome as the real wall card, paper-2
+// shimmer for cells.
+function UploaderWallSkeleton({ count }: { count: number }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="uploader-wall">
+          <div className="uploader-wall-grid">
+            {Array.from({ length: 9 }).map((__, j) => (
+              <div key={j} className="uploader-wall-cell">
+                <div className="uploader-wall-empty skeleton-card" />
+              </div>
+            ))}
+          </div>
+          <div className="uploader-wall-strip is-skel">
+            <div className="uploader-wall-skel-avatar" />
+            <div className="flex-1">
+              <div className="uploader-wall-skel-bar w-1/2 h-3" />
+              <div className="uploader-wall-skel-bar w-2/3 h-2 mt-2" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
