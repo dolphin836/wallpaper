@@ -278,12 +278,46 @@ export default function DeviceWallpapersPage() {
   const previewW = tileW * previewColSpan + gap * (previewColSpan - 1);
   const previewH = tileH * previewRowSpan + gap * (previewRowSpan - 1);
 
+  // Mockup sizing inside the floating card — computed in JS because
+  // CSS max-width / max-height couldn't reliably contain a 9:19.5
+  // phone aspect inside a 1-row cell with the chrome elements (mode
+  // pills + gap + padding). Solve for the largest aspect-correct
+  // rectangle that fits the available content area, applied as
+  // explicit width on .dev-mockup. Padding values are kept in sync
+  // with the .dev-preview-floating > .dev-page-sticky-inner CSS.
+  const mockupSize = useMemo(() => {
+    if (!device || previewW <= 0 || previewH <= 0) return { w: 0, h: 0 };
+    const padX = 28; // 14 + 14
+    const padY = 26; // 14 + 12
+    const togglesH = 30;
+    const innerGap = 12;
+    const availW = Math.max(40, previewW - padX);
+    const availH = Math.max(40, previewH - padY - togglesH - innerGap);
+    const ratio = (device.width || 16) / (device.height || 9);
+    // Largest aspect-correct rect: pick whichever bound is tighter.
+    const widthBoundH = availW / ratio;
+    const heightBoundW = availH * ratio;
+    const w = widthBoundH <= availH ? availW : heightBoundW;
+    const h = widthBoundH <= availH ? widthBoundH : availH;
+    return { w: Math.floor(w), h: Math.floor(h) };
+  }, [device, previewW, previewH]);
+
   // Preview's pixel position relative to the wall's top-left,
   // tracked as motion values so framer-motion can spring/animate
   // them without React re-rendering the whole tree on every frame.
   const previewX = useMotionValue(0);
   const previewY = useMotionValue(0);
   const [isDragging, setIsDragging] = useState(false);
+  // Discrete cell the user last *committed* the preview to (via
+  // a drag that passed the 70% snap threshold, or initial state
+  // = top-left). Distinct from previewCell (the running cell the
+  // continuous motion is currently in). On drag end we copy the
+  // running cell into parkedCell; the settle effect then springs
+  // preview to parkedCell's pixel coords. This implements the
+  // user's spec: "either pass the threshold = change position, or
+  // fall short = return to original" — the threshold checked here
+  // is the same 70% hysteresis that drives the live tile reflow.
+  const [parkedCell, setParkedCell] = useState({ col: 0, row: 0 });
 
   // Scroll-follow: when the user has scrolled the wall enough that
   // the top of the page is below the preview's home row, the
@@ -315,15 +349,20 @@ export default function DeviceWallpapersPage() {
     };
   }, [previewH, wallEl]);
 
-  // When not dragging, the preview animates toward (0, scrollFollowY)
-  // — its top-left "home" column with the scroll-follow Y. During
-  // drag, framer-motion owns x/y directly via the drag handlers.
+  // When not dragging, settle to parkedCell's pixel coords. Scroll-
+  // follow acts as a Y *floor* — preview can't scroll above its
+  // parked row but tracks the viewport when the user scrolls past
+  // that row, keeping the mockup always visible. During drag,
+  // framer-motion owns x/y directly via the drag handlers.
   useEffect(() => {
     if (isDragging) return;
-    const ax = animate(previewX, 0, { type: 'spring', stiffness: 220, damping: 28 });
-    const ay = animate(previewY, scrollFollowY, { type: 'spring', stiffness: 220, damping: 28 });
+    const targetX = parkedCell.col * (tileW + gap);
+    const baseY = parkedCell.row * (tileH + gap);
+    const targetY = Math.max(baseY, scrollFollowY);
+    const ax = animate(previewX, targetX, { type: 'spring', stiffness: 220, damping: 28 });
+    const ay = animate(previewY, targetY, { type: 'spring', stiffness: 220, damping: 28 });
     return () => { ax.stop(); ay.stop(); };
-  }, [isDragging, scrollFollowY, previewX, previewY]);
+  }, [isDragging, parkedCell.col, parkedCell.row, scrollFollowY, tileW, tileH, gap, previewX, previewY]);
 
   // Mirror the preview's continuous motion into discrete grid cell
   // coordinates that the tile-placement logic reads. Throttled by
@@ -505,7 +544,15 @@ export default function DeviceWallpapersPage() {
                   dragElastic={0.06}
                   dragMomentum={false}
                   onDragStart={() => setIsDragging(true)}
-                  onDragEnd={() => setIsDragging(false)}
+                  onDragEnd={() => {
+                    setIsDragging(false);
+                    // Commit the discrete cell the preview is
+                    // currently in (computed with 70% hysteresis
+                    // by previewColMV/previewRowMV) as the new
+                    // parked position. The settle effect picks it
+                    // up and springs preview into that exact cell.
+                    setParkedCell({ col: previewCell.col, row: previewCell.row });
+                  }}
                   whileDrag={{ scale: 1.02, cursor: 'grabbing' }}
                   style={{
                     x: previewX,
@@ -525,6 +572,11 @@ export default function DeviceWallpapersPage() {
                       className={`${mockupClass}${isAppleDesktop ? ' is-imac' : ''}`}
                       style={{
                         ['--dev-aspect' as string]: `${device.width || 16} / ${device.height || 9}`,
+                        // Explicit width from the JS-computed mockupSize
+                        // overrides .dev-mockup's default width: 100% +
+                        // max-width caps, which couldn't safely contain
+                        // a portrait phone aspect inside the 1-row cell.
+                        width: mockupSize.w || undefined,
                       } as React.CSSProperties}
                       aria-hidden
                     >
@@ -694,59 +746,77 @@ function DevWallSlot({
   useEffect(() => { cellY.set(cellTargetY); }, [cellTargetY, cellY]);
 
   // bbox overlap helper that runs per-frame inside useTransform.
-  // Returns null when no overlap so callers can short-circuit.
+  // Returns the directional dent the tile should display, or null
+  // when no overlap exists.
+  //
+  // Dent semantics (the upgrade from uniform-shrink to one-sided
+  // depression the user asked for):
+  //   - The tile's outer footprint stays put on the side away from
+  //     the preview. Only the *contact* edge gets pushed inward.
+  //   - Implemented as scale<1 along the contact axis with
+  //     transform-origin pinned to the FAR edge. So if the preview
+  //     is approaching from the left, origin = right center,
+  //     scaleX < 1 → the left edge moves rightward (caves in) while
+  //     the right edge stays anchored.
+  //   - Magnitude grows with relative penetration (overlap / tile
+  //     size), capped at DENT_MAX so tiles never fold past 80%.
   const computeSquish = (cx: number, cy: number, px: number, py: number) => {
     if (tileW <= 0 || tileH <= 0) return null;
     const xOv = Math.max(0, Math.min(cx + tileW, px + previewW) - Math.max(cx, px));
     const yOv = Math.max(0, Math.min(cy + tileH, py + previewH) - Math.max(cy, py));
     if (xOv === 0 || yOv === 0) return null;
-    // Direction from preview centre to tile centre — sign of dx/dy
-    // tells us which way to push.
+
     const dx = (cx + tileW / 2) - (px + previewW / 2);
     const dy = (cy + tileH / 2) - (py + previewH / 2);
-    // Push along the *minor* overlap axis so the tile slides
-    // around the preview rather than away from its centre. (If
-    // most of the overlap is horizontal, the tile must move
-    // vertically to escape; vice versa.)
-    const xRatio = xOv / tileW;
-    const yRatio = yOv / tileH;
-    let pushX = 0;
-    let pushY = 0;
-    const STRENGTH = 0.42;
+
+    const xRatio = Math.min(1, xOv / tileW);
+    const yRatio = Math.min(1, yOv / tileH);
+
+    const DENT_MAX = 0.20;
+    let scaleX = 1;
+    let scaleY = 1;
+    let origin = '50% 50%';
+
+    // The axis with MORE overlap is the contact-area axis; the
+    // OTHER axis is where the dent happens. (Wide horizontal
+    // overlap → preview is encroaching from above/below → top or
+    // bottom edge dents in.)
     if (xRatio > yRatio) {
-      pushY = Math.sign(dy || 1) * yOv * STRENGTH;
+      // Vertical dent — top edge if preview is above, bottom edge
+      // if preview is below.
+      scaleY = 1 - Math.min(DENT_MAX, yRatio * 0.7);
+      // dy > 0 means tile centre is below preview centre → preview
+      // is ABOVE tile → top edge is the contact side → origin at
+      // the BOTTOM so the top scales down (dents inward).
+      const oy = dy > 0 ? '100%' : '0%';
+      origin = `50% ${oy}`;
     } else {
-      pushX = Math.sign(dx || 1) * xOv * STRENGTH;
+      // Horizontal dent — left or right edge.
+      scaleX = 1 - Math.min(DENT_MAX, xRatio * 0.7);
+      const ox = dx > 0 ? '100%' : '0%';
+      origin = `${ox} 50%`;
     }
-    // Compression caps so tiles don't dissolve.
-    const SX_MIN = 0.84;
-    const SY_MIN = 0.84;
-    const sx = Math.max(SX_MIN, 1 - 0.18 * xRatio);
-    const sy = Math.max(SY_MIN, 1 - 0.18 * yRatio);
-    return { pushX, pushY, sx, sy };
+
+    return { scaleX, scaleY, origin };
   };
 
-  const x = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
-    const s = computeSquish(cx as number, cy as number, px as number, py as number);
-    return (cx as number) + (s?.pushX ?? 0);
-  });
-  const y = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
-    const s = computeSquish(cx as number, cy as number, px as number, py as number);
-    return (cy as number) + (s?.pushY ?? 0);
-  });
   const scaleX = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
     const s = computeSquish(cx as number, cy as number, px as number, py as number);
-    return s?.sx ?? 1;
+    return s?.scaleX ?? 1;
   });
   const scaleY = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
     const s = computeSquish(cx as number, cy as number, px as number, py as number);
-    return s?.sy ?? 1;
+    return s?.scaleY ?? 1;
+  });
+  const transformOrigin = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
+    const s = computeSquish(cx as number, cy as number, px as number, py as number);
+    return s?.origin ?? '50% 50%';
   });
 
   return (
     <motion.div
       className="dev-wall-slot"
-      style={{ x, y, scaleX, scaleY, width: tileW, height: tileH }}
+      style={{ x: cellX, y: cellY, scaleX, scaleY, transformOrigin, width: tileW, height: tileH }}
     >
       <DevTile
         wallpaper={wp}
