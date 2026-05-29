@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import {
   MdPhoneIphone, MdPhoneAndroid,
@@ -135,6 +136,16 @@ export default function DeviceWallpapersPage() {
 
   const deviceAspect = device ? device.width / device.height : 16 / 9;
   const featuredCover = wallpapers[0]?.preview_url || wallpapers[0]?.thumb_url;
+  // Hover-driven floating mockup: a single portal-rendered preview
+  // follows whichever tile is hovered. We track the wallpaper + the
+  // tile's rect; the FloatingMockup positions itself left/right of
+  // the rect based on available room. Lifting state here (rather
+  // than per-tile) means only one mockup ever paints.
+  const [hovered, setHovered] = useState<{ wp: Wallpaper; rect: DOMRect } | null>(null);
+  const onTileEnter = useCallback((wp: Wallpaper, el: HTMLElement) => {
+    setHovered({ wp, rect: el.getBoundingClientRect() });
+  }, []);
+  const onTileLeave = useCallback(() => setHovered(null), []);
   // CSS class hook for the platform-specific device chrome (keyboard
   // base, phone notch, monitor stand, etc). See .dev-mockup.* in
   // index.css.
@@ -243,9 +254,14 @@ export default function DeviceWallpapersPage() {
                   wallpaper={wp}
                   device={device}
                   index={i}
+                  onEnter={onTileEnter}
+                  onLeave={onTileLeave}
                 />
               ))}
             </div>
+            {hovered && device && (
+              <FloatingMockup wp={hovered.wp} device={device} anchorRect={hovered.rect} />
+            )}
 
             <LoadMoreFooter
               loading={loadingList}
@@ -285,16 +301,19 @@ export default function DeviceWallpapersPage() {
    distinct treatment vs Discover salon / Weekly portrait / Collection
    framed-mat. */
 function DevSpecCard({
-  wallpaper: w, device, index,
+  wallpaper: w, device, index, onEnter, onLeave,
 }: {
   wallpaper: Wallpaper;
   device: DeviceProfile | null;
   index: number;
+  onEnter: (w: Wallpaper, el: HTMLElement) => void;
+  onLeave: () => void;
 }) {
   const location = useLocation();
   const acts = useWallpaperActions(w);
   const Icon = deviceIcon(device);
   const aspect = device ? `${device.width} / ${device.height}` : '16 / 9';
+  const ref = useRef<HTMLAnchorElement | null>(null);
   const stop = (e: React.MouseEvent, fn: () => void) => {
     e.preventDefault();
     e.stopPropagation();
@@ -304,8 +323,11 @@ function DevSpecCard({
     <Link
       to={`/wallpaper/${w.slug || w.id}`}
       state={{ background: location, initialWallpaper: w }}
+      ref={ref}
       className="dev-spec-card"
       style={{ animationDelay: `${index * 30}ms` }}
+      onMouseEnter={() => { if (ref.current) onEnter(w, ref.current); }}
+      onMouseLeave={onLeave}
     >
       <div className="dev-spec-card-screen" style={{ aspectRatio: aspect }}>
         <img
@@ -372,6 +394,96 @@ function DevSpecCard({
         </span>
       </div>
     </Link>
+  );
+}
+
+/* Floating mockup — single portaled element that follows whichever
+   spec-card is hovered. Renders a mini version of the device hero's
+   chrome (.dev-mockup family) with the hovered wallpaper inside, so
+   the user gets to see "what this looks like on the device" before
+   committing to click. Positions itself to the right of the anchor
+   when there's room, otherwise flips to the left; vertically biased
+   to keep within the viewport. */
+function FloatingMockup({
+  wp, device, anchorRect,
+}: {
+  wp: Wallpaper;
+  device: DeviceProfile;
+  anchorRect: DOMRect;
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+
+  // Phone-shaped mockups are narrow + tall; landscape mockups are
+  // wide + short. Pick a target width per platform so the popup
+  // always sits at a similar visible footprint.
+  const targetWidth =
+    device.platform === 'phone' ? 200 :
+    device.platform === 'tablet' ? 240 :
+    300;
+  const aspect = device.width / device.height;
+  // Estimated height including platform chrome (laptop deck +14,
+  // desktop stand +36, iMac chin already in border, phone notch
+  // already inside, tablet nothing extra). Reserved so vertical
+  // clamping has the right target.
+  const chromeExtra =
+    device.platform === 'laptop' ? 22 :
+    device.platform === 'desktop' && device.brand?.toLowerCase() !== 'apple' ? 40 :
+    0;
+  const estHeight = targetWidth / aspect + chromeExtra;
+
+  const GAP = 18;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const rightSpace = vw - anchorRect.right - GAP;
+  const placeRight = rightSpace >= targetWidth;
+  const left = placeRight
+    ? anchorRect.right + GAP
+    : Math.max(GAP, anchorRect.left - targetWidth - GAP);
+  // Bias vertical: align top with anchor top, but clamp to viewport.
+  const idealTop = anchorRect.top + (anchorRect.height - estHeight) / 2;
+  const top = Math.max(20, Math.min(vh - estHeight - 20, idealTop));
+
+  const isAppleDesktop = device.platform === 'desktop' && (device.brand || '').toLowerCase() === 'apple';
+  const mockupClass = `dev-mockup is-${device.platform}${isAppleDesktop ? ' is-imac' : ''} is-floating${placeRight ? '' : ' is-left'}`;
+
+  return createPortal(
+    <div
+      className="dev-tile-mockup-host"
+      style={{
+        position: 'fixed',
+        left,
+        top,
+        width: targetWidth,
+        pointerEvents: 'none',
+        zIndex: 50,
+      }}
+    >
+      <div
+        className={mockupClass}
+        style={{ ['--dev-aspect' as string]: `${device.width} / ${device.height}` } as React.CSSProperties}
+        aria-hidden
+      >
+        <div className="dev-mockup-screen">
+          <img src={wp.preview_url || wp.thumb_url} alt="" />
+        </div>
+        {device.platform === 'phone' && <span className="dev-mockup-notch" />}
+        {device.platform === 'laptop' && (
+          <>
+            <span className="dev-mockup-laptop-base" />
+            <span className="dev-mockup-laptop-notch" />
+          </>
+        )}
+        {device.platform === 'desktop' && !isAppleDesktop && (
+          <>
+            <span className="dev-mockup-stand-neck" />
+            <span className="dev-mockup-stand-foot" />
+          </>
+        )}
+      </div>
+    </div>,
+    document.body,
   );
 }
 

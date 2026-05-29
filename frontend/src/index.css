@@ -816,6 +816,12 @@
   max-width: 540px;
   margin: 0 auto;
 }
+/* Portrait devices are naturally tall — cap their width so the
+   computed height stays in the same range as a landscape mockup.
+   Without this, an iPhone at 9:19.5 + 540px wide computes to
+   1170px tall and dwarfs the meta column. */
+.dev-mockup.is-phone  { max-width: 220px; }
+.dev-mockup.is-tablet { max-width: 360px; }
 .dev-mockup-screen {
   position: relative;
   width: 100%;
@@ -980,6 +986,63 @@
 }
 .dev-mockup.is-imac .dev-mockup-stand-neck,
 .dev-mockup.is-imac .dev-mockup-stand-foot { display: none; }
+
+/* ── .dev-mockup.is-floating — popup variant ───────────────────── */
+.dev-mockup.is-floating {
+  /* Shrink chrome thickness so the small-format popup doesn't
+     look like a tiny photo lost in a thick frame. */
+  filter: drop-shadow(0 18px 32px oklch(0% 0 0 / 0.32))
+          drop-shadow(0 4px 10px oklch(0% 0 0 / 0.22));
+  animation: dev-tile-mockup-in 240ms var(--ease-out-quart) both;
+}
+.dev-mockup.is-floating.is-left {
+  /* When the popup flips to the left side of the anchor we tweak the
+     animation's anchor (slide-in from the right edge instead of left). */
+  animation-name: dev-tile-mockup-in-left;
+}
+@keyframes dev-tile-mockup-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes dev-tile-mockup-in-left {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.dev-mockup.is-floating .dev-mockup-screen {
+  border-width: 4px;
+  box-shadow: inset 0 0 0 1px oklch(50% 0.02 240 / 0.4);
+}
+.dev-mockup.is-floating.is-phone .dev-mockup-screen {
+  border-width: 5px;
+  border-radius: 22px;
+}
+.dev-mockup.is-floating.is-tablet .dev-mockup-screen {
+  border-width: 4px;
+  border-radius: 12px;
+}
+.dev-mockup.is-floating.is-phone .dev-mockup-notch {
+  top: 10px;
+  height: 12px;
+  width: 32%;
+  border-radius: 8px;
+}
+.dev-mockup.is-floating.is-laptop .dev-mockup-laptop-base {
+  height: 8px;
+  margin-top: 2px;
+  border-radius: 0 0 8px 8px;
+}
+.dev-mockup.is-floating.is-laptop .dev-mockup-laptop-base::after {
+  height: 2px;
+}
+.dev-mockup.is-floating .dev-mockup-stand-neck {
+  height: 18px;
+}
+.dev-mockup.is-floating .dev-mockup-stand-foot {
+  height: 5px;
+}
+.dev-mockup.is-floating.is-imac .dev-mockup-screen {
+  border-bottom-width: 20px;
+}
 
 .dev-spec-grid {
   margin-top: 22px;
