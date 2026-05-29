@@ -645,147 +645,272 @@
   font-weight: 500;
   color: var(--color-accent);
 }
-/* Uploader card — one wallpaper as the face of each contributor.
-   Single big image (4:5 portrait) + bottom gradient scrim with
-   avatar + handle + count overlaid in white. On hover the image
-   cycles through up to 9 of this user's recent uploads (driven
-   from JS), so a quick scan tells you what each contributor's
-   work looks like. Simpler than the old 3×3 mosaic and easier to
-   parse at a glance. */
+/* Identity-first uploader card. The USER is the subject; their
+   wallpapers are secondary. Stack top→bottom:
+     1. avatar + nickname + @handle row
+     2. optional bio (line-clamp 2; reserved blank space when none
+        so card heights line up)
+     3. three-stat grid: uploads / downloads / coins
+     4. optional 3-thumb strip (collapsed when wallpaper_count = 0)
+     5. mono 'View profile →' anchor row
+   Top-3 contributors on the first page get an accent ring + a
+   gold 'TOP N' badge in the top-right corner. */
 .uploader-card {
   position: relative;
-  display: block;
-  aspect-ratio: 4 / 5;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 22px 22px 18px;
   border-radius: 14px;
-  overflow: hidden;
-  background: var(--color-paper-2);
+  background: var(--color-paper);
   border: 1px solid var(--color-hair);
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.5),
-    0 4px 14px -8px oklch(0% 0 0 / 0.20);
+    0 4px 14px -8px oklch(0% 0 0 / 0.18);
   text-decoration: none;
-  color: oklch(99% 0 0);
-  transition: transform 320ms var(--ease-out-quart),
+  color: var(--color-ink);
+  transition: transform 280ms var(--ease-out-quart),
               border-color 220ms ease,
-              box-shadow 320ms var(--ease-out-quart);
+              box-shadow 280ms var(--ease-out-quart);
 }
 .dark .uploader-card {
+  background: var(--color-paper-2);
   border-color: var(--color-hair-soft);
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.06),
     0 4px 14px -8px oklch(0% 0 0 / 0.55);
 }
 .uploader-card:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in oklch, var(--color-accent) 55%, var(--color-hair));
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--color-accent) 45%, var(--color-hair));
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.5),
-    0 18px 36px -14px oklch(0% 0 0 / 0.30);
-}
-.uploader-card-img {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  object-fit: cover;
-  display: block;
-  transition: transform 800ms var(--ease-out-quart),
-              opacity 400ms ease;
-}
-.uploader-card:hover .uploader-card-img {
-  transform: scale(1.04);
-}
-.uploader-card-empty {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, oklch(92% 0.02 230), oklch(86% 0.025 240));
-  color: var(--color-muted);
-}
-.dark .uploader-card-empty {
-  background: linear-gradient(135deg, oklch(30% 0.03 230), oklch(24% 0.04 240));
-}
-.uploader-card-scrim {
-  position: absolute; inset: 0;
-  background: linear-gradient(180deg,
-    transparent 45%,
-    oklch(0% 0 0 / 0.25) 65%,
-    oklch(0% 0 0 / 0.65) 100%);
-  pointer-events: none;
+    0 14px 28px -12px oklch(0% 0 0 / 0.24);
 }
 
-/* Bottom-left info block — avatar + name + handle + right-edge
-   count. White text on the scrim. */
-.uploader-card-info {
+/* Top-3 contributors. Accent border + accent halo + a gold pill
+   badge anchored over the top-right corner of the card. */
+.uploader-card.is-top {
+  border-color: var(--color-accent);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 0 0 2px oklch(72% 0.16 50 / 0.20),
+    0 10px 24px -10px color-mix(in oklch, var(--color-accent) 30%, oklch(0% 0 0 / 0.28));
+}
+.uploader-card-badge {
   position: absolute;
-  left: 0; right: 0; bottom: 0;
-  padding: 14px 16px 16px;
+  top: -10px; right: 16px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: oklch(99% 0 0);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  line-height: 1.4;
+  box-shadow: 0 4px 10px -4px oklch(72% 0.16 50 / 0.6);
+}
+
+/* Identity row. */
+.uploader-card-head {
   display: flex;
-  align-items: flex-end;
-  gap: 10px;
+  align-items: center;
+  gap: 14px;
 }
 .uploader-card-avatar {
-  border: 1.5px solid oklch(100% 0 0 / 0.7);
-  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.3);
   flex-shrink: 0;
+  border: 1.5px solid var(--color-hair);
+  transition: border-color 220ms ease, transform 220ms ease;
 }
-.uploader-card-text {
-  flex: 1; min-width: 0;
+.uploader-card.is-top .uploader-card-avatar {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px oklch(72% 0.16 50 / 0.18);
 }
+.uploader-card:hover .uploader-card-avatar {
+  transform: scale(1.03);
+}
+.uploader-card-id { min-width: 0; flex: 1; }
 .uploader-card-name {
   font-family: var(--font-display);
-  font-size: 18px;
-  line-height: 1.15;
+  font-size: 20px;
+  line-height: 1.1;
   letter-spacing: -0.005em;
-  color: oklch(99% 0 0);
-  text-shadow: 0 1px 8px oklch(0% 0 0 / 0.5);
+  color: var(--color-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .uploader-card-handle {
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  color: oklch(100% 0 0 / 0.75);
-  margin-top: 2px;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  margin-top: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 4px oklch(0% 0 0 / 0.4);
-}
-.uploader-card-count {
-  flex-shrink: 0;
-  display: flex; flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-.uploader-card-count-num {
-  font-family: var(--font-display);
-  font-size: 22px;
-  line-height: 1;
-  color: oklch(99% 0 0);
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 8px oklch(0% 0 0 / 0.5);
-}
-.uploader-card-count-label {
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: oklch(100% 0 0 / 0.78);
-  text-shadow: 0 1px 4px oklch(0% 0 0 / 0.4);
 }
 
-/* Skeleton — paper-2 empty fill + the existing scrim/info shapes
-   replaced with bar placeholders. */
+/* Bio. Reserve consistent vertical space whether the user has a
+   bio or not, so cards in the same row stay aligned. 2-line
+   line-clamp; min-height matches the 2-line height. */
+.uploader-card-bio,
+.uploader-card-bio-empty {
+  min-height: 38px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-ink-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+.uploader-card-bio-empty { content: ''; }
+
+/* Three-stat grid (uploads / downloads / coins). Hairlines between
+   cells; tabular mono numbers. */
+.uploader-card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 12px 0;
+  border-top: 1px solid var(--color-hair);
+  border-bottom: 1px solid var(--color-hair);
+}
+.dark .uploader-card-stats {
+  border-top-color: var(--color-hair-soft);
+  border-bottom-color: var(--color-hair-soft);
+}
+.uploader-stat {
+  text-align: center;
+  border-right: 1px solid var(--color-hair);
+}
+.dark .uploader-stat { border-right-color: var(--color-hair-soft); }
+.uploader-stat:last-child { border-right: none; }
+.uploader-stat-num {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+}
+.uploader-stat-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin-top: 6px;
+}
+
+/* Thumb strip — collapses when wallpaper_count is 0 (the JSX
+   skips rendering entirely so card height shrinks). */
+.uploader-card-thumbs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+.uploader-card-thumb {
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--color-paper-2);
+  border: 1px solid var(--color-hair-soft);
+}
+.uploader-card-thumb img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  transition: transform 600ms var(--ease-out-quart);
+}
+.uploader-card:hover .uploader-card-thumb img { transform: scale(1.06); }
+.uploader-card-thumb-more {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+  text-align: center;
+  padding: 0 4px;
+}
+
+/* Footer CTA — mono 'View profile →'. Becomes accent on hover. */
+.uploader-card-cta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin-top: -4px;
+  transition: color 220ms ease;
+}
+.uploader-card:hover .uploader-card-cta { color: var(--color-accent); }
+
+/* Skeleton */
+.uploader-card.is-skel { cursor: default; }
 .uploader-card-skel-avatar {
-  width: 32px; height: 32px;
+  width: 64px; height: 64px;
   border-radius: 50%;
   background: var(--color-paper-2);
-  border: 1.5px solid oklch(100% 0 0 / 0.5);
   flex-shrink: 0;
 }
 .uploader-card-skel-bar {
   border-radius: 4px;
-  background: oklch(100% 0 0 / 0.4);
+  background: var(--color-paper-2);
+}
+
+/* Top banner: 'Want on this wall? Upload a wallpaper —' */
+.uploaders-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 22px;
+  margin-bottom: 28px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklch, var(--color-accent) 35%, var(--color-hair));
+  background: color-mix(in oklch, var(--color-accent) 6%, var(--color-paper));
+  color: var(--color-ink);
+  text-decoration: none;
+  transition: border-color 220ms ease, background 220ms ease, transform 120ms ease;
+}
+.uploaders-cta:hover {
+  border-color: var(--color-accent);
+  background: color-mix(in oklch, var(--color-accent) 11%, var(--color-paper));
+}
+.uploaders-cta:active { transform: scale(0.998); }
+.uploaders-cta-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.uploaders-cta-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.uploaders-cta-headline {
+  font-family: var(--font-display);
+  font-size: 17px;
+  line-height: 1.25;
+  color: var(--color-ink);
+}
+.uploaders-cta-arrow {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: oklch(99% 0 0);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 600;
+  box-shadow: 0 4px 10px -4px oklch(72% 0.16 50 / 0.45);
 }
 
 /* ══════════════════════════════════════════════════════════════════════

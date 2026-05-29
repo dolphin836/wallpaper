@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import type { UserListItem } from '../types';
 import { getUsers } from '../api';
@@ -92,11 +92,26 @@ export default function UploadersPage() {
           </div>
         </div>
 
-        {/* Wall of work — each contributor is a 3×3 mosaic of their
-            recent wallpapers, with a frosted strip at the bottom
-            carrying avatar + handle + upload count. The work IS the
-            card; scanning the page tells you what each person makes
-            before you read a single name. */}
+        {/* CTA banner — directly invites the visitor to upload, so
+            the page isn't just a passive directory. Always visible
+            (signed-out → /register inside /upload's auth gate;
+            signed-in → straight to /upload). */}
+        <Link to="/upload" className="uploaders-cta">
+          <div className="uploaders-cta-text">
+            <span className="uploaders-cta-eyebrow">Want on this wall?</span>
+            <span className="uploaders-cta-headline">Upload a wallpaper — earn a coin for every one.</span>
+          </div>
+          <span className="uploaders-cta-arrow">Upload →</span>
+        </Link>
+
+        {/* Identity-first card grid — the user is the subject,
+            their wallpapers are secondary. Each card shows avatar,
+            nickname, optional bio, and a three-stat block (uploads
+            / downloads / coins). When the user has uploads, a
+            small 3-thumb strip + 'and N more' shows below the
+            stats; when not, the thumb strip is omitted entirely so
+            the card stays clean. Top 3 contributors on the first
+            page get an accent ring + 'TOP' badge. */}
         {loading && items.length === 0 ? (
           <UploaderWallSkeleton count={9} />
         ) : error && items.length === 0 ? (
@@ -105,7 +120,13 @@ export default function UploadersPage() {
           <div className="text-center py-20 text-muted text-sm">No uploaders yet.</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {items.map((u) => <UploaderWallCard key={u.id} u={u} />)}
+            {items.map((u, i) => (
+              <UploaderWallCard
+                key={u.id}
+                u={u}
+                rank={page === 1 ? i + 1 : 999}
+              />
+            ))}
           </div>
         )}
 
@@ -115,82 +136,99 @@ export default function UploadersPage() {
   );
 }
 
-// Uploader card — one big wallpaper from this contributor as the
-// face of the card, with a bottom scrim carrying avatar + handle +
-// upload count. On hover the card cycles through up to N of their
-// recent wallpapers (1.6s per frame) — the work itself flashes by
-// so a single scan of the page reads as 'who makes what'.
-function UploaderWallCard({ u }: { u: UserListItem }) {
+// Uploader card — identity-first.
+// Hero: avatar (with accent ring for top-3 contributors on the
+// page) + nickname + @handle + optional bio. Middle: a 3-cell stat
+// grid (Uploads / Downloads / Coins). Bottom: a small 3-thumb
+// strip from the user's recent uploads — collapsed entirely when
+// the user hasn't uploaded anything, so the card stays clean for
+// non-contributors instead of awkward placeholders. Click → user
+// profile.
+function UploaderWallCard({ u, rank }: { u: UserListItem; rank: number }) {
   const display = u.nickname || u.username;
-  const thumbs = (u.recent_thumbs ?? []).slice(0, 9);
-  const [idx, setIdx] = useState(0);
-  const hoverRef = useRef(false);
-  useEffect(() => {
-    if (thumbs.length < 2) return;
-    let stop = false;
-    const tick = () => {
-      if (stop) return;
-      if (hoverRef.current) setIdx((i) => (i + 1) % thumbs.length);
-    };
-    const id = window.setInterval(tick, 1600);
-    return () => { stop = true; clearInterval(id); };
-  }, [thumbs.length]);
-  // Reset back to first thumb when the mouse leaves so the page
-  // isn't paused mid-cycle next time you come back.
-  const onEnter = () => { hoverRef.current = true; };
-  const onLeave = () => { hoverRef.current = false; setIdx(0); };
-
-  const cover = thumbs[idx];
+  const thumbs = (u.recent_thumbs ?? []).slice(0, 3);
+  const isTop = rank <= 3 && u.wallpaper_count > 0;
   return (
-    <Link
-      to={`/user/${u.username}`}
-      className="uploader-card no-underline"
-      onMouseEnter={onEnter}
-      onMouseLeave={onLeave}
-    >
-      {cover ? (
-        <img
-          src={cover}
-          alt=""
-          loading="lazy"
-          className="uploader-card-img"
-        />
-      ) : (
-        <div className="uploader-card-empty">
-          <span className="mono text-[10px] tracking-[0.18em] uppercase text-muted">No uploads yet</span>
-        </div>
+    <Link to={`/user/${u.username}`} className={`uploader-card no-underline${isTop ? ' is-top' : ''}`}>
+      {isTop && (
+        <span className="uploader-card-badge" title="Top contributor">
+          ★ TOP {rank}
+        </span>
       )}
-      <div className="uploader-card-scrim" aria-hidden />
-      <div className="uploader-card-info">
-        <Avatar src={u.avatar_url} name={display} size={32} className="uploader-card-avatar" />
-        <div className="uploader-card-text">
+
+      <div className="uploader-card-head">
+        <Avatar
+          src={u.avatar_url}
+          name={display}
+          size={64}
+          className="uploader-card-avatar"
+        />
+        <div className="uploader-card-id">
           <div className="uploader-card-name">{display}</div>
           <div className="uploader-card-handle">@{u.username}</div>
         </div>
-        <div className="uploader-card-count">
-          <span className="uploader-card-count-num">{formatNumber(u.wallpaper_count)}</span>
-          <span className="uploader-card-count-label">{u.wallpaper_count === 1 ? 'upload' : 'uploads'}</span>
-        </div>
       </div>
+
+      {u.bio
+        ? <p className="uploader-card-bio">{u.bio}</p>
+        : <div className="uploader-card-bio-empty" aria-hidden />}
+
+      <div className="uploader-card-stats">
+        <Stat label="uploads"   value={formatNumber(u.wallpaper_count)} />
+        <Stat label="downloads" value={formatNumber(u.total_downloads ?? 0)} />
+        <Stat label="coins"     value={formatNumber(u.coins ?? 0)} />
+      </div>
+
+      {thumbs.length > 0 && (
+        <div className="uploader-card-thumbs">
+          {thumbs.map((src, i) => (
+            <div key={i} className="uploader-card-thumb">
+              <img src={src} alt="" loading="lazy" />
+            </div>
+          ))}
+          {u.wallpaper_count > thumbs.length && (
+            <div className="uploader-card-thumb-more">
+              +{u.wallpaper_count - thumbs.length}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="uploader-card-cta">View profile →</div>
     </Link>
   );
 }
 
-// Skeleton variant — same chrome as the real card, paper-2
-// shimmer over the image area + a soft strip skeleton.
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="uploader-stat">
+      <div className="uploader-stat-num">{value}</div>
+      <div className="uploader-stat-label">{label}</div>
+    </div>
+  );
+}
+
+// Skeleton — same overall card shape with paper-2 placeholders.
 function UploaderWallSkeleton({ count }: { count: number }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="uploader-card">
-          <div className="uploader-card-img uploader-card-empty skeleton-card" />
-          <div className="uploader-card-scrim" />
-          <div className="uploader-card-info">
-            <div className="uploader-card-avatar uploader-card-skel-avatar" />
-            <div className="uploader-card-text">
-              <div className="uploader-card-skel-bar" style={{ width: '60%', height: 12 }} />
-              <div className="uploader-card-skel-bar mt-1" style={{ width: '40%', height: 8 }} />
+        <div key={i} className="uploader-card is-skel">
+          <div className="uploader-card-head">
+            <div className="uploader-card-skel-avatar" />
+            <div className="uploader-card-id">
+              <div className="uploader-card-skel-bar" style={{ width: '50%', height: 14 }} />
+              <div className="uploader-card-skel-bar mt-2" style={{ width: '35%', height: 9 }} />
             </div>
+          </div>
+          <div className="uploader-card-bio-empty" />
+          <div className="uploader-card-stats">
+            {Array.from({ length: 3 }).map((__, j) => (
+              <div key={j} className="uploader-stat">
+                <div className="uploader-card-skel-bar mx-auto" style={{ width: 36, height: 16 }} />
+                <div className="uploader-card-skel-bar mx-auto mt-2" style={{ width: 48, height: 8 }} />
+              </div>
+            ))}
           </div>
         </div>
       ))}

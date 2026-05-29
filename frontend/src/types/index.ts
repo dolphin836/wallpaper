@@ -16,6 +16,7 @@ export interface User {
 
 export interface UserListItem extends User {
   wallpaper_count: number;
+  total_downloads?: number;
   recent_thumbs?: string[];
 }
 

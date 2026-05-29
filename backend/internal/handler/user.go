@@ -606,6 +606,14 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 				items[i].RecentThumbs = thumbs[items[i].ID]
 			}
 		}
+		downloads, err := h.userRepo.TotalDownloadsForUsers(r.Context(), ids)
+		if err != nil {
+			slog.WarnContext(r.Context(), "total downloads lookup failed (non-fatal)", "error", err)
+		} else {
+			for i := range items {
+				items[i].TotalDownloads = downloads[items[i].ID]
+			}
+		}
 	}
 
 	response.OK(w, map[string]any{

@@ -121,7 +121,37 @@ func (r *UserRepo) UpdatePrivacy(ctx context.Context, id int64, likes, favorites
 type UserListItem struct {
 	model.User
 	WallpaperCount int64    `json:"wallpaper_count"`
+	TotalDownloads int64    `gorm:"-" json:"total_downloads"`
 	RecentThumbs   []string `gorm:"-" json:"recent_thumbs,omitempty"`
+}
+
+// TotalDownloadsForUsers returns each user's aggregate download
+// count across every published wallpaper they uploaded. Empty (0)
+// for users with no published wallpapers. One round-trip via SUM
+// + GROUP BY — same cost shape as RecentThumbsForUsers.
+func (r *UserRepo) TotalDownloadsForUsers(ctx context.Context, ids []int64) (map[int64]int64, error) {
+	out := make(map[int64]int64, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	type row struct {
+		UserID int64 `gorm:"column:user_id"`
+		Total  int64 `gorm:"column:total"`
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT user_id, COALESCE(SUM(download_count), 0) AS total
+		  FROM wallpapers
+		 WHERE user_id IN ? AND status = 1
+		 GROUP BY user_id
+	`, ids).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		out[r.UserID] = r.Total
+	}
+	return out, nil
 }
 
 // RecentThumbsForUsers returns up to 9 of each user's most recently
