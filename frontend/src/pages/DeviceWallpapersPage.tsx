@@ -12,7 +12,6 @@ import { useWallpaperActions } from '../hooks/useWallpaperActions';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
 import FeedFooter, { type FooterState } from '../components/FeedFooter';
-import { WallpaperGridSkeleton } from '../components/Skeletons';
 
 // SEO long-tail landing for one device profile. The route is /wallpapers-for/:slug
 // (e.g. /wallpapers-for/iphone-16-pro). Page survives "no matches" gracefully
@@ -261,7 +260,25 @@ export default function DeviceWallpapersPage() {
                 'these all fit'. Hover a tile to swap it into the
                 sticky frame on the right. */}
             {loadingList && wallpapers.length === 0 ? (
-              <WallpaperGridSkeleton count={8} cols="4" />
+              // 4 rows × cols-at-lg of the actual grid, each cell at
+              // the device's true aspect — so the skeleton occupies
+              // the same footprint the real grid will fill.
+              <div className={`grid gap-3 ${
+                deviceAspect < 0.8 ? 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-4'
+                : deviceAspect < 1.2 ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-3'
+                : 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-3'
+              }`}>
+                {Array.from({ length: 4 * (deviceAspect < 0.8 ? 4 : 3) }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="dev-spec-card skeleton-card"
+                    style={{
+                      aspectRatio: `${device?.width || 16} / ${device?.height || 9}`,
+                      animationDelay: `${i * 30}ms`,
+                    }}
+                  />
+                ))}
+              </div>
             ) : wallpapers.length === 0 && !loadingDevice ? (
               <EmptyForDevice device={device} />
             ) : (
