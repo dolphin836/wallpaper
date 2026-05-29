@@ -530,7 +530,12 @@ function DevTile({
       to={`/wallpaper/${w.slug || w.id}`}
       state={{ background: location, initialWallpaper: w }}
       className={`dev-spec-card${isFeatured ? ' is-featured' : ''}`}
-      style={{ animationDelay: `${index * 30}ms` }}
+      // Cap the stagger delay. The unbounded `index * 30ms` was
+      // delaying paginated tiles by literal seconds (tile #275 →
+      // 8.25s of opacity-0 from cd-frame-in's `both` fill), so
+      // newly-arrived tiles looked invisible after the pending
+      // skeleton vanished. Cap at 16 tiles' worth → max 480ms.
+      style={{ animationDelay: `${Math.min(index, 16) * 30}ms` }}
       onMouseEnter={() => onHover(index)}
     >
       <div className="dev-spec-card-screen" style={{ aspectRatio: aspect }}>
