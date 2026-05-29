@@ -38,7 +38,7 @@ const GRID_BREAKPOINT_COLS: Record<SizeMode, [number, number, number, number]> =
 function calculatePageSize(
   viewMode: ViewMode,
   sizeMode: SizeMode,
-  screens = 4,
+  screens = 5,
 ): number {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
@@ -76,7 +76,9 @@ function calculatePageSize(
     count = itemsPerRow * rowsPerScreen * screens;
   }
 
-  return Math.max(20, Math.min(200, count));
+  // 40 = ~1 row of tiles + some buffer for the floating-wall
+  // preview slot (which absorbs 4 cells before any tiles render).
+  return Math.max(40, Math.min(200, count));
 }
 
 const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent);

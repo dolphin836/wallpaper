@@ -1,5 +1,5 @@
 import {
-  useState, useEffect, useCallback, useMemo, useLayoutEffect,
+  useState, useEffect, useCallback, useMemo, useLayoutEffect, useRef,
 } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import {
@@ -174,27 +174,37 @@ export default function DeviceFloatingWall({
   const [isDragging, setIsDragging] = useState(false);
   const [parkedCell, setParkedCell] = useState({ col: 0, row: 0 });
 
-  // Scroll-follow Y — keeps the preview in view as the user scrolls
-  // through the wall. Grid mode snaps to integer rows so the
-  // preview stays cell-aligned; justified mode is continuous since
-  // there's no cell grid to align to.
-  const [scrollFollowY, setScrollFollowY] = useState(0);
+  // Scroll-follow — writes directly into previewY (not via state +
+  // spring) so the preview tracks smooth-scroll updates frame-by-
+  // frame. The earlier spring-based version restarted its animation
+  // on every scroll event, so by the time the spring made any
+  // visible progress the next event had cancelled it; "back to top"
+  // looked like the preview never moved. Direct .set() bypasses
+  // that. Spring is only used for drag-end settle below.
+  const parkedRef = useRef(parkedCell);
+  parkedRef.current = parkedCell;
+  const isDraggingRef = useRef(isDragging);
+  isDraggingRef.current = isDragging;
+  const computeFollowY = useCallback((): number => {
+    if (!wallEl) return 0;
+    const rect = wallEl.getBoundingClientRect();
+    const headerInset = 100;
+    const followTarget = Math.max(0, headerInset - rect.top);
+    const maxY = Math.max(0, rect.height - previewH);
+    if (mode === 'grid') {
+      if (tileH <= 0) return 0;
+      const cellH = tileH + gap;
+      const maxRow = Math.max(0, Math.floor(maxY / cellH));
+      const row = Math.min(maxRow, Math.max(0, Math.round(followTarget / cellH)));
+      const baseY = parkedRef.current.row * cellH;
+      return Math.max(baseY, row * cellH);
+    }
+    return Math.min(maxY, followTarget);
+  }, [wallEl, mode, tileH, gap, previewH]);
   useEffect(() => {
     const update = () => {
-      if (!wallEl) return;
-      const rect = wallEl.getBoundingClientRect();
-      const headerInset = 100;
-      const targetY = Math.max(0, headerInset - rect.top);
-      const maxY = Math.max(0, rect.height - previewH);
-      if (mode === 'grid') {
-        if (tileH <= 0) return;
-        const cellH = tileH + gap;
-        const maxRow = Math.max(0, Math.floor(maxY / cellH));
-        const row = Math.min(maxRow, Math.max(0, Math.round(targetY / cellH)));
-        setScrollFollowY(row * cellH);
-      } else {
-        setScrollFollowY(Math.min(maxY, targetY));
-      }
+      if (isDraggingRef.current) return;
+      previewY.set(computeFollowY());
     };
     update();
     window.addEventListener('scroll', update, { passive: true });
@@ -203,27 +213,19 @@ export default function DeviceFloatingWall({
       window.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
     };
-  }, [mode, wallEl, previewH, tileH, gap]);
+  }, [computeFollowY, previewY]);
 
-  // Settle target on drag end / scroll change.
-  //   Grid: parked col fixed; row = max(parked baseY, scrollFollowY).
-  //   Justified: no cell snap; preview hovers at scrollFollowY so it
-  //     stays in view as the user scrolls the wall.
+  // Drag-end settle — only X uses spring (parked column or 0);
+  // Y springs to the *current* scroll-follow target so the
+  // preview lands at its scroll-aware home.
   useEffect(() => {
     if (isDragging) return;
-    let targetX = 0;
-    let targetY = 0;
-    if (mode === 'grid') {
-      targetX = parkedCell.col * (tileW + gap);
-      const baseY = parkedCell.row * (tileH + gap);
-      targetY = Math.max(baseY, scrollFollowY);
-    } else {
-      targetY = scrollFollowY;
-    }
+    const targetX = mode === 'grid' ? parkedCell.col * (tileW + gap) : 0;
+    const targetY = computeFollowY();
     const ax = animate(previewX, targetX, { type: 'spring', stiffness: 220, damping: 28 });
     const ay = animate(previewY, targetY, { type: 'spring', stiffness: 220, damping: 28 });
     return () => { ax.stop(); ay.stop(); };
-  }, [mode, isDragging, parkedCell.col, parkedCell.row, scrollFollowY, tileW, tileH, gap, previewX, previewY]);
+  }, [mode, isDragging, parkedCell.col, parkedCell.row, tileW, gap, computeFollowY, previewX, previewY]);
 
   // 70% hysteresis snap for the running preview cell — grid mode
   // only (justified has no notion of discrete cells, preview stays
