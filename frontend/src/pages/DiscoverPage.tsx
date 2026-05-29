@@ -630,6 +630,12 @@ export default function DiscoverPage() {
             <DeviceFloatingWall
               device={currentDevice}
               wallpapers={wallpapers}
+              // Track the floating wall's featured (hovered) tile
+              // so the page-mesh palette swaps to its dominant
+              // colour. Old tile-cell event-delegation no longer
+              // applies — the floating-wall tiles are .dev-spec-
+              // card, not .tile-cell.
+              onFeatureChange={(wp) => applyPalette(wp?.color_palette)}
               // Whenever there's more to load, reserve a few rows
               // of skeleton tiles at the bottom of the wall. They
               // soak up fast scrolling so the preview's follow

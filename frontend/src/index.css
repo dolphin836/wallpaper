@@ -546,43 +546,14 @@
   border-color: var(--color-accent);
   width: 16px; height: 16px;
 }
-/* Three-layer progressive image stack inside a dev-spec-card-screen:
-     1. dominant_color background  (CSS, inline)
-     2. .dev-spec-card-thumb       (400px blurred LQIP, loads fast)
-     3. .dev-spec-card-img         (1600px sharp preview, fades in)
-   The thumb sits on top of the colour, the sharp preview fades in
-   on load and sits on top of the thumb. */
-.dev-spec-card-thumb {
-  position: absolute;
-  inset: 0;
-  width: 100%; height: 100%;
-  object-fit: cover;
-  display: block;
-  /* Soft blur to mask the 400px source and read as a placeholder.
-     Scale up a touch so the blur's faded edges don't leak. */
-  filter: blur(12px) saturate(1.1);
-  transform: scale(1.06);
-  z-index: 1;
-}
 .dev-spec-card-img {
-  position: absolute;
-  inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
   display: block;
-  z-index: 2;
-  opacity: 0;
-  transition: opacity 380ms ease, transform 700ms var(--ease-out-quart);
-}
-.dev-spec-card-img.is-loaded {
-  opacity: 1;
+  transition: transform 700ms var(--ease-out-quart);
 }
 .dev-spec-card:hover .dev-spec-card-img {
   transform: scale(1.04);
-}
-.dev-spec-card-screen {
-  position: relative;
-  isolation: isolate;
 }
 /* Top-left sequence badge on each dev tile — small mono pill so the
    grid reads as an ordered set ('№ 01' … '№ 47') and the running

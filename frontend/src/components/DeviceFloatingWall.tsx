@@ -533,30 +533,14 @@ function DevTile({
       style={{ animationDelay: `${index * 30}ms` }}
       onMouseEnter={() => onHover(index)}
     >
-      <div
-        className="dev-spec-card-screen"
-        style={{ aspectRatio: aspect, backgroundColor: w.dominant_color || undefined }}
-      >
-        {/* Progressive image load: dominant-colour bg (set above) →
-            blurred 400px thumb (eager, loads fast) → sharp 1600px
-            preview (lazy, fades in on load). Each layer sits on
-            top of the previous so the user sees colour → blurry
-            → sharp transitions instead of a hard pop. */}
-        {w.thumb_url && (
-          <img
-            src={w.thumb_url}
-            alt=""
-            aria-hidden
-            loading="eager"
-            className="dev-spec-card-thumb"
-          />
-        )}
-        {w.preview_url && (
-          <ProgressivePreview
-            src={w.preview_url}
-            alt={w.title || `Wallpaper ${w.id}`}
-          />
-        )}
+      <div className="dev-spec-card-screen" style={{ aspectRatio: aspect }}>
+        <img
+          src={w.preview_url || w.thumb_url}
+          alt={w.title || `Wallpaper ${w.id}`}
+          loading="lazy"
+          className="dev-spec-card-img"
+          style={{ backgroundColor: w.dominant_color || undefined }}
+        />
         <div className="tile-actions">
           <button
             type="button"
@@ -602,27 +586,6 @@ function DevTile({
         </div>
       </div>
     </Link>
-  );
-}
-
-/* Lazy 1600px preview that fades in once loaded — sits on top of
-   the 400px blurred thumb so the user sees a colour → blurry →
-   sharp progression instead of an empty card popping to fully
-   loaded. The .complete check catches the cached case where the
-   onLoad listener attaches after the browser has already
-   resolved the image (otherwise opacity sticks at 0 forever). */
-function ProgressivePreview({ src, alt }: { src: string; alt: string }) {
-  const [loaded, setLoaded] = useState(false);
-  return (
-    <img
-      src={src}
-      alt={alt}
-      loading="lazy"
-      className={`dev-spec-card-img${loaded ? ' is-loaded' : ''}`}
-      ref={(el) => { if (el && el.complete && el.naturalWidth > 0) setLoaded(true); }}
-      onLoad={() => setLoaded(true)}
-      onError={() => setLoaded(true)}
-    />
   );
 }
 
