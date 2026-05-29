@@ -6,7 +6,71 @@ import {
   motion, useMotionValue, useTransform, useSpring, animate,
   type MotionValue,
 } from 'framer-motion';
-import justifiedLayout from 'justified-layout';
+/* Custom obstacle-aware justified packer used by 'justified' mode.
+   justified-layout's library doesn't know how to lay tiles around
+   a fixed rectangle, so a vanilla two-pass approach (strip next
+   to obstacle + rest below) was leaving a visible gap below the
+   short strip row whenever the natural row height didn't match
+   the obstacle height. This packer walks rows top-down: for each
+   row it decides the leftBound + available width based on whether
+   the row's vertical span overlaps the obstacle, packs items
+   greedily until the natural row height drops to targetRowH, and
+   either commits the row or skips past the obstacle when the row
+   wouldn't fit cleanly inside the remaining obstacle band. */
+function obstacleAwareJustified(
+  ratios: number[],
+  containerW: number,
+  obstacle: { w: number; h: number },
+  targetRowH: number,
+  gap: number,
+): { positions: { left: number; top: number; w: number; h: number }[]; totalH: number } {
+  const out: { left: number; top: number; w: number; h: number }[] = [];
+  let y = 0;
+  let idx = 0;
+  while (idx < ratios.length) {
+    const inObs = y < obstacle.h;
+    const leftBound = inObs ? obstacle.w + gap : 0;
+    const availW = containerW - leftBound;
+    if (availW < 80) {
+      y = obstacle.h + gap;
+      continue;
+    }
+    let cumAspect = 0;
+    let count = 0;
+    while (idx + count < ratios.length) {
+      cumAspect += ratios[idx + count];
+      count++;
+      const tentH = (availW - (count - 1) * gap) / cumAspect;
+      if (tentH <= targetRowH) break;
+    }
+    if (count === 0) break;
+    let rowH = (availW - (count - 1) * gap) / cumAspect;
+    // If this row would extend past the obstacle band by more than
+    // a small margin, advance to below-obstacle territory and
+    // re-pack from full width on the next iteration.
+    if (inObs && y + rowH > obstacle.h + 1) {
+      const remaining = obstacle.h - y;
+      if (rowH > remaining * 1.6) {
+        y = obstacle.h + gap;
+        continue;
+      }
+      // Otherwise stretch the row to exactly fill the band so
+      // there's no empty stripe below it. Items distort slightly
+      // (their visual aspect tracks rowH, not their source
+      // ratio) but the wall reads as continuous.
+      rowH = Math.max(60, remaining);
+    }
+    let x = leftBound;
+    for (let i = 0; i < count; i++) {
+      const w = ratios[idx + i] * rowH;
+      out.push({ left: x, top: y, w, h: rowH });
+      x += w + gap;
+    }
+    idx += count;
+    y += rowH + gap;
+  }
+  return { positions: out, totalH: y };
+}
 import {
   AiOutlineHeart, AiFillHeart,
   AiOutlineStar, AiFillStar,
@@ -185,6 +249,15 @@ export default function DeviceFloatingWall({
   parkedRef.current = parkedCell;
   const isDraggingRef = useRef(isDragging);
   isDraggingRef.current = isDragging;
+
+  // Continuous scroll-follow Y (no row snap during scroll). The
+  // 70% hysteresis on previewCol/RowMV below converts the
+  // continuous Y into discrete previewCell jumps, which is what
+  // drives tile reflow — so as the user scrolls, tiles around
+  // the preview compress (dent) just like during drag, then pop
+  // past at the 70% threshold. Once scroll idles, a debounced
+  // settle springs the preview to its current discrete cell so
+  // it lands cleanly on a grid boundary.
   const computeFollowY = useCallback((): number => {
     if (!wallEl) return 0;
     const rect = wallEl.getBoundingClientRect();
@@ -192,19 +265,31 @@ export default function DeviceFloatingWall({
     const followTarget = Math.max(0, headerInset - rect.top);
     const maxY = Math.max(0, rect.height - previewH);
     if (mode === 'grid') {
-      if (tileH <= 0) return 0;
-      const cellH = tileH + gap;
-      const maxRow = Math.max(0, Math.floor(maxY / cellH));
-      const row = Math.min(maxRow, Math.max(0, Math.round(followTarget / cellH)));
-      const baseY = parkedRef.current.row * cellH;
-      return Math.max(baseY, row * cellH);
+      const baseY = parkedRef.current.row * (tileH + gap);
+      return Math.min(maxY, Math.max(baseY, followTarget));
     }
     return Math.min(maxY, followTarget);
   }, [wallEl, mode, tileH, gap, previewH]);
+
+  const previewCellRef = useRef({ col: 0, row: 0 });
   useEffect(() => {
+    let idleTimer: number | undefined;
     const update = () => {
       if (isDraggingRef.current) return;
       previewY.set(computeFollowY());
+      if (idleTimer !== undefined) window.clearTimeout(idleTimer);
+      // Grid mode only — once scroll has been idle for 250ms,
+      // spring previewY to the discrete-cell-aligned home so it
+      // doesn't rest between rows.
+      if (mode === 'grid' && tileH > 0) {
+        idleTimer = window.setTimeout(() => {
+          if (isDraggingRef.current) return;
+          const cellH = tileH + gap;
+          const baseY = parkedRef.current.row * cellH;
+          const target = Math.max(baseY, previewCellRef.current.row * cellH);
+          animate(previewY, target, { type: 'spring', stiffness: 200, damping: 30 });
+        }, 250);
+      }
     };
     update();
     window.addEventListener('scroll', update, { passive: true });
@@ -212,12 +297,13 @@ export default function DeviceFloatingWall({
     return () => {
       window.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
+      if (idleTimer !== undefined) window.clearTimeout(idleTimer);
     };
-  }, [computeFollowY, previewY]);
+  }, [computeFollowY, previewY, mode, tileH, gap]);
 
-  // Drag-end settle — only X uses spring (parked column or 0);
-  // Y springs to the *current* scroll-follow target so the
-  // preview lands at its scroll-aware home.
+  // Drag-end settle — only fires on isDragging or parkedCell
+  // change (not on scroll); the scroll listener handles its own Y
+  // updates with the idle-snap timer.
   useEffect(() => {
     if (isDragging) return;
     const targetX = mode === 'grid' ? parkedCell.col * (tileW + gap) : 0;
@@ -248,6 +334,7 @@ export default function DeviceFloatingWall({
     return Math.max(0, r);
   });
   const [previewCell, setPreviewCell] = useState({ col: 0, row: 0 });
+  previewCellRef.current = previewCell;
   useEffect(() => {
     if (mode !== 'grid') {
       setPreviewCell({ col: 0, row: 0 });
@@ -297,47 +384,17 @@ export default function DeviceFloatingWall({
       }
       return out;
     }
-    // Justified two-pass layout
+    // Obstacle-aware row-by-row packer — treats the preview as a
+    // top-left rectangle and packs justified rows around it.
     const ratios = wallpapers.map((w) => (w.width > 0 && w.height > 0 ? w.width / w.height : 4 / 3));
-    const narrowW = Math.max(160, wallWidth - previewW - gap);
-    // Use the SAME target row height as the rest of the wall — the
-    // preview is sized to an integer N rows above, so up to N rows
-    // of full-height tiles align cleanly next to it.
-    const stripRes = justifiedLayout(ratios, {
-      containerWidth: narrowW,
-      containerPadding: 0,
-      boxSpacing: gap,
-      targetRowHeight: justifiedRowHeight,
-      showWidows: true,
-      forceAspectRatio: false,
-    });
-    // How many items fit within the preview's vertical footprint?
-    let pass1 = 0;
-    for (const b of stripRes.boxes) {
-      if (b.top + b.height > previewH + 1) break;
-      pass1++;
-    }
-    const restRatios = ratios.slice(pass1);
-    const restRes = restRatios.length > 0
-      ? justifiedLayout(restRatios, {
-          containerWidth: wallWidth,
-          containerPadding: 0,
-          boxSpacing: gap,
-          targetRowHeight: justifiedRowHeight,
-          showWidows: true,
-          forceAspectRatio: false,
-        })
-      : { boxes: [] as { left: number; top: number; width: number; height: number }[] };
-    const out: { left: number; top: number; w: number; h: number }[] = [];
-    for (let i = 0; i < pass1; i++) {
-      const b = stripRes.boxes[i];
-      out.push({ left: b.left + previewW + gap, top: b.top, w: b.width, h: b.height });
-    }
-    for (let i = 0; i < restRatios.length; i++) {
-      const b = restRes.boxes[i];
-      out.push({ left: b.left, top: b.top + previewH + gap, w: b.width, h: b.height });
-    }
-    return out;
+    const { positions } = obstacleAwareJustified(
+      ratios,
+      wallWidth,
+      { w: previewW, h: previewH },
+      justifiedRowHeight,
+      gap,
+    );
+    return positions;
   }, [mode, wallpapers, wallWidth, cols, tileW, tileH, gap, previewCell.col, previewCell.row, previewW, previewH, justifiedRowHeight]);
 
   const wallHeight = useMemo(() => {
