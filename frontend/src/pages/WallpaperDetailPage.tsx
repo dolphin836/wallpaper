@@ -19,8 +19,9 @@ import {
   AiOutlineZoomOut,
   AiOutlineRedo,
   AiOutlineReload,
+  AiOutlineEye,
 } from 'react-icons/ai';
-import { MdPlaylistAdd, MdDesktopMac, MdLaptopMac, MdTabletMac, MdPhoneIphone, MdOutlineRemoveRedEye } from 'react-icons/md';
+import { MdPlaylistAdd, MdDesktopMac, MdLaptopMac, MdTabletMac, MdPhoneIphone, MdOutlineRemoveRedEye, MdDevices } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User, Category } from '../types';
 import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
@@ -196,6 +197,11 @@ export default function WallpaperDetailPage() {
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  // Spotlight-layout overlays. Drawer holds the full grouped
+  // device list opened from the dock; the preview menu is the
+  // little split-button popover (Fullscreen vs In-device).
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [previewMenuOpen, setPreviewMenuOpen] = useState(false);
   const [similar, setSimilar] = useState<Wallpaper[]>([]);
   // Cache the full category list so we can map wallpaper.category_id (a
   // number) to a display name without a per-detail fetch. List is tiny
@@ -295,20 +301,24 @@ export default function WallpaperDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!fullscreen && !mockupVariant) return;
+    if (!fullscreen && !mockupVariant && !drawerOpen && !previewMenuOpen) return;
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (previewMenuOpen) { setPreviewMenuOpen(false); return; }
+        if (drawerOpen) { setDrawerOpen(false); return; }
         setFullscreen(false);
         setMockupVariant(null);
       }
     };
     document.addEventListener('keydown', handleEsc);
-    document.body.style.overflow = 'hidden';
+    // Only lock body scroll for the true overlays. The drawer / popover
+    // are within the page flow and don't need it.
+    if (fullscreen || mockupVariant) document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleEsc);
       document.body.style.overflow = '';
     };
-  }, [fullscreen, mockupVariant]);
+  }, [fullscreen, mockupVariant, drawerOpen, previewMenuOpen]);
 
   useEffect(() => {
     if (!wallpaper?.id) {
@@ -555,6 +565,7 @@ export default function WallpaperDetailPage() {
         type="article"
         jsonLd={jsonLd}
       />
+
       {showAddToCollection && wallpaper && (
         <AddToCollectionModal wallpaperId={wallpaper.id} onClose={() => setShowAddToCollection(false)} />
       )}
@@ -562,7 +573,6 @@ export default function WallpaperDetailPage() {
       {showReport && wallpaper && (
         <ReportModal wallpaperId={wallpaper.id} onClose={() => setShowReport(false)} />
       )}
-
 
       <InAppConfirm
         open={showDeleteConfirm}
@@ -574,14 +584,16 @@ export default function WallpaperDetailPage() {
         onCancel={() => setShowDeleteConfirm(false)}
       />
 
+      {/* Trade-success phosphor sweep — 800ms one-shot, keyed by the
+          tick so successive trades re-run the animation cleanly. */}
       {tradeFlashTick > 0 && createPortal(
-        // Peak-moment signal: a 1px phosphor line sweeps the bottom of the
-        // viewport for ~800ms. Keyed by the tick so successive trades re-run
-        // the CSS animation cleanly (each tick mounts a fresh node).
         <div key={tradeFlashTick} className="trade-flash" aria-hidden />,
         document.body,
       )}
 
+      {/* Streaming-download progress modal. Indeterminate slide while
+          the server prepares the file; then real percent once bytes
+          start flowing. */}
       {dlLoading && createPortal(
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-6">
           <div className="w-full max-w-sm rounded-xl border border-hair bg-paper p-6 shadow-2xl">
@@ -591,7 +603,6 @@ export default function WallpaperDetailPage() {
             <div className="mt-1 display text-[20px] leading-tight text-ink truncate">
               {wallpaper?.title?.trim() || `Wallpaper #${wallpaper?.id}`}
             </div>
-
             <div className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-paper-3">
               {dlProgress === null ? (
                 <div className="dl-indeterminate h-full w-1/3 rounded-full bg-accent" />
@@ -602,7 +613,6 @@ export default function WallpaperDetailPage() {
                 />
               )}
             </div>
-
             <div className="mt-2 flex items-center justify-between mono text-[11px] text-ink-2">
               <span>{dlProgress === null ? 'Generating your size' : 'Saving to your device'}</span>
               <span className="tabular-nums">{dlProgress === null ? '' : `${dlProgress}%`}</span>
@@ -612,6 +622,7 @@ export default function WallpaperDetailPage() {
         document.body,
       )}
 
+      {/* Device mockup — wallpaper rendered inside a real device chassis */}
       {mockupVariant && wallpaper && (
         <DeviceMockup
           imageUrl={mockupVariant.url || wallpaper.preview_url || wallpaper.original_url}
@@ -624,13 +635,12 @@ export default function WallpaperDetailPage() {
         />
       )}
 
+      {/* Fullscreen viewer — wheel-zoom, drag-pan, rotate. Preserved
+          from the previous layout because the interaction is solid;
+          only the affordance to enter it is now the centered hero. */}
       {fullscreen && createPortal(
         <div
           className="fixed inset-0 z-[70] bg-black flex items-center justify-center overflow-hidden"
-          // Background click closes — but only when the user didn't drag.
-          // A drag-pan ends with a mouseup that browsers also report as
-          // click; the moved flag filters those out so panning doesn't
-          // accidentally exit the viewer.
           onClick={() => {
             if (fsDrag.current.moved) {
               fsDrag.current.moved = false;
@@ -638,16 +648,11 @@ export default function WallpaperDetailPage() {
             }
             setFullscreen(false);
           }}
-          // Wheel handler at the container so it works over the whole
-          // viewport, not just the image rect. Scroll up = zoom in.
           onWheel={(e) => {
             const next = e.deltaY < 0 ? fsScale * 1.15 : fsScale / 1.15;
             setFsScale(Math.max(0.5, Math.min(5, next)));
           }}
           onMouseDown={(e) => {
-            // Only allow dragging when zoomed in past 1× — at 1× the image
-            // is fit-to-viewport with no off-screen content, so panning
-            // would just slide a blank black band into view.
             if (fsScale <= 1) return;
             fsDrag.current = {
               down: true, sx: e.clientX, sy: e.clientY,
@@ -678,7 +683,6 @@ export default function WallpaperDetailPage() {
               willChange: 'transform',
             } as React.CSSProperties}
           />
-          {/* Top-right: close. */}
           <button
             onClick={(e) => { e.stopPropagation(); setFullscreen(false); }}
             className="fixed top-4 right-4 z-[80] p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
@@ -686,7 +690,6 @@ export default function WallpaperDetailPage() {
           >
             <AiOutlineClose size={24} />
           </button>
-          {/* Bottom-center: dimensions readout. */}
           <div className="absolute bottom-20 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 text-white text-sm rounded-lg pointer-events-none">
             {matchedVariant
               ? <>{matchedVariant.brand} {matchedVariant.device_name} &middot; {matchedVariant.width} &times; {matchedVariant.height}</>
@@ -694,8 +697,6 @@ export default function WallpaperDetailPage() {
             }
             <span className="ml-3 mono text-[11px] opacity-70">{Math.round(fsScale * 100)}%</span>
           </div>
-          {/* Bottom-center: toolbar. stopPropagation on the whole bar so
-              tapping a button never bubbles to the backdrop and closes. */}
           <div
             className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-1.5 bg-black/60 backdrop-blur-sm rounded-full"
             onClick={(e) => e.stopPropagation()}
@@ -720,17 +721,107 @@ export default function WallpaperDetailPage() {
         document.body,
       )}
 
-      {/* Whole detail surface fills the available height (the modal panel
-          in modal mode, or the Layout main slot in full-page mode) and
-          provides a fixed header at the top + a scrollable 2-col body
-          underneath. Body scroll lives on this inner container only —
-          the outer page never grows scrollbars. */}
+      {/* Devices drawer — right-side slide-in with grouped per-device
+          list. Opened from the dock "Devices · N ▾" button. Always
+          shown grouped by platform so the user can scan a long list
+          (12+) without scrolling through one giant flat array. */}
+      {drawerOpen && createPortal(
+        <div className="wd-drawer-scrim" onClick={() => setDrawerOpen(false)}>
+          <div className="wd-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="wd-drawer-head">
+              <div>
+                <div className="kicker text-muted">All devices · {variants.length}</div>
+                <h3 className="display text-[20px] leading-tight mt-1">Pick the right size</h3>
+              </div>
+              <button onClick={() => setDrawerOpen(false)} className="p-1.5 rounded-full hover:bg-paper-2" aria-label="Close drawer">
+                <AiOutlineClose size={18} />
+              </button>
+            </div>
+            <div className="wd-drawer-body">
+              {(['desktop', 'laptop', 'tablet', 'phone', 'other'] as const).map((platform) => {
+                const list = groupedVariants[platform];
+                if (!list || list.length === 0) return null;
+                const label = {
+                  desktop: 'Desktop',
+                  laptop: 'Laptop',
+                  tablet: 'Tablet',
+                  phone: 'Phone',
+                  other: 'Other',
+                }[platform];
+                return (
+                  <div key={platform} className="wd-drawer-group">
+                    <div className="wd-drawer-grouphead">
+                      <span>{label}</span>
+                      <span className="mono text-[10px] tracking-[0.14em] text-muted normal-case">{list.length}</span>
+                    </div>
+                    {list.map((v) => {
+                      const isMatched = matchedVariant?.id === v.id;
+                      const mockable = canShowMockup(v);
+                      const deviceName = [v.brand, v.device_name].filter(Boolean).join(' ').trim() || 'Device';
+                      const Icon =
+                        v.platform === 'phone' ? MdPhoneIphone
+                        : v.platform === 'tablet' ? MdTabletMac
+                        : v.platform === 'laptop' ? MdLaptopMac
+                        : MdDesktopMac;
+                      return (
+                        <div key={v.id} className={`wd-drawer-row ${isMatched ? 'is-matched' : ''}`}>
+                          <Icon size={18} className="text-ink-2 flex-shrink-0" />
+                          <div className="min-w-0">
+                            {v.device_slug ? (
+                              <Link
+                                to={`/wallpapers-for/${v.device_slug}`}
+                                className="text-[13px] font-medium text-ink truncate no-underline hover:underline"
+                              >
+                                {deviceName}
+                              </Link>
+                            ) : (
+                              <span className="text-[13px] font-medium text-ink truncate">{deviceName}</span>
+                            )}
+                            {isMatched && (
+                              <span className="ml-1.5 mono text-[9px] tracking-[0.14em] px-1.5 py-[1px] bg-ink text-paper rounded">YOUR DEVICE</span>
+                            )}
+                            <div className="mono text-[10px] text-muted mt-0.5">
+                              {v.width.toLocaleString()} × {v.height.toLocaleString()}
+                              {v.file_size > 0 && <> · {formatFileSize(v.file_size)}</>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              onClick={() => mockable && setMockupVariant(v)}
+                              disabled={!mockable}
+                              title={mockable ? 'Preview on device' : 'Mockup not available'}
+                              className={`p-1.5 rounded-full ${mockable ? 'text-ink-2 hover:text-ink hover:bg-paper-2' : 'text-muted-2 cursor-not-allowed'}`}
+                              aria-label="Preview on device"
+                            >
+                              <MdOutlineRemoveRedEye size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDownload(v)}
+                              disabled={dlLoading}
+                              title="Download this variant"
+                              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-paper text-[11px] font-medium disabled:opacity-60 ${isMatched ? 'bg-accent' : 'bg-ink'}`}
+                            >
+                              <AiOutlineDownload size={12} /> Get
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="wd-drawer-foot mono text-[10px] tracking-[0.14em] uppercase text-muted">
+              ESC OR CLICK OUTSIDE TO CLOSE{isOwner ? '' : ` · ${downloadCost || 1} COIN PER DOWNLOAD`}
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
       <div className="bg-paper text-ink h-full flex flex-col min-h-0">
-        {/* Editorial header — title, keyboard hints, close ✕. Only rendered
-            when this page is being shown as a modal overlay (location has a
-            background route stashed in state); on the full-page route the
-            Layout topbar already provides chrome and a second header strip
-            would be redundant. */}
+        {/* Modal-mode chrome — only when overlaid on top of another route.
+            On the full-page route the Layout topbar already provides chrome. */}
         {Boolean((location.state as { background?: unknown } | null)?.background) && (
           <div className="px-5 sm:px-6 py-2.5 border-b border-hair flex justify-between items-center bg-paper flex-shrink-0">
             <span className="mono text-[10px] tracking-[0.18em] uppercase text-muted truncate">
@@ -752,29 +843,56 @@ export default function WallpaperDetailPage() {
             </div>
           </div>
         )}
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="mx-auto px-5 sm:px-6 lg:px-8 py-5 lg:py-6 grid gap-6 lg:gap-7 lg:grid-cols-[1.4fr_1fr]">
-          {/* ── LEFT COLUMN — plate header, image, stats, more-like-this ── */}
-          <div className="min-w-0 flex flex-col">
-            <div className="flex justify-between items-baseline mb-3 mono text-[10px] tracking-[0.18em] uppercase text-muted">
-              <span>Plate №{String(wallpaper.id).padStart(3, '0')}</span>
-              <span className="hidden sm:inline">
-                {wallpaper.width}×{wallpaper.height}
-                {resLabel ? ` · ${resLabel}` : ''}
-                {wallpaper.dominant_color ? ` · dominant ${wallpaper.dominant_color.toUpperCase()}` : ''}
-              </span>
-            </div>
 
-            {/* Image with corner brackets */}
-            <div className="relative">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-5 lg:py-6">
+
+            {/* ─── SPOTLIGHT STAGE — hero on dominant-color mesh + dock ─── */}
+            <div
+              className="wd-stage"
+              style={{
+                background: wallpaper.dominant_color
+                  ? `linear-gradient(135deg, ${wallpaper.dominant_color}, var(--color-paper))`
+                  : 'linear-gradient(135deg, var(--color-paper-2), var(--color-paper))',
+              }}
+            >
+              {/* Top-left: kicker (category · age · flags) */}
+              <div className="wd-stage-tl">
+                <div className="kicker text-paper/85">
+                  {currentCategory?.name?.toUpperCase() || (wallpaper.tags?.[0]?.name.toUpperCase() ?? 'WALLPAPER')}
+                  {' · ADDED '}{daysAgo}D AGO
+                  {wallpaper.is_dynamic && ' · DYNAMIC'}
+                  {wallpaper.is_ai_generated && ' · AI'}
+                </div>
+              </div>
+
+              {/* Top-right: specs box */}
+              <div className="wd-stage-tr">
+                <div>
+                  <div className="display text-[20px] leading-none">
+                    {wallpaper.width.toLocaleString()}<span className="text-paper/55"> × </span>{wallpaper.height.toLocaleString()}
+                  </div>
+                  <div className="mono text-[10px] tracking-[0.14em] text-paper/70 mt-1.5">
+                    {resLabel || '—'} · {(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}
+                  </div>
+                </div>
+              </div>
+
+              {/* Centered hero — preserves the frames / video / image
+                  branching from the previous layout. */}
               <div
-                className="relative w-full overflow-hidden bg-paper-3 border border-hair"
+                className="wd-hero"
                 style={{
                   aspectRatio: wallpaper.width > 0 && wallpaper.height > 0
                     ? `${wallpaper.width} / ${wallpaper.height}`
-                    : undefined,
-                  maxHeight: '78vh',
+                    : '16 / 9',
                   backgroundColor: wallpaper.dominant_color || undefined,
+                }}
+                onClick={() => {
+                  // Only enter fullscreen if it's a still image (not video/frames)
+                  if (frames.length > 1) return;
+                  if ((wallpaper.file_type || '').startsWith('video/')) return;
+                  setFullscreen(true);
                 }}
               >
                 {frames.length > 1 ? (
@@ -791,22 +909,17 @@ export default function WallpaperDetailPage() {
                       />
                     ))}
                     <button
-                      onClick={() => setFramePlaying((p) => !p)}
+                      onClick={(e) => { e.stopPropagation(); setFramePlaying((p) => !p); }}
                       className="absolute bottom-3 right-3 px-3 py-1 bg-black/60 text-white text-[11px] mono rounded backdrop-blur-sm"
                     >{framePlaying ? 'PAUSE' : 'PLAY'} · {frameIdx + 1}/{frames.length}</button>
                   </div>
                 ) : (wallpaper.file_type || '').startsWith('video/') && wallpaper.original_url ? (
-                  // Video wallpapers: poster + click-to-play. On play we
-                  // fully buffer the low-quality preview clip (falling back
-                  // to the full transcode for older videos) before starting,
-                  // so playback never stalls mid-stream on a slow link. A
-                  // progress bar covers the buffering wait.
                   <VideoPlayer
                     src={wallpaper.preview_video_url || wallpaper.original_url}
                     poster={wallpaper.preview_url || wallpaper.thumb_url}
                   />
-                ) : (
-                  heroImg && (
+                ) : heroImg ? (
+                  <>
                     <img
                       src={heroImg}
                       alt=""
@@ -815,30 +928,350 @@ export default function WallpaperDetailPage() {
                       className="w-full h-full object-contain select-none"
                       style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                     />
-                  )
+                    <div className="wd-hero-hint">
+                      <AiOutlineFullscreen size={12} /> Click to fullscreen
+                    </div>
+                  </>
+                ) : null}
+              </div>
+
+              {/* Floating glass dock — primary surface. Uploader, palette,
+                  social actions, Preview menu, Devices drawer button, CTA. */}
+              <div className="wd-dock">
+                {wallpaper.uploader && (
+                  <Link
+                    to={`/user/${wallpaper.uploader.username}`}
+                    className="wd-dock-uploader no-underline text-inherit"
+                    title={`@${wallpaper.uploader.username}`}
+                  >
+                    <div className="wd-dock-avatar">
+                      {wallpaper.uploader.avatar_url
+                        ? <img src={wallpaper.uploader.avatar_url} alt="" className="w-full h-full object-cover" />
+                        : uploaderInitial}
+                    </div>
+                    <div className="min-w-0 hidden sm:block">
+                      <div className="text-[13px] font-medium leading-tight truncate">@{wallpaper.uploader.username}</div>
+                      {wallpaper.uploader.bio && (
+                        <div className="mono text-[10px] text-muted truncate">{wallpaper.uploader.bio}</div>
+                      )}
+                    </div>
+                  </Link>
                 )}
+
+                {palette.length > 0 && (
+                  <>
+                    <div className="wd-dock-divider" />
+                    <div className="wd-dock-palette" title="Click to copy hex">
+                      {palette.slice(0, 5).map((c, i) => (
+                        <button
+                          key={`${c}-${i}`}
+                          onClick={() => copyHex(c)}
+                          className="block w-5 h-5 rounded-md border border-hair p-0"
+                          style={{ background: c }}
+                          aria-label={`Copy ${c}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                <div className="wd-dock-divider" />
+
+                <button
+                  onClick={handleLike}
+                  disabled={likeLoading}
+                  className={`wd-dock-icon ${wallpaper.is_liked ? 'is-liked' : ''}`}
+                  title={wallpaper.is_liked ? 'Unlike' : 'Like'}
+                  aria-label="Like"
+                >
+                  {likeLoading
+                    ? <AiOutlineLoading3Quarters size={17} className="animate-spin" />
+                    : wallpaper.is_liked ? <AiFillHeart size={17} /> : <AiOutlineHeart size={17} />}
+                </button>
+                <button
+                  onClick={handleFavorite}
+                  disabled={favLoading}
+                  className={`wd-dock-icon ${wallpaper.is_favorited ? 'is-favorited' : ''}`}
+                  title={wallpaper.is_favorited ? 'Unfavorite' : 'Favorite'}
+                  aria-label="Favorite"
+                >
+                  {favLoading
+                    ? <AiOutlineLoading3Quarters size={17} className="animate-spin" />
+                    : wallpaper.is_favorited ? <AiFillStar size={17} /> : <AiOutlineStar size={17} />}
+                </button>
+                <button
+                  onClick={() => { if (!isAuthenticated) { navigate('/login'); return; } setShowAddToCollection(true); }}
+                  className="wd-dock-icon"
+                  title="Add to collection"
+                  aria-label="Add to collection"
+                >
+                  <MdPlaylistAdd size={19} />
+                </button>
+
+                <div className="wd-dock-divider" />
+
+                {/* Preview split — Fullscreen vs In-device chrome */}
+                <div className="wd-dock-pop">
+                  <button
+                    className="wd-dock-pill"
+                    onClick={() => setPreviewMenuOpen((v) => !v)}
+                    aria-expanded={previewMenuOpen}
+                  >
+                    <AiOutlineEye size={15} /> Preview <span className="opacity-50 text-[10px]">▾</span>
+                  </button>
+                  {previewMenuOpen && (
+                    <>
+                      {/* Scrim — outside-click close, without blocking the dock above */}
+                      <div className="wd-popover-scrim" onClick={() => setPreviewMenuOpen(false)} />
+                      <div className="wd-popover">
+                        <button
+                          onClick={() => {
+                            setPreviewMenuOpen(false);
+                            // Skip fullscreen for video / dynamic frames; the hero
+                            // itself is the right surface for those.
+                            if (frames.length > 1 || (wallpaper.file_type || '').startsWith('video/')) {
+                              toast('Use the hero controls for video / dynamic previews', { icon: 'ℹ️' });
+                              return;
+                            }
+                            setFullscreen(true);
+                          }}
+                        >
+                          <AiOutlineFullscreen size={14} />
+                          <span>
+                            <strong>Fullscreen</strong>
+                            <span>Just the image · ESC to close</span>
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPreviewMenuOpen(false);
+                            if (matchedVariant && canMockupMatched) {
+                              setMockupVariant(matchedVariant);
+                            } else {
+                              toast('Pick a device from the drawer to preview', { icon: 'ℹ️' });
+                              setDrawerOpen(true);
+                            }
+                          }}
+                        >
+                          <MdDesktopMac size={16} />
+                          <span>
+                            <strong>In device</strong>
+                            <span>
+                              {matchedVariant && canMockupMatched
+                                ? `See it on ${matchedVariant.brand} ${matchedVariant.device_name}`
+                                : 'Pick a device from the drawer'}
+                            </span>
+                          </span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {variants.length > 0 && (
+                  <button
+                    onClick={() => setDrawerOpen(true)}
+                    className="wd-dock-pill"
+                    title="Browse all device sizes"
+                  >
+                    <MdDevices size={16} /> Devices · {variants.length} <span className="opacity-50 text-[10px]">▾</span>
+                  </button>
+                )}
+
+                <div className="wd-dock-divider" />
+
+                {/* CTA — same primary action button across all states. The
+                    rich 4-state surface lives in the inline bar below; the
+                    dock button stays small so the dock height never shifts. */}
+                <button
+                  onClick={handleDownloadClick}
+                  disabled={dlLoading}
+                  className="wd-dock-cta"
+                  title={isOwner ? 'Download original' : 'Trade coins for download'}
+                >
+                  {dlLoading ? (
+                    <AiOutlineLoading3Quarters size={15} className="animate-spin" />
+                  ) : dlDone ? (
+                    <><AiOutlineCheckCircle size={15} /> {isOwner ? 'Got it' : 'Traded'}</>
+                  ) : isOwner ? (
+                    <><AiOutlineDownload size={15} /> Download</>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-white shadow-[inset_0_-2px_0_oklch(80%_0.18_60),inset_0_1px_0_oklch(98%_0.04_60)]" aria-hidden />
+                      Trade for {downloadCost || 1}
+                    </>
+                  )}
+                </button>
               </div>
-              <div className="plate-brackets pointer-events-none">
-                <span className="br-tl" />
-                <span className="br-tr" />
-                <span className="br-bl" />
-                <span className="br-br" />
-              </div>
+
+              {/* Quick-match card under the dock — one-tap download path
+                  for the user's own device without opening the drawer. */}
+              {matchedVariant && !isOwner && (
+                <div className="wd-quickmatch">
+                  <span className="kicker text-paper/70">YOUR DEVICE</span>
+                  <div className="wd-quickmatch-card">
+                    {(() => {
+                      const Icon =
+                        matchedVariant.platform === 'phone' ? MdPhoneIphone
+                        : matchedVariant.platform === 'tablet' ? MdTabletMac
+                        : matchedVariant.platform === 'laptop' ? MdLaptopMac
+                        : MdDesktopMac;
+                      return <Icon size={18} />;
+                    })()}
+                    <div className="min-w-0">
+                      <div className="text-[12px] font-medium leading-tight truncate">
+                        {[matchedVariant.brand, matchedVariant.device_name].filter(Boolean).join(' ').trim() || 'Your device'}
+                      </div>
+                      <div className="mono text-[10px] text-paper/65">
+                        {matchedVariant.width}×{matchedVariant.height}
+                        {matchedVariant.file_size > 0 && <> · {formatFileSize(matchedVariant.file_size)}</>}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDownload(matchedVariant)}
+                      disabled={dlLoading}
+                      className="wd-quickmatch-dl"
+                    >
+                      <AiOutlineDownload size={13} /> Get
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Stats strip — label + count on top, avatar stack below so
-                the social-proof users are visually attached to their
-                metric instead of floating in a separate row. Up to 5
-                avatars per cell at 18px with overlap, the remainder
-                folds into AvatarStack's "+N" badge. */}
-            <div className="mt-3 grid grid-cols-4 border border-hair border-r-0">
+            {/* ─── COIN CTA INLINE BAR — rich 4-state surface ─────────
+                Renders the confirm sheet, success message, and the
+                insufficient-coin warning. Default state is intentionally
+                blank because the dock CTA above already carries the
+                "Trade for N" affordance. */}
+            {(ctaState !== 'default') && (
+              <div className="mt-5">
+                {ctaState === 'success' ? (
+                  <div
+                    className="p-5 rounded-2xl"
+                    style={{ background: 'oklch(95% 0.05 150)', border: '1px solid #2f6b3e', color: 'var(--color-ink)' }}
+                  >
+                    <div className="flex justify-between items-center gap-4 flex-wrap">
+                      <div className="min-w-0">
+                        <div className="kicker tracking-[0.14em] inline-flex items-center gap-1.5" style={{ color: '#2f6b3e' }}>
+                          <AiOutlineCheckCircle size={11} /> DOWNLOADED
+                        </div>
+                        <div className="display text-[24px] sm:text-[28px] leading-tight mt-1.5" style={{ color: '#1f4827' }}>
+                          wallpaper_<span className="mono text-[20px] sm:text-[24px]">{String(wallpaper.id).padStart(3, '0')}</span>.jpg
+                        </div>
+                        <div className="mono text-[10px] tracking-[0.14em] mt-2" style={{ color: '#2f6b3e' }}>
+                          {fileSize}  ·  {userBalance} COINS REMAINING
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2 flex-shrink-0">
+                        <button
+                          onClick={handleSuccessDismiss}
+                          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-ink text-paper font-medium text-[12px] whitespace-nowrap hover:bg-ink-2 transition-colors"
+                        >Done</button>
+                        <Link
+                          to="/"
+                          className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full border border-hair text-ink text-[12px] no-underline whitespace-nowrap hover:bg-paper-2 transition-colors"
+                        >Browse more →</Link>
+                      </div>
+                    </div>
+                    {!isMacUA && (
+                      <>
+                        <hr className="my-3.5 border-0" style={{ borderTop: '1px solid rgba(47,107,62,0.25)' }} />
+                        <div className="flex flex-wrap gap-x-2 gap-y-1 items-center text-[12px]" style={{ color: '#1f4827' }}>
+                          <span>🍎 On macOS? Use the menu-bar app to set this as your wallpaper in one click.</span>
+                          <Link to="/download/mac" className="underline" style={{ color: '#2f6b3e' }}>Get it →</Link>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : ctaState === 'insufficient' ? (
+                  <div className="p-5 rounded-2xl border border-[#b07a1a]" style={{ background: 'oklch(96% 0.05 70)' }}>
+                    <div className="flex justify-between items-center gap-4 flex-wrap">
+                      <div className="min-w-0">
+                        <div className="kicker tracking-[0.14em]" style={{ color: '#9a6a18' }}>INSUFFICIENT COINS</div>
+                        <div className="display text-[28px] sm:text-[34px] leading-none mt-1.5" style={{ color: '#5e3f08' }}>
+                          Need <span style={{ color: '#9a6a18' }}>{downloadCost - userBalance}</span> more
+                        </div>
+                        <div className="mono text-[10px] tracking-[0.14em] mt-2" style={{ color: '#9a6a18' }}>
+                          YOUR BALANCE · {userBalance} COINS · COST · {downloadCost}
+                        </div>
+                      </div>
+                      <Link to="/upload" className="inline-flex items-center gap-2.5 px-5 py-3 rounded-full text-white font-medium text-[13px] no-underline whitespace-nowrap" style={{ background: '#9a6a18' }}>
+                        Upload to earn
+                      </Link>
+                    </div>
+                    <hr className="my-3.5 border-0" style={{ borderTop: '1px solid rgba(154,106,24,0.28)' }} />
+                    <div className="flex flex-wrap gap-x-5 gap-y-1 text-[12px]" style={{ color: '#5e3f08' }}>
+                      <span><strong className="mono mr-1.5" style={{ color: '#9a6a18' }}>+1</strong>each upload</span>
+                      <span><strong className="mono mr-1.5" style={{ color: '#9a6a18' }}>+1</strong>others download yours</span>
+                    </div>
+                  </div>
+                ) : ctaState === 'confirm' ? (
+                  <div className="bg-ink text-paper p-5 rounded-2xl" style={{ border: '2px solid var(--color-accent)' }}>
+                    <div className="flex justify-between items-center gap-4 flex-wrap">
+                      <div className="min-w-0">
+                        <div className="kicker tracking-[0.14em] text-accent">CONFIRM EXCHANGE</div>
+                        <div className="display text-[30px] sm:text-[36px] leading-none mt-1.5">
+                          −{downloadCost} <span className="text-accent">coin{downloadCost > 1 ? 's' : ''}</span>
+                        </div>
+                        <div className="mono text-[10px] tracking-[0.14em] mt-2" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                          {userBalance} <span className="text-accent">→</span> {userBalance - downloadCost} COINS REMAINING
+                        </div>
+                        <Link
+                          to="/upload"
+                          className="mono text-[10px] tracking-[0.14em] mt-1.5 inline-flex items-center gap-1 no-underline transition-colors duration-200 hover:text-accent"
+                          style={{ color: 'rgba(255,255,255,0.4)' }}
+                        >
+                          UPLOAD ONE TO REFILL <span aria-hidden>→</span>
+                        </Link>
+                      </div>
+                      <div className="flex flex-col gap-2 flex-shrink-0">
+                        <button
+                          onClick={handleConfirmYes}
+                          disabled={dlLoading}
+                          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white font-semibold text-[13px] disabled:opacity-60 whitespace-nowrap"
+                          style={{ background: 'var(--color-accent)' }}
+                        >
+                          {dlLoading ? <AiOutlineLoading3Quarters size={14} className="animate-spin" /> : (
+                            <>
+                              <span className="w-2.5 h-2.5 rounded-full bg-white shadow-[inset_0_-2px_0_oklch(80%_0.18_60),inset_0_1px_0_oklch(98%_0.04_60)]" aria-hidden />
+                              Yes, trade
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={handleConfirmCancel}
+                          disabled={dlLoading}
+                          className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full font-medium text-[12px] whitespace-nowrap transition-colors disabled:opacity-60"
+                          style={{ background: 'transparent', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.18)' }}
+                        >Cancel</button>
+                      </div>
+                    </div>
+                    <hr className="my-3.5 border-0" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }} />
+                    <label className="inline-flex items-center gap-2 text-[11px] cursor-pointer select-none" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                      <input
+                        type="checkbox"
+                        checked={confirmDontAsk}
+                        onChange={(e) => setConfirmDontAsk(e.target.checked)}
+                        className="appearance-none w-[13px] h-[13px] rounded-sm cursor-pointer checked:bg-accent transition-colors"
+                        style={{ border: '1px solid rgba(255,255,255,0.4)' }}
+                      />
+                      Skip confirm next time
+                    </label>
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+            {/* ─── Stats strip — 4 metrics + avatar stacks ──────────── */}
+            <div className="mt-7 grid grid-cols-2 sm:grid-cols-4 border border-hair border-r-0 rounded-lg overflow-hidden bg-paper">
               {([
                 ['DOWNLOADS', wallpaper.download_count,  engagements?.downloaders ?? []],
                 ['LIKES',     wallpaper.like_count,      engagements?.likers      ?? []],
                 ['FAVORITED', wallpaper.favorite_count,  engagements?.favoriters  ?? []],
                 ['VIEWS',     wallpaper.view_count,      []                            ],
               ] as const).map(([k, v, users]) => (
-                <div key={k} className="px-3 py-2.5 sm:px-3.5 sm:py-3 border-r border-hair">
+                <div key={k} className="px-4 py-3 border-r border-hair">
                   <div className="mono text-[9px] tracking-[0.14em] uppercase text-muted">{k}</div>
                   <div className="display text-[22px] sm:text-[24px] leading-none mt-1">{formatNumber(v)}</div>
                   {users.length > 0 && (
@@ -848,484 +1281,101 @@ export default function WallpaperDetailPage() {
               ))}
             </div>
 
-            {/* More like this */}
+            {/* ─── Details row — Specs/Tags + extended palette ────────── */}
+            <div className="mt-7 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6 lg:gap-10">
+              <section>
+                <div className="kicker text-muted">Specifications</div>
+                <dl className="grid grid-cols-[100px_1fr] gap-y-2.5 mt-3 mono text-[13px]">
+                  <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">DIM</dt>
+                  <dd className="m-0 text-ink">{wallpaper.width.toLocaleString()} × {wallpaper.height.toLocaleString()} px</dd>
+                  <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">RES</dt>
+                  <dd className="m-0 text-ink">
+                    {resLabel || '—'}
+                    {(wallpaper.file_type || '').startsWith('video/') && (
+                      <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-ink text-paper">
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
+                        VIDEO
+                      </span>
+                    )}
+                    {wallpaper.is_dynamic && <span className="ml-2 text-accent">● Dynamic</span>}
+                    {wallpaper.is_ai_generated && <span className="ml-2 text-violet-600">✦ AI</span>}
+                  </dd>
+                  <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">FILE</dt>
+                  <dd className="m-0 text-ink">{(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}</dd>
+                  {wallpaper.dominant_color && (
+                    <>
+                      <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">DOMINANT</dt>
+                      <dd className="m-0 text-ink inline-flex items-center gap-1.5">
+                        <span className="inline-block w-2.5 h-2.5 border border-hair" style={{ background: wallpaper.dominant_color }} />
+                        {wallpaper.dominant_color.toUpperCase()}
+                      </dd>
+                    </>
+                  )}
+                  {currentCategory && (
+                    <>
+                      <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">CATEGORY</dt>
+                      <dd className="m-0 text-ink">
+                        <Link to={`/category/${currentCategory.slug}`} className="text-ink hover:underline">
+                          {currentCategory.name}
+                        </Link>
+                      </dd>
+                    </>
+                  )}
+                  {wallpaper.tags && wallpaper.tags.length > 0 && (
+                    <>
+                      <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">TAGS</dt>
+                      <dd className="m-0 text-ink">
+                        <div className="flex flex-wrap gap-1.5">
+                          {wallpaper.tags.map((t) => (
+                            <span
+                              key={t.id}
+                              className="inline-block px-2 py-0.5 text-[11px] border border-hair rounded bg-paper-2 text-ink-2"
+                            >
+                              {t.name}
+                            </span>
+                          ))}
+                        </div>
+                      </dd>
+                    </>
+                  )}
+                </dl>
+              </section>
+
+              {palette.length > 0 && (
+                <section>
+                  <div className="kicker text-muted">Palette · {palette.length} color{palette.length === 1 ? '' : 's'} · click to copy</div>
+                  <div className="grid mt-3 gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(palette.length, 5)}, 1fr)` }}>
+                    {palette.map((c, i) => (
+                      <button
+                        key={`${c}-${i}`}
+                        onClick={() => copyHex(c)}
+                        className="flex flex-col gap-0 bg-transparent border-0 p-0 cursor-pointer text-left"
+                      >
+                        <span className="swatch block h-[64px] rounded-md border border-hair" style={{ background: c }} title={`${c.toUpperCase()} — click to copy`} />
+                        <span className="swatch-hex">{c.toUpperCase()}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+
+            {/* ─── More like this ───────────────────────────────────── */}
             {similar.length > 0 && (
-              <>
-                <div className="label-rule mt-7 mb-3">
-                  More like this · {similar.length}
+              <section className="mt-10">
+                <div className="flex items-end justify-between mb-3">
+                  <div className="label-rule flex-1">More like this · {similar.length}</div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {similar.slice(0, 8).map((s) => (
                     <WallpaperCard key={s.id} wallpaper={s} fixedAspect hideActions />
                   ))}
                 </div>
-              </>
-            )}
-
-          </div>
-
-          {/* ── RIGHT COLUMN — metadata + actions + CoinCTA ── */}
-          <div className="flex flex-col gap-5 min-w-0">
-            {/* Eyebrow */}
-            <div className="kicker text-muted">
-              {wallpaper.tags?.length > 0 ? wallpaper.tags[0].name.toUpperCase() : 'WALLPAPER'} · ADDED {daysAgo}D AGO{wallpaper.is_dynamic ? ' · DYNAMIC' : ''}{wallpaper.is_ai_generated ? ' · AI' : ''}
-            </div>
-
-            {/* Uploader row */}
-            {wallpaper.uploader && (
-              <Link
-                to={`/user/${wallpaper.uploader.username}`}
-                className="flex items-center gap-3 py-3 border-t border-b border-hair no-underline text-ink"
-              >
-                <div className="w-10 h-10 rounded-full overflow-hidden bg-paper-2 border border-hair flex items-center justify-center display text-[18px] flex-shrink-0">
-                  {wallpaper.uploader.avatar_url
-                    ? <img src={wallpaper.uploader.avatar_url} alt="" className="w-full h-full object-cover" />
-                    : uploaderInitial}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="display text-[19px] leading-tight truncate">
-                    @{wallpaper.uploader.username}
-                  </div>
-                  {wallpaper.uploader.bio && (
-                    <div className="mono text-[10px] tracking-[0.08em] uppercase text-muted truncate">
-                      {wallpaper.uploader.bio}
-                    </div>
-                  )}
-                </div>
-                <span className="mono text-[10px] tracking-[0.1em] uppercase text-muted whitespace-nowrap">VIEW →</span>
-              </Link>
-            )}
-
-            {/* Palette */}
-            {palette.length > 0 && (
-              <section>
-                <div className="kicker text-muted">Palette · {palette.length} color{palette.length === 1 ? '' : 's'}</div>
-                <div className="grid mt-2.5 gap-2" style={{ gridTemplateColumns: `repeat(${palette.length}, 1fr)` }}>
-                  {palette.map((c, i) => (
-                    <button key={`${c}-${i}`} onClick={() => copyHex(c)} className="flex flex-col gap-0 bg-transparent border-0 p-0 cursor-pointer">
-                      <span className="swatch block h-[52px] rounded-[2px]" style={{ background: c }} title={`${c.toUpperCase()} — click to copy`} />
-                      <span className="swatch-hex">{c.toUpperCase()}</span>
-                    </button>
-                  ))}
-                </div>
               </section>
             )}
 
-            {/* Specifications */}
-            <section>
-              <div className="kicker text-muted">Specifications</div>
-              <dl className="grid grid-cols-[90px_1fr] gap-y-2.5 mt-2.5 mono text-[13px]">
-                <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">DIM</dt>
-                <dd className="m-0 text-ink">{wallpaper.width.toLocaleString()} × {wallpaper.height.toLocaleString()} px</dd>
-                <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">RES</dt>
-                <dd className="m-0 text-ink">
-                  {resLabel || '—'}
-                  {(wallpaper.file_type || '').startsWith('video/') && (
-                    <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-ink text-paper">
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
-                      VIDEO
-                    </span>
-                  )}
-                  {wallpaper.is_dynamic && <span className="ml-2 text-accent">● Dynamic</span>}
-                  {wallpaper.is_ai_generated && <span className="ml-2 text-violet-600">✦ AI Generated</span>}
-                </dd>
-                <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">FILE</dt>
-                <dd className="m-0 text-ink">{(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}</dd>
-                {wallpaper.dominant_color && (
-                  <>
-                    <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">DOMINANT</dt>
-                    <dd className="m-0 text-ink inline-flex items-center gap-1.5">
-                      <span className="inline-block w-2.5 h-2.5 border border-hair" style={{ background: wallpaper.dominant_color }} />
-                      {wallpaper.dominant_color.toUpperCase()}
-                    </dd>
-                  </>
-                )}
-                {currentCategory && (
-                  <>
-                    <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">CATEGORY</dt>
-                    <dd className="m-0 text-ink">
-                      <Link
-                        to={`/category/${currentCategory.slug}`}
-                        className="text-ink hover:underline"
-                      >
-                        {currentCategory.name}
-                      </Link>
-                    </dd>
-                  </>
-                )}
-                {wallpaper.tags && wallpaper.tags.length > 0 && (
-                  <>
-                    <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">TAGS</dt>
-                    <dd className="m-0 text-ink">
-                      <div className="flex flex-wrap gap-1.5">
-                        {wallpaper.tags.map((t) => (
-                          <span
-                            key={t.id}
-                            className="inline-block px-2 py-0.5 text-[11px] border border-hair rounded bg-paper-2 text-ink-2"
-                          >
-                            {t.name}
-                          </span>
-                        ))}
-                      </div>
-                    </dd>
-                  </>
-                )}
-              </dl>
-            </section>
-
-            {/* Actions */}
-            <section>
-              <div className="kicker text-muted">Actions</div>
-
-              <div className="grid grid-cols-3 gap-2 mt-2.5">
-                <button
-                  onClick={handleLike}
-                  disabled={likeLoading}
-                  className={`btn-pill ${wallpaper.is_liked ? 'is-liked' : ''}`}
-                >
-                  {likeLoading
-                    ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
-                    : wallpaper.is_liked ? <AiFillHeart size={15} /> : <AiOutlineHeart size={15} />}
-                  <span className="label">{wallpaper.is_liked ? 'Liked' : 'Like'}</span>
-                  <span className="count">{formatNumber(wallpaper.like_count)}</span>
-                </button>
-                <button
-                  onClick={handleFavorite}
-                  disabled={favLoading}
-                  className={`btn-pill ${wallpaper.is_favorited ? 'is-favorited' : ''}`}
-                >
-                  {favLoading
-                    ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
-                    : wallpaper.is_favorited ? <AiFillStar size={15} /> : <AiOutlineStar size={15} />}
-                  <span className="label">{wallpaper.is_favorited ? 'Favorited' : 'Favorite'}</span>
-                </button>
-                <button
-                  onClick={() => { if (!isAuthenticated) { navigate('/login'); return; } setShowAddToCollection(true); }}
-                  className="btn-pill"
-                >
-                  <MdPlaylistAdd size={17} />
-                  <span className="label">Add to list</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <button
-                  onClick={() => setFullscreen(true)}
-                  className="btn-pill btn-pill--action"
-                >
-                  <span className="lhs">
-                    <span className="glyph"><AiOutlineFullscreen size={15} /></span>
-                    <span className="text-left">
-                      <div className="text-[13px] font-medium leading-tight">Fullscreen preview</div>
-                      <div className="mono text-[10px] tracking-[0.08em] uppercase text-muted mt-0.5">Watermarked · free</div>
-                    </span>
-                  </span>
-                  <span className="arrow">→</span>
-                </button>
-                <button
-                  onClick={() => matchedVariant && canMockupMatched && setMockupVariant(matchedVariant)}
-                  disabled={!canMockupMatched}
-                  className="btn-pill btn-pill--action"
-                >
-                  <span className="lhs">
-                    <span className="glyph"><MdDesktopMac size={15} /></span>
-                    <span className="text-left">
-                      <div className="text-[13px] font-medium leading-tight">On device</div>
-                      <div className="mono text-[10px] tracking-[0.08em] uppercase text-muted mt-0.5">Mockup preview</div>
-                    </span>
-                  </span>
-                  <span className="arrow">→</span>
-                </button>
-              </div>
-            </section>
-
-            {/* Coin CTA — four states from the design doc, all rendered
-                in the same height envelope so the right column doesn't
-                jump when the user clicks through default → confirm →
-                success. Insufficient is computed from balance + cost
-                and overrides default/confirm whenever balance < cost. */}
-            <div className="pt-1">
-              {ctaState === 'success' ? (
-                <div
-                  className="p-5"
-                  style={{ background: 'oklch(95% 0.05 150)', border: '1px solid #2f6b3e', color: 'var(--color-ink)' }}
-                >
-                  <div className="flex justify-between items-center gap-4 flex-wrap">
-                    <div className="min-w-0">
-                      <div className="kicker tracking-[0.14em] inline-flex items-center gap-1.5" style={{ color: '#2f6b3e' }}>
-                        <AiOutlineCheckCircle size={11} /> DOWNLOADED
-                      </div>
-                      <div className="display text-[24px] sm:text-[28px] leading-tight mt-1.5" style={{ color: '#1f4827' }}>
-                        wallpaper_<span className="mono text-[20px] sm:text-[24px]">{String(wallpaper.id).padStart(3, '0')}</span>.jpg
-                      </div>
-                      <div className="mono text-[10px] tracking-[0.14em] mt-2" style={{ color: '#2f6b3e' }}>
-                        {fileSize}  ·  {userBalance} COINS REMAINING
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-2 flex-shrink-0">
-                      <button
-                        onClick={handleSuccessDismiss}
-                        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-ink text-paper font-medium text-[12px] whitespace-nowrap hover:bg-ink-2 transition-colors"
-                      >Done</button>
-                      <Link
-                        to="/"
-                        className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full border border-hair text-ink text-[12px] no-underline whitespace-nowrap hover:bg-paper-2 transition-colors"
-                      >Browse more →</Link>
-                    </div>
-                  </div>
-                  {!isMacUA && (
-                    <>
-                      <hr className="my-3.5 border-0" style={{ borderTop: '1px solid rgba(47,107,62,0.25)' }} />
-                      <div className="flex flex-wrap gap-x-2 gap-y-1 items-center text-[12px]" style={{ color: '#1f4827' }}>
-                        <span>🍎 On macOS? Use the menu-bar app to set this as your wallpaper in one click.</span>
-                        <Link to="/download/mac" className="underline" style={{ color: '#2f6b3e' }}>Get it →</Link>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ) : ctaState === 'insufficient' ? (
-                <div className="p-5 border border-[#b07a1a]" style={{ background: 'oklch(96% 0.05 70)' }}>
-                  <div className="flex justify-between items-center gap-4 flex-wrap">
-                    <div className="min-w-0">
-                      <div className="kicker tracking-[0.14em]" style={{ color: '#9a6a18' }}>INSUFFICIENT COINS</div>
-                      <div className="display text-[28px] sm:text-[34px] leading-none mt-1.5" style={{ color: '#5e3f08' }}>
-                        Need <span style={{ color: '#9a6a18' }}>{downloadCost - userBalance}</span> more
-                      </div>
-                      <div className="mono text-[10px] tracking-[0.14em] mt-2" style={{ color: '#9a6a18' }}>
-                        YOUR BALANCE · {userBalance} COINS · COST · {downloadCost}
-                      </div>
-                    </div>
-                    <Link to="/upload" className="inline-flex items-center gap-2.5 px-5 py-3 rounded-full text-white font-medium text-[13px] no-underline whitespace-nowrap" style={{ background: '#9a6a18' }}>
-                      Upload to earn
-                    </Link>
-                  </div>
-                  <hr className="my-3.5 border-0" style={{ borderTop: '1px solid rgba(154,106,24,0.28)' }} />
-                  <div className="flex flex-wrap gap-x-5 gap-y-1 text-[12px]" style={{ color: '#5e3f08' }}>
-                    <span><strong className="mono mr-1.5" style={{ color: '#9a6a18' }}>+1</strong>each upload</span>
-                    <span><strong className="mono mr-1.5" style={{ color: '#9a6a18' }}>+1</strong>others download yours</span>
-                  </div>
-                </div>
-              ) : ctaState === 'confirm' ? (
-                <div className="bg-ink text-paper p-5" style={{ border: '2px solid var(--color-accent)' }}>
-                  <div className="flex justify-between items-center gap-4 flex-wrap">
-                    <div className="min-w-0">
-                      <div className="kicker tracking-[0.14em] text-accent">CONFIRM EXCHANGE</div>
-                      <div className="display text-[30px] sm:text-[36px] leading-none mt-1.5">
-                        −{downloadCost} <span className="text-accent">coin{downloadCost > 1 ? 's' : ''}</span>
-                      </div>
-                      <div className="mono text-[10px] tracking-[0.14em] mt-2" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                        {userBalance} <span className="text-accent">→</span> {userBalance - downloadCost} COINS REMAINING
-                      </div>
-                      <Link
-                        to="/upload"
-                        className="mono text-[10px] tracking-[0.14em] mt-1.5 inline-flex items-center gap-1 no-underline transition-colors duration-200 hover:text-accent"
-                        style={{ color: 'rgba(255,255,255,0.4)' }}
-                      >
-                        UPLOAD ONE TO REFILL <span aria-hidden>→</span>
-                      </Link>
-                    </div>
-                    <div className="flex flex-col gap-2 flex-shrink-0">
-                      <button
-                        onClick={handleConfirmYes}
-                        disabled={dlLoading}
-                        className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white font-semibold text-[13px] disabled:opacity-60 whitespace-nowrap"
-                        style={{ background: 'var(--color-accent)' }}
-                      >
-                        {dlLoading ? <AiOutlineLoading3Quarters size={14} className="animate-spin" /> : (
-                          <>
-                            <span className="w-2.5 h-2.5 rounded-full bg-white shadow-[inset_0_-2px_0_oklch(80%_0.18_60),inset_0_1px_0_oklch(98%_0.04_60)]" aria-hidden />
-                            Yes, trade
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={handleConfirmCancel}
-                        disabled={dlLoading}
-                        className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full font-medium text-[12px] whitespace-nowrap transition-colors disabled:opacity-60"
-                        style={{ background: 'transparent', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.18)' }}
-                      >Cancel</button>
-                    </div>
-                  </div>
-                  <hr className="my-3.5 border-0" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }} />
-                  <label className="inline-flex items-center gap-2 text-[11px] cursor-pointer select-none" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                    <input
-                      type="checkbox"
-                      checked={confirmDontAsk}
-                      onChange={(e) => setConfirmDontAsk(e.target.checked)}
-                      className="appearance-none w-[13px] h-[13px] rounded-sm cursor-pointer checked:bg-accent transition-colors"
-                      style={{ border: '1px solid rgba(255,255,255,0.4)' }}
-                    />
-                    Skip confirm next time
-                  </label>
-                </div>
-              ) : (
-                <div className="bg-ink text-paper border border-ink p-5 flex justify-between items-center gap-4 flex-wrap">
-                  <div className="min-w-0">
-                    <div className="mono text-[10px] tracking-[0.14em] uppercase" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                      {isOwner ? 'YOUR WALLPAPER' : 'EXCHANGE FOR'}
-                    </div>
-                    <div className="display text-[34px] sm:text-[40px] leading-none mt-1">
-                      {isOwner ? 'Free' : (
-                        <>{downloadCost} <span className="text-accent">coin{downloadCost > 1 ? 's' : ''}</span></>
-                      )}
-                    </div>
-                    <div className="mono text-[10px] tracking-[0.14em] uppercase mt-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                      {isAuthenticated
-                        ? <>YOUR BALANCE · {userBalance} COINS</>
-                        : <>SIGN IN TO DOWNLOAD</>}
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleDownloadClick}
-                    disabled={dlLoading}
-                    className="inline-flex items-center gap-2.5 px-5 py-3 rounded-full text-white font-semibold text-[13px] disabled:opacity-60 whitespace-nowrap"
-                    style={{ background: 'var(--color-accent)' }}
-                  >
-                    {dlLoading
-                      ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
-                      : dlDone
-                        ? <><AiOutlineCheckCircle size={15} /> {isOwner ? 'Downloaded' : 'Traded'}</>
-                        : isOwner
-                          ? <><AiOutlineDownload size={15} /> Download original</>
-                          : (
-                            <>
-                              <span className="w-2.5 h-2.5 rounded-full bg-white shadow-[inset_0_-2px_0_oklch(80%_0.18_60),inset_0_1px_0_oklch(98%_0.04_60)]" aria-hidden />
-                              Trade for {downloadCost || 1}
-                            </>
-                          )}
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Device-specific download list — sits right below the
-                Download CTA so users who already know which device they
-                want a perfect-fit crop for can grab it in one click.
-                Inline flat list (no disclosure) with per-row Preview and
-                Download actions; the matched variant gets a "Your device"
-                pill so the user knows which row was tailored for them. */}
-            {variants.length > 0 && (
-              <section>
-                <div className="kicker text-muted">Available devices</div>
-                {/* Grouped by platform. Render order is fixed (desktop →
-                    laptop → tablet → phone → other) so the page layout
-                    stays stable when the variant set shifts. Each group
-                    only renders if it has at least one variant. */}
-                {(['desktop', 'laptop', 'tablet', 'phone', 'other'] as const).map((platform) => {
-                  const list = groupedVariants[platform];
-                  if (!list || list.length === 0) return null;
-                  const platformLabel = {
-                    desktop: 'Desktop',
-                    laptop:  'Laptop',
-                    tablet:  'Tablet',
-                    phone:   'Phone',
-                    other:   'Other',
-                  }[platform];
-                  return (
-                    <div key={platform} className="mt-4">
-                      <div className="mono text-[10px] tracking-[0.14em] uppercase text-muted mb-2">
-                        {platformLabel} · {list.length}
-                      </div>
-                      <div className="border-t border-hair">
-                  {list.map((v) => {
-                      const isMatched = matchedVariant?.id === v.id;
-                      const mockable = canShowMockup(v);
-                      const deviceName = [v.brand, v.device_name].filter(Boolean).join(' ').trim() || 'Device';
-                      const PlatformIcon =
-                        v.platform === 'phone' ? MdPhoneIphone
-                        : v.platform === 'tablet' ? MdTabletMac
-                        : v.platform === 'laptop' ? MdLaptopMac
-                        : MdDesktopMac;
-                      return (
-                        <div
-                          key={v.id}
-                          className={`relative grid grid-cols-[44px_1fr_auto] items-center gap-3 sm:gap-4 px-2 sm:px-3 py-3 border-b border-hair last:border-b-0 ${isMatched ? 'bg-paper-3' : ''}`}
-                        >
-                          {/* Matched-row left rail — thick ink bar that
-                              identifies "Your device" at a glance even
-                              with the badge wrapped to the next line. */}
-                          {isMatched && (
-                            <span
-                              aria-hidden
-                              className="absolute left-0 top-0 bottom-0 w-[3px] bg-ink"
-                            />
-                          )}
-
-                          {/* Icon column */}
-                          <span className="text-ink-2 flex items-center justify-center">
-                            <PlatformIcon size={22} />
-                          </span>
-
-                          {/* Info: name (linked to its device landing
-                              page so we feed internal-link weight to the
-                              /wallpapers-for/:slug pages) + YOUR DEVICE
-                              badge / dims · size */}
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {v.device_slug ? (
-                                <Link
-                                  to={`/wallpapers-for/${v.device_slug}`}
-                                  className="text-[15px] sm:text-[16px] font-medium text-ink truncate no-underline hover:underline"
-                                  title={`More wallpapers for the ${deviceName}`}
-                                >
-                                  {deviceName}
-                                </Link>
-                              ) : (
-                                <span className="text-[15px] sm:text-[16px] font-medium text-ink truncate">
-                                  {deviceName}
-                                </span>
-                              )}
-                              {isMatched && (
-                                <span className="mono text-[9px] tracking-[0.16em] font-semibold uppercase px-2 py-[3px] bg-ink text-paper whitespace-nowrap">
-                                  Your device
-                                </span>
-                              )}
-                            </div>
-                            <div className="mono text-[11px] tracking-[0.04em] text-muted mt-1">
-                              {v.width.toLocaleString()} × {v.height.toLocaleString()} px
-                              {v.file_size > 0 && <> · {formatFileSize(v.file_size)}</>}
-                            </div>
-                          </div>
-
-                          {/* Action buttons */}
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <button
-                              onClick={() => mockable && setMockupVariant(v)}
-                              disabled={!mockable}
-                              title={mockable ? 'Preview on device' : 'Mockup not available for this device'}
-                              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-paper text-[12px] sm:text-[13px] font-medium transition-colors ${
-                                mockable
-                                  ? 'border border-hair text-ink hover:bg-paper-2 hover:border-ink-2'
-                                  : 'border border-dashed border-hair text-muted-2 line-through cursor-not-allowed'
-                              }`}
-                            >
-                              <MdOutlineRemoveRedEye size={15} />
-                              Preview
-                            </button>
-                            <button
-                              onClick={() => handleDownload(v)}
-                              disabled={dlLoading}
-                              title="Download this variant"
-                              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-white text-[12px] sm:text-[13px] font-semibold disabled:opacity-60 transition-colors ${
-                                isMatched ? 'bg-accent hover:brightness-95' : 'bg-ink hover:bg-ink-2'
-                              }`}
-                            >
-                              <AiOutlineDownload size={14} />
-                              Download
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </section>
-            )}
-
-            {/* Owner / report actions */}
-            <div className="flex justify-between items-center pt-3 text-[12px] text-muted">
+            {/* ─── Owner / report row ───────────────────────────────── */}
+            <div className="flex justify-between items-center pt-6 mt-8 border-t border-hair text-[12px] text-muted">
               {isOwner ? (
                 <button onClick={handleDelete} className="inline-flex items-center gap-1.5 hover:text-rose-500 transition-colors">
                   <AiOutlineDelete size={14} /> Delete wallpaper
@@ -1339,12 +1389,83 @@ export default function WallpaperDetailPage() {
                 №{String(wallpaper.id).padStart(3, '0')}
               </span>
             </div>
-          </div>
+
           </div>
         </div>
       </div>
+
+      <SpotlightStyles />
     </>
   );
+}
+
+/* Inline CSS for the Spotlight detail page. Kept here (rather than in
+   index.css) so the classes are obviously local to this page; nothing
+   outside WallpaperDetailPage uses them. The dev preview at
+   /dev/wp-detail has its own copy of these styles via the demo file
+   so the two pages can evolve independently. */
+function SpotlightStyles() {
+  return (<style>{`
+.wd-stage { position: relative; border-radius: 22px; overflow: hidden; padding: clamp(28px, 4vw, 56px) clamp(20px, 3vw, 40px) 180px; min-height: 70vh; }
+.wd-stage-tl { position: absolute; top: 22px; left: 28px; z-index: 3; max-width: 70%; }
+.wd-stage-tl .kicker { color: rgba(255,255,255,0.9); }
+.wd-stage-tr { position: absolute; top: 18px; right: 28px; z-index: 3; display: flex; align-items: flex-start; gap: 12px; background: rgba(20,18,15,0.45); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; padding: 12px 16px; color: white; }
+.wd-hero { position: relative; max-width: 1080px; margin: 0 auto; border-radius: 16px; overflow: hidden; box-shadow: 0 30px 80px -20px rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.18); cursor: zoom-in; max-height: 70vh; }
+.wd-hero > img, .wd-hero > div > img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.wd-hero-hint { position: absolute; top: 14px; right: 14px; display: inline-flex; gap: 5px; align-items: center; padding: 5px 10px; border-radius: 999px; background: rgba(20,18,15,0.55); backdrop-filter: blur(8px); color: white; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; border: 1px solid rgba(255,255,255,0.15); opacity: 0; transition: opacity .25s ease; pointer-events: none; }
+.wd-hero:hover .wd-hero-hint { opacity: 1; }
+
+.wd-dock { position: absolute; bottom: 92px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(250,247,240,0.86); backdrop-filter: blur(18px) saturate(1.2); border: 1px solid rgba(0,0,0,0.06); border-radius: 999px; box-shadow: 0 24px 56px -18px rgba(0,0,0,0.42); max-width: calc(100% - 40px); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.wd-dock::-webkit-scrollbar { display: none; }
+.wd-dock-uploader { display: flex; align-items: center; gap: 10px; min-width: 0; flex-shrink: 0; }
+.wd-dock-avatar { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; background: var(--color-paper-2); border: 1px solid var(--color-hair); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 14px; flex-shrink: 0; }
+.wd-dock-divider { width: 1px; height: 26px; background: var(--color-hair); flex-shrink: 0; }
+.wd-dock-palette { display: flex; gap: 4px; flex-shrink: 0; }
+.wd-dock-icon { padding: 8px; border-radius: 999px; color: var(--color-ink-2); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background-color .15s ease, color .15s ease; }
+.wd-dock-icon:hover { background: var(--color-paper-2); color: var(--color-accent); }
+.wd-dock-icon.is-liked { color: oklch(58% 0.20 25); }
+.wd-dock-icon.is-favorited { color: oklch(72% 0.18 65); }
+.wd-dock-pill { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-hair); background: var(--color-paper); font-size: 12px; font-weight: 500; color: var(--color-ink); flex-shrink: 0; white-space: nowrap; }
+.wd-dock-pill:hover { background: var(--color-paper-2); }
+.wd-dock-cta { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px; background: var(--color-ink); color: var(--color-paper); font-size: 13px; font-weight: 600; flex-shrink: 0; white-space: nowrap; }
+.wd-dock-cta:hover { background: var(--color-ink-2); }
+.wd-dock-cta:disabled { opacity: 0.7; cursor: not-allowed; }
+
+.wd-dock-pop { position: relative; flex-shrink: 0; }
+.wd-popover-scrim { position: fixed; inset: 0; z-index: 40; background: transparent; }
+.wd-popover { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); width: 260px; background: var(--color-paper); border: 1px solid var(--color-hair); border-radius: 14px; box-shadow: 0 20px 50px -16px rgba(0,0,0,0.32); padding: 6px; z-index: 50; }
+.wd-popover button { width: 100%; display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 10px; text-align: left; color: var(--color-ink); }
+.wd-popover button:hover { background: var(--color-paper-2); }
+.wd-popover button strong { display: block; font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.wd-popover button span span { display: block; font-family: var(--font-mono); font-size: 10px; color: var(--color-muted); letter-spacing: 0.04em; line-height: 1.3; }
+
+.wd-quickmatch { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; color: white; max-width: calc(100% - 40px); }
+.wd-quickmatch-card { display: inline-flex; align-items: center; gap: 10px; padding: 8px 12px 8px 14px; border-radius: 999px; background: rgba(20,18,15,0.55); backdrop-filter: blur(12px); border: 1px solid var(--color-accent); color: white; min-width: 0; }
+.wd-quickmatch-dl { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: 999px; background: var(--color-accent); color: white; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.wd-quickmatch-dl:disabled { opacity: 0.6; }
+
+/* Devices drawer — right-side slide-in */
+.wd-drawer-scrim { position: fixed; inset: 0; background: rgba(20,18,15,0.42); backdrop-filter: blur(2px); z-index: 60; display: flex; justify-content: flex-end; animation: wdFadeIn .2s ease; }
+.wd-drawer { width: 440px; max-width: 92vw; height: 100vh; background: var(--color-paper); display: flex; flex-direction: column; box-shadow: -20px 0 60px -20px rgba(0,0,0,0.28); border-left: 1px solid var(--color-hair); animation: wdSlideInRight .28s cubic-bezier(0.2,0.8,0.2,1); }
+.wd-drawer-head { padding: 22px 22px 16px; border-bottom: 1px solid var(--color-hair); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-shrink: 0; }
+.wd-drawer-body { flex: 1; overflow-y: auto; padding: 6px 18px 18px; }
+.wd-drawer-foot { padding: 12px 22px; border-top: 1px solid var(--color-hair); background: var(--color-paper-2); flex-shrink: 0; }
+.wd-drawer-group { margin-top: 14px; }
+.wd-drawer-grouphead { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--color-muted); padding: 0 6px 6px; border-bottom: 1px solid var(--color-hair); margin-bottom: 6px; }
+.wd-drawer-row { display: grid; grid-template-columns: 22px 1fr auto; gap: 12px; align-items: center; padding: 10px 6px; border-radius: 8px; transition: background-color .15s ease; }
+.wd-drawer-row:hover { background: var(--color-paper-2); }
+.wd-drawer-row.is-matched { background: color-mix(in oklch, var(--color-accent) 5%, var(--color-paper)); }
+
+@keyframes wdSlideInRight { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes wdFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@media (max-width: 640px) {
+  .wd-stage-tl, .wd-stage-tr { left: 16px; right: 16px; }
+  .wd-stage-tr { padding: 10px 12px; }
+  .wd-dock { padding: 8px 10px; gap: 8px; }
+  .wd-dock-uploader > div { display: none; }
+}
+`}</style>);
 }
 
 // VideoPlayer: poster + center play button. On the first click we fully
