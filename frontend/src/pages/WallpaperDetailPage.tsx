@@ -19,14 +19,13 @@ import {
   AiOutlineZoomOut,
   AiOutlineRedo,
   AiOutlineReload,
-  AiOutlineEye,
 } from 'react-icons/ai';
 import { MdPlaylistAdd, MdDesktopMac, MdLaptopMac, MdTabletMac, MdPhoneIphone, MdOutlineRemoveRedEye, MdDevices } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User, Category } from '../types';
 import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
 import ReportModal from '../components/ReportModal';
-import WallpaperCard from '../components/WallpaperCard';
+import WallpaperGrid from '../components/WallpaperGrid';
 import { getSimilarWallpapers } from '../api';
 import {
   getWallpaper,
@@ -197,11 +196,13 @@ export default function WallpaperDetailPage() {
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
   const [showReport, setShowReport] = useState(false);
-  // Spotlight-layout overlays. Drawer holds the full grouped
-  // device list opened from the dock; the preview menu is the
-  // little split-button popover (Fullscreen vs In-device).
+  // Action-bar overlays. Drawer holds the grouped device list
+  // (opened from the action bar's Devices · N button); previewOverlay
+  // toggles between the bare wallpaper and the Home / Lock chrome
+  // painted directly onto the hero image (clock / dock / menu bar —
+  // same overlays the discover floating wall uses).
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [previewMenuOpen, setPreviewMenuOpen] = useState(false);
+  const [previewOverlay, setPreviewOverlay] = useState<'plain' | 'home' | 'lock'>('plain');
   const [similar, setSimilar] = useState<Wallpaper[]>([]);
   // Cache the full category list so we can map wallpaper.category_id (a
   // number) to a display name without a per-detail fetch. List is tiny
@@ -251,7 +252,6 @@ export default function WallpaperDetailPage() {
   }, [framePlaying, frames.length, nextFrame]);
 
   const matchedVariant = useMemo(() => findBestMatch(variants), [variants]);
-  const canMockupMatched = useMemo(() => matchedVariant ? canShowMockup(matchedVariant) : false, [matchedVariant]);
 
   // Variants partitioned by platform, with the matched device pinned to
   // the top of its own group and the rest sorted by total pixels desc.
@@ -301,24 +301,20 @@ export default function WallpaperDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!fullscreen && !mockupVariant && !drawerOpen && !previewMenuOpen) return;
+    if (!fullscreen && !mockupVariant && !drawerOpen && previewOverlay === 'plain') return;
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (previewMenuOpen) { setPreviewMenuOpen(false); return; }
-        if (drawerOpen) { setDrawerOpen(false); return; }
         setFullscreen(false);
         setMockupVariant(null);
       }
     };
     document.addEventListener('keydown', handleEsc);
-    // Only lock body scroll for the true overlays. The drawer / popover
-    // are within the page flow and don't need it.
-    if (fullscreen || mockupVariant) document.body.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleEsc);
       document.body.style.overflow = '';
     };
-  }, [fullscreen, mockupVariant, drawerOpen, previewMenuOpen]);
+  }, [fullscreen, mockupVariant, drawerOpen, previewOverlay]);
 
   useEffect(() => {
     if (!wallpaper?.id) {
@@ -495,7 +491,6 @@ export default function WallpaperDetailPage() {
 
   // ─── Helpers derived from wallpaper for the editorial spread ─────────
   const palette = (wallpaper.color_palette || '').split(',').map((s) => s.trim()).filter(Boolean);
-  const daysAgo = Math.max(0, Math.floor((Date.now() - new Date(wallpaper.created_at).getTime()) / 86400000));
   const resLabel = (() => {
     const px = Math.max(wallpaper.width, wallpaper.height);
     if (px >= 7680) return '8K';
@@ -556,6 +551,15 @@ export default function WallpaperDetailPage() {
     setCtaMode('default');
   };
 
+  // The visitor's platform drives which Home/Lock overlay chrome we
+  // paint over the wallpaper (laptop/desktop = menubar+dock+clock,
+  // phone = notch+clock, tablet = clock). Falls back to desktop.
+  const overlayPlatform: 'desktop' | 'laptop' | 'tablet' | 'phone' =
+    matchedVariant?.platform === 'phone' ? 'phone'
+    : matchedVariant?.platform === 'tablet' ? 'tablet'
+    : matchedVariant?.platform === 'laptop' ? 'laptop'
+    : 'desktop';
+
   return (
     <>
       <PageMeta
@@ -584,19 +588,14 @@ export default function WallpaperDetailPage() {
         onCancel={() => setShowDeleteConfirm(false)}
       />
 
-      {/* Trade-success phosphor sweep — 800ms one-shot, keyed by the
-          tick so successive trades re-run the animation cleanly. */}
       {tradeFlashTick > 0 && createPortal(
         <div key={tradeFlashTick} className="trade-flash" aria-hidden />,
         document.body,
       )}
 
-      {/* Streaming-download progress modal. Indeterminate slide while
-          the server prepares the file; then real percent once bytes
-          start flowing. */}
       {dlLoading && createPortal(
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-6">
-          <div className="w-full max-w-sm rounded-xl border border-hair bg-paper p-6 shadow-2xl">
+          <div className="w-full max-w-sm rounded-2xl border border-hair bg-paper p-6 shadow-2xl">
             <div className="mono text-[10px] tracking-[0.18em] uppercase text-muted">
               {dlProgress === null ? 'Preparing' : 'Downloading'}
             </div>
@@ -622,7 +621,6 @@ export default function WallpaperDetailPage() {
         document.body,
       )}
 
-      {/* Device mockup — wallpaper rendered inside a real device chassis */}
       {mockupVariant && wallpaper && (
         <DeviceMockup
           imageUrl={mockupVariant.url || wallpaper.preview_url || wallpaper.original_url}
@@ -635,9 +633,6 @@ export default function WallpaperDetailPage() {
         />
       )}
 
-      {/* Fullscreen viewer — wheel-zoom, drag-pan, rotate. Preserved
-          from the previous layout because the interaction is solid;
-          only the affordance to enter it is now the centered hero. */}
       {fullscreen && createPortal(
         <div
           className="fixed inset-0 z-[70] bg-black flex items-center justify-center overflow-hidden"
@@ -721,10 +716,9 @@ export default function WallpaperDetailPage() {
         document.body,
       )}
 
-      {/* Devices drawer — right-side slide-in with grouped per-device
-          list. Opened from the dock "Devices · N ▾" button. Always
-          shown grouped by platform so the user can scan a long list
-          (12+) without scrolling through one giant flat array. */}
+      {/* Devices drawer — right-side slide-in. Opens from the action-bar
+          "Devices · N ▾" button. Grouped per platform with per-row
+          Preview + Get. */}
       {drawerOpen && createPortal(
         <div className="wd-drawer-scrim" onClick={() => setDrawerOpen(false)}>
           <div className="wd-drawer" onClick={(e) => e.stopPropagation()}>
@@ -741,13 +735,7 @@ export default function WallpaperDetailPage() {
               {(['desktop', 'laptop', 'tablet', 'phone', 'other'] as const).map((platform) => {
                 const list = groupedVariants[platform];
                 if (!list || list.length === 0) return null;
-                const label = {
-                  desktop: 'Desktop',
-                  laptop: 'Laptop',
-                  tablet: 'Tablet',
-                  phone: 'Phone',
-                  other: 'Other',
-                }[platform];
+                const label = { desktop: 'Desktop', laptop: 'Laptop', tablet: 'Tablet', phone: 'Phone', other: 'Other' }[platform];
                 return (
                   <div key={platform} className="wd-drawer-group">
                     <div className="wd-drawer-grouphead">
@@ -768,10 +756,7 @@ export default function WallpaperDetailPage() {
                           <Icon size={18} className="text-ink-2 flex-shrink-0" />
                           <div className="min-w-0">
                             {v.device_slug ? (
-                              <Link
-                                to={`/wallpapers-for/${v.device_slug}`}
-                                className="text-[13px] font-medium text-ink truncate no-underline hover:underline"
-                              >
+                              <Link to={`/wallpapers-for/${v.device_slug}`} className="text-[13px] font-medium text-ink truncate no-underline hover:underline">
                                 {deviceName}
                               </Link>
                             ) : (
@@ -819,11 +804,20 @@ export default function WallpaperDetailPage() {
         document.body,
       )}
 
-      <div className="bg-paper text-ink h-full flex flex-col min-h-0">
-        {/* Modal-mode chrome — only when overlaid on top of another route.
-            On the full-page route the Layout topbar already provides chrome. */}
+      <div className="bg-paper text-ink h-full flex flex-col min-h-0 relative wd-root">
+        {/* Outer backdrop — blurred preview of the wallpaper itself, full
+            bleed behind everything. Combined with a soft scrim above so
+            the content stays legible regardless of source brightness. */}
+        {heroImg && (
+          <div className="wd-backdrop" aria-hidden>
+            <img src={heroImg} alt="" />
+          </div>
+        )}
+        <div className="wd-backdrop-scrim" aria-hidden />
+
+        {/* Modal-mode chrome — only when overlaid on top of another route. */}
         {Boolean((location.state as { background?: unknown } | null)?.background) && (
-          <div className="px-5 sm:px-6 py-2.5 border-b border-hair flex justify-between items-center bg-paper flex-shrink-0">
+          <div className="px-5 sm:px-6 py-2.5 border-b border-hair/40 flex justify-between items-center bg-paper/70 backdrop-blur-md flex-shrink-0 relative z-10">
             <span className="mono text-[10px] tracking-[0.18em] uppercase text-muted truncate">
               SPECIMEN №{String(wallpaper.id).padStart(3, '0')}
               <span className="ml-2 text-ink-2 hidden sm:inline">· OVERLAY VIEW</span>
@@ -844,42 +838,23 @@ export default function WallpaperDetailPage() {
           </div>
         )}
 
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-5 lg:py-6">
+        <div className="flex-1 min-h-0 overflow-y-auto relative z-10">
+          <div className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
 
-            {/* ─── SPOTLIGHT STAGE — hero on dominant-color mesh + dock ─── */}
+            {/* ─── STAGE PANEL — dominant-color mesh card holds the hero
+                + the action bar. Rounded all around so the harsh
+                rectangle from the previous iteration is gone. */}
             <div
-              className="wd-stage"
+              className="wd-panel"
               style={{
                 background: wallpaper.dominant_color
-                  ? `linear-gradient(135deg, ${wallpaper.dominant_color}, var(--color-paper))`
-                  : 'linear-gradient(135deg, var(--color-paper-2), var(--color-paper))',
+                  ? `radial-gradient(120% 80% at 20% 0%, ${wallpaper.dominant_color}88 0%, transparent 55%),
+                     radial-gradient(100% 70% at 100% 100%, ${wallpaper.dominant_color}66 0%, transparent 50%),
+                     linear-gradient(180deg, ${wallpaper.dominant_color}33 0%, var(--color-paper) 80%)`
+                  : 'var(--color-paper)',
               }}
             >
-              {/* Top-left: kicker (category · age · flags) */}
-              <div className="wd-stage-tl">
-                <div className="kicker text-paper/85">
-                  {currentCategory?.name?.toUpperCase() || (wallpaper.tags?.[0]?.name.toUpperCase() ?? 'WALLPAPER')}
-                  {' · ADDED '}{daysAgo}D AGO
-                  {wallpaper.is_dynamic && ' · DYNAMIC'}
-                  {wallpaper.is_ai_generated && ' · AI'}
-                </div>
-              </div>
-
-              {/* Top-right: specs box */}
-              <div className="wd-stage-tr">
-                <div>
-                  <div className="display text-[20px] leading-none">
-                    {wallpaper.width.toLocaleString()}<span className="text-paper/55"> × </span>{wallpaper.height.toLocaleString()}
-                  </div>
-                  <div className="mono text-[10px] tracking-[0.14em] text-paper/70 mt-1.5">
-                    {resLabel || '—'} · {(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}
-                  </div>
-                </div>
-              </div>
-
-              {/* Centered hero — preserves the frames / video / image
-                  branching from the previous layout. */}
+              {/* Hero card */}
               <div
                 className="wd-hero"
                 style={{
@@ -889,9 +864,9 @@ export default function WallpaperDetailPage() {
                   backgroundColor: wallpaper.dominant_color || undefined,
                 }}
                 onClick={() => {
-                  // Only enter fullscreen if it's a still image (not video/frames)
                   if (frames.length > 1) return;
                   if ((wallpaper.file_type || '').startsWith('video/')) return;
+                  if (previewOverlay !== 'plain') return; // overlays own click in their mode
                   setFullscreen(true);
                 }}
               >
@@ -928,222 +903,147 @@ export default function WallpaperDetailPage() {
                       className="w-full h-full object-contain select-none"
                       style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                     />
-                    <div className="wd-hero-hint">
-                      <AiOutlineFullscreen size={12} /> Click to fullscreen
-                    </div>
+                    {/* Home / Lock overlay — same chrome the discover
+                        floating wall uses (menubar+dock / clock+date)
+                        painted directly over the wallpaper image so
+                        the visitor can see how it would look as a
+                        live desktop. */}
+                    {previewOverlay === 'home' && <PreviewHomeOverlay platform={overlayPlatform} />}
+                    {previewOverlay === 'lock' && <PreviewLockOverlay platform={overlayPlatform} />}
+                    {previewOverlay === 'plain' && (
+                      <div className="wd-hero-hint">
+                        <AiOutlineFullscreen size={12} /> Click to fullscreen
+                      </div>
+                    )}
                   </>
                 ) : null}
               </div>
 
-              {/* Floating glass dock — primary surface. Uploader, palette,
-                  social actions, Preview menu, Devices drawer button, CTA. */}
-              <div className="wd-dock">
-                {wallpaper.uploader && (
-                  <Link
-                    to={`/user/${wallpaper.uploader.username}`}
-                    className="wd-dock-uploader no-underline text-inherit"
-                    title={`@${wallpaper.uploader.username}`}
-                  >
-                    <div className="wd-dock-avatar">
-                      {wallpaper.uploader.avatar_url
-                        ? <img src={wallpaper.uploader.avatar_url} alt="" className="w-full h-full object-cover" />
-                        : uploaderInitial}
-                    </div>
-                    <div className="min-w-0 hidden sm:block">
-                      <div className="text-[13px] font-medium leading-tight truncate">@{wallpaper.uploader.username}</div>
-                      {wallpaper.uploader.bio && (
-                        <div className="mono text-[10px] text-muted truncate">{wallpaper.uploader.bio}</div>
-                      )}
-                    </div>
-                  </Link>
-                )}
-
-                {palette.length > 0 && (
-                  <>
-                    <div className="wd-dock-divider" />
-                    <div className="wd-dock-palette" title="Click to copy hex">
-                      {palette.slice(0, 5).map((c, i) => (
-                        <button
-                          key={`${c}-${i}`}
-                          onClick={() => copyHex(c)}
-                          className="block w-5 h-5 rounded-md border border-hair p-0"
-                          style={{ background: c }}
-                          aria-label={`Copy ${c}`}
-                        />
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                <div className="wd-dock-divider" />
-
-                <button
-                  onClick={handleLike}
-                  disabled={likeLoading}
-                  className={`wd-dock-icon ${wallpaper.is_liked ? 'is-liked' : ''}`}
-                  title={wallpaper.is_liked ? 'Unlike' : 'Like'}
-                  aria-label="Like"
-                >
-                  {likeLoading
-                    ? <AiOutlineLoading3Quarters size={17} className="animate-spin" />
-                    : wallpaper.is_liked ? <AiFillHeart size={17} /> : <AiOutlineHeart size={17} />}
-                </button>
-                <button
-                  onClick={handleFavorite}
-                  disabled={favLoading}
-                  className={`wd-dock-icon ${wallpaper.is_favorited ? 'is-favorited' : ''}`}
-                  title={wallpaper.is_favorited ? 'Unfavorite' : 'Favorite'}
-                  aria-label="Favorite"
-                >
-                  {favLoading
-                    ? <AiOutlineLoading3Quarters size={17} className="animate-spin" />
-                    : wallpaper.is_favorited ? <AiFillStar size={17} /> : <AiOutlineStar size={17} />}
-                </button>
-                <button
-                  onClick={() => { if (!isAuthenticated) { navigate('/login'); return; } setShowAddToCollection(true); }}
-                  className="wd-dock-icon"
-                  title="Add to collection"
-                  aria-label="Add to collection"
-                >
-                  <MdPlaylistAdd size={19} />
-                </button>
-
-                <div className="wd-dock-divider" />
-
-                {/* Preview split — Fullscreen vs In-device chrome */}
-                <div className="wd-dock-pop">
-                  <button
-                    className="wd-dock-pill"
-                    onClick={() => setPreviewMenuOpen((v) => !v)}
-                    aria-expanded={previewMenuOpen}
-                  >
-                    <AiOutlineEye size={15} /> Preview <span className="opacity-50 text-[10px]">▾</span>
-                  </button>
-                  {previewMenuOpen && (
-                    <>
-                      {/* Scrim — outside-click close, without blocking the dock above */}
-                      <div className="wd-popover-scrim" onClick={() => setPreviewMenuOpen(false)} />
-                      <div className="wd-popover">
-                        <button
-                          onClick={() => {
-                            setPreviewMenuOpen(false);
-                            // Skip fullscreen for video / dynamic frames; the hero
-                            // itself is the right surface for those.
-                            if (frames.length > 1 || (wallpaper.file_type || '').startsWith('video/')) {
-                              toast('Use the hero controls for video / dynamic previews', { icon: 'ℹ️' });
-                              return;
-                            }
-                            setFullscreen(true);
-                          }}
-                        >
-                          <AiOutlineFullscreen size={14} />
-                          <span>
-                            <strong>Fullscreen</strong>
-                            <span>Just the image · ESC to close</span>
-                          </span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            setPreviewMenuOpen(false);
-                            if (matchedVariant && canMockupMatched) {
-                              setMockupVariant(matchedVariant);
-                            } else {
-                              toast('Pick a device from the drawer to preview', { icon: 'ℹ️' });
-                              setDrawerOpen(true);
-                            }
-                          }}
-                        >
-                          <MdDesktopMac size={16} />
-                          <span>
-                            <strong>In device</strong>
-                            <span>
-                              {matchedVariant && canMockupMatched
-                                ? `See it on ${matchedVariant.brand} ${matchedVariant.device_name}`
-                                : 'Pick a device from the drawer'}
-                            </span>
-                          </span>
-                        </button>
-                      </div>
-                    </>
-                  )}
+              {/* ─── ACTION BAR ─── */}
+              <div className="wd-actionbar">
+                {/* Meta strip — was the top-right specs box before */}
+                <div className="wd-actionbar-meta">
+                  <span className="display text-[15px] leading-none">
+                    {wallpaper.width.toLocaleString()}<span className="text-muted"> × </span>{wallpaper.height.toLocaleString()}
+                  </span>
+                  <span className="mono text-[11px] tracking-[0.06em] text-muted">
+                    {resLabel || '—'} · {(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}
+                  </span>
+                  {wallpaper.is_dynamic && <span className="wd-actionbar-pill">● DYNAMIC</span>}
+                  {wallpaper.is_ai_generated && <span className="wd-actionbar-pill is-ai">✦ AI</span>}
                 </div>
 
-                {variants.length > 0 && (
-                  <button
-                    onClick={() => setDrawerOpen(true)}
-                    className="wd-dock-pill"
-                    title="Browse all device sizes"
-                  >
-                    <MdDevices size={16} /> Devices · {variants.length} <span className="opacity-50 text-[10px]">▾</span>
-                  </button>
-                )}
-
-                <div className="wd-dock-divider" />
-
-                {/* CTA — same primary action button across all states. The
-                    rich 4-state surface lives in the inline bar below; the
-                    dock button stays small so the dock height never shifts. */}
-                <button
-                  onClick={handleDownloadClick}
-                  disabled={dlLoading}
-                  className="wd-dock-cta"
-                  title={isOwner ? 'Download original' : 'Trade coins for download'}
-                >
-                  {dlLoading ? (
-                    <AiOutlineLoading3Quarters size={15} className="animate-spin" />
-                  ) : dlDone ? (
-                    <><AiOutlineCheckCircle size={15} /> {isOwner ? 'Got it' : 'Traded'}</>
-                  ) : isOwner ? (
-                    <><AiOutlineDownload size={15} /> Download</>
-                  ) : (
-                    <>
-                      <span className="w-2 h-2 rounded-full bg-white shadow-[inset_0_-2px_0_oklch(80%_0.18_60),inset_0_1px_0_oklch(98%_0.04_60)]" aria-hidden />
-                      Trade for {downloadCost || 1}
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Quick-match card under the dock — one-tap download path
-                  for the user's own device without opening the drawer. */}
-              {matchedVariant && !isOwner && (
-                <div className="wd-quickmatch">
-                  <span className="kicker text-paper/70">YOUR DEVICE</span>
-                  <div className="wd-quickmatch-card">
-                    {(() => {
-                      const Icon =
-                        matchedVariant.platform === 'phone' ? MdPhoneIphone
-                        : matchedVariant.platform === 'tablet' ? MdTabletMac
-                        : matchedVariant.platform === 'laptop' ? MdLaptopMac
-                        : MdDesktopMac;
-                      return <Icon size={18} />;
-                    })()}
-                    <div className="min-w-0">
-                      <div className="text-[12px] font-medium leading-tight truncate">
-                        {[matchedVariant.brand, matchedVariant.device_name].filter(Boolean).join(' ').trim() || 'Your device'}
-                      </div>
-                      <div className="mono text-[10px] text-paper/65">
-                        {matchedVariant.width}×{matchedVariant.height}
-                        {matchedVariant.file_size > 0 && <> · {formatFileSize(matchedVariant.file_size)}</>}
-                      </div>
-                    </div>
+                {/* Buttons — 3 groups separated by dividers. Wraps on
+                    narrow viewports so groups stay together. */}
+                <div className="wd-actionbar-rows">
+                  {/* Group A — social */}
+                  <div className="wd-actionbar-group">
                     <button
-                      onClick={() => handleDownload(matchedVariant)}
-                      disabled={dlLoading}
-                      className="wd-quickmatch-dl"
+                      onClick={handleLike}
+                      disabled={likeLoading}
+                      className={`wd-btn ${wallpaper.is_liked ? 'is-liked' : ''}`}
+                      title={wallpaper.is_liked ? 'Unlike' : 'Like'}
                     >
-                      <AiOutlineDownload size={13} /> Get
+                      {likeLoading
+                        ? <AiOutlineLoading3Quarters size={14} className="animate-spin" />
+                        : wallpaper.is_liked ? <AiFillHeart size={14} /> : <AiOutlineHeart size={14} />}
+                      <span>{wallpaper.is_liked ? 'Liked' : 'Like'}</span>
+                      <span className="wd-btn-count">{formatNumber(wallpaper.like_count)}</span>
+                    </button>
+                    <button
+                      onClick={handleFavorite}
+                      disabled={favLoading}
+                      className={`wd-btn ${wallpaper.is_favorited ? 'is-favorited' : ''}`}
+                      title={wallpaper.is_favorited ? 'Unfavorite' : 'Favorite'}
+                    >
+                      {favLoading
+                        ? <AiOutlineLoading3Quarters size={14} className="animate-spin" />
+                        : wallpaper.is_favorited ? <AiFillStar size={14} /> : <AiOutlineStar size={14} />}
+                      <span>{wallpaper.is_favorited ? 'Saved' : 'Favorite'}</span>
+                    </button>
+                    <button
+                      onClick={() => { if (!isAuthenticated) { navigate('/login'); return; } setShowAddToCollection(true); }}
+                      className="wd-btn"
+                      title="Add to a collection"
+                    >
+                      <MdPlaylistAdd size={16} />
+                      <span>Add to list</span>
+                    </button>
+                  </div>
+
+                  <div className="wd-actionbar-divider" />
+
+                  {/* Group B — preview modes. Plain | Home | Lock are a
+                      radio group; Fullscreen is a sibling action. */}
+                  <div className="wd-actionbar-group wd-actionbar-toggle">
+                    {(['plain', 'home', 'lock'] as const).map((m) => (
+                      <button
+                        key={m}
+                        role="radio"
+                        aria-checked={previewOverlay === m}
+                        onClick={() => setPreviewOverlay(m)}
+                        className={`wd-toggle-pill ${previewOverlay === m ? 'is-on' : ''}`}
+                        title={m === 'plain' ? 'Wallpaper only' : m === 'home' ? 'With dock + menu bar' : 'With clock + date'}
+                      >
+                        {m === 'plain' ? 'Plain' : m === 'home' ? 'Home' : 'Lock'}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => {
+                        if (frames.length > 1 || (wallpaper.file_type || '').startsWith('video/')) {
+                          toast('Use the hero controls for video / dynamic previews', { icon: 'ℹ️' });
+                          return;
+                        }
+                        setFullscreen(true);
+                      }}
+                      className="wd-btn wd-btn-icon"
+                      title="Open fullscreen viewer"
+                    >
+                      <AiOutlineFullscreen size={15} />
+                      <span className="hidden sm:inline">Fullscreen</span>
+                    </button>
+                  </div>
+
+                  <div className="wd-actionbar-divider" />
+
+                  {/* Group C — get */}
+                  <div className="wd-actionbar-group">
+                    {variants.length > 0 && (
+                      <button
+                        onClick={() => setDrawerOpen(true)}
+                        className="wd-btn"
+                        title="Browse all device sizes"
+                      >
+                        <MdDevices size={16} />
+                        <span>Devices</span>
+                        <span className="wd-btn-count">{variants.length}</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={handleDownloadClick}
+                      disabled={dlLoading}
+                      className="wd-btn-cta"
+                      title={isOwner ? 'Download original' : 'Trade coins for download'}
+                    >
+                      {dlLoading ? (
+                        <AiOutlineLoading3Quarters size={15} className="animate-spin" />
+                      ) : dlDone ? (
+                        <><AiOutlineCheckCircle size={15} /> {isOwner ? 'Got it' : 'Traded'}</>
+                      ) : isOwner ? (
+                        <><AiOutlineDownload size={15} /> Download</>
+                      ) : (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-white shadow-[inset_0_-2px_0_oklch(80%_0.18_60),inset_0_1px_0_oklch(98%_0.04_60)]" aria-hidden />
+                          Trade for {downloadCost || 1}
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
 
-            {/* ─── COIN CTA INLINE BAR — rich 4-state surface ─────────
-                Renders the confirm sheet, success message, and the
-                insufficient-coin warning. Default state is intentionally
-                blank because the dock CTA above already carries the
-                "Trade for N" affordance. */}
+            {/* ─── COIN CTA inline bar — confirm / success / insufficient ─── */}
             {(ctaState !== 'default') && (
               <div className="mt-5">
                 {ctaState === 'success' ? (
@@ -1263,119 +1163,136 @@ export default function WallpaperDetailPage() {
               </div>
             )}
 
-            {/* ─── Stats strip — 4 metrics + avatar stacks ──────────── */}
-            <div className="mt-7 grid grid-cols-2 sm:grid-cols-4 border border-hair border-r-0 rounded-lg overflow-hidden bg-paper">
-              {([
-                ['DOWNLOADS', wallpaper.download_count,  engagements?.downloaders ?? []],
-                ['LIKES',     wallpaper.like_count,      engagements?.likers      ?? []],
-                ['FAVORITED', wallpaper.favorite_count,  engagements?.favoriters  ?? []],
-                ['VIEWS',     wallpaper.view_count,      []                            ],
-              ] as const).map(([k, v, users]) => (
-                <div key={k} className="px-4 py-3 border-r border-hair">
-                  <div className="mono text-[9px] tracking-[0.14em] uppercase text-muted">{k}</div>
-                  <div className="display text-[22px] sm:text-[24px] leading-none mt-1">{formatNumber(v)}</div>
-                  {users.length > 0 && (
-                    <AvatarStack users={users.slice(0, 5)} total={v} size={18} />
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* ─── Details row — Specs/Tags + extended palette ────────── */}
-            <div className="mt-7 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6 lg:gap-10">
-              <section>
-                <div className="kicker text-muted">Specifications</div>
-                <dl className="grid grid-cols-[100px_1fr] gap-y-2.5 mt-3 mono text-[13px]">
-                  <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">DIM</dt>
-                  <dd className="m-0 text-ink">{wallpaper.width.toLocaleString()} × {wallpaper.height.toLocaleString()} px</dd>
-                  <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">RES</dt>
-                  <dd className="m-0 text-ink">
-                    {resLabel || '—'}
-                    {(wallpaper.file_type || '').startsWith('video/') && (
-                      <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-ink text-paper">
-                        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
-                        VIDEO
-                      </span>
+            {/* ─── Stats / Metadata / Palette / Recommendations ─────── */}
+            <div className="wd-content-card mt-6">
+              {/* Stats strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-hair">
+                {([
+                  ['DOWNLOADS', wallpaper.download_count, engagements?.downloaders ?? []],
+                  ['LIKES',     wallpaper.like_count,     engagements?.likers      ?? []],
+                  ['FAVORITED', wallpaper.favorite_count, engagements?.favoriters  ?? []],
+                  ['VIEWS',     wallpaper.view_count,     []                            ],
+                ] as const).map(([k, v, users]) => (
+                  <div key={k} className="px-4 py-3.5">
+                    <div className="mono text-[9px] tracking-[0.14em] uppercase text-muted">{k}</div>
+                    <div className="display text-[22px] leading-none mt-1">{formatNumber(v)}</div>
+                    {users.length > 0 && (
+                      <AvatarStack users={users.slice(0, 5)} total={v} size={18} />
                     )}
-                    {wallpaper.is_dynamic && <span className="ml-2 text-accent">● Dynamic</span>}
-                    {wallpaper.is_ai_generated && <span className="ml-2 text-violet-600">✦ AI</span>}
-                  </dd>
-                  <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">FILE</dt>
-                  <dd className="m-0 text-ink">{(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}</dd>
-                  {wallpaper.dominant_color && (
-                    <>
-                      <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">DOMINANT</dt>
-                      <dd className="m-0 text-ink inline-flex items-center gap-1.5">
-                        <span className="inline-block w-2.5 h-2.5 border border-hair" style={{ background: wallpaper.dominant_color }} />
-                        {wallpaper.dominant_color.toUpperCase()}
-                      </dd>
-                    </>
-                  )}
-                  {currentCategory && (
-                    <>
-                      <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">CATEGORY</dt>
-                      <dd className="m-0 text-ink">
-                        <Link to={`/category/${currentCategory.slug}`} className="text-ink hover:underline">
-                          {currentCategory.name}
-                        </Link>
-                      </dd>
-                    </>
-                  )}
-                  {wallpaper.tags && wallpaper.tags.length > 0 && (
-                    <>
-                      <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">TAGS</dt>
-                      <dd className="m-0 text-ink">
-                        <div className="flex flex-wrap gap-1.5">
-                          {wallpaper.tags.map((t) => (
-                            <span
-                              key={t.id}
-                              className="inline-block px-2 py-0.5 text-[11px] border border-hair rounded bg-paper-2 text-ink-2"
-                            >
-                              {t.name}
-                            </span>
-                          ))}
-                        </div>
-                      </dd>
-                    </>
-                  )}
-                </dl>
-              </section>
-
-              {palette.length > 0 && (
-                <section>
-                  <div className="kicker text-muted">Palette · {palette.length} color{palette.length === 1 ? '' : 's'} · click to copy</div>
-                  <div className="grid mt-3 gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(palette.length, 5)}, 1fr)` }}>
-                    {palette.map((c, i) => (
-                      <button
-                        key={`${c}-${i}`}
-                        onClick={() => copyHex(c)}
-                        className="flex flex-col gap-0 bg-transparent border-0 p-0 cursor-pointer text-left"
-                      >
-                        <span className="swatch block h-[64px] rounded-md border border-hair" style={{ background: c }} title={`${c.toUpperCase()} — click to copy`} />
-                        <span className="swatch-hex">{c.toUpperCase()}</span>
-                      </button>
-                    ))}
                   </div>
+                ))}
+              </div>
+
+              <div className="border-t border-hair grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-x-10 gap-y-6 p-5 lg:p-6">
+                {/* Specs / Tags / Uploader */}
+                <section className="min-w-0">
+                  {wallpaper.uploader && (
+                    <Link
+                      to={`/user/${wallpaper.uploader.username}`}
+                      className="inline-flex items-center gap-3 mb-5 no-underline text-ink group"
+                    >
+                      <div className="w-9 h-9 rounded-full overflow-hidden bg-paper-2 border border-hair flex items-center justify-center display text-[15px] flex-shrink-0">
+                        {wallpaper.uploader.avatar_url
+                          ? <img src={wallpaper.uploader.avatar_url} alt="" className="w-full h-full object-cover" />
+                          : uploaderInitial}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[14px] font-medium leading-tight truncate group-hover:underline">@{wallpaper.uploader.username}</div>
+                        {wallpaper.uploader.bio && (
+                          <div className="mono text-[10px] tracking-[0.04em] text-muted truncate">{wallpaper.uploader.bio}</div>
+                        )}
+                      </div>
+                    </Link>
+                  )}
+
+                  <dl className="grid grid-cols-[90px_1fr] gap-y-2 mono text-[13px]">
+                    <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">DIM</dt>
+                    <dd className="m-0 text-ink">{wallpaper.width.toLocaleString()} × {wallpaper.height.toLocaleString()} px</dd>
+                    <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">RES</dt>
+                    <dd className="m-0 text-ink">
+                      {resLabel || '—'}
+                      {(wallpaper.file_type || '').startsWith('video/') && (
+                        <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-ink text-paper">
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
+                          VIDEO
+                        </span>
+                      )}
+                      {wallpaper.is_dynamic && <span className="ml-2 text-accent">● Dynamic</span>}
+                      {wallpaper.is_ai_generated && <span className="ml-2 text-violet-600">✦ AI</span>}
+                    </dd>
+                    <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">FILE</dt>
+                    <dd className="m-0 text-ink">{(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}</dd>
+                    {currentCategory && (
+                      <>
+                        <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">CATEGORY</dt>
+                        <dd className="m-0 text-ink">
+                          <Link to={`/category/${currentCategory.slug}`} className="text-ink hover:underline">
+                            {currentCategory.name}
+                          </Link>
+                        </dd>
+                      </>
+                    )}
+                    {wallpaper.tags && wallpaper.tags.length > 0 && (
+                      <>
+                        <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">TAGS</dt>
+                        <dd className="m-0 text-ink">
+                          <div className="flex flex-wrap gap-1.5">
+                            {wallpaper.tags.map((t) => (
+                              <span
+                                key={t.id}
+                                className="inline-block px-2 py-0.5 text-[11px] border border-hair rounded bg-paper-2 text-ink-2"
+                              >
+                                {t.name}
+                              </span>
+                            ))}
+                          </div>
+                        </dd>
+                      </>
+                    )}
+                  </dl>
                 </section>
-              )}
+
+                {/* Palette */}
+                {palette.length > 0 && (
+                  <section className="min-w-0">
+                    <div className="kicker text-muted mb-3">Palette · {palette.length} · click to copy</div>
+                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(palette.length, 5)}, 1fr)` }}>
+                      {palette.map((c, i) => (
+                        <button
+                          key={`${c}-${i}`}
+                          onClick={() => copyHex(c)}
+                          className="flex flex-col gap-1 bg-transparent border-0 p-0 cursor-pointer text-left group"
+                        >
+                          <span
+                            className="block h-[56px] rounded-lg border border-hair transition-transform group-hover:scale-[1.03]"
+                            style={{ background: c }}
+                            title={`${c.toUpperCase()} — click to copy`}
+                          />
+                          <span className="mono text-[10px] tracking-[0.06em] text-muted">{c.toUpperCase()}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {wallpaper.dominant_color && (
+                      <div className="mt-4 inline-flex items-center gap-2 mono text-[10px] tracking-[0.12em] uppercase text-muted">
+                        <span className="inline-block w-3 h-3 rounded-sm border border-hair" style={{ background: wallpaper.dominant_color }} />
+                        Dominant · {wallpaper.dominant_color.toUpperCase()}
+                      </div>
+                    )}
+                  </section>
+                )}
+              </div>
             </div>
 
-            {/* ─── More like this ───────────────────────────────────── */}
+            {/* ─── More like this — discover-style grid ─────────────── */}
             {similar.length > 0 && (
-              <section className="mt-10">
-                <div className="flex items-end justify-between mb-3">
-                  <div className="label-rule flex-1">More like this · {similar.length}</div>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {similar.slice(0, 8).map((s) => (
-                    <WallpaperCard key={s.id} wallpaper={s} fixedAspect hideActions />
-                  ))}
-                </div>
+              <section className="mt-8">
+                <div className="label-rule mb-4">More like this · {similar.length}</div>
+                <WallpaperGrid wallpapers={similar.slice(0, 8)} viewMode="justified" sizeMode="md" />
               </section>
             )}
 
             {/* ─── Owner / report row ───────────────────────────────── */}
-            <div className="flex justify-between items-center pt-6 mt-8 border-t border-hair text-[12px] text-muted">
+            <div className="flex justify-between items-center pt-5 mt-6 border-t border-hair/60 text-[12px] text-muted">
               {isOwner ? (
                 <button onClick={handleDelete} className="inline-flex items-center gap-1.5 hover:text-rose-500 transition-colors">
                   <AiOutlineDelete size={14} /> Delete wallpaper
@@ -1399,52 +1316,96 @@ export default function WallpaperDetailPage() {
   );
 }
 
-/* Inline CSS for the Spotlight detail page. Kept here (rather than in
-   index.css) so the classes are obviously local to this page; nothing
-   outside WallpaperDetailPage uses them. The dev preview at
-   /dev/wp-detail has its own copy of these styles via the demo file
-   so the two pages can evolve independently. */
+/* Inline copies of the Plain/Home/Lock overlays from
+   DeviceFloatingWall.tsx. Kept in-file so the detail page is
+   self-contained — the only shared surface is the CSS classes in
+   index.css (dev-overlay-*). */
+function PreviewLockOverlay({ platform }: { platform: 'desktop' | 'laptop' | 'tablet' | 'phone' }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(id);
+  }, []);
+  const time = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+  const date = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const topAnchor = platform === 'phone' ? '14%' : platform === 'tablet' ? '20%' : '32%';
+  return (
+    <div className="dev-overlay-lock absolute inset-0" style={{ paddingTop: topAnchor }} aria-hidden>
+      <div className="dev-overlay-lock-time">{time}</div>
+      <div className="dev-overlay-lock-date">{date}</div>
+    </div>
+  );
+}
+
+function PreviewHomeOverlay({ platform }: { platform: 'desktop' | 'laptop' | 'tablet' | 'phone' }) {
+  const HUES = [25, 90, 150, 210, 280, 330];
+  const dockSize = platform === 'phone' ? 5 : 6;
+  return (
+    <div className="dev-overlay-home absolute inset-0" aria-hidden>
+      {(platform === 'laptop' || platform === 'desktop') && (
+        <div className="dev-overlay-menubar" />
+      )}
+      <div className={`dev-overlay-dock is-${platform}`}>
+        {HUES.slice(0, dockSize).map((h, i) => (
+          <span
+            key={i}
+            className="dev-overlay-dock-icon"
+            style={{ ['--ico-h' as string]: String(h) } as React.CSSProperties}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SpotlightStyles() {
   return (<style>{`
-.wd-stage { position: relative; border-radius: 22px; overflow: hidden; padding: clamp(28px, 4vw, 56px) clamp(20px, 3vw, 40px) 180px; min-height: 70vh; }
-.wd-stage-tl { position: absolute; top: 22px; left: 28px; z-index: 3; max-width: 70%; }
-.wd-stage-tl .kicker { color: rgba(255,255,255,0.9); }
-.wd-stage-tr { position: absolute; top: 18px; right: 28px; z-index: 3; display: flex; align-items: flex-start; gap: 12px; background: rgba(20,18,15,0.45); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; padding: 12px 16px; color: white; }
-.wd-hero { position: relative; max-width: 1080px; margin: 0 auto; border-radius: 16px; overflow: hidden; box-shadow: 0 30px 80px -20px rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.18); cursor: zoom-in; max-height: 70vh; }
+/* ── Outer blurred-wallpaper backdrop ────────────────────────── */
+.wd-root { isolation: isolate; }
+.wd-backdrop { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.wd-backdrop img { width: 100%; height: 100%; object-fit: cover; filter: blur(80px) saturate(1.5); transform: scale(1.2); }
+.wd-backdrop-scrim { position: absolute; inset: 0; z-index: 0; background: linear-gradient(180deg, rgba(250,247,240,0.55) 0%, rgba(250,247,240,0.85) 100%); pointer-events: none; }
+
+/* ── Stage panel — dominant-color mesh card holds hero + bar ── */
+.wd-panel { position: relative; border-radius: 24px; padding: clamp(16px, 2vw, 24px); border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 24px 56px -28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.5); overflow: hidden; }
+
+/* ── Hero card ─────────────────────────────────────────────── */
+.wd-hero { position: relative; width: 100%; max-height: 64vh; margin: 0 auto; border-radius: 18px; overflow: hidden; box-shadow: 0 18px 48px -18px rgba(0,0,0,0.32); border: 1px solid rgba(255,255,255,0.18); cursor: zoom-in; background-color: var(--color-paper-3); }
 .wd-hero > img, .wd-hero > div > img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .wd-hero-hint { position: absolute; top: 14px; right: 14px; display: inline-flex; gap: 5px; align-items: center; padding: 5px 10px; border-radius: 999px; background: rgba(20,18,15,0.55); backdrop-filter: blur(8px); color: white; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; border: 1px solid rgba(255,255,255,0.15); opacity: 0; transition: opacity .25s ease; pointer-events: none; }
 .wd-hero:hover .wd-hero-hint { opacity: 1; }
 
-.wd-dock { position: absolute; bottom: 92px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(250,247,240,0.86); backdrop-filter: blur(18px) saturate(1.2); border: 1px solid rgba(0,0,0,0.06); border-radius: 999px; box-shadow: 0 24px 56px -18px rgba(0,0,0,0.42); max-width: calc(100% - 40px); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-.wd-dock::-webkit-scrollbar { display: none; }
-.wd-dock-uploader { display: flex; align-items: center; gap: 10px; min-width: 0; flex-shrink: 0; }
-.wd-dock-avatar { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; background: var(--color-paper-2); border: 1px solid var(--color-hair); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 14px; flex-shrink: 0; }
-.wd-dock-divider { width: 1px; height: 26px; background: var(--color-hair); flex-shrink: 0; }
-.wd-dock-palette { display: flex; gap: 4px; flex-shrink: 0; }
-.wd-dock-icon { padding: 8px; border-radius: 999px; color: var(--color-ink-2); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background-color .15s ease, color .15s ease; }
-.wd-dock-icon:hover { background: var(--color-paper-2); color: var(--color-accent); }
-.wd-dock-icon.is-liked { color: oklch(58% 0.20 25); }
-.wd-dock-icon.is-favorited { color: oklch(72% 0.18 65); }
-.wd-dock-pill { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-hair); background: var(--color-paper); font-size: 12px; font-weight: 500; color: var(--color-ink); flex-shrink: 0; white-space: nowrap; }
-.wd-dock-pill:hover { background: var(--color-paper-2); }
-.wd-dock-cta { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px; background: var(--color-ink); color: var(--color-paper); font-size: 13px; font-weight: 600; flex-shrink: 0; white-space: nowrap; }
-.wd-dock-cta:hover { background: var(--color-ink-2); }
-.wd-dock-cta:disabled { opacity: 0.7; cursor: not-allowed; }
+/* ── Action bar ─────────────────────────────────────────────── */
+.wd-actionbar { margin-top: clamp(14px, 1.6vw, 18px); padding: 14px clamp(12px, 1.6vw, 16px); background: rgba(250,247,240,0.82); backdrop-filter: blur(16px) saturate(1.2); border: 1px solid rgba(0,0,0,0.06); border-radius: 18px; box-shadow: 0 12px 32px -16px rgba(0,0,0,0.22); }
+.wd-actionbar-meta { display: flex; align-items: baseline; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--color-hair); margin-bottom: 12px; flex-wrap: wrap; }
+.wd-actionbar-meta .display { color: var(--color-ink); font-weight: 500; }
+.wd-actionbar-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: var(--color-ink); color: var(--color-accent); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em; }
+.wd-actionbar-pill.is-ai { background: oklch(50% 0.18 285); color: white; }
+.wd-actionbar-rows { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.wd-actionbar-group { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.wd-actionbar-divider { width: 1px; height: 28px; background: var(--color-hair); flex-shrink: 0; }
+.wd-actionbar-toggle { background: var(--color-paper-2); padding: 3px; border-radius: 999px; border: 1px solid var(--color-hair); }
 
-.wd-dock-pop { position: relative; flex-shrink: 0; }
-.wd-popover-scrim { position: fixed; inset: 0; z-index: 40; background: transparent; }
-.wd-popover { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); width: 260px; background: var(--color-paper); border: 1px solid var(--color-hair); border-radius: 14px; box-shadow: 0 20px 50px -16px rgba(0,0,0,0.32); padding: 6px; z-index: 50; }
-.wd-popover button { width: 100%; display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 10px; text-align: left; color: var(--color-ink); }
-.wd-popover button:hover { background: var(--color-paper-2); }
-.wd-popover button strong { display: block; font-size: 13px; font-weight: 600; margin-bottom: 2px; }
-.wd-popover button span span { display: block; font-family: var(--font-mono); font-size: 10px; color: var(--color-muted); letter-spacing: 0.04em; line-height: 1.3; }
+.wd-btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-hair); background: var(--color-paper); color: var(--color-ink); font-size: 12px; font-weight: 500; transition: background-color .15s ease, color .15s ease, border-color .15s ease; white-space: nowrap; }
+.wd-btn:hover { background: var(--color-paper-2); border-color: var(--color-ink-2); }
+.wd-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.wd-btn-icon { padding: 8px 12px; }
+.wd-btn.is-liked { color: oklch(58% 0.20 25); border-color: oklch(58% 0.20 25); background: color-mix(in oklch, oklch(58% 0.20 25) 4%, var(--color-paper)); }
+.wd-btn.is-favorited { color: oklch(70% 0.18 65); border-color: oklch(70% 0.18 65); background: color-mix(in oklch, oklch(70% 0.18 65) 5%, var(--color-paper)); }
+.wd-btn-count { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 999px; background: var(--color-paper-2); color: var(--color-muted); font-family: var(--font-mono); font-size: 10px; margin-left: 2px; }
 
-.wd-quickmatch { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; color: white; max-width: calc(100% - 40px); }
-.wd-quickmatch-card { display: inline-flex; align-items: center; gap: 10px; padding: 8px 12px 8px 14px; border-radius: 999px; background: rgba(20,18,15,0.55); backdrop-filter: blur(12px); border: 1px solid var(--color-accent); color: white; min-width: 0; }
-.wd-quickmatch-dl { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: 999px; background: var(--color-accent); color: white; font-size: 11px; font-weight: 600; flex-shrink: 0; }
-.wd-quickmatch-dl:disabled { opacity: 0.6; }
+.wd-toggle-pill { padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 500; color: var(--color-muted); transition: all .15s ease; }
+.wd-toggle-pill:hover { color: var(--color-ink-2); }
+.wd-toggle-pill.is-on { background: var(--color-paper); color: var(--color-ink); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 
-/* Devices drawer — right-side slide-in */
+.wd-btn-cta { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 999px; background: var(--color-accent); color: white; font-size: 13px; font-weight: 600; white-space: nowrap; box-shadow: 0 6px 14px -6px oklch(72% 0.18 55 / 0.5); transition: filter .15s ease; }
+.wd-btn-cta:hover { filter: brightness(1.05); }
+.wd-btn-cta:disabled { opacity: 0.7; cursor: not-allowed; }
+
+/* ── Content card (stats + meta + palette) ─────────────────── */
+.wd-content-card { background: var(--color-paper); border: 1px solid var(--color-hair); border-radius: 20px; overflow: hidden; box-shadow: 0 8px 28px -16px rgba(0,0,0,0.16); }
+
+/* ── Devices drawer — right-side slide-in ──────────────────── */
 .wd-drawer-scrim { position: fixed; inset: 0; background: rgba(20,18,15,0.42); backdrop-filter: blur(2px); z-index: 60; display: flex; justify-content: flex-end; animation: wdFadeIn .2s ease; }
 .wd-drawer { width: 440px; max-width: 92vw; height: 100vh; background: var(--color-paper); display: flex; flex-direction: column; box-shadow: -20px 0 60px -20px rgba(0,0,0,0.28); border-left: 1px solid var(--color-hair); animation: wdSlideInRight .28s cubic-bezier(0.2,0.8,0.2,1); }
 .wd-drawer-head { padding: 22px 22px 16px; border-bottom: 1px solid var(--color-hair); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-shrink: 0; }
@@ -1460,10 +1421,9 @@ function SpotlightStyles() {
 @keyframes wdFadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 @media (max-width: 640px) {
-  .wd-stage-tl, .wd-stage-tr { left: 16px; right: 16px; }
-  .wd-stage-tr { padding: 10px 12px; }
-  .wd-dock { padding: 8px 10px; gap: 8px; }
-  .wd-dock-uploader > div { display: none; }
+  .wd-actionbar-divider { display: none; }
+  .wd-actionbar-rows { gap: 8px; }
+  .wd-actionbar-toggle { width: 100%; justify-content: center; }
 }
 `}</style>);
 }
