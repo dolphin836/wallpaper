@@ -42,9 +42,6 @@ import { useAuthStore } from '../store/auth';
 import PageMeta from '../components/PageMeta';
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
-import {
-  ProfileSkeleton,
-} from '../components/Skeletons';
 import Pagination from '../components/Pagination';
 import AvatarCropModal from '../components/AvatarCropModal';
 
@@ -299,9 +296,20 @@ export default function ProfilePage() {
         : { limit: collectionsPageSize };
       const res = await getUserCollections(user.username, params);
       const data = res.data.data as { items: Collection[]; next_cursor: number; has_more: boolean; total?: number };
-      setCollections(data.items || []);
+      const items = data.items || [];
+      setCollections(items);
       setCollectionsPage(page);
-      setCollectionsTotal(data.total ?? 0);
+      // Backend doesn't populate `total` for this endpoint — derive
+      // a synthetic value from has_more so the <Pagination> control
+      // can still render a next-page button. Once we know the real
+      // count (has_more=false on the current page) we lock it in.
+      if (typeof data.total === 'number' && data.total > 0) {
+        setCollectionsTotal(data.total);
+      } else if (data.has_more) {
+        setCollectionsTotal((page * collectionsPageSize) + 1);
+      } else {
+        setCollectionsTotal((page - 1) * collectionsPageSize + items.length);
+      }
       collectionsCursorsRef.current = collectionsCursorsRef.current.slice(0, page);
       if (data.has_more && data.next_cursor > 0) {
         collectionsCursorsRef.current[page] = data.next_cursor;
@@ -460,8 +468,36 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="bg-paper text-ink min-h-full">
-        <ProfileSkeleton />
+      <div className="profile-page min-h-full">
+        <div className="profile-mesh" aria-hidden />
+        <main className="relative z-10 max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 pt-10 pb-16">
+          {/* Hero placeholder — matches profile-hero's 3-col layout */}
+          <div className="profile-hero">
+            <div className="profile-hero-avatar">
+              <div className="profile-hero-avatar-frame skeleton-card" />
+            </div>
+            <div className="profile-hero-id">
+              <div className="skeleton-card" style={{ width: 220, height: 10, borderRadius: 4 }} />
+              <div className="skeleton-card mt-3" style={{ width: '45%', height: 42, borderRadius: 6 }} />
+              <div className="skeleton-card mt-3" style={{ width: 180, height: 10, borderRadius: 4 }} />
+              <div className="skeleton-card mt-4" style={{ width: '60%', height: 16, borderRadius: 4 }} />
+            </div>
+            <div className="hidden lg:block">
+              <div className="skeleton-card" style={{ width: 240, height: 110, borderRadius: 18 }} />
+            </div>
+          </div>
+          {/* Tab row placeholder */}
+          <div className="flex gap-6 mt-6 pb-3 border-b border-hair">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="skeleton-card" style={{ width: 90, height: 14, borderRadius: 4, animationDelay: `${i * 60}ms` }} />
+            ))}
+          </div>
+          {/* Grid placeholder — same chrome as live wallpaper grid */}
+          <div className="mt-7">
+            <div className="skeleton-card mb-4" style={{ width: 200, height: 10, borderRadius: 4 }} />
+            <ProfileWallpapersSkeleton />
+          </div>
+        </main>
       </div>
     );
   }
