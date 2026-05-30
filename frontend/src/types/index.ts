@@ -168,6 +168,10 @@ export interface CollectionBrief {
   id: number;
   title: string;
   wallpaper_count: number;
+  // Set by the Add-to-list endpoint when called with wallpaper_id —
+  // tells the picker which rows the current wallpaper is already in
+  // so they can be marked + disabled.
+  contains_wallpaper?: boolean;
 }
 
 export interface EngagementUser {

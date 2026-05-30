@@ -16,6 +16,10 @@ type CollectionBrief struct {
 	ID             int64  `json:"id"`
 	Title          string `json:"title"`
 	WallpaperCount int    `json:"wallpaper_count"`
+	// ContainsWallpaper is populated by ListUserCollections when called
+	// with a wallpaperID > 0. The frontend Add-to-list picker uses it
+	// to disable + mark the rows the wallpaper is already in.
+	ContainsWallpaper bool `json:"contains_wallpaper" gorm:"-"`
 }
 
 type CollectionRepo struct {
@@ -345,15 +349,56 @@ func (r *CollectionRepo) RecentTilesForCollections(ctx context.Context, ids []in
 	return out, nil
 }
 
-func (r *CollectionRepo) ListUserCollections(ctx context.Context, userID int64) ([]CollectionBrief, error) {
-	var items []CollectionBrief
-	err := r.db.WithContext(ctx).
+// ListUserCollections returns the caller's own collections (kind = 0,
+// i.e. excluding editor-curated weekly themes even if the caller is
+// the admin who owns them) for the Add-to-list picker.
+//
+// q (optional)            — case-insensitive title substring filter.
+// wallpaperID (optional)  — when > 0, sets ContainsWallpaper on each
+//                           row by checking collection_wallpapers in a
+//                           single follow-up Pluck.
+// limit                   — clamped to [1, 100]; defaults to 8 when ≤ 0.
+func (r *CollectionRepo) ListUserCollections(ctx context.Context, userID int64, q string, wallpaperID int64, limit int) ([]CollectionBrief, error) {
+	if limit <= 0 {
+		limit = 8
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	query := r.db.WithContext(ctx).
 		Model(&model.Collection{}).
 		Select("id, title, wallpaper_count").
-		Where("user_id = ?", userID).
+		Where("user_id = ? AND kind = 0", userID).
 		Order("id DESC").
-		Find(&items).Error
-	return items, err
+		Limit(limit)
+	if q != "" {
+		query = query.Where("title ILIKE ?", "%"+q+"%")
+	}
+	var items []CollectionBrief
+	if err := query.Find(&items).Error; err != nil {
+		return nil, err
+	}
+	if wallpaperID > 0 && len(items) > 0 {
+		ids := make([]int64, len(items))
+		for i, it := range items {
+			ids[i] = it.ID
+		}
+		var containing []int64
+		if err := r.db.WithContext(ctx).
+			Model(&model.CollectionWallpaper{}).
+			Where("collection_id IN ? AND wallpaper_id = ?", ids, wallpaperID).
+			Pluck("collection_id", &containing).Error; err != nil {
+			return nil, err
+		}
+		containingSet := make(map[int64]bool, len(containing))
+		for _, id := range containing {
+			containingSet[id] = true
+		}
+		for i := range items {
+			items[i].ContainsWallpaper = containingSet[items[i].ID]
+		}
+	}
+	return items, nil
 }
 
 // ListPublicForSitemap returns public collection slugs + updated_at for

@@ -204,8 +204,8 @@ export const likeCollection = (id: number) =>
 export const unlikeCollection = (id: number) =>
   client.delete<ApiResponse<null>>(`/collections/${id}/like`);
 
-export const getMyCollections = () =>
-  client.get<ApiResponse<CollectionBrief[]>>('/users/me/collections');
+export const getMyCollections = (params?: { q?: string; wallpaper_id?: number; limit?: number }) =>
+  client.get<ApiResponse<CollectionBrief[]>>('/users/me/collections', { params });
 
 export const getUserCollections = (username: string, params?: { cursor?: number; limit?: number }) =>
   client.get<ApiResponse<PaginatedData<Collection>>>(`/users/${username}/collections`, { params });

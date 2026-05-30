@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -389,7 +390,23 @@ func (h *CollectionHandler) ListWallpapers(w http.ResponseWriter, r *http.Reques
 
 func (h *CollectionHandler) ListMyCollections(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
-	items, ec := h.collectionSvc.ListUserCollections(r.Context(), userID)
+	q := r.URL.Query()
+
+	titleQ := strings.TrimSpace(q.Get("q"))
+	limit := 8
+	if raw := q.Get("limit"); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+			limit = v
+		}
+	}
+	var wallpaperID int64
+	if raw := q.Get("wallpaper_id"); raw != "" {
+		if v, err := strconv.ParseInt(raw, 10, 64); err == nil && v > 0 {
+			wallpaperID = v
+		}
+	}
+
+	items, ec := h.collectionSvc.ListUserCollections(r.Context(), userID, titleQ, wallpaperID, limit)
 	if ec != nil {
 		response.Error(w, http.StatusInternalServerError, ec)
 		return

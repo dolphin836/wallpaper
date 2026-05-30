@@ -265,8 +265,8 @@ func (s *CollectionService) ListByUser(ctx context.Context, ownerID int64, curso
 	return &CollectionListResponse{Items: items, NextCursor: nextCursor, HasMore: hasMore}, nil
 }
 
-func (s *CollectionService) ListUserCollections(ctx context.Context, userID int64) ([]repo.CollectionBrief, *errcode.ErrCode) {
-	items, err := s.collectionRepo.ListUserCollections(ctx, userID)
+func (s *CollectionService) ListUserCollections(ctx context.Context, userID int64, q string, wallpaperID int64, limit int) ([]repo.CollectionBrief, *errcode.ErrCode) {
+	items, err := s.collectionRepo.ListUserCollections(ctx, userID, q, wallpaperID, limit)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to list user collections", "error", err)
 		return nil, errcode.ErrInternal
