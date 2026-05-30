@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   AiOutlineHeart,
+  AiFillHeart,
   AiOutlineStar,
+  AiFillStar,
   AiOutlineDownload,
+  AiOutlineCheckCircle,
+  AiOutlineLoading3Quarters,
   AiOutlineLock,
   AiOutlineEdit,
   AiOutlineCamera,
@@ -14,6 +18,7 @@ import {
   AiOutlineThunderbolt,
   AiOutlinePlus,
 } from 'react-icons/ai';
+import { useWallpaperActions } from '../hooks/useWallpaperActions';
 import toast from 'react-hot-toast';
 import type { User, Wallpaper, Collection, CoinTransaction } from '../types';
 import {
@@ -42,8 +47,6 @@ import {
   WallpaperGridSkeleton,
   CollectionGridSkeleton,
 } from '../components/Skeletons';
-import WallpaperCard from '../components/WallpaperCard';
-import CollectionCard from '../components/CollectionCard';
 import Pagination from '../components/Pagination';
 import AvatarCropModal from '../components/AvatarCropModal';
 
@@ -675,14 +678,18 @@ function ProfileHeader(p: ProfileHeaderProps) {
           below. */}
       <div className="profile-hero-right">
         {p.isOwner && !p.editing && (
-          <div className="profile-hero-balance">
-            <div className="kicker">Balance</div>
+          <Link
+            to={`/user/${p.user.username}/ledger`}
+            title="Coin ledger"
+            className="profile-hero-balance no-underline"
+          >
+            <div className="profile-hero-balance-kicker">Balance</div>
             <div className="profile-hero-balance-row">
-              <span className="profile-hero-balance-dot" aria-hidden />
-              <span className="display profile-hero-balance-num">{p.balance}</span>
-              <span className="mono profile-hero-balance-unit">COINS</span>
+              <span className="profile-hero-balance-coin" aria-hidden />
+              <span className="profile-hero-balance-num">{p.balance}</span>
+              <span className="profile-hero-balance-unit">COINS</span>
             </div>
-          </div>
+          </Link>
         )}
         {p.isOwner && !p.editing && (
           <div className="profile-hero-actions">
@@ -806,7 +813,7 @@ interface CollectionsPanelProps {
   collections: Collection[];
   loaded: boolean;
 }
-function CollectionsPanel({ isOwner, user, collections, loaded }: CollectionsPanelProps) {
+function CollectionsPanel({ isOwner, collections, loaded }: CollectionsPanelProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -825,13 +832,59 @@ function CollectionsPanel({ isOwner, user, collections, loaded }: CollectionsPan
       ) : collections.length === 0 ? (
         <div className="text-center py-20 text-muted text-sm">No collections yet.</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
           {collections.map((c) => (
-            <CollectionCard key={c.id} collection={c} curatorHandle={user.username} />
+            <ProfileCollectionTile key={c.id} c={c} />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+/* CollectionsPanel tile — same .c-tile chrome as the
+   /collections library page (stacked-paper aesthetic with an
+   accent-tinted shadow layer). Cover fallback chain: cover_url →
+   recent_tiles[0].preview_url → recent_tiles[0].thumb_url →
+   empty card. */
+function ProfileCollectionTile({ c }: { c: Collection }) {
+  const accent = c.accent_color || 'var(--color-accent)';
+  const firstTile = c.recent_tiles?.[0];
+  const preferred = firstTile?.preview_url || c.cover_url || firstTile?.thumb_url || '';
+  const fallbackSrc = firstTile?.thumb_url || '';
+  const [src, setSrc] = useState(preferred);
+  return (
+    <Link
+      to={`/collections/${c.slug}`}
+      className="c-tile no-underline"
+      style={{ '--c-accent': accent } as React.CSSProperties}
+    >
+      <div className="c-tile-frame">
+        {src ? (
+          <img
+            src={src}
+            alt={c.title}
+            loading="lazy"
+            onError={() => {
+              if (fallbackSrc && src !== fallbackSrc) setSrc(fallbackSrc);
+              else setSrc('');
+            }}
+          />
+        ) : (
+          <div className="c-tile-empty">No cover yet</div>
+        )}
+      </div>
+      <div className="c-tile-caption">
+        <div className="c-tile-kicker">
+          {c.kind === 1 ? 'Editor Theme' : 'Collection'}
+          {!c.is_public && ' · Private'}
+        </div>
+        <div className="c-tile-title">{c.title}</div>
+        <div className="c-tile-meta">
+          {c.wallpaper_count} {c.wallpaper_count === 1 ? 'wallpaper' : 'wallpapers'}
+        </div>
+      </div>
+    </Link>
   );
 }
 
@@ -1025,36 +1078,160 @@ function LedgerPanel({ txs, page, total, loading, balance, onPage }: LedgerPanel
   );
 }
 
-// ─── Grid (4-col, no hover actions; processing overlay opt-in) ───────
+// ─── Grid — Discover-style tiles at MD density (5 cols at lg) ───────
+// Reuses the .dev-spec-card chrome + .tile-chip vocabulary so the
+// profile lists read as part of the same family as Discover /
+// device pages. Each tile carries res / video / mac-dynamic / AI
+// chips and a hover action rail (favorite / like / download).
+// Processing overlay still opt-in for the "in progress" panel.
 
 function Grid({ items, showProcessing }: { items: Wallpaper[]; showProcessing?: boolean }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-      {items.map((w) => (
-        <div key={w.id} className="relative">
-          <WallpaperCard wallpaper={w} showStatus fixedAspect hideActions disableModal />
-          {showProcessing && w.status === 0 && (
-            <div className="proc-overlay pointer-events-none">
-              <div className="proc-label">Processing</div>
-              <div className="proc-sub">Generating device variants</div>
-            </div>
-          )}
-          {showProcessing && w.status === 5 && (
-            <div className="proc-overlay pointer-events-none">
-              <div className="proc-label">Pending admin review</div>
-              <div className="proc-sub">Usually within a few hours</div>
-            </div>
-          )}
-          {showProcessing && w.status === 6 && (
-            <div className="proc-overlay pointer-events-none" style={{ background: 'rgba(176,49,31,0.86)' }}>
-              <div className="proc-label">Rejected</div>
-              <div className="proc-sub">
-                {w.rejection_reason ? w.rejection_reason : 'No reason provided.'}
-              </div>
-            </div>
-          )}
-        </div>
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+      {items.map((w, i) => (
+        <ProfileWallpaperTile
+          key={w.id}
+          w={w}
+          index={i}
+          showProcessing={!!showProcessing}
+        />
       ))}
     </div>
+  );
+}
+
+function ProfileWallpaperTile({
+  w, index, showProcessing,
+}: {
+  w: Wallpaper;
+  index: number;
+  showProcessing: boolean;
+}) {
+  const location = useLocation();
+  const acts = useWallpaperActions(w);
+  const isVideo = (w.file_type || '').startsWith('video/');
+  const px = Math.max(w.width || 0, w.height || 0);
+  const resLabel = px >= 7680 ? '8K'
+    : px >= 3840 ? '4K'
+    : px >= 2560 ? '2K'
+    : px >= 1920 ? '1080P'
+    : px >= 1280 ? '720P'
+    : '';
+  const stop = (e: React.MouseEvent, fn: () => void) => {
+    e.preventDefault();
+    e.stopPropagation();
+    fn();
+  };
+  const isPublished = w.status === 1;
+  return (
+    <Link
+      to={`/wallpaper/${w.slug || w.id}`}
+      state={{ background: location, initialWallpaper: w }}
+      className="dev-spec-card"
+      style={{ animationDelay: `${Math.min(index, 16) * 30}ms` }}
+    >
+      <div className="dev-spec-card-screen" style={{ aspectRatio: '3 / 2' }}>
+        <img
+          src={w.preview_url || w.thumb_url}
+          alt={w.title || `Wallpaper ${w.id}`}
+          loading="lazy"
+          className="dev-spec-card-img"
+          style={{ backgroundColor: w.dominant_color || undefined }}
+        />
+        {(resLabel || isVideo || w.is_dynamic || w.is_ai_generated) && (
+          <div className="absolute top-2.5 left-2.5 z-[3] flex gap-1 flex-wrap max-w-[calc(100%-20px)]">
+            {resLabel && <span className="tile-chip">{resLabel}</span>}
+            {isVideo && (
+              <span className="tile-chip">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+                Video
+              </span>
+            )}
+            {w.is_dynamic && (
+              <span className="tile-chip">
+                <svg viewBox="0 0 384 512" fill="currentColor" aria-hidden><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" /></svg>
+                Mac
+              </span>
+            )}
+            {w.is_ai_generated && (
+              <span className="tile-chip is-ai">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 2l1.6 4.6L18 8.2l-4.4 1.6L12 14.4l-1.6-4.6L6 8.2l4.4-1.6L12 2zm7 10l1 2.8 2.8 1-2.8 1L19 19.6l-1-2.8-2.8-1 2.8-1L19 12zM5 14l.9 2.6L8.4 17.6l-2.5 1L5 21.2 4.1 18.6 1.6 17.6 4.1 16.6 5 14z" /></svg>
+                AI
+              </span>
+            )}
+          </div>
+        )}
+        {/* Hover action rail — only when the wallpaper is actually
+            interactable (published). Hidden for in-progress /
+            rejected items because favorite / like would 404. */}
+        {isPublished && (
+          <div className="tile-actions">
+            <button
+              type="button"
+              onClick={(e) => stop(e, acts.handleFavorite)}
+              disabled={acts.favLoading}
+              className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
+              title={acts.favorited ? 'Unfavorite' : 'Favorite'}
+            >
+              {acts.favLoading
+                ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
+                : acts.favorited
+                  ? <AiFillStar size={15} />
+                  : <AiOutlineStar size={15} />}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => stop(e, acts.handleLike)}
+              disabled={acts.likeLoading}
+              className={`t-act ${acts.liked ? 'is-liked' : ''}`}
+              title={acts.liked ? 'Unlike' : 'Like'}
+            >
+              {acts.likeLoading
+                ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
+                : acts.liked
+                  ? <AiFillHeart size={15} />
+                  : <AiOutlineHeart size={15} />}
+            </button>
+            {acts.canDownload && (
+              <button
+                type="button"
+                onClick={(e) => stop(e, acts.handleDownload)}
+                disabled={acts.downloading}
+                className={`t-act ${acts.downloaded ? 'is-downloaded' : ''}`}
+                title={acts.downloaded ? 'Downloaded' : 'Download (1 coin)'}
+              >
+                {acts.downloading
+                  ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
+                  : acts.downloaded
+                    ? <AiOutlineCheckCircle size={15} />
+                    : <AiOutlineDownload size={15} />}
+              </button>
+            )}
+          </div>
+        )}
+        {/* Processing / pending-review / rejected status overlays —
+            opt-in via showProcessing for the In Progress panel. */}
+        {showProcessing && w.status === 0 && (
+          <div className="proc-overlay pointer-events-none">
+            <div className="proc-label">Processing</div>
+            <div className="proc-sub">Generating device variants</div>
+          </div>
+        )}
+        {showProcessing && w.status === 5 && (
+          <div className="proc-overlay pointer-events-none">
+            <div className="proc-label">Pending admin review</div>
+            <div className="proc-sub">Usually within a few hours</div>
+          </div>
+        )}
+        {showProcessing && w.status === 6 && (
+          <div className="proc-overlay pointer-events-none" style={{ background: 'rgba(176,49,31,0.86)' }}>
+            <div className="proc-label">Rejected</div>
+            <div className="proc-sub">
+              {w.rejection_reason ? w.rejection_reason : 'No reason provided.'}
+            </div>
+          </div>
+        )}
+      </div>
+    </Link>
   );
 }
