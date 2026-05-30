@@ -917,8 +917,11 @@ export default function WallpaperDetailPage() {
                   </div>
                 ) : heroImg ? (
                   previewOverlay !== 'off' ? (
-                    /* Frame mode — fixed canvas for the absolute-positioned mockup */
-                    <div className="wd-hero-canvas wd-hero-canvas-fixed" style={{ backgroundColor: wallpaper.dominant_color || undefined }}>
+                    /* Frame mode — transparent fixed-size stage purely
+                        for layout. No rounded card, no shadow, no
+                        background — the device chassis is the visual
+                        and any chrome around it would compete. */
+                    <div className="wd-hero-stage">
                       <InlineDeviceMockup
                         imageUrl={heroImg}
                         platform={overlayPlatform}
@@ -1473,7 +1476,7 @@ function SpotlightStyles() {
 .wd-hero { position: relative; width: 100%; display: flex; justify-content: center; align-items: center; }
 .wd-hero-img { display: block; max-width: 100%; max-height: 64vh; width: auto; height: auto; object-fit: contain; border-radius: 18px; box-shadow: 0 18px 48px -18px rgba(0,0,0,0.32); border: 1px solid rgba(255,255,255,0.18); cursor: zoom-in; }
 .wd-hero-canvas { position: relative; width: 100%; max-width: 1080px; max-height: 64vh; border-radius: 18px; overflow: hidden; box-shadow: 0 18px 48px -18px rgba(0,0,0,0.32); border: 1px solid rgba(255,255,255,0.18); }
-.wd-hero-canvas-fixed { height: 64vh; aspect-ratio: unset; max-width: 100%; }
+.wd-hero-stage { position: relative; width: 100%; height: 64vh; }
 
 /* ── Action bar ─────────────────────────────────────────────── */
 .wd-actionbar { margin-top: clamp(14px, 1.6vw, 18px); padding: 14px clamp(12px, 1.6vw, 16px); background: rgba(250,247,240,0.82); backdrop-filter: blur(16px) saturate(1.2); border: 1px solid rgba(0,0,0,0.06); border-radius: 18px; box-shadow: 0 12px 32px -16px rgba(0,0,0,0.22); }
