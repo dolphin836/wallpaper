@@ -910,11 +910,6 @@ export default function WallpaperDetailPage() {
                         live desktop. */}
                     {previewOverlay === 'home' && <PreviewHomeOverlay platform={overlayPlatform} />}
                     {previewOverlay === 'lock' && <PreviewLockOverlay platform={overlayPlatform} />}
-                    {previewOverlay === 'plain' && (
-                      <div className="wd-hero-hint">
-                        <AiOutlineFullscreen size={12} /> Click to fullscreen
-                      </div>
-                    )}
                   </>
                 ) : null}
               </div>
@@ -1372,8 +1367,6 @@ function SpotlightStyles() {
 /* ── Hero card ─────────────────────────────────────────────── */
 .wd-hero { position: relative; width: 100%; max-height: 64vh; margin: 0 auto; border-radius: 18px; overflow: hidden; box-shadow: 0 18px 48px -18px rgba(0,0,0,0.32); border: 1px solid rgba(255,255,255,0.18); cursor: zoom-in; background-color: var(--color-paper-3); }
 .wd-hero > img, .wd-hero > div > img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.wd-hero-hint { position: absolute; top: 14px; right: 14px; display: inline-flex; gap: 5px; align-items: center; padding: 5px 10px; border-radius: 999px; background: rgba(20,18,15,0.55); backdrop-filter: blur(8px); color: white; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; border: 1px solid rgba(255,255,255,0.15); opacity: 0; transition: opacity .25s ease; pointer-events: none; }
-.wd-hero:hover .wd-hero-hint { opacity: 1; }
 
 /* ── Action bar ─────────────────────────────────────────────── */
 .wd-actionbar { margin-top: clamp(14px, 1.6vw, 18px); padding: 14px clamp(12px, 1.6vw, 16px); background: rgba(250,247,240,0.82); backdrop-filter: blur(16px) saturate(1.2); border: 1px solid rgba(0,0,0,0.06); border-radius: 18px; box-shadow: 0 12px 32px -16px rgba(0,0,0,0.22); }
