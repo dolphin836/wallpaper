@@ -229,18 +229,39 @@ export default function CollectionDetailPage() {
 
   const fetchPage = useCallback(async (page: number) => {
     if (!collection || pages[page]) return;
-    const cursor = cursors[page];
-    if (page > 1 && cursor === undefined) return;
     setLoadingPage(true);
+    // Walk forward from the highest-cached cursor to the
+    // requested page, recording cursors as we go. Prevents the
+    // "click last page → nothing happens" failure mode when
+    // cursors[page] was undefined.
+    const localCursors: Record<number, number | undefined> = { ...cursors };
+    const accumPages: Record<number, Wallpaper[]> = {};
+    let startPage = 1;
+    while (startPage <= page && localCursors[startPage] === undefined && startPage > 1) startPage++;
+    let nextCursor: number | undefined = localCursors[startPage];
+    let landed = startPage;
+    let lastHasMore = true;
     try {
-      const res = await getCollectionWallpapers(collection.slug, { cursor, limit: PAGE_SIZE });
-      const { items, next_cursor, has_more } = res.data.data;
-      setPages((prev) => ({ ...prev, [page]: items }));
-      if (has_more && next_cursor) {
-        setCursors((prev) => ({ ...prev, [page + 1]: next_cursor }));
-        setHasMoreUpTo(page);
+      for (let p = startPage; p <= page; p++) {
+        const res = await getCollectionWallpapers(collection.slug, { cursor: nextCursor, limit: PAGE_SIZE });
+        const { items, next_cursor, has_more } = res.data.data;
+        accumPages[p] = items;
+        landed = p;
+        lastHasMore = has_more;
+        if (has_more && next_cursor) {
+          localCursors[p + 1] = next_cursor;
+          nextCursor = next_cursor;
+        } else {
+          nextCursor = undefined;
+          break;
+        }
+      }
+      setPages((prev) => ({ ...prev, ...accumPages }));
+      setCursors(localCursors);
+      if (lastHasMore && landed === page) {
+        setHasMoreUpTo(landed);
       } else {
-        setKnownTotalPages(page);
+        setKnownTotalPages(landed);
       }
     } catch {
       toast.error('Failed to load wallpapers');

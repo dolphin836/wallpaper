@@ -205,6 +205,12 @@ export default function ProfilePage() {
   dlListRef.current = dlList;
 
   // Generic page-fetch helper that talks to whichever endpoint the tab maps to.
+  // Walks forward through any missing cursor entries before
+  // fetching the requested page — necessary because the backend
+  // pagination is cursor-based: cursors[N-1] is the cursor for
+  // page N, and a direct jump from page 1 to page 5 would
+  // otherwise read undefined → 0 → re-fetch page 1's items under
+  // a page-5 label.
   const fetchList = useCallback(async (
     target: 'pub' | 'inprogress' | ListKey,
     page: number,
@@ -218,57 +224,83 @@ export default function ProfilePage() {
       if (target === 'likes')      return likeListRef.current;
       return dlListRef.current;
     };
-    const current = stateGetter();
-    const cursor = current.cursors[page - 1] ?? 0;
     setListFor(target, (p) => ({ ...p, loading: true }));
-    try {
-      let res;
-      const params = cursor > 0 ? { cursor, limit: gridPageSize } : { limit: gridPageSize };
-      if (target === 'pub') {
-        res = await getUserWallpapers(user.username, { ...params, status: 1 });
-      } else if (target === 'inprogress') {
-        // Pending = Processing (0) + PendingReview (5). Backend supports
-        // comma-separated statuses and emits a single paginated stream.
-        res = await getUserWallpapers(user.username, { ...params, status: '0,5' });
-      } else if (isMe) {
-        // Owner: use the /me/* endpoints (existing behavior — these don't
-        // 403 and don't apply privacy gates).
-        if (target === 'favorites') res = await getMyFavorites(params);
-        else if (target === 'likes') res = await getMyLikes(params);
-        else res = await getMyDownloads(params);
-      } else {
-        // Stranger: use the per-user endpoints which return `private: true`
-        // when the owner has hidden that list.
-        const fn = target === 'favorites' ? getUserFavorites
-                 : target === 'likes' ? getUserLikes
-                 : getUserDownloads;
-        res = await fn(user.username, params);
+
+    const callApi = (params: { cursor?: number; limit: number }) => {
+      if (target === 'pub') return getUserWallpapers(user.username, { ...params, status: 1 });
+      if (target === 'inprogress') return getUserWallpapers(user.username, { ...params, status: '0,5' });
+      if (isMe) {
+        if (target === 'favorites') return getMyFavorites(params);
+        if (target === 'likes') return getMyLikes(params);
+        return getMyDownloads(params);
       }
-      const data = res.data.data as { items: Wallpaper[]; next_cursor: number; has_more: boolean; total?: number; private?: boolean };
-      if (data.private) {
-        setListFor(target, () => ({ items: [], page, cursors: [0], total: 0, hidden: true, loaded: true, loading: false }));
+      const fn = target === 'favorites' ? getUserFavorites
+               : target === 'likes' ? getUserLikes
+               : getUserDownloads;
+      return fn(user.username, params);
+    };
+
+    try {
+      // Local mutable cursors — start from the current cached
+      // array, walk forward as we discover next_cursor values.
+      const cursors = [...stateGetter().cursors];
+      let lastData: { items: Wallpaper[]; next_cursor: number; has_more: boolean; total?: number; private?: boolean } | null = null;
+      let landedPage = 0;
+
+      // If we have a cached cursor for the target page (and it's
+      // > 0 — index 0 is the special "no cursor" sentinel for
+      // page 1) we can skip the warm-up walk.
+      let p = 1;
+      // Find the largest cached page ≤ target whose cursor we
+      // already know (cursors[p-1] is the cursor for page p).
+      while (p < page && cursors[p] !== undefined) {
+        p++;
+      }
+      // p is now the first page we need to fetch (sequential).
+      while (p <= page) {
+        const cursorForThis = cursors[p - 1] ?? 0;
+        const params = cursorForThis > 0
+          ? { cursor: cursorForThis, limit: gridPageSize }
+          : { limit: gridPageSize };
+        const res = await callApi(params);
+        const data = res.data.data as { items: Wallpaper[]; next_cursor: number; has_more: boolean; total?: number; private?: boolean };
+        if (data.private) {
+          setListFor(target, () => ({ items: [], page: 1, cursors: [0], total: 0, hidden: true, loaded: true, loading: false }));
+          return;
+        }
+        lastData = data;
+        landedPage = p;
+        // Record the cursor that gets us to the NEXT page.
+        if (data.has_more && data.next_cursor > 0) {
+          cursors[p] = data.next_cursor;
+        } else {
+          // No more pages — stop here even if the user asked for
+          // a higher one; we clamp to whatever the API gave us.
+          break;
+        }
+        p++;
+      }
+
+      if (!lastData) {
+        setListFor(target, (prev) => ({ ...prev, loading: false }));
         return;
       }
-      setListFor(target, (prev) => {
-        const cursors = prev.cursors.slice(0, page);
-        if (data.has_more && data.next_cursor > 0) cursors[page] = data.next_cursor;
-        return {
-          items: data.items || [],
-          page,
-          cursors,
-          total: data.total ?? 0,
-          hidden: false,
-          loaded: true,
-          loading: false,
-        };
-      });
+      const finalCursors = cursors.slice(0, landedPage + 1);
+      setListFor(target, () => ({
+        items: lastData!.items || [],
+        page: landedPage,
+        cursors: finalCursors,
+        total: lastData!.total ?? 0,
+        hidden: false,
+        loaded: true,
+        loading: false,
+      }));
     } catch {
       toast.error('Failed to load');
       setListFor(target, (p) => ({ ...p, loading: false, loaded: true }));
     }
-  // We intentionally don't depend on the list states themselves to avoid
-  // recreating fetchList on every page bump — the closure captures the
-  // current state via the setListFor + setter pair only.
+  // List state read via *Ref so we don't recreate the callback on
+  // every page bump.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, currentUser?.id, gridPageSize]);
 
@@ -289,31 +321,44 @@ export default function ProfilePage() {
   const collectionsCursorsRef = useRef<number[]>([0]);
   const fetchCollections = useCallback(async (page = 1) => {
     if (!user) return;
-    const cursor = collectionsCursorsRef.current[page - 1] ?? 0;
     try {
-      const params = cursor > 0
-        ? { cursor, limit: collectionsPageSize }
-        : { limit: collectionsPageSize };
-      const res = await getUserCollections(user.username, params);
-      const data = res.data.data as { items: Collection[]; next_cursor: number; has_more: boolean; total?: number };
-      const items = data.items || [];
+      // Same forward-walk strategy as fetchList — cursor-based
+      // pagination needs the cursor for page N-1 to fetch page N,
+      // so a direct jump to the last page has to warm the chain
+      // first.
+      const cursors = [...collectionsCursorsRef.current];
+      let lastData: { items: Collection[]; next_cursor: number; has_more: boolean; total?: number } | null = null;
+      let landedPage = 0;
+      let p = 1;
+      while (p < page && cursors[p] !== undefined) p++;
+      while (p <= page) {
+        const cursorForThis = cursors[p - 1] ?? 0;
+        const params = cursorForThis > 0
+          ? { cursor: cursorForThis, limit: collectionsPageSize }
+          : { limit: collectionsPageSize };
+        const res = await getUserCollections(user.username, params);
+        const data = res.data.data as { items: Collection[]; next_cursor: number; has_more: boolean; total?: number };
+        lastData = data;
+        landedPage = p;
+        if (data.has_more && data.next_cursor > 0) {
+          cursors[p] = data.next_cursor;
+        } else {
+          break;
+        }
+        p++;
+      }
+      if (!lastData) return;
+      const items = lastData.items || [];
       setCollections(items);
-      setCollectionsPage(page);
-      // Backend doesn't populate `total` for this endpoint — derive
-      // a synthetic value from has_more so the <Pagination> control
-      // can still render a next-page button. Once we know the real
-      // count (has_more=false on the current page) we lock it in.
-      if (typeof data.total === 'number' && data.total > 0) {
-        setCollectionsTotal(data.total);
-      } else if (data.has_more) {
-        setCollectionsTotal((page * collectionsPageSize) + 1);
+      setCollectionsPage(landedPage);
+      if (typeof lastData.total === 'number' && lastData.total > 0) {
+        setCollectionsTotal(lastData.total);
+      } else if (lastData.has_more) {
+        setCollectionsTotal((landedPage * collectionsPageSize) + 1);
       } else {
-        setCollectionsTotal((page - 1) * collectionsPageSize + items.length);
+        setCollectionsTotal((landedPage - 1) * collectionsPageSize + items.length);
       }
-      collectionsCursorsRef.current = collectionsCursorsRef.current.slice(0, page);
-      if (data.has_more && data.next_cursor > 0) {
-        collectionsCursorsRef.current[page] = data.next_cursor;
-      }
+      collectionsCursorsRef.current = cursors.slice(0, landedPage + 1);
     } catch {
       toast.error('Failed to load collections');
     } finally {
@@ -324,17 +369,37 @@ export default function ProfilePage() {
   const fetchLedger = useCallback(async (page: number) => {
     setTxLoading(true);
     try {
-      const cursor = txCursors[page - 1] ?? 0;
-      const res = await getCoinTransactions({ cursor: cursor > 0 ? cursor : undefined, limit: PAGE_SIZE });
-      const data = res.data.data;
-      setTxs(data?.items ?? []);
-      setTxTotal(data?.total ?? 0);
-      setTxPage(page);
-      setTxCursors((prev) => {
-        const next = prev.slice(0, page);
-        if (data?.has_more && data?.next_cursor) next[page] = data.next_cursor;
-        return next;
-      });
+      // Forward-walk so direct jumps to the last page work (the
+      // backend pagination is cursor-based; jumping past cached
+      // pages without warming the chain would land on page 1's
+      // items).
+      const cursors = [...txCursors];
+      let lastData: { items: CoinTransaction[]; next_cursor: number; has_more: boolean; total?: number } | null = null;
+      let landedPage = 0;
+      let p = 1;
+      while (p < page && cursors[p] !== undefined) p++;
+      while (p <= page) {
+        const cursor = cursors[p - 1] ?? 0;
+        const res = await getCoinTransactions({
+          cursor: cursor > 0 ? cursor : undefined,
+          limit: PAGE_SIZE,
+        });
+        const data = res.data.data;
+        if (!data) break;
+        lastData = data;
+        landedPage = p;
+        if (data.has_more && data.next_cursor) {
+          cursors[p] = data.next_cursor;
+        } else {
+          break;
+        }
+        p++;
+      }
+      if (!lastData) return;
+      setTxs(lastData.items ?? []);
+      setTxTotal(lastData.total ?? 0);
+      setTxPage(landedPage);
+      setTxCursors(cursors.slice(0, landedPage + 1));
       setTxLoaded(true);
     } catch {
       toast.error('Failed to load ledger');

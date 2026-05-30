@@ -45,25 +45,50 @@ export default function CollectionsPage() {
 
   const fetchPage = useCallback(async (page: number) => {
     if (pages[page]) return;
-    const cursor = cursors[page];
-    if (page > 1 && cursor === undefined) return;
     setLoading(true);
+    // Walk forward from the highest-cached cursor to the
+    // requested page, recording cursors as we go. Previously the
+    // function bailed when cursors[page] was undefined, so direct
+    // jumps to the last page silently did nothing — and the
+    // pagination control didn't visibly react.
+    const localCursors: Record<number, number | undefined> = { ...cursors };
+    const accumPages: Record<number, Collection[]> = {};
+    let startPage = 1;
+    while (startPage <= page && localCursors[startPage] === undefined && startPage > 1) startPage++;
+    // startPage is the first uncached page ≤ page. Walk from
+    // there.
+    let nextCursor: number | undefined = localCursors[startPage];
+    let lastTotal: number | undefined;
     try {
-      const res = await getCollections({ cursor, limit: PAGE_SIZE, kind });
-      let items = res.data.data.items || [];
-      const nextCursor = res.data.data.next_cursor;
-      const hasMore = res.data.data.has_more;
-      const total = res.data.data.total;
-      if (filter === 'yours' && user) {
-        items = items.filter((c) => c.user_id === user.id);
+      for (let p = startPage; p <= page; p++) {
+        const res = await getCollections({ cursor: nextCursor, limit: PAGE_SIZE, kind });
+        let items = res.data.data.items || [];
+        const responseNext = res.data.data.next_cursor;
+        const hasMore = res.data.data.has_more;
+        const total = res.data.data.total;
+        if (filter === 'yours' && user) {
+          items = items.filter((c) => c.user_id === user.id);
+        }
+        accumPages[p] = items;
+        if (hasMore && responseNext) {
+          localCursors[p + 1] = responseNext;
+          nextCursor = responseNext;
+        } else {
+          nextCursor = undefined;
+          if (typeof total === 'number') lastTotal = total;
+          // Clamp — stop walking when there's no more.
+          if (p < page) {
+            // landed before the requested page; bail with what we
+            // have
+            page = p;
+            break;
+          }
+        }
+        if (typeof total === 'number') lastTotal = total;
       }
-      setPages((prev) => ({ ...prev, [page]: items }));
-      if (hasMore && nextCursor) {
-        setCursors((prev) => ({ ...prev, [page + 1]: nextCursor }));
-      }
-      if (typeof total === 'number') {
-        setServerTotal(total);
-      }
+      setPages((prev) => ({ ...prev, ...accumPages }));
+      setCursors(localCursors);
+      if (typeof lastTotal === 'number') setServerTotal(lastTotal);
       setError(false);
     } catch {
       setError(true);
