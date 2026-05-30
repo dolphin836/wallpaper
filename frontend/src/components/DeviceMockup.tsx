@@ -23,51 +23,13 @@ interface Props {
   onClose: () => void;
 }
 
-function hexToHsl(hex: string): { h: number; s: number; l: number } | null {
-  const m = hex.trim().replace(/^#/, '').match(/^([0-9a-fA-F]{6})$/);
-  if (!m) return null;
-  const n = parseInt(m[1], 16);
-  const r = ((n >> 16) & 0xff) / 255;
-  const g = ((n >> 8) & 0xff) / 255;
-  const b = (n & 0xff) / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  let h = 0;
-  let s = 0;
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-      case g: h = (b - r) / d + 2; break;
-      case b: h = (r - g) / d + 4; break;
-    }
-    h /= 6;
-  }
-  return { h: h * 360, s: s * 100, l: l * 100 };
-}
-
-// Build the mockup backdrop gradient from the wallpaper's main color. Saturation
-// is capped so vibrant wallpapers don't produce neon backdrops; lightness stops
-// span dark (top) → mid (bottom) to keep the "premium showcase" feel.
-function backdropFromColor(hex: string | undefined): string {
-  const hsl = hex ? hexToHsl(hex) : null;
-  if (!hsl) {
-    // Fallback to the original navy/steel-blue gradient for missing or unparseable
-    // dominant colors (e.g. pre-color-extraction wallpapers).
-    return 'radial-gradient(ellipse at center, rgba(80,110,150,0.35) 0%, rgba(0,0,0,0) 60%), linear-gradient(180deg, #0a1626 0%, #16283f 30%, #2d4866 65%, #56789a 100%)';
-  }
-  const h = Math.round(hsl.h);
-  const s = Math.round(Math.min(hsl.s, 55));
-  return (
-    `radial-gradient(ellipse at center, hsla(${h}, ${s}%, 50%, 0.35) 0%, hsla(${h}, ${s}%, 50%, 0) 60%),` +
-    `linear-gradient(180deg, hsl(${h}, ${s}%, 8%) 0%, hsl(${h}, ${s}%, 18%) 30%, hsl(${h}, ${s}%, 32%) 65%, hsl(${h}, ${s}%, 50%) 100%)`
-  );
-}
+// Previous behaviour: derive a navy-ish gradient from the dominant
+// color and use it as the modal backdrop. Replaced with a blurred copy
+// of the wallpaper itself (see DeviceMockup below), so hexToHsl /
+// backdropFromColor are no longer needed and were removed in this pass.
 
 type MobileScene = 'lock' | 'home' | 'aod' | 'clean';
-type DesktopScene = 'desktop' | 'clean';
+type DesktopScene = 'desktop' | 'clean' | 'lock';
 
 function getNow() {
   const now = new Date();
@@ -278,7 +240,7 @@ function DesktopOverlay({ width, height }: { width: number; height: number }) {
 
 const BEZEL = 12;
 
-function PhoneFrame({ imageUrl, width, height, scene }: { imageUrl: string; width: number; height: number; scene: MobileScene }) {
+export function PhoneFrame({ imageUrl, width, height, scene }: { imageUrl: string; width: number; height: number; scene: MobileScene }) {
   const outerW = width + BEZEL * 2;
   const outerR = outerW * 0.1;
   const innerR = outerR - BEZEL;
@@ -337,7 +299,7 @@ function PhoneFrame({ imageUrl, width, height, scene }: { imageUrl: string; widt
   );
 }
 
-function TabletFrame({ imageUrl, width, height, scene }: { imageUrl: string; width: number; height: number; scene: MobileScene }) {
+export function TabletFrame({ imageUrl, width, height, scene }: { imageUrl: string; width: number; height: number; scene: MobileScene }) {
   const bezel = 14;
   const outerW = width + bezel * 2;
   return (
@@ -363,7 +325,7 @@ function TabletFrame({ imageUrl, width, height, scene }: { imageUrl: string; wid
   );
 }
 
-function LaptopFrame({ imageUrl, width, height, scene }: { imageUrl: string; width: number; height: number; scene: DesktopScene }) {
+export function LaptopFrame({ imageUrl, width, height, scene }: { imageUrl: string; width: number; height: number; scene: DesktopScene }) {
   const bezel = 10;
   const outerW = width + bezel * 2;
   const baseW = outerW * 1.06;
@@ -391,6 +353,7 @@ function LaptopFrame({ imageUrl, width, height, scene }: { imageUrl: string; wid
           <div className="relative overflow-hidden" style={{ width, height, borderRadius: 2 }}>
             <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
             {scene === 'desktop' && <DesktopOverlay width={width} height={height} />}
+            {scene === 'lock' && <LockOverlay width={width} height={height} />}
           </div>
         </div>
       </div>
@@ -409,7 +372,7 @@ function LaptopFrame({ imageUrl, width, height, scene }: { imageUrl: string; wid
   );
 }
 
-function DesktopFrame({ imageUrl, width, height, scene }: { imageUrl: string; width: number; height: number; scene: DesktopScene }) {
+export function DesktopFrame({ imageUrl, width, height, scene }: { imageUrl: string; width: number; height: number; scene: DesktopScene }) {
   const bezel = 12;
   const outerW = width + bezel * 2;
   const chinH = outerW * 0.028;
@@ -433,6 +396,7 @@ function DesktopFrame({ imageUrl, width, height, scene }: { imageUrl: string; wi
           <div className="relative overflow-hidden" style={{ width, height, borderRadius: 2 }}>
             <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
             {scene === 'desktop' && <DesktopOverlay width={width} height={height} />}
+            {scene === 'lock' && <LockOverlay width={width} height={height} />}
           </div>
         </div>
         {/* Chin (iMac-style) */}
@@ -504,7 +468,7 @@ function SceneSwitcher<T extends string>({
 
 // --------------- Main component ---------------
 
-export default function DeviceMockup({ imageUrl, platform, deviceWidth, deviceHeight, dominantColor, onClose }: Props) {
+export default function DeviceMockup({ imageUrl, platform, deviceWidth, deviceHeight, onClose }: Props) {
   const isMobile = platform === 'phone' || platform === 'tablet';
   const [mobileScene, setMobileScene] = useState<MobileScene>('lock');
   const [deskScene, setDeskScene] = useState<DesktopScene>('desktop');
@@ -542,11 +506,24 @@ export default function DeviceMockup({ imageUrl, platform, deviceWidth, deviceHe
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden"
       onClick={onClose}
-      style={{
-        background: backdropFromColor(dominantColor),
-        touchAction: 'none',
-      }}
+      style={{ touchAction: 'none' }}
     >
+      {/* Blurred wallpaper preview as the modal backdrop — gives the
+          mockup a contextual stage that's clearly tied to the chosen
+          wallpaper, instead of the previous abstract navy gradient. */}
+      <div className="absolute inset-0 z-0" aria-hidden>
+        <img
+          src={imageUrl}
+          alt=""
+          className="w-full h-full object-cover"
+          style={{ filter: 'blur(50px) saturate(1.4)', transform: 'scale(1.15)' }}
+          draggable={false}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(180deg, rgba(8,6,4,0.55) 0%, rgba(8,6,4,0.78) 100%)' }}
+        />
+      </div>
       {/* Scaled mockup — sits in the upper area. drop-shadow gives it the floating-
           product feel from the reference, scaled with the rest. */}
       <div

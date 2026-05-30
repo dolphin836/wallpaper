@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
@@ -23,7 +23,10 @@ import {
 import { MdPlaylistAdd, MdDesktopMac, MdLaptopMac, MdTabletMac, MdPhoneIphone, MdOutlineRemoveRedEye, MdDevices } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User, Category } from '../types';
-import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
+import DeviceMockup, {
+  canShowMockup,
+  PhoneFrame, TabletFrame, LaptopFrame, DesktopFrame,
+} from '../components/DeviceMockup';
 import ReportModal from '../components/ReportModal';
 import WallpaperGrid from '../components/WallpaperGrid';
 import { getSimilarWallpapers } from '../api';
@@ -202,7 +205,10 @@ export default function WallpaperDetailPage() {
   // painted directly onto the hero image (clock / dock / menu bar —
   // same overlays the discover floating wall uses).
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [previewOverlay, setPreviewOverlay] = useState<'plain' | 'home' | 'lock'>('plain');
+  // 'off' = naked wallpaper, no chrome. plain/home/lock = wallpaper
+  // rendered inside the matched-device frame with the corresponding
+  // scene (clean / home or desktop / lock).
+  const [previewOverlay, setPreviewOverlay] = useState<'off' | 'plain' | 'home' | 'lock'>('off');
   const [similar, setSimilar] = useState<Wallpaper[]>([]);
   // Cache the full category list so we can map wallpaper.category_id (a
   // number) to a display name without a per-detail fetch. List is tiny
@@ -301,15 +307,17 @@ export default function WallpaperDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!fullscreen && !mockupVariant && !drawerOpen && previewOverlay === 'plain') return;
+    if (!fullscreen && !mockupVariant && !drawerOpen && previewOverlay === 'off') return;
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (previewOverlay !== 'off') { setPreviewOverlay('off'); return; }
+        if (drawerOpen) { setDrawerOpen(false); return; }
         setFullscreen(false);
         setMockupVariant(null);
       }
     };
     document.addEventListener('keydown', handleEsc);
-    document.body.style.overflow = 'hidden';
+    if (fullscreen || mockupVariant) document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleEsc);
       document.body.style.overflow = '';
@@ -753,40 +761,54 @@ export default function WallpaperDetailPage() {
                         : MdDesktopMac;
                       return (
                         <div key={v.id} className={`wd-drawer-row ${isMatched ? 'is-matched' : ''}`}>
-                          <Icon size={18} className="text-ink-2 flex-shrink-0" />
-                          <div className="min-w-0">
-                            {v.device_slug ? (
-                              <Link to={`/wallpapers-for/${v.device_slug}`} className="text-[13px] font-medium text-ink truncate no-underline hover:underline">
-                                {deviceName}
-                              </Link>
-                            ) : (
-                              <span className="text-[13px] font-medium text-ink truncate">{deviceName}</span>
-                            )}
-                            {isMatched && (
-                              <span className="ml-1.5 mono text-[9px] tracking-[0.14em] px-1.5 py-[1px] bg-ink text-paper rounded">YOUR DEVICE</span>
-                            )}
-                            <div className="mono text-[10px] text-muted mt-0.5">
-                              {v.width.toLocaleString()} × {v.height.toLocaleString()}
-                              {v.file_size > 0 && <> · {formatFileSize(v.file_size)}</>}
+                          <div className="wd-drawer-row-head">
+                            <Icon size={20} className="text-ink-2 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[14px] font-medium text-ink truncate">{deviceName}</span>
+                                {isMatched && (
+                                  <span className="mono text-[9px] tracking-[0.14em] px-1.5 py-[1px] bg-ink text-paper rounded">YOUR DEVICE</span>
+                                )}
+                              </div>
+                              <div className="mono text-[10px] text-muted mt-0.5">
+                                {v.width.toLocaleString()} × {v.height.toLocaleString()}
+                                {v.file_size > 0 && <> · {formatFileSize(v.file_size)}</>}
+                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {/* 3-button row — preview chassis, browse all
+                              wallpapers tailored for this device, get
+                              the variant download. Matched device's Get
+                              switches to accent so it pops. */}
+                          <div className="wd-drawer-row-actions">
                             <button
                               onClick={() => mockable && setMockupVariant(v)}
                               disabled={!mockable}
-                              title={mockable ? 'Preview on device' : 'Mockup not available'}
-                              className={`p-1.5 rounded-full ${mockable ? 'text-ink-2 hover:text-ink hover:bg-paper-2' : 'text-muted-2 cursor-not-allowed'}`}
-                              aria-label="Preview on device"
+                              title={mockable ? 'Preview in this device' : 'Mockup not available for this device'}
+                              className="wd-drawer-action"
                             >
-                              <MdOutlineRemoveRedEye size={16} />
+                              <MdOutlineRemoveRedEye size={14} /> Preview
                             </button>
+                            {v.device_slug ? (
+                              <Link
+                                to={`/wallpapers-for/${v.device_slug}`}
+                                className="wd-drawer-action no-underline"
+                                title={`Browse all wallpapers for the ${deviceName}`}
+                              >
+                                <MdDevices size={14} /> Browse
+                              </Link>
+                            ) : (
+                              <span className="wd-drawer-action is-disabled" title="No device page available">
+                                <MdDevices size={14} /> Browse
+                              </span>
+                            )}
                             <button
                               onClick={() => handleDownload(v)}
                               disabled={dlLoading}
                               title="Download this variant"
-                              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-paper text-[11px] font-medium disabled:opacity-60 ${isMatched ? 'bg-accent' : 'bg-ink'}`}
+                              className={`wd-drawer-action wd-drawer-action-cta ${isMatched ? 'is-matched' : ''}`}
                             >
-                              <AiOutlineDownload size={12} /> Get
+                              <AiOutlineDownload size={14} /> Get
                             </button>
                           </div>
                         </div>
@@ -815,28 +837,8 @@ export default function WallpaperDetailPage() {
         )}
         <div className="wd-backdrop-scrim" aria-hidden />
 
-        {/* Modal-mode chrome — only when overlaid on top of another route. */}
-        {Boolean((location.state as { background?: unknown } | null)?.background) && (
-          <div className="px-5 sm:px-6 py-2.5 border-b border-hair/40 flex justify-between items-center bg-paper/70 backdrop-blur-md flex-shrink-0 relative z-10">
-            <span className="mono text-[10px] tracking-[0.18em] uppercase text-muted truncate">
-              SPECIMEN №{String(wallpaper.id).padStart(3, '0')}
-              <span className="ml-2 text-ink-2 hidden sm:inline">· OVERLAY VIEW</span>
-            </span>
-            <div className="flex items-center gap-3 sm:gap-4 mono text-[10px] tracking-[0.18em] uppercase text-muted">
-              <span className="hidden sm:inline-flex items-center gap-1.5">
-                <kbd className="inline-flex items-center justify-center min-w-[26px] h-[18px] px-1.5 border border-hair bg-paper-2 text-ink-2 rounded">ESC</kbd>
-                <span>CLOSE</span>
-              </span>
-              <button
-                onClick={() => navigate(-1)}
-                title="Close"
-                className="w-8 h-8 rounded-full border border-hair bg-paper hover:bg-paper-2 text-ink inline-flex items-center justify-center transition-colors"
-              >
-                <AiOutlineClose size={14} />
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Modal-mode chrome moved to the modal wrapper itself
+            (corner-anchored ✕). No header strip here. */}
 
         <div className="flex-1 min-h-0 overflow-y-auto relative z-10">
           <div className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
@@ -854,19 +856,32 @@ export default function WallpaperDetailPage() {
                   : 'var(--color-paper)',
               }}
             >
-              {/* Hero card */}
+              {/* Hero card.
+                  - 'off' mode uses the wallpaper's intrinsic aspect ratio
+                    (and lets clicking the image enter the fullscreen
+                    viewer).
+                  - plain / home / lock all render the wallpaper inside
+                    the matched-device chrome via InlineDeviceMockup,
+                    which auto-scales to fit. Aspect is dropped in this
+                    mode and a fixed-ish height takes over so the frame
+                    has room for its stand / chin / bezel.
+                  - Video and dynamic-HEIC always render their natural
+                    surfaces regardless of preview mode; the frame
+                    toggles are not meaningful for those formats. */}
               <div
-                className="wd-hero"
-                style={{
+                className={`wd-hero ${previewOverlay !== 'off' ? 'is-framing' : ''}`}
+                style={previewOverlay === 'off' ? {
                   aspectRatio: wallpaper.width > 0 && wallpaper.height > 0
                     ? `${wallpaper.width} / ${wallpaper.height}`
                     : '16 / 9',
+                  backgroundColor: wallpaper.dominant_color || undefined,
+                } : {
                   backgroundColor: wallpaper.dominant_color || undefined,
                 }}
                 onClick={() => {
                   if (frames.length > 1) return;
                   if ((wallpaper.file_type || '').startsWith('video/')) return;
-                  if (previewOverlay !== 'plain') return; // overlays own click in their mode
+                  if (previewOverlay !== 'off') return; // device frame owns clicks in its mode
                   setFullscreen(true);
                 }}
               >
@@ -894,7 +909,14 @@ export default function WallpaperDetailPage() {
                     poster={wallpaper.preview_url || wallpaper.thumb_url}
                   />
                 ) : heroImg ? (
-                  <>
+                  previewOverlay !== 'off' ? (
+                    <InlineDeviceMockup
+                      imageUrl={heroImg}
+                      platform={overlayPlatform}
+                      mode={previewOverlay}
+                      matched={matchedVariant}
+                    />
+                  ) : (
                     <img
                       src={heroImg}
                       alt=""
@@ -903,14 +925,7 @@ export default function WallpaperDetailPage() {
                       className="w-full h-full object-contain select-none"
                       style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                     />
-                    {/* Home / Lock overlay — same chrome the discover
-                        floating wall uses (menubar+dock / clock+date)
-                        painted directly over the wallpaper image so
-                        the visitor can see how it would look as a
-                        live desktop. */}
-                    {previewOverlay === 'home' && <PreviewHomeOverlay platform={overlayPlatform} />}
-                    {previewOverlay === 'lock' && <PreviewLockOverlay platform={overlayPlatform} />}
-                  </>
+                  )
                 ) : null}
               </div>
 
@@ -968,19 +983,26 @@ export default function WallpaperDetailPage() {
 
                   <div className="wd-actionbar-divider" />
 
-                  {/* Group B — preview modes. Plain | Home | Lock are a
-                      radio group; Fullscreen is a sibling action. */}
+                  {/* Group B — preview modes. Off paints just the wallpaper;
+                      Plain / Home / Lock render the wallpaper inside the
+                      matched-device chrome (frame + optional overlay).
+                      Fullscreen is a sibling action. */}
                   <div className="wd-actionbar-group wd-actionbar-toggle">
-                    {(['plain', 'home', 'lock'] as const).map((m) => (
+                    {([
+                      ['off',   'Wallpaper', 'Wallpaper only (no device chrome)'],
+                      ['plain', 'Plain',     'Wallpaper inside the device — no overlay'],
+                      ['home',  'Home',      'Device with dock + menu bar / app icons'],
+                      ['lock',  'Lock',      'Device with clock + date'],
+                    ] as const).map(([m, label, desc]) => (
                       <button
                         key={m}
                         role="radio"
                         aria-checked={previewOverlay === m}
                         onClick={() => setPreviewOverlay(m)}
                         className={`wd-toggle-pill ${previewOverlay === m ? 'is-on' : ''}`}
-                        title={m === 'plain' ? 'Wallpaper only' : m === 'home' ? 'With dock + menu bar' : 'With clock + date'}
+                        title={desc}
                       >
-                        {m === 'plain' ? 'Plain' : m === 'home' ? 'Home' : 'Lock'}
+                        {label}
                       </button>
                     ))}
                     <button
@@ -1178,80 +1200,88 @@ export default function WallpaperDetailPage() {
                 ))}
               </div>
 
-              <div className="border-t border-hair grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-x-10 gap-y-6 p-5 lg:p-6">
-                {/* Specs / Tags / Uploader */}
-                <section className="min-w-0">
-                  {wallpaper.uploader && (
+              {/* Three even columns. The dim/res/file specs that used to
+                  sit here are dropped — the action bar's meta strip
+                  already shows them, so repeating them was waste.
+                  What's left: who made it, what it's about, what it
+                  looks like. Category gets a big serif headline, tags
+                  become chips tinted by palette colors (so the same
+                  tag doesn't fade into the page), uploader is its own
+                  column with a generous avatar. */}
+              <div className="border-t border-hair grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-7 p-5 lg:p-6">
+                {/* Uploader column */}
+                {wallpaper.uploader ? (
+                  <section className="min-w-0">
+                    <div className="kicker text-muted mb-3">Uploaded by</div>
                     <Link
                       to={`/user/${wallpaper.uploader.username}`}
-                      className="inline-flex items-center gap-3 mb-5 no-underline text-ink group"
+                      className="inline-flex items-center gap-3 no-underline text-ink group"
                     >
-                      <div className="w-9 h-9 rounded-full overflow-hidden bg-paper-2 border border-hair flex items-center justify-center display text-[15px] flex-shrink-0">
+                      <div className="w-14 h-14 rounded-full overflow-hidden bg-paper-2 border border-hair flex items-center justify-center display text-[22px] flex-shrink-0">
                         {wallpaper.uploader.avatar_url
                           ? <img src={wallpaper.uploader.avatar_url} alt="" className="w-full h-full object-cover" />
                           : uploaderInitial}
                       </div>
                       <div className="min-w-0">
-                        <div className="text-[14px] font-medium leading-tight truncate group-hover:underline">@{wallpaper.uploader.username}</div>
+                        <div className="display text-[20px] leading-tight truncate group-hover:underline">@{wallpaper.uploader.username}</div>
                         {wallpaper.uploader.bio && (
-                          <div className="mono text-[10px] tracking-[0.04em] text-muted truncate">{wallpaper.uploader.bio}</div>
+                          <div className="mono text-[10px] tracking-[0.04em] text-muted truncate mt-1">{wallpaper.uploader.bio}</div>
                         )}
+                        <div className="mono text-[10px] tracking-[0.14em] text-muted mt-1.5 inline-flex items-center gap-1">
+                          VIEW PROFILE <span aria-hidden>→</span>
+                        </div>
                       </div>
                     </Link>
-                  )}
+                  </section>
+                ) : <div />}
 
-                  <dl className="grid grid-cols-[90px_1fr] gap-y-2 mono text-[13px]">
-                    <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">DIM</dt>
-                    <dd className="m-0 text-ink">{wallpaper.width.toLocaleString()} × {wallpaper.height.toLocaleString()} px</dd>
-                    <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">RES</dt>
-                    <dd className="m-0 text-ink">
-                      {resLabel || '—'}
-                      {(wallpaper.file_type || '').startsWith('video/') && (
-                        <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-ink text-paper">
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
-                          VIDEO
-                        </span>
-                      )}
-                      {wallpaper.is_dynamic && <span className="ml-2 text-accent">● Dynamic</span>}
-                      {wallpaper.is_ai_generated && <span className="ml-2 text-violet-600">✦ AI</span>}
-                    </dd>
-                    <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">FILE</dt>
-                    <dd className="m-0 text-ink">{(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}</dd>
-                    {currentCategory && (
-                      <>
-                        <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">CATEGORY</dt>
-                        <dd className="m-0 text-ink">
-                          <Link to={`/category/${currentCategory.slug}`} className="text-ink hover:underline">
-                            {currentCategory.name}
-                          </Link>
-                        </dd>
-                      </>
-                    )}
-                    {wallpaper.tags && wallpaper.tags.length > 0 && (
-                      <>
-                        <dt className="mono text-[10px] tracking-[0.12em] uppercase text-muted pt-0.5">TAGS</dt>
-                        <dd className="m-0 text-ink">
-                          <div className="flex flex-wrap gap-1.5">
-                            {wallpaper.tags.map((t) => (
-                              <span
-                                key={t.id}
-                                className="inline-block px-2 py-0.5 text-[11px] border border-hair rounded bg-paper-2 text-ink-2"
-                              >
-                                {t.name}
-                              </span>
-                            ))}
-                          </div>
-                        </dd>
-                      </>
-                    )}
-                  </dl>
+                {/* Category + Tags column — the "what is this about" axis.
+                    Big serif headline for the category, tags below as
+                    pill chips. Each tag tints itself using a different
+                    palette color (rotated through the list) so the
+                    chips have visual differentiation and reinforce the
+                    wallpaper's palette without being noisy. */}
+                <section className="min-w-0">
+                  <div className="kicker text-muted mb-3">About</div>
+                  {currentCategory ? (
+                    <Link to={`/category/${currentCategory.slug}`} className="no-underline">
+                      <h3 className="display text-[clamp(24px,2.4vw,30px)] leading-none tracking-[-0.01em] text-ink hover:text-accent transition-colors">
+                        {currentCategory.name}
+                      </h3>
+                    </Link>
+                  ) : (
+                    <h3 className="display text-[clamp(22px,2vw,28px)] leading-none text-muted italic">Uncategorised</h3>
+                  )}
+                  {wallpaper.tags && wallpaper.tags.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-1.5">
+                      {wallpaper.tags.map((t, i) => {
+                        // Use the palette in rotation; fall back to muted ink
+                        // when no palette is available.
+                        const c = palette.length > 0 ? palette[i % palette.length] : 'var(--color-ink-2)';
+                        return (
+                          <span
+                            key={t.id}
+                            className="wd-tag-chip"
+                            style={{
+                              borderColor: c,
+                              background: `color-mix(in oklch, ${c} 12%, var(--color-paper))`,
+                              color: `color-mix(in oklch, ${c} 60%, var(--color-ink))`,
+                            }}
+                          >
+                            <span className="wd-tag-chip-dot" style={{ background: c }} />
+                            {t.name}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                 </section>
 
-                {/* Palette */}
-                {palette.length > 0 && (
+                {/* Palette column */}
+                {palette.length > 0 ? (
                   <section className="min-w-0">
-                    <div className="kicker text-muted mb-3">Palette · {palette.length} · click to copy</div>
-                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(palette.length, 5)}, 1fr)` }}>
+                    <div className="kicker text-muted mb-3">Palette · click to copy</div>
+                    <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(palette.length, 5)}, 1fr)` }}>
                       {palette.map((c, i) => (
                         <button
                           key={`${c}-${i}`}
@@ -1259,7 +1289,7 @@ export default function WallpaperDetailPage() {
                           className="flex flex-col gap-1 bg-transparent border-0 p-0 cursor-pointer text-left group"
                         >
                           <span
-                            className="block h-[56px] rounded-lg border border-hair transition-transform group-hover:scale-[1.03]"
+                            className="block h-[60px] rounded-lg border border-hair transition-transform group-hover:scale-[1.04] group-hover:shadow-md"
                             style={{ background: c }}
                             title={`${c.toUpperCase()} — click to copy`}
                           />
@@ -1268,13 +1298,13 @@ export default function WallpaperDetailPage() {
                       ))}
                     </div>
                     {wallpaper.dominant_color && (
-                      <div className="mt-4 inline-flex items-center gap-2 mono text-[10px] tracking-[0.12em] uppercase text-muted">
+                      <div className="mt-3 inline-flex items-center gap-2 mono text-[10px] tracking-[0.12em] uppercase text-muted">
                         <span className="inline-block w-3 h-3 rounded-sm border border-hair" style={{ background: wallpaper.dominant_color }} />
                         Dominant · {wallpaper.dominant_color.toUpperCase()}
                       </div>
                     )}
                   </section>
-                )}
+                ) : <div />}
               </div>
             </div>
 
@@ -1311,43 +1341,92 @@ export default function WallpaperDetailPage() {
   );
 }
 
-/* Inline copies of the Plain/Home/Lock overlays from
-   DeviceFloatingWall.tsx. Kept in-file so the detail page is
-   self-contained — the only shared surface is the CSS classes in
-   index.css (dev-overlay-*). */
-function PreviewLockOverlay({ platform }: { platform: 'desktop' | 'laptop' | 'tablet' | 'phone' }) {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 30000);
-    return () => clearInterval(id);
-  }, []);
-  const time = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
-  const date = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-  const topAnchor = platform === 'phone' ? '14%' : platform === 'tablet' ? '20%' : '32%';
-  return (
-    <div className="dev-overlay-lock absolute inset-0" style={{ paddingTop: topAnchor }} aria-hidden>
-      <div className="dev-overlay-lock-time">{time}</div>
-      <div className="dev-overlay-lock-date">{date}</div>
-    </div>
-  );
-}
+/* In-place device mockup. Renders the wallpaper inside the matched
+   device's actual chassis chrome — the same MacBook / iMac / iPhone /
+   iPad frames the popup-mockup uses — auto-scaled to fit the hero card.
+   When no matched variant exists we synthesise reasonable defaults
+   per platform so the preview still makes sense.
 
-function PreviewHomeOverlay({ platform }: { platform: 'desktop' | 'laptop' | 'tablet' | 'phone' }) {
-  const HUES = [25, 90, 150, 210, 280, 330];
-  const dockSize = platform === 'phone' ? 5 : 6;
+   Scene mapping per platform:
+     mode = 'plain' → scene 'clean'   (frame only, no overlay)
+     mode = 'home'  → scene 'home'  (mobile) / 'desktop' (laptop+desktop)
+     mode = 'lock'  → scene 'lock'  (both — desktop got 'lock' added too) */
+const DEFAULT_DEVICE_DIMS: Record<'desktop' | 'laptop' | 'tablet' | 'phone', { w: number; h: number }> = {
+  desktop: { w: 2560, h: 1440 },
+  laptop:  { w: 2560, h: 1600 },
+  tablet:  { w: 2048, h: 1536 },
+  phone:   { w: 1170, h: 2532 },
+};
+
+function InlineDeviceMockup({
+  imageUrl,
+  platform,
+  mode,
+  matched,
+}: {
+  imageUrl: string;
+  platform: 'desktop' | 'laptop' | 'tablet' | 'phone';
+  mode: 'plain' | 'home' | 'lock';
+  matched: WallpaperVariant | null;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 1000, h: 600 });
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[0].contentRect;
+      setSize({ w: r.width, h: r.height });
+    });
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, []);
+
+  // Pick screen pixel dimensions: prefer the matched variant so the
+  // visitor sees the wallpaper sized for their actual device; otherwise
+  // fall back to a sensible per-platform default.
+  const dvW = matched?.platform === platform ? matched.width  : DEFAULT_DEVICE_DIMS[platform].w;
+  const dvH = matched?.platform === platform ? matched.height : DEFAULT_DEVICE_DIMS[platform].h;
+
+  // Approximate the chrome outside the screen rect (bezel + stand / hinge / chin).
+  const bezel = 24;
+  const chromeBelow =
+    platform === 'laptop'  ? dvW * 0.07 :
+    platform === 'desktop' ? dvW * 0.10 :
+    0;
+  const totalW = dvW + bezel;
+  const totalH = dvH + bezel + chromeBelow;
+
+  // 92% safety margin so the scaled frame never quite touches the
+  // hero card edges.
+  const scale = Math.min(size.w / totalW, size.h / totalH) * 0.92;
+
+  let frame: ReactNode;
+  if (platform === 'phone') {
+    const scene = mode === 'home' ? 'home' : mode === 'lock' ? 'lock' : 'clean';
+    frame = <PhoneFrame imageUrl={imageUrl} width={dvW} height={dvH} scene={scene} />;
+  } else if (platform === 'tablet') {
+    const scene = mode === 'home' ? 'home' : mode === 'lock' ? 'lock' : 'clean';
+    frame = <TabletFrame imageUrl={imageUrl} width={dvW} height={dvH} scene={scene} />;
+  } else if (platform === 'laptop') {
+    const scene = mode === 'home' ? 'desktop' : mode === 'lock' ? 'lock' : 'clean';
+    frame = <LaptopFrame imageUrl={imageUrl} width={dvW} height={dvH} scene={scene} />;
+  } else {
+    const scene = mode === 'home' ? 'desktop' : mode === 'lock' ? 'lock' : 'clean';
+    frame = <DesktopFrame imageUrl={imageUrl} width={dvW} height={dvH} scene={scene} />;
+  }
+
   return (
-    <div className="dev-overlay-home absolute inset-0" aria-hidden>
-      {(platform === 'laptop' || platform === 'desktop') && (
-        <div className="dev-overlay-menubar" />
-      )}
-      <div className={`dev-overlay-dock is-${platform}`}>
-        {HUES.slice(0, dockSize).map((h, i) => (
-          <span
-            key={i}
-            className="dev-overlay-dock-icon"
-            style={{ ['--ico-h' as string]: String(h) } as React.CSSProperties}
-          />
-        ))}
+    <div ref={containerRef} className="absolute inset-0 flex items-center justify-center overflow-hidden">
+      <div
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'center center',
+          filter: 'drop-shadow(0 20px 36px rgba(0,0,0,0.35))',
+        }}
+      >
+        {frame}
       </div>
     </div>
   );
@@ -1358,14 +1437,15 @@ function SpotlightStyles() {
 /* ── Outer blurred-wallpaper backdrop ────────────────────────── */
 .wd-root { isolation: isolate; }
 .wd-backdrop { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
-.wd-backdrop img { width: 100%; height: 100%; object-fit: cover; filter: blur(80px) saturate(1.5); transform: scale(1.2); }
-.wd-backdrop-scrim { position: absolute; inset: 0; z-index: 0; background: linear-gradient(180deg, rgba(250,247,240,0.55) 0%, rgba(250,247,240,0.85) 100%); pointer-events: none; }
+.wd-backdrop img { width: 100%; height: 100%; object-fit: cover; filter: blur(38px) saturate(1.4); transform: scale(1.18); }
+.wd-backdrop-scrim { position: absolute; inset: 0; z-index: 0; background: linear-gradient(180deg, rgba(250,247,240,0.42) 0%, rgba(250,247,240,0.7) 100%); pointer-events: none; }
 
 /* ── Stage panel — dominant-color mesh card holds hero + bar ── */
 .wd-panel { position: relative; border-radius: 24px; padding: clamp(16px, 2vw, 24px); border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 24px 56px -28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.5); overflow: hidden; }
 
 /* ── Hero card ─────────────────────────────────────────────── */
 .wd-hero { position: relative; width: 100%; max-height: 64vh; margin: 0 auto; border-radius: 18px; overflow: hidden; box-shadow: 0 18px 48px -18px rgba(0,0,0,0.32); border: 1px solid rgba(255,255,255,0.18); cursor: zoom-in; background-color: var(--color-paper-3); }
+.wd-hero.is-framing { aspect-ratio: 16 / 10; height: 64vh; cursor: default; }
 .wd-hero > img, .wd-hero > div > img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 /* ── Action bar ─────────────────────────────────────────────── */
@@ -1397,6 +1477,9 @@ function SpotlightStyles() {
 
 /* ── Content card (stats + meta + palette) ─────────────────── */
 .wd-content-card { background: var(--color-paper); border: 1px solid var(--color-hair); border-radius: 20px; overflow: hidden; box-shadow: 0 8px 28px -16px rgba(0,0,0,0.16); }
+.wd-tag-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; border: 1px solid; line-height: 1.4; transition: transform .15s ease; }
+.wd-tag-chip:hover { transform: translateY(-1px); }
+.wd-tag-chip-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 
 /* ── Devices drawer — right-side slide-in ──────────────────── */
 .wd-drawer-scrim { position: fixed; inset: 0; background: rgba(20,18,15,0.42); backdrop-filter: blur(2px); z-index: 60; display: flex; justify-content: flex-end; animation: wdFadeIn .2s ease; }
@@ -1406,9 +1489,18 @@ function SpotlightStyles() {
 .wd-drawer-foot { padding: 12px 22px; border-top: 1px solid var(--color-hair); background: var(--color-paper-2); flex-shrink: 0; }
 .wd-drawer-group { margin-top: 14px; }
 .wd-drawer-grouphead { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--color-muted); padding: 0 6px 6px; border-bottom: 1px solid var(--color-hair); margin-bottom: 6px; }
-.wd-drawer-row { display: grid; grid-template-columns: 22px 1fr auto; gap: 12px; align-items: center; padding: 10px 6px; border-radius: 8px; transition: background-color .15s ease; }
-.wd-drawer-row:hover { background: var(--color-paper-2); }
-.wd-drawer-row.is-matched { background: color-mix(in oklch, var(--color-accent) 5%, var(--color-paper)); }
+.wd-drawer-row { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; transition: background-color .15s ease; border: 1px solid transparent; margin-bottom: 4px; }
+.wd-drawer-row:hover { background: var(--color-paper-2); border-color: var(--color-hair); }
+.wd-drawer-row.is-matched { background: color-mix(in oklch, var(--color-accent) 5%, var(--color-paper)); border-color: color-mix(in oklch, var(--color-accent) 25%, var(--color-hair)); }
+.wd-drawer-row-head { display: flex; align-items: center; gap: 12px; }
+.wd-drawer-row-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.wd-drawer-action { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 8px; border-radius: 999px; border: 1px solid var(--color-hair); background: var(--color-paper); color: var(--color-ink-2); font-size: 11px; font-weight: 500; transition: background-color .15s ease, color .15s ease, border-color .15s ease; }
+.wd-drawer-action:hover:not(:disabled):not(.is-disabled) { background: var(--color-paper-2); color: var(--color-ink); border-color: var(--color-ink-2); }
+.wd-drawer-action:disabled, .wd-drawer-action.is-disabled { opacity: 0.45; cursor: not-allowed; }
+.wd-drawer-action-cta { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
+.wd-drawer-action-cta:hover:not(:disabled) { background: var(--color-ink-2); border-color: var(--color-ink-2); color: var(--color-paper); }
+.wd-drawer-action-cta.is-matched { background: var(--color-accent); border-color: var(--color-accent); }
+.wd-drawer-action-cta.is-matched:hover:not(:disabled) { filter: brightness(1.05); }
 
 @keyframes wdSlideInRight { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes wdFadeIn { from { opacity: 0; } to { opacity: 1; } }
