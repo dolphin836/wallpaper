@@ -44,8 +44,6 @@ import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import {
   ProfileSkeleton,
-  WallpaperGridSkeleton,
-  CollectionGridSkeleton,
 } from '../components/Skeletons';
 import Pagination from '../components/Pagination';
 import AvatarCropModal from '../components/AvatarCropModal';
@@ -160,6 +158,8 @@ export default function ProfilePage() {
   // Collections — single-page-load grab of the user's owned collections.
   const [collections, setCollections] = useState<Collection[]>([]);
   const [collectionsLoaded, setCollectionsLoaded] = useState(false);
+  const [collectionsPage, setCollectionsPage] = useState(1);
+  const [collectionsTotal, setCollectionsTotal] = useState(0);
 
   // Ledger — paginated transactions
   const [txs, setTxs] = useState<CoinTransaction[]>([]);
@@ -191,6 +191,22 @@ export default function ProfilePage() {
     else if (key === 'downloads') setDlList(updater);
   };
 
+  // Mirror each list into a ref so fetchList can read the latest
+  // cursors without growing its useCallback deps. Without these
+  // refs the captured closure's `cursors` array stayed empty after
+  // page 1 — clicking page 2 fed limit-only params and refetched
+  // page 1, which is what surfaced as "pagination not working".
+  const pubListRef = useRef(pubList);
+  const inProgressRef = useRef(inProgress);
+  const favListRef = useRef(favList);
+  const likeListRef = useRef(likeList);
+  const dlListRef = useRef(dlList);
+  pubListRef.current = pubList;
+  inProgressRef.current = inProgress;
+  favListRef.current = favList;
+  likeListRef.current = likeList;
+  dlListRef.current = dlList;
+
   // Generic page-fetch helper that talks to whichever endpoint the tab maps to.
   const fetchList = useCallback(async (
     target: 'pub' | 'inprogress' | ListKey,
@@ -199,11 +215,11 @@ export default function ProfilePage() {
     if (!user) return;
     const isMe = currentUser?.id === user.id;
     const stateGetter = (): ListState => {
-      if (target === 'pub')        return pubList;
-      if (target === 'inprogress') return inProgress;
-      if (target === 'favorites')  return favList;
-      if (target === 'likes')      return likeList;
-      return dlList;
+      if (target === 'pub')        return pubListRef.current;
+      if (target === 'inprogress') return inProgressRef.current;
+      if (target === 'favorites')  return favListRef.current;
+      if (target === 'likes')      return likeListRef.current;
+      return dlListRef.current;
     };
     const current = stateGetter();
     const cursor = current.cursors[page - 1] ?? 0;
@@ -259,17 +275,43 @@ export default function ProfilePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, currentUser?.id, gridPageSize]);
 
-  const fetchCollections = useCallback(async () => {
+  // Collections grid uses its own page-size + cursor table. The
+  // grid is 4 cols at lg (one fewer than the wallpaper grid) so
+  // pageSize = colsAtWidth × 4, capped to a sensible upper bound.
+  const collectionsPageSize = useMemo(() => {
+    const cols = (typeof window !== 'undefined' && window.innerWidth >= 1024) ? 4
+      : (typeof window !== 'undefined' && window.innerWidth >= 768) ? 3
+      : (typeof window !== 'undefined' && window.innerWidth >= 640) ? 2
+      : 1;
+    return cols * 4;
+    // gridPageSize changes on resize and we reuse that as a proxy
+    // for "viewport changed". Re-running per resize keeps the page
+    // count aligned with the current viewport.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gridPageSize]);
+  const collectionsCursorsRef = useRef<number[]>([0]);
+  const fetchCollections = useCallback(async (page = 1) => {
     if (!user) return;
+    const cursor = collectionsCursorsRef.current[page - 1] ?? 0;
     try {
-      const res = await getUserCollections(user.username, { limit: 50 });
-      setCollections(res.data.data.items || []);
+      const params = cursor > 0
+        ? { cursor, limit: collectionsPageSize }
+        : { limit: collectionsPageSize };
+      const res = await getUserCollections(user.username, params);
+      const data = res.data.data as { items: Collection[]; next_cursor: number; has_more: boolean; total?: number };
+      setCollections(data.items || []);
+      setCollectionsPage(page);
+      setCollectionsTotal(data.total ?? 0);
+      collectionsCursorsRef.current = collectionsCursorsRef.current.slice(0, page);
+      if (data.has_more && data.next_cursor > 0) {
+        collectionsCursorsRef.current[page] = data.next_cursor;
+      }
     } catch {
       toast.error('Failed to load collections');
     } finally {
       setCollectionsLoaded(true);
     }
-  }, [user]);
+  }, [user, collectionsPageSize]);
 
   const fetchLedger = useCallback(async (page: number) => {
     setTxLoading(true);
@@ -299,7 +341,7 @@ export default function ProfilePage() {
     setLoading(true);
     setPubList(emptyList()); setInProgress(emptyList());
     setFavList(emptyList()); setLikeList(emptyList()); setDlList(emptyList());
-    setCollections([]); setCollectionsLoaded(false);
+    setCollections([]); setCollectionsLoaded(false); setCollectionsPage(1); setCollectionsTotal(0); collectionsCursorsRef.current = [0];
     setTxs([]); setTxPage(1); setTxCursors([0]); setTxTotal(0); setTxLoaded(false);
 
     setError(false);
@@ -499,6 +541,10 @@ export default function ProfilePage() {
             user={user}
             collections={collections}
             loaded={collectionsLoaded}
+            page={collectionsPage}
+            total={collectionsTotal}
+            pageSize={collectionsPageSize}
+            onPage={(p) => fetchCollections(p)}
           />
         )}
         {activeTab === 'favorites' && (
@@ -825,7 +871,7 @@ function UploadsPanel({ isOwner, inProgress, pub, pageSize, onPubPage, onInProgr
           Published · {pub.items.length === 0 && !pub.loaded ? '…' : `${pub.items.length} of ${pubTotal}`}
         </div>
         {!pub.loaded ? (
-          <WallpaperGridSkeleton count={8} cols="4" />
+          <ProfileWallpapersSkeleton />
         ) : pub.items.length === 0 ? (
           <div className="text-center py-20 text-muted text-sm">No published wallpapers yet.</div>
         ) : (
@@ -848,12 +894,18 @@ interface CollectionsPanelProps {
   user: User;
   collections: Collection[];
   loaded: boolean;
+  page: number;
+  total: number;
+  pageSize: number;
+  onPage: (p: number) => void;
 }
-function CollectionsPanel({ isOwner, collections, loaded }: CollectionsPanelProps) {
+function CollectionsPanel({ isOwner, collections, loaded, page, total, pageSize, onPage }: CollectionsPanelProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <div className="label-rule flex-1">Created · {collections.length}</div>
+        <div className="label-rule flex-1">
+          Created · {loaded ? total : '…'}
+        </div>
         {isOwner && (
           <Link
             to="/collections"
@@ -864,15 +916,22 @@ function CollectionsPanel({ isOwner, collections, loaded }: CollectionsPanelProp
         )}
       </div>
       {!loaded ? (
-        <CollectionGridSkeleton count={8} />
+        <ProfileCollectionsSkeleton count={pageSize} />
       ) : collections.length === 0 ? (
         <div className="text-center py-20 text-muted text-sm">No collections yet.</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
-          {collections.map((c) => (
-            <ProfileCollectionTile key={c.id} c={c} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
+            {collections.map((c) => (
+              <ProfileCollectionTile key={c.id} c={c} />
+            ))}
+          </div>
+          <Pagination
+            current={page}
+            total={Math.max(1, Math.ceil(total / pageSize))}
+            onChange={onPage}
+          />
+        </>
       )}
     </div>
   );
@@ -924,6 +983,37 @@ function ProfileCollectionTile({ c }: { c: Collection }) {
   );
 }
 
+/* Skeletons matching the live grids — same chrome (dev-spec-card
+   for wallpapers, c-tile for collections) so loading state and
+   loaded state occupy identical footprints. Staggered animation
+   delays via .skeleton-card's shimmer. */
+function ProfileWallpapersSkeleton() {
+  // Match the live grid: 5 cols at lg, 4 rows ≈ 20 tiles. Smaller
+  // batches at narrower breakpoints — the responsive Tailwind grid
+  // will wrap, so showing extras is harmless.
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+      {Array.from({ length: 20 }).map((_, i) => (
+        <div key={i} className="dev-spec-card skeleton-card" style={{ aspectRatio: '3 / 2', animationDelay: `${Math.min(i, 16) * 30}ms` }} />
+      ))}
+    </div>
+  );
+}
+function ProfileCollectionsSkeleton({ count }: { count: number }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="flex flex-col gap-3">
+          <div className="c-tile-frame skeleton-card" style={{ aspectRatio: '1 / 1' }} />
+          <div className="skeleton-card" style={{ width: '40%', height: 10, borderRadius: 4 }} />
+          <div className="skeleton-card" style={{ width: '70%', height: 18, borderRadius: 4 }} />
+          <div className="skeleton-card" style={{ width: '30%', height: 9, borderRadius: 4 }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface ListPanelProps {
   pageSize: number;
   listKey: ListKey;
@@ -960,7 +1050,7 @@ function ListPanel({ listKey, state, isOwner, isPublic, pageSize, onPage, onTogg
       <div className="label-rule mt-5 mb-3">{heading}</div>
 
       {!state.loaded ? (
-        <WallpaperGridSkeleton count={8} cols="4" />
+        <ProfileWallpapersSkeleton />
       ) : state.items.length === 0 ? (
         <div className="text-center py-20 text-muted text-sm">Nothing here yet.</div>
       ) : (
