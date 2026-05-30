@@ -617,33 +617,10 @@ export default function WallpaperDetailPage() {
         document.body,
       )}
 
-      {dlLoading && createPortal(
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-6">
-          <div className="w-full max-w-sm rounded-2xl border border-hair bg-paper p-6 shadow-2xl">
-            <div className="mono text-[10px] tracking-[0.18em] uppercase text-muted">
-              {dlProgress === null ? 'Preparing' : 'Downloading'}
-            </div>
-            <div className="mt-1 display text-[20px] leading-tight text-ink truncate">
-              {wallpaper?.title?.trim() || `Wallpaper #${wallpaper?.id}`}
-            </div>
-            <div className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-paper-3">
-              {dlProgress === null ? (
-                <div className="dl-indeterminate h-full w-1/3 rounded-full bg-accent" />
-              ) : (
-                <div
-                  className="h-full w-full origin-left rounded-full bg-accent transition-transform duration-200 ease-out"
-                  style={{ transform: `scaleX(${dlProgress / 100})` }}
-                />
-              )}
-            </div>
-            <div className="mt-2 flex items-center justify-between mono text-[11px] text-ink-2">
-              <span>{dlProgress === null ? 'Generating your size' : 'Saving to your device'}</span>
-              <span className="tabular-nums">{dlProgress === null ? '' : `${dlProgress}%`}</span>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+      {/* Download progress now lives as a gradient stroke painted around
+          the hero image (see HeroProgressBorder, rendered inside each
+          hero variant below). No separate modal — the wallpaper itself
+          is the progress indicator. */}
 
       {mockupVariant && wallpaper && (
         <DeviceMockup
@@ -907,6 +884,7 @@ export default function WallpaperDetailPage() {
                       onClick={(e) => { e.stopPropagation(); setFramePlaying((p) => !p); }}
                       className="absolute bottom-3 right-3 px-3 py-1 bg-black/60 text-white text-[11px] mono rounded backdrop-blur-sm"
                     >{framePlaying ? 'PAUSE' : 'PLAY'} · {frameIdx + 1}/{frames.length}</button>
+                    {dlLoading && <HeroProgressBorder palette={palette} progress={dlProgress} radius={18} />}
                   </div>
                 ) : (wallpaper.file_type || '').startsWith('video/') && wallpaper.original_url ? (
                   <div className="wd-hero-canvas" style={{ aspectRatio: wallpaper.width > 0 && wallpaper.height > 0 ? `${wallpaper.width} / ${wallpaper.height}` : '16 / 9', backgroundColor: wallpaper.dominant_color || undefined }}>
@@ -914,6 +892,7 @@ export default function WallpaperDetailPage() {
                       src={wallpaper.preview_video_url || wallpaper.original_url}
                       poster={wallpaper.preview_url || wallpaper.thumb_url}
                     />
+                    {dlLoading && <HeroProgressBorder palette={palette} progress={dlProgress} radius={18} />}
                   </div>
                 ) : heroImg ? (
                   previewOverlay !== 'off' ? (
@@ -928,18 +907,24 @@ export default function WallpaperDetailPage() {
                         mode={previewOverlay}
                         matched={matchedVariant}
                       />
+                      {dlLoading && <HeroProgressBorder palette={palette} progress={dlProgress} radius={0} />}
                     </div>
                   ) : (
-                    /* Off mode — image sizes itself, container shrinks to it */
-                    <img
-                      src={heroImg}
-                      alt=""
-                      onContextMenu={(e) => e.preventDefault()}
-                      draggable={false}
-                      onClick={() => setFullscreen(true)}
-                      className="wd-hero-img"
-                      style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
-                    />
+                    /* Off mode — image sizes itself, wrap is relative so
+                        the progress border can attach to its actual
+                        rendered rect (which respects max-h: 64vh). */
+                    <div className="wd-hero-img-wrap">
+                      <img
+                        src={heroImg}
+                        alt=""
+                        onContextMenu={(e) => e.preventDefault()}
+                        draggable={false}
+                        onClick={() => setFullscreen(true)}
+                        className="wd-hero-img"
+                        style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
+                      />
+                      {dlLoading && <HeroProgressBorder palette={palette} progress={dlProgress} radius={18} />}
+                    </div>
                   )
                 ) : null}
               </div>
@@ -1461,6 +1446,105 @@ function InlineDeviceMockup({
   );
 }
 
+/* Border-painted download progress. Stroke travels clockwise from the
+   top-left along the parent's perimeter. The stroke uses a linear
+   gradient mixed from the wallpaper's color palette so the progress
+   indicator feels visually tied to the content; it falls back to the
+   accent color when no palette is available. Indeterminate state (while
+   the server prepares the file before bytes start streaming) plays a
+   short dash looping around the perimeter. The wrapper is positioned
+   absolutely inside its parent (which must be position: relative) and
+   ignores pointer events so clicks pass through to the hero. */
+function HeroProgressBorder({
+  palette,
+  progress,
+  radius,
+}: {
+  palette: string[];
+  progress: number | null;
+  radius: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[0].contentRect;
+      setSize({ w: r.width, h: r.height });
+    });
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, []);
+  const sw = 3;
+  const inset = sw / 2;
+  // Use the wallpaper's palette to build the gradient. Single-color
+  // palettes get duplicated stops so the gradient still renders.
+  const stops = palette.length > 0
+    ? palette
+    : ['var(--color-accent)', 'var(--color-accent)'];
+  const safePalette = stops.length === 1 ? [stops[0], stops[0]] : stops;
+  // Unique gradient id per render so multiple instances on the page
+  // don't collide (rare but cheap to guard).
+  const gradId = useMemo(() => `wd-prog-${Math.random().toString(36).slice(2, 9)}`, []);
+  const ready = size.w > 0 && size.h > 0;
+  return (
+    <div ref={ref} className="wd-progress-border-wrap" style={{ borderRadius: radius }}>
+      {ready && (
+        <svg width={size.w} height={size.h} viewBox={`0 0 ${size.w} ${size.h}`} aria-hidden>
+          <defs>
+            {/* Diagonal gradient so the stroke colour shifts smoothly
+                as it traces from the top-left corner clockwise. */}
+            <linearGradient id={gradId} x1="0" y1="0" x2={size.w} y2={size.h} gradientUnits="userSpaceOnUse">
+              {safePalette.map((c, i) => (
+                <stop key={i} offset={`${(i / (safePalette.length - 1)) * 100}%`} stopColor={c} />
+              ))}
+            </linearGradient>
+          </defs>
+          <rect
+            x={inset}
+            y={inset}
+            width={Math.max(0, size.w - sw)}
+            height={Math.max(0, size.h - sw)}
+            rx={Math.max(0, radius - inset)}
+            ry={Math.max(0, radius - inset)}
+            fill="none"
+            stroke={`url(#${gradId})`}
+            strokeWidth={sw}
+            strokeLinecap="round"
+            // Normalize the path to 100 units so dasharray / offset map
+            // directly to percent progress.
+            pathLength={100}
+            strokeDasharray={progress === null ? '18 82' : '100 0'}
+            strokeDashoffset={progress === null ? 0 : 100 - progress}
+            style={{
+              transition: progress === null
+                ? 'none'
+                : 'stroke-dashoffset 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
+              animation: progress === null
+                ? 'wd-progress-loop 1.4s linear infinite'
+                : 'none',
+              filter: 'drop-shadow(0 0 6px rgba(0,0,0,0.18))',
+            }}
+          />
+        </svg>
+      )}
+      {progress !== null && (
+        <div className="wd-progress-chip">
+          <span className="wd-progress-chip-dot" />
+          {progress}%
+        </div>
+      )}
+      {progress === null && (
+        <div className="wd-progress-chip">
+          <span className="wd-progress-chip-dot is-pulsing" />
+          Preparing
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SpotlightStyles() {
   return (<style>{`
 /* ── Outer blurred-wallpaper backdrop ────────────────────────── */
@@ -1480,6 +1564,22 @@ function SpotlightStyles() {
 .wd-hero-img { display: block; max-width: 100%; max-height: 64vh; width: auto; height: auto; object-fit: contain; border-radius: 18px; box-shadow: 0 18px 48px -18px rgba(0,0,0,0.32); border: 1px solid rgba(255,255,255,0.18); cursor: zoom-in; }
 .wd-hero-canvas { position: relative; width: 100%; max-width: 1080px; max-height: 64vh; border-radius: 18px; overflow: hidden; box-shadow: 0 18px 48px -18px rgba(0,0,0,0.32); border: 1px solid rgba(255,255,255,0.18); }
 .wd-hero-stage { position: relative; width: 100%; height: 64vh; }
+.wd-hero-img-wrap { position: relative; display: inline-block; line-height: 0; border-radius: 18px; max-width: 100%; }
+
+/* Border-painted download progress */
+.wd-progress-border-wrap { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.wd-progress-border-wrap svg { display: block; overflow: visible; }
+.wd-progress-chip { position: absolute; bottom: 12px; right: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px 5px 9px; border-radius: 999px; background: rgba(20,18,15,0.72); backdrop-filter: blur(8px); color: white; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; box-shadow: 0 6px 14px -6px rgba(0,0,0,0.4); }
+.wd-progress-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color-accent); box-shadow: 0 0 6px var(--color-accent); }
+.wd-progress-chip-dot.is-pulsing { animation: wd-progress-pulse 1s ease-in-out infinite; }
+@keyframes wd-progress-loop {
+  from { stroke-dashoffset: 100; }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes wd-progress-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.75); }
+}
 
 /* ── Action bar ─────────────────────────────────────────────── */
 .wd-actionbar { margin-top: clamp(14px, 1.6vw, 18px); padding: 14px clamp(12px, 1.6vw, 16px); background: rgba(250,247,240,0.82); backdrop-filter: blur(16px) saturate(1.2); border: 1px solid rgba(0,0,0,0.06); border-radius: 18px; box-shadow: 0 12px 32px -16px rgba(0,0,0,0.22); }
