@@ -1287,7 +1287,7 @@ export default function WallpaperDetailPage() {
             {similar.length > 0 && (
               <section className="mt-8">
                 <div className="label-rule mb-4">More like this · {similar.length}</div>
-                <WallpaperGrid wallpapers={similar.slice(0, 8)} viewMode="justified" sizeMode="md" />
+                <WallpaperGrid wallpapers={similar.slice(0, 8)} viewMode="grid" sizeMode="md" />
               </section>
             )}
 
