@@ -27,6 +27,7 @@ import DeviceIndexPage from './pages/DeviceIndexPage';
 import DeviceWallpapersPage from './pages/DeviceWallpapersPage';
 import DownloadMacPage from './pages/DownloadMacPage';
 import WallpaperDetailModal from './components/WallpaperDetailModal';
+import WallpaperDetailPreviewPage from './pages/dev/WallpaperDetailPreviewPage';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/DashboardPage';
 import AdminAnalytics from './pages/admin/AnalyticsPage';
@@ -99,6 +100,11 @@ function AppRoutes() {
           <Route path="/wallpapers-for" element={<DeviceIndexPage />} />
           <Route path="/wallpapers-for/:slug" element={<DeviceWallpapersPage />} />
           <Route path="/download/mac" element={<DownloadMacPage />} />
+          {/* Dev-only preview of redesigned wallpaper detail page
+              (Studio / Spotlight / Index Card). Not linked from anywhere,
+              accessed manually via /dev/wp-detail. Safe to leave shipped
+              — no real API calls, all inline mock data. */}
+          <Route path="/dev/wp-detail" element={<WallpaperDetailPreviewPage />} />
         </Route>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
