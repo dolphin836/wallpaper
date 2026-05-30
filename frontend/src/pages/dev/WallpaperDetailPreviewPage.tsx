@@ -9,8 +9,9 @@ import {
   AiOutlineStar,
   AiOutlineDownload, AiOutlineFullscreen,
   AiOutlineClose, AiOutlineFlag,
+  AiOutlineEye,
 } from 'react-icons/ai';
-import { MdDesktopMac, MdLaptopMac, MdPhoneIphone, MdTabletMac, MdPlaylistAdd } from 'react-icons/md';
+import { MdDesktopMac, MdLaptopMac, MdPhoneIphone, MdTabletMac, MdPlaylistAdd, MdDevices } from 'react-icons/md';
 
 type Variant = 'studio' | 'spotlight' | 'card';
 
@@ -45,10 +46,18 @@ const SAMPLE = {
   isAI: false,
   resLabel: '4K',
   variants: [
-    { id: 1, icon: 'desktop' as const, name: 'MacBook Pro 14"', w: 3024, h: 1964, size: '2.0 MB', matched: true },
-    { id: 2, icon: 'phone' as const, name: 'iPhone 16 Pro', w: 1290, h: 2796, size: '1.1 MB', matched: false },
-    { id: 3, icon: 'tablet' as const, name: 'iPad Pro 13"', w: 2752, h: 2064, size: '1.6 MB', matched: false },
-    { id: 4, icon: 'desktop' as const, name: '5K iMac', w: 5120, h: 2880, size: '3.4 MB', matched: false },
+    { id: 1,  group: 'Mac',         icon: 'laptop'  as const, name: 'MacBook Pro 14"',  w: 3024, h: 1964, size: '2.0 MB', matched: true  },
+    { id: 2,  group: 'Mac',         icon: 'laptop'  as const, name: 'MacBook Pro 16"',  w: 3456, h: 2234, size: '2.5 MB', matched: false },
+    { id: 3,  group: 'Mac',         icon: 'laptop'  as const, name: 'MacBook Air 13"',  w: 2560, h: 1664, size: '1.7 MB', matched: false },
+    { id: 4,  group: 'Mac',         icon: 'desktop' as const, name: '5K iMac · Studio', w: 5120, h: 2880, size: '3.4 MB', matched: false },
+    { id: 5,  group: 'iPhone',      icon: 'phone'   as const, name: 'iPhone 16 Pro Max', w: 1320, h: 2868, size: '1.2 MB', matched: false },
+    { id: 6,  group: 'iPhone',      icon: 'phone'   as const, name: 'iPhone 16 Pro',     w: 1290, h: 2796, size: '1.1 MB', matched: false },
+    { id: 7,  group: 'iPhone',      icon: 'phone'   as const, name: 'iPhone 16',         w: 1170, h: 2532, size: '0.9 MB', matched: false },
+    { id: 8,  group: 'iPhone',      icon: 'phone'   as const, name: 'iPhone SE',         w: 750,  h: 1334, size: '0.4 MB', matched: false },
+    { id: 9,  group: 'iPad',        icon: 'tablet'  as const, name: 'iPad Pro 13"',      w: 2752, h: 2064, size: '1.6 MB', matched: false },
+    { id: 10, group: 'iPad',        icon: 'tablet'  as const, name: 'iPad Air 11"',      w: 1640, h: 2360, size: '1.3 MB', matched: false },
+    { id: 11, group: 'Watch / TV',  icon: 'desktop' as const, name: 'Apple TV 4K',       w: 3840, h: 2160, size: '2.3 MB', matched: false },
+    { id: 12, group: 'Watch / TV',  icon: 'phone'   as const, name: 'Apple Watch Ultra', w: 410,  h: 502,  size: '0.2 MB', matched: false },
   ],
   cost: 1,
   userCoins: 124,
@@ -63,7 +72,7 @@ function PlatformIcon({ icon, size = 18 }: { icon: 'desktop' | 'laptop' | 'phone
 }
 
 export default function WallpaperDetailPreviewPage() {
-  const [variant, setVariant] = useState<Variant>('studio');
+  const [variant, setVariant] = useState<Variant>('spotlight');
   return (
     <div className="bg-paper text-ink min-h-screen">
       <Switcher current={variant} onChange={setVariant} />
@@ -246,77 +255,283 @@ function StudioLayout() {
    palette swatches + variants horizontal carousel. Specs in a
    small floating tag at the top-right. */
 function SpotlightLayout() {
+  // Three independent overlays + a small preview popover. Only one
+  // overlay shows at a time but they're modeled separately because
+  // they're conceptually different (drawer = list, fullscreen = pure
+  // image, mockup = chrome). Click outside / ESC closes each.
+  const [drawerOpen, setDrawerOpen]   = useState(false);
+  const [fsOpen, setFsOpen]           = useState(false);
+  const [mockupOpen, setMockupOpen]   = useState(false);
+  const [previewMenu, setPreviewMenu] = useState(false);
+
+  const groups = ['Mac', 'iPhone', 'iPad', 'Watch / TV'] as const;
+
   return (
-    <div className="relative spotlight-stage" style={{ background: `linear-gradient(135deg, ${SAMPLE.dominantColor}, var(--color-paper))` }}>
-      {/* Top corners */}
-      <div className="spotlight-corners">
-        <div className="kicker text-paper/80">{SAMPLE.category} · added {SAMPLE.addedDaysAgo}d ago</div>
-        <div className="spotlight-specs">
-          <div>
-            <div className="display text-[22px] leading-none">{SAMPLE.width}<span className="text-paper/55"> × </span>{SAMPLE.height}</div>
-            <div className="mono text-[10px] tracking-[0.14em] text-paper/70 mt-1">{SAMPLE.resLabel} · {SAMPLE.fileType} · {SAMPLE.fileSize}{SAMPLE.isDynamic && ' · DYNAMIC'}</div>
-          </div>
-          <button className="text-paper/80 hover:text-paper p-2"><AiOutlineClose size={18} /></button>
-        </div>
-      </div>
-
-      {/* Hero */}
-      <div className="spotlight-hero" style={{ aspectRatio: '16/9' }}>
-        <img src={SAMPLE.hero} alt={SAMPLE.title} draggable={false} />
-        <h1 className="spotlight-title">{SAMPLE.title}</h1>
-        <button className="spotlight-fs"><AiOutlineFullscreen size={14} /> Fullscreen</button>
-      </div>
-
-      {/* Floating dock */}
-      <div className="spotlight-dock">
-        <div className="spotlight-dock-uploader">
-          <div className="w-9 h-9 rounded-full bg-paper-2 border border-hair flex items-center justify-center text-[14px] font-medium">{SAMPLE.uploader.nickname[0]}</div>
-          <div className="min-w-0">
-            <div className="text-[13px] font-medium leading-tight truncate">@{SAMPLE.uploader.username}</div>
-            <div className="mono text-[10px] text-muted">{SAMPLE.uploader.bio}</div>
+    <div className="relative">
+      <div className="relative spotlight-stage" style={{ background: `linear-gradient(135deg, ${SAMPLE.dominantColor}, var(--color-paper))` }}>
+        {/* Top corners */}
+        <div className="spotlight-corners">
+          <div className="kicker text-paper/80">{SAMPLE.category} · added {SAMPLE.addedDaysAgo}d ago</div>
+          <div className="spotlight-specs">
+            <div>
+              <div className="display text-[22px] leading-none">{SAMPLE.width}<span className="text-paper/55"> × </span>{SAMPLE.height}</div>
+              <div className="mono text-[10px] tracking-[0.14em] text-paper/70 mt-1">{SAMPLE.resLabel} · {SAMPLE.fileType} · {SAMPLE.fileSize}{SAMPLE.isDynamic && ' · DYNAMIC'}</div>
+            </div>
+            <button className="text-paper/80 hover:text-paper p-2"><AiOutlineClose size={18} /></button>
           </div>
         </div>
 
-        <div className="spotlight-dock-divider" />
-
-        <div className="spotlight-dock-palette" title="click any swatch to copy hex">
-          {SAMPLE.palette.map((c, i) => <span key={i} className="block w-5 h-5 rounded-md" style={{ background: c }} />)}
+        {/* Hero — click anywhere on the image to enter fullscreen */}
+        <div className="spotlight-hero" style={{ aspectRatio: '16/9' }} onClick={() => setFsOpen(true)}>
+          <img src={SAMPLE.hero} alt={SAMPLE.title} draggable={false} />
+          <h1 className="spotlight-title">{SAMPLE.title}</h1>
+          <div className="spotlight-hint"><AiOutlineFullscreen size={12} /> Click to fullscreen</div>
         </div>
 
-        <div className="spotlight-dock-divider" />
+        {/* Floating dock — primary surface, always visible while stage in view */}
+        <div className="spotlight-dock">
+          <div className="spotlight-dock-uploader">
+            <div className="w-9 h-9 rounded-full bg-paper-2 border border-hair flex items-center justify-center text-[14px] font-medium">{SAMPLE.uploader.nickname[0]}</div>
+            <div className="min-w-0">
+              <div className="text-[13px] font-medium leading-tight truncate">@{SAMPLE.uploader.username}</div>
+              <div className="mono text-[10px] text-muted">{SAMPLE.uploader.bio}</div>
+            </div>
+          </div>
 
-        <button className="spotlight-dock-icon" title="Like 88"><AiOutlineHeart size={18} /></button>
-        <button className="spotlight-dock-icon" title="Favorite"><AiOutlineStar size={18} /></button>
-        <button className="spotlight-dock-icon" title="Add to collection"><MdPlaylistAdd size={20} /></button>
+          <div className="spotlight-dock-divider" />
 
-        <div className="spotlight-dock-divider" />
+          <div className="spotlight-dock-palette" title="click any swatch to copy hex">
+            {SAMPLE.palette.map((c, i) => <span key={i} className="block w-5 h-5 rounded-md" style={{ background: c }} />)}
+          </div>
 
-        <button className="spotlight-dock-cta">
-          <span className="balance-pill__coin" aria-hidden />
-          Trade for {SAMPLE.cost} <span className="text-paper/55 ml-1">· {SAMPLE.userCoins}⊙</span>
-        </button>
-      </div>
+          <div className="spotlight-dock-divider" />
 
-      {/* Variants strip */}
-      <div className="spotlight-variants">
-        <div className="kicker text-paper/70 mb-2">Available devices · 12 · horizontal scroll →</div>
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {SAMPLE.variants.map((v) => (
-            <div key={v.id} className={`spotlight-variant ${v.matched ? 'is-matched' : ''}`}>
-              <PlatformIcon icon={v.icon} size={20} />
-              <div className="min-w-0">
-                <div className="text-[12px] font-medium truncate">{v.name}</div>
-                <div className="mono text-[10px] text-paper/65 mt-0.5">{v.w}×{v.h}</div>
+          <button className="spotlight-dock-icon" title="Like 88"><AiOutlineHeart size={18} /></button>
+          <button className="spotlight-dock-icon" title="Favorite"><AiOutlineStar size={18} /></button>
+          <button className="spotlight-dock-icon" title="Add to collection"><MdPlaylistAdd size={20} /></button>
+
+          <div className="spotlight-dock-divider" />
+
+          {/* Preview split — fullscreen vs in-device chrome */}
+          <div className="spotlight-dock-pop">
+            <button className="spotlight-dock-pill" onClick={() => setPreviewMenu((v) => !v)}>
+              <AiOutlineEye size={15} /> Preview <span className="opacity-50 text-[10px]">▾</span>
+            </button>
+            {previewMenu && (
+              <div className="spotlight-popover">
+                <button onClick={() => { setPreviewMenu(false); setFsOpen(true); }}>
+                  <AiOutlineFullscreen size={14} />
+                  <span><strong>Fullscreen</strong><span>Just the image · ESC to close</span></span>
+                </button>
+                <button onClick={() => { setPreviewMenu(false); setMockupOpen(true); }}>
+                  <MdDesktopMac size={16} />
+                  <span><strong>In device</strong><span>See it on a Mac / iPhone / iPad</span></span>
+                </button>
               </div>
-              <button className="spotlight-variant-dl"><AiOutlineDownload size={14} /></button>
-              {v.matched && <span className="spotlight-variant-tag">YOUR DEVICE</span>}
+            )}
+          </div>
+
+          {/* Devices opens the side drawer with the full grouped list */}
+          <button className="spotlight-dock-pill" onClick={() => setDrawerOpen(true)}>
+            <MdDevices size={16} /> Devices · 12 <span className="opacity-50 text-[10px]">▾</span>
+          </button>
+
+          <div className="spotlight-dock-divider" />
+
+          <button className="spotlight-dock-cta">
+            <span className="balance-pill__coin" aria-hidden />
+            Trade for {SAMPLE.cost} <span className="text-paper/55 ml-1">· {SAMPLE.userCoins}⊙</span>
+          </button>
+        </div>
+
+        {/* Tiny matched-device hint under the dock — gives one-tap
+            download for the user's own device without opening the drawer */}
+        <div className="spotlight-quickmatch">
+          <span className="kicker text-paper/65">YOUR DEVICE</span>
+          {SAMPLE.variants.filter((v) => v.matched).map((v) => (
+            <div key={v.id} className="spotlight-quickmatch-card">
+              <PlatformIcon icon={v.icon} size={18} />
+              <div>
+                <div className="text-[12px] font-medium leading-tight">{v.name}</div>
+                <div className="mono text-[10px] text-paper/60">{v.w}×{v.h} · {v.size}</div>
+              </div>
+              <button className="spotlight-quickmatch-dl"><AiOutlineDownload size={14} /> Get</button>
             </div>
           ))}
         </div>
       </div>
 
+      {/* ─── More like this — below the spotlight stage ─────────────
+          Scrolls naturally after the focus moment. 8 cards in a 4-col
+          grid; clicking would in the real page swap the hero in-place
+          rather than route-jump (parameterless transition). */}
+      <section className="mt-12">
+        <div className="flex items-end justify-between mb-4">
+          <h2 className="display text-[clamp(22px,2.2vw,28px)] leading-none">More like this</h2>
+          <a className="mono text-[11px] tracking-[0.14em] text-muted">VIEW ALL → · 8 from <span className="text-ink">@{SAMPLE.uploader.username}</span></a>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="spotlight-rec">
+              <div className="spotlight-rec-img" style={{ aspectRatio: '3/2', background: `linear-gradient(${(i * 47) % 360}deg, ${SAMPLE.palette[i % SAMPLE.palette.length]}, ${SAMPLE.palette[(i + 2) % SAMPLE.palette.length]})` }} />
+              <div className="spotlight-rec-meta">
+                <div className="text-[12px] font-medium truncate">Misty pine №{i + 1}</div>
+                <div className="mono text-[10px] text-muted">3840×2160 · 4K</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── Right-side drawer with grouped device list ───────────── */}
+      {drawerOpen && (
+        <div className="spotlight-drawer-scrim" onClick={() => setDrawerOpen(false)}>
+          <div className="spotlight-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="spotlight-drawer-head">
+              <div>
+                <div className="kicker text-muted">All devices · 12</div>
+                <h3 className="display text-[20px] leading-tight mt-1">Pick the right size</h3>
+              </div>
+              <button onClick={() => setDrawerOpen(false)} className="p-1.5 rounded-full hover:bg-paper-2"><AiOutlineClose size={18} /></button>
+            </div>
+            <div className="spotlight-drawer-body">
+              {groups.map((g) => {
+                const items = SAMPLE.variants.filter((v) => v.group === g);
+                if (!items.length) return null;
+                return (
+                  <div key={g} className="spotlight-drawer-group">
+                    <div className="spotlight-drawer-grouphead">
+                      <span>{g}</span>
+                      <span className="mono text-[10px] tracking-[0.14em] text-muted normal-case">{items.length}</span>
+                    </div>
+                    {items.map((v) => (
+                      <div key={v.id} className={`spotlight-drawer-row ${v.matched ? 'is-matched' : ''}`}>
+                        <PlatformIcon icon={v.icon} size={18} />
+                        <div className="min-w-0">
+                          <div className="text-[13px] truncate">{v.name} {v.matched && <span className="ml-1.5 mono text-[9px] tracking-[0.12em] px-1.5 py-[1px] bg-ink text-paper rounded">YOUR DEVICE</span>}</div>
+                          <div className="mono text-[10px] text-muted mt-0.5">{v.w}×{v.h} · {v.size}</div>
+                        </div>
+                        <button className={`spotlight-drawer-dl ${v.matched ? 'is-matched' : ''}`}>
+                          <AiOutlineDownload size={13} /> Get
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="spotlight-drawer-foot mono text-[10px] tracking-[0.12em] text-muted">
+              ESC OR CLICK OUTSIDE TO CLOSE · ALL DOWNLOADS COST 1 COIN
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Fullscreen overlay — image-only, dark backdrop ──────── */}
+      {fsOpen && (
+        <div className="fs-overlay" onClick={() => setFsOpen(false)}>
+          <img src={SAMPLE.hero} alt={SAMPLE.title} onClick={(e) => e.stopPropagation()} />
+          <div className="fs-controls" onClick={(e) => e.stopPropagation()}>
+            <button>Fit</button>
+            <span className="fs-divider" />
+            <button>Fill</button>
+            <span className="fs-divider" />
+            <button>↺</button>
+            <span className="mono text-[10px] tracking-[0.14em] px-2 opacity-70">100%</span>
+            <span className="fs-divider" />
+            <button onClick={() => setFsOpen(false)}><AiOutlineClose size={13} /></button>
+          </div>
+          <button className="fs-close" onClick={() => setFsOpen(false)} title="ESC"><AiOutlineClose size={20} /></button>
+        </div>
+      )}
+
+      {/* ─── Device mockup modal — wallpaper inside a frame ──────── */}
+      {mockupOpen && <DeviceMockupModal onClose={() => setMockupOpen(false)} />}
+
       <SpotlightCSS />
     </div>
+  );
+}
+
+/* In-device preview — pick a chassis and render the hero behind it.
+   Three SVG frames keeps the demo dependency-free; production would
+   probably use real device-frame images sourced from Apple's UI kits. */
+function DeviceMockupModal({ onClose }: { onClose: () => void }) {
+  const [device, setDevice] = useState<'macbook' | 'iphone' | 'ipad'>('macbook');
+  return (
+    <div className="mockup-overlay" onClick={onClose}>
+      <div className="mockup-shell" onClick={(e) => e.stopPropagation()}>
+        <div className="mockup-head">
+          <div>
+            <div className="kicker text-muted">Preview · how it looks on</div>
+            <h3 className="display text-[20px] leading-none mt-1.5">In device</h3>
+          </div>
+          <div className="mockup-tabs">
+            {(['macbook', 'iphone', 'ipad'] as const).map((d) => (
+              <button key={d} onClick={() => setDevice(d)} className={device === d ? 'is-on' : ''}>
+                {d === 'macbook' ? <MdLaptopMac size={16} /> : d === 'iphone' ? <MdPhoneIphone size={16} /> : <MdTabletMac size={16} />}
+                <span className="capitalize">{d}</span>
+              </button>
+            ))}
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-paper-2 ml-auto"><AiOutlineClose size={18} /></button>
+        </div>
+        <div className="mockup-stage" style={{ background: `radial-gradient(80% 60% at 50% 35%, ${SAMPLE.palette[1]}, ${SAMPLE.palette[0]})` }}>
+          {device === 'macbook' && <MacBookFrame src={SAMPLE.hero} />}
+          {device === 'iphone'  && <IPhoneFrame  src={SAMPLE.hero} />}
+          {device === 'ipad'    && <IPadFrame    src={SAMPLE.hero} />}
+        </div>
+        <div className="mockup-foot">
+          <div className="mono text-[11px] tracking-[0.08em] text-muted">{deviceLabel(device)}</div>
+          <button className="spotlight-dock-cta">
+            <AiOutlineDownload size={14} /> Get for this device
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+function deviceLabel(d: 'macbook' | 'iphone' | 'ipad'): string {
+  if (d === 'macbook') return 'MacBook Pro 14" · 3024×1964 · matched';
+  if (d === 'iphone')  return 'iPhone 16 Pro · 1290×2796';
+  return 'iPad Pro 13" · 2752×2064';
+}
+function MacBookFrame({ src }: { src: string }) {
+  return (
+    <svg viewBox="0 0 800 520" className="mockup-svg" preserveAspectRatio="xMidYMid meet">
+      <defs><clipPath id="mbScreen"><rect x="70" y="40" width="660" height="412" rx="14" /></clipPath></defs>
+      {/* Body */}
+      <rect x="50" y="20" width="700" height="450" rx="20" fill="#1a1815" />
+      <rect x="60" y="30" width="680" height="430" rx="16" fill="#2a2724" />
+      <circle cx="400" cy="48" r="3" fill="#0a0908" />
+      {/* Screen + wallpaper clipped inside */}
+      <image href={src} x="70" y="40" width="660" height="412" preserveAspectRatio="xMidYMid slice" clipPath="url(#mbScreen)" />
+      {/* Keyboard tray */}
+      <rect x="20" y="470" width="760" height="20" rx="6" fill="#3a3633" />
+      <rect x="340" y="478" width="120" height="6" rx="2" fill="#1f1d1a" />
+    </svg>
+  );
+}
+function IPhoneFrame({ src }: { src: string }) {
+  return (
+    <svg viewBox="0 0 320 640" className="mockup-svg" preserveAspectRatio="xMidYMid meet">
+      <defs><clipPath id="ipScreen"><rect x="22" y="22" width="276" height="596" rx="38" /></clipPath></defs>
+      <rect x="10" y="10" width="300" height="620" rx="48" fill="#1a1815" />
+      <rect x="22" y="22" width="276" height="596" rx="38" fill="#000" />
+      <image href={src} x="22" y="22" width="276" height="596" preserveAspectRatio="xMidYMid slice" clipPath="url(#ipScreen)" />
+      {/* Dynamic island */}
+      <rect x="125" y="36" width="70" height="22" rx="11" fill="#000" />
+    </svg>
+  );
+}
+function IPadFrame({ src }: { src: string }) {
+  return (
+    <svg viewBox="0 0 560 720" className="mockup-svg" preserveAspectRatio="xMidYMid meet">
+      <defs><clipPath id="ipdScreen"><rect x="34" y="34" width="492" height="652" rx="16" /></clipPath></defs>
+      <rect x="14" y="14" width="532" height="692" rx="28" fill="#1a1815" />
+      <rect x="34" y="34" width="492" height="652" rx="16" fill="#000" />
+      <image href={src} x="34" y="34" width="492" height="652" preserveAspectRatio="xMidYMid slice" clipPath="url(#ipdScreen)" />
+    </svg>
   );
 }
 
@@ -486,28 +701,83 @@ function StudioCSS() {
 /* — Spotlight styles — */
 function SpotlightCSS() {
   return (<style>{`
-.spotlight-stage { position: relative; border-radius: 22px; overflow: hidden; padding: 60px 40px 220px; min-height: 80vh; }
+/* ── Stage & hero ── */
+.spotlight-stage { position: relative; border-radius: 22px; overflow: hidden; padding: 60px 40px 180px; min-height: 78vh; }
 .spotlight-corners { position: absolute; top: 22px; left: 32px; right: 32px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; z-index: 3; }
 .spotlight-corners .kicker { color: rgba(255,255,255,0.85) !important; }
 .spotlight-specs { display: flex; align-items: flex-start; gap: 12px; background: rgba(20,18,15,0.45); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; padding: 14px 16px; color: white; }
-.spotlight-hero { max-width: 1080px; margin: 0 auto; position: relative; border-radius: 16px; overflow: hidden; box-shadow: 0 30px 80px -20px rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.18); }
+.spotlight-hero { max-width: 1080px; margin: 0 auto; position: relative; border-radius: 16px; overflow: hidden; box-shadow: 0 30px 80px -20px rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.18); cursor: zoom-in; }
 .spotlight-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.spotlight-title { position: absolute; left: 28px; bottom: 28px; color: white; font-family: var(--font-display); font-size: clamp(24px, 2.6vw, 36px); line-height: 1.05; max-width: 65%; text-shadow: 0 2px 12px rgba(0,0,0,0.3); }
-.spotlight-fs { position: absolute; top: 14px; right: 14px; display: inline-flex; gap: 6px; align-items: center; padding: 6px 12px; border-radius: 999px; background: rgba(20,18,15,0.55); backdrop-filter: blur(8px); color: white; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; border: 1px solid rgba(255,255,255,0.15); }
-.spotlight-dock { position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 12px 18px; background: rgba(250,247,240,0.78); backdrop-filter: blur(18px) saturate(1.2); border: 1px solid rgba(0,0,0,0.06); border-radius: 999px; box-shadow: 0 24px 56px -18px rgba(0,0,0,0.35); max-width: calc(100% - 60px); }
+.spotlight-title { position: absolute; left: 28px; bottom: 28px; color: white; font-family: var(--font-display); font-size: clamp(24px, 2.6vw, 36px); line-height: 1.05; max-width: 65%; text-shadow: 0 2px 12px rgba(0,0,0,0.3); pointer-events: none; }
+.spotlight-hint { position: absolute; top: 14px; right: 14px; display: inline-flex; gap: 5px; align-items: center; padding: 5px 10px; border-radius: 999px; background: rgba(20,18,15,0.55); backdrop-filter: blur(8px); color: white; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; border: 1px solid rgba(255,255,255,0.15); opacity: 0; transition: opacity .25s ease; pointer-events: none; }
+.spotlight-hero:hover .spotlight-hint { opacity: 1; }
+
+/* ── Floating dock ── */
+.spotlight-dock { position: absolute; bottom: 96px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: rgba(250,247,240,0.82); backdrop-filter: blur(18px) saturate(1.2); border: 1px solid rgba(0,0,0,0.06); border-radius: 999px; box-shadow: 0 24px 56px -18px rgba(0,0,0,0.4); max-width: calc(100% - 60px); flex-wrap: nowrap; }
 .dark .spotlight-dock { background: rgba(20,18,15,0.65); border-color: rgba(255,255,255,0.08); color: var(--color-paper); }
 .spotlight-dock-uploader { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.spotlight-dock-divider { width: 1px; height: 28px; background: var(--color-hair); }
+.spotlight-dock-divider { width: 1px; height: 26px; background: var(--color-hair); flex-shrink: 0; }
 .spotlight-dock-palette { display: flex; gap: 4px; }
-.spotlight-dock-icon { padding: 8px; border-radius: 999px; color: var(--color-ink-2); }
+.spotlight-dock-icon { padding: 7px; border-radius: 999px; color: var(--color-ink-2); }
 .spotlight-dock-icon:hover { background: var(--color-paper-2); color: var(--color-accent); }
-.spotlight-dock-cta { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 999px; background: var(--color-ink); color: var(--color-paper); font-size: 13px; font-weight: 600; }
-.spotlight-variants { position: absolute; bottom: 22px; left: 32px; right: 32px; }
-.spotlight-variants .kicker { color: rgba(255,255,255,0.7) !important; }
-.spotlight-variant { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: rgba(20,18,15,0.45); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.12); color: white; min-width: 220px; }
-.spotlight-variant.is-matched { border-color: var(--color-accent); }
-.spotlight-variant-dl { padding: 6px; border-radius: 50%; background: rgba(255,255,255,0.15); color: white; }
-.spotlight-variant-tag { position: absolute; top: -8px; right: 8px; padding: 2px 8px; border-radius: 999px; background: var(--color-accent); color: white; font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em; }
+.spotlight-dock-pill { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-hair); background: var(--color-paper); font-size: 12px; font-weight: 500; }
+.spotlight-dock-pill:hover { background: var(--color-paper-2); }
+.spotlight-dock-cta { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px; background: var(--color-ink); color: var(--color-paper); font-size: 13px; font-weight: 600; }
+.spotlight-dock-pop { position: relative; }
+.spotlight-popover { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); width: 240px; background: var(--color-paper); border: 1px solid var(--color-hair); border-radius: 14px; box-shadow: 0 20px 50px -16px rgba(0,0,0,0.28); padding: 6px; z-index: 30; }
+.spotlight-popover button { width: 100%; display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 10px; text-align: left; }
+.spotlight-popover button:hover { background: var(--color-paper-2); }
+.spotlight-popover button strong { display: block; font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.spotlight-popover button span span { display: block; font-family: var(--font-mono); font-size: 10px; color: var(--color-muted); letter-spacing: 0.04em; }
+
+/* Quick-match card under the dock — fast path for matched device */
+.spotlight-quickmatch { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; color: white; }
+.spotlight-quickmatch .kicker { color: rgba(255,255,255,0.7) !important; }
+.spotlight-quickmatch-card { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 999px; background: rgba(20,18,15,0.55); backdrop-filter: blur(12px); border: 1px solid var(--color-accent); color: white; }
+.spotlight-quickmatch-dl { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: var(--color-accent); color: white; font-size: 11px; font-weight: 600; }
+
+/* ── More-like-this grid ── */
+.spotlight-rec { border: 1px solid var(--color-hair); border-radius: 12px; overflow: hidden; background: var(--color-paper); cursor: pointer; transition: transform .25s ease, box-shadow .25s ease; }
+.spotlight-rec:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -16px rgba(0,0,0,0.18); }
+.spotlight-rec-img { width: 100%; }
+.spotlight-rec-meta { padding: 8px 12px 10px; }
+
+/* ── Drawer (right slide-in, grouped device list) ── */
+.spotlight-drawer-scrim { position: fixed; inset: 0; background: rgba(20,18,15,0.42); backdrop-filter: blur(2px); z-index: 60; display: flex; justify-content: flex-end; }
+.spotlight-drawer { width: 420px; max-width: 92vw; height: 100vh; background: var(--color-paper); display: flex; flex-direction: column; box-shadow: -20px 0 60px -20px rgba(0,0,0,0.25); border-left: 1px solid var(--color-hair); animation: slideInRight .28s cubic-bezier(0.2,0.8,0.2,1); }
+@keyframes slideInRight { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.spotlight-drawer-head { padding: 22px 22px 16px; border-bottom: 1px solid var(--color-hair); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.spotlight-drawer-body { flex: 1; overflow-y: auto; padding: 6px 18px 18px; }
+.spotlight-drawer-foot { padding: 12px 22px; border-top: 1px solid var(--color-hair); background: var(--color-paper-2); }
+.spotlight-drawer-group { margin-top: 14px; }
+.spotlight-drawer-grouphead { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--color-muted); padding: 0 6px 6px; border-bottom: 1px solid var(--color-hair); margin-bottom: 6px; }
+.spotlight-drawer-row { display: grid; grid-template-columns: 24px 1fr auto; gap: 12px; align-items: center; padding: 10px 6px; border-radius: 8px; }
+.spotlight-drawer-row:hover { background: var(--color-paper-2); }
+.spotlight-drawer-row.is-matched { background: color-mix(in oklch, var(--color-accent) 5%, var(--color-paper)); }
+.spotlight-drawer-dl { display: inline-flex; align-items: center; gap: 4px; padding: 5px 11px; border-radius: 999px; background: var(--color-ink); color: var(--color-paper); font-size: 11px; font-weight: 500; }
+.spotlight-drawer-dl.is-matched { background: var(--color-accent); }
+
+/* ── Fullscreen overlay ── */
+.fs-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.94); z-index: 70; display: flex; align-items: center; justify-content: center; cursor: zoom-out; animation: fadeIn .2s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.fs-overlay > img { max-width: 96vw; max-height: 92vh; object-fit: contain; box-shadow: 0 30px 80px -20px rgba(0,0,0,0.6); cursor: default; }
+.fs-close { position: absolute; top: 22px; right: 22px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); color: white; display: inline-flex; align-items: center; justify-content: center; }
+.fs-close:hover { background: rgba(255,255,255,0.2); }
+.fs-controls { position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 4px; padding: 8px 12px; border-radius: 999px; background: rgba(255,255,255,0.08); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.12); color: white; font-size: 12px; }
+.fs-controls button { padding: 4px 10px; border-radius: 999px; }
+.fs-controls button:hover { background: rgba(255,255,255,0.1); }
+.fs-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.2); }
+
+/* ── Device mockup modal ── */
+.mockup-overlay { position: fixed; inset: 0; background: rgba(20,18,15,0.5); backdrop-filter: blur(6px); z-index: 70; display: flex; align-items: center; justify-content: center; padding: 24px; animation: fadeIn .2s ease; }
+.mockup-shell { width: 100%; max-width: 920px; max-height: 92vh; background: var(--color-paper); border-radius: 18px; border: 1px solid var(--color-hair); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 40px 100px -30px rgba(0,0,0,0.4); }
+.mockup-head { display: flex; align-items: center; gap: 18px; padding: 16px 22px; border-bottom: 1px solid var(--color-hair); }
+.mockup-tabs { display: inline-flex; gap: 2px; padding: 3px; background: var(--color-paper-2); border-radius: 999px; }
+.mockup-tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; color: var(--color-muted); }
+.mockup-tabs button.is-on { background: var(--color-paper); color: var(--color-ink); box-shadow: 0 2px 4px -1px rgba(0,0,0,0.08); }
+.mockup-stage { flex: 1; min-height: 480px; display: flex; align-items: center; justify-content: center; padding: 30px; }
+.mockup-svg { width: 100%; height: 100%; max-height: 480px; }
+.mockup-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 22px; border-top: 1px solid var(--color-hair); background: var(--color-paper); }
 `}</style>);
 }
 
