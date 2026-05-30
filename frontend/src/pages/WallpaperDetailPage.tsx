@@ -205,6 +205,22 @@ export default function WallpaperDetailPage() {
   // painted directly onto the hero image (clock / dock / menu bar —
   // same overlays the discover floating wall uses).
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Recommendation count — always two complete rows of the rec grid.
+  // WallpaperGrid sizeMode="md" uses 2/3/4/5 cols at Tailwind's
+  // default/sm/md/lg breakpoints, so two rows = 4/6/8/10 cards. We
+  // recompute on window resize so the second row never trails an
+  // empty cell when the viewport widens.
+  const [recCount, setRecCount] = useState(10);
+  useEffect(() => {
+    const update = () => {
+      const w = window.innerWidth;
+      const cols = w >= 1024 ? 5 : w >= 768 ? 4 : w >= 640 ? 3 : 2;
+      setRecCount(cols * 2);
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
   // 'off' = naked wallpaper, no chrome. plain/home/lock = wallpaper
   // rendered inside the matched-device frame with the corresponding
   // scene (clean / home or desktop / lock).
@@ -868,25 +884,14 @@ export default function WallpaperDetailPage() {
                   - Video and dynamic-HEIC always render their natural
                     surfaces regardless of preview mode; the frame
                     toggles are not meaningful for those formats. */}
-              <div
-                className={`wd-hero ${previewOverlay !== 'off' ? 'is-framing' : ''}`}
-                style={previewOverlay === 'off' ? {
-                  aspectRatio: wallpaper.width > 0 && wallpaper.height > 0
-                    ? `${wallpaper.width} / ${wallpaper.height}`
-                    : '16 / 9',
-                  backgroundColor: wallpaper.dominant_color || undefined,
-                } : {
-                  backgroundColor: wallpaper.dominant_color || undefined,
-                }}
-                onClick={() => {
-                  if (frames.length > 1) return;
-                  if ((wallpaper.file_type || '').startsWith('video/')) return;
-                  if (previewOverlay !== 'off') return; // device frame owns clicks in its mode
-                  setFullscreen(true);
-                }}
-              >
+              {/* Hero stage — transparent flex container that centers the
+                  image (or canvas) horizontally. The visual chrome (rounded
+                  corners, shadow) lives on the image / canvas itself, so the
+                  container shrinks to its content and never paints an empty
+                  background strip around wide-short or tall-narrow wallpapers. */}
+              <div className="wd-hero">
                 {frames.length > 1 ? (
-                  <div className="relative w-full h-full">
+                  <div className="wd-hero-canvas" style={{ aspectRatio: wallpaper.width > 0 && wallpaper.height > 0 ? `${wallpaper.width} / ${wallpaper.height}` : '16 / 9', backgroundColor: wallpaper.dominant_color || undefined }}>
                     {frames.map((url, i) => (
                       <img
                         key={i}
@@ -904,25 +909,32 @@ export default function WallpaperDetailPage() {
                     >{framePlaying ? 'PAUSE' : 'PLAY'} · {frameIdx + 1}/{frames.length}</button>
                   </div>
                 ) : (wallpaper.file_type || '').startsWith('video/') && wallpaper.original_url ? (
-                  <VideoPlayer
-                    src={wallpaper.preview_video_url || wallpaper.original_url}
-                    poster={wallpaper.preview_url || wallpaper.thumb_url}
-                  />
+                  <div className="wd-hero-canvas" style={{ aspectRatio: wallpaper.width > 0 && wallpaper.height > 0 ? `${wallpaper.width} / ${wallpaper.height}` : '16 / 9', backgroundColor: wallpaper.dominant_color || undefined }}>
+                    <VideoPlayer
+                      src={wallpaper.preview_video_url || wallpaper.original_url}
+                      poster={wallpaper.preview_url || wallpaper.thumb_url}
+                    />
+                  </div>
                 ) : heroImg ? (
                   previewOverlay !== 'off' ? (
-                    <InlineDeviceMockup
-                      imageUrl={heroImg}
-                      platform={overlayPlatform}
-                      mode={previewOverlay}
-                      matched={matchedVariant}
-                    />
+                    /* Frame mode — fixed canvas for the absolute-positioned mockup */
+                    <div className="wd-hero-canvas wd-hero-canvas-fixed" style={{ backgroundColor: wallpaper.dominant_color || undefined }}>
+                      <InlineDeviceMockup
+                        imageUrl={heroImg}
+                        platform={overlayPlatform}
+                        mode={previewOverlay}
+                        matched={matchedVariant}
+                      />
+                    </div>
                   ) : (
+                    /* Off mode — image sizes itself, container shrinks to it */
                     <img
                       src={heroImg}
                       alt=""
                       onContextMenu={(e) => e.preventDefault()}
                       draggable={false}
-                      className="w-full h-full object-contain select-none"
+                      onClick={() => setFullscreen(true)}
+                      className="wd-hero-img"
                       style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                     />
                   )
@@ -1311,8 +1323,19 @@ export default function WallpaperDetailPage() {
             {/* ─── More like this — discover-style grid ─────────────── */}
             {similar.length > 0 && (
               <section className="mt-8">
-                <div className="label-rule mb-4">More like this · {similar.length}</div>
-                <WallpaperGrid wallpapers={similar.slice(0, 8)} viewMode="grid" sizeMode="md" />
+                {(() => {
+                  const cols = recCount / 2;
+                  const capped = Math.min(similar.length, recCount);
+                  const fullRows = Math.floor(capped / cols) * cols;
+                  const shown = similar.slice(0, fullRows);
+                  if (shown.length === 0) return null;
+                  return (
+                    <>
+                      <div className="label-rule mb-4">More like this · {shown.length}</div>
+                      <WallpaperGrid wallpapers={shown} viewMode="grid" sizeMode="md" />
+                    </>
+                  );
+                })()}
               </section>
             )}
 
@@ -1444,9 +1467,13 @@ function SpotlightStyles() {
 .wd-panel { position: relative; border-radius: 24px; padding: clamp(16px, 2vw, 24px); border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 24px 56px -28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.5); overflow: hidden; }
 
 /* ── Hero card ─────────────────────────────────────────────── */
-.wd-hero { position: relative; width: 100%; max-height: 64vh; margin: 0 auto; border-radius: 18px; overflow: hidden; box-shadow: 0 18px 48px -18px rgba(0,0,0,0.32); border: 1px solid rgba(255,255,255,0.18); cursor: zoom-in; background-color: var(--color-paper-3); }
-.wd-hero.is-framing { aspect-ratio: 16 / 10; height: 64vh; cursor: default; }
-.wd-hero > img, .wd-hero > div > img { width: 100%; height: 100%; object-fit: contain; display: block; }
+/* Transparent stage — visual chrome lives on the image / canvas inside,
+   so a wide-short or tall-narrow image doesn't get padded out by an
+   empty container background. */
+.wd-hero { position: relative; width: 100%; display: flex; justify-content: center; align-items: center; }
+.wd-hero-img { display: block; max-width: 100%; max-height: 64vh; width: auto; height: auto; object-fit: contain; border-radius: 18px; box-shadow: 0 18px 48px -18px rgba(0,0,0,0.32); border: 1px solid rgba(255,255,255,0.18); cursor: zoom-in; }
+.wd-hero-canvas { position: relative; width: 100%; max-width: 1080px; max-height: 64vh; border-radius: 18px; overflow: hidden; box-shadow: 0 18px 48px -18px rgba(0,0,0,0.32); border: 1px solid rgba(255,255,255,0.18); }
+.wd-hero-canvas-fixed { height: 64vh; aspect-ratio: unset; max-width: 100%; }
 
 /* ── Action bar ─────────────────────────────────────────────── */
 .wd-actionbar { margin-top: clamp(14px, 1.6vw, 18px); padding: 14px clamp(12px, 1.6vw, 16px); background: rgba(250,247,240,0.82); backdrop-filter: blur(16px) saturate(1.2); border: 1px solid rgba(0,0,0,0.06); border-radius: 18px; box-shadow: 0 12px 32px -16px rgba(0,0,0,0.22); }

@@ -6,9 +6,7 @@ import {
   MdSignalCellular4Bar,
   MdLockOutline,
   MdHome,
-  MdBrightness2,
   MdWallpaper,
-  MdDesktopWindows,
 } from 'react-icons/md';
 
 interface Props {
@@ -418,16 +416,19 @@ export function DesktopFrame({ imageUrl, width, height, scene }: { imageUrl: str
 
 // --------------- Scene switcher ---------------
 
+// Three-button parity with the detail-page action bar (Plain / Home /
+// Lock). The AOD scene was dropped — it's a niche always-on-display
+// view and was diluting the choices for the more common preview modes.
 const mobileScenes: { key: MobileScene; label: string; icon: typeof MdLockOutline }[] = [
-  { key: 'lock', label: 'Lock Screen', icon: MdLockOutline },
-  { key: 'home', label: 'Home', icon: MdHome },
-  { key: 'aod', label: 'AOD', icon: MdBrightness2 },
-  { key: 'clean', label: 'Clean', icon: MdWallpaper },
+  { key: 'clean', label: 'Plain', icon: MdWallpaper },
+  { key: 'home',  label: 'Home',  icon: MdHome },
+  { key: 'lock',  label: 'Lock',  icon: MdLockOutline },
 ];
 
 const desktopScenes: { key: DesktopScene; label: string; icon: typeof MdLockOutline }[] = [
-  { key: 'desktop', label: 'Desktop', icon: MdDesktopWindows },
-  { key: 'clean', label: 'Clean', icon: MdWallpaper },
+  { key: 'clean',   label: 'Plain', icon: MdWallpaper },
+  { key: 'desktop', label: 'Home',  icon: MdHome },
+  { key: 'lock',    label: 'Lock',  icon: MdLockOutline },
 ];
 
 // Button-row at the bottom of the mockup modal. Sized for fingertips on mobile —
@@ -470,8 +471,11 @@ function SceneSwitcher<T extends string>({
 
 export default function DeviceMockup({ imageUrl, platform, deviceWidth, deviceHeight, onClose }: Props) {
   const isMobile = platform === 'phone' || platform === 'tablet';
-  const [mobileScene, setMobileScene] = useState<MobileScene>('lock');
-  const [deskScene, setDeskScene] = useState<DesktopScene>('desktop');
+  // Default to 'clean' (=Plain) so the user first sees the wallpaper
+  // inside the device chrome with no overlay distraction — they can
+  // opt into Home / Lock from the switcher below.
+  const [mobileScene, setMobileScene] = useState<MobileScene>('clean');
+  const [deskScene, setDeskScene] = useState<DesktopScene>('clean');
 
   const scale = useMemo(() => {
     const frameExtra = BEZEL * 2 + 60;
