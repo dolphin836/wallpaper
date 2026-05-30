@@ -157,6 +157,10 @@ export default function ProfilePage() {
   const [collectionsLoaded, setCollectionsLoaded] = useState(false);
   const [collectionsPage, setCollectionsPage] = useState(1);
   const [collectionsTotal, setCollectionsTotal] = useState(0);
+  // Track how many pages we've earned the cursor for. Pagination
+  // disables any page beyond this — the cursor for page N+1 is
+  // only known after we've fetched page N.
+  const [collectionsMaxReached, setCollectionsMaxReached] = useState(1);
 
   // Ledger — paginated transactions
   const [txs, setTxs] = useState<CoinTransaction[]>([]);
@@ -204,13 +208,11 @@ export default function ProfilePage() {
   likeListRef.current = likeList;
   dlListRef.current = dlList;
 
-  // Generic page-fetch helper that talks to whichever endpoint the tab maps to.
-  // Walks forward through any missing cursor entries before
-  // fetching the requested page — necessary because the backend
-  // pagination is cursor-based: cursors[N-1] is the cursor for
-  // page N, and a direct jump from page 1 to page 5 would
-  // otherwise read undefined → 0 → re-fetch page 1's items under
-  // a page-5 label.
+  // Generic page-fetch helper that talks to whichever endpoint the
+  // tab maps to. Cursor pagination — cursors[N-1] is the cursor for
+  // page N. The Pagination control only enables pages we already
+  // have a cursor for (or the immediate next page), so a click here
+  // can rely on the cursor being present.
   const fetchList = useCallback(async (
     target: 'pub' | 'inprogress' | ListKey,
     page: number,
@@ -224,83 +226,48 @@ export default function ProfilePage() {
       if (target === 'likes')      return likeListRef.current;
       return dlListRef.current;
     };
+    const current = stateGetter();
+    const cursor = current.cursors[page - 1] ?? 0;
     setListFor(target, (p) => ({ ...p, loading: true }));
-
-    const callApi = (params: { cursor?: number; limit: number }) => {
-      if (target === 'pub') return getUserWallpapers(user.username, { ...params, status: 1 });
-      if (target === 'inprogress') return getUserWallpapers(user.username, { ...params, status: '0,5' });
-      if (isMe) {
-        if (target === 'favorites') return getMyFavorites(params);
-        if (target === 'likes') return getMyLikes(params);
-        return getMyDownloads(params);
-      }
-      const fn = target === 'favorites' ? getUserFavorites
-               : target === 'likes' ? getUserLikes
-               : getUserDownloads;
-      return fn(user.username, params);
-    };
-
     try {
-      // Local mutable cursors — start from the current cached
-      // array, walk forward as we discover next_cursor values.
-      const cursors = [...stateGetter().cursors];
-      let lastData: { items: Wallpaper[]; next_cursor: number; has_more: boolean; total?: number; private?: boolean } | null = null;
-      let landedPage = 0;
-
-      // If we have a cached cursor for the target page (and it's
-      // > 0 — index 0 is the special "no cursor" sentinel for
-      // page 1) we can skip the warm-up walk.
-      let p = 1;
-      // Find the largest cached page ≤ target whose cursor we
-      // already know (cursors[p-1] is the cursor for page p).
-      while (p < page && cursors[p] !== undefined) {
-        p++;
+      let res;
+      const params = cursor > 0 ? { cursor, limit: gridPageSize } : { limit: gridPageSize };
+      if (target === 'pub') {
+        res = await getUserWallpapers(user.username, { ...params, status: 1 });
+      } else if (target === 'inprogress') {
+        res = await getUserWallpapers(user.username, { ...params, status: '0,5' });
+      } else if (isMe) {
+        if (target === 'favorites') res = await getMyFavorites(params);
+        else if (target === 'likes') res = await getMyLikes(params);
+        else res = await getMyDownloads(params);
+      } else {
+        const fn = target === 'favorites' ? getUserFavorites
+                 : target === 'likes' ? getUserLikes
+                 : getUserDownloads;
+        res = await fn(user.username, params);
       }
-      // p is now the first page we need to fetch (sequential).
-      while (p <= page) {
-        const cursorForThis = cursors[p - 1] ?? 0;
-        const params = cursorForThis > 0
-          ? { cursor: cursorForThis, limit: gridPageSize }
-          : { limit: gridPageSize };
-        const res = await callApi(params);
-        const data = res.data.data as { items: Wallpaper[]; next_cursor: number; has_more: boolean; total?: number; private?: boolean };
-        if (data.private) {
-          setListFor(target, () => ({ items: [], page: 1, cursors: [0], total: 0, hidden: true, loaded: true, loading: false }));
-          return;
-        }
-        lastData = data;
-        landedPage = p;
-        // Record the cursor that gets us to the NEXT page.
-        if (data.has_more && data.next_cursor > 0) {
-          cursors[p] = data.next_cursor;
-        } else {
-          // No more pages — stop here even if the user asked for
-          // a higher one; we clamp to whatever the API gave us.
-          break;
-        }
-        p++;
-      }
-
-      if (!lastData) {
-        setListFor(target, (prev) => ({ ...prev, loading: false }));
+      const data = res.data.data as { items: Wallpaper[]; next_cursor: number; has_more: boolean; total?: number; private?: boolean };
+      if (data.private) {
+        setListFor(target, () => ({ items: [], page, cursors: [0], total: 0, hidden: true, loaded: true, loading: false }));
         return;
       }
-      const finalCursors = cursors.slice(0, landedPage + 1);
-      setListFor(target, () => ({
-        items: lastData!.items || [],
-        page: landedPage,
-        cursors: finalCursors,
-        total: lastData!.total ?? 0,
-        hidden: false,
-        loaded: true,
-        loading: false,
-      }));
+      setListFor(target, (prev) => {
+        const cursors = prev.cursors.slice(0, page);
+        if (data.has_more && data.next_cursor > 0) cursors[page] = data.next_cursor;
+        return {
+          items: data.items || [],
+          page,
+          cursors,
+          total: data.total ?? 0,
+          hidden: false,
+          loaded: true,
+          loading: false,
+        };
+      });
     } catch {
       toast.error('Failed to load');
       setListFor(target, (p) => ({ ...p, loading: false, loaded: true }));
     }
-  // List state read via *Ref so we don't recreate the callback on
-  // every page bump.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, currentUser?.id, gridPageSize]);
 
@@ -321,44 +288,28 @@ export default function ProfilePage() {
   const collectionsCursorsRef = useRef<number[]>([0]);
   const fetchCollections = useCallback(async (page = 1) => {
     if (!user) return;
+    const cursor = collectionsCursorsRef.current[page - 1] ?? 0;
     try {
-      // Same forward-walk strategy as fetchList — cursor-based
-      // pagination needs the cursor for page N-1 to fetch page N,
-      // so a direct jump to the last page has to warm the chain
-      // first.
-      const cursors = [...collectionsCursorsRef.current];
-      let lastData: { items: Collection[]; next_cursor: number; has_more: boolean; total?: number } | null = null;
-      let landedPage = 0;
-      let p = 1;
-      while (p < page && cursors[p] !== undefined) p++;
-      while (p <= page) {
-        const cursorForThis = cursors[p - 1] ?? 0;
-        const params = cursorForThis > 0
-          ? { cursor: cursorForThis, limit: collectionsPageSize }
-          : { limit: collectionsPageSize };
-        const res = await getUserCollections(user.username, params);
-        const data = res.data.data as { items: Collection[]; next_cursor: number; has_more: boolean; total?: number };
-        lastData = data;
-        landedPage = p;
-        if (data.has_more && data.next_cursor > 0) {
-          cursors[p] = data.next_cursor;
-        } else {
-          break;
-        }
-        p++;
-      }
-      if (!lastData) return;
-      const items = lastData.items || [];
+      const params = cursor > 0
+        ? { cursor, limit: collectionsPageSize }
+        : { limit: collectionsPageSize };
+      const res = await getUserCollections(user.username, params);
+      const data = res.data.data as { items: Collection[]; next_cursor: number; has_more: boolean; total?: number };
+      const items = data.items || [];
       setCollections(items);
-      setCollectionsPage(landedPage);
-      if (typeof lastData.total === 'number' && lastData.total > 0) {
-        setCollectionsTotal(lastData.total);
-      } else if (lastData.has_more) {
-        setCollectionsTotal((landedPage * collectionsPageSize) + 1);
+      setCollectionsPage(page);
+      if (typeof data.total === 'number' && data.total > 0) {
+        setCollectionsTotal(data.total);
+      } else if (data.has_more) {
+        setCollectionsTotal((page * collectionsPageSize) + 1);
       } else {
-        setCollectionsTotal((landedPage - 1) * collectionsPageSize + items.length);
+        setCollectionsTotal((page - 1) * collectionsPageSize + items.length);
       }
-      collectionsCursorsRef.current = cursors.slice(0, landedPage + 1);
+      collectionsCursorsRef.current = collectionsCursorsRef.current.slice(0, page);
+      if (data.has_more && data.next_cursor > 0) {
+        collectionsCursorsRef.current[page] = data.next_cursor;
+      }
+      setCollectionsMaxReached((prev) => Math.max(prev, collectionsCursorsRef.current.length));
     } catch {
       toast.error('Failed to load collections');
     } finally {
@@ -369,37 +320,17 @@ export default function ProfilePage() {
   const fetchLedger = useCallback(async (page: number) => {
     setTxLoading(true);
     try {
-      // Forward-walk so direct jumps to the last page work (the
-      // backend pagination is cursor-based; jumping past cached
-      // pages without warming the chain would land on page 1's
-      // items).
-      const cursors = [...txCursors];
-      let lastData: { items: CoinTransaction[]; next_cursor: number; has_more: boolean; total?: number } | null = null;
-      let landedPage = 0;
-      let p = 1;
-      while (p < page && cursors[p] !== undefined) p++;
-      while (p <= page) {
-        const cursor = cursors[p - 1] ?? 0;
-        const res = await getCoinTransactions({
-          cursor: cursor > 0 ? cursor : undefined,
-          limit: PAGE_SIZE,
-        });
-        const data = res.data.data;
-        if (!data) break;
-        lastData = data;
-        landedPage = p;
-        if (data.has_more && data.next_cursor) {
-          cursors[p] = data.next_cursor;
-        } else {
-          break;
-        }
-        p++;
-      }
-      if (!lastData) return;
-      setTxs(lastData.items ?? []);
-      setTxTotal(lastData.total ?? 0);
-      setTxPage(landedPage);
-      setTxCursors(cursors.slice(0, landedPage + 1));
+      const cursor = txCursors[page - 1] ?? 0;
+      const res = await getCoinTransactions({ cursor: cursor > 0 ? cursor : undefined, limit: PAGE_SIZE });
+      const data = res.data.data;
+      setTxs(data?.items ?? []);
+      setTxTotal(data?.total ?? 0);
+      setTxPage(page);
+      setTxCursors((prev) => {
+        const next = prev.slice(0, page);
+        if (data?.has_more && data?.next_cursor) next[page] = data.next_cursor;
+        return next;
+      });
       setTxLoaded(true);
     } catch {
       toast.error('Failed to load ledger');
@@ -414,7 +345,7 @@ export default function ProfilePage() {
     setLoading(true);
     setPubList(emptyList()); setInProgress(emptyList());
     setFavList(emptyList()); setLikeList(emptyList()); setDlList(emptyList());
-    setCollections([]); setCollectionsLoaded(false); setCollectionsPage(1); setCollectionsTotal(0); collectionsCursorsRef.current = [0];
+    setCollections([]); setCollectionsLoaded(false); setCollectionsPage(1); setCollectionsTotal(0); setCollectionsMaxReached(1); collectionsCursorsRef.current = [0];
     setTxs([]); setTxPage(1); setTxCursors([0]); setTxTotal(0); setTxLoaded(false);
 
     setError(false);
@@ -645,6 +576,7 @@ export default function ProfilePage() {
             page={collectionsPage}
             total={collectionsTotal}
             pageSize={collectionsPageSize}
+            maxReachable={collectionsMaxReached}
             onPage={(p) => fetchCollections(p)}
           />
         )}
@@ -688,6 +620,7 @@ export default function ProfilePage() {
             total={txTotal}
             loading={txLoading}
             balance={currentUser?.coins ?? 0}
+            maxReachable={txCursors.length}
             onPage={fetchLedger}
           />
         )}
@@ -962,6 +895,7 @@ function UploadsPanel({ isOwner, inProgress, pub, pageSize, onPubPage, onInProgr
           <Pagination
             current={inProgress.page}
             total={Math.max(1, Math.ceil(inTotal / pageSize))}
+            maxReachable={inProgress.cursors.length}
             onChange={onInProgressPage}
           />
         </section>
@@ -981,6 +915,7 @@ function UploadsPanel({ isOwner, inProgress, pub, pageSize, onPubPage, onInProgr
             <Pagination
               current={pub.page}
               total={Math.max(1, Math.ceil(pubTotal / pageSize))}
+              maxReachable={pub.cursors.length}
               onChange={onPubPage}
             />
           </>
@@ -998,9 +933,10 @@ interface CollectionsPanelProps {
   page: number;
   total: number;
   pageSize: number;
+  maxReachable: number;
   onPage: (p: number) => void;
 }
-function CollectionsPanel({ isOwner, collections, loaded, page, total, pageSize, onPage }: CollectionsPanelProps) {
+function CollectionsPanel({ isOwner, collections, loaded, page, total, pageSize, maxReachable, onPage }: CollectionsPanelProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -1030,6 +966,7 @@ function CollectionsPanel({ isOwner, collections, loaded, page, total, pageSize,
           <Pagination
             current={page}
             total={Math.max(1, Math.ceil(total / pageSize))}
+            maxReachable={maxReachable}
             onChange={onPage}
           />
         </>
@@ -1160,6 +1097,7 @@ function ListPanel({ listKey, state, isOwner, isPublic, pageSize, onPage, onTogg
           <Pagination
             current={state.page}
             total={Math.max(1, Math.ceil(state.total / pageSize))}
+            maxReachable={state.cursors.length}
             onChange={onPage}
           />
         </>
@@ -1196,6 +1134,7 @@ interface LedgerPanelProps {
   total: number;
   loading: boolean;
   balance: number;
+  maxReachable: number;
   onPage: (p: number) => void;
 }
 function LedgerSkeleton() {
@@ -1215,7 +1154,7 @@ const LEDGER_GLYPH: Record<string, string> = {
   download_earned: '★',
 };
 
-function LedgerPanel({ txs, page, total, loading, balance, onPage }: LedgerPanelProps) {
+function LedgerPanel({ txs, page, total, loading, balance, maxReachable, onPage }: LedgerPanelProps) {
   // Aggregate stats over the visible transactions.
   const earned = txs.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
   const spent = txs.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
@@ -1314,6 +1253,7 @@ function LedgerPanel({ txs, page, total, loading, balance, onPage }: LedgerPanel
           <Pagination
             current={page}
             total={Math.max(1, Math.ceil(total / PAGE_SIZE))}
+            maxReachable={maxReachable}
             onChange={onPage}
           />
         </>

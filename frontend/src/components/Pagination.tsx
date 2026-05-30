@@ -2,11 +2,21 @@ interface Props {
   current: number;
   total: number;
   onChange: (page: number) => void;
+  /** Highest page number the user can jump to. Used with cursor-
+   *  based backends where only pages the user has already paged
+   *  through have a cached cursor — pages > maxReachable show
+   *  but stay disabled. Defaults to total (all clickable). */
+  maxReachable?: number;
 }
 
 /**
  * Editorial pager: paper pill Prev/Next on either side, mono 32×32 circles
  * for page numbers, with an uppercase "PAGE X OF Y" status line below.
+ *
+ * Cursor-aware: any page > maxReachable is rendered but disabled, so the
+ * user can still see how many pages exist and step forward via Next /
+ * the next visible number, but can't randomly jump to the last page (the
+ * backend can't honour those jumps without an offset API).
  *
  * Ellipsis logic for `total > 7`:
  *   - always show first page
@@ -15,8 +25,9 @@ interface Props {
  *   - … when current < total - 2
  *   - always show last page
  */
-export default function Pagination({ current, total, onChange }: Props) {
+export default function Pagination({ current, total, onChange, maxReachable }: Props) {
   if (total <= 1) return null;
+  const reachable = maxReachable ?? total;
 
   const pages: (number | 'ellipsis')[] = [];
   if (total <= 7) {
@@ -49,8 +60,9 @@ export default function Pagination({ current, total, onChange }: Props) {
               <button
                 key={p}
                 className={p === current ? 'is-current' : ''}
-                onClick={() => p !== current && onChange(p)}
-                disabled={p === current}
+                onClick={() => p !== current && p <= reachable && onChange(p)}
+                disabled={p === current || p > reachable}
+                title={p > reachable ? `Use Next to walk forward to page ${p}` : undefined}
               >
                 {p}
               </button>
@@ -59,7 +71,7 @@ export default function Pagination({ current, total, onChange }: Props) {
         </div>
         <button
           className="pager-nav"
-          disabled={current === total}
+          disabled={current >= total || current >= reachable}
           onClick={() => onChange(current + 1)}
         >
           Next →

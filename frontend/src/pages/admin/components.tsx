@@ -94,23 +94,53 @@ export function Pagination({
 }) {
   const totalPages = Math.max(1, Math.ceil(total / limit));
   if (totalPages <= 1) return null;
+  // Admin backend takes `page` directly (offset under the hood), so
+  // every page number is clickable. Same ellipsis condensation as
+  // the editorial pager on the user side for very long lists.
+  const pages: (number | 'ellipsis')[] = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    if (page > 3) pages.push('ellipsis');
+    const start = Math.max(2, page - 1);
+    const end = Math.min(totalPages - 1, page + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (page < totalPages - 2) pages.push('ellipsis');
+    pages.push(totalPages);
+  }
+  const btn = 'px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed';
   return (
     <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 dark:border-slate-800 text-sm">
       <div className="text-slate-500">
         共 {total} 条 · 第 {page} / {totalPages} 页
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-1.5 items-center">
         <button
           onClick={() => onChange(Math.max(1, page - 1))}
           disabled={page <= 1}
-          className="px-3 py-1 rounded border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800"
+          className={btn}
         >
           上一页
         </button>
+        {pages.map((p, i) =>
+          p === 'ellipsis' ? (
+            <span key={`e${i}`} className="px-1.5 text-slate-400 select-none">…</span>
+          ) : (
+            <button
+              key={p}
+              onClick={() => p !== page && onChange(p)}
+              disabled={p === page}
+              className={`${btn} min-w-[32px] ${p === page ? 'bg-slate-900 text-white border-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-100' : ''}`}
+            >
+              {p}
+            </button>
+          )
+        )}
         <button
           onClick={() => onChange(Math.min(totalPages, page + 1))}
           disabled={page >= totalPages}
-          className="px-3 py-1 rounded border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800"
+          className={btn}
         >
           下一页
         </button>
