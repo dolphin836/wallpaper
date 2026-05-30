@@ -1426,7 +1426,10 @@ function InlineDeviceMockup({
 
   // 92% safety margin so the scaled frame never quite touches the
   // hero card edges.
-  const scale = Math.min(size.w / totalW, size.h / totalH) * 0.92;
+  // Safety margin (0.84) keeps the chassis from crowding the action
+  // bar pills below — even a tall portrait phone gets a clear gap
+  // between the device's bottom edge and the toggle row.
+  const scale = Math.min(size.w / totalW, size.h / totalH) * 0.84;
 
   let frame: ReactNode;
   if (platform === 'phone') {

@@ -483,7 +483,10 @@ export default function DeviceMockup({ imageUrl, platform, deviceWidth, deviceHe
     // and ~20px top padding. Computed once at mount — orientation/resize will need a refresh
     // but that matches previous behaviour.
     const maxW = window.innerWidth * 0.95;
-    const maxH = (window.innerHeight - 160) * 0.95;
+    // 240 = ~50 (top close button) + ~70 (bottom switcher pill incl. its
+    // own margin + the bottom-6 offset) + breathing room so a tall
+    // portrait phone doesn't crowd the 3-button scene switcher.
+    const maxH = (window.innerHeight - 240) * 0.95;
     const totalW = deviceWidth + frameExtra;
     const totalH = deviceHeight + frameExtra;
     const sx = maxW / totalW;
