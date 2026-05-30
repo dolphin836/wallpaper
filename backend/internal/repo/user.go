@@ -55,7 +55,13 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*model.User, e
 func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*model.User, error) {
 	var user model.User
 	err := r.db.WithContext(ctx).
-		Select("id, username, email, password_hash, nickname, avatar_url, bio, status, created_at").
+		// Privacy flags MUST be in the projection — listUserInteractions
+		// reads target.LikesPublic / FavoritesPublic / DownloadsPublic
+		// to decide whether to return a list to a stranger. Leaving them
+		// off the SELECT meant they zero-initialised to false in the
+		// struct and every /users/<username>/likes etc. came back with
+		// {private: true} regardless of the row's actual flags.
+		Select("id, username, email, password_hash, nickname, avatar_url, bio, status, likes_public, favorites_public, downloads_public, created_at").
 		Where("username = ?", username).
 		First(&user).Error
 	if err != nil {
