@@ -851,7 +851,7 @@ function ProfileTabs({ tabs, active, counts, onChange }: ProfileTabsProps) {
     ledger: AiOutlineThunderbolt,
   };
   return (
-    <div className="ptabs mt-6 overflow-x-auto">
+    <div className="ptabs mt-6 flex-wrap">
       {tabs.map((t) => {
         const Icon = icon[t.key];
         const c = counts[t.key];
@@ -1135,29 +1135,27 @@ interface LedgerPanelProps {
 }
 function LedgerSkeleton() {
   return (
-    <div>
+    <div className="space-y-2">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div
-          key={i}
-          className="grid grid-cols-[60px_1fr_auto] gap-3 items-center py-3 border-b border-hair"
-        >
-          <div className="h-4 w-10 bg-paper-3 skeleton-card" style={{ animationDelay: `${i * 80}ms` }} />
-          <div className="h-3 bg-paper-3 skeleton-card" style={{ width: `${50 + (i % 3) * 15}%`, animationDelay: `${i * 80 + 40}ms` }} />
-          <div className="h-3 w-16 bg-paper-3 skeleton-card" style={{ animationDelay: `${i * 80 + 80}ms` }} />
-        </div>
+        <div key={i} className="ledger-row skeleton-card" style={{ height: 62, animationDelay: `${i * 60}ms` }} />
       ))}
     </div>
   );
 }
 
+const LEDGER_GLYPH: Record<string, string> = {
+  register_bonus:  '✨',
+  upload_reward:   '↑',
+  download_cost:   '↓',
+  download_earned: '★',
+};
+
 function LedgerPanel({ txs, page, total, loading, balance, onPage }: LedgerPanelProps) {
-  // Aggregate stats over the visible transactions. Keeps the summary strip
-  // honest for the current page; a full-history aggregate would need a
-  // dedicated endpoint that we can add later.
+  // Aggregate stats over the visible transactions.
   const earned = txs.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
   const spent = txs.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
 
-  // Group entries by day (mono caps month/day heading).
+  // Group entries by day for the timeline read.
   const grouped = useMemo(() => {
     const out: Array<{ day: string; rows: CoinTransaction[] }> = [];
     let last = '';
@@ -1174,23 +1172,36 @@ function LedgerPanel({ txs, page, total, loading, balance, onPage }: LedgerPanel
 
   return (
     <div>
-      {/* Summary strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 border-l border-t border-r border-hair">
-        {[
-          ['BALANCE',  String(balance),                  'text-ink',     ''],
-          ['EARNED',   `+${earned}`,                     'text-accent',  'this page'],
-          ['SPENT',    `−${spent}`,                      'text-ink-2',   'this page'],
-          ['NEXT',     '+1',                             'text-ink',     'per upload'],
-        ].map(([k, v, color, sub]) => (
-          <div key={k} className="px-4 py-3.5 border-r border-b border-hair">
-            <div className="kicker text-muted">{k}</div>
-            <div className={`display text-[32px] sm:text-[36px] leading-none mt-1 ${color}`}>{v}</div>
-            {sub && <div className="mono text-[10px] tracking-[0.06em] text-muted mt-1">{sub}</div>}
+      {/* Summary cards — Balance leads with the warm-gold pill
+          recipe (matches the hero balance + navbar pill), the
+          rest are paper-faced stats. */}
+      <div className="ledger-summary">
+        <div className="ledger-stat is-balance">
+          <div className="ledger-stat-kicker">Balance</div>
+          <div className="ledger-stat-row">
+            <span className="ledger-stat-coin" aria-hidden />
+            <span className="ledger-stat-num">{balance}</span>
           </div>
-        ))}
+          <div className="ledger-stat-sub">Lifetime balance</div>
+        </div>
+        <div className="ledger-stat">
+          <div className="ledger-stat-kicker">Earned</div>
+          <div className="ledger-stat-num is-earn">+{earned}</div>
+          <div className="ledger-stat-sub">This page</div>
+        </div>
+        <div className="ledger-stat">
+          <div className="ledger-stat-kicker">Spent</div>
+          <div className="ledger-stat-num is-spend">−{spent}</div>
+          <div className="ledger-stat-sub">This page</div>
+        </div>
+        <div className="ledger-stat">
+          <div className="ledger-stat-kicker">Next earn</div>
+          <div className="ledger-stat-num">+1</div>
+          <div className="ledger-stat-sub">Per upload</div>
+        </div>
       </div>
 
-      <div className="label-rule mt-7 mb-3">Recent entries</div>
+      <div className="label-rule mt-9 mb-4">Recent entries</div>
 
       {loading && txs.length === 0 ? (
         <LedgerSkeleton />
@@ -1198,38 +1209,43 @@ function LedgerPanel({ txs, page, total, loading, balance, onPage }: LedgerPanel
         <div className="text-center py-20 text-muted text-sm">No transactions yet.</div>
       ) : (
         <>
-          {grouped.map((g) => (
-            <div key={g.day} className="mb-4">
-              <div className="mono text-[10px] tracking-[0.14em] text-muted px-1 pb-2">{g.day}</div>
-              {g.rows.map((tx) => {
-                const label = LEDGER_LABELS[tx.tx_type] || tx.description || tx.tx_type;
-                const isEarn = tx.amount > 0;
-                return (
-                  <div
-                    key={tx.id}
-                    className="grid grid-cols-[60px_1fr_auto] gap-3 items-center py-3 border-b border-hair last:border-b-0"
-                  >
-                    <span
-                      className={`mono text-[15px] font-semibold tabular-nums ${isEarn ? 'text-accent' : 'text-ink-2'}`}
-                    >
-                      {isEarn ? '+' : ''}{tx.amount}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-[13px] text-ink truncate">
-                        {label}
-                        {tx.ref_id > 0 && (
-                          <> · <Link to={`/wallpaper/${tx.ref_id}`} className="text-ink-2 underline">№{String(tx.ref_id).padStart(3, '0')}</Link></>
-                        )}
+          <div className="ledger-list">
+            {grouped.map((g) => (
+              <div key={g.day} className="ledger-day">
+                <div className="ledger-day-label">{g.day}</div>
+                <div className="ledger-day-rows">
+                  {g.rows.map((tx) => {
+                    const label = LEDGER_LABELS[tx.tx_type] || tx.description || tx.tx_type;
+                    const glyph = LEDGER_GLYPH[tx.tx_type] || '·';
+                    const isEarn = tx.amount > 0;
+                    return (
+                      <div key={tx.id} className={`ledger-row ${isEarn ? 'is-earn' : 'is-spend'}`}>
+                        <span className="ledger-row-glyph" aria-hidden>{glyph}</span>
+                        <div className="ledger-row-id">
+                          <div className="ledger-row-label">{label}</div>
+                          {tx.ref_id > 0 && (
+                            <Link
+                              to={`/wallpaper/${tx.ref_id}`}
+                              className="ledger-row-ref"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              № {String(tx.ref_id).padStart(3, '0')} →
+                            </Link>
+                          )}
+                        </div>
+                        <span className="ledger-row-amount">
+                          {isEarn ? '+' : ''}{tx.amount}
+                        </span>
+                        <span className="ledger-row-time">
+                          {relativeTime(tx.created_at)}
+                        </span>
                       </div>
-                    </div>
-                    <span className="mono text-[10px] tracking-[0.06em] text-muted">
-                      {relativeTime(tx.created_at)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
           <Pagination
             current={page}
             total={Math.max(1, Math.ceil(total / PAGE_SIZE))}

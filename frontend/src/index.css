@@ -4748,3 +4748,214 @@
   background: var(--color-ink-2);
   border-color: var(--color-ink-2);
 }
+
+/* ─── Ledger redesign ────────────────────────────────────────────
+   Four-up summary cards over a day-grouped row list. Balance card
+   reuses the warm-gold pill recipe; the other three are paper-
+   faced stats with mono numbers. Transaction rows are glass cards
+   with a tinted-glyph badge at the left and a colour-coded amount
+   on the right. */
+.ledger-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+@media (min-width: 720px) {
+  .ledger-summary { grid-template-columns: repeat(4, 1fr); }
+}
+.ledger-stat {
+  padding: 18px 18px 16px;
+  border-radius: 14px;
+  background: var(--color-paper);
+  border: 1px solid var(--color-hair);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 4px 14px -8px oklch(0% 0 0 / 0.18);
+}
+.dark .ledger-stat {
+  background: var(--color-paper-2);
+  border-color: var(--color-hair-soft);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.06),
+    0 4px 14px -8px oklch(0% 0 0 / 0.55);
+}
+.ledger-stat.is-balance {
+  background: linear-gradient(135deg,
+    oklch(97% 0.02 70 / 0.92) 0%,
+    oklch(94% 0.04 50 / 0.92) 100%);
+  border-color: oklch(86% 0.06 55);
+}
+.dark .ledger-stat.is-balance {
+  background: linear-gradient(135deg,
+    oklch(30% 0.05 55 / 0.7) 0%,
+    oklch(26% 0.07 45 / 0.7) 100%);
+  border-color: oklch(42% 0.08 55);
+}
+.ledger-stat-kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.ledger-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.ledger-stat-coin {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, oklch(96% 0.10 75) 0%, oklch(78% 0.16 55) 55%, oklch(58% 0.18 40) 100%);
+  box-shadow:
+    inset 0 1px 0 oklch(96% 0.08 75 / 0.9),
+    inset 0 -2px 1px oklch(50% 0.16 35 / 0.55),
+    0 1px 2px oklch(0% 0 0 / 0.18);
+  flex-shrink: 0;
+}
+.ledger-stat-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: clamp(28px, 3.4vw, 38px);
+  line-height: 1;
+  color: var(--color-ink);
+  letter-spacing: -0.005em;
+  margin-top: 8px;
+}
+.ledger-stat-row .ledger-stat-num { margin-top: 0; }
+.ledger-stat-num.is-earn { color: oklch(58% 0.18 145); }
+.dark .ledger-stat-num.is-earn { color: oklch(72% 0.18 145); }
+.ledger-stat-num.is-spend { color: var(--color-muted); }
+.ledger-stat-sub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin-top: 6px;
+}
+
+/* Day-grouped transaction list. */
+.ledger-list {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.ledger-day-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  padding: 0 2px 8px;
+}
+.ledger-day-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ledger-row {
+  display: grid;
+  grid-template-columns: 36px 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--color-paper);
+  border: 1px solid var(--color-hair);
+  transition: border-color 220ms ease, transform 180ms var(--ease-out-quart), box-shadow 220ms ease;
+}
+.dark .ledger-row {
+  background: var(--color-paper-2);
+  border-color: var(--color-hair-soft);
+}
+.ledger-row:hover {
+  border-color: color-mix(in oklch, var(--color-accent) 35%, var(--color-hair));
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 6px 18px -10px color-mix(in oklch, var(--color-accent) 30%, oklch(0% 0 0 / 0.18));
+  transform: translateY(-1px);
+}
+.ledger-row-glyph {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.ledger-row.is-earn .ledger-row-glyph {
+  background: color-mix(in oklch, oklch(72% 0.18 145) 18%, var(--color-paper));
+  color: oklch(48% 0.18 145);
+}
+.dark .ledger-row.is-earn .ledger-row-glyph {
+  background: color-mix(in oklch, oklch(72% 0.18 145) 22%, var(--color-paper-2));
+  color: oklch(82% 0.16 145);
+}
+.ledger-row.is-spend .ledger-row-glyph {
+  background: var(--color-paper-2);
+  color: var(--color-ink-2);
+}
+.dark .ledger-row.is-spend .ledger-row-glyph {
+  background: oklch(20% 0.02 240 / 0.4);
+  color: var(--color-muted);
+}
+.ledger-row-id {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ledger-row-label {
+  font-size: 14px;
+  color: var(--color-ink);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ledger-row-ref {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+  text-decoration: none;
+  transition: color 180ms ease;
+}
+.ledger-row-ref:hover { color: var(--color-accent); }
+.ledger-row-amount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: -0.005em;
+}
+.ledger-row.is-earn .ledger-row-amount { color: oklch(48% 0.18 145); }
+.dark .ledger-row.is-earn .ledger-row-amount { color: oklch(78% 0.18 145); }
+.ledger-row.is-spend .ledger-row-amount { color: var(--color-ink-2); }
+.ledger-row-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .ledger-row {
+    grid-template-columns: 32px 1fr auto;
+    gap: 10px;
+  }
+  .ledger-row-time {
+    grid-column: 1 / -1;
+    text-align: right;
+    padding-top: 4px;
+    border-top: 1px dashed var(--color-hair);
+  }
+}
