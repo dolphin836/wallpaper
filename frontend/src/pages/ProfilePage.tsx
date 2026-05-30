@@ -50,7 +50,17 @@ import {
 import Pagination from '../components/Pagination';
 import AvatarCropModal from '../components/AvatarCropModal';
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 12; // ledger only — fixed-density list
+
+// Wallpaper grids show 4 rows per page; cols match the tile grid
+// breakpoints (cols-2 at xs, sm-3, md-4, lg-5). The wallpaper-list
+// fetches and the Pagination total both read this so the last row
+// is never partially filled.
+const COLS_AT_WIDTH = (w: number): number =>
+  w >= 1024 ? 5 : w >= 768 ? 4 : w >= 640 ? 3 : 2;
+function calcGridPageSize(w: number): number {
+  return COLS_AT_WIDTH(w) * 4;
+}
 
 type ListKey = 'favorites' | 'likes' | 'downloads';
 type TabKey = 'uploads' | 'collections' | 'favorites' | 'likes' | 'downloads' | 'ledger';
@@ -106,6 +116,27 @@ export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  // Grid page size — 4 rows × cols-at-current-viewport. Tracks
+  // window resize so the wallpaper grids stay row-aligned across
+  // breakpoints. Ledger uses the fixed PAGE_SIZE instead.
+  const [gridPageSize, setGridPageSize] = useState<number>(
+    () => (typeof window !== 'undefined' ? calcGridPageSize(window.innerWidth) : 20),
+  );
+  useEffect(() => {
+    let raf = 0;
+    const onResize = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        setGridPageSize(calcGridPageSize(window.innerWidth));
+      });
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
 
   // ─── Tab state ─── URL-driven: /user/:username[/:tab]. Missing tab
   // segment means the implicit default ("uploads"). Unknown tab slugs
@@ -179,7 +210,7 @@ export default function ProfilePage() {
     setListFor(target, (p) => ({ ...p, loading: true }));
     try {
       let res;
-      const params = cursor > 0 ? { cursor, limit: PAGE_SIZE } : { limit: PAGE_SIZE };
+      const params = cursor > 0 ? { cursor, limit: gridPageSize } : { limit: gridPageSize };
       if (target === 'pub') {
         res = await getUserWallpapers(user.username, { ...params, status: 1 });
       } else if (target === 'inprogress') {
@@ -226,7 +257,7 @@ export default function ProfilePage() {
   // recreating fetchList on every page bump — the closure captures the
   // current state via the setListFor + setter pair only.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, currentUser?.id]);
+  }, [user, currentUser?.id, gridPageSize]);
 
   const fetchCollections = useCallback(async () => {
     if (!user) return;
@@ -457,6 +488,7 @@ export default function ProfilePage() {
             isOwner={isOwner}
             inProgress={inProgress}
             pub={pubList}
+            pageSize={gridPageSize}
             onPubPage={(p) => fetchList('pub', p)}
             onInProgressPage={(p) => fetchList('inprogress', p)}
           />
@@ -475,6 +507,7 @@ export default function ProfilePage() {
             state={favList}
             isOwner={isOwner}
             isPublic={!!user.favorites_public}
+            pageSize={gridPageSize}
             onPage={(p) => fetchList('favorites', p)}
             onTogglePrivacy={() => togglePrivacy('favorites')}
           />
@@ -485,6 +518,7 @@ export default function ProfilePage() {
             state={likeList}
             isOwner={isOwner}
             isPublic={!!user.likes_public}
+            pageSize={gridPageSize}
             onPage={(p) => fetchList('likes', p)}
             onTogglePrivacy={() => togglePrivacy('likes')}
           />
@@ -495,6 +529,7 @@ export default function ProfilePage() {
             state={dlList}
             isOwner={isOwner}
             isPublic={!!user.downloads_public}
+            pageSize={gridPageSize}
             onPage={(p) => fetchList('downloads', p)}
             onTogglePrivacy={() => togglePrivacy('downloads')}
           />
@@ -758,10 +793,11 @@ interface UploadsPanelProps {
   isOwner: boolean;
   inProgress: ListState;
   pub: ListState;
+  pageSize: number;
   onPubPage: (p: number) => void;
   onInProgressPage: (p: number) => void;
 }
-function UploadsPanel({ isOwner, inProgress, pub, onPubPage, onInProgressPage }: UploadsPanelProps) {
+function UploadsPanel({ isOwner, inProgress, pub, pageSize, onPubPage, onInProgressPage }: UploadsPanelProps) {
   const showInProgress = isOwner && inProgress.loaded && inProgress.items.length > 0;
   const inTotal = inProgress.total;
   const pubTotal = pub.total;
@@ -778,7 +814,7 @@ function UploadsPanel({ isOwner, inProgress, pub, onPubPage, onInProgressPage }:
           <Grid items={inProgress.items} showProcessing />
           <Pagination
             current={inProgress.page}
-            total={Math.max(1, Math.ceil(inTotal / PAGE_SIZE))}
+            total={Math.max(1, Math.ceil(inTotal / pageSize))}
             onChange={onInProgressPage}
           />
         </section>
@@ -797,7 +833,7 @@ function UploadsPanel({ isOwner, inProgress, pub, onPubPage, onInProgressPage }:
             <Grid items={pub.items} />
             <Pagination
               current={pub.page}
-              total={Math.max(1, Math.ceil(pubTotal / PAGE_SIZE))}
+              total={Math.max(1, Math.ceil(pubTotal / pageSize))}
               onChange={onPubPage}
             />
           </>
@@ -889,6 +925,7 @@ function ProfileCollectionTile({ c }: { c: Collection }) {
 }
 
 interface ListPanelProps {
+  pageSize: number;
   listKey: ListKey;
   state: ListState;
   isOwner: boolean;
@@ -896,7 +933,7 @@ interface ListPanelProps {
   onPage: (p: number) => void;
   onTogglePrivacy: () => void;
 }
-function ListPanel({ listKey, state, isOwner, isPublic, onPage, onTogglePrivacy }: ListPanelProps) {
+function ListPanel({ listKey, state, isOwner, isPublic, pageSize, onPage, onTogglePrivacy }: ListPanelProps) {
   const heading = useMemo(() => `${listKey.charAt(0).toUpperCase() + listKey.slice(1)} · ${state.total}`, [listKey, state.total]);
 
   if (state.hidden) {
@@ -931,7 +968,7 @@ function ListPanel({ listKey, state, isOwner, isPublic, onPage, onTogglePrivacy 
           <Grid items={state.items} />
           <Pagination
             current={state.page}
-            total={Math.max(1, Math.ceil(state.total / PAGE_SIZE))}
+            total={Math.max(1, Math.ceil(state.total / pageSize))}
             onChange={onPage}
           />
         </>
