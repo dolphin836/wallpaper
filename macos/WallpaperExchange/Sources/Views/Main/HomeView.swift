@@ -257,79 +257,78 @@ struct HeroCard: View {
     }
 }
 
-// Mac Dynamic tile — visually distinct from the salon tile so the
-// multi-frame nature reads at a glance. Stack-of-screens metaphor
-// with a small overlap on the right edge + a chip stack indicator.
+// Mac Dynamic tile — same Rectangle().aspectRatio.overlay anchor as
+// the standard MainGridTile so it never breaks LazyVGrid row math,
+// distinguished only by the accent DYNAMIC chip up top + a serif
+// caption row bottom-left over a bottom gradient. The fancy
+// stacked-offset 'second screen' effect from the previous pass was
+// pushing children outside their cell bounds and causing the
+// overlap visible in the user's screenshot — this version is
+// flat-on-grid like every other tile, just visually richer.
 struct MacDynamicTile: View {
     let wallpaper: Wallpaper
     @State private var hover = false
-    @State private var manager = WallpaperManager.shared
 
     var body: some View {
         Rectangle().fill(Color.clear)
             .aspectRatio(16.0 / 10.0, contentMode: .fit)
-            .overlay { tileBody }
+            .overlay {
+                ZStack(alignment: .topLeading) {
+                    // Dominant-color floor + image.
+                    Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.55)
+                    CachedAsyncImage(url: URL(string: wallpaper.displayURL)) { img in
+                        img.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Color.clear
+                    }
+                    .clipped()
+
+                    // Bottom gradient for the caption row.
+                    LinearGradient(
+                        colors: [Color.black.opacity(0.18), .clear, .clear, Color.black.opacity(0.55)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                    .opacity(hover ? 1 : 0.85)
+                    .allowsHitTesting(false)
+
+                    // Top-left DYNAMIC chip with stack icon.
+                    HStack(spacing: 4) {
+                        Image(systemName: "square.stack.3d.up.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("DYNAMIC").font(.mono10).tracking(0.7)
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(Capsule().fill(Color.accent))
+                    .padding(10)
+
+                    // Bottom-left caption (title + resolution).
+                    VStack {
+                        Spacer()
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(wallpaper.title.isEmpty ? "Dynamic wallpaper" : wallpaper.title)
+                                .font(.sans12).foregroundStyle(.white).lineLimit(1)
+                            Text(wallpaper.resolutionLabel)
+                                .font(.mono10).tracking(1.0)
+                                .foregroundStyle(.white.opacity(0.85))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12).padding(.bottom, 10)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false))
+                .shadow(color: Color.accent.opacity(hover ? 0.28 : 0.06), radius: hover ? 10 : 3, x: 0, y: hover ? 5 : 2)
+            }
             .animation(.easeOut(duration: 0.18), value: hover)
             .onHover { entered in
                 hover = entered
                 if entered {
-                    PaletteEnv.shared.apply(palette: nil, dominant: wallpaper.dominantColor)
+                    PaletteEnv.shared.apply(palette: wallpaper.colorPalette, dominant: wallpaper.dominantColor)
                 } else {
                     PaletteEnv.shared.resetToDefaults()
                 }
             }
-    }
-
-    private var tileBody: some View {
-        ZStack(alignment: .bottomLeading) {
-            // Stacked "second screen" shadow beneath, offset to hint
-            // at the dynamic / multi-frame nature.
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.4))
-                .offset(x: 8, y: 8)
-                .blur(radius: 2)
-
-            // Front face — the visible wallpaper preview.
-            ZStack(alignment: .topLeading) {
-                CachedAsyncImage(url: URL(string: wallpaper.displayURL)) { img in
-                    img.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.55)
-                }
-                .clipped()
-
-                LinearGradient(
-                    colors: [Color.black.opacity(0.18), .clear, .clear, Color.black.opacity(0.30)],
-                    startPoint: .top, endPoint: .bottom
-                )
-                .allowsHitTesting(false)
-
-                // Stack-of-screens chip — single accent capsule
-                // top-left so this card reads differently than a
-                // still-image tile.
-                HStack(spacing: 4) {
-                    Image(systemName: "square.stack.3d.up.fill")
-                        .font(.system(size: 10, weight: .semibold))
-                    Text("DYNAMIC")
-                        .font(.mono10).tracking(0.7)
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8).padding(.vertical, 4)
-                .background(Capsule().fill(Color.accent))
-                .padding(10)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.hair, lineWidth: 1))
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(wallpaper.title.isEmpty ? "Dynamic wallpaper" : wallpaper.title)
-                    .font(.sans12).foregroundStyle(.white).lineLimit(1)
-                Text(wallpaper.resolutionLabel)
-                    .font(.kicker).tracking(1.4).foregroundStyle(.white.opacity(0.8))
-            }
-            .padding(.horizontal, 12).padding(.bottom, 10)
-        }
-        .scaleEffect(hover ? 1.01 : 1.0)
-        .shadow(color: Color.accent.opacity(hover ? 0.30 : 0.0), radius: hover ? 18 : 0, x: 0, y: 8)
+            .contentShape(Rectangle())
     }
 }
