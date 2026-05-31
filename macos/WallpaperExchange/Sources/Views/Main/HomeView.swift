@@ -1,14 +1,13 @@
 import SwiftUI
 
-// Home landing. Four stacked sections per the design review:
-//   1. This week's picks   (latest weekly slate, hero + tile rail)
-//   2. Mac Dynamic         (dynamic_only=true)
-//   3. AI                  (ai_only=true)
-//   4. Collections         (recent public collections)
-//
-// Each section: kicker + serif headline + small grid + "see all"
-// link. The 'see all' links jump to the matching Discover filter or
-// Collections page.
+// Home page layout matches the web's HomePage:
+//   1. Hero card (big featured pick from /weekly-picks/current,
+//      tinted by its palette).
+//   2. This week's picks rest of slate — 5-column grid.
+//   3. Mac Dynamic — 4-column grid using the new MacDynamicTile
+//      that hints at the multi-frame nature of these wallpapers.
+//   4. AI Lab — 5-column grid.
+//   5. Themed collections — 4-column rail.
 struct HomeView: View {
     var onPick: (Wallpaper) -> Void
     var onOpenWeek: (Int, Int) -> Void
@@ -22,8 +21,11 @@ struct HomeView: View {
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 36) {
+                if let hero = weekly?.picks.first(where: { $0.isHero }) ?? weekly?.picks.first {
+                    HeroCard(pick: hero, week: weekly!.week, year: weekly!.year, onTap: { onPick(weeklyToWallpaper(hero)) })
+                }
                 weeklySection
-                dynamicSection
+                macDynamicSection
                 aiSection
                 collectionsSection
             }
@@ -36,41 +38,43 @@ struct HomeView: View {
     // ─── Sections ──────────────────────────────────────────────
 
     private var weeklySection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        let restPicks = (weekly?.picks ?? []).filter { p in p.id != heroID } .prefix(5)
+        return VStack(alignment: .leading, spacing: 14) {
             sectionHeader(
-                kicker: weekly.map { "Week \($0.week) · \($0.year)" } ?? "Curated each Friday",
-                title: "This week's picks",
-                ctaLabel: "VIEW WEEK →",
+                kicker: weekly.map { "Curation · Week \($0.week)" } ?? "Curated each Friday",
+                title: "This week's picks.",
+                ctaLabel: "View archive →",
                 ctaEnabled: weekly != nil,
                 onCTA: { if let w = weekly { onOpenWeek(w.year, w.week) } }
             )
-            if let picks = weekly?.picks, !picks.isEmpty {
-                LazyVGrid(columns: cols(min: 220), spacing: 12) {
-                    ForEach(picks.prefix(8)) { p in
+            if !restPicks.isEmpty {
+                LazyVGrid(columns: fixedCols(5), spacing: 16) {
+                    ForEach(restPicks) { p in
                         let wp = weeklyToWallpaper(p)
                         Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
                             .buttonStyle(.plain)
                     }
                 }
             } else {
-                emptyOrLoading
+                placeholder
             }
         }
     }
 
-    private var dynamicSection: some View {
+    private var macDynamicSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             sectionHeader(
-                kicker: "Mac · animated · multi-frame",
-                title: "Mac Dynamic Wallpapers",
-                ctaLabel: nil
+                kicker: "Multi-frame · solar / h24 / apr",
+                title: "Mac Dynamic Wallpapers.",
+                ctaLabel: "All dynamic →",
+                ctaEnabled: true
             )
             if dynamicWalls.isEmpty {
-                emptyOrLoading
+                placeholder
             } else {
-                LazyVGrid(columns: cols(min: 240), spacing: 12) {
+                LazyVGrid(columns: fixedCols(4), spacing: 14) {
                     ForEach(dynamicWalls.prefix(8)) { wp in
-                        Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
+                        Button(action: { onPick(wp) }) { MacDynamicTile(wallpaper: wp) }
                             .buttonStyle(.plain)
                     }
                 }
@@ -81,15 +85,16 @@ struct HomeView: View {
     private var aiSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             sectionHeader(
-                kicker: "Synthetic · model-generated",
-                title: "AI Wallpapers",
-                ctaLabel: nil
+                kicker: "AI Lab · synthetic samples",
+                title: "Generated this week.",
+                ctaLabel: "All AI →",
+                ctaEnabled: true
             )
             if aiWalls.isEmpty {
-                emptyOrLoading
+                placeholder
             } else {
-                LazyVGrid(columns: cols(min: 240), spacing: 12) {
-                    ForEach(aiWalls.prefix(8)) { wp in
+                LazyVGrid(columns: fixedCols(5), spacing: 16) {
+                    ForEach(aiWalls.prefix(10)) { wp in
                         Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
                             .buttonStyle(.plain)
                     }
@@ -101,15 +106,16 @@ struct HomeView: View {
     private var collectionsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             sectionHeader(
-                kicker: "Themed lists · community + editors",
-                title: "Collections",
-                ctaLabel: nil
+                kicker: "Editorial sets · themed bundles",
+                title: "Themed collections.",
+                ctaLabel: "All collections →",
+                ctaEnabled: true
             )
             if collections.isEmpty {
-                emptyOrLoading
+                placeholder
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 280, maximum: 360), spacing: 14, alignment: .top)], spacing: 14) {
-                    ForEach(collections.prefix(6)) { c in
+                LazyVGrid(columns: fixedCols(4), spacing: 14) {
+                    ForEach(collections.prefix(8)) { c in
                         NavigationLink(value: MainWindow.MainRoute.collection(slug: c.slug, title: c.title)) {
                             CollectionCard(item: c)
                         }
@@ -120,7 +126,11 @@ struct HomeView: View {
         }
     }
 
-    // ─── Header helper ─────────────────────────────────────────
+    // ─── Helpers ────────────────────────────────────────────────
+
+    private var heroID: Int? {
+        (weekly?.picks.first(where: { $0.isHero }) ?? weekly?.picks.first)?.id
+    }
 
     private func sectionHeader(kicker: String, title: String, ctaLabel: String? = nil, ctaEnabled: Bool = true, onCTA: (() -> Void)? = nil) -> some View {
         HStack(alignment: .firstTextBaseline) {
@@ -141,23 +151,14 @@ struct HomeView: View {
         }
     }
 
-    private func cols(min: CGFloat) -> [GridItem] {
-        [GridItem(.adaptive(minimum: min, maximum: 360), spacing: 12, alignment: .top)]
+    private func fixedCols(_ count: Int) -> [GridItem] {
+        Array(repeating: GridItem(.flexible(minimum: 140), spacing: 16, alignment: .top), count: count)
     }
 
-    @ViewBuilder
-    private var emptyOrLoading: some View {
-        if loading {
-            HStack { Spacer(); ProgressView().controlSize(.small); Spacer() }
-                .frame(height: 80)
-        } else {
-            Text("Nothing here yet.")
-                .font(.sans12).foregroundStyle(Color.muted)
-                .padding(.vertical, 24)
-        }
+    private var placeholder: some View {
+        HStack { Spacer(); ProgressView().controlSize(.small).opacity(loading ? 1 : 0); Spacer() }
+            .frame(height: 80)
     }
-
-    // ─── Loading ───────────────────────────────────────────────
 
     private func loadAll() async {
         loading = true; defer { loading = false }
@@ -182,5 +183,153 @@ struct HomeView: View {
             isAIGenerated: p.isAIGenerated, isLiked: nil, isFavorited: nil, isDownloaded: nil,
             createdAt: ""
         )
+    }
+}
+
+// Big hero card at the top of Home. Wide aspect, blurred-bg behind a
+// crisp foreground image, kicker / serif title / Open button on top
+// of a bottom gradient. Mirrors HeroCard on the web's HomePage.
+struct HeroCard: View {
+    let pick: WeeklyPicked
+    let week: Int
+    let year: Int
+    let onTap: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: onTap) {
+            ZStack(alignment: .bottomLeading) {
+                CachedAsyncImage(url: URL(string: pick.previewURL)) { img in
+                    img.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color(hex: pick.dominantColor ?? "#bbb").opacity(0.5)
+                }
+                .frame(height: 420)
+                .frame(maxWidth: .infinity)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+
+                LinearGradient(
+                    colors: [.clear, .clear, .black.opacity(0.55)],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+                .allowsHitTesting(false)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("WEEK \(week) · \(year) · HERO PICK")
+                        .font(.kicker).tracking(2.2)
+                        .foregroundStyle(.white.opacity(0.92))
+                    Text(pick.title.isEmpty ? "This week's drop" : pick.title)
+                        .font(.system(size: 32, weight: .semibold, design: .serif))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.white)
+                        Text("Open detail")
+                            .font(.sans12)
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(Capsule().fill(.white.opacity(0.18)))
+                    .overlay(Capsule().stroke(.white.opacity(0.32), lineWidth: 0.5))
+                }
+                .padding(28)
+            }
+        }
+        .buttonStyle(.plain)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false)
+        )
+        .scaleEffect(hover ? 1.005 : 1.0)
+        .shadow(color: Color.black.opacity(hover ? 0.18 : 0.08), radius: hover ? 22 : 14, x: 0, y: hover ? 12 : 6)
+        .animation(.easeOut(duration: 0.2), value: hover)
+        .onHover { entered in
+            hover = entered
+            if entered {
+                PaletteEnv.shared.apply(palette: nil, dominant: pick.dominantColor)
+            } else {
+                PaletteEnv.shared.resetToDefaults()
+            }
+        }
+    }
+}
+
+// Mac Dynamic tile — visually distinct from the salon tile so the
+// multi-frame nature reads at a glance. Stack-of-screens metaphor
+// with a small overlap on the right edge + a chip stack indicator.
+struct MacDynamicTile: View {
+    let wallpaper: Wallpaper
+    @State private var hover = false
+    @State private var manager = WallpaperManager.shared
+
+    var body: some View {
+        Rectangle().fill(Color.clear)
+            .aspectRatio(16.0 / 10.0, contentMode: .fit)
+            .overlay { tileBody }
+            .animation(.easeOut(duration: 0.18), value: hover)
+            .onHover { entered in
+                hover = entered
+                if entered {
+                    PaletteEnv.shared.apply(palette: nil, dominant: wallpaper.dominantColor)
+                } else {
+                    PaletteEnv.shared.resetToDefaults()
+                }
+            }
+    }
+
+    private var tileBody: some View {
+        ZStack(alignment: .bottomLeading) {
+            // Stacked "second screen" shadow beneath, offset to hint
+            // at the dynamic / multi-frame nature.
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.4))
+                .offset(x: 8, y: 8)
+                .blur(radius: 2)
+
+            // Front face — the visible wallpaper preview.
+            ZStack(alignment: .topLeading) {
+                CachedAsyncImage(url: URL(string: wallpaper.displayURL)) { img in
+                    img.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.55)
+                }
+                .clipped()
+
+                LinearGradient(
+                    colors: [Color.black.opacity(0.18), .clear, .clear, Color.black.opacity(0.30)],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .allowsHitTesting(false)
+
+                // Stack-of-screens chip — single accent capsule
+                // top-left so this card reads differently than a
+                // still-image tile.
+                HStack(spacing: 4) {
+                    Image(systemName: "square.stack.3d.up.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("DYNAMIC")
+                        .font(.mono10).tracking(0.7)
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                .background(Capsule().fill(Color.accent))
+                .padding(10)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.hair, lineWidth: 1))
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(wallpaper.title.isEmpty ? "Dynamic wallpaper" : wallpaper.title)
+                    .font(.sans12).foregroundStyle(.white).lineLimit(1)
+                Text(wallpaper.resolutionLabel)
+                    .font(.kicker).tracking(1.4).foregroundStyle(.white.opacity(0.8))
+            }
+            .padding(.horizontal, 12).padding(.bottom, 10)
+        }
+        .scaleEffect(hover ? 1.01 : 1.0)
+        .shadow(color: Color.accent.opacity(hover ? 0.30 : 0.0), radius: hover ? 18 : 0, x: 0, y: 8)
     }
 }

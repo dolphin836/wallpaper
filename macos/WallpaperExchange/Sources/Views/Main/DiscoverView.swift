@@ -18,6 +18,8 @@ struct DiscoverView: View {
     @State private var loading = false
     @State private var loadError: String?
     @State private var filter: Filter = .latest
+    @State private var categories: [Category] = []
+    @State private var selectedCategoryID: Int? = nil
 
     enum Filter: String, CaseIterable, Hashable {
         case latest = "Latest"
@@ -30,6 +32,7 @@ struct DiscoverView: View {
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
+                categoryRow
                 filterRow
 
                 if loading && items.isEmpty {
@@ -67,10 +70,42 @@ struct DiscoverView: View {
         }
         .task(id: "discover-init") {
             if deviceMatch { filter = .myDevice }
+            if categories.isEmpty {
+                if let list = try? await APIClient.shared.fetchCategories() {
+                    categories = list.sorted { ($0.sortOrder ?? 0) < ($1.sortOrder ?? 0) }
+                }
+            }
             await reload()
         }
         .onChange(of: filter) { _, _ in Task { await reload() } }
         .onChange(of: search) { _, _ in Task { await reload() } }
+        .onChange(of: selectedCategoryID) { _, _ in Task { await reload() } }
+    }
+
+    // Category chip row — All + each category. Matches the web's
+    // .tile-chip family + active = ink/paper inverse.
+    private var categoryRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                categoryChip(label: "All", id: nil)
+                ForEach(categories) { c in
+                    categoryChip(label: c.name, id: c.id)
+                }
+            }
+        }
+    }
+
+    private func categoryChip(label: String, id: Int?) -> some View {
+        let active = selectedCategoryID == id
+        return Button(action: { selectedCategoryID = id }) {
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(active ? Color.paper : Color.ink2)
+                .padding(.horizontal, 16).padding(.vertical, 6)
+                .background(Capsule().fill(active ? Color.ink : Color.paper))
+                .overlay(Capsule().stroke(active ? Color.ink : Color.hair, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 
     private var filterRow: some View {
@@ -129,6 +164,7 @@ struct DiscoverView: View {
                 dynamicOnly: filter == .dynamic,
                 aiOnly: filter == .ai,
                 search: search.isEmpty ? nil : search,
+                categoryID: selectedCategoryID,
                 sort: filter == .trending ? "trending" : nil,
                 deviceMatch: filter == .myDevice
             )

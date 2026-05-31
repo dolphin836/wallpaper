@@ -78,7 +78,7 @@ struct MainSidebar: View {
     private var identityFooter: some View {
         Group {
             if auth.isLoggedIn, let u = auth.user {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
                         avatar(user: u)
                             .frame(width: 36, height: 36)
@@ -92,40 +92,10 @@ struct MainSidebar: View {
                                 .foregroundStyle(Color.muted).lineLimit(1)
                         }
                         Spacer()
-                        Menu {
-                            Button("Refresh") { Task { await auth.refreshProfile() } }
-                            Divider()
-                            Button("Sign out", role: .destructive) { auth.logout() }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 13)).foregroundStyle(Color.ink2)
-                                .frame(width: 26, height: 26)
-                        }
-                        .menuStyle(.button)
-                        .menuIndicator(.hidden)
-                        .frame(width: 26, height: 26)
-                        .fixedSize()
                     }
-                    // Coin pill — accent on ink, mirrors the web's
-                    // BalancePill.
-                    HStack(spacing: 6) {
-                        ZStack {
-                            Circle().fill(Color.accent)
-                            Circle().stroke(Color.white.opacity(0.35), lineWidth: 0.8).padding(0.5)
-                                .blendMode(.plusLighter)
-                        }
-                        .frame(width: 16, height: 16)
-                        Text("\(u.coins)")
-                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(Color.paper)
-                            .monospacedDigit()
-                        Text("COINS")
-                            .font(.kicker).tracking(1.4)
-                            .foregroundStyle(Color.paper.opacity(0.7))
-                        Spacer()
-                    }
-                    .padding(.leading, 5).padding(.trailing, 11).padding(.vertical, 5)
-                    .background(Capsule().fill(Color.ink))
+                    // Web-style BalancePill — warm gradient, minted-
+                    // coin disc that flips on hover.
+                    BalancePill(coins: u.coins)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)

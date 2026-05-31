@@ -72,28 +72,37 @@ struct MainWindow: View {
                 .toolbar(removing: .sidebarToggle)
         } detail: {
             NavigationStack(path: $path) {
-                VStack(spacing: 0) {
-                    ContentToolbar(
-                        title: sidebar.label,
-                        search: $search,
-                        onCommitSearch: commitSearch,
-                        onUpload: { showingUpload = true },
-                        onShuffle: { manager.setAutoRotate(!manager.autoRotate) },
-                        shuffleOn: manager.autoRotate
-                    )
-                    Divider().background(Color.hair)
+                ZStack {
+                    // Page-mesh palette tint behind content. Lives at
+                    // the detail-pane root so hover-driven palette
+                    // changes paint behind every page, just like the
+                    // web's .d3-discover-mesh.
+                    Color.paper.ignoresSafeArea()
+                    PageMesh()
 
-                    ContentRouter(
-                        sidebar: sidebar,
-                        search: committedSearch,
-                        onPick: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) },
-                        onDevice: { d in path.append(.device(slug: d.slug, name: d.name)) },
-                        onWeeklyWeek: { y, w in path.append(.weeklyWeek(year: y, week: w)) },
-                        onCategory: { c in path.append(.category(id: c.id, name: c.name, slug: c.slug)) },
-                        onUploader: { username in path.append(.profile(username: username)) }
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.paper.ignoresSafeArea())
+                    VStack(spacing: 0) {
+                        ContentToolbar(
+                            title: sidebar.label,
+                            onRefresh: { Task { await auth.refreshProfile() } },
+                            onLogout: { auth.logout() },
+                            onUpload: { showingUpload = true },
+                            onShuffle: { manager.setAutoRotate(!manager.autoRotate) },
+                            shuffleOn: manager.autoRotate,
+                            isLoggedIn: auth.isLoggedIn
+                        )
+                        Divider().background(Color.hair)
+
+                        ContentRouter(
+                            sidebar: sidebar,
+                            search: committedSearch,
+                            onPick: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) },
+                            onDevice: { d in path.append(.device(slug: d.slug, name: d.name)) },
+                            onWeeklyWeek: { y, w in path.append(.weeklyWeek(year: y, week: w)) },
+                            onCategory: { c in path.append(.category(id: c.id, name: c.name, slug: c.slug)) },
+                            onUploader: { username in path.append(.profile(username: username)) }
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 }
                 .navigationDestination(for: MainRoute.self) { route in
                     switch route {
