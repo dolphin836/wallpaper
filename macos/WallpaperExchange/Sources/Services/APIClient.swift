@@ -38,7 +38,10 @@ actor APIClient {
         decoder = JSONDecoder()
     }
 
-    private func request<T: Decodable>(_ path: String, method: String = "GET", queryItems: [URLQueryItem]? = nil) async throws -> T {
+    // Internal (not private) so extensions in sibling files can route
+    // their endpoints through the same request plumbing — token attach,
+    // 401/402 mapping, decoding. See APIClient+Main.swift.
+    func request<T: Decodable>(_ path: String, method: String = "GET", queryItems: [URLQueryItem]? = nil) async throws -> T {
         guard var components = URLComponents(string: baseURL + path) else {
             throw APIError.invalidURL
         }

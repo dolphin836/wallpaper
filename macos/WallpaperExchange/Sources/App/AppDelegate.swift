@@ -15,8 +15,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UpdateService.shared.checkAtLaunch()
     }
 
+    // v2: app stays alive when the main window is closed so the
+    // status-bar quick-action popover keeps working. Reopening from
+    // the Dock (or ⇧⌘0) brings the window back.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            for window in sender.windows where window.canBecomeMain {
+                window.makeKeyAndOrderFront(nil)
+                return true
+            }
+        }
+        return true
+    }
+
+    // Bridge so the SwiftUI command menu can toggle the popover
+    // without owning the NSStatusItem reference itself.
+    func togglePopoverExternally() {
+        togglePopover()
     }
 
     private func setupStatusItem() {

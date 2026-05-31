@@ -20,8 +20,12 @@
     <string>AppIcon</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
-    <key>LSUIElement</key>
-    <true/>
+    <!-- LSUIElement was true while this was a menu-bar-only helper.
+         v2 promotes the app to a regular Dock-visible app so the
+         redesigned main window can host Discover / Detail / Profile /
+         Collections / Upload. The status-bar item still attaches in
+         AppDelegate for quick actions. -->
+
     <key>CFBundleURLTypes</key>
     <array>
         <dict>
