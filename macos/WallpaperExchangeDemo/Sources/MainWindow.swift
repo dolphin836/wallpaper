@@ -1,49 +1,77 @@
 import SwiftUI
 
-// Top-level main window scene. Sidebar on the left, content grid in
-// the middle, optional detail inspector on the right. Layout uses
-// NavigationSplitView so macOS 14+ gives us native column resizing /
-// sidebar collapse / unified toolbar for free.
+// Top-level main window scene. Sidebar on the left, content stack on
+// the right. Detail navigation is now full-page push (not a side
+// inspector) per the v2 design decision — the main content column
+// owns its own NavigationStack so clicking a wallpaper, uploader or
+// collection pushes a new page with a real back affordance, while the
+// sidebar selection acts as the stack root.
 struct MainWindow: View {
     @State private var selection: String = "discover"
-    @State private var detail: DemoWallpaper? = nil
+    @State private var path: [Route] = []
     @State private var search: String = ""
+    @State private var showingUpload = false
+
+    // Routes that can be pushed onto the inner NavigationStack. Each
+    // case carries the data it needs so deep-link state survives a
+    // sidebar switch / window resize without an extra ID lookup.
+    enum Route: Hashable {
+        case detail(DemoWallpaper)
+        case profile(uploader: String)
+        case collection(id: Int, title: String)
+    }
 
     var body: some View {
         NavigationSplitView {
-            Sidebar(selection: $selection)
-                .frame(minWidth: 220, idealWidth: 240)
+            Sidebar(selection: $selection, onUpload: { showingUpload = true })
+                .frame(minWidth: 230, idealWidth: 250)
                 .toolbar(removing: .sidebarToggle)
         } detail: {
-            // Center: discover grid. The right-side inspector is a
-            // transient sheet-style overlay rather than a third pane
-            // so the grid keeps its full width when nothing is open.
-            ZStack(alignment: .trailing) {
-                ContentArea(selection: selection, search: $search, onPick: { detail = $0 })
-                if let wp = detail {
-                    DetailInspector(wallpaper: wp, onClose: { detail = nil })
-                        .frame(width: 420)
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                        .zIndex(2)
+            NavigationStack(path: $path) {
+                ContentArea(
+                    selection: selection,
+                    search: $search,
+                    onPick: { path.append(.detail($0)) }
+                )
+                .background(Color.dPaper.ignoresSafeArea())
+                .navigationDestination(for: Route.self) { route in
+                    switch route {
+                    case .detail(let wp):
+                        DetailPage(wallpaper: wp, onUploader: { username in
+                            path.append(.profile(uploader: username))
+                        }, onCollection: { id, title in
+                            path.append(.collection(id: id, title: title))
+                        })
+                    case .profile(let uploader):
+                        ProfileView(username: uploader, onPick: { path.append(.detail($0)) })
+                    case .collection(let id, let title):
+                        CollectionDetailView(id: id, title: title, onPick: { path.append(.detail($0)) })
+                    }
                 }
+                .toolbar { mainToolbar }
             }
-            .animation(.easeOut(duration: 0.22), value: detail)
-            .toolbar { mainToolbar }
+            // Reset the inner stack whenever the sidebar root changes —
+            // pushing detail pages on top of one section then jumping
+            // to another shouldn't leak the old breadcrumb.
+            .onChange(of: selection) { _, _ in path.removeAll() }
         }
         .navigationSplitViewStyle(.balanced)
         .background(Color.dPaper)
+        .sheet(isPresented: $showingUpload) {
+            UploadView(onClose: { showingUpload = false })
+                .frame(minWidth: 720, minHeight: 560)
+        }
     }
 
     @ToolbarContentBuilder
     private var mainToolbar: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
-            Text(sectionTitle(for: selection))
+            Text(toolbarTitle)
                 .font(.dDisplay18)
                 .foregroundStyle(Color.dInk)
+                .help(toolbarTitle)
         }
         ToolbarItemGroup(placement: .principal) {
-            // Centered search field — discover-style. Tracks selection
-            // text but doesn't do anything in the demo.
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 12))
@@ -58,21 +86,23 @@ struct MainWindow: View {
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.dPaper2)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.dHair, lineWidth: 1)
-                    )
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.dHair, lineWidth: 1))
             )
         }
         ToolbarItemGroup(placement: .primaryAction) {
+            Button(action: { showingUpload = true }) {
+                Label("Upload", systemImage: "tray.and.arrow.up")
+                    .font(.dSans12)
+            }
+            .help("Share a wallpaper (⌘U)")
+            .keyboardShortcut("u", modifiers: .command)
+
             Button(action: {}) {
                 Image(systemName: "shuffle")
                     .font(.system(size: 13, weight: .medium))
             }
             .help("Auto-shuffle wallpaper every 4 hours")
-            .buttonStyle(.borderless)
 
-            // Coin pill — accent.
             HStack(spacing: 6) {
                 Circle().fill(Color.dAccent).frame(width: 14, height: 14)
                 Text("124")
@@ -84,7 +114,6 @@ struct MainWindow: View {
             .padding(.vertical, 4)
             .background(Capsule().fill(Color.dInk))
 
-            // Profile chip.
             Circle()
                 .fill(Color.dPaper2)
                 .overlay(Text("E").font(.dDisplay16).foregroundStyle(Color.dInk))
@@ -93,42 +122,39 @@ struct MainWindow: View {
         }
     }
 
-    private func sectionTitle(for id: String) -> String {
-        DemoData.destinations.first(where: { $0.id == id })?.label ?? "Discover"
+    private var toolbarTitle: String {
+        if let last = path.last {
+            switch last {
+            case .detail(let wp): return wp.title
+            case .profile(let u): return "@\(u)"
+            case .collection(_, let title): return title
+            }
+        }
+        return DemoData.destinations.first(where: { $0.id == selection })?.label ?? "Discover"
     }
 }
 
-// Routing — picks the right content view per sidebar selection. The
-// demo only renders the Discover grid; other destinations fall back
-// to a stub placeholder so the user can navigate around to see the
-// frame.
+// Routes — picks the right content view per sidebar selection.
 struct ContentArea: View {
     let selection: String
     @Binding var search: String
     var onPick: (DemoWallpaper) -> Void
 
     var body: some View {
-        ZStack {
-            // Soft paper backdrop with a subtle warm wash, mirroring the
-            // web's body background.
-            Color.dPaper.ignoresSafeArea()
-            switch selection {
-            case "discover":   DiscoverView(search: search, onPick: onPick)
-            case "weekly":     StubView(title: "Weekly Picks", kicker: "Curated each Friday")
-            case "device":     StubView(title: "Wallpapers for Your Device", kicker: "MacBook Pro 14\" · 3024 × 1964 · matched")
-            case "category":   StubView(title: "Categories", kicker: "Nature · City · Anime · Abstract · Tech · …")
-            case "downloads":  StubView(title: "Downloads", kicker: "12 wallpapers on this Mac")
-            case "collections":StubView(title: "Collections", kicker: "5 lists")
-            case "liked":      StubView(title: "Liked", kicker: "47 wallpapers")
-            case "uploaded":   StubView(title: "Uploaded by You", kicker: "8 wallpapers · 412 coins earned")
-            default: DiscoverView(search: search, onPick: onPick)
-            }
+        switch selection {
+        case "discover":    DiscoverView(search: search, onPick: onPick)
+        case "weekly":      StubView(title: "Weekly Picks", kicker: "Curated each Friday")
+        case "device":      StubView(title: "Wallpapers for Your Device", kicker: "MacBook Pro 14\" · 3024 × 1964 · matched")
+        case "category":    StubView(title: "Categories", kicker: "Nature · City · Anime · Abstract · Tech · …")
+        case "downloads":   DiscoverView(search: search, onPick: onPick)
+        case "collections": CollectionsListView(onOpen: { _, _ in })
+        case "liked":       DiscoverView(search: search, onPick: onPick)
+        case "uploaded":    DiscoverView(search: search, onPick: onPick)
+        default:            DiscoverView(search: search, onPick: onPick)
         }
     }
 }
 
-// Placeholder for sections that aren't built out in the demo. Lets the
-// user click around the sidebar without hitting empty screens.
 struct StubView: View {
     let title: String
     let kicker: String

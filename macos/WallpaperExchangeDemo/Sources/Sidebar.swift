@@ -8,6 +8,7 @@ import SwiftUI
 // re-inventing chrome.
 struct Sidebar: View {
     @Binding var selection: String
+    var onUpload: () -> Void = {}
 
     var body: some View {
         List(selection: Binding(get: { selection }, set: { selection = $0 ?? "discover" })) {
@@ -53,12 +54,26 @@ struct Sidebar: View {
                 }
             }
 
-            // Bottom-pinned settings cell. Listed as its own item so
-            // sidebar selection includes it but visually separated by
-            // the footer padding.
-            Section {
-                EmptyView()
+            // Big share/upload CTA — surfaces the contributor flow
+            // without burying it behind a menu.
+            Button(action: onUpload) {
+                HStack(spacing: 7) {
+                    Image(systemName: "tray.and.arrow.up").font(.system(size: 12, weight: .semibold))
+                    Text("Share a wallpaper").font(.dSans12)
+                    Spacer()
+                    Text("⌘U").font(.dMono10).tracking(0.5).opacity(0.7)
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 8)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.dAccent))
             }
+            .buttonStyle(.plain)
+            .keyboardShortcut("u", modifiers: .command)
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .selectionDisabled()
+            .padding(.top, 6)
         }
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)

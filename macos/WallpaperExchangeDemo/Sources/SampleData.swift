@@ -4,7 +4,10 @@ import SwiftUI
 // Picsum.photos serves random photos against a deterministic seed so
 // repeat loads cache the same image — good enough for layout review.
 
-struct DemoWallpaper: Identifiable, Equatable {
+struct DemoWallpaper: Identifiable, Hashable {
+    static func == (lhs: DemoWallpaper, rhs: DemoWallpaper) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+
     let id: Int
     let title: String
     let category: String
