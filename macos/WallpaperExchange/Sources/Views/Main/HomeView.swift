@@ -151,8 +151,14 @@ struct HomeView: View {
         }
     }
 
+    // GridItem(.flexible()) without a minimum gives every column an
+    // equal share of the container width — was using .flexible(minimum:
+    // 140) which can produce uneven widths when the container narrows.
+    // `.top` alignment + matching column spacing 14 (same value as the
+    // LazyVGrid's row spacing) keeps cells flush and prevents the
+    // shadow-bleed-into-next-row look.
     private func fixedCols(_ count: Int) -> [GridItem] {
-        Array(repeating: GridItem(.flexible(minimum: 140), spacing: 16, alignment: .top), count: count)
+        Array(repeating: GridItem(.flexible(), spacing: 14, alignment: .top), count: count)
     }
 
     private var placeholder: some View {
@@ -257,24 +263,21 @@ struct HeroCard: View {
     }
 }
 
-// Mac Dynamic tile — same Rectangle().aspectRatio.overlay anchor as
-// the standard MainGridTile so it never breaks LazyVGrid row math,
-// distinguished only by the accent DYNAMIC chip up top + a serif
-// caption row bottom-left over a bottom gradient. The fancy
-// stacked-offset 'second screen' effect from the previous pass was
-// pushing children outside their cell bounds and causing the
-// overlap visible in the user's screenshot — this version is
-// flat-on-grid like every other tile, just visually richer.
+// Mac Dynamic tile — strict same-shape as MainGridTile so LazyVGrid
+// row math is identical. The only visual difference is the chip
+// treatment: a single big accent DYNAMIC pill instead of the
+// resolution + MAC + AI chip cluster the salon tile uses. No
+// caption row, no stacked-offset trick — those were the things
+// producing the row-overlap the user kept seeing.
 struct MacDynamicTile: View {
     let wallpaper: Wallpaper
     @State private var hover = false
 
     var body: some View {
-        Rectangle().fill(Color.clear)
+        Color.clear
             .aspectRatio(16.0 / 10.0, contentMode: .fit)
             .overlay {
                 ZStack(alignment: .topLeading) {
-                    // Dominant-color floor + image.
                     Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.55)
                     CachedAsyncImage(url: URL(string: wallpaper.displayURL)) { img in
                         img.resizable().aspectRatio(contentMode: .fill)
@@ -283,15 +286,15 @@ struct MacDynamicTile: View {
                     }
                     .clipped()
 
-                    // Bottom gradient for the caption row.
                     LinearGradient(
-                        colors: [Color.black.opacity(0.18), .clear, .clear, Color.black.opacity(0.55)],
+                        colors: [Color.black.opacity(0.18), .clear, .clear, Color.black.opacity(0.30)],
                         startPoint: .top, endPoint: .bottom
                     )
-                    .opacity(hover ? 1 : 0.85)
+                    .opacity(hover ? 1 : 0.65)
                     .allowsHitTesting(false)
 
-                    // Top-left DYNAMIC chip with stack icon.
+                    // Single big DYNAMIC chip — distinguishes this
+                    // tile from the salon family at a glance.
                     HStack(spacing: 4) {
                         Image(systemName: "square.stack.3d.up.fill")
                             .font(.system(size: 10, weight: .semibold))
@@ -301,24 +304,12 @@ struct MacDynamicTile: View {
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(Capsule().fill(Color.accent))
                     .padding(10)
-
-                    // Bottom-left caption (title + resolution).
-                    VStack {
-                        Spacer()
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(wallpaper.title.isEmpty ? "Dynamic wallpaper" : wallpaper.title)
-                                .font(.sans12).foregroundStyle(.white).lineLimit(1)
-                            Text(wallpaper.resolutionLabel)
-                                .font(.mono10).tracking(1.0)
-                                .foregroundStyle(.white.opacity(0.85))
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 12).padding(.bottom, 10)
-                    }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false))
-                .shadow(color: Color.accent.opacity(hover ? 0.28 : 0.06), radius: hover ? 10 : 3, x: 0, y: hover ? 5 : 2)
+                .shadow(color: Color.accent.opacity(hover ? 0.22 : 0.04),
+                        radius: hover ? 8 : 3,
+                        x: 0, y: hover ? 4 : 1)
             }
             .animation(.easeOut(duration: 0.18), value: hover)
             .onHover { entered in
