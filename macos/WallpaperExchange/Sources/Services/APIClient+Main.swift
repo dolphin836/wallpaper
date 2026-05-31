@@ -127,6 +127,19 @@ extension APIClient {
         return resp.data
     }
 
+    // ─── Uploaders ───────────────────────────────────────────────
+    func fetchUploaders(sort: String = "trending", page: Int = 1, limit: Int = 24) async throws -> UploaderListResponse {
+        let resp: APIResponse<UploaderListResponse> = try await request(
+            "/users",
+            queryItems: [
+                .init(name: "sort", value: sort),
+                .init(name: "page", value: String(page)),
+                .init(name: "limit", value: String(limit)),
+            ]
+        )
+        return resp.data
+    }
+
     // ─── Engagement actions ──────────────────────────────────────
     func like(wallpaperID: Int) async throws {
         let _: APIResponse<EmptyData> = try await request("/wallpapers/\(wallpaperID)/like", method: "POST")

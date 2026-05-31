@@ -264,6 +264,35 @@ struct DeviceProfileDetail: Decodable {
     }
 }
 
+// Uploader card on the Uploaders index. wallpaper_count + total_downloads
+// are aggregates the backend joins in; recent_thumbs/tints power the
+// small thumbnail strip the web's UploadersPage renders.
+struct UploaderListItem: Decodable, Identifiable, Hashable {
+    let id: Int
+    let username: String
+    let nickname: String
+    let avatarURL: String
+    let bio: String
+    let wallpaperCount: Int
+    let totalDownloads: Int
+    let recentThumbs: [String]?
+    let recentTints: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case id, username, nickname, bio
+        case avatarURL = "avatar_url"
+        case wallpaperCount = "wallpaper_count"
+        case totalDownloads = "total_downloads"
+        case recentThumbs = "recent_thumbs"
+        case recentTints = "recent_tints"
+    }
+}
+
+struct UploaderListResponse: Decodable {
+    let items: [UploaderListItem]
+    let total: Int
+}
+
 struct PublicProfile: Decodable {
     let id: Int
     let username: String

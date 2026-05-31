@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 enum APIError: LocalizedError {
     case invalidURL
@@ -90,7 +91,9 @@ actor APIClient {
         dynamicOnly: Bool = false,
         aiOnly: Bool = false,
         search: String? = nil,
-        categoryID: Int? = nil
+        categoryID: Int? = nil,
+        sort: String? = nil,
+        deviceMatch: Bool = false
     ) async throws -> PaginatedData<Wallpaper> {
         var items: [URLQueryItem] = [
             .init(name: "limit", value: String(limit)),
@@ -106,6 +109,20 @@ actor APIClient {
         }
         if let id = categoryID, id > 0 {
             items.append(.init(name: "category_id", value: String(id)))
+        }
+        if let sort, !sort.isEmpty {
+            items.append(.init(name: "sort", value: sort))
+        }
+        // Device-resolution match — sends this Mac's physical pixel
+        // dimensions so the backend filters to wallpapers with a
+        // matching variant.
+        if deviceMatch, let screen = NSScreen.main {
+            let dpr = Int(screen.backingScaleFactor)
+            let w = Int(screen.frame.width) * dpr
+            let h = Int(screen.frame.height) * dpr
+            items.append(.init(name: "device_width", value: String(w)))
+            items.append(.init(name: "device_height", value: String(h)))
+            items.append(.init(name: "include_dynamic", value: "true"))
         }
         // The mac client doesn't render video wallpapers. Hide them
         // server-side so we don't even pay the metadata round trip.

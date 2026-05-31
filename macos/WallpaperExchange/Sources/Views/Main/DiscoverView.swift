@@ -1,12 +1,15 @@
 import SwiftUI
 
-// Main 'Discover' content. Editorial header (kicker + serif headline +
-// intro), filter pills, adaptive 16:9 grid. `deviceMatch=true` switches
-// to the Mac's screen resolution filter (used by the For Your Device
-// sidebar entry).
+// Main Discover content — minimal editorial chrome to match the web's
+// Discover page, just a kicker + filter pills + grid. No marketing
+// headline. Filter pills dispatch to the right query parameters
+// (sort=trending, dynamic_only, ai_only, device_width/height, etc.).
 struct DiscoverView: View {
     let search: String
     var onPick: (Wallpaper) -> Void
+    /// When true (used by the legacy device-match sidebar entry) the
+    /// initial filter is forced to .myDevice. Discover itself starts on
+    /// Latest.
     var deviceMatch: Bool = false
 
     @State private var items: [Wallpaper] = []
@@ -16,24 +19,17 @@ struct DiscoverView: View {
     @State private var loadError: String?
     @State private var filter: Filter = .latest
 
-    enum Filter: String, CaseIterable {
-        case latest = "Latest", forYou = "For You", trending = "Trending",
-             myDevice = "My Device", dynamic = "Dynamic", ai = "AI"
-    }
-
-    private var filtered: [Wallpaper] {
-        let s = search.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !s.isEmpty else { return items }
-        return items.filter {
-            $0.title.lowercased().contains(s) ||
-            ($0.dominantColor?.lowercased().contains(s) ?? false)
-        }
+    enum Filter: String, CaseIterable, Hashable {
+        case latest = "Latest"
+        case trending = "Trending"
+        case myDevice = "My Device"
+        case dynamic = "Mac Dynamic"
+        case ai = "AI"
     }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 28) {
-                editorialHeader
+            VStack(alignment: .leading, spacing: 16) {
                 filterRow
 
                 if loading && items.isEmpty {
@@ -41,20 +37,18 @@ struct DiscoverView: View {
                         .padding(.top, 60)
                 } else if let err = loadError {
                     errorBanner(err)
-                } else if filtered.isEmpty {
-                    Text("No wallpapers match.").font(.sans13).foregroundStyle(Color.muted)
-                        .padding(.top, 20)
+                } else if items.isEmpty {
+                    Text(search.isEmpty ? "No wallpapers." : "No wallpapers match.")
+                        .font(.sans13).foregroundStyle(Color.muted).padding(.top, 20)
                 } else {
                     LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: 260, maximum: 380), spacing: 16, alignment: .top)],
-                        spacing: 16
+                        columns: [GridItem(.adaptive(minimum: 240, maximum: 360), spacing: 12, alignment: .top)],
+                        spacing: 12
                     ) {
-                        ForEach(filtered) { wp in
-                            Button(action: { onPick(wp) }) {
-                                MainGridTile(wallpaper: wp)
-                            }
-                            .buttonStyle(.plain)
-                            .onAppear { maybeLoadMore(wp) }
+                        ForEach(items) { wp in
+                            Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
+                                .buttonStyle(.plain)
+                                .onAppear { maybeLoadMore(wp) }
                         }
                     }
                     if hasMore {
@@ -67,33 +61,23 @@ struct DiscoverView: View {
                     }
                 }
             }
-            .padding(.horizontal, 32)
-            .padding(.top, 24)
+            .padding(.horizontal, 24)
+            .padding(.top, 20)
             .padding(.bottom, 60)
         }
-        .task(id: "discover-\(deviceMatch)") { await reload() }
-    }
-
-    private var editorialHeader: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Kicker(text: deviceMatch ? "Matched to your screen · live filter" : "Today · curated")
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(deviceMatch ? "Wallpapers sized for" : "Find something for your")
-                    .font(.display32).foregroundStyle(Color.ink)
-                Text("Mac.").font(.display32).foregroundStyle(Color.accent)
-            }
-            Text("Hand-picked wallpapers from the community. Hover any tile for one-click set, or open the detail page for full controls.")
-                .font(.sans13)
-                .foregroundStyle(Color.muted)
-                .frame(maxWidth: 560, alignment: .leading)
+        .task(id: "discover-init") {
+            if deviceMatch { filter = .myDevice }
+            await reload()
         }
+        .onChange(of: filter) { _, _ in Task { await reload() } }
+        .onChange(of: search) { _, _ in Task { await reload() } }
     }
 
     private var filterRow: some View {
         HStack(spacing: 6) {
             ForEach(Filter.allCases, id: \.self) { f in
                 let isOn = filter == f
-                Button(action: { filter = f; Task { await reload() } }) {
+                Button(action: { filter = f }) {
                     Text(f.rawValue)
                         .font(.sans12)
                         .foregroundStyle(isOn ? Color.paper : Color.ink2)
@@ -104,6 +88,11 @@ struct DiscoverView: View {
                 .buttonStyle(.plain)
             }
             Spacer()
+            // Total count chip on the right.
+            if !items.isEmpty {
+                Text("\(items.count) shown")
+                    .font(.mono10).tracking(0.6).foregroundStyle(Color.muted)
+            }
         }
     }
 
@@ -137,114 +126,17 @@ struct DiscoverView: View {
             let data = try await APIClient.shared.fetchWallpapers(
                 cursor: cursor,
                 limit: 24,
-                dynamicOnly: filter == .dynamic
+                dynamicOnly: filter == .dynamic,
+                aiOnly: filter == .ai,
+                search: search.isEmpty ? nil : search,
+                sort: filter == .trending ? "trending" : nil,
+                deviceMatch: filter == .myDevice
             )
             items.append(contentsOf: data.items)
             cursor = data.nextCursor
             hasMore = data.hasMore
-            loadError = nil
         } catch {
             loadError = error.localizedDescription
-        }
-    }
-}
-
-// Downloaded / Liked / Uploaded share the same justified-grid skeleton;
-// each just feeds a different fetcher.
-struct DownloadsView: View {
-    var onPick: (Wallpaper) -> Void
-    @State private var auth = AuthService.shared
-    @State private var items: [Wallpaper] = []
-    @State private var loading = false
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Kicker(text: "Files saved locally — \(items.count)")
-                Text("Downloads").font(.display32).foregroundStyle(Color.ink)
-                if loading && items.isEmpty {
-                    ProgressView()
-                } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 380), spacing: 16, alignment: .top)], spacing: 16) {
-                        ForEach(items) { wp in
-                            Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
-                                .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, 32).padding(.vertical, 24)
-        }
-        .task { await reload() }
-    }
-    private func reload() async {
-        guard auth.isLoggedIn else { return }
-        loading = true; defer { loading = false }
-        if let data = try? await APIClient.shared.fetchMyDownloads(limit: 36) {
-            items = data.items
-        }
-    }
-}
-
-struct MyLikesView: View {
-    var onPick: (Wallpaper) -> Void
-    @State private var auth = AuthService.shared
-    @State private var items: [Wallpaper] = []
-    @State private var loading = false
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Kicker(text: "Wallpapers you've liked")
-                Text("Liked").font(.display32).foregroundStyle(Color.ink)
-                if loading && items.isEmpty { ProgressView() }
-                else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 380), spacing: 16, alignment: .top)], spacing: 16) {
-                        ForEach(items) { wp in
-                            Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
-                                .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }.padding(.horizontal, 32).padding(.vertical, 24)
-        }
-        .task { await reload() }
-    }
-    private func reload() async {
-        guard auth.isLoggedIn, let u = auth.user else { return }
-        loading = true; defer { loading = false }
-        if let data = try? await APIClient.shared.fetchUserLikes(username: u.username, limit: 36) {
-            items = data.items
-        }
-    }
-}
-
-struct MyUploadsView: View {
-    var onPick: (Wallpaper) -> Void
-    @State private var auth = AuthService.shared
-    @State private var items: [Wallpaper] = []
-    @State private var loading = false
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Kicker(text: "Wallpapers you've uploaded")
-                Text("Uploaded by Me").font(.display32).foregroundStyle(Color.ink)
-                if loading && items.isEmpty { ProgressView() }
-                else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 380), spacing: 16, alignment: .top)], spacing: 16) {
-                        ForEach(items) { wp in
-                            Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
-                                .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }.padding(.horizontal, 32).padding(.vertical, 24)
-        }
-        .task { await reload() }
-    }
-    private func reload() async {
-        guard auth.isLoggedIn, let u = auth.user else { return }
-        loading = true; defer { loading = false }
-        if let data = try? await APIClient.shared.fetchUserUploads(username: u.username, limit: 36) {
-            items = data.items
         }
     }
 }

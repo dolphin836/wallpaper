@@ -35,6 +35,7 @@ struct MainWindow: View {
         case device(slug: String, name: String)
         case search(query: String)
         case weeklyWeek(year: Int, week: Int)
+        case category(id: Int, name: String, slug: String)
     }
 
     var body: some View {
@@ -60,7 +61,9 @@ struct MainWindow: View {
                     search: committedSearch,
                     onPick: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) },
                     onDevice: { d in path.append(.device(slug: d.slug, name: d.name)) },
-                    onWeeklyWeek: { y, w in path.append(.weeklyWeek(year: y, week: w)) }
+                    onWeeklyWeek: { y, w in path.append(.weeklyWeek(year: y, week: w)) },
+                    onCategory: { c in path.append(.category(id: c.id, name: c.name, slug: c.slug)) },
+                    onUploader: { username in path.append(.profile(username: username)) }
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.paper.ignoresSafeArea())
@@ -86,6 +89,9 @@ struct MainWindow: View {
                 case .weeklyWeek(let y, let w):
                     WeeklyWeekView(year: y, week: w,
                                    onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                case .category(let id, let name, let slug):
+                    CategoryFeedView(category: Category(id: id, name: name, slug: slug, sortOrder: nil),
+                                     onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
                 }
             }
         }
@@ -116,21 +122,25 @@ struct ContentRouter: View {
     var onPick: (Wallpaper) -> Void
     var onDevice: (DeviceProfile) -> Void
     var onWeeklyWeek: (Int, Int) -> Void
+    var onCategory: (Category) -> Void
+    var onUploader: (String) -> Void
 
     var body: some View {
         switch tab {
-        case .home, .discover:
+        case .home:
+            HomeView(onPick: onPick, onOpenWeek: onWeeklyWeek)
+        case .discover:
             DiscoverView(search: search, onPick: onPick)
         case .weekly:
             WeeklyArchiveView(onOpenWeek: onWeeklyWeek)
         case .collections:
             CollectionsListView()
         case .uploaders:
-            ComingSoonStub(title: "Uploaders", kicker: "Top contributors · this week")
+            UploadersView(onPick: onUploader)
         case .devices:
             DevicesIndexView(onPick: onDevice)
         case .macApp:
-            ComingSoonStub(title: "Mac App", kicker: "You're already on it.")
+            MacAppView()
         }
     }
 }
