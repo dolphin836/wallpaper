@@ -56,6 +56,7 @@ struct Wallpaper: Decodable, Identifiable {
     let fileSize: Int
     let fileType: String
     let dominantColor: String?
+    let colorPalette: String?
     let status: Int
     let viewCount: Int
     let likeCount: Int
@@ -78,6 +79,7 @@ struct Wallpaper: Decodable, Identifiable {
         case fileSize = "file_size"
         case fileType = "file_type"
         case dominantColor = "dominant_color"
+        case colorPalette = "color_palette"
         case viewCount = "view_count"
         case likeCount = "like_count"
         case downloadCount = "download_count"

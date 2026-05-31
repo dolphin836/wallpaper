@@ -32,6 +32,14 @@ struct DiscoverView: View {
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
+                // Static MacBook chassis at the top — mirrors the web's
+                // device floating wall (without the orbiting animation).
+                // Picks the first wallpaper of the feed as the featured
+                // screen content; tapping the chassis opens that
+                // wallpaper's detail page.
+                if let first = items.first {
+                    DevicePreviewBanner(featured: first, onPick: { onPick(first) })
+                }
                 categoryRow
                 filterRow
 

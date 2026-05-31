@@ -148,7 +148,7 @@ struct CollectionDetailView: View {
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
             .frame(maxWidth: 1200).frame(maxWidth: .infinity, alignment: .center)
         }
-        .background(Color.paper.ignoresSafeArea())
+        // page-mesh shows through; no opaque paper background here
         .task(id: slug) { await load() }
     }
 

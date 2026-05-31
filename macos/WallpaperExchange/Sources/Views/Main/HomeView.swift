@@ -178,7 +178,7 @@ struct HomeView: View {
             id: p.id, slug: p.slug, userID: 0, categoryID: nil, title: p.title, description: "",
             originalURL: p.originalURL, thumbURL: p.thumbURL, previewURL: p.previewURL,
             width: p.width, height: p.height, fileSize: p.fileSize, fileType: p.fileType,
-            dominantColor: p.dominantColor, status: 1, viewCount: 0, likeCount: 0,
+            dominantColor: p.dominantColor, colorPalette: nil, status: 1, viewCount: 0, likeCount: 0,
             downloadCount: 0, favoriteCount: 0, isDynamic: p.isDynamic,
             isAIGenerated: p.isAIGenerated, isLiked: nil, isFavorited: nil, isDownloaded: nil,
             createdAt: ""

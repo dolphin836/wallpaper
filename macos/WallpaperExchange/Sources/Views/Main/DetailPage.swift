@@ -404,7 +404,7 @@ struct DetailPage: View {
             id: d.id, slug: d.slug, userID: d.userID, categoryID: d.categoryID, title: d.title,
             description: d.description ?? "", originalURL: d.originalURL, thumbURL: d.thumbURL,
             previewURL: d.previewURL, width: d.width, height: d.height, fileSize: d.fileSize,
-            fileType: d.fileType, dominantColor: d.dominantColor, status: 1,
+            fileType: d.fileType, dominantColor: d.dominantColor, colorPalette: d.colorPalette, status: 1,
             viewCount: d.viewCount, likeCount: d.likeCount, downloadCount: d.downloadCount,
             favoriteCount: d.favoriteCount, isDynamic: d.isDynamic, isAIGenerated: d.isAIGenerated,
             isLiked: d.isLiked, isFavorited: d.isFavorited, isDownloaded: d.isDownloaded,

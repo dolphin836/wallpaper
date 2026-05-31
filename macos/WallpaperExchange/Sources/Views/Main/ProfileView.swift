@@ -35,7 +35,7 @@ struct ProfileView: View {
                 ProgressView().padding(.top, 60)
             }
         }
-        .background(Color.paper.ignoresSafeArea())
+        // page-mesh shows through; no opaque paper background here
         .task(id: username) { await loadProfile() }
         .task(id: "tab-\(tab.rawValue)") { await loadItems() }
     }

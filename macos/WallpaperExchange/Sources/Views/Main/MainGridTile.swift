@@ -93,16 +93,21 @@ struct MainGridTile: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 10).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false)
                 )
-                .shadow(color: Color.black.opacity(hover ? 0.18 : 0.06), radius: hover ? 14 : 6, x: 0, y: hover ? 6 : 3)
+                // Soft shadow only — was 14/6 which visually bled
+                // across the LazyVGrid's 12px gutter. Halving radius
+                // keeps the lift but cleans up the row separation.
+                .shadow(color: Color.black.opacity(hover ? 0.14 : 0.04), radius: hover ? 8 : 3, x: 0, y: hover ? 4 : 1)
             }
             .animation(.easeOut(duration: 0.18), value: hover)
             .onHover { entered in
                 hover = entered
                 if entered {
                     // Tell the page-mesh background to tint to this
-                    // wallpaper's palette (or dominant color when the
-                    // lighter shape doesn't carry a full palette).
-                    PaletteEnv.shared.apply(palette: nil, dominant: wallpaper.dominantColor)
+                    // wallpaper's palette. The lighter list endpoints
+                    // include color_palette now (comma-separated hex
+                    // string) so the mesh can pull three distinct
+                    // stops instead of degrading to dominant-only.
+                    PaletteEnv.shared.apply(palette: wallpaper.colorPalette, dominant: wallpaper.dominantColor)
                 } else {
                     PaletteEnv.shared.resetToDefaults()
                 }
