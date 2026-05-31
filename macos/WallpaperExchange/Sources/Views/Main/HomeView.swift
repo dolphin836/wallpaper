@@ -273,60 +273,70 @@ struct MacDynamicTile: View {
     let wallpaper: Wallpaper
     @State private var hover = false
 
+    // GeometryReader-driven sizing — the previous attempts all relied on
+    // .aspectRatio modifiers, which can fall through to a child view's
+    // intrinsic size when the parent doesn't propose enough constraint.
+    // Inside a LazyVGrid cell that produced tiles whose height tracked
+    // the underlying wallpaper image's aspect — portrait Big Sur became
+    // a tall portrait tile while landscape Sonoma stayed wide.
+    //
+    // GeometryReader fills the cell's proposed width; we then frame the
+    // ZStack to width × (width * 10/16) and pin the GeometryReader to
+    // that height too via `.frame(height:)` on the outer container.
+    // Every Mac Dynamic tile is now exactly the same height regardless
+    // of the source image's orientation.
     var body: some View {
-        // EXACT same Rectangle().fill.aspectRatio.overlay pattern as
-        // MainGridTile (which renders correctly in 'This week's picks'
-        // at the top of the page). Rectangle is a Shape with explicit
-        // 'fill proposed' size behaviour, so .aspectRatio(.fit) clamps
-        // its width × (width * 10/16) bounds before .overlay puts the
-        // visible content inside. Tiles in the same row end up the
-        // exact same height regardless of the underlying wallpaper's
-        // intrinsic aspect ratio.
-        Rectangle()
-            .fill(Color.clear)
-            .aspectRatio(16.0 / 10.0, contentMode: .fit)
-            .overlay {
-                ZStack(alignment: .topLeading) {
-                    Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.55)
-                    CachedAsyncImage(url: URL(string: wallpaper.displayURL)) { img in
-                        img.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Color.clear
-                    }
-                    .clipped()
-
-                    LinearGradient(
-                        colors: [Color.black.opacity(0.18), .clear, .clear, Color.black.opacity(0.30)],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                    .opacity(hover ? 1 : 0.65)
-                    .allowsHitTesting(false)
-
-                    HStack(spacing: 4) {
-                        Image(systemName: "square.stack.3d.up.fill")
-                            .font(.system(size: 10, weight: .semibold))
-                        Text("DYNAMIC").font(.mono10).tracking(0.7)
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 8).padding(.vertical, 4)
-                    .background(Capsule().fill(Color.accent))
-                    .padding(10)
+        GeometryReader { proxy in
+            let h = proxy.size.width * 10.0 / 16.0
+            ZStack(alignment: .topLeading) {
+                Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.55)
+                CachedAsyncImage(url: URL(string: wallpaper.displayURL)) { img in
+                    img.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color.clear
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false))
-                .shadow(color: Color.accent.opacity(hover ? 0.22 : 0.04),
-                        radius: hover ? 8 : 3,
-                        x: 0, y: hover ? 4 : 1)
-            }
-            .animation(.easeOut(duration: 0.18), value: hover)
-            .onHover { entered in
-                hover = entered
-                if entered {
-                    PaletteEnv.shared.apply(palette: wallpaper.colorPalette, dominant: wallpaper.dominantColor)
-                } else {
-                    PaletteEnv.shared.resetToDefaults()
+                .frame(width: proxy.size.width, height: h)
+                .clipped()
+
+                LinearGradient(
+                    colors: [Color.black.opacity(0.18), .clear, .clear, Color.black.opacity(0.30)],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .opacity(hover ? 1 : 0.65)
+                .allowsHitTesting(false)
+
+                HStack(spacing: 4) {
+                    Image(systemName: "square.stack.3d.up.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("DYNAMIC").font(.mono10).tracking(0.7)
                 }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                .background(Capsule().fill(Color.accent))
+                .padding(10)
             }
-            .contentShape(Rectangle())
+            .frame(width: proxy.size.width, height: h)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false))
+            .shadow(color: Color.accent.opacity(hover ? 0.22 : 0.04),
+                    radius: hover ? 8 : 3,
+                    x: 0, y: hover ? 4 : 1)
+        }
+        // Match the GeometryReader's internal height. SwiftUI's
+        // GeometryReader doesn't propose a size of its own — the
+        // outer container has to know it. Aspect-ratio modifier on
+        // the GeometryReader gives the LazyVGrid the right cell
+        // height to allocate.
+        .aspectRatio(16.0 / 10.0, contentMode: .fit)
+        .animation(.easeOut(duration: 0.18), value: hover)
+        .onHover { entered in
+            hover = entered
+            if entered {
+                PaletteEnv.shared.apply(palette: wallpaper.colorPalette, dominant: wallpaper.dominantColor)
+            } else {
+                PaletteEnv.shared.resetToDefaults()
+            }
+        }
+        .contentShape(Rectangle())
     }
 }
