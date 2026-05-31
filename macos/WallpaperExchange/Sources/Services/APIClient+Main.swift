@@ -140,6 +140,14 @@ extension APIClient {
         return resp.data
     }
 
+    // ─── Coins ledger ────────────────────────────────────────────
+    func fetchCoinTransactions(cursor: Int? = nil, limit: Int = 30) async throws -> PaginatedData<CoinTransaction> {
+        var items: [URLQueryItem] = [.init(name: "limit", value: String(limit))]
+        if let c = cursor { items.append(.init(name: "cursor", value: String(c))) }
+        let resp: APIResponse<PaginatedData<CoinTransaction>> = try await request("/users/me/coin-transactions", queryItems: items)
+        return resp.data
+    }
+
     // ─── Engagement actions ──────────────────────────────────────
     func like(wallpaperID: Int) async throws {
         let _: APIResponse<EmptyData> = try await request("/wallpapers/\(wallpaperID)/like", method: "POST")

@@ -1,31 +1,58 @@
 import SwiftUI
 
-// v2.1 main window. Web-parity layout: a single horizontal top
-// navigation bar (logo / nav links / search / coin pill / avatar),
-// then a content area that pushes detail / profile / collection /
-// device pages onto an inner NavigationStack. Drops the sidebar
-// per the design review — Mac client now reads the same as the
-// web app.
+// v2.2 main window. Left sidebar (Browse + My Library + footer
+// identity cell) and a thin top toolbar above the content area.
+// Full-page push for detail / profile / collection / device / etc.
 struct MainWindow: View {
     @State private var auth = AuthService.shared
     @State private var manager = WallpaperManager.shared
 
-    @State private var tab: TopTab = .discover
+    @State private var sidebar: SidebarItem = .home
     @State private var path: [MainRoute] = []
     @State private var search: String = ""
     @State private var committedSearch: String = ""
     @State private var showingUpload = false
 
-    enum TopTab: String, CaseIterable, Hashable {
-        case home = "Home"
-        case discover = "Discover"
-        case weekly = "Weekly"
-        case collections = "Collections"
-        case uploaders = "Uploaders"
-        case devices = "Devices"
-        case macApp = "Mac App"
+    enum SidebarItem: String, CaseIterable, Hashable {
+        // Browse section.
+        case home, discover, weekly, collections
+        // My Library section (signed-in only).
+        case myUploads, myCollections, myDownloads, myFavorites, myLikes, myCoins
 
-        var routeKey: String { rawValue.lowercased() }
+        var label: String {
+            switch self {
+            case .home:          "Home"
+            case .discover:      "Discover"
+            case .weekly:        "Weekly"
+            case .collections:   "Collections"
+            case .myUploads:     "My Uploads"
+            case .myCollections: "My Collections"
+            case .myDownloads:   "My Downloads"
+            case .myFavorites:   "My Favorites"
+            case .myLikes:       "My Likes"
+            case .myCoins:       "My Coins"
+            }
+        }
+        var icon: String {
+            switch self {
+            case .home:          "house"
+            case .discover:      "sparkles"
+            case .weekly:        "calendar.badge.clock"
+            case .collections:   "rectangle.stack"
+            case .myUploads:     "tray.and.arrow.up"
+            case .myCollections: "rectangle.stack.badge.person.crop"
+            case .myDownloads:   "arrow.down.circle"
+            case .myFavorites:   "star"
+            case .myLikes:       "heart"
+            case .myCoins:       "circle.hexagongrid.fill"
+            }
+        }
+        var isMine: Bool {
+            switch self {
+            case .myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins: true
+            default: false
+            }
+        }
     }
 
     enum MainRoute: Hashable {
@@ -39,69 +66,71 @@ struct MainWindow: View {
     }
 
     var body: some View {
-        NavigationStack(path: $path) {
-            VStack(spacing: 0) {
-                TopNavBar(
-                    tab: $tab,
-                    search: $search,
-                    onCommitSearch: { commitSearch() },
-                    onUpload: { showingUpload = true },
-                    onProfile: {
-                        if let u = auth.user { path.append(.profile(username: u.username)) }
-                    },
-                    onLogin: { auth.login() },
-                    onLogout: { auth.logout() },
-                    auth: auth,
-                    manager: manager
-                )
-                Divider().background(Color.hair)
+        NavigationSplitView {
+            MainSidebar(selection: $sidebar)
+                .frame(minWidth: 220, idealWidth: 240)
+                .toolbar(removing: .sidebarToggle)
+        } detail: {
+            NavigationStack(path: $path) {
+                VStack(spacing: 0) {
+                    ContentToolbar(
+                        title: sidebar.label,
+                        search: $search,
+                        onCommitSearch: commitSearch,
+                        onUpload: { showingUpload = true },
+                        onShuffle: { manager.setAutoRotate(!manager.autoRotate) },
+                        shuffleOn: manager.autoRotate
+                    )
+                    Divider().background(Color.hair)
 
-                ContentRouter(
-                    tab: tab,
-                    search: committedSearch,
-                    onPick: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) },
-                    onDevice: { d in path.append(.device(slug: d.slug, name: d.name)) },
-                    onWeeklyWeek: { y, w in path.append(.weeklyWeek(year: y, week: w)) },
-                    onCategory: { c in path.append(.category(id: c.id, name: c.name, slug: c.slug)) },
-                    onUploader: { username in path.append(.profile(username: username)) }
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.paper.ignoresSafeArea())
-            }
-            .navigationDestination(for: MainRoute.self) { route in
-                switch route {
-                case .detail(let slug, _):
-                    DetailPage(slug: slug,
-                               onUploader: { path.append(.profile(username: $0)) },
-                               onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
-                case .profile(let username):
-                    ProfileView(username: username,
-                                onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
-                case .collection(let slug, _):
-                    CollectionDetailView(slug: slug,
-                                         onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
-                case .device(let slug, let name):
-                    DeviceDetailView(slug: slug, name: name,
-                                     onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
-                case .search(let q):
-                    SearchResultsView(query: q,
-                                      onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
-                case .weeklyWeek(let y, let w):
-                    WeeklyWeekView(year: y, week: w,
+                    ContentRouter(
+                        sidebar: sidebar,
+                        search: committedSearch,
+                        onPick: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) },
+                        onDevice: { d in path.append(.device(slug: d.slug, name: d.name)) },
+                        onWeeklyWeek: { y, w in path.append(.weeklyWeek(year: y, week: w)) },
+                        onCategory: { c in path.append(.category(id: c.id, name: c.name, slug: c.slug)) },
+                        onUploader: { username in path.append(.profile(username: username)) }
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.paper.ignoresSafeArea())
+                }
+                .navigationDestination(for: MainRoute.self) { route in
+                    switch route {
+                    case .detail(let slug, _):
+                        DetailPage(slug: slug,
+                                   onUploader: { path.append(.profile(username: $0)) },
                                    onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
-                case .category(let id, let name, let slug):
-                    CategoryFeedView(category: Category(id: id, name: name, slug: slug, sortOrder: nil),
-                                     onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                    case .profile(let username):
+                        ProfileView(username: username,
+                                    onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                    case .collection(let slug, _):
+                        CollectionDetailView(slug: slug,
+                                             onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                    case .device(let slug, let name):
+                        DeviceDetailView(slug: slug, name: name,
+                                         onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                    case .search(let q):
+                        SearchResultsView(query: q,
+                                          onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                    case .weeklyWeek(let y, let w):
+                        WeeklyWeekView(year: y, week: w,
+                                       onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                    case .category(let id, let name, let slug):
+                        CategoryFeedView(category: Category(id: id, name: name, slug: slug, sortOrder: nil),
+                                         onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                    }
                 }
             }
+            .onChange(of: sidebar) { _, _ in path.removeAll() }
         }
+        .navigationSplitViewStyle(.balanced)
         .background(Color.paper)
         .task { await auth.refreshProfile() }
         .sheet(isPresented: $showingUpload) {
             UploadView(onClose: { showingUpload = false })
                 .frame(minWidth: 720, minHeight: 560)
         }
-        .onChange(of: tab) { _, _ in path.removeAll() }
     }
 
     private func commitSearch() {
@@ -115,9 +144,9 @@ struct MainWindow: View {
     }
 }
 
-// Routes the active top tab to its content view.
+// Routes the sidebar selection to the appropriate top-level view.
 struct ContentRouter: View {
-    let tab: MainWindow.TopTab
+    let sidebar: MainWindow.SidebarItem
     let search: String
     var onPick: (Wallpaper) -> Void
     var onDevice: (DeviceProfile) -> Void
@@ -126,38 +155,17 @@ struct ContentRouter: View {
     var onUploader: (String) -> Void
 
     var body: some View {
-        switch tab {
-        case .home:
-            HomeView(onPick: onPick, onOpenWeek: onWeeklyWeek)
-        case .discover:
-            DiscoverView(search: search, onPick: onPick)
-        case .weekly:
-            WeeklyArchiveView(onOpenWeek: onWeeklyWeek)
-        case .collections:
-            CollectionsListView()
-        case .uploaders:
-            UploadersView(onPick: onUploader)
-        case .devices:
-            DevicesIndexView(onPick: onDevice)
-        case .macApp:
-            MacAppView()
+        switch sidebar {
+        case .home:          HomeView(onPick: onPick, onOpenWeek: onWeeklyWeek)
+        case .discover:      DiscoverView(search: search, onPick: onPick)
+        case .weekly:        WeeklyArchiveView(onOpenWeek: onWeeklyWeek)
+        case .collections:   CollectionsListView()
+        case .myUploads:     MyLibraryGridView(kind: .uploads, onPick: onPick)
+        case .myCollections: MyLibraryCollectionsView()
+        case .myDownloads:   MyLibraryGridView(kind: .downloads, onPick: onPick)
+        case .myFavorites:   MyLibraryGridView(kind: .favorites, onPick: onPick)
+        case .myLikes:       MyLibraryGridView(kind: .likes, onPick: onPick)
+        case .myCoins:       MyCoinsView()
         }
-    }
-}
-
-// Generic placeholder. Kept so the user can navigate without hitting
-// empty screens; only Uploaders and Mac App tabs still use it.
-struct ComingSoonStub: View {
-    let title: String
-    let kicker: String
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Kicker(text: kicker)
-            Text(title).font(.display32).foregroundStyle(Color.ink)
-            Text("This section is being wired into the new design. Use the menu-bar popover for now.")
-                .font(.sans13).foregroundStyle(Color.muted)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(40)
     }
 }

@@ -293,6 +293,27 @@ struct UploaderListResponse: Decodable {
     let total: Int
 }
 
+// Coin ledger row, one per credit/debit. tx_type strings follow the
+// backend's lexicon — 'upload_reward', 'download_received',
+// 'download_spent', 'admin_grant'. The ledger view groups by sign of
+// amount to render +/- coloring.
+struct CoinTransaction: Decodable, Identifiable, Hashable {
+    let id: Int
+    let amount: Int
+    let balance: Int
+    let txType: String
+    let refID: Int
+    let description: String
+    let createdAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, amount, balance, description
+        case txType = "tx_type"
+        case refID = "ref_id"
+        case createdAt = "created_at"
+    }
+}
+
 struct PublicProfile: Decodable {
     let id: Int
     let username: String
