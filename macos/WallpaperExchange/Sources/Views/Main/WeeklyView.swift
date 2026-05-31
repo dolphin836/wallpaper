@@ -55,19 +55,18 @@ struct ArchiveCard: View {
     let entry: WeeklyArchiveEntry
     @State private var hover = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        GeometryReader { proxy in
+            let h = proxy.size.width * 2.0 / 3.0
             ZStack(alignment: .bottomLeading) {
                 CachedAsyncImage(url: URL(string: entry.coverURL)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Color(hex: entry.dominantColor ?? "#bbb").opacity(0.5)
                 }
-                .aspectRatio(3 / 2, contentMode: .fit)
+                .frame(width: proxy.size.width, height: h)
                 .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 10))
 
                 LinearGradient(colors: [.clear, .black.opacity(0.35)], startPoint: .top, endPoint: .bottom)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
                     .allowsHitTesting(false)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -80,10 +79,12 @@ struct ArchiveCard: View {
                 }
                 .padding(14)
             }
+            .frame(width: proxy.size.width, height: h)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false))
+            .shadow(color: Color.black.opacity(hover ? 0.10 : 0), radius: 8, x: 0, y: 4)
         }
-        .scaleEffect(hover ? 1.01 : 1.0)
-        .shadow(color: Color.black.opacity(hover ? 0.10 : 0), radius: 12, x: 0, y: 6)
+        .aspectRatio(3.0 / 2.0, contentMode: .fit)
         .animation(.easeOut(duration: 0.18), value: hover)
         .onHover { hover = $0 }
     }

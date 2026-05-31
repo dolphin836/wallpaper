@@ -23,96 +23,91 @@ struct MainGridTile: View {
     private var isFavorited: Bool { favorited ?? (wallpaper.isFavorited ?? false) }
     private var isDownloaded: Bool { downloaded ?? (wallpaper.isDownloaded ?? false) }
 
+    // GeometryReader-anchored sizing — proven reliable in
+    // MacDynamicTile after Rectangle/.aspectRatio variants leaked the
+    // underlying image's intrinsic aspect through portrait wallpapers.
+    // proxy.size.width comes from the LazyVGrid cell's proposed width;
+    // we compute height = width / aspectRatio and pin the ZStack to
+    // exactly that. The outer .aspectRatio modifier tells the grid the
+    // row height to reserve. Every cell in a row ends up the same size
+    // regardless of the source image's orientation.
     var body: some View {
-        // Anchor: an aspect-ratio Rectangle owns the cell size so the
-        // LazyVGrid lays rows out correctly. The visual stack rides on
-        // top via .overlay so it inherits that size without re-asking
-        // SwiftUI to measure it (which was the source of the
-        // overlap-between-rows bug — .aspectRatio on a ZStack
-        // sometimes produced cells smaller than the column width).
-        Rectangle()
-            .fill(Color.clear)
-            .aspectRatio(aspectRatio, contentMode: .fit)
-            .overlay {
-                ZStack {
-                    Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.55)
+        GeometryReader { proxy in
+            let h = proxy.size.width / aspectRatio
+            ZStack {
+                Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.55)
 
-                    CachedAsyncImage(url: URL(string: wallpaper.displayURL)) { img in
-                        img.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Color.clear
-                    }
-                    .clipped()
-
-                    LinearGradient(
-                        colors: [Color.black.opacity(0.20), .clear, .clear, Color.black.opacity(0.30)],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                    .opacity(hover ? 1 : 0.65)
-                    .allowsHitTesting(false)
-
-                    VStack {
-                        HStack(alignment: .top, spacing: 4) {
-                            resolutionChip
-                            if wallpaper.fileType.hasPrefix("video/") { videoChip }
-                            if wallpaper.isDynamic                    { macChip }
-                            if wallpaper.isAIGenerated == true        { aiChip }
-                            Spacer()
-                        }
-                        Spacer()
-                    }
-                    .padding(10)
-                    .allowsHitTesting(false)
-
-                    VStack {
-                        HStack {
-                            Spacer()
-                            if hover {
-                                HStack(spacing: 6) {
-                                    actionDot(icon: isFavorited ? "star.fill" : "star",
-                                              active: isFavorited,
-                                              help: isFavorited ? "Unfavorite" : "Favorite") { Task { await toggleFavorite() } }
-                                    actionDot(icon: isLiked ? "heart.fill" : "heart",
-                                              active: isLiked,
-                                              help: isLiked ? "Unlike" : "Like") { Task { await toggleLike() } }
-                                    actionDot(icon: isDownloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
-                                              active: isDownloaded,
-                                              help: isDownloaded ? "Downloaded" : "Download (1 coin)") { Task { await doDownload() } }
-                                    actionDot(icon: "rectangle.on.rectangle.angled",
-                                              active: false,
-                                              help: "Set as wallpaper") { Task { await doSetWallpaper() } }
-                                }
-                                .transition(.opacity)
-                            }
-                        }
-                        Spacer()
-                    }
-                    .padding(10)
+                CachedAsyncImage(url: URL(string: wallpaper.displayURL)) { img in
+                    img.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color.clear
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false)
+                .frame(width: proxy.size.width, height: h)
+                .clipped()
+
+                LinearGradient(
+                    colors: [Color.black.opacity(0.20), .clear, .clear, Color.black.opacity(0.30)],
+                    startPoint: .top, endPoint: .bottom
                 )
-                // Soft shadow only — was 14/6 which visually bled
-                // across the LazyVGrid's 12px gutter. Halving radius
-                // keeps the lift but cleans up the row separation.
-                .shadow(color: Color.black.opacity(hover ? 0.14 : 0.04), radius: hover ? 8 : 3, x: 0, y: hover ? 4 : 1)
-            }
-            .animation(.easeOut(duration: 0.18), value: hover)
-            .onHover { entered in
-                hover = entered
-                if entered {
-                    // Tell the page-mesh background to tint to this
-                    // wallpaper's palette. The lighter list endpoints
-                    // include color_palette now (comma-separated hex
-                    // string) so the mesh can pull three distinct
-                    // stops instead of degrading to dominant-only.
-                    PaletteEnv.shared.apply(palette: wallpaper.colorPalette, dominant: wallpaper.dominantColor)
-                } else {
-                    PaletteEnv.shared.resetToDefaults()
+                .opacity(hover ? 1 : 0.65)
+                .allowsHitTesting(false)
+
+                VStack {
+                    HStack(alignment: .top, spacing: 4) {
+                        resolutionChip
+                        if wallpaper.fileType.hasPrefix("video/") { videoChip }
+                        if wallpaper.isDynamic                    { macChip }
+                        if wallpaper.isAIGenerated == true        { aiChip }
+                        Spacer()
+                    }
+                    Spacer()
                 }
+                .padding(10)
+                .allowsHitTesting(false)
+
+                VStack {
+                    HStack {
+                        Spacer()
+                        if hover {
+                            HStack(spacing: 6) {
+                                actionDot(icon: isFavorited ? "star.fill" : "star",
+                                          active: isFavorited,
+                                          help: isFavorited ? "Unfavorite" : "Favorite") { Task { await toggleFavorite() } }
+                                actionDot(icon: isLiked ? "heart.fill" : "heart",
+                                          active: isLiked,
+                                          help: isLiked ? "Unlike" : "Like") { Task { await toggleLike() } }
+                                actionDot(icon: isDownloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
+                                          active: isDownloaded,
+                                          help: isDownloaded ? "Downloaded" : "Download (1 coin)") { Task { await doDownload() } }
+                                actionDot(icon: "rectangle.on.rectangle.angled",
+                                          active: false,
+                                          help: "Set as wallpaper") { Task { await doSetWallpaper() } }
+                            }
+                            .transition(.opacity)
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(10)
             }
-            .contentShape(Rectangle())
+            .frame(width: proxy.size.width, height: h)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false)
+            )
+            .shadow(color: Color.black.opacity(hover ? 0.14 : 0.04), radius: hover ? 8 : 3, x: 0, y: hover ? 4 : 1)
+        }
+        .aspectRatio(aspectRatio, contentMode: .fit)
+        .animation(.easeOut(duration: 0.18), value: hover)
+        .onHover { entered in
+            hover = entered
+            if entered {
+                PaletteEnv.shared.apply(palette: wallpaper.colorPalette, dominant: wallpaper.dominantColor)
+            } else {
+                PaletteEnv.shared.resetToDefaults()
+            }
+        }
+        .contentShape(Rectangle())
     }
 
     // ─── Chips (match web .tile-chip family) ────────────────────
