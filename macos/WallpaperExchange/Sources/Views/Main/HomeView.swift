@@ -274,7 +274,16 @@ struct MacDynamicTile: View {
     @State private var hover = false
 
     var body: some View {
-        Color.clear
+        // EXACT same Rectangle().fill.aspectRatio.overlay pattern as
+        // MainGridTile (which renders correctly in 'This week's picks'
+        // at the top of the page). Rectangle is a Shape with explicit
+        // 'fill proposed' size behaviour, so .aspectRatio(.fit) clamps
+        // its width × (width * 10/16) bounds before .overlay puts the
+        // visible content inside. Tiles in the same row end up the
+        // exact same height regardless of the underlying wallpaper's
+        // intrinsic aspect ratio.
+        Rectangle()
+            .fill(Color.clear)
             .aspectRatio(16.0 / 10.0, contentMode: .fit)
             .overlay {
                 ZStack(alignment: .topLeading) {
@@ -293,8 +302,6 @@ struct MacDynamicTile: View {
                     .opacity(hover ? 1 : 0.65)
                     .allowsHitTesting(false)
 
-                    // Single big DYNAMIC chip — distinguishes this
-                    // tile from the salon family at a glance.
                     HStack(spacing: 4) {
                         Image(systemName: "square.stack.3d.up.fill")
                             .font(.system(size: 10, weight: .semibold))
