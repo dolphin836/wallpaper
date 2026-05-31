@@ -243,13 +243,20 @@ func (r *WallpaperRepo) UpdateProcessed(ctx context.Context, id int64, thumbURL,
 		// This was previously a hard-coded PendingReview, which
 		// silently un-published 800+ live wallpapers when the
 		// recompress CLI was used to refresh derived artifacts.
+		// ::smallint casts on every THEN/ELSE branch are required —
+		// without them pgx binds the int16 placeholders ambiguously
+		// and Postgres infers the whole CASE result as TEXT, then
+		// refuses to write it into the smallint `status` column with
+		// SQLSTATE 42804 ("expression is of type text"). See worker
+		// logs around 2026-05-30 17:17 — every upload after the
+		// reprocess-status-preserve change failed for that reason.
 		"status": gorm.Expr(`CASE
-			WHEN status = ? THEN ?
-			WHEN status = ? THEN ?
-			WHEN status = ? THEN ?
-			WHEN status = ? THEN ?
-			WHEN status = ? THEN ?
-			ELSE ?
+			WHEN status = ? THEN ?::smallint
+			WHEN status = ? THEN ?::smallint
+			WHEN status = ? THEN ?::smallint
+			WHEN status = ? THEN ?::smallint
+			WHEN status = ? THEN ?::smallint
+			ELSE ?::smallint
 		END`,
 			model.WallpaperStatusPublished, model.WallpaperStatusPublished,
 			model.WallpaperStatusRemoved, model.WallpaperStatusRemoved,
