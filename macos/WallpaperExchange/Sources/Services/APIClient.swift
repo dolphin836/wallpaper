@@ -87,23 +87,28 @@ actor APIClient {
     func fetchWallpapers(
         cursor: Int? = nil,
         limit: Int = 20,
-        dynamicOnly: Bool = false
+        dynamicOnly: Bool = false,
+        aiOnly: Bool = false,
+        search: String? = nil,
+        categoryID: Int? = nil
     ) async throws -> PaginatedData<Wallpaper> {
         var items: [URLQueryItem] = [
             .init(name: "limit", value: String(limit)),
         ]
-        // Match the web's Discover behavior: only send `dynamic_only=true`
-        // when the user explicitly toggled the Mac filter on. Otherwise
-        // send no filter params, so the backend returns every published
-        // wallpaper rather than the resolution-matched subset. The Mac
-        // app has no "filter by my screen resolution" toggle, so there's
-        // no caller that wants device-resolution filtering on Latest.
         if dynamicOnly {
             items.append(.init(name: "dynamic_only", value: "true"))
         }
-        // The mac client doesn't render video wallpapers — Windows
-        // does. Hide them server-side so we don't even pay the
-        // metadata round trip.
+        if aiOnly {
+            items.append(.init(name: "ai_only", value: "true"))
+        }
+        if let s = search?.trimmingCharacters(in: .whitespaces), !s.isEmpty {
+            items.append(.init(name: "search", value: s))
+        }
+        if let id = categoryID, id > 0 {
+            items.append(.init(name: "category_id", value: String(id)))
+        }
+        // The mac client doesn't render video wallpapers. Hide them
+        // server-side so we don't even pay the metadata round trip.
         items.append(.init(name: "exclude_video", value: "true"))
         if let c = cursor {
             items.append(.init(name: "cursor", value: String(c)))

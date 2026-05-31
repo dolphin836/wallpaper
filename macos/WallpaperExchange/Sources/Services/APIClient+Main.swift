@@ -90,6 +90,43 @@ extension APIClient {
         return resp.data
     }
 
+    // ─── Weekly Picks ────────────────────────────────────────────
+    func fetchWeeklyCurrent() async throws -> WeeklyCurrent {
+        let resp: APIResponse<WeeklyCurrent> = try await request("/weekly-picks/current")
+        return resp.data
+    }
+
+    func fetchWeeklyArchive(limit: Int = 50) async throws -> [WeeklyArchiveEntry] {
+        let resp: APIResponse<[WeeklyArchiveEntry]> = try await request(
+            "/weekly-picks/archive",
+            queryItems: [.init(name: "limit", value: String(limit))]
+        )
+        return resp.data
+    }
+
+    func fetchWeeklyByWeek(year: Int, week: Int) async throws -> WeeklyByWeek {
+        let resp: APIResponse<WeeklyByWeek> = try await request("/weekly-picks/\(year)/\(week)")
+        return resp.data
+    }
+
+    // ─── Devices ─────────────────────────────────────────────────
+    func fetchDevices() async throws -> [DeviceProfile] {
+        let resp: APIResponse<[DeviceProfile]> = try await request("/devices")
+        return resp.data
+    }
+
+    func fetchDevice(slug: String) async throws -> DeviceProfileDetail {
+        let resp: APIResponse<DeviceProfileDetail> = try await request("/devices/\(slug)")
+        return resp.data
+    }
+
+    func fetchDeviceWallpapers(slug: String, cursor: Int? = nil, limit: Int = 24) async throws -> PaginatedData<Wallpaper> {
+        var items: [URLQueryItem] = [.init(name: "limit", value: String(limit))]
+        if let c = cursor { items.append(.init(name: "cursor", value: String(c))) }
+        let resp: APIResponse<PaginatedData<Wallpaper>> = try await request("/devices/\(slug)/wallpapers", queryItems: items)
+        return resp.data
+    }
+
     // ─── Engagement actions ──────────────────────────────────────
     func like(wallpaperID: Int) async throws {
         let _: APIResponse<EmptyData> = try await request("/wallpapers/\(wallpaperID)/like", method: "POST")

@@ -1,124 +1,110 @@
 import SwiftUI
 
-// Wallpaper card for the main-window grids. Differs from the popover's
-// WallpaperTileView in that it shows a 16:9 hero, palette strip on the
-// bottom edge, and hover-revealed Quick Set / Save chips. Used by the
-// Discover / Downloads / Liked / Profile / Collection grids.
+// Wallpaper card for main-window grids — visually matches the web's
+// salon WallpaperCard. Image fills a 3:2 frame on the dominant-color
+// backdrop, the resolution / dynamic / AI chips sit absolute top-left,
+// hover reveals the favorite / like / download action rail on the
+// top-right. No separate metadata strip — title only on detail page.
 struct MainGridTile: View {
     let wallpaper: Wallpaper
+    var aspectRatio: CGFloat = 3.0 / 2.0
     @State private var hover = false
     @State private var manager = WallpaperManager.shared
 
-    private var palette: [String] {
-        // The lightweight Wallpaper model doesn't carry the full
-        // color_palette string — fall back to a single-color "palette"
-        // built from dominant_color so the bottom edge isn't empty.
-        if let dc = wallpaper.dominantColor, !dc.isEmpty { return [dc] }
-        return []
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ZStack(alignment: .topLeading) {
-                CachedAsyncImage(url: URL(string: wallpaper.displayURL)) { img in
-                    img.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.55)
-                }
-                .frame(height: 156)
-                .frame(maxWidth: .infinity)
-                .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+        ZStack {
+            // Dominant color floor.
+            Color(hex: wallpaper.dominantColor ?? "#bbb")
+                .opacity(0.55)
 
-                // Palette strip / dominant color bottom edge.
-                if !palette.isEmpty {
-                    VStack {
-                        Spacer()
-                        HStack(spacing: 0) {
-                            ForEach(palette, id: \.self) { hex in
-                                Rectangle().fill(Color(hex: hex))
-                            }
-                        }
-                        .frame(height: 5)
-                        .clipShape(
-                            .rect(topLeadingRadius: 0, bottomLeadingRadius: 12, bottomTrailingRadius: 12, topTrailingRadius: 0)
-                        )
-                    }
-                    .allowsHitTesting(false)
-                }
-
-                // Resolution chip.
-                HStack(spacing: 4) {
-                    Text(wallpaper.resolutionLabel)
-                        .font(.mono10).tracking(0.6)
-                        .foregroundStyle(Color.paper)
-                    if wallpaper.isDynamic {
-                        Circle().fill(Color.accent).frame(width: 5, height: 5)
-                        Text("DYN")
-                            .font(.mono10).tracking(0.8)
-                            .foregroundStyle(Color.accent)
-                    }
-                }
-                .padding(.horizontal, 7).padding(.vertical, 3)
-                .background(Capsule().fill(Color.ink.opacity(0.55)))
-                .padding(10)
-                .allowsHitTesting(false)
-
-                if hover {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Spacer()
-                        HStack(spacing: 6) {
-                            actionChip(icon: "rectangle.on.rectangle.angled", label: "Set on Mac") {
-                                Task { try? await manager.download(wallpaper: wallpaper); try? await manager.setAsWallpaper(wallpaper) }
-                            }
-                            actionChip(icon: "tray.and.arrow.down", label: "Save") {
-                                Task { try? await manager.download(wallpaper: wallpaper) }
-                            }
-                            Spacer()
-                        }
-                    }
-                    .padding(10)
-                    .transition(.opacity)
-                }
+            // Image fills frame.
+            CachedAsyncImage(url: URL(string: wallpaper.displayURL)) { img in
+                img.resizable().aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Color.clear
             }
-            .overlay(
-                RoundedRectangle(cornerRadius: 12).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false)
+            .clipped()
+
+            // Bottom darken gradient — kicks up under chip / hover ink.
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.18),
+                    Color.clear,
+                    Color.clear,
+                    Color.black.opacity(0.28),
+                ],
+                startPoint: .top, endPoint: .bottom
             )
+            .opacity(hover ? 1 : 0.7)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(wallpaper.title.isEmpty ? "Wallpaper #\(wallpaper.id)" : wallpaper.title)
-                    .font(.sans13).foregroundStyle(Color.ink).lineLimit(1)
-                Text(metaLine)
-                    .font(.mono10).tracking(0.6)
-                    .foregroundStyle(Color.muted).lineLimit(1)
+            // Top-left chips.
+            VStack {
+                HStack(alignment: .top, spacing: 4) {
+                    chip(text: wallpaper.resolutionLabel)
+                    if wallpaper.fileType.hasPrefix("video/") { chip(text: "VIDEO") }
+                    if wallpaper.isDynamic { chip(text: "MAC", accent: true) }
+                    if wallpaper.isAIGenerated == true { chip(text: "AI", aiStyle: true) }
+                    Spacer()
+                }
+                Spacer()
             }
+            .padding(10)
+            .allowsHitTesting(false)
+
+            // Top-right hover action rail — favorite / like / set on Mac.
+            VStack {
+                HStack {
+                    Spacer()
+                    if hover {
+                        HStack(spacing: 6) {
+                            actionDot(icon: "star") { /* favorite stub */ }
+                            actionDot(icon: "heart") { /* like stub */ }
+                            actionDot(icon: "rectangle.on.rectangle.angled") {
+                                Task {
+                                    try? await manager.download(wallpaper: wallpaper)
+                                    try? await manager.setAsWallpaper(wallpaper)
+                                }
+                            }
+                        }
+                        .transition(.opacity)
+                    }
+                }
+                Spacer()
+            }
+            .padding(10)
         }
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 14).fill(hover ? Color.paper : Color.clear)
+        .aspectRatio(aspectRatio, contentMode: .fit)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false)
         )
-        .scaleEffect(hover ? 1.01 : 1.0)
-        .shadow(color: Color.black.opacity(hover ? 0.10 : 0), radius: 12, x: 0, y: 6)
+        .scaleEffect(hover ? 1.015 : 1.0)
+        .shadow(color: Color.black.opacity(hover ? 0.18 : 0.06), radius: hover ? 16 : 8, x: 0, y: hover ? 8 : 4)
         .animation(.easeOut(duration: 0.18), value: hover)
         .onHover { hover = $0 }
         .contentShape(Rectangle())
     }
 
-    private var metaLine: String {
-        let res = "\(wallpaper.width)×\(wallpaper.height)"
-        return "\(wallpaper.resolutionLabel.uppercased()) · \(res)"
+    private func chip(text: String, accent: Bool = false, aiStyle: Bool = false) -> some View {
+        Text(text)
+            .font(.mono10).tracking(0.6)
+            .foregroundStyle(aiStyle ? Color.white : (accent ? Color.accent : Color.paper))
+            .padding(.horizontal, 7).padding(.vertical, 3)
+            .background(
+                Capsule().fill(
+                    aiStyle ? Color(red: 0.52, green: 0.20, blue: 0.78).opacity(0.9)
+                    : Color.ink.opacity(0.55)
+                )
+            )
     }
 
-    private func actionChip(icon: String, label: String, action: @escaping () -> Void) -> some View {
+    private func actionDot(icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 4) {
-                Image(systemName: icon).font(.system(size: 10, weight: .medium))
-                Text(label).font(.sans11)
-            }
-            .foregroundStyle(Color.ink)
-            .padding(.horizontal, 8).padding(.vertical, 4)
-            .background(Capsule().fill(Color.paper.opacity(0.92)))
-            .overlay(Capsule().stroke(Color.hair, lineWidth: 0.5))
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color.paper)
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(Color.ink.opacity(0.72)))
         }
         .buttonStyle(.plain)
     }

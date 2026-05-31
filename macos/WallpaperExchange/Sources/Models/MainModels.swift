@@ -164,6 +164,106 @@ struct CollectionTile: Decodable, Hashable {
     }
 }
 
+// Weekly Picks. The current rail powers the home / weekly page hero
+// strip; archive lists past weeks; byWeek is a specific week's full
+// pick set.
+struct WeeklyPicked: Decodable, Identifiable {
+    let id: Int
+    let slug: String
+    let title: String
+    let originalURL: String
+    let thumbURL: String
+    let previewURL: String
+    let width: Int
+    let height: Int
+    let fileSize: Int
+    let fileType: String
+    let dominantColor: String?
+    let isDynamic: Bool
+    let isAIGenerated: Bool?
+    let sortOrder: Int
+    let isHero: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, slug, title, width, height
+        case originalURL = "original_url"
+        case thumbURL = "thumb_url"
+        case previewURL = "preview_url"
+        case fileSize = "file_size"
+        case fileType = "file_type"
+        case dominantColor = "dominant_color"
+        case isDynamic = "is_dynamic"
+        case isAIGenerated = "is_ai_generated"
+        case sortOrder = "sort_order"
+        case isHero = "is_hero"
+    }
+}
+
+struct WeeklyCurrent: Decodable {
+    let year: Int
+    let week: Int
+    let picks: [WeeklyPicked]
+    // themes is optional on Mac — we don't render the theme rail there yet.
+    let themes: [CollectionItem]?
+}
+
+struct WeeklyByWeek: Decodable {
+    let year: Int
+    let week: Int
+    let picks: [WeeklyPicked]
+}
+
+struct WeeklyArchiveEntry: Decodable, Identifiable, Hashable {
+    var id: String { "\(year)-\(week)" }
+    let year: Int
+    let week: Int
+    let count: Int
+    let coverURL: String
+    let accentColor: String?
+    let dominantColor: String?
+    let colorPalette: String?
+
+    enum CodingKeys: String, CodingKey {
+        case year, week, count
+        case coverURL = "cover_url"
+        case accentColor = "accent_color"
+        case dominantColor = "dominant_color"
+        case colorPalette = "color_palette"
+    }
+}
+
+// Devices. /devices returns a flat list of all supported device
+// profiles; /devices/:slug returns one with its wallpaper count + a
+// `wallpaper_count` envelope used by the device detail page.
+struct DeviceProfile: Decodable, Identifiable, Hashable {
+    let id: Int
+    let platform: String
+    let brand: String
+    let name: String
+    let slug: String
+    let width: Int
+    let height: Int
+    let ppi: Int
+    let sortOrder: Int
+    let isActive: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, platform, brand, name, slug, width, height, ppi
+        case sortOrder = "sort_order"
+        case isActive = "is_active"
+    }
+}
+
+struct DeviceProfileDetail: Decodable {
+    let device: DeviceProfile
+    let wallpaperCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case device
+        case wallpaperCount = "wallpaper_count"
+    }
+}
+
 struct PublicProfile: Decodable {
     let id: Int
     let username: String
