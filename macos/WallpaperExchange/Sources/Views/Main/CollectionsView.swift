@@ -98,17 +98,23 @@ struct CollectionCard: View {
             let cardSize = max(0, cell - 12)
 
             ZStack(alignment: .topLeading) {
-                // Paper 2 — furthest behind, deepest offset
+                // Paper 2 — furthest behind. Web uses oklch(82% 0.012 240)
+                // which is barely-there light gray on the warm bg. Need
+                // to match the subtle "stacked sheets" feel, not a
+                // chunky offset rectangle.
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(red: 0.81, green: 0.81, blue: 0.83))
+                    .fill(Color(red: 0.89, green: 0.88, blue: 0.87))
                     .frame(width: cardSize, height: cardSize)
                     .offset(x: hover ? 12 : 8, y: hover ? 12 : 8)
+                    .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
 
-                // Paper 1 — between paper 2 and the front card
+                // Paper 1 — between paper 2 and the front card.
+                // oklch(86% 0.010 240) — slightly lighter than paper 2.
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(red: 0.86, green: 0.86, blue: 0.87))
+                    .fill(Color(red: 0.92, green: 0.91, blue: 0.90))
                     .frame(width: cardSize, height: cardSize)
                     .offset(x: hover ? 6 : 4, y: hover ? 6 : 4)
+                    .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
 
                 // Front card
                 frontCard
@@ -165,18 +171,28 @@ struct CollectionCard: View {
             )
             .allowsHitTesting(false)
 
-            // Copy — left/right/bottom 14
+            // Copy — left/right/bottom 14.
+            // CRITICAL: .frame(maxWidth: .infinity, alignment: .leading)
+            // before .padding constrains the VStack to the card's width
+            // so long titles wrap to 2 lines instead of overflowing and
+            // getting center-clipped. Without this, ZStack expands to
+            // fit the widest child (the long title), and the outer
+            // .frame(cardSize) centers it, chopping equal amounts off
+            // both sides of the text.
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.title.isEmpty ? "Untitled set" : item.title)
                     .font(.system(size: 18, weight: .regular, design: .serif))
                     .foregroundStyle(.white)
                     .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
                     .shadow(color: .black.opacity(0.7), radius: 14, x: 0, y: 2)
                 Text("\(item.wallpaperCount) WALLPAPERS")
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .tracking(1.4)
                     .foregroundStyle(Color.white.opacity(0.85))
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
         }
     }
