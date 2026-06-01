@@ -155,7 +155,7 @@ func (r *WallpaperRepo) applyListFilters(query *gorm.DB, opts ListOptions) *gorm
 		query = query.Where("file_type NOT LIKE 'video/%'")
 	}
 	if opts.DynamicOnly {
-		query = query.Where("is_dynamic = true")
+		query = query.Where("is_dynamic = true OR file_type LIKE 'video/%'")
 	} else if opts.DeviceWidth > 0 && opts.DeviceHeight > 0 {
 		if opts.IncludeDynamic {
 			query = query.Where("(id IN (SELECT wallpaper_id FROM wallpaper_variants WHERE width = ? AND height = ?) OR is_dynamic = true)",

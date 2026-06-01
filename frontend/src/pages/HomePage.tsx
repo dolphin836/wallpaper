@@ -26,8 +26,8 @@ export default function HomePage() {
   // Independent rows — failure of one section shouldn't blank the page.
   const [aiItems, setAiItems] = useState<Wallpaper[]>([]);
   const [aiLoading, setAiLoading] = useState(true);
-  const [videoItems, setVideoItems] = useState<Wallpaper[]>([]);
-  const [videoLoading, setVideoLoading] = useState(true);
+  const [liveItems, setLiveItems] = useState<Wallpaper[]>([]);
+  const [liveLoading, setLiveLoading] = useState(true);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [collectionsLoading, setCollectionsLoading] = useState(true);
 
@@ -44,10 +44,12 @@ export default function HomePage() {
       .finally(() => setAiLoading(false));
   }, []);
   useEffect(() => {
-    getWallpapers({ video_only: true, limit: 10, sort: 'newest' })
-      .then((r) => setVideoItems(r.data.data.items))
-      .catch(() => setVideoItems([]))
-      .finally(() => setVideoLoading(false));
+    // "Live" = Mac dynamic (.heic solar/h24) + video, unified concept.
+    // Backend's dynamic_only widened to cover both.
+    getWallpapers({ dynamic_only: true, limit: 10, sort: 'newest' })
+      .then((r) => setLiveItems(r.data.data.items))
+      .catch(() => setLiveItems([]))
+      .finally(() => setLiveLoading(false));
   }, []);
   useEffect(() => {
     getCollections({ limit: 8 })
@@ -124,7 +126,7 @@ export default function HomePage() {
   // unreachable until everything loaded).
   const showWeeklyRest = loading || restPicks.length > 0;
   const showAI = aiLoading || aiItems.length > 0;
-  const showVideo = videoLoading || videoItems.length > 0;
+  const showLive = liveLoading || liveItems.length > 0;
   const showCollections = collectionsLoading || collections.length > 0;
 
   return (
@@ -139,7 +141,7 @@ export default function HomePage() {
         {/* If the weekly spine failed AND no secondary row arrived,
             the server's down — show the shared error state instead of
             an empty page of skeletons. */}
-        {weeklyError && !data && aiItems.length === 0 && videoItems.length === 0 && collections.length === 0 ? (
+        {weeklyError && !data && aiItems.length === 0 && liveItems.length === 0 && collections.length === 0 ? (
           <ErrorState />
         ) : (
           <>
@@ -188,20 +190,20 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* ───── Video wallpapers ───── */}
-        {showVideo && (
+        {/* ───── Live wallpapers (Mac dynamic + video) ───── */}
+        {showLive && (
           <section className="h3-row">
             <div className="h3-row-head">
               <div>
                 <div className="h3-sub">Motion · hover to preview</div>
-                <h2><em>Video</em> wallpapers.</h2>
+                <h2><em>Live</em> wallpapers.</h2>
               </div>
-              <Link to="/discover?filter=video" className="h3-more">All videos →</Link>
+              <Link to="/discover?filter=live" className="h3-more">All live wallpapers →</Link>
             </div>
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-              {videoLoading && videoItems.length === 0
+              {liveLoading && liveItems.length === 0
                 ? Array.from({ length: 4 }).map((_, i) => <SkeletonTile key={`vsk-${i}`} variant="video" />)
-                : videoItems.slice(0, 4).map((w) => <WallpaperTile key={w.id} w={w} variant="video" onHover={handleTileHover} />)}
+                : liveItems.slice(0, 4).map((w) => <WallpaperTile key={w.id} w={w} variant="video" onHover={handleTileHover} />)}
             </div>
           </section>
         )}

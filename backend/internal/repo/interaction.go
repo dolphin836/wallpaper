@@ -204,7 +204,7 @@ func (r *InteractionRepo) applyDownloadFilters(query *gorm.DB, f DownloadFilters
 		query = query.Where("wallpapers.file_type NOT LIKE 'video/%'")
 	}
 	if f.DynamicOnly {
-		return query.Where("wallpapers.is_dynamic = true")
+		return query.Where("wallpapers.is_dynamic = true OR wallpapers.file_type LIKE 'video/%'")
 	}
 	if f.DeviceWidth > 0 && f.DeviceHeight > 0 {
 		if f.IncludeDynamic {

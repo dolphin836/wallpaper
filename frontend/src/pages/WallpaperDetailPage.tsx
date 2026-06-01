@@ -939,7 +939,7 @@ export default function WallpaperDetailPage() {
                   <span className="mono text-[11px] tracking-[0.06em] text-muted">
                     {resLabel || '—'} · {(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}
                   </span>
-                  {wallpaper.is_dynamic && <span className="wd-actionbar-pill">● DYNAMIC</span>}
+                  {(wallpaper.is_dynamic || (wallpaper.file_type || '').startsWith('video/')) && <span className="wd-actionbar-pill">● LIVE</span>}
                   {wallpaper.is_ai_generated && <span className="wd-actionbar-pill is-ai">✦ AI</span>}
                 </div>
 

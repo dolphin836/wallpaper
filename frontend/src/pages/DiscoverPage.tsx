@@ -59,16 +59,15 @@ const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent);
 
 // Single discovery filter. Each option fully specifies *what* gets fetched
 // and *how* it's sorted — there is no separate sort toggle.
-type FilterMode = 'latest' | 'trending' | 'for_you' | 'my_device' | 'mac_dynamic' | 'ai' | 'video';
+type FilterMode = 'latest' | 'trending' | 'for_you' | 'my_device' | 'live' | 'ai';
 
 const FILTER_LABELS: Record<FilterMode, string> = {
-  latest:      'Latest',
-  trending:    'Trending',
-  for_you:     'For You',
-  my_device:   'My Device',
-  mac_dynamic: 'macOS Dynamic',
-  ai:          'AI Generated',
-  video:       'Video',
+  latest:    'Latest',
+  trending:  'Trending',
+  for_you:   'For You',
+  my_device: 'My Device',
+  live:      'Live',
+  ai:        'AI Generated',
 };
 
 function SkeletonRows({
@@ -215,8 +214,8 @@ function FilterDropdown(p: FilterDropdownProps) {
   // so the dropdown doesn't surface an option that immediately falls
   // back to Latest.
   const options: FilterMode[] = p.isAuthenticated
-    ? ['latest', 'trending', 'for_you', 'my_device', 'mac_dynamic', 'ai', 'video']
-    : ['latest', 'trending', 'my_device', 'mac_dynamic', 'ai', 'video'];
+    ? ['latest', 'trending', 'for_you', 'my_device', 'live', 'ai']
+    : ['latest', 'trending', 'my_device', 'live', 'ai'];
 
   return (
     <div className="relative" ref={p.ddRef}>
@@ -325,7 +324,7 @@ export default function DiscoverPage() {
   // owns the live state from there on.
   const [filterMode, setFilterMode] = useState<FilterMode>(() => {
     const raw = new URLSearchParams(window.location.search).get('filter');
-    const allowed: FilterMode[] = ['latest', 'trending', 'for_you', 'my_device', 'mac_dynamic', 'ai', 'video'];
+    const allowed: FilterMode[] = ['latest', 'trending', 'for_you', 'my_device', 'live', 'ai'];
     return (allowed as string[]).includes(raw || '') ? (raw as FilterMode) : 'latest';
   });
   const [filterOpen, setFilterOpen] = useState(false);
@@ -421,14 +420,14 @@ export default function DiscoverPage() {
           params.device_height = screen.height;
           if (isMac) params.include_dynamic = true;
           break;
-        case 'mac_dynamic':
+        case 'live':
+          // Live = Mac dynamic (is_dynamic) ∪ video. Backend's dynamic_only
+          // covers both since the SQL filter was widened to include
+          // file_type LIKE 'video/%'.
           params.dynamic_only = true;
           break;
         case 'ai':
           params.ai_only = true;
-          break;
-        case 'video':
-          params.video_only = true;
           break;
         case 'latest':
           // No special params — default backend behavior is latest first.
