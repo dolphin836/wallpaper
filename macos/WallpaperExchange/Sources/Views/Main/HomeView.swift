@@ -16,7 +16,13 @@ struct HomeView: View {
     @State private var liveWalls: [Wallpaper] = []
     @State private var aiWalls: [Wallpaper] = []
     @State private var collections: [CollectionItem] = []
-    @State private var loading = false
+    // Per-section loading flags so each row can show its own skeletons
+    // and one slow endpoint doesn't blank the entire page. Matches the
+    // web HomePage's independent useState pattern.
+    @State private var weeklyLoading = true
+    @State private var liveLoading = true
+    @State private var aiLoading = true
+    @State private var collectionsLoading = true
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -25,6 +31,8 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 100) {
                 if let hero = weekly?.picks.first(where: { $0.isHero }) ?? weekly?.picks.first {
                     HeroCard(pick: hero, week: weekly!.week, year: weekly!.year, onTap: { onPick(weeklyToWallpaper(hero)) })
+                } else if weeklyLoading {
+                    SkeletonTile(variant: .hero)
                 }
                 weeklySection
                 liveSection
@@ -61,8 +69,12 @@ struct HomeView: View {
                         .buttonStyle(.plain)
                     }
                 }
-            } else {
-                placeholder
+            } else if weeklyLoading {
+                LazyVGrid(columns: fixedCols(5), spacing: 16) {
+                    ForEach(0..<5, id: \.self) { _ in
+                        SkeletonTile(variant: .weekly)
+                    }
+                }
             }
         }
     }
@@ -77,7 +89,13 @@ struct HomeView: View {
                 ctaEnabled: true
             )
             if liveWalls.isEmpty {
-                placeholder
+                if liveLoading {
+                    LazyVGrid(columns: fixedCols(4), spacing: 14) {
+                        ForEach(0..<8, id: \.self) { _ in
+                            SkeletonTile(variant: .live)
+                        }
+                    }
+                }
             } else {
                 LazyVGrid(columns: fixedCols(4), spacing: 14) {
                     ForEach(liveWalls.prefix(8)) { wp in
@@ -99,7 +117,13 @@ struct HomeView: View {
                 ctaEnabled: true
             )
             if aiWalls.isEmpty {
-                placeholder
+                if aiLoading {
+                    LazyVGrid(columns: fixedCols(5), spacing: 16) {
+                        ForEach(0..<10, id: \.self) { _ in
+                            SkeletonTile(variant: .ai)
+                        }
+                    }
+                }
             } else {
                 // Web .h3-ai: aspect-ratio 1/1 (square with foil sweep)
                 LazyVGrid(columns: fixedCols(5), spacing: 16) {
@@ -124,7 +148,13 @@ struct HomeView: View {
                 ctaEnabled: true
             )
             if collections.isEmpty {
-                placeholder
+                if collectionsLoading {
+                    LazyVGrid(columns: fixedCols(4), spacing: 14) {
+                        ForEach(0..<8, id: \.self) { _ in
+                            SkeletonTile(variant: .collection)
+                        }
+                    }
+                }
             } else {
                 LazyVGrid(columns: fixedCols(4), spacing: 14) {
                     ForEach(collections.prefix(8)) { c in
@@ -217,22 +247,31 @@ struct HomeView: View {
         Array(repeating: GridItem(.flexible(), spacing: 14, alignment: .top), count: count)
     }
 
-    private var placeholder: some View {
-        HStack { Spacer(); ProgressView().controlSize(.small).opacity(loading ? 1 : 0); Spacer() }
-            .frame(height: 80)
-    }
-
+    // Four independent fetches in parallel; each section flips its own
+    // loading flag off as soon as its endpoint returns. This is the
+    // pattern web HomePage uses — one slow row doesn't stall the
+    // skeleton swap for the others.
     private func loadAll() async {
-        loading = true; defer { loading = false }
         async let weeklyTask: WeeklyCurrent? = try? await APIClient.shared.fetchWeeklyCurrent()
         async let liveTask:   PaginatedData<Wallpaper>? = try? await APIClient.shared.fetchWallpapers(limit: 12, dynamicOnly: true)
         async let aiTask:     PaginatedData<Wallpaper>? = try? await APIClient.shared.fetchWallpapers(limit: 12, aiOnly: true)
         async let colsTask:   PaginatedData<CollectionItem>? = try? await APIClient.shared.fetchPublicCollections(limit: 12)
-        let (w, l, a, c) = await (weeklyTask, liveTask, aiTask, colsTask)
+
+        let w = await weeklyTask
         weekly = w
+        weeklyLoading = false
+
+        let l = await liveTask
         liveWalls = l?.items ?? []
+        liveLoading = false
+
+        let a = await aiTask
         aiWalls = a?.items ?? []
+        aiLoading = false
+
+        let c = await colsTask
         collections = c?.items ?? []
+        collectionsLoading = false
     }
 
     private func weeklyToWallpaper(_ p: WeeklyPicked) -> Wallpaper {
