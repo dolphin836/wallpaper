@@ -4,8 +4,8 @@ import SwiftUI
 //   1. Hero card (big featured pick from /weekly-picks/current,
 //      tinted by its palette).
 //   2. This week's picks rest of slate — 5-column grid.
-//   3. Mac Dynamic — 4-column grid using the new MacDynamicTile
-//      that hints at the multi-frame nature of these wallpapers.
+//   3. Live — Mac dynamic (.heic solar/h24) + video wallpapers,
+//      unified under one "Live" pill. 4-column grid.
 //   4. AI Lab — 5-column grid.
 //   5. Themed collections — 4-column rail.
 struct HomeView: View {
@@ -13,7 +13,7 @@ struct HomeView: View {
     var onOpenWeek: (Int, Int) -> Void
 
     @State private var weekly: WeeklyCurrent?
-    @State private var dynamicWalls: [Wallpaper] = []
+    @State private var liveWalls: [Wallpaper] = []
     @State private var aiWalls: [Wallpaper] = []
     @State private var collections: [CollectionItem] = []
     @State private var loading = false
@@ -25,7 +25,7 @@ struct HomeView: View {
                     HeroCard(pick: hero, week: weekly!.week, year: weekly!.year, onTap: { onPick(weeklyToWallpaper(hero)) })
                 }
                 weeklySection
-                macDynamicSection
+                liveSection
                 aiSection
                 collectionsSection
             }
@@ -61,19 +61,19 @@ struct HomeView: View {
         }
     }
 
-    private var macDynamicSection: some View {
+    private var liveSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             sectionHeader(
-                kicker: "Multi-frame · solar / h24 / apr",
-                title: "Mac Dynamic Wallpapers.",
-                ctaLabel: "All dynamic →",
+                kicker: "Motion · hover to preview",
+                title: "Live wallpapers.",
+                ctaLabel: "All live →",
                 ctaEnabled: true
             )
-            if dynamicWalls.isEmpty {
+            if liveWalls.isEmpty {
                 placeholder
             } else {
                 LazyVGrid(columns: fixedCols(4), spacing: 14) {
-                    ForEach(dynamicWalls.prefix(8)) { wp in
+                    ForEach(liveWalls.prefix(8)) { wp in
                         Button(action: { onPick(wp) }) { MacDynamicTile(wallpaper: wp) }
                             .buttonStyle(.plain)
                     }
@@ -169,12 +169,12 @@ struct HomeView: View {
     private func loadAll() async {
         loading = true; defer { loading = false }
         async let weeklyTask: WeeklyCurrent? = try? await APIClient.shared.fetchWeeklyCurrent()
-        async let dynTask:    PaginatedData<Wallpaper>? = try? await APIClient.shared.fetchWallpapers(limit: 12, dynamicOnly: true)
+        async let liveTask:   PaginatedData<Wallpaper>? = try? await APIClient.shared.fetchWallpapers(limit: 12, dynamicOnly: true)
         async let aiTask:     PaginatedData<Wallpaper>? = try? await APIClient.shared.fetchWallpapers(limit: 12, aiOnly: true)
         async let colsTask:   PaginatedData<CollectionItem>? = try? await APIClient.shared.fetchPublicCollections(limit: 12)
-        let (w, d, a, c) = await (weeklyTask, dynTask, aiTask, colsTask)
+        let (w, l, a, c) = await (weeklyTask, liveTask, aiTask, colsTask)
         weekly = w
-        dynamicWalls = d?.items ?? []
+        liveWalls = l?.items ?? []
         aiWalls = a?.items ?? []
         collections = c?.items ?? []
     }
@@ -192,15 +192,36 @@ struct HomeView: View {
     }
 }
 
-// Big hero card at the top of Home. Wide aspect, blurred-bg behind a
-// crisp foreground image, kicker / serif title / Open button on top
-// of a bottom gradient. Mirrors HeroCard on the web's HomePage.
+// Hero card at the top of Home. Mirrors the web's HomePage HeroCard:
+//   • 16:9 aspect, 24pt rounded
+//   • Bottom-gradient overlay
+//   • Left: Curation · Week N · YEAR kicker + WxH · file-size meta
+//   • Right: white "○ Trade for 1" CTA pill with coin glyph
+//   • Top-right: small resolution chip
+// No serif title in the overlay — web hero leads with the image and
+// metadata, not text. Hover lifts the card and deepens the shadow.
 struct HeroCard: View {
     let pick: WeeklyPicked
     let week: Int
     let year: Int
     let onTap: () -> Void
     @State private var hover = false
+
+    private var resolutionLabel: String {
+        let px = max(pick.width, pick.height)
+        switch px {
+        case 7680...:  return "8K"
+        case 3840...:  return "4K"
+        case 2560...:  return "2K"
+        case 1920...:  return "HD"
+        default:       return "\(pick.width)×\(pick.height)"
+        }
+    }
+
+    private var fileSizeLabel: String {
+        let mb = Double(pick.fileSize) / 1024.0 / 1024.0
+        return mb >= 10 ? String(format: "%.0f MB", mb) : String(format: "%.1f MB", mb)
+    }
 
     var body: some View {
         Button(action: onTap) {
@@ -210,48 +231,68 @@ struct HeroCard: View {
                 } placeholder: {
                     Color(hex: pick.dominantColor ?? "#bbb").opacity(0.5)
                 }
-                .frame(height: 420)
+                .aspectRatio(16.0 / 9.0, contentMode: .fill)
                 .frame(maxWidth: .infinity)
                 .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 18))
 
                 LinearGradient(
-                    colors: [.clear, .clear, .black.opacity(0.55)],
+                    colors: [.clear, .clear, .black.opacity(0.40)],
                     startPoint: .top, endPoint: .bottom
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 18))
                 .allowsHitTesting(false)
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("WEEK \(week) · \(year) · HERO PICK")
-                        .font(.kicker).tracking(2.2)
-                        .foregroundStyle(.white.opacity(0.92))
-                    Text(pick.title.isEmpty ? "This week's drop" : pick.title)
-                        .font(.system(size: 32, weight: .semibold, design: .serif))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.right.circle.fill")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.white)
-                        Text("Open detail")
-                            .font(.sans12)
-                            .foregroundStyle(.white)
+                // Top-right resolution chip — matches web's .h3-res-chip
+                VStack {
+                    HStack {
+                        Spacer()
+                        Text(resolutionLabel)
+                            .font(.mono10).tracking(0.4)
+                            .foregroundStyle(.white.opacity(0.92))
+                            .padding(.horizontal, 8).padding(.vertical, 2)
+                            .background(Capsule().fill(.black.opacity(0.42)))
+                            .padding(.top, 16).padding(.trailing, 16)
                     }
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                    .background(Capsule().fill(.white.opacity(0.18)))
-                    .overlay(Capsule().stroke(.white.opacity(0.32), lineWidth: 0.5))
+                    Spacer()
                 }
-                .padding(28)
+
+                // Bottom overlay: kicker + meta on left, CTA on right
+                HStack(alignment: .bottom, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("CURATION · WEEK \(week) · \(year)")
+                            .font(.mono10).tracking(2.0)
+                            .foregroundStyle(.white.opacity(0.88))
+                        Text("\(pick.width)×\(pick.height) · \(fileSizeLabel)")
+                            .font(.system(size: 12.5, weight: .regular, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.78))
+                    }
+                    Spacer(minLength: 0)
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(LinearGradient(
+                                colors: [Color(hex: "#f4ae66"), Color(hex: "#d57130")],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            ))
+                            .frame(width: 11, height: 11)
+                        Text("Trade for 1").font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundStyle(Color(hex: "#202229"))
+                    .padding(.horizontal, 18).padding(.vertical, 10)
+                    .background(Capsule().fill(.white))
+                    .shadow(color: .black.opacity(0.35), radius: 12, x: 0, y: 6)
+                }
+                .padding(.horizontal, 30).padding(.bottom, 24)
             }
+            .clipShape(RoundedRectangle(cornerRadius: 24))
         }
         .buttonStyle(.plain)
         .overlay(
-            RoundedRectangle(cornerRadius: 18).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false)
+            RoundedRectangle(cornerRadius: 24).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false)
         )
         .scaleEffect(hover ? 1.005 : 1.0)
-        .shadow(color: Color.black.opacity(hover ? 0.18 : 0.08), radius: hover ? 22 : 14, x: 0, y: hover ? 12 : 6)
-        .animation(.easeOut(duration: 0.2), value: hover)
+        .shadow(color: Color.black.opacity(hover ? 0.22 : 0.10),
+                radius: hover ? 28 : 18,
+                x: 0, y: hover ? 14 : 8)
+        .animation(.easeOut(duration: 0.25), value: hover)
         .onHover { entered in
             hover = entered
             if entered {
@@ -263,12 +304,11 @@ struct HeroCard: View {
     }
 }
 
-// Mac Dynamic tile — strict same-shape as MainGridTile so LazyVGrid
-// row math is identical. The only visual difference is the chip
-// treatment: a single big accent DYNAMIC pill instead of the
-// resolution + MAC + AI chip cluster the salon tile uses. No
-// caption row, no stacked-offset trick — those were the things
-// producing the row-overlap the user kept seeing.
+// Live tile — strict same-shape as MainGridTile so LazyVGrid row
+// math is identical. The only visual difference is the chip
+// treatment: a single accent "LIVE" pill (play-triangle icon),
+// shown when the wallpaper is either a Mac dynamic (.heic
+// solar/h24) or a video. Matches the web's unified Live concept.
 struct MacDynamicTile: View {
     let wallpaper: Wallpaper
     @State private var hover = false
@@ -306,9 +346,9 @@ struct MacDynamicTile: View {
                 .allowsHitTesting(false)
 
                 HStack(spacing: 4) {
-                    Image(systemName: "square.stack.3d.up.fill")
-                        .font(.system(size: 10, weight: .semibold))
-                    Text("DYNAMIC").font(.mono10).tracking(0.7)
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 9, weight: .semibold))
+                    Text("LIVE").font(.mono10).tracking(0.7)
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 8).padding(.vertical, 4)

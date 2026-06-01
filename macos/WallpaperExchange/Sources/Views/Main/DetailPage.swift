@@ -115,9 +115,9 @@ struct DetailPage: View {
                         Text(detail.resolutionLabel)
                         Text("·")
                         Text(detail.fileType.uppercased())
-                        if detail.isDynamic {
+                        if detail.isDynamic || detail.fileType.hasPrefix("video/") {
                             Text("·").padding(.leading, 2)
-                            Text("DYNAMIC").foregroundStyle(Color.accent)
+                            Text("LIVE").foregroundStyle(Color.accent)
                         }
                     }
                     .font(.mono11).tracking(0.5).foregroundStyle(Color.muted)

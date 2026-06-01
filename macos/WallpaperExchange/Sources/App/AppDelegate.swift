@@ -8,11 +8,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var eventMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Force Dock-visible regular app. LSUIElement was removed from
+        // Info.plist when v2 promoted us from menu-bar helper, but the
+        // ServiceManagement / launch-helper flow can still flip the
+        // policy to .accessory on first run — set it explicitly so the
+        // Dock icon shows up reliably.
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
         setupStatusItem()
         setupPopover()
         setupEventMonitor()
         registerURLScheme()
+        configureMainWindow()
         UpdateService.shared.checkAtLaunch()
+    }
+
+    // Enable the standard zoom (green +) button to perform full-screen
+    // toggle, and add a Window menu item that uses ⌃⌘F like every other
+    // Mac app. Runs after AppKit finishes mounting the SwiftUI window.
+    private func configureMainWindow() {
+        DispatchQueue.main.async {
+            for window in NSApp.windows where window.canBecomeMain {
+                window.collectionBehavior.insert(.fullScreenPrimary)
+                window.styleMask.insert([.resizable, .miniaturizable, .closable])
+                // Make the zoom (+) button actually go full-screen.
+                // Without this it falls back to AppKit's "maximize" which
+                // SwiftUI WindowGroup sometimes refuses to honor.
+                window.isMovableByWindowBackground = false
+            }
+        }
     }
 
     // v2: app stays alive when the main window is closed so the

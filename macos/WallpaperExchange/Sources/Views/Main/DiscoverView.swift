@@ -25,7 +25,7 @@ struct DiscoverView: View {
         case latest = "Latest"
         case trending = "Trending"
         case myDevice = "My Device"
-        case dynamic = "Mac Dynamic"
+        case live = "Live"
         case ai = "AI"
     }
 
@@ -169,7 +169,7 @@ struct DiscoverView: View {
             let data = try await APIClient.shared.fetchWallpapers(
                 cursor: cursor,
                 limit: 24,
-                dynamicOnly: filter == .dynamic,
+                dynamicOnly: filter == .live,
                 aiOnly: filter == .ai,
                 search: search.isEmpty ? nil : search,
                 categoryID: selectedCategoryID,

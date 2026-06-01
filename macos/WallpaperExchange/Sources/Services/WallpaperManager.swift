@@ -41,7 +41,7 @@ final class WallpaperManager {
     private(set) var currentWallpaperID: Int?
     private let currentWallpaperIDDefaultsKey = "wallpaper.currentID"
 
-    private let storageDir: URL
+    let storageDir: URL
 
     private init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!

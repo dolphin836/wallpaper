@@ -55,8 +55,7 @@ struct MainGridTile: View {
                 VStack {
                     HStack(alignment: .top, spacing: 4) {
                         resolutionChip
-                        if wallpaper.fileType.hasPrefix("video/") { videoChip }
-                        if wallpaper.isDynamic                    { macChip }
+                        if wallpaper.fileType.hasPrefix("video/") || wallpaper.isDynamic { liveChip }
                         if wallpaper.isAIGenerated == true        { aiChip }
                         Spacer()
                     }
@@ -120,20 +119,10 @@ struct MainGridTile: View {
             .background(Capsule().fill(Color.black.opacity(0.55)))
     }
 
-    private var videoChip: some View {
+    private var liveChip: some View {
         HStack(spacing: 3) {
             Image(systemName: "play.fill").font(.system(size: 8))
-            Text("VIDEO").font(.mono10).tracking(0.6)
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 7).padding(.vertical, 3)
-        .background(Capsule().fill(Color.black.opacity(0.55)))
-    }
-
-    private var macChip: some View {
-        HStack(spacing: 3) {
-            Image(systemName: "apple.logo").font(.system(size: 9, weight: .medium))
-            Text("MAC").font(.mono10).tracking(0.6)
+            Text("LIVE").font(.mono10).tracking(0.6)
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 7).padding(.vertical, 3)
