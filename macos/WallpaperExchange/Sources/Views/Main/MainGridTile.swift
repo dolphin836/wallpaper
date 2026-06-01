@@ -110,33 +110,43 @@ struct MainGridTile: View {
     }
 
     // ─── Chips (match web .tile-chip family) ────────────────────
+    //   padding: 2px 7px
+    //   font: mono 9px / weight 600 / letter-spacing 0.04em
+    //   background: light translucent (oklch(98% 0.005 240 / 0.62))
+    //   color: dark slate (oklch(34% 0.012 240))
+    //   AI variant: violet wash with white text
+
+    private static let chipBG    = Color.white.opacity(0.78)
+    private static let chipInk   = Color(red: 0.20, green: 0.21, blue: 0.23)
+    private static let chipFont  = Font.system(size: 9, weight: .semibold, design: .monospaced)
 
     private var resolutionChip: some View {
         Text(wallpaper.resolutionLabel)
-            .font(.mono10).tracking(0.5)
-            .foregroundStyle(.white)
-            .padding(.horizontal, 7).padding(.vertical, 3)
-            .background(Capsule().fill(Color.black.opacity(0.55)))
+            .font(Self.chipFont).tracking(0.4)
+            .foregroundStyle(Self.chipInk)
+            .padding(.horizontal, 7).padding(.vertical, 2)
+            .background(Capsule().fill(Self.chipBG))
     }
 
     private var liveChip: some View {
-        HStack(spacing: 3) {
-            Image(systemName: "play.fill").font(.system(size: 8))
-            Text("LIVE").font(.mono10).tracking(0.6)
+        HStack(spacing: 4) {
+            Image(systemName: "play.fill").font(.system(size: 8, weight: .semibold))
+            Text("LIVE").font(Self.chipFont).tracking(0.4)
         }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 7).padding(.vertical, 3)
-        .background(Capsule().fill(Color.black.opacity(0.55)))
+        .foregroundStyle(Self.chipInk)
+        .padding(.horizontal, 7).padding(.vertical, 2)
+        .background(Capsule().fill(Self.chipBG))
     }
 
     private var aiChip: some View {
-        HStack(spacing: 3) {
-            Image(systemName: "sparkles").font(.system(size: 9, weight: .medium))
-            Text("AI").font(.mono10).tracking(0.6)
+        HStack(spacing: 4) {
+            Image(systemName: "sparkles").font(.system(size: 8, weight: .semibold))
+            Text("AI").font(Self.chipFont).tracking(0.4)
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, 7).padding(.vertical, 3)
-        .background(Capsule().fill(Color(red: 0.52, green: 0.20, blue: 0.78).opacity(0.92)))
+        .padding(.horizontal, 7).padding(.vertical, 2)
+        // .is-ai: oklch(70% 0.18 295 / 0.85) — violet wash
+        .background(Capsule().fill(Color(red: 0.62, green: 0.30, blue: 0.82).opacity(0.85)))
     }
 
     // ─── Action rail dot ──────────────────────────────────────

@@ -20,7 +20,9 @@ struct HomeView: View {
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 36) {
+            // Web .h3-row has padding-top 120px between rows. The first
+            // row gets 72px (handled by VStack initial spacing).
+            VStack(alignment: .leading, spacing: 100) {
                 if let hero = weekly?.picks.first(where: { $0.isHero }) ?? weekly?.picks.first {
                     HeroCard(pick: hero, week: weekly!.week, year: weekly!.year, onTap: { onPick(weeklyToWallpaper(hero)) })
                 }
@@ -42,17 +44,21 @@ struct HomeView: View {
         return VStack(alignment: .leading, spacing: 14) {
             sectionHeader(
                 kicker: weekly.map { "Curation · Week \($0.week)" } ?? "Curated each Friday",
-                title: "This week's picks.",
+                title: "picks.",
+                accent: "This week's",
                 ctaLabel: "View archive →",
                 ctaEnabled: weekly != nil,
                 onCTA: { if let w = weekly { onOpenWeek(w.year, w.week) } }
             )
             if !restPicks.isEmpty {
+                // Web .h3-weekly: aspect-ratio 4/5 (portrait editorial)
                 LazyVGrid(columns: fixedCols(5), spacing: 16) {
                     ForEach(restPicks) { p in
                         let wp = weeklyToWallpaper(p)
-                        Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
-                            .buttonStyle(.plain)
+                        Button(action: { onPick(wp) }) {
+                            MainGridTile(wallpaper: wp, aspectRatio: 4.0 / 5.0)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             } else {
@@ -65,8 +71,9 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 14) {
             sectionHeader(
                 kicker: "Motion · hover to preview",
-                title: "Live wallpapers.",
-                ctaLabel: "All live →",
+                title: "wallpapers.",
+                accent: "Live",
+                ctaLabel: "All live wallpapers →",
                 ctaEnabled: true
             )
             if liveWalls.isEmpty {
@@ -86,17 +93,21 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 14) {
             sectionHeader(
                 kicker: "AI Lab · synthetic samples",
-                title: "Generated this week.",
-                ctaLabel: "All AI →",
+                title: "this week.",
+                accent: "Generated",
+                ctaLabel: "All AI wallpapers →",
                 ctaEnabled: true
             )
             if aiWalls.isEmpty {
                 placeholder
             } else {
+                // Web .h3-ai: aspect-ratio 1/1 (square with foil sweep)
                 LazyVGrid(columns: fixedCols(5), spacing: 16) {
                     ForEach(aiWalls.prefix(10)) { wp in
-                        Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
-                            .buttonStyle(.plain)
+                        Button(action: { onPick(wp) }) {
+                            MainGridTile(wallpaper: wp, aspectRatio: 1.0)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -107,7 +118,8 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 14) {
             sectionHeader(
                 kicker: "Editorial sets · themed bundles",
-                title: "Themed collections.",
+                title: "collections.",
+                accent: "Themed",
                 ctaLabel: "All collections →",
                 ctaEnabled: true
             )
@@ -132,22 +144,66 @@ struct HomeView: View {
         (weekly?.picks.first(where: { $0.isHero }) ?? weekly?.picks.first)?.id
     }
 
-    private func sectionHeader(kicker: String, title: String, ctaLabel: String? = nil, ctaEnabled: Bool = true, onCTA: (() -> Void)? = nil) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 4) {
-                Kicker(text: kicker)
-                Text(title).font(.display24).foregroundStyle(Color.ink)
+    // Web .h3-row-head:
+    //   align-items: end (NOT first-text-baseline); margin-bottom 22
+    //   .h3-sub:   mono 11px / tracking 0.14em / caps / muted / mb 12
+    //   h2:        display 32 / weight 400 / line-height 1 / -0.01em tracking
+    //   h2 em:     weight 500 / accent color / NO italic
+    //   .h3-more:  13px / ink / 1px bottom border ink2 / pad-bottom 2
+    private func sectionHeader(kicker: String,
+                               title: String,
+                               accent: String? = nil,
+                               ctaLabel: String? = nil,
+                               ctaEnabled: Bool = true,
+                               onCTA: (() -> Void)? = nil) -> some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(kicker.uppercased())
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .tracking(1.5)
+                    .foregroundStyle(Color.muted)
+                titleText(title: title, accent: accent)
             }
             Spacer()
             if let label = ctaLabel {
                 Button(action: { onCTA?() }) {
                     Text(label)
-                        .font(.kicker).tracking(1.8)
-                        .foregroundStyle(ctaEnabled ? Color.ink2 : Color.muted)
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(ctaEnabled ? Color.ink : Color.muted)
+                        .padding(.bottom, 2)
+                        .overlay(alignment: .bottom) {
+                            Rectangle()
+                                .fill(ctaEnabled ? Color.ink2 : Color.muted)
+                                .frame(height: 1)
+                        }
                 }
                 .buttonStyle(.plain)
                 .disabled(!ctaEnabled)
             }
+        }
+        .padding(.bottom, 10)
+    }
+
+    // Render the section title with an inline accent word. Web pattern
+    // is `<em>Word</em> rest.`, where em = weight 500 + accent color.
+    @ViewBuilder
+    private func titleText(title: String, accent: String?) -> some View {
+        if let a = accent, !a.isEmpty {
+            (
+                Text(a)
+                    .font(.system(size: 32, weight: .medium, design: .serif))
+                    .foregroundColor(Color.accent)
+                +
+                Text(" " + title)
+                    .font(.system(size: 32, weight: .regular, design: .serif))
+                    .foregroundColor(Color.ink)
+            )
+            .tracking(-0.3)
+        } else {
+            Text(title)
+                .font(.system(size: 32, weight: .regular, design: .serif))
+                .tracking(-0.3)
+                .foregroundStyle(Color.ink)
         }
     }
 
@@ -207,17 +263,19 @@ struct HeroCard: View {
     let onTap: () -> Void
     @State private var hover = false
 
-    private var resolutionLabel: String {
+    // Mirrors ResChip in components/WallpaperTile.tsx:
+    //   >=7680→8K, >=3840→4K, >=2560→2K, >=1920→1080P, >=1280→720P, else hidden
+    private var resolutionLabel: String? {
         let px = max(pick.width, pick.height)
-        switch px {
-        case 7680...:  return "8K"
-        case 3840...:  return "4K"
-        case 2560...:  return "2K"
-        case 1920...:  return "HD"
-        default:       return "\(pick.width)×\(pick.height)"
-        }
+        if px >= 7680 { return "8K" }
+        if px >= 3840 { return "4K" }
+        if px >= 2560 { return "2K" }
+        if px >= 1920 { return "1080P" }
+        if px >= 1280 { return "720P" }
+        return nil
     }
 
+    // Web format: "1920×1080 · 2.3 MB" — 1 decimal under 10 MB.
     private var fileSizeLabel: String {
         let mb = Double(pick.fileSize) / 1024.0 / 1024.0
         return mb >= 10 ? String(format: "%.0f MB", mb) : String(format: "%.1f MB", mb)
@@ -226,6 +284,7 @@ struct HeroCard: View {
     var body: some View {
         Button(action: onTap) {
             ZStack(alignment: .bottomLeading) {
+                // Image fills the 16:9 frame.
                 CachedAsyncImage(url: URL(string: pick.previewURL)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
@@ -235,64 +294,92 @@ struct HeroCard: View {
                 .frame(maxWidth: .infinity)
                 .clipped()
 
+                // Bottom gradient — web uses linear-gradient(180deg,
+                // transparent, rgba(0,0,0,0.4))
                 LinearGradient(
-                    colors: [.clear, .clear, .black.opacity(0.40)],
+                    colors: [.clear, .black.opacity(0.4)],
                     startPoint: .top, endPoint: .bottom
                 )
                 .allowsHitTesting(false)
 
-                // Top-right resolution chip — matches web's .h3-res-chip
-                VStack {
-                    HStack {
+                // Top-right resolution chip — web .h3-hero .h3-res-chip
+                //   top: 16px; right: 16px
+                //   padding: 2px 8px
+                //   font-size: 10px (mono, weight 600, letter-spacing 0.04em)
+                //   background: oklch(98% 0.005 240 / 0.75)  ← LIGHT pill
+                //   color: oklch(36% 0.012 240)              ← DARK text
+                if let res = resolutionLabel {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Text(res)
+                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                .tracking(0.4)
+                                .foregroundStyle(Color(hex: "#54585f"))
+                                .padding(.horizontal, 8).padding(.vertical, 2)
+                                .background(
+                                    Capsule().fill(Color.white.opacity(0.75))
+                                )
+                                .padding(.top, 16).padding(.trailing, 16)
+                        }
                         Spacer()
-                        Text(resolutionLabel)
-                            .font(.mono10).tracking(0.4)
-                            .foregroundStyle(.white.opacity(0.92))
-                            .padding(.horizontal, 8).padding(.vertical, 2)
-                            .background(Capsule().fill(.black.opacity(0.42)))
-                            .padding(.top, 16).padding(.trailing, 16)
                     }
-                    Spacer()
                 }
 
-                // Bottom overlay: kicker + meta on left, CTA on right
+                // Bottom overlay — web .h3-hero-overlay
+                //   padding: 26px 30px 24px (top right/left bottom)
+                //   display: flex, align-items: end, justify-content: space-between, gap: 24px
                 HStack(alignment: .bottom, spacing: 24) {
                     VStack(alignment: .leading, spacing: 6) {
+                        // .h3-kicker — mono 10px, letter-spacing 0.16em,
+                        // uppercase, color rgba(255,255,255,0.85)
                         Text("CURATION · WEEK \(week) · \(year)")
-                            .font(.mono10).tracking(2.0)
-                            .foregroundStyle(.white.opacity(0.88))
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .tracking(1.6)
+                            .foregroundStyle(Color.white.opacity(0.85))
+                        // .h3-meta — mono 12.5px, opacity 0.78
                         Text("\(pick.width)×\(pick.height) · \(fileSizeLabel)")
                             .font(.system(size: 12.5, weight: .regular, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.78))
+                            .foregroundStyle(Color.white.opacity(0.78))
                     }
                     Spacer(minLength: 0)
-                    HStack(spacing: 8) {
+                    // .h3-cta — padding 13px 22px, font 13.5/600
+                    //   background white, color oklch(20% 0.014 240)
+                    //   border-radius 999px
+                    //   box-shadow 0 6px 22px -6px rgba(0,0,0,0.4)
+                    HStack(spacing: 10) {
+                        // .h3-coin — 11×11, linear-gradient(135deg,#f4ae66,#d57130)
                         Circle()
                             .fill(LinearGradient(
                                 colors: [Color(hex: "#f4ae66"), Color(hex: "#d57130")],
                                 startPoint: .topLeading, endPoint: .bottomTrailing
                             ))
                             .frame(width: 11, height: 11)
-                        Text("Trade for 1").font(.system(size: 13, weight: .semibold))
+                        Text("Trade for 1")
+                            .font(.system(size: 13.5, weight: .semibold))
                     }
                     .foregroundStyle(Color(hex: "#202229"))
-                    .padding(.horizontal, 18).padding(.vertical, 10)
+                    .padding(.horizontal, 22).padding(.vertical, 13)
                     .background(Capsule().fill(.white))
-                    .shadow(color: .black.opacity(0.35), radius: 12, x: 0, y: 6)
+                    .shadow(color: Color.black.opacity(0.40), radius: 22, x: 0, y: 6)
                 }
-                .padding(.horizontal, 30).padding(.bottom, 24)
+                .padding(.top, 26)
+                .padding(.horizontal, 30)
+                .padding(.bottom, 24)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .clipShape(RoundedRectangle(cornerRadius: 24))
         }
         .buttonStyle(.plain)
-        .overlay(
-            RoundedRectangle(cornerRadius: 24).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false)
-        )
+        // Drop-shadow stack — web has 3 layers (inset top white + 2 dark
+        // drops). SwiftUI doesn't do multi-layer inset shadows cleanly,
+        // so collapse to a single combined drop that hits the same
+        // weight under default lighting.
         .scaleEffect(hover ? 1.005 : 1.0)
-        .shadow(color: Color.black.opacity(hover ? 0.22 : 0.10),
-                radius: hover ? 28 : 18,
-                x: 0, y: hover ? 14 : 8)
-        .animation(.easeOut(duration: 0.25), value: hover)
+        .shadow(color: Color.black.opacity(hover ? 0.35 : 0.30),
+                radius: hover ? 40 : 30,
+                x: 0, y: hover ? 14 : 10)
+        .animation(.easeOut(duration: 0.6), value: hover)
         .onHover { entered in
             hover = entered
             if entered {
@@ -345,14 +432,16 @@ struct MacDynamicTile: View {
                 .opacity(hover ? 1 : 0.65)
                 .allowsHitTesting(false)
 
+                // .tile-chip family — light translucent pill, dark text
                 HStack(spacing: 4) {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 9, weight: .semibold))
-                    Text("LIVE").font(.mono10).tracking(0.7)
+                    Image(systemName: "play.fill").font(.system(size: 8, weight: .semibold))
+                    Text("LIVE")
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .tracking(0.4)
                 }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8).padding(.vertical, 4)
-                .background(Capsule().fill(Color.accent))
+                .foregroundStyle(Color(red: 0.20, green: 0.21, blue: 0.23))
+                .padding(.horizontal, 7).padding(.vertical, 2)
+                .background(Capsule().fill(Color.white.opacity(0.78)))
                 .padding(10)
             }
             .frame(width: proxy.size.width, height: h)

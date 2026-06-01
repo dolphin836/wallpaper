@@ -65,109 +65,112 @@ struct CollectionsListView: View {
     }
 }
 
-// Mirrors the web's editorial CollectionCard: a 3-photo stacked
-// composition (1 large main on the left, 2 smaller subs stacked on
-// the right) above a hairline rule and a mono № line + display title.
-// "+N" badge appears on the third sub when the collection has more
-// than 3 wallpapers.
+// Mirrors web's .h3-tile-collection — the "stacked paper" tile used
+// on HomePage Collections row and the /collections grid.
+//   • aspect-ratio: 1/1
+//   • border-radius: 14
+//   • cover image fills the frame, scale 1.04 on hover
+//   • two stacked paper layers behind the card (4px / 8px offsets at
+//     rest, 6/12 on hover) give the editorial "stack of prints" look
+//   • bottom gradient (transparent 40% → rgba(0,0,0,0.7))
+//   • white copy bottom-left: display title 18, mono count 10 caps
 struct CollectionCard: View {
     let item: CollectionItem
     @State private var hover = false
+    @State private var imgLoaded = false
 
-    private var tiles: [CollectionTile] {
-        item.recentTiles ?? []
+    // First recent tile preview if available, else the saved cover_url.
+    private var imageURL: URL? {
+        if let t = item.recentTiles?.first {
+            return URL(string: t.previewURL)
+        }
+        if let cover = item.coverURL, !cover.isEmpty {
+            return URL(string: cover)
+        }
+        return nil
     }
-    private var main: CollectionTile? { tiles.first }
-    private var sub1: CollectionTile? { tiles.count > 1 ? tiles[1] : nil }
-    private var sub2: CollectionTile? { tiles.count > 2 ? tiles[2] : nil }
-    private var extra: Int { max(0, item.wallpaperCount - 3) }
-    private var idStr: String { String(format: "№%03d", item.id) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // 3-photo stack. Main: ~2/3 width on the left. Subs: 1/3
-            // width stacked on the right. 1pt hairline gaps between
-            // slots; entire stack clipped to a single rounded corner.
-            HStack(spacing: 1) {
-                stackTile(main, isMain: true)
-                    .frame(maxWidth: .infinity)
-                VStack(spacing: 1) {
-                    stackTile(sub1)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    ZStack(alignment: .topTrailing) {
-                        stackTile(sub2)
-                        if extra > 0 {
-                            Text("+\(extra)")
-                                .font(.mono10).tracking(0.4)
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 6).padding(.vertical, 3)
-                                .background(Capsule().fill(Color.black.opacity(0.55)))
-                                .padding(6)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                .frame(width: 80)
-            }
-            .frame(height: 200)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.hair, lineWidth: 1))
-            .scaleEffect(hover ? 1.005 : 1.0)
-            .shadow(color: Color.black.opacity(hover ? 0.12 : 0.04),
-                    radius: hover ? 14 : 6, x: 0, y: hover ? 6 : 2)
+        ZStack(alignment: .topLeading) {
+            // ─── Back paper layer 2 (furthest) ─────────────────────
+            // Web: 8px 8px 0 0 oklch(82% 0.012 240) — slightly cooler
+            // gray. On hover translates to 12,12 to fan out.
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(red: 0.81, green: 0.81, blue: 0.83))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .offset(x: hover ? 12 : 8, y: hover ? 12 : 8)
 
-            // Hairline rule + caption. Hairline wipes to accent on hover
-            // (a thin overlay scaled in X from leading) for the web's
-            // signature "underline wipe" interaction.
-            ZStack(alignment: .leading) {
-                Rectangle().fill(Color.hair).frame(height: 1)
-                Rectangle().fill(Color.accent).frame(height: 1)
-                    .scaleEffect(x: hover ? 1 : 0, y: 1, anchor: .leading)
-                    .animation(.easeOut(duration: 0.3), value: hover)
-            }
-            .padding(.top, 12)
+            // ─── Back paper layer 1 ───────────────────────────────
+            // Web: 4px 4px 0 0 oklch(86% 0.010 240) — lighter gray.
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(red: 0.86, green: 0.86, blue: 0.87))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .offset(x: hover ? 6 : 4, y: hover ? 6 : 4)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("\(idStr) · \(item.wallpaperCount) \(item.wallpaperCount == 1 ? "WALLPAPER" : "WALLPAPERS")")
-                    .font(.kicker).tracking(1.4).foregroundStyle(Color.muted)
-                Text(item.title)
-                    .font(.displayMd)
-                    .foregroundStyle(Color.ink)
-                    .lineLimit(1)
-            }
-            .padding(.top, 10)
-        }
-        .animation(.easeOut(duration: 0.2), value: hover)
-        .onHover { hover = $0 }
-    }
-
-    @ViewBuilder
-    private func stackTile(_ tile: CollectionTile?, isMain: Bool = false) -> some View {
-        let cornerGuide = isMain ? 14 : 6
-        ZStack {
-            if let t = tile {
-                Color(hex: t.dominantColor).opacity(0.5)
-                CachedAsyncImage(url: URL(string: t.previewURL)) { img in
-                    img.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Color.clear
-                }
-            } else if isMain, let cover = item.coverURL, !cover.isEmpty {
-                CachedAsyncImage(url: URL(string: cover)) { img in
-                    img.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Color.paper2
-                }
-            } else {
+            // ─── Front card (image + gradient + copy) ─────────────
+            ZStack(alignment: .bottomLeading) {
                 Color.paper2
+
+                if let url = imageURL {
+                    CachedAsyncImage(url: url) { img in
+                        img.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Color(hex: item.recentTiles?.first?.dominantColor ?? "#bbb").opacity(0.5)
+                    }
+                    .scaleEffect(hover ? 1.04 : 1.0)
+                    .opacity(imgLoaded ? 1 : 0.001)
+                    .onAppear { imgLoaded = true }
+                    .animation(.easeOut(duration: 0.4), value: imgLoaded)
+                    .animation(.easeOut(duration: 0.8), value: hover)
+                }
+
+                // Gradient: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.7))
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0.4),
+                        .init(color: Color.black.opacity(0.7), location: 1.0),
+                    ],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .allowsHitTesting(false)
+
+                // Copy: left/right/bottom 14
+                VStack(alignment: .leading, spacing: 4) {
+                    // .h3-title — display 18, weight 400, line-height 1.1
+                    Text(item.title.isEmpty ? "Untitled set" : item.title)
+                        .font(.system(size: 18, weight: .regular, design: .serif))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .shadow(color: .black.opacity(0.7), radius: 14, x: 0, y: 2)
+                    // .h3-count — mono 10, letter-spacing 0.14em, caps
+                    Text("\(item.wallpaperCount) WALLPAPERS")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .tracking(1.4)
+                        .foregroundStyle(Color.white.opacity(0.85))
+                }
+                .padding(14)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.paper2)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
+                    .blendMode(.overlay)
+                    .allowsHitTesting(false)
+            )
+            // Front-card lift on hover. Web: translate(-3px,-3px).
+            .offset(x: hover ? -3 : 0, y: hover ? -3 : 0)
+            .shadow(color: Color.black.opacity(hover ? 0.32 : 0.20),
+                    radius: hover ? 30 : 18, x: 0, y: hover ? 14 : 8)
         }
-        .clipped()
-        // The outer clipShape already rounds the stack as a whole; we
-        // don't round individual slots so the hairline gaps look like
-        // a single composed surface, not three pills.
+        .aspectRatio(1.0, contentMode: .fit)
+        // Reserve space for the offset paper layers so the card doesn't
+        // clip into adjacent grid cells.
+        .padding(.trailing, 12).padding(.bottom, 12)
+        .animation(.easeOut(duration: 0.38), value: hover)
         .contentShape(Rectangle())
-        .accessibilityHidden(cornerGuide < 0)
+        .onHover { hover = $0 }
     }
 }
 
