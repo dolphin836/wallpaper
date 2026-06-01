@@ -39,7 +39,10 @@ struct HomeView: View {
                 aiSection
                 collectionsSection
             }
-            .padding(.horizontal, 32).padding(.top, 24).padding(.bottom, 60)
+            // Top padding is small now that the title bar is hidden +
+            // titlebarAppearsTransparent — the hero hugs the very top
+            // of the window like Claude.app / Linear / Things 3.
+            .padding(.horizontal, 32).padding(.top, 8).padding(.bottom, 60)
             .frame(maxWidth: 1280).frame(maxWidth: .infinity, alignment: .center)
         }
         .task { await loadAll() }

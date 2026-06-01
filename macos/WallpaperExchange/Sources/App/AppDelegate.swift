@@ -23,17 +23,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UpdateService.shared.checkAtLaunch()
     }
 
-    // Enable the standard zoom (green +) button to perform full-screen
-    // toggle, and add a Window menu item that uses ⌃⌘F like every other
-    // Mac app. Runs after AppKit finishes mounting the SwiftUI window.
+    // Make the window:
+    //   • Behave as a real full-screen primary window (green-+ button
+    //     toggles full-screen instead of falling back to "maximize").
+    //   • Let content extend up under the traffic-light buttons —
+    //     titleBar is hidden by SwiftUI's .windowStyle(.hiddenTitleBar)
+    //     but we also need titlebarAppearsTransparent + the
+    //     .fullSizeContentView mask so the empty strip above the
+    //     content disappears entirely.
+    //
+    // Configuration applies on every window-becomes-main event because
+    // SwiftUI may not have mounted the window during
+    // applicationDidFinishLaunching (a one-shot DispatchQueue.async
+    // before would silently skip applying fullScreenPrimary and the
+    // green-+ button would fall back to "zoom").
     private func configureMainWindow() {
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeMainNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let window = notification.object as? NSWindow else { return }
+            window.collectionBehavior.remove(.fullScreenNone)
+            window.collectionBehavior.insert(.fullScreenPrimary)
+            window.styleMask.insert([.resizable, .miniaturizable, .closable, .fullSizeContentView])
+            window.titleVisibility = .hidden
+            window.titlebarAppearsTransparent = true
+            window.isMovableByWindowBackground = false
+        }
+
+        // Also try once now in case the main window has already been
+        // mounted (e.g. relaunch with restored window state).
         DispatchQueue.main.async {
             for window in NSApp.windows where window.canBecomeMain {
+                window.collectionBehavior.remove(.fullScreenNone)
                 window.collectionBehavior.insert(.fullScreenPrimary)
-                window.styleMask.insert([.resizable, .miniaturizable, .closable])
-                // Make the zoom (+) button actually go full-screen.
-                // Without this it falls back to AppKit's "maximize" which
-                // SwiftUI WindowGroup sometimes refuses to honor.
+                window.styleMask.insert([.resizable, .miniaturizable, .closable, .fullSizeContentView])
+                window.titleVisibility = .hidden
+                window.titlebarAppearsTransparent = true
                 window.isMovableByWindowBackground = false
             }
         }

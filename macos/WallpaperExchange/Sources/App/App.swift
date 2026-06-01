@@ -22,8 +22,13 @@ struct WallpaperExchangeApp: App {
                 .frame(minWidth: 1080, minHeight: 720)
                 .preferredColorScheme(AppearancePref.fromStorage(appearanceRaw).colorScheme)
         }
-        .windowStyle(.titleBar)
-        .windowToolbarStyle(.unified(showsTitle: false))
+        // Hidden title bar lets content extend up to the very top of
+        // the window — the traffic-light buttons float over the
+        // content, matching Claude.app / Linear / Things 3.
+        // AppDelegate.configureMainWindow() also enables
+        // titlebarAppearsTransparent + .fullSizeContentView so the
+        // empty title-bar strip is gone entirely.
+        .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1280, height: 820)
         .commands {
             CommandGroup(replacing: .newItem) { }
