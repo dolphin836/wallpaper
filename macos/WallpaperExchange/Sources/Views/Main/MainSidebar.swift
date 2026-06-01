@@ -31,7 +31,10 @@ struct MainSidebar: View {
 
             Section {
                 ForEach([MainWindow.SidebarItem.home, .discover, .weekly, .collections], id: \.self) { item in
-                    SidebarRow(item: item, isSelected: item == selection).tag(item)
+                    SidebarRow(item: item, isSelected: item == selection)
+                        .tag(item)
+                        .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
+                        .listRowBackground(Color.clear)
                 }
             } header: {
                 Text("BROWSE")
@@ -45,13 +48,32 @@ struct MainSidebar: View {
             if auth.isLoggedIn {
                 Section {
                     ForEach([MainWindow.SidebarItem.myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins], id: \.self) { item in
-                        SidebarRow(item: item, isSelected: item == selection).tag(item)
+                        SidebarRow(item: item, isSelected: item == selection)
+                            .tag(item)
+                            .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
+                            .listRowBackground(Color.clear)
                     }
                 } header: {
                     Text("MY LIBRARY")
                         .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
                         .padding(.top, 8)
                 }
+            }
+
+            // Actions section: Upload (sheet) + Settings (route).
+            // Upload always visible — login is prompted on submit if
+            // anonymous, matching how the web /upload route behaves.
+            Section {
+                ForEach([MainWindow.SidebarItem.upload, .settings], id: \.self) { item in
+                    SidebarRow(item: item, isSelected: item == selection)
+                        .tag(item)
+                        .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
+                        .listRowBackground(Color.clear)
+                }
+            } header: {
+                Text("ACTIONS")
+                    .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
+                    .padding(.top, 8)
             }
         }
         .listStyle(.sidebar)
@@ -145,18 +167,56 @@ struct MainSidebar: View {
     }
 }
 
+// Sidebar row with three visual states:
+//   • rest     — ink2 icon, ink text, transparent background
+//   • hover    — paper-2 tint background (faint mouseover affordance)
+//   • selected — accent-tinted background pill + accent icon + accent
+//                text; reads cleanly against the warm paper bg, unlike
+//                the previous "selected = same black ink" treatment
+//                that gave near-zero contrast against the row tint.
 struct SidebarRow: View {
     let item: MainWindow.SidebarItem
     let isSelected: Bool
+    @State private var hover = false
+
+    private var fg: Color {
+        if isSelected { return Color.accent }
+        return Color.ink
+    }
+
+    private var iconColor: Color {
+        if isSelected { return Color.accent }
+        if hover      { return Color.ink }
+        return Color.ink2
+    }
+
+    private var bg: Color {
+        if isSelected { return Color.accent.opacity(0.12) }
+        if hover      { return Color.ink.opacity(0.05) }
+        return .clear
+    }
+
     var body: some View {
-        HStack(spacing: 9) {
+        HStack(spacing: 10) {
             Image(systemName: item.icon)
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
                 .frame(width: 18)
-                .foregroundStyle(isSelected ? Color.accent : Color.ink2)
-            Text(item.label).font(.sans13).foregroundStyle(Color.ink)
-            Spacer()
+                .foregroundStyle(iconColor)
+            Text(item.label)
+                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(fg)
+            Spacer(minLength: 0)
         }
-        .padding(.vertical, 1)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 7)
+                .fill(bg)
+        )
+        .contentShape(Rectangle())
+        .onHover { hover = $0 }
+        .animation(.easeOut(duration: 0.12), value: hover)
+        .animation(.easeOut(duration: 0.12), value: isSelected)
     }
 }

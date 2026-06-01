@@ -12,11 +12,15 @@ import SwiftUI
 @main
 struct WallpaperExchangeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
+    // Persisted appearance choice from SettingsView. Applied to the
+    // window root so light/dark take effect immediately when toggled.
+    @AppStorage(AppearancePref.storageKey) private var appearanceRaw: String = AppearancePref.system.rawValue
 
     var body: some Scene {
         WindowGroup("Wallpaper Exchange") {
             MainWindow()
                 .frame(minWidth: 1080, minHeight: 720)
+                .preferredColorScheme(AppearancePref.fromStorage(appearanceRaw).colorScheme)
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: false))
