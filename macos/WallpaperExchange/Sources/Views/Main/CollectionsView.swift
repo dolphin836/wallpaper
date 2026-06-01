@@ -65,23 +65,21 @@ struct CollectionsListView: View {
     }
 }
 
-// Mirrors web's .h3-tile-collection — the "stacked paper" tile used
-// on HomePage Collections row and the /collections grid.
-//   • aspect-ratio: 1/1
-//   • border-radius: 14
-//   • cover image fills the frame, scale 1.04 on hover
-//   • two stacked paper layers behind the card (4px / 8px offsets at
-//     rest, 6/12 on hover) give the editorial "stack of prints" look
-//   • bottom gradient (transparent 40% → rgba(0,0,0,0.7))
-//   • white copy bottom-left: display title 18, mono count 10 caps
+// Mirrors web's .h3-tile-collection — the "stacked paper" tile.
+//
+// Layout strategy (GeometryReader-bounded so the LazyVGrid cell math
+// never breaks): the cell is a 1:1 square of size W×W. The card sits
+// at the top-left at (W-12)×(W-12), with two paper layers offset 4 and
+// 8 points into the reserved 12pt bottom-right margin. Everything
+// stays strictly within the W×W cell — adjacent grid cells never
+// overlap our content, no matter the hover state.
 struct CollectionCard: View {
     let item: CollectionItem
     @State private var hover = false
     @State private var imgLoaded = false
 
-    // First recent tile preview if available, else the saved cover_url.
     private var imageURL: URL? {
-        if let t = item.recentTiles?.first {
+        if let t = item.recentTiles?.first, !t.previewURL.isEmpty {
             return URL(string: t.previewURL)
         }
         if let cover = item.coverURL, !cover.isEmpty {
@@ -91,86 +89,96 @@ struct CollectionCard: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            // ─── Back paper layer 2 (furthest) ─────────────────────
-            // Web: 8px 8px 0 0 oklch(82% 0.012 240) — slightly cooler
-            // gray. On hover translates to 12,12 to fan out.
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color(red: 0.81, green: 0.81, blue: 0.83))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .offset(x: hover ? 12 : 8, y: hover ? 12 : 8)
+        GeometryReader { geom in
+            // Some columns get fractional widths; use min() to be safe.
+            let cell = min(geom.size.width, geom.size.height)
+            // Reserve 12pt at the bottom-right for the two paper layers.
+            // Card itself stays (cell - 12) so the deepest paper edge
+            // sits flush at the cell's bottom-right corner.
+            let cardSize = max(0, cell - 12)
 
-            // ─── Back paper layer 1 ───────────────────────────────
-            // Web: 4px 4px 0 0 oklch(86% 0.010 240) — lighter gray.
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color(red: 0.86, green: 0.86, blue: 0.87))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .offset(x: hover ? 6 : 4, y: hover ? 6 : 4)
-
-            // ─── Front card (image + gradient + copy) ─────────────
-            ZStack(alignment: .bottomLeading) {
-                Color.paper2
-
-                if let url = imageURL {
-                    CachedAsyncImage(url: url) { img in
-                        img.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Color(hex: item.recentTiles?.first?.dominantColor ?? "#bbb").opacity(0.5)
-                    }
-                    .scaleEffect(hover ? 1.04 : 1.0)
-                    .opacity(imgLoaded ? 1 : 0.001)
-                    .onAppear { imgLoaded = true }
-                    .animation(.easeOut(duration: 0.4), value: imgLoaded)
-                    .animation(.easeOut(duration: 0.8), value: hover)
-                }
-
-                // Gradient: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.7))
-                LinearGradient(
-                    stops: [
-                        .init(color: .clear, location: 0.4),
-                        .init(color: Color.black.opacity(0.7), location: 1.0),
-                    ],
-                    startPoint: .top, endPoint: .bottom
-                )
-                .allowsHitTesting(false)
-
-                // Copy: left/right/bottom 14
-                VStack(alignment: .leading, spacing: 4) {
-                    // .h3-title — display 18, weight 400, line-height 1.1
-                    Text(item.title.isEmpty ? "Untitled set" : item.title)
-                        .font(.system(size: 18, weight: .regular, design: .serif))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                        .shadow(color: .black.opacity(0.7), radius: 14, x: 0, y: 2)
-                    // .h3-count — mono 10, letter-spacing 0.14em, caps
-                    Text("\(item.wallpaperCount) WALLPAPERS")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .tracking(1.4)
-                        .foregroundStyle(Color.white.opacity(0.85))
-                }
-                .padding(14)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.paper2)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay(
+            ZStack(alignment: .topLeading) {
+                // Paper 2 — furthest behind, deepest offset
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
-                    .blendMode(.overlay)
-                    .allowsHitTesting(false)
-            )
-            // Front-card lift on hover. Web: translate(-3px,-3px).
-            .offset(x: hover ? -3 : 0, y: hover ? -3 : 0)
-            .shadow(color: Color.black.opacity(hover ? 0.32 : 0.20),
-                    radius: hover ? 30 : 18, x: 0, y: hover ? 14 : 8)
+                    .fill(Color(red: 0.81, green: 0.81, blue: 0.83))
+                    .frame(width: cardSize, height: cardSize)
+                    .offset(x: hover ? 12 : 8, y: hover ? 12 : 8)
+
+                // Paper 1 — between paper 2 and the front card
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color(red: 0.86, green: 0.86, blue: 0.87))
+                    .frame(width: cardSize, height: cardSize)
+                    .offset(x: hover ? 6 : 4, y: hover ? 6 : 4)
+
+                // Front card
+                frontCard
+                    .frame(width: cardSize, height: cardSize)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
+                            .blendMode(.overlay)
+                            .allowsHitTesting(false)
+                    )
+                    // Tiny lift on hover. Bounded so it doesn't
+                    // overflow the cell top-left.
+                    .offset(x: hover ? -2 : 0, y: hover ? -2 : 0)
+                    .shadow(color: Color.black.opacity(hover ? 0.30 : 0.18),
+                            radius: hover ? 22 : 12,
+                            x: 0, y: hover ? 10 : 6)
+            }
+            // Lock the ZStack to the full cell so paper layers can't
+            // bleed past geom bounds.
+            .frame(width: cell, height: cell, alignment: .topLeading)
         }
         .aspectRatio(1.0, contentMode: .fit)
-        // Reserve space for the offset paper layers so the card doesn't
-        // clip into adjacent grid cells.
-        .padding(.trailing, 12).padding(.bottom, 12)
         .animation(.easeOut(duration: 0.38), value: hover)
         .contentShape(Rectangle())
         .onHover { hover = $0 }
+    }
+
+    // ─── Front card content ────────────────────────────────────
+    private var frontCard: some View {
+        ZStack(alignment: .bottomLeading) {
+            Color.paper2
+
+            if let url = imageURL {
+                CachedAsyncImage(url: url) { img in
+                    img.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color(hex: item.recentTiles?.first?.dominantColor ?? "#bbb").opacity(0.5)
+                }
+                .scaleEffect(hover ? 1.04 : 1.0)
+                .opacity(imgLoaded ? 1 : 0.001)
+                .onAppear { imgLoaded = true }
+                .animation(.easeOut(duration: 0.4), value: imgLoaded)
+                .animation(.easeOut(duration: 0.8), value: hover)
+            }
+
+            // Bottom gradient — transparent 40% → rgba(0,0,0,0.7)
+            LinearGradient(
+                stops: [
+                    .init(color: .clear, location: 0.4),
+                    .init(color: Color.black.opacity(0.7), location: 1.0),
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+            .allowsHitTesting(false)
+
+            // Copy — left/right/bottom 14
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.title.isEmpty ? "Untitled set" : item.title)
+                    .font(.system(size: 18, weight: .regular, design: .serif))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                    .shadow(color: .black.opacity(0.7), radius: 14, x: 0, y: 2)
+                Text("\(item.wallpaperCount) WALLPAPERS")
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .tracking(1.4)
+                    .foregroundStyle(Color.white.opacity(0.85))
+            }
+            .padding(14)
+        }
     }
 }
 
