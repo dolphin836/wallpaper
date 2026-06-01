@@ -91,16 +91,18 @@ struct HomeView: View {
             if liveWalls.isEmpty {
                 if liveLoading {
                     LazyVGrid(columns: fixedCols(4), spacing: 14) {
-                        ForEach(0..<8, id: \.self) { _ in
+                        ForEach(0..<4, id: \.self) { _ in
                             SkeletonTile(variant: .live)
                         }
                     }
                 }
             } else {
                 LazyVGrid(columns: fixedCols(4), spacing: 14) {
-                    ForEach(liveWalls.prefix(8)) { wp in
-                        Button(action: { onPick(wp) }) { MacDynamicTile(wallpaper: wp) }
-                            .buttonStyle(.plain)
+                    ForEach(liveWalls.prefix(4)) { wp in
+                        Button(action: { onPick(wp) }) {
+                            MainGridTile(wallpaper: wp, aspectRatio: 16.0 / 10.0)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -119,7 +121,7 @@ struct HomeView: View {
             if aiWalls.isEmpty {
                 if aiLoading {
                     LazyVGrid(columns: fixedCols(5), spacing: 16) {
-                        ForEach(0..<10, id: \.self) { _ in
+                        ForEach(0..<5, id: \.self) { _ in
                             SkeletonTile(variant: .ai)
                         }
                     }
@@ -127,7 +129,7 @@ struct HomeView: View {
             } else {
                 // Web .h3-ai: aspect-ratio 1/1 (square with foil sweep)
                 LazyVGrid(columns: fixedCols(5), spacing: 16) {
-                    ForEach(aiWalls.prefix(10)) { wp in
+                    ForEach(aiWalls.prefix(5)) { wp in
                         Button(action: { onPick(wp) }) {
                             MainGridTile(wallpaper: wp, aspectRatio: 1.0)
                         }
@@ -150,14 +152,14 @@ struct HomeView: View {
             if collections.isEmpty {
                 if collectionsLoading {
                     LazyVGrid(columns: fixedCols(4), spacing: 14) {
-                        ForEach(0..<8, id: \.self) { _ in
+                        ForEach(0..<4, id: \.self) { _ in
                             SkeletonTile(variant: .collection)
                         }
                     }
                 }
             } else {
                 LazyVGrid(columns: fixedCols(4), spacing: 14) {
-                    ForEach(collections.prefix(8)) { c in
+                    ForEach(collections.prefix(4)) { c in
                         NavigationLink(value: MainWindow.MainRoute.collection(slug: c.slug, title: c.title)) {
                             CollectionCard(item: c)
                         }

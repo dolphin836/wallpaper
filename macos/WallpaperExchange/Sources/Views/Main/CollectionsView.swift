@@ -78,10 +78,10 @@ struct CollectionCard: View {
     @State private var hover = false
     @State private var imgLoaded = false
 
+    // Web HomePage CollectionTile uses `c.cover_url` exclusively —
+    // recent_tiles is only used by the editorial CollectionCard
+    // (in the /collections page). Match the web home tile here.
     private var imageURL: URL? {
-        if let t = item.recentTiles?.first, !t.previewURL.isEmpty {
-            return URL(string: t.previewURL)
-        }
         if let cover = item.coverURL, !cover.isEmpty {
             return URL(string: cover)
         }
@@ -146,7 +146,7 @@ struct CollectionCard: View {
                 CachedAsyncImage(url: url) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
-                    Color(hex: item.recentTiles?.first?.dominantColor ?? "#bbb").opacity(0.5)
+                    Color.paper2
                 }
                 .scaleEffect(hover ? 1.04 : 1.0)
                 .opacity(imgLoaded ? 1 : 0.001)

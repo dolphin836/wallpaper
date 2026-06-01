@@ -64,28 +64,45 @@ struct MainGridTile: View {
                 .padding(10)
                 .allowsHitTesting(false)
 
+                // Action rail — web .tile-actions:
+                //   position absolute, right: 10, bottom: 10
+                //   flex-direction: column, gap: 6
+                //   opacity 0 → 1 + translateY(4 → 0) on tile hover
                 VStack {
+                    Spacer()
                     HStack {
                         Spacer()
-                        if hover {
-                            HStack(spacing: 6) {
-                                actionDot(icon: isFavorited ? "star.fill" : "star",
-                                          active: isFavorited,
-                                          help: isFavorited ? "Unfavorite" : "Favorite") { Task { await toggleFavorite() } }
-                                actionDot(icon: isLiked ? "heart.fill" : "heart",
-                                          active: isLiked,
-                                          help: isLiked ? "Unlike" : "Like") { Task { await toggleLike() } }
-                                actionDot(icon: isDownloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
-                                          active: isDownloaded,
-                                          help: isDownloaded ? "Downloaded" : "Download (1 coin)") { Task { await doDownload() } }
-                                actionDot(icon: "rectangle.on.rectangle.angled",
-                                          active: false,
-                                          help: "Set as wallpaper") { Task { await doSetWallpaper() } }
-                            }
-                            .transition(.opacity)
+                        VStack(spacing: 6) {
+                            ActionDot(icon: isFavorited ? "star.fill" : "star",
+                                      kind: .favorite,
+                                      active: isFavorited,
+                                      help: isFavorited ? "Unfavorite" : "Favorite",
+                                      busy: busy,
+                                      action: { Task { await toggleFavorite() } })
+                            ActionDot(icon: isLiked ? "heart.fill" : "heart",
+                                      kind: .like,
+                                      active: isLiked,
+                                      help: isLiked ? "Unlike" : "Like",
+                                      busy: busy,
+                                      action: { Task { await toggleLike() } })
+                            ActionDot(icon: isDownloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
+                                      kind: .download,
+                                      active: isDownloaded,
+                                      help: isDownloaded ? "Downloaded" : "Download (1 coin)",
+                                      busy: busy,
+                                      action: { Task { await doDownload() } })
+                            ActionDot(icon: "rectangle.on.rectangle.angled",
+                                      kind: .neutral,
+                                      active: false,
+                                      help: "Set as wallpaper",
+                                      busy: busy,
+                                      action: { Task { await doSetWallpaper() } })
                         }
+                        .opacity(hover ? 1 : 0)
+                        .offset(y: hover ? 0 : 4)
+                        .animation(.easeOut(duration: 0.2), value: hover)
+                        .allowsHitTesting(hover)
                     }
-                    Spacer()
                 }
                 .padding(10)
             }
@@ -149,20 +166,7 @@ struct MainGridTile: View {
         .background(Capsule().fill(Color(red: 0.62, green: 0.30, blue: 0.82).opacity(0.85)))
     }
 
-    // ─── Action rail dot ──────────────────────────────────────
-
-    private func actionDot(icon: String, active: Bool, help: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(active ? Color.accent : Color.paper)
-                .frame(width: 26, height: 26)
-                .background(Circle().fill(active ? Color.ink : Color.ink.opacity(0.72)))
-        }
-        .buttonStyle(.plain)
-        .help(help)
-        .disabled(busy)
-    }
+    // ActionDot lives in this file (see bottom).
 
     // ─── Action handlers ──────────────────────────────────────
 
@@ -202,5 +206,66 @@ struct MainGridTile: View {
             try await manager.setAsWallpaper(wallpaper)
             await auth.refreshProfile()
         } catch {}
+    }
+}
+
+// ─── ActionDot — single hover-revealed action button ───────────
+// Mirrors web .t-act:
+//   34×34 circle, 1px white-22% border, rgba(15,12,8,0.45) bg
+//   On hover: bg deepens to rgba(15,12,8,0.65)
+//   Active states use color tokens (like #e0463a, fav #d8a23a, dl #4a8a5a)
+struct ActionDot: View {
+    enum Kind { case favorite, like, download, neutral }
+
+    let icon: String
+    let kind: Kind
+    let active: Bool
+    let help: String
+    let busy: Bool
+    let action: () -> Void
+
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(width: 34, height: 34)
+                .background(
+                    Circle()
+                        .fill(bgColor)
+                )
+                .overlay(
+                    Circle().stroke(borderColor, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .disabled(busy)
+        .onHover { hover = $0 }
+        .scaleEffect(hover && !active ? 1.03 : 1.0)
+        .animation(.easeOut(duration: 0.12), value: hover)
+    }
+
+    // Web color tokens
+    private var activeColor: Color {
+        switch kind {
+        case .favorite: return Color(red: 0.85, green: 0.64, blue: 0.23) // #d8a23a
+        case .like:     return Color(red: 0.88, green: 0.27, blue: 0.23) // #e0463a
+        case .download: return Color(red: 0.29, green: 0.54, blue: 0.35) // #4a8a5a
+        case .neutral:  return Color.accent
+        }
+    }
+
+    private var bgColor: Color {
+        if active { return activeColor }
+        // rgba(15,12,8, .45) at rest → .65 on hover
+        let base = Color(red: 15.0/255, green: 12.0/255, blue: 8.0/255)
+        return base.opacity(hover ? 0.78 : 0.55)
+    }
+
+    private var borderColor: Color {
+        active ? .clear : Color.white.opacity(0.22)
     }
 }
