@@ -11,8 +11,13 @@ struct MainSidebar: View {
     @State private var auth = AuthService.shared
 
     var body: some View {
-        List(selection: $selection) {
-            // Logo header.
+        VStack(spacing: 0) {
+            // Logo header — pulled out of the List so we can pad it
+            // exactly the same amount as the detail pane's top
+            // padding. Keeping it inside the List left it subject to
+            // List's own variable inset (different in full-screen vs
+            // windowed), which is why the sidebar and detail tops
+            // drifted relative to each other.
             HStack(spacing: 10) {
                 logoChip.frame(width: 24, height: 24)
                 VStack(alignment: .leading, spacing: 0) {
@@ -24,60 +29,58 @@ struct MainSidebar: View {
                 }
                 Spacer()
             }
-            .padding(.vertical, 4)
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
-            .selectionDisabled()
+            .padding(.top, WindowChrome.topInset)
+            .padding(.bottom, 4)
+            .padding(.horizontal, 16)
 
-            Section {
-                ForEach([MainWindow.SidebarItem.home, .discover, .weekly, .collections], id: \.self) { item in
-                    SidebarRow(item: item, isSelected: item == selection)
-                        .tag(item)
-                        .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
-                        .listRowBackground(Color.clear)
-                }
-            } header: {
-                Text("BROWSE")
-                    .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
-                    .padding(.top, 4)
-            }
-
-            // My Library shows when signed-in. Hide the section entirely
-            // for signed-out browsing rather than greying it out —
-            // matches the web's profile page (signed-out hits /login).
-            if auth.isLoggedIn {
+            List(selection: $selection) {
                 Section {
-                    ForEach([MainWindow.SidebarItem.myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins], id: \.self) { item in
+                    ForEach([MainWindow.SidebarItem.home, .discover, .weekly, .collections], id: \.self) { item in
                         SidebarRow(item: item, isSelected: item == selection)
                             .tag(item)
                             .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
                             .listRowBackground(Color.clear)
                     }
                 } header: {
-                    Text("MY LIBRARY")
+                    Text("BROWSE")
+                        .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
+                        .padding(.top, 4)
+                }
+
+                // My Library shows when signed-in. Hide the section
+                // entirely for signed-out browsing — matches the web.
+                if auth.isLoggedIn {
+                    Section {
+                        ForEach([MainWindow.SidebarItem.myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins], id: \.self) { item in
+                            SidebarRow(item: item, isSelected: item == selection)
+                                .tag(item)
+                                .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
+                                .listRowBackground(Color.clear)
+                        }
+                    } header: {
+                        Text("MY LIBRARY")
+                            .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
+                            .padding(.top, 8)
+                    }
+                }
+
+                // Actions section: Upload (sheet) + Settings (route).
+                Section {
+                    ForEach([MainWindow.SidebarItem.upload, .settings], id: \.self) { item in
+                        SidebarRow(item: item, isSelected: item == selection)
+                            .tag(item)
+                            .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
+                            .listRowBackground(Color.clear)
+                    }
+                } header: {
+                    Text("ACTIONS")
                         .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
                         .padding(.top, 8)
                 }
             }
-
-            // Actions section: Upload (sheet) + Settings (route).
-            // Upload always visible — login is prompted on submit if
-            // anonymous, matching how the web /upload route behaves.
-            Section {
-                ForEach([MainWindow.SidebarItem.upload, .settings], id: \.self) { item in
-                    SidebarRow(item: item, isSelected: item == selection)
-                        .tag(item)
-                        .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
-                        .listRowBackground(Color.clear)
-                }
-            } header: {
-                Text("ACTIONS")
-                    .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
-                    .padding(.top, 8)
-            }
+            .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
         }
-        .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
         .safeAreaInset(edge: .bottom) { identityFooter }
     }
 

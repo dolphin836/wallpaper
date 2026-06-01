@@ -66,6 +66,18 @@ struct ChipFlow: Layout {
     }
 }
 
+// Shared window-chrome constants. The title bar is hidden via
+// .windowStyle(.hiddenTitleBar) + .fullSizeContentView so content
+// extends to the very top of the window. Both the sidebar and the
+// detail pane add this top padding to their first row so the
+// traffic-light buttons get visual clearance AND the two panes line
+// up on the same baseline, regardless of windowed / full-screen mode.
+enum WindowChrome {
+    /// Top padding shared by sidebar logo and detail pane first row.
+    /// 36pt = traffic-light area (~28) + small breathing room.
+    static let topInset: CGFloat = 36
+}
+
 extension Color {
     // RGB-space blend for chip tinting. Tag chips lean toward ink so
     // they stay legible while still palette-coloured.

@@ -90,6 +90,13 @@ struct MainWindow: View {
                     // Top toolbar removed. Upload + all utility actions
                     // (logout, downloads, shuffle, theme) now live in
                     // the sidebar (Upload row + Settings row).
+                    // .ignoresSafeArea(.container, edges: .top) makes
+                    // the detail pane start at the window's true top
+                    // edge (same as the sidebar) so the two panes
+                    // share the same y=0 origin. Inner pages add
+                    // WindowChrome.topInset for traffic-light
+                    // clearance so the first row lines up with the
+                    // sidebar logo, regardless of full-screen state.
                     ContentRouter(
                         sidebar: sidebar,
                         search: committedSearch,
@@ -100,6 +107,7 @@ struct MainWindow: View {
                         onUploader: { username in path.append(.profile(username: username)) }
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea(.container, edges: .top)
                 }
                 .navigationDestination(for: MainRoute.self) { route in
                     switch route {

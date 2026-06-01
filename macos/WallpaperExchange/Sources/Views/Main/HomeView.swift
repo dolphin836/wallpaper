@@ -39,10 +39,12 @@ struct HomeView: View {
                 aiSection
                 collectionsSection
             }
-            // Top padding is small now that the title bar is hidden +
-            // titlebarAppearsTransparent — the hero hugs the very top
-            // of the window like Claude.app / Linear / Things 3.
-            .padding(.horizontal, 32).padding(.top, 8).padding(.bottom, 60)
+            // WindowChrome.topInset matches the sidebar logo's top
+            // padding, so the hero card and the sidebar logo line up
+            // on the same baseline (windowed AND full-screen).
+            .padding(.horizontal, 32)
+            .padding(.top, WindowChrome.topInset)
+            .padding(.bottom, 60)
             .frame(maxWidth: 1280).frame(maxWidth: .infinity, alignment: .center)
         }
         .task { await loadAll() }
