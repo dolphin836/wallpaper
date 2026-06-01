@@ -325,14 +325,17 @@ struct HeroCard: View {
     var body: some View {
         Button(action: onTap) {
             ZStack(alignment: .bottomLeading) {
-                // Image fills the 16:9 frame.
+                // Image fills whatever frame the OUTER aspect modifier
+                // gives the ZStack. Putting .aspectRatio on the image
+                // here didn't constrain the ZStack — image's natural
+                // aspect leaked through, making the hero too tall and
+                // pushing the bottom overlay off-screen.
                 CachedAsyncImage(url: URL(string: pick.previewURL)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Color(hex: pick.dominantColor ?? "#bbb").opacity(0.5)
                 }
-                .aspectRatio(16.0 / 9.0, contentMode: .fill)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
 
                 // Bottom gradient — web uses linear-gradient(180deg,
@@ -409,6 +412,10 @@ struct HeroCard: View {
                 .padding(.bottom, 24)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            // Constrain the WHOLE ZStack to 16:9 so the image,
+            // gradient, and bottom overlay all share the same bounds.
+            // Putting aspect on the image alone let it overgrow.
+            .aspectRatio(16.0 / 9.0, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 24))
         }
         .buttonStyle(.plain)

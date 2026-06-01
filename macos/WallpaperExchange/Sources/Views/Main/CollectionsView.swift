@@ -117,7 +117,7 @@ struct CollectionCard: View {
                     .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
 
                 // Front card
-                frontCard
+                frontCard(cardSize: cardSize)
                     .frame(width: cardSize, height: cardSize)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .overlay(
@@ -144,8 +144,14 @@ struct CollectionCard: View {
     }
 
     // ─── Front card content ────────────────────────────────────
-    private var frontCard: some View {
-        ZStack(alignment: .bottomLeading) {
+    // cardSize is passed in so we can give each Text an EXPLICIT
+    // `.frame(width: cardSize - 28)`. `.frame(maxWidth: .infinity)`
+    // alone wasn't enough — propagation through ZStack / .padding /
+    // CachedAsyncImage was letting the title overflow at natural
+    // width, then the outer .frame(cardSize) center-clipped it.
+    private func frontCard(cardSize: CGFloat) -> some View {
+        let textWidth = max(0, cardSize - 28)
+        return ZStack(alignment: .bottomLeading) {
             Color.paper2
 
             if let url = imageURL {
@@ -154,6 +160,8 @@ struct CollectionCard: View {
                 } placeholder: {
                     Color.paper2
                 }
+                .frame(width: cardSize, height: cardSize)
+                .clipped()
                 .scaleEffect(hover ? 1.04 : 1.0)
                 .opacity(imgLoaded ? 1 : 0.001)
                 .onAppear { imgLoaded = true }
@@ -171,28 +179,20 @@ struct CollectionCard: View {
             )
             .allowsHitTesting(false)
 
-            // Copy — left/right/bottom 14.
-            // CRITICAL: .frame(maxWidth: .infinity, alignment: .leading)
-            // before .padding constrains the VStack to the card's width
-            // so long titles wrap to 2 lines instead of overflowing and
-            // getting center-clipped. Without this, ZStack expands to
-            // fit the widest child (the long title), and the outer
-            // .frame(cardSize) centers it, chopping equal amounts off
-            // both sides of the text.
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.title.isEmpty ? "Untitled set" : item.title)
                     .font(.system(size: 18, weight: .regular, design: .serif))
                     .foregroundStyle(.white)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(width: textWidth, alignment: .leading)
                     .shadow(color: .black.opacity(0.7), radius: 14, x: 0, y: 2)
                 Text("\(item.wallpaperCount) WALLPAPERS")
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .tracking(1.4)
                     .foregroundStyle(Color.white.opacity(0.85))
+                    .frame(width: textWidth, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
         }
     }
