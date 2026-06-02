@@ -83,11 +83,6 @@ struct MainWindow: View {
             MainSidebar(selection: $sidebar)
                 .frame(minWidth: 220, idealWidth: 240)
                 .toolbar(removing: .sidebarToggle)
-                // Push the sidebar up into the title-bar region so
-                // the traffic lights overlay the sidebar's top-left
-                // rounded corner — without this the sidebar pane
-                // starts BELOW the title-bar strip leaving a gap.
-                .ignoresSafeArea(.container, edges: .top)
         } detail: {
             NavigationStack(path: $path) {
                 ZStack {
@@ -160,6 +155,12 @@ struct MainWindow: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        // Apply ignoresSafeArea to the OUTER NavigationSplitView so
+        // both panes (sidebar + detail) extend into the title-bar
+        // region. Applying it to the sidebar's content alone didn't
+        // work — the sidebar pane itself is laid out by
+        // NavigationSplitView and respects its own safe area.
+        .ignoresSafeArea(.container, edges: .top)
         .background(Color.paper)
         .task { await auth.refreshProfile() }
         .sheet(isPresented: $showingUpload) {

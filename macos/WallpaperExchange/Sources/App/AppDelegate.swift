@@ -44,25 +44,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             queue: .main
         ) { notification in
             guard let window = notification.object as? NSWindow else { return }
-            window.collectionBehavior.remove(.fullScreenNone)
-            window.collectionBehavior.insert(.fullScreenPrimary)
-            window.styleMask.insert([.resizable, .miniaturizable, .closable, .fullSizeContentView])
-            window.titleVisibility = .hidden
-            window.titlebarAppearsTransparent = true
-            window.isMovableByWindowBackground = false
+            self.applyWindowChrome(window)
         }
 
         // Also try once now in case the main window has already been
         // mounted (e.g. relaunch with restored window state).
         DispatchQueue.main.async {
             for window in NSApp.windows where window.canBecomeMain {
-                window.collectionBehavior.remove(.fullScreenNone)
-                window.collectionBehavior.insert(.fullScreenPrimary)
-                window.styleMask.insert([.resizable, .miniaturizable, .closable, .fullSizeContentView])
-                window.titleVisibility = .hidden
-                window.titlebarAppearsTransparent = true
-                window.isMovableByWindowBackground = false
+                self.applyWindowChrome(window)
             }
+        }
+    }
+
+    private func applyWindowChrome(_ window: NSWindow) {
+        window.collectionBehavior.remove(.fullScreenNone)
+        window.collectionBehavior.insert(.fullScreenPrimary)
+        window.styleMask.insert([.resizable, .miniaturizable, .closable, .fullSizeContentView])
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = false
+        // Hide the titlebar separator (the hairline under the title
+        // bar area). Without this macOS still draws a faint line
+        // even when titlebarAppearsTransparent is true, which makes
+        // the sidebar's top edge look offset from the window top.
+        window.titlebarSeparatorStyle = .none
+        // Attach an empty NSToolbar — having a toolbar (even
+        // visually empty) lets NSWindow's title-bar area collapse
+        // into the content layer, which is what makes the traffic
+        // lights sit *inside* the sidebar pane rather than on a
+        // separate strip above it.
+        if window.toolbar == nil {
+            let toolbar = NSToolbar()
+            toolbar.showsBaselineSeparator = false
+            window.toolbar = toolbar
+            window.toolbarStyle = .unifiedCompact
         }
     }
 
