@@ -86,8 +86,18 @@ struct MainWindow: View {
                 .frame(width: 240)
                 .frame(maxHeight: .infinity)
                 .background(Color.paper)
-
-            Divider().background(Color.hair)
+                // Right-edge hairline + soft drop shadow give the
+                // sidebar the "raised panel" outline you can see in
+                // Claude.app / Linear — a system Divider on macOS 26
+                // washes out against the paper bg so paint it
+                // explicitly.
+                .overlay(alignment: .trailing) {
+                    Rectangle()
+                        .fill(Color.black.opacity(0.10))
+                        .frame(width: 1)
+                }
+                .shadow(color: Color.black.opacity(0.05), radius: 8, x: 4, y: 0)
+                .zIndex(1)
 
             NavigationStack(path: $path) {
                 ZStack {
