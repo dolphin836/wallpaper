@@ -155,12 +155,14 @@ struct MainWindow: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
-        // Apply ignoresSafeArea to the OUTER NavigationSplitView so
-        // both panes (sidebar + detail) extend into the title-bar
-        // region. Applying it to the sidebar's content alone didn't
-        // work — the sidebar pane itself is laid out by
-        // NavigationSplitView and respects its own safe area.
-        .ignoresSafeArea(.container, edges: .top)
+        // Do NOT ignoresSafeArea on the split view. On macOS 26 the
+        // sidebar pane respects its top safe area, which is exactly
+        // what produces the Liquid-Glass inset card look the design
+        // wants: a rounded sidebar card floating ~10pt off the window
+        // edges with the traffic lights sitting inside its top, while
+        // full-screen drops the buttons and keeps the same inset.
+        // The detail pane stays full-bleed via its OWN
+        // .ignoresSafeArea(.container, edges: .top) inside the ZStack.
         .background(Color.paper)
         .task { await auth.refreshProfile() }
         .sheet(isPresented: $showingUpload) {
