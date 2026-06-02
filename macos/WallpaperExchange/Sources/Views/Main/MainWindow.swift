@@ -73,11 +73,21 @@ struct MainWindow: View {
     }
 
     var body: some View {
-        NavigationSplitView {
+        // macOS 26 NavigationSplitView wraps its sidebar in a rounded
+        // "Liquid Glass" card that leaves a gap between the window
+        // chrome and the sidebar content — the traffic lights end up
+        // floating above the gap instead of inside the sidebar. Apps
+        // like Claude.app get the flat, edge-to-edge look by mounting
+        // their own HStack split. We do the same: sidebar pane on
+        // the left (extends to window top/bottom, content padded so
+        // the traffic lights have clearance), detail on the right.
+        HStack(spacing: 0) {
             MainSidebar(selection: $sidebar)
-                .frame(minWidth: 220, idealWidth: 240)
-                .toolbar(removing: .sidebarToggle)
-        } detail: {
+                .frame(width: 240)
+                .background(Color.paper.ignoresSafeArea())
+
+            Divider().background(Color.hair).ignoresSafeArea()
+
             NavigationStack(path: $path) {
                 ZStack {
                     // Page-mesh palette tint behind content. Lives at
@@ -148,8 +158,7 @@ struct MainWindow: View {
                 }
             }
         }
-        .navigationSplitViewStyle(.balanced)
-        .background(Color.paper)
+        .background(Color.paper.ignoresSafeArea())
         .task { await auth.refreshProfile() }
         .sheet(isPresented: $showingUpload) {
             UploadView(onClose: { showingUpload = false })
