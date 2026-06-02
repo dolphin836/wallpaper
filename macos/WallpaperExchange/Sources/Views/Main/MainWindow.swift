@@ -84,9 +84,10 @@ struct MainWindow: View {
         HStack(spacing: 0) {
             MainSidebar(selection: $sidebar)
                 .frame(width: 240)
-                .background(Color.paper.ignoresSafeArea())
+                .frame(maxHeight: .infinity)
+                .background(Color.paper)
 
-            Divider().background(Color.hair).ignoresSafeArea()
+            Divider().background(Color.hair)
 
             NavigationStack(path: $path) {
                 ZStack {
@@ -158,6 +159,12 @@ struct MainWindow: View {
                 }
             }
         }
+        // .ignoresSafeArea(.all) makes the HStack extend to the very
+        // edges of the window — without this the sidebar (and detail)
+        // both honor SwiftUI's default safe-area inset, leaving a
+        // visible gap between the panes and the rounded window
+        // border on macOS 26.
+        .ignoresSafeArea(.all)
         .background(Color.paper.ignoresSafeArea())
         .task { await auth.refreshProfile() }
         .sheet(isPresented: $showingUpload) {
