@@ -83,12 +83,8 @@ struct MainSidebar: View {
             }
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
-
-            // Identity footer sits inline at the bottom of the VStack
-            // now that we're not inside a NavigationSplitView (which
-            // would have used .safeAreaInset to anchor it).
-            identityFooter
         }
+        .safeAreaInset(edge: .bottom) { identityFooter }
     }
 
     @ViewBuilder

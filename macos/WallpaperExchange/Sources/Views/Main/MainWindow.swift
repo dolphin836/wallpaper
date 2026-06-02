@@ -73,32 +73,22 @@ struct MainWindow: View {
     }
 
     var body: some View {
-        // macOS 26 NavigationSplitView wraps its sidebar in a rounded
-        // "Liquid Glass" card that leaves a gap between the window
-        // chrome and the sidebar content — the traffic lights end up
-        // floating above the gap instead of inside the sidebar. Apps
-        // like Claude.app get the flat, edge-to-edge look by mounting
-        // their own HStack split. We do the same: sidebar pane on
-        // the left (extends to window top/bottom, content padded so
-        // the traffic lights have clearance), detail on the right.
-        HStack(spacing: 0) {
+        // macOS 26's Liquid-Glass sidebar — rounded card with a small
+        // gap to the window edge — is exactly the look Claude.app /
+        // Linear use, and it's what NavigationSplitView gives us for
+        // free. We just need the sidebar to extend into the title-bar
+        // area so the traffic lights sit *inside* the sidebar's
+        // rounded top-left (not on a separate strip above it).
+        NavigationSplitView {
             MainSidebar(selection: $sidebar)
-                .frame(width: 240)
-                .frame(maxHeight: .infinity)
-                .background(Color.paper)
-                // Right-edge hairline + soft drop shadow give the
-                // sidebar the "raised panel" outline you can see in
-                // Claude.app / Linear — a system Divider on macOS 26
-                // washes out against the paper bg so paint it
-                // explicitly.
-                .overlay(alignment: .trailing) {
-                    Rectangle()
-                        .fill(Color.black.opacity(0.10))
-                        .frame(width: 1)
-                }
-                .shadow(color: Color.black.opacity(0.05), radius: 8, x: 4, y: 0)
-                .zIndex(1)
-
+                .frame(minWidth: 220, idealWidth: 240)
+                .toolbar(removing: .sidebarToggle)
+                // Push the sidebar up into the title-bar region so
+                // the traffic lights overlay the sidebar's top-left
+                // rounded corner — without this the sidebar pane
+                // starts BELOW the title-bar strip leaving a gap.
+                .ignoresSafeArea(.container, edges: .top)
+        } detail: {
             NavigationStack(path: $path) {
                 ZStack {
                     // Page-mesh palette tint behind content. Lives at
@@ -169,13 +159,8 @@ struct MainWindow: View {
                 }
             }
         }
-        // .ignoresSafeArea(.all) makes the HStack extend to the very
-        // edges of the window — without this the sidebar (and detail)
-        // both honor SwiftUI's default safe-area inset, leaving a
-        // visible gap between the panes and the rounded window
-        // border on macOS 26.
-        .ignoresSafeArea(.all)
-        .background(Color.paper.ignoresSafeArea())
+        .navigationSplitViewStyle(.balanced)
+        .background(Color.paper)
         .task { await auth.refreshProfile() }
         .sheet(isPresented: $showingUpload) {
             UploadView(onClose: { showingUpload = false })
