@@ -68,14 +68,21 @@ struct ChipFlow: Layout {
 
 // Shared window-chrome constants. The title bar is hidden via
 // .windowStyle(.hiddenTitleBar) + .fullSizeContentView so content
-// extends to the very top of the window. Both the sidebar and the
-// detail pane add this top padding to their first row so the
-// traffic-light buttons get visual clearance AND the two panes line
-// up on the same baseline, regardless of windowed / full-screen mode.
+// extends to the very top of the window. The sidebar logo sits on
+// the SAME ROW as the traffic-light buttons (red/yellow/green) —
+// the logo is offset right by `trafficLightInset` to clear them.
+// Detail content drops by the same `topInset` so the hero and the
+// logo share a baseline.
 enum WindowChrome {
     /// Top padding shared by sidebar logo and detail pane first row.
-    /// 36pt = traffic-light area (~28) + small breathing room.
-    static let topInset: CGFloat = 36
+    /// 10pt lines the logo's vertical center up with the traffic
+    /// lights (which sit at y ≈ 8–22 in the window).
+    static let topInset: CGFloat = 10
+
+    /// Left padding the sidebar logo needs to clear the three
+    /// traffic-light buttons. They occupy x ≈ 10–66 in the window;
+    /// 72pt leaves a 6pt gap before the logo starts.
+    static let trafficLightInset: CGFloat = 72
 }
 
 extension Color {

@@ -19,19 +19,25 @@ struct MainSidebar: View {
             // windowed), which is why the sidebar and detail tops
             // drifted relative to each other.
             HStack(spacing: 10) {
-                logoChip.frame(width: 24, height: 24)
+                logoChip.frame(width: 22, height: 22)
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Wallpaper")
-                        .font(.system(size: 14, weight: .semibold, design: .serif))
+                        .font(.system(size: 13, weight: .semibold, design: .serif))
                         .foregroundStyle(Color.ink)
                     Text("EXCHANGE")
-                        .font(.kicker).tracking(2.5).foregroundStyle(Color.muted)
+                        .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                        .tracking(2.0)
+                        .foregroundStyle(Color.muted)
                 }
-                Spacer()
+                Spacer(minLength: 0)
             }
+            // Logo shares its row with the traffic-light buttons —
+            // padding on the left clears the red/yellow/green; top
+            // padding lines logo vertical center up with theirs.
             .padding(.top, WindowChrome.topInset)
-            .padding(.bottom, 4)
-            .padding(.horizontal, 16)
+            .padding(.leading, WindowChrome.trafficLightInset)
+            .padding(.trailing, 16)
+            .padding(.bottom, 10)
 
             List(selection: $selection) {
                 Section {
