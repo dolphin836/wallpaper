@@ -66,18 +66,30 @@ struct ChipFlow: Layout {
     }
 }
 
-// Shared window-chrome constants. The title bar is hidden via
-// .windowStyle(.hiddenTitleBar) + .fullSizeContentView so content
-// extends to the very top of the window. Traffic lights occupy the
-// top-left area on their own row; sidebar content (logo, items) and
-// detail content (hero) start BELOW the traffic-light row so they
-// can use normal left-aligned padding without the buttons clipping
-// into them.
+// Shared window-chrome constants for the manual split layout.
+//
+// The title bar is hidden via .windowStyle(.hiddenTitleBar) +
+// .fullSizeContentView, so the content view fills the whole window and
+// the traffic lights float at the natural top-left. We paint a paper
+// "top bar" of height `topBar` across the window top — the traffic
+// lights sit on it — and below it float a Liquid-Glass sidebar card
+// (inset on all sides, rounded, bordered) next to the full-bleed
+// detail surface (rounded only on its top-leading corner).
 enum WindowChrome {
-    /// Top padding shared by sidebar logo and detail-pane first row.
-    /// 36pt leaves the traffic-light row (~y 8–22) above with a
-    /// ~14pt breathing gap before content begins.
-    static let topInset: CGFloat = 36
+    /// Height of the paper top bar the traffic lights float on, above
+    /// the sidebar card and the detail surface.
+    static let topBar: CGFloat = 38
+    /// Gap between the window edges (and the two panes) and the
+    /// floating sidebar card.
+    static let inset: CGFloat = 10
+    /// Corner radius of the sidebar card and the detail surface's
+    /// top-leading corner.
+    static let radius: CGFloat = 14
+    /// Top padding for the first row of content measured from its own
+    /// surface top (sidebar logo, detail-pane hero). The top bar is
+    /// already accounted for by the layout, so this is just breathing
+    /// room inside each panel.
+    static let topInset: CGFloat = 20
 }
 
 extension Color {

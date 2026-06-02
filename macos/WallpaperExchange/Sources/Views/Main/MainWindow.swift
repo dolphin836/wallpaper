@@ -73,101 +73,109 @@ struct MainWindow: View {
     }
 
     var body: some View {
-        // macOS 26's Liquid-Glass sidebar — rounded card with a small
-        // gap to the window edge — is exactly the look Claude.app /
-        // Linear use, and it's what NavigationSplitView gives us for
-        // free. We just need the sidebar to extend into the title-bar
-        // area so the traffic lights sit *inside* the sidebar's
-        // rounded top-left (not on a separate strip above it).
-        NavigationSplitView {
-            MainSidebar(selection: $sidebar)
-                .frame(minWidth: 220, idealWidth: 240)
-                .toolbar(removing: .sidebarToggle)
-        } detail: {
-            NavigationStack(path: $path) {
-                ZStack {
-                    // Page-mesh palette tint behind content. Lives at
-                    // the detail-pane root so hover-driven palette
-                    // changes paint behind every page, just like the
-                    // web's .d3-discover-mesh.
-                    Color.paper.ignoresSafeArea()
-                    PageMesh()
+        // Manual split layout (no NavigationSplitView) so the chrome is
+        // fully deterministic and matches the reference mockup exactly:
+        //   • A paper top bar across the window top — the native traffic
+        //     lights float on it at their natural top-left position
+        //     (we do NOT reposition them). Full-screen drops the buttons
+        //     and the bar simply reads as a top margin.
+        //   • A floating Liquid-Glass sidebar card: inset on left / top /
+        //     bottom, rounded on all corners, hairline border, with a
+        //     cool→warm vertical gradient fill.
+        //   • A full-bleed detail surface reaching the window's right and
+        //     bottom edges, rounded only on its top-leading corner.
+        ZStack(alignment: .topLeading) {
+            // Warm paper behind everything — shows as the top bar and the
+            // thin gaps around the floating sidebar card.
+            Color.paper.ignoresSafeArea()
 
-                    // Top toolbar removed. Upload + all utility actions
-                    // (logout, downloads, shuffle, theme) now live in
-                    // the sidebar (Upload row + Settings row).
-                    // .ignoresSafeArea(.container, edges: .top) makes
-                    // the detail pane start at the window's true top
-                    // edge (same as the sidebar) so the two panes
-                    // share the same y=0 origin. Inner pages add
-                    // WindowChrome.topInset for traffic-light
-                    // clearance so the first row lines up with the
-                    // sidebar logo, regardless of full-screen state.
-                    ContentRouter(
-                        sidebar: sidebar,
-                        search: committedSearch,
-                        onPick: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) },
-                        onDevice: { d in path.append(.device(slug: d.slug, name: d.name)) },
-                        onWeeklyWeek: { y, w in path.append(.weeklyWeek(year: y, week: w)) },
-                        onCategory: { c in path.append(.category(id: c.id, name: c.name, slug: c.slug)) },
-                        onUploader: { username in path.append(.profile(username: username)) }
+            HStack(spacing: WindowChrome.inset) {
+                MainSidebar(selection: $sidebar)
+                    .frame(width: 240)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(red: 0.93, green: 0.95, blue: 0.97), Color.paper],
+                            startPoint: .top, endPoint: .bottom
+                        )
                     )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .ignoresSafeArea(.container, edges: .top)
-                }
-                .navigationDestination(for: MainRoute.self) { route in
-                    switch route {
-                    case .detail(let slug, _):
-                        DetailPage(slug: slug,
-                                   onUploader: { path.append(.profile(username: $0)) },
-                                   onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
-                    case .profile(let username):
-                        ProfileView(username: username,
-                                    onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
-                    case .collection(let slug, _):
-                        CollectionDetailView(slug: slug,
-                                             onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
-                    case .device(let slug, let name):
-                        DeviceDetailView(slug: slug, name: name,
-                                         onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
-                    case .search(let q):
-                        SearchResultsView(query: q,
-                                          onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
-                    case .weeklyWeek(let y, let w):
-                        WeeklyWeekView(year: y, week: w,
-                                       onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
-                    case .category(let id, let name, let slug):
-                        CategoryFeedView(category: Category(id: id, name: name, slug: slug, sortOrder: nil),
-                                         onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
-                    }
-                }
+                    .clipShape(RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
+                            .strokeBorder(Color.hair, lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.06), radius: 10, y: 2)
+                    .padding(.bottom, WindowChrome.inset)
+
+                detailPane
+                    .clipShape(.rect(topLeadingRadius: WindowChrome.radius))
             }
-            .onChange(of: sidebar) { _, new in
-                path.removeAll()
-                // Upload row is a synthetic sidebar selection — it
-                // opens the upload sheet then immediately routes back
-                // to Home so the row doesn't stay "selected" with an
-                // empty pane underneath.
-                if new == .upload {
-                    showingUpload = true
-                    DispatchQueue.main.async { sidebar = .home }
-                }
-            }
+            .padding(.leading, WindowChrome.inset)
+            .padding(.top, WindowChrome.topBar)
         }
-        .navigationSplitViewStyle(.balanced)
-        // Do NOT ignoresSafeArea on the split view. On macOS 26 the
-        // sidebar pane respects its top safe area, which is exactly
-        // what produces the Liquid-Glass inset card look the design
-        // wants: a rounded sidebar card floating ~10pt off the window
-        // edges with the traffic lights sitting inside its top, while
-        // full-screen drops the buttons and keeps the same inset.
-        // The detail pane stays full-bleed via its OWN
-        // .ignoresSafeArea(.container, edges: .top) inside the ZStack.
+        .ignoresSafeArea(.all)
         .background(Color.paper)
         .task { await auth.refreshProfile() }
         .sheet(isPresented: $showingUpload) {
             UploadView(onClose: { showingUpload = false })
                 .frame(minWidth: 720, minHeight: 560)
+        }
+    }
+
+    // Detail surface: page-mesh palette tint behind every page (mirrors
+    // the web's .d3-discover-mesh), the routed content, and the
+    // navigation stack for full-page pushes.
+    private var detailPane: some View {
+        NavigationStack(path: $path) {
+            ZStack {
+                Color.paper
+                PageMesh()
+                ContentRouter(
+                    sidebar: sidebar,
+                    search: committedSearch,
+                    onPick: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) },
+                    onDevice: { d in path.append(.device(slug: d.slug, name: d.name)) },
+                    onWeeklyWeek: { y, w in path.append(.weeklyWeek(year: y, week: w)) },
+                    onCategory: { c in path.append(.category(id: c.id, name: c.name, slug: c.slug)) },
+                    onUploader: { username in path.append(.profile(username: username)) }
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .navigationDestination(for: MainRoute.self) { route in
+                switch route {
+                case .detail(let slug, _):
+                    DetailPage(slug: slug,
+                               onUploader: { path.append(.profile(username: $0)) },
+                               onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                case .profile(let username):
+                    ProfileView(username: username,
+                                onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                case .collection(let slug, _):
+                    CollectionDetailView(slug: slug,
+                                         onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                case .device(let slug, let name):
+                    DeviceDetailView(slug: slug, name: name,
+                                     onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                case .search(let q):
+                    SearchResultsView(query: q,
+                                      onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                case .weeklyWeek(let y, let w):
+                    WeeklyWeekView(year: y, week: w,
+                                   onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                case .category(let id, let name, let slug):
+                    CategoryFeedView(category: Category(id: id, name: name, slug: slug, sortOrder: nil),
+                                     onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                }
+            }
+        }
+        .onChange(of: sidebar) { _, new in
+            path.removeAll()
+            // Upload row is a synthetic sidebar selection — it opens the
+            // upload sheet then immediately routes back to Home so the
+            // row doesn't stay "selected" with an empty pane underneath.
+            if new == .upload {
+                showingUpload = true
+                DispatchQueue.main.async { sidebar = .home }
+            }
         }
     }
 

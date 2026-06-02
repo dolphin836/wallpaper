@@ -65,19 +65,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.isMovableByWindowBackground = false
         // Hide the titlebar separator (the hairline under the title
         // bar area). Without this macOS still draws a faint line
-        // even when titlebarAppearsTransparent is true, which makes
-        // the sidebar's top edge look offset from the window top.
+        // even when titlebarAppearsTransparent is true, which would
+        // cut across our paper top bar.
         window.titlebarSeparatorStyle = .none
-        // Attach an empty NSToolbar — having a toolbar (even
-        // visually empty) lets NSWindow's title-bar area collapse
-        // into the content layer, which is what makes the traffic
-        // lights sit *inside* the sidebar pane rather than on a
-        // separate strip above it.
-        if window.toolbar == nil {
-            let toolbar = NSToolbar()
-            toolbar.showsBaselineSeparator = false
-            window.toolbar = toolbar
-            window.toolbarStyle = .unifiedCompact
+        // No NSToolbar: the layout paints its own paper top bar and
+        // the native traffic lights float on it at their natural
+        // position. A unified toolbar would add a competing strip.
+        if window.toolbar != nil {
+            window.toolbar = nil
         }
     }
 
