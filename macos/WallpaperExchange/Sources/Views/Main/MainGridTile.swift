@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 // Wallpaper grid card — matches web salon tiles. Image fills a 3:2
 // frame on the dominant-color floor; chips overlay top-left
@@ -40,7 +41,7 @@ struct MainGridTile: View {
             // A constant size avoids the dots looking bigger in
             // full-screen / on taller tiles.
             let railGap: CGFloat = 5
-            let dotSize: CGFloat = 19
+            let dotSize: CGFloat = 22
             ZStack {
                 Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.55)
 
@@ -258,7 +259,12 @@ struct ActionDot: View {
         .buttonStyle(.plain)
         .help(help)
         .disabled(busy)
-        .onHover { hover = $0 }
+        .onHover { hovering in
+            hover = hovering
+            // Pointing-hand cursor on hover so the dots read as
+            // clickable. push/pop pairs the enter/exit events.
+            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
         .scaleEffect(hover && !active ? 1.03 : 1.0)
         .animation(.easeOut(duration: 0.12), value: hover)
     }
@@ -281,6 +287,8 @@ struct ActionDot: View {
     }
 
     private var borderColor: Color {
-        active ? .clear : Color.white.opacity(0.22)
+        if active { return .clear }
+        // Brighten the ring on hover for a clear affordance.
+        return Color.white.opacity(hover ? 0.6 : 0.22)
     }
 }
