@@ -28,6 +28,9 @@ struct MainSidebar: View {
                         .font(.kicker).tracking(2.5).foregroundStyle(Color.muted)
                 }
                 Spacer(minLength: 0)
+                // Settings lives top-right of the brand, replacing the
+                // old ACTIONS sidebar group.
+                SidebarGearButton(selection: $selection)
             }
             // Logo sits BELOW the traffic lights on its own row —
             // standard left-aligned padding (no offset for buttons,
@@ -70,20 +73,6 @@ struct MainSidebar: View {
                             .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
                             .padding(.top, 16)
                     }
-                }
-
-                // Actions section: Upload (sheet) + Settings (route).
-                Section {
-                    ForEach([MainWindow.SidebarItem.upload, .settings], id: \.self) { item in
-                        SidebarRow(item: item, isSelected: item == selection)
-                            .onTapGesture { selection = item }
-                            .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
-                            .listRowBackground(Color.clear)
-                    }
-                } header: {
-                    Text("ACTIONS")
-                        .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
-                        .padding(.top, 16)
                 }
             }
             .listStyle(.sidebar)
@@ -193,21 +182,18 @@ struct SidebarRow: View {
     let isSelected: Bool
     @State private var hover = false
 
-    private var isPrimary: Bool { item.isPrimaryAction }
-
     private var fg: Color {
-        (isSelected || isPrimary) ? Color.accent : Color.ink
+        isSelected ? Color.accent : Color.ink
     }
 
     private var iconColor: Color {
-        if isSelected || isPrimary { return Color.accent }
-        if hover                   { return Color.ink }
+        if isSelected { return Color.accent }
+        if hover      { return Color.ink }
         return Color.ink2
     }
 
     private var bg: Color {
         if isSelected { return Color.accent.opacity(0.14) }
-        if isPrimary  { return Color.accent.opacity(hover ? 0.18 : 0.09) }
         if hover      { return Color.ink.opacity(0.06) }
         return .clear
     }
@@ -215,11 +201,11 @@ struct SidebarRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: item.icon)
-                .font(.system(size: 13, weight: (isSelected || isPrimary) ? .semibold : .medium))
+                .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
                 .frame(width: 18)
                 .foregroundStyle(iconColor)
             Text(item.label)
-                .font(.system(size: 13, weight: isSelected ? .semibold : (isPrimary ? .medium : .regular)))
+                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
                 .foregroundStyle(fg)
             Spacer(minLength: 0)
         }
@@ -245,5 +231,34 @@ struct SidebarRow: View {
         }
         .animation(.easeOut(duration: 0.12), value: hover)
         .animation(.easeOut(duration: 0.12), value: isSelected)
+    }
+}
+
+// Settings gear pinned to the top-right of the sidebar brand header.
+// Replaces the old ACTIONS sidebar group; routes the detail pane to
+// SettingsView by setting the shared selection.
+private struct SidebarGearButton: View {
+    @Binding var selection: MainWindow.SidebarItem
+    @State private var hover = false
+
+    var body: some View {
+        Button { selection = .settings } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(selection == .settings ? Color.accent : (hover ? Color.ink : Color.ink2))
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(selection == .settings ? Color.accent.opacity(0.14) : (hover ? Color.ink.opacity(0.06) : .clear))
+                )
+        }
+        .buttonStyle(.plain)
+        .help("Settings")
+        .onHover { h in
+            hover = h
+            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .animation(.easeOut(duration: 0.12), value: hover)
+        .animation(.easeOut(duration: 0.12), value: selection)
     }
 }

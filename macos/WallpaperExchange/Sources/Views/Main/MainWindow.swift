@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 // v2.2 main window. Left sidebar (Browse + My Library + footer
 // identity cell) and a thin top toolbar above the content area.
@@ -18,9 +19,9 @@ struct MainWindow: View {
         case home, discover, weekly, collections
         // My Library section (signed-in only).
         case myUploads, myCollections, myDownloads, myFavorites, myLikes, myCoins
-        // Actions section (always visible). Upload triggers the
-        // existing UploadView sheet; Settings routes to SettingsView.
-        case upload, settings
+        // Settings routes to SettingsView. (Upload is now a top-bar
+        // button over the content area, not a sidebar item.)
+        case settings
 
         var label: String {
             switch self {
@@ -34,7 +35,6 @@ struct MainWindow: View {
             case .myFavorites:   "My Favorites"
             case .myLikes:       "My Likes"
             case .myCoins:       "My Coins"
-            case .upload:        "Upload"
             case .settings:      "Settings"
             }
         }
@@ -50,7 +50,6 @@ struct MainWindow: View {
             case .myFavorites:   "star"
             case .myLikes:       "heart"
             case .myCoins:       "circle.hexagongrid.fill"
-            case .upload:        "plus.circle.fill"
             case .settings:      "gearshape"
             }
         }
@@ -60,10 +59,6 @@ struct MainWindow: View {
             default: false
             }
         }
-        // Upload is a primary call-to-action, not navigation — the
-        // sidebar tints it with the accent so the ACTIONS group reads
-        // differently from the neutral Browse / My Library rows.
-        var isPrimaryAction: Bool { self == .upload }
     }
 
     enum MainRoute: Hashable {
@@ -116,6 +111,9 @@ struct MainWindow: View {
             .padding(.leading, WindowChrome.inset)
             .padding(.top, WindowChrome.topBar)
         }
+        // Upload sits in the paper top bar, centred over the detail
+        // content and on the same row as the traffic lights.
+        .overlay(alignment: .top) { uploadTopBar }
         .ignoresSafeArea(.all)
         .background(Color.paper)
         .task { await auth.refreshProfile() }
@@ -123,6 +121,19 @@ struct MainWindow: View {
             UploadView(onClose: { showingUpload = false })
                 .frame(minWidth: 720, minHeight: 560)
         }
+    }
+
+    // Top-bar Upload button, horizontally centred over the detail
+    // content. The leading clear spacer skips the sidebar column so the
+    // pill centres over the content pane, not the whole window.
+    private var uploadTopBar: some View {
+        HStack(spacing: 0) {
+            Color.clear.frame(width: WindowChrome.inset * 2 + 240)
+            Spacer(minLength: 0)
+            UploadPillButton { showingUpload = true }
+            Spacer(minLength: 0)
+        }
+        .frame(height: WindowChrome.topBar)
     }
 
     // Detail surface: page-mesh palette tint behind every page (mirrors
@@ -171,15 +182,8 @@ struct MainWindow: View {
                 }
             }
         }
-        .onChange(of: sidebar) { _, new in
+        .onChange(of: sidebar) { _, _ in
             path.removeAll()
-            // Upload row is a synthetic sidebar selection — it opens the
-            // upload sheet then immediately routes back to Home so the
-            // row doesn't stay "selected" with an empty pane underneath.
-            if new == .upload {
-                showingUpload = true
-                DispatchQueue.main.async { sidebar = .home }
-            }
         }
     }
 
@@ -217,10 +221,35 @@ struct ContentRouter: View {
         case .myLikes:       MyLibraryGridView(kind: .likes, onPick: onPick)
         case .myCoins:       MyCoinsView()
         case .settings:      SettingsView(onOpenProfile: onUploader)
-        // .upload is handled in MainWindow via a side-effect on
-        // sidebar selection — it shows the UploadView sheet and
-        // bounces the selection back to home. Render nothing here.
-        case .upload:        Color.clear
         }
+    }
+}
+
+// Accent pill Upload button that lives in the window top bar, on the
+// same row as the traffic lights and centred over the content area.
+private struct UploadPillButton: View {
+    var action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: "plus").font(.system(size: 11, weight: .bold))
+                Text("Upload").font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(Color.accent.opacity(hover ? 1.0 : 0.92)))
+            .shadow(color: Color.accent.opacity(hover ? 0.35 : 0.0), radius: 6, y: 1)
+        }
+        .buttonStyle(.plain)
+        .help("Upload a wallpaper")
+        .scaleEffect(hover ? 1.03 : 1.0)
+        .onHover { h in
+            hover = h
+            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .animation(.easeOut(duration: 0.12), value: hover)
     }
 }
