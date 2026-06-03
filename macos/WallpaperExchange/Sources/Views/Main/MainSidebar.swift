@@ -36,11 +36,16 @@ struct MainSidebar: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 10)
 
-            List(selection: $selection) {
+            // No List(selection:) — its macOS system highlight paints the
+            // selected row in the OS accent (default blue) and forces the
+            // label colour, fighting our warm-orange brand. Drive
+            // selection by tap instead and express active state purely
+            // through SidebarRow's own orange styling.
+            List {
                 Section {
                     ForEach([MainWindow.SidebarItem.home, .discover, .weekly, .collections], id: \.self) { item in
                         SidebarRow(item: item, isSelected: item == selection)
-                            .tag(item)
+                            .onTapGesture { selection = item }
                             .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
                             .listRowBackground(Color.clear)
                     }
@@ -56,7 +61,7 @@ struct MainSidebar: View {
                     Section {
                         ForEach([MainWindow.SidebarItem.myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins], id: \.self) { item in
                             SidebarRow(item: item, isSelected: item == selection)
-                                .tag(item)
+                                .onTapGesture { selection = item }
                                 .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
                                 .listRowBackground(Color.clear)
                         }
@@ -71,7 +76,7 @@ struct MainSidebar: View {
                 Section {
                     ForEach([MainWindow.SidebarItem.upload, .settings], id: \.self) { item in
                         SidebarRow(item: item, isSelected: item == selection)
-                            .tag(item)
+                            .onTapGesture { selection = item }
                             .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
                             .listRowBackground(Color.clear)
                     }
