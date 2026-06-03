@@ -89,7 +89,7 @@ struct MainWindow: View {
             Color.paper.ignoresSafeArea()
 
             HStack(spacing: WindowChrome.inset) {
-                MainSidebar(selection: $sidebar)
+                MainSidebar(selection: $sidebar, onUpload: { showingUpload = true })
                     .frame(width: 240)
                     .background(
                         LinearGradient(
@@ -111,9 +111,6 @@ struct MainWindow: View {
             .padding(.leading, WindowChrome.inset)
             .padding(.top, WindowChrome.topBar)
         }
-        // Upload sits in the paper top bar, centred over the detail
-        // content and on the same row as the traffic lights.
-        .overlay(alignment: .top) { uploadTopBar }
         .ignoresSafeArea(.all)
         .background(Color.paper)
         .task { await auth.refreshProfile() }
@@ -121,19 +118,6 @@ struct MainWindow: View {
             UploadView(onClose: { showingUpload = false })
                 .frame(minWidth: 720, minHeight: 560)
         }
-    }
-
-    // Top-bar Upload button, horizontally centred over the detail
-    // content. The leading clear spacer skips the sidebar column so the
-    // pill centres over the content pane, not the whole window.
-    private var uploadTopBar: some View {
-        HStack(spacing: 0) {
-            Color.clear.frame(width: WindowChrome.inset * 2 + 240)
-            Spacer(minLength: 0)
-            UploadPillButton { showingUpload = true }
-            Spacer(minLength: 0)
-        }
-        .frame(height: WindowChrome.topBar)
     }
 
     // Detail surface: page-mesh palette tint behind every page (mirrors
@@ -222,34 +206,5 @@ struct ContentRouter: View {
         case .myCoins:       MyCoinsView()
         case .settings:      SettingsView(onOpenProfile: onUploader)
         }
-    }
-}
-
-// Accent pill Upload button that lives in the window top bar, on the
-// same row as the traffic lights and centred over the content area.
-private struct UploadPillButton: View {
-    var action: () -> Void
-    @State private var hover = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: "plus").font(.system(size: 11, weight: .bold))
-                Text("Upload").font(.system(size: 12, weight: .semibold))
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 6)
-            .background(Capsule().fill(Color.accent.opacity(hover ? 1.0 : 0.92)))
-            .shadow(color: Color.accent.opacity(hover ? 0.35 : 0.0), radius: 6, y: 1)
-        }
-        .buttonStyle(.plain)
-        .help("Upload a wallpaper")
-        .scaleEffect(hover ? 1.03 : 1.0)
-        .onHover { h in
-            hover = h
-            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-        }
-        .animation(.easeOut(duration: 0.12), value: hover)
     }
 }

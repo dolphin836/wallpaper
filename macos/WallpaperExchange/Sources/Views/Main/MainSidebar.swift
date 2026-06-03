@@ -8,6 +8,7 @@ import AppKit
 // to have, with the My-section mirroring the web's profile page tabs.
 struct MainSidebar: View {
     @Binding var selection: MainWindow.SidebarItem
+    var onUpload: () -> Void
     @State private var auth = AuthService.shared
 
     var body: some View {
@@ -28,9 +29,12 @@ struct MainSidebar: View {
                         .font(.kicker).tracking(2.5).foregroundStyle(Color.muted)
                 }
                 Spacer(minLength: 0)
-                // Settings lives top-right of the brand, replacing the
-                // old ACTIONS sidebar group.
-                SidebarGearButton(selection: $selection)
+                // Icon-only Upload + Settings, top-right of the brand —
+                // replaces the old ACTIONS sidebar group.
+                HStack(spacing: 2) {
+                    SidebarUploadButton(action: onUpload)
+                    SidebarGearButton(selection: $selection)
+                }
             }
             // Logo sits BELOW the traffic lights on its own row —
             // standard left-aligned padding (no offset for buttons,
@@ -260,5 +264,32 @@ private struct SidebarGearButton: View {
         }
         .animation(.easeOut(duration: 0.12), value: hover)
         .animation(.easeOut(duration: 0.12), value: selection)
+    }
+}
+
+// Icon-only Upload button in the brand header, left of the gear. Accent
+// tinted to read as the primary action (Settings stays neutral).
+private struct SidebarUploadButton: View {
+    var action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "square.and.arrow.up")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.accent)
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(hover ? Color.accent.opacity(0.14) : .clear)
+                )
+        }
+        .buttonStyle(.plain)
+        .help("Upload a wallpaper")
+        .onHover { h in
+            hover = h
+            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .animation(.easeOut(duration: 0.12), value: hover)
     }
 }
