@@ -63,7 +63,7 @@ struct MainSidebar: View {
                     } header: {
                         Text("MY LIBRARY")
                             .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
-                            .padding(.top, 8)
+                            .padding(.top, 16)
                     }
                 }
 
@@ -78,7 +78,7 @@ struct MainSidebar: View {
                 } header: {
                     Text("ACTIONS")
                         .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
-                        .padding(.top, 8)
+                        .padding(.top, 16)
                 }
             }
             .listStyle(.sidebar)
@@ -89,8 +89,10 @@ struct MainSidebar: View {
 
     @ViewBuilder
     private var logoChip: some View {
-        if let url = Bundle.main.url(forResource: "StatusBarIcon", withExtension: "png"),
-           let nsImg = NSImage(contentsOf: url) {
+        // Embedded brand mark — renders in dev and release alike (no
+        // Bundle.main dependency). Falls back to a glyph only if the
+        // embedded asset somehow fails to decode.
+        if let nsImg = BrandAsset.logo {
             Image(nsImage: nsImg).resizable().interpolation(.high).aspectRatio(contentMode: .fit)
         } else {
             RoundedRectangle(cornerRadius: 5).fill(Color.ink)
@@ -173,55 +175,69 @@ struct MainSidebar: View {
     }
 }
 
-// Sidebar row with three visual states:
-//   • rest     — ink2 icon, ink text, transparent background
-//   • hover    — paper-2 tint background (faint mouseover affordance)
-//   • selected — accent-tinted background pill + accent icon + accent
-//                text; reads cleanly against the warm paper bg, unlike
-//                the previous "selected = same black ink" treatment
-//                that gave near-zero contrast against the row tint.
+// Sidebar row with clearly separated visual states:
+//   • rest      — ink2 icon, ink text, transparent background
+//   • hover     — soft ink tint (mouseover affordance) + ink icon
+//   • selected  — accent fill + accent semibold text/icon + a leading
+//                 accent bar ("you are here"), distinct from the
+//                 softer hover tint
+//   • primary   — Upload only: standing accent tint so the ACTIONS
+//                 group reads as a call-to-action, not navigation
 struct SidebarRow: View {
     let item: MainWindow.SidebarItem
     let isSelected: Bool
     @State private var hover = false
 
+    private var isPrimary: Bool { item.isPrimaryAction }
+
     private var fg: Color {
-        if isSelected { return Color.accent }
-        return Color.ink
+        (isSelected || isPrimary) ? Color.accent : Color.ink
     }
 
     private var iconColor: Color {
-        if isSelected { return Color.accent }
-        if hover      { return Color.ink }
+        if isSelected || isPrimary { return Color.accent }
+        if hover                   { return Color.ink }
         return Color.ink2
     }
 
     private var bg: Color {
-        if isSelected { return Color.accent.opacity(0.12) }
-        if hover      { return Color.ink.opacity(0.05) }
+        if isSelected { return Color.accent.opacity(0.14) }
+        if isPrimary  { return Color.accent.opacity(hover ? 0.18 : 0.09) }
+        if hover      { return Color.ink.opacity(0.06) }
         return .clear
     }
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: item.icon)
-                .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                .font(.system(size: 13, weight: (isSelected || isPrimary) ? .semibold : .medium))
                 .frame(width: 18)
                 .foregroundStyle(iconColor)
             Text(item.label)
-                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                .font(.system(size: 13, weight: isSelected ? .semibold : (isPrimary ? .medium : .regular)))
                 .foregroundStyle(fg)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 7)
-                .fill(bg)
+            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(bg)
         )
+        // Leading accent bar marks the active row — a hard "you are
+        // here" signal that reads differently from the soft hover tint.
+        .overlay(alignment: .leading) {
+            if isSelected {
+                Capsule().fill(Color.accent)
+                    .frame(width: 3, height: 15)
+                    .offset(x: 2)
+            }
+        }
         .contentShape(Rectangle())
-        .onHover { hover = $0 }
+        .onHover { hovering in
+            hover = hovering
+            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
         .animation(.easeOut(duration: 0.12), value: hover)
         .animation(.easeOut(duration: 0.12), value: isSelected)
     }

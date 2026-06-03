@@ -60,6 +60,10 @@ struct MainWindow: View {
             default: false
             }
         }
+        // Upload is a primary call-to-action, not navigation — the
+        // sidebar tints it with the accent so the ACTIONS group reads
+        // differently from the neutral Browse / My Library rows.
+        var isPrimaryAction: Bool { self == .upload }
     }
 
     enum MainRoute: Hashable {

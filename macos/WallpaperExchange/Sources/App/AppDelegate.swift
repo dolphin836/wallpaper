@@ -15,6 +15,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Dock icon shows up reliably.
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        // Dock icon: a dev build runs the bare executable with no bundle
+        // AppIcon.icns, so set it programmatically from the embedded
+        // brand mark. The packaged .app ships the .icns (which already
+        // applies), so only override when it's missing.
+        if Bundle.main.url(forResource: "AppIcon", withExtension: "icns") == nil,
+           let icon = BrandAsset.logo {
+            NSApp.applicationIconImage = icon
+        }
         setupStatusItem()
         setupPopover()
         setupEventMonitor()
@@ -107,8 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Bundle.main (NOT Bundle.module: SwiftPM's resource accessor expects the bundle
             // at the .app root, which violates the macOS bundle layout and breaks codesign).
             // Rendered in full color — isTemplate=false — because the web logo is colour-loaded.
-            if let url = Bundle.main.url(forResource: "StatusBarIcon", withExtension: "png"),
-               let img = NSImage(contentsOf: url) {
+            if let img = BrandAsset.logo?.copy() as? NSImage {
                 img.isTemplate = false
                 img.size = NSSize(width: 18, height: 18)
                 button.image = img
