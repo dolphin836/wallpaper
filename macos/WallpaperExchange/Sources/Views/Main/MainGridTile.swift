@@ -267,9 +267,17 @@ struct ActionDot: View {
         }
         .scaleEffect(hover && !active ? 1.03 : 1.0)
         // Hover label, pinned to the LEFT of the dot (the rail hugs the
-        // tile's right edge) so the icon-only buttons are legible.
-        .overlay(alignment: .leading) {
-            if hover { tooltip }
+        // tile's right edge). Anchoring to the dot's trailing edge and
+        // adding trailing padding of (dot width + gap) pushes the whole
+        // capsule clear of the dot's left edge with an 8pt gap —
+        // reliable regardless of the label's width.
+        .overlay(alignment: .trailing) {
+            if hover {
+                tooltip
+                    .padding(.trailing, size + 8)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
         }
         .animation(.easeOut(duration: 0.12), value: hover)
     }
@@ -284,11 +292,6 @@ struct ActionDot: View {
             .padding(.vertical, 4)
             .background(Capsule().fill(Color(red: 15.0 / 255, green: 12.0 / 255, blue: 8.0 / 255).opacity(0.92)))
             .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
-            // Shift the whole label left so its right edge sits 8pt
-            // clear of the dot's left edge.
-            .alignmentGuide(.leading) { d in d.width + 8 }
-            .allowsHitTesting(false)
-            .transition(.opacity)
     }
 
     // Web color tokens
