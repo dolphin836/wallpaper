@@ -266,7 +266,29 @@ struct ActionDot: View {
             if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
         .scaleEffect(hover && !active ? 1.03 : 1.0)
+        // Hover label, pinned to the LEFT of the dot (the rail hugs the
+        // tile's right edge) so the icon-only buttons are legible.
+        .overlay(alignment: .leading) {
+            if hover { tooltip }
+        }
         .animation(.easeOut(duration: 0.12), value: hover)
+    }
+
+    private var tooltip: some View {
+        Text(help)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(Color(red: 15.0 / 255, green: 12.0 / 255, blue: 8.0 / 255).opacity(0.92)))
+            .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
+            // Shift the whole label left so its right edge sits 8pt
+            // clear of the dot's left edge.
+            .alignmentGuide(.leading) { d in d.width + 8 }
+            .allowsHitTesting(false)
+            .transition(.opacity)
     }
 
     // Web color tokens
