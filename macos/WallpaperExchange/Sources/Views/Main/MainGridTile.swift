@@ -34,6 +34,12 @@ struct MainGridTile: View {
     var body: some View {
         GeometryReader { proxy in
             let h = proxy.size.width / aspectRatio
+            // Adaptive action-rail sizing: the 4-dot column plus its
+            // gaps must fit inside the tile height minus the 10pt
+            // top/bottom inset, otherwise the dots overflow up into the
+            // chips and clip off the bottom (windowed 16:10 Live tiles).
+            let railGap: CGFloat = 5
+            let dotSize = min(34, max(18, (h - 20 - railGap * 3) / 4))
             ZStack {
                 Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.55)
 
@@ -72,30 +78,34 @@ struct MainGridTile: View {
                     Spacer()
                     HStack {
                         Spacer()
-                        VStack(spacing: 6) {
+                        VStack(spacing: railGap) {
                             ActionDot(icon: isFavorited ? "star.fill" : "star",
                                       kind: .favorite,
                                       active: isFavorited,
                                       help: isFavorited ? "Unfavorite" : "Favorite",
                                       busy: busy,
+                                      size: dotSize,
                                       action: { Task { await toggleFavorite() } })
                             ActionDot(icon: isLiked ? "heart.fill" : "heart",
                                       kind: .like,
                                       active: isLiked,
                                       help: isLiked ? "Unlike" : "Like",
                                       busy: busy,
+                                      size: dotSize,
                                       action: { Task { await toggleLike() } })
                             ActionDot(icon: isDownloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
                                       kind: .download,
                                       active: isDownloaded,
                                       help: isDownloaded ? "Downloaded" : "Download (1 coin)",
                                       busy: busy,
+                                      size: dotSize,
                                       action: { Task { await doDownload() } })
                             ActionDot(icon: "rectangle.on.rectangle.angled",
                                       kind: .neutral,
                                       active: false,
                                       help: "Set as wallpaper",
                                       busy: busy,
+                                      size: dotSize,
                                       action: { Task { await doSetWallpaper() } })
                         }
                         .opacity(hover ? 1 : 0)
@@ -222,6 +232,10 @@ struct ActionDot: View {
     let active: Bool
     let help: String
     let busy: Bool
+    // Diameter of the circle. Defaults to the web's 34pt, but the grid
+    // shrinks it on short tiles (e.g. windowed 16:10 Live tiles) so the
+    // 4-dot rail always fits without overflowing into the chips.
+    var size: CGFloat = 34
     let action: () -> Void
 
     @State private var hover = false
@@ -229,9 +243,9 @@ struct ActionDot: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: size * 0.42, weight: .medium))
                 .foregroundStyle(.white)
-                .frame(width: 34, height: 34)
+                .frame(width: size, height: size)
                 .background(
                     Circle()
                         .fill(bgColor)
