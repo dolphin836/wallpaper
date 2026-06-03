@@ -34,12 +34,13 @@ struct MainGridTile: View {
     var body: some View {
         GeometryReader { proxy in
             let h = proxy.size.width / aspectRatio
-            // Adaptive action-rail sizing: the 4-dot column plus its
-            // gaps must fit inside the tile height minus the 10pt
-            // top/bottom inset, otherwise the dots overflow up into the
-            // chips and clip off the bottom (windowed 16:10 Live tiles).
+            // Fixed compact action-rail sizing — the same dot size on
+            // every tile regardless of tile shape or full-screen state
+            // (matching the windowed 16:10 Live tile, the shortest one).
+            // A constant size avoids the dots looking bigger in
+            // full-screen / on taller tiles.
             let railGap: CGFloat = 5
-            let dotSize = min(34, max(18, (h - 20 - railGap * 3) / 4))
+            let dotSize: CGFloat = 19
             ZStack {
                 Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.55)
 
