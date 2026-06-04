@@ -4115,7 +4115,12 @@
    .dev-spec-card chrome so the family stays consistent. */
 .upload-page {
   position: relative;
-  isolation: isolate;
+  /* No `isolation: isolate` here — it created a stacking context that
+     trapped the position:fixed .upload-bar inside the page, so the
+     global footer (z-10, sibling of <main>) painted over the bar.
+     Without it the fixed bar lives in the root context (z-30) and
+     stays above the footer. The mesh (z-0) / content (z-10) order
+     still holds via their own z-index. */
   min-height: 100%;
   background: var(--color-paper);
 }
@@ -4272,7 +4277,9 @@
 }
 .upload-tile-screen {
   position: relative;
-  aspect-ratio: 1 / 1;
+  /* Wallpapers are landscape — a uniform 16:10 card reads as a tidy
+     gallery, where square crops looked chaotic across mixed sources. */
+  aspect-ratio: 16 / 10;
   border-radius: 10px;
   overflow: hidden;
   background: var(--color-paper-2);
