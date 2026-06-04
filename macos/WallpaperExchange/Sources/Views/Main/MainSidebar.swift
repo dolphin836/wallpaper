@@ -38,20 +38,14 @@ struct MainSidebar: View {
         .safeAreaInset(edge: .bottom) { identityFooter }
     }
 
-    // Brand header. Expanded: logo + wordmark + collapse toggle (where
-    // the old Settings button sat). Collapsed: just the logo, which
-    // doubles as the expand trigger.
+    // Brand header. The collapse toggle now lives in the window top bar
+    // (on the traffic-light row), so the header is just the brand:
+    // expanded shows logo + wordmark, collapsed shows the logo only.
     @ViewBuilder
     private var header: some View {
         if collapsed {
-            Button(action: toggle) {
-                logoChip.frame(width: 26, height: 26)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("Expand sidebar")
-            .pointerCursor()
+            logoChip.frame(width: 26, height: 26)
+                .frame(maxWidth: .infinity)
         } else {
             HStack(spacing: 10) {
                 logoChip.frame(width: 24, height: 24)
@@ -63,7 +57,6 @@ struct MainSidebar: View {
                         .font(.kicker).tracking(2.5).foregroundStyle(Color.muted)
                 }
                 Spacer(minLength: 0)
-                SidebarToggleButton(action: toggle)
             }
         }
     }
@@ -90,10 +83,6 @@ struct MainSidebar: View {
     // everything else routes by setting the selection.
     private func tap(_ item: MainWindow.SidebarItem) {
         if item == .upload { onUpload() } else { selection = item }
-    }
-
-    private func toggle() {
-        withAnimation(.easeInOut(duration: 0.22)) { collapsed.toggle() }
     }
 
     @ViewBuilder
@@ -298,11 +287,8 @@ struct SidebarRow: View {
             .frame(maxWidth: .infinity)
             .frame(height: 34)
             .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(bg))
-            .overlay(alignment: .leading) {
-                if isSelected {
-                    Capsule().fill(Color.accent).frame(width: 3, height: 16).offset(x: 1)
-                }
-            }
+            // Collapsed active state is just the orange icon + tint — no
+            // leading bar (there isn't room for it in the narrow rail).
             // Hover label slides out to the RIGHT of the icon. The card
             // no longer clips, and the sidebar is z-above the detail
             // pane, so this is visible past the card edge.
@@ -327,9 +313,10 @@ struct SidebarRow: View {
     }
 }
 
-// Collapse/expand toggle in the brand header (where Settings used to
-// sit). Neutral icon button.
-private struct SidebarToggleButton: View {
+// Collapse/expand toggle. Lives in the window top bar, on the
+// traffic-light row. Neutral icon button.
+struct SidebarToggleButton: View {
+    var collapsed: Bool
     var action: () -> Void
     @State private var hover = false
 
@@ -338,14 +325,14 @@ private struct SidebarToggleButton: View {
             Image(systemName: "sidebar.leading")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(hover ? Color.ink : Color.ink2)
-                .frame(width: 28, height: 28)
+                .frame(width: 26, height: 26)
                 .background(
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(hover ? Color.ink.opacity(0.06) : .clear)
+                        .fill(hover ? Color.ink.opacity(0.08) : .clear)
                 )
         }
         .buttonStyle(.plain)
-        .help("Collapse sidebar")
+        .help(collapsed ? "Expand sidebar" : "Collapse sidebar")
         .onHover { h in
             hover = h
             if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }

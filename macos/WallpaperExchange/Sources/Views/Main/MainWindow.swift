@@ -122,6 +122,15 @@ struct MainWindow: View {
             .padding(.leading, WindowChrome.inset)
             .padding(.top, WindowChrome.topBar)
         }
+        // Collapse toggle in the paper top bar, just right of the
+        // traffic lights and on the same row as them.
+        .overlay(alignment: .topLeading) {
+            SidebarToggleButton(collapsed: sidebarCollapsed) {
+                withAnimation(.easeInOut(duration: 0.22)) { sidebarCollapsed.toggle() }
+            }
+            .padding(.leading, 80)
+            .frame(height: WindowChrome.topBar)
+        }
         .ignoresSafeArea(.all)
         .background(Color.paper)
         .task { await auth.refreshProfile() }
