@@ -19,21 +19,24 @@ struct MainSidebar: View {
                 .padding(.horizontal, collapsed ? 8 : 16)
                 .padding(.bottom, 10)
 
-            // Drive selection by tap (no List(selection:) — its macOS
-            // system highlight paints the row in the OS blue and fights
-            // our warm-orange brand). Active state is expressed purely
-            // through SidebarRow's own styling.
-            List {
-                navSection("BROWSE", topPad: 4,
-                           items: [.home, .discover, .weekly, .collections])
-                if auth.isLoggedIn {
-                    navSection("MY LIBRARY", topPad: 16,
-                               items: [.myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins])
+            if collapsed {
+                collapsedNav
+            } else {
+                // Drive selection by tap (no List(selection:) — its macOS
+                // system highlight paints the row in the OS blue and
+                // fights our warm-orange brand).
+                List {
+                    navSection("BROWSE", topPad: 4,
+                               items: [.home, .discover, .weekly, .collections])
+                    if auth.isLoggedIn {
+                        navSection("MY LIBRARY", topPad: 16,
+                                   items: [.myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins])
+                    }
+                    navSection("ACTIONS", topPad: 16, items: [.upload, .settings])
                 }
-                navSection("ACTIONS", topPad: 16, items: [.upload, .settings])
+                .listStyle(.sidebar)
+                .scrollContentBackground(.hidden)
             }
-            .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
         }
         .safeAreaInset(edge: .bottom) { identityFooter }
     }
@@ -75,6 +78,35 @@ struct MainSidebar: View {
                 Text(title)
                     .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
                     .padding(.top, topPad)
+            }
+        }
+    }
+
+    // Collapsed nav. A plain VStack in a clip-disabled ScrollView (NOT a
+    // List) so each icon's hover label can spill out to the RIGHT, past
+    // the narrow rail, without being clipped.
+    private var collapsedNav: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 3) {
+                collapsedGroup([.home, .discover, .weekly, .collections])
+                if auth.isLoggedIn {
+                    Color.clear.frame(height: 10)
+                    collapsedGroup([.myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins])
+                }
+                Color.clear.frame(height: 10)
+                collapsedGroup([.upload, .settings])
+            }
+            .padding(.horizontal, 6)
+            .padding(.top, 6)
+        }
+        .scrollClipDisabled()
+    }
+
+    private func collapsedGroup(_ items: [MainWindow.SidebarItem]) -> some View {
+        VStack(spacing: 3) {
+            ForEach(items, id: \.self) { item in
+                SidebarRow(item: item, isSelected: item == selection, collapsed: true)
+                    .onTapGesture { tap(item) }
             }
         }
     }
@@ -322,8 +354,11 @@ struct SidebarToggleButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "sidebar.leading")
-                .font(.system(size: 14, weight: .medium))
+            // Two distinct glyphs so the icon itself signals direction:
+            // collapsed → arrow pointing right (expand), expanded →
+            // arrow pointing left (collapse).
+            Image(systemName: collapsed ? "arrow.right.to.line" : "arrow.left.to.line")
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(hover ? Color.ink : Color.ink2)
                 .frame(width: 26, height: 26)
                 .background(
@@ -332,6 +367,8 @@ struct SidebarToggleButton: View {
                 )
         }
         .buttonStyle(.plain)
+        // Kill the blue macOS keyboard focus ring around the icon.
+        .focusEffectDisabled()
         .help(collapsed ? "Expand sidebar" : "Collapse sidebar")
         .onHover { h in
             hover = h
