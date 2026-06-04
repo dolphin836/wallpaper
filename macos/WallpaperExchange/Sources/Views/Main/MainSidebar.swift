@@ -30,14 +30,10 @@ struct MainSidebar: View {
                 }
                 Spacer(minLength: 0)
                 // Icon-only Upload + Settings, top-right of the brand —
-                // replaces the old ACTIONS sidebar group. Each expands
-                // on hover to reveal its label beside the icon.
-                HStack(spacing: 4) {
-                    SidebarActionButton(icon: "square.and.arrow.up", label: "Upload",
-                                        accent: true, action: onUpload)
-                    SidebarActionButton(icon: "gearshape", label: "Settings",
-                                        accent: false, isActive: selection == .settings,
-                                        action: { selection = .settings })
+                // replaces the old ACTIONS sidebar group.
+                HStack(spacing: 2) {
+                    SidebarUploadButton(action: onUpload)
+                    SidebarGearButton(selection: $selection)
                 }
             }
             // Logo sits BELOW the traffic lights on its own row —
@@ -242,59 +238,58 @@ struct SidebarRow: View {
     }
 }
 
-// Brand-header action button (Upload / Settings). Icon-only at rest;
-// on hover it grows into a pill and slides its label in to the right of
-// the icon. `accent` marks the primary (Upload) styling; `isActive`
-// gives Settings its selected accent tint.
-private struct SidebarActionButton: View {
-    let icon: String
-    let label: String
-    var accent: Bool = false
-    var isActive: Bool = false
-    let action: () -> Void
-
+// Settings gear pinned to the top-right of the sidebar brand header.
+// Replaces the old ACTIONS sidebar group; routes the detail pane to
+// SettingsView by setting the shared selection.
+private struct SidebarGearButton: View {
+    @Binding var selection: MainWindow.SidebarItem
     @State private var hover = false
 
-    private var fg: Color {
-        if accent { return Color.accent }
-        if isActive { return Color.accent }
-        return hover ? Color.ink : Color.ink2
-    }
-
-    private var bg: Color {
-        if accent { return hover ? Color.accent.opacity(0.16) : .clear }
-        if isActive { return Color.accent.opacity(0.14) }
-        return hover ? Color.ink.opacity(0.06) : .clear
-    }
-
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
-                if hover {
-                    Text(label)
-                        .font(.system(size: 12, weight: .semibold))
-                        .fixedSize()
-                        .transition(.opacity)
-                }
-            }
-            .foregroundStyle(fg)
-            .frame(height: 28)
-            .frame(minWidth: 28)
-            .padding(.horizontal, hover ? 9 : 0)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous).fill(bg)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        Button { selection = .settings } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(selection == .settings ? Color.accent : (hover ? Color.ink : Color.ink2))
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(selection == .settings ? Color.accent.opacity(0.14) : (hover ? Color.ink.opacity(0.06) : .clear))
+                )
         }
         .buttonStyle(.plain)
-        .help(label)
+        .help("Settings")
         .onHover { h in
             hover = h
             if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
-        .animation(.easeOut(duration: 0.16), value: hover)
-        .animation(.easeOut(duration: 0.12), value: isActive)
+        .animation(.easeOut(duration: 0.12), value: hover)
+        .animation(.easeOut(duration: 0.12), value: selection)
+    }
+}
+
+// Icon-only Upload button in the brand header, left of the gear. Accent
+// tinted to read as the primary action (Settings stays neutral).
+private struct SidebarUploadButton: View {
+    var action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "square.and.arrow.up")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.accent)
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(hover ? Color.accent.opacity(0.14) : .clear)
+                )
+        }
+        .buttonStyle(.plain)
+        .help("Upload a wallpaper")
+        .onHover { h in
+            hover = h
+            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .animation(.easeOut(duration: 0.12), value: hover)
     }
 }
