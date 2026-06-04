@@ -9,6 +9,7 @@ struct MainWindow: View {
     @State private var manager = WallpaperManager.shared
 
     @State private var sidebar: SidebarItem = .home
+    @State private var sidebarCollapsed = false
     @State private var path: [MainRoute] = []
     @State private var search: String = ""
     @State private var committedSearch: String = ""
@@ -19,9 +20,10 @@ struct MainWindow: View {
         case home, discover, weekly, collections
         // My Library section (signed-in only).
         case myUploads, myCollections, myDownloads, myFavorites, myLikes, myCoins
-        // Settings routes to SettingsView. (Upload is now a top-bar
-        // button over the content area, not a sidebar item.)
-        case settings
+        // Actions group at the bottom of the sidebar. Upload opens the
+        // upload sheet (handled by a tap side-effect, never becomes the
+        // active selection); Settings routes to SettingsView.
+        case upload, settings
 
         var label: String {
             switch self {
@@ -35,6 +37,7 @@ struct MainWindow: View {
             case .myFavorites:   "My Favorites"
             case .myLikes:       "My Likes"
             case .myCoins:       "My Coins"
+            case .upload:        "Upload"
             case .settings:      "Settings"
             }
         }
@@ -50,6 +53,7 @@ struct MainWindow: View {
             case .myFavorites:   "star"
             case .myLikes:       "heart"
             case .myCoins:       "circle.hexagongrid.fill"
+            case .upload:        "square.and.arrow.up"
             case .settings:      "gearshape"
             }
         }
@@ -89,21 +93,28 @@ struct MainWindow: View {
             Color.paper.ignoresSafeArea()
 
             HStack(spacing: WindowChrome.inset) {
-                MainSidebar(selection: $sidebar, onUpload: { showingUpload = true })
-                    .frame(width: 240)
+                MainSidebar(selection: $sidebar, collapsed: $sidebarCollapsed,
+                            onUpload: { showingUpload = true })
+                    .frame(width: sidebarCollapsed ? 64 : 240)
+                    // Card visual lives in the BACKGROUND (not a clipShape)
+                    // so the collapsed nav icons' hover tooltips can spill
+                    // past the card's right edge without being clipped.
                     .background(
-                        LinearGradient(
-                            colors: [Color(red: 0.93, green: 0.95, blue: 0.97), Color.paper],
-                            startPoint: .top, endPoint: .bottom
-                        )
+                        RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
+                            .fill(LinearGradient(
+                                colors: [Color(red: 0.93, green: 0.95, blue: 0.97), Color.paper],
+                                startPoint: .top, endPoint: .bottom))
+                            .shadow(color: .black.opacity(0.06), radius: 10, y: 2)
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
                             .strokeBorder(Color.hair, lineWidth: 1)
                     )
-                    .shadow(color: .black.opacity(0.06), radius: 10, y: 2)
                     .padding(.bottom, WindowChrome.inset)
+                    // Draw above the detail pane so overflowing hover
+                    // tooltips aren't covered by it.
+                    .zIndex(1)
+                    .animation(.easeInOut(duration: 0.22), value: sidebarCollapsed)
 
                 detailPane
                     .clipShape(.rect(topLeadingRadius: WindowChrome.radius))
@@ -205,6 +216,9 @@ struct ContentRouter: View {
         case .myLikes:       MyLibraryGridView(kind: .likes, onPick: onPick)
         case .myCoins:       MyCoinsView()
         case .settings:      SettingsView(onOpenProfile: onUploader)
+        // Upload never becomes the active selection — its sidebar row
+        // opens the upload sheet via a tap side-effect. Render nothing.
+        case .upload:        Color.clear
         }
     }
 }

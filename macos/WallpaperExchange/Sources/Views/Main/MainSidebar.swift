@@ -8,17 +8,51 @@ import AppKit
 // to have, with the My-section mirroring the web's profile page tabs.
 struct MainSidebar: View {
     @Binding var selection: MainWindow.SidebarItem
+    @Binding var collapsed: Bool
     var onUpload: () -> Void
     @State private var auth = AuthService.shared
 
     var body: some View {
         VStack(spacing: 0) {
-            // Logo header — pulled out of the List so we can pad it
-            // exactly the same amount as the detail pane's top
-            // padding. Keeping it inside the List left it subject to
-            // List's own variable inset (different in full-screen vs
-            // windowed), which is why the sidebar and detail tops
-            // drifted relative to each other.
+            header
+                .padding(.top, WindowChrome.topInset)
+                .padding(.horizontal, collapsed ? 8 : 16)
+                .padding(.bottom, 10)
+
+            // Drive selection by tap (no List(selection:) — its macOS
+            // system highlight paints the row in the OS blue and fights
+            // our warm-orange brand). Active state is expressed purely
+            // through SidebarRow's own styling.
+            List {
+                navSection("BROWSE", topPad: 4,
+                           items: [.home, .discover, .weekly, .collections])
+                if auth.isLoggedIn {
+                    navSection("MY LIBRARY", topPad: 16,
+                               items: [.myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins])
+                }
+                navSection("ACTIONS", topPad: 16, items: [.upload, .settings])
+            }
+            .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+        }
+        .safeAreaInset(edge: .bottom) { identityFooter }
+    }
+
+    // Brand header. Expanded: logo + wordmark + collapse toggle (where
+    // the old Settings button sat). Collapsed: just the logo, which
+    // doubles as the expand trigger.
+    @ViewBuilder
+    private var header: some View {
+        if collapsed {
+            Button(action: toggle) {
+                logoChip.frame(width: 26, height: 26)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Expand sidebar")
+            .pointerCursor()
+        } else {
             HStack(spacing: 10) {
                 logoChip.frame(width: 24, height: 24)
                 VStack(alignment: .leading, spacing: 0) {
@@ -29,60 +63,37 @@ struct MainSidebar: View {
                         .font(.kicker).tracking(2.5).foregroundStyle(Color.muted)
                 }
                 Spacer(minLength: 0)
-                // Icon-only Upload + Settings, top-right of the brand —
-                // replaces the old ACTIONS sidebar group.
-                HStack(spacing: 2) {
-                    SidebarUploadButton(action: onUpload)
-                    SidebarGearButton(selection: $selection)
-                }
+                SidebarToggleButton(action: toggle)
             }
-            // Logo sits BELOW the traffic lights on its own row —
-            // standard left-aligned padding (no offset for buttons,
-            // which live on the row above).
-            .padding(.top, WindowChrome.topInset)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 10)
-
-            // No List(selection:) — its macOS system highlight paints the
-            // selected row in the OS accent (default blue) and forces the
-            // label colour, fighting our warm-orange brand. Drive
-            // selection by tap instead and express active state purely
-            // through SidebarRow's own orange styling.
-            List {
-                Section {
-                    ForEach([MainWindow.SidebarItem.home, .discover, .weekly, .collections], id: \.self) { item in
-                        SidebarRow(item: item, isSelected: item == selection)
-                            .onTapGesture { selection = item }
-                            .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
-                            .listRowBackground(Color.clear)
-                    }
-                } header: {
-                    Text("BROWSE")
-                        .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
-                        .padding(.top, 4)
-                }
-
-                // My Library shows when signed-in. Hide the section
-                // entirely for signed-out browsing — matches the web.
-                if auth.isLoggedIn {
-                    Section {
-                        ForEach([MainWindow.SidebarItem.myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins], id: \.self) { item in
-                            SidebarRow(item: item, isSelected: item == selection)
-                                .onTapGesture { selection = item }
-                                .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
-                                .listRowBackground(Color.clear)
-                        }
-                    } header: {
-                        Text("MY LIBRARY")
-                            .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
-                            .padding(.top, 16)
-                    }
-                }
-            }
-            .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
         }
-        .safeAreaInset(edge: .bottom) { identityFooter }
+    }
+
+    @ViewBuilder
+    private func navSection(_ title: String, topPad: CGFloat, items: [MainWindow.SidebarItem]) -> some View {
+        Section {
+            ForEach(items, id: \.self) { item in
+                SidebarRow(item: item, isSelected: item == selection, collapsed: collapsed)
+                    .onTapGesture { tap(item) }
+                    .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
+                    .listRowBackground(Color.clear)
+            }
+        } header: {
+            if !collapsed {
+                Text(title)
+                    .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
+                    .padding(.top, topPad)
+            }
+        }
+    }
+
+    // Upload opens the sheet without becoming the active selection;
+    // everything else routes by setting the selection.
+    private func tap(_ item: MainWindow.SidebarItem) {
+        if item == .upload { onUpload() } else { selection = item }
+    }
+
+    private func toggle() {
+        withAnimation(.easeInOut(duration: 0.22)) { collapsed.toggle() }
     }
 
     @ViewBuilder
@@ -105,7 +116,13 @@ struct MainSidebar: View {
     // single "Sign in" button.
     private var identityFooter: some View {
         Group {
-            if auth.isLoggedIn, let u = auth.user {
+            if collapsed {
+                collapsedFooter
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity)
+                    .background(.thinMaterial)
+                    .overlay(alignment: .top) { Rectangle().fill(Color.hair).frame(height: 1) }
+            } else if auth.isLoggedIn, let u = auth.user {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
                         avatar(user: u)
@@ -152,6 +169,31 @@ struct MainSidebar: View {
                 }
             }
         }
+        // Round the footer's bottom corners to match the card (the card
+        // background is no longer a clipShape, so the footer must clip
+        // its own material to the rounded silhouette).
+        .clipShape(.rect(bottomLeadingRadius: WindowChrome.radius, bottomTrailingRadius: WindowChrome.radius))
+    }
+
+    // Collapsed footer — avatar only (or a sign-in glyph), centred.
+    @ViewBuilder
+    private var collapsedFooter: some View {
+        if auth.isLoggedIn, let u = auth.user {
+            avatar(user: u)
+                .frame(width: 30, height: 30)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(Color.hair, lineWidth: 1))
+        } else {
+            Button { auth.login() } label: {
+                Circle().fill(Color.paper2)
+                    .frame(width: 30, height: 30)
+                    .overlay(Image(systemName: "person").foregroundStyle(Color.muted))
+                    .overlay(Circle().stroke(Color.hair, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .help("Sign in")
+            .pointerCursor()
+        }
     }
 
     @ViewBuilder
@@ -181,31 +223,56 @@ struct MainSidebar: View {
 //                 softer hover tint
 //   • primary   — Upload only: standing accent tint so the ACTIONS
 //                 group reads as a call-to-action, not navigation
+// Sidebar row with clearly separated visual states:
+//   • rest      — ink2 icon, ink text, transparent background
+//   • hover     — soft ink tint (mouseover affordance) + ink icon
+//   • selected  — accent fill + accent semibold text/icon + a leading
+//                 accent bar ("you are here")
+//   • upload    — accent-tinted as the one call-to-action
+// Collapsed: icon only, centred, with a hover label capsule that slides
+// out to the RIGHT (same idea as the home grid tiles).
 struct SidebarRow: View {
     let item: MainWindow.SidebarItem
     let isSelected: Bool
+    var collapsed: Bool = false
     @State private var hover = false
 
-    private var fg: Color {
-        isSelected ? Color.accent : Color.ink
-    }
+    private var isUpload: Bool { item == .upload }
 
+    private var fg: Color {
+        (isSelected || isUpload) ? Color.accent : Color.ink
+    }
     private var iconColor: Color {
-        if isSelected { return Color.accent }
-        if hover      { return Color.ink }
+        if isSelected || isUpload { return Color.accent }
+        if hover                  { return Color.ink }
         return Color.ink2
     }
-
     private var bg: Color {
         if isSelected { return Color.accent.opacity(0.14) }
-        if hover      { return Color.ink.opacity(0.06) }
+        if hover      { return isUpload ? Color.accent.opacity(0.12) : Color.ink.opacity(0.06) }
         return .clear
     }
 
     var body: some View {
+        Group {
+            if collapsed { collapsedBody } else { expandedBody }
+        }
+        .contentShape(Rectangle())
+        // Native tooltip as a fallback (and for the collapsed labels in
+        // case the List clips the custom capsule at the row edge).
+        .help(collapsed ? item.label : "")
+        .onHover { hovering in
+            hover = hovering
+            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .animation(.easeOut(duration: 0.12), value: hover)
+        .animation(.easeOut(duration: 0.12), value: isSelected)
+    }
+
+    private var expandedBody: some View {
         HStack(spacing: 10) {
             Image(systemName: item.icon)
-                .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                .font(.system(size: 13, weight: (isSelected || isUpload) ? .semibold : .medium))
                 .frame(width: 18)
                 .foregroundStyle(iconColor)
             Text(item.label)
@@ -216,80 +283,82 @@ struct SidebarRow: View {
         .padding(.horizontal, 9)
         .padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(bg)
-        )
-        // Leading accent bar marks the active row — a hard "you are
-        // here" signal that reads differently from the soft hover tint.
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(bg))
         .overlay(alignment: .leading) {
             if isSelected {
-                Capsule().fill(Color.accent)
-                    .frame(width: 3, height: 15)
-                    .offset(x: 2)
+                Capsule().fill(Color.accent).frame(width: 3, height: 15).offset(x: 2)
             }
         }
-        .contentShape(Rectangle())
-        .onHover { hovering in
-            hover = hovering
-            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-        }
-        .animation(.easeOut(duration: 0.12), value: hover)
-        .animation(.easeOut(duration: 0.12), value: isSelected)
+    }
+
+    private var collapsedBody: some View {
+        Image(systemName: item.icon)
+            .font(.system(size: 15, weight: (isSelected || isUpload) ? .semibold : .medium))
+            .foregroundStyle(iconColor)
+            .frame(maxWidth: .infinity)
+            .frame(height: 34)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(bg))
+            .overlay(alignment: .leading) {
+                if isSelected {
+                    Capsule().fill(Color.accent).frame(width: 3, height: 16).offset(x: 1)
+                }
+            }
+            // Hover label slides out to the RIGHT of the icon. The card
+            // no longer clips, and the sidebar is z-above the detail
+            // pane, so this is visible past the card edge.
+            .overlay(alignment: .trailing) {
+                if hover {
+                    Text(item.label)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color(red: 15.0 / 255, green: 12.0 / 255, blue: 8.0 / 255).opacity(0.92)))
+                        .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
+                        // Pin the capsule's left edge 8pt right of the
+                        // row's trailing edge (width-independent).
+                        .alignmentGuide(.trailing) { _ in -8 }
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                }
+            }
     }
 }
 
-// Settings gear pinned to the top-right of the sidebar brand header.
-// Replaces the old ACTIONS sidebar group; routes the detail pane to
-// SettingsView by setting the shared selection.
-private struct SidebarGearButton: View {
-    @Binding var selection: MainWindow.SidebarItem
-    @State private var hover = false
-
-    var body: some View {
-        Button { selection = .settings } label: {
-            Image(systemName: "gearshape")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(selection == .settings ? Color.accent : (hover ? Color.ink : Color.ink2))
-                .frame(width: 28, height: 28)
-                .background(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(selection == .settings ? Color.accent.opacity(0.14) : (hover ? Color.ink.opacity(0.06) : .clear))
-                )
-        }
-        .buttonStyle(.plain)
-        .help("Settings")
-        .onHover { h in
-            hover = h
-            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-        }
-        .animation(.easeOut(duration: 0.12), value: hover)
-        .animation(.easeOut(duration: 0.12), value: selection)
-    }
-}
-
-// Icon-only Upload button in the brand header, left of the gear. Accent
-// tinted to read as the primary action (Settings stays neutral).
-private struct SidebarUploadButton: View {
+// Collapse/expand toggle in the brand header (where Settings used to
+// sit). Neutral icon button.
+private struct SidebarToggleButton: View {
     var action: () -> Void
     @State private var hover = false
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "square.and.arrow.up")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color.accent)
+            Image(systemName: "sidebar.leading")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(hover ? Color.ink : Color.ink2)
                 .frame(width: 28, height: 28)
                 .background(
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(hover ? Color.accent.opacity(0.14) : .clear)
+                        .fill(hover ? Color.ink.opacity(0.06) : .clear)
                 )
         }
         .buttonStyle(.plain)
-        .help("Upload a wallpaper")
+        .help("Collapse sidebar")
         .onHover { h in
             hover = h
             if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
         .animation(.easeOut(duration: 0.12), value: hover)
+    }
+}
+
+extension View {
+    // Pointing-hand cursor while hovering. push/pop pairs enter/exit.
+    func pointerCursor() -> some View {
+        onHover { h in
+            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
     }
 }
