@@ -96,7 +96,9 @@ struct MainSidebar: View {
                 Color.clear.frame(height: 10)
                 collapsedGroup([.upload, .settings])
             }
-            .padding(.horizontal, 6)
+            // No horizontal padding: rows fill the full rail width so the
+            // hover-label offset (rowWidth + 4) lands just past the
+            // sidebar's right edge. The icon cell is centred within.
             .padding(.top, 6)
         }
         .scrollClipDisabled()
@@ -313,35 +315,43 @@ struct SidebarRow: View {
     }
 
     private var collapsedBody: some View {
+        // Centred icon cell in a full-width rail row. Collapsed active
+        // state is just the orange icon + tint (no leading bar).
         Image(systemName: item.icon)
             .font(.system(size: 15, weight: (isSelected || isUpload) ? .semibold : .medium))
             .foregroundStyle(iconColor)
+            .frame(width: 36, height: 32)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(bg))
             .frame(maxWidth: .infinity)
             .frame(height: 34)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(bg))
-            // Collapsed active state is just the orange icon + tint — no
-            // leading bar (there isn't room for it in the narrow rail).
-            // Hover label slides out to the RIGHT of the icon. The card
-            // no longer clips, and the sidebar is z-above the detail
-            // pane, so this is visible past the card edge.
-            .overlay(alignment: .trailing) {
+            // Hover label flies out to the RIGHT of the rail. Measured
+            // against the row width (= full rail width) so it clears the
+            // sidebar's right edge with a 4pt gap. The rail doesn't clip
+            // (VStack in a scrollClipDisabled ScrollView) and the sidebar
+            // is z-above the detail pane, so it shows.
+            .overlay(alignment: .leading) {
                 if hover {
-                    Text(item.label)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .fixedSize()
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(Color(red: 15.0 / 255, green: 12.0 / 255, blue: 8.0 / 255).opacity(0.92)))
-                        .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
-                        // Pin the capsule's left edge 8pt right of the
-                        // row's trailing edge (width-independent).
-                        .alignmentGuide(.trailing) { _ in -8 }
-                        .allowsHitTesting(false)
-                        .transition(.opacity)
+                    GeometryReader { geo in
+                        hoverLabel
+                            .fixedSize()
+                            .frame(height: geo.size.height, alignment: .center)
+                            .offset(x: geo.size.width + 4)
+                    }
+                    .allowsHitTesting(false)
                 }
             }
+    }
+
+    private var hoverLabel: some View {
+        Text(item.label)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(Color(red: 15.0 / 255, green: 12.0 / 255, blue: 8.0 / 255).opacity(0.92)))
+            .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
+            .transition(.opacity)
     }
 }
 
@@ -354,20 +364,23 @@ struct SidebarToggleButton: View {
 
     var body: some View {
         Button(action: action) {
-            // Two distinct glyphs so the icon itself signals direction:
-            // collapsed → arrow pointing right (expand), expanded →
-            // arrow pointing left (collapse).
-            Image(systemName: collapsed ? "arrow.right.to.line" : "arrow.left.to.line")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(hover ? Color.ink : Color.ink2)
-                .frame(width: 26, height: 26)
-                .background(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(hover ? Color.ink.opacity(0.08) : .clear)
+            // Styled like a fourth traffic light: a small neutral circle
+            // the same size as the red/yellow/green dots — but its glyph
+            // is always shown (the system ones reveal theirs only on
+            // hover). Two glyphs signal direction: chevron.right when
+            // collapsed (expand), chevron.left when expanded (collapse).
+            Circle()
+                .fill(hover ? Color.ink.opacity(0.30) : Color.ink.opacity(0.18))
+                .frame(width: 13, height: 13)
+                .overlay(
+                    Image(systemName: collapsed ? "chevron.right" : "chevron.left")
+                        .font(.system(size: 7, weight: .black))
+                        .foregroundStyle(Color.ink.opacity(0.7))
                 )
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        // Kill the blue macOS keyboard focus ring around the icon.
+        // Kill the blue macOS keyboard focus ring around the button.
         .focusEffectDisabled()
         .help(collapsed ? "Expand sidebar" : "Collapse sidebar")
         .onHover { h in

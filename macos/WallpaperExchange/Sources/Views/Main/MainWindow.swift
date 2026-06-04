@@ -122,13 +122,15 @@ struct MainWindow: View {
             .padding(.leading, WindowChrome.inset)
             .padding(.top, WindowChrome.topBar)
         }
-        // Collapse toggle in the paper top bar, just right of the
-        // traffic lights and on the same row as them.
+        // Collapse toggle in the paper top bar, on the traffic-light
+        // row. Sits to their right with a gap noticeably larger than the
+        // spacing between the lights themselves (~84pt from the window
+        // edge; the lights end around 66pt).
         .overlay(alignment: .topLeading) {
             SidebarToggleButton(collapsed: sidebarCollapsed) {
                 withAnimation(.easeInOut(duration: 0.22)) { sidebarCollapsed.toggle() }
             }
-            .padding(.leading, 80)
+            .padding(.leading, 84)
             .frame(height: WindowChrome.topBar)
         }
         .ignoresSafeArea(.all)
