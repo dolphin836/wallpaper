@@ -359,24 +359,26 @@ struct SidebarRow: View {
 // traffic-light row. Neutral icon button.
 struct SidebarToggleButton: View {
     var collapsed: Bool
+    var size: CGFloat = 14
     var action: () -> Void
     @State private var hover = false
 
     var body: some View {
         Button(action: action) {
-            // Styled like a fourth traffic light: a small neutral circle
-            // the same size as the red/yellow/green dots — but its glyph
-            // is always shown (the system ones reveal theirs only on
-            // hover). Two glyphs signal direction: chevron.right when
-            // collapsed (expand), chevron.left when expanded (collapse).
+            // A fourth traffic light: brand-orange circle the exact size
+            // of the system buttons, with an always-visible white glyph
+            // (the system ones reveal theirs only on hover). Two glyphs
+            // signal direction — chevron.right collapsed (expand),
+            // chevron.left expanded (collapse).
             Circle()
-                .fill(hover ? Color.ink.opacity(0.30) : Color.ink.opacity(0.18))
-                .frame(width: 13, height: 13)
+                .fill(Color.accent)
+                .frame(width: size, height: size)
                 .overlay(
                     Image(systemName: collapsed ? "chevron.right" : "chevron.left")
-                        .font(.system(size: 7, weight: .black))
-                        .foregroundStyle(Color.ink.opacity(0.7))
+                        .font(.system(size: size * 0.5, weight: .black))
+                        .foregroundStyle(.white)
                 )
+                .brightness(hover ? -0.06 : 0)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)

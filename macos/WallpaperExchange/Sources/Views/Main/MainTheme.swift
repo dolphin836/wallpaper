@@ -75,6 +75,22 @@ struct ChipFlow: Layout {
 // lights sit on it — and below it float a Liquid-Glass sidebar card
 // (inset on all sides, rounded, bordered) next to the full-bleed
 // detail surface (rounded only on its top-leading corner).
+// Live geometry of the native traffic-light buttons, measured in AppKit
+// (AppDelegate) and published so the SwiftUI sidebar toggle can sit
+// perfectly aligned with them — same row, same size.
+final class WindowMetrics: ObservableObject {
+    static let shared = WindowMetrics()
+    @Published var trafficCenterY: CGFloat = 14   // from the window's top
+    @Published var trafficTrailingX: CGFloat = 70 // right edge from window's left
+    @Published var trafficDotSize: CGFloat = 14   // button diameter
+
+    func update(centerY: CGFloat, trailingX: CGFloat, dot: CGFloat) {
+        if abs(centerY - trafficCenterY) > 0.5 { trafficCenterY = centerY }
+        if abs(trailingX - trafficTrailingX) > 0.5 { trafficTrailingX = trailingX }
+        if dot > 1, abs(dot - trafficDotSize) > 0.5 { trafficDotSize = dot }
+    }
+}
+
 enum WindowChrome {
     /// Height of the paper top bar the traffic lights float on, above
     /// the sidebar card and the detail surface.

@@ -7,6 +7,7 @@ import AppKit
 struct MainWindow: View {
     @State private var auth = AuthService.shared
     @State private var manager = WallpaperManager.shared
+    @ObservedObject private var metrics = WindowMetrics.shared
 
     @State private var sidebar: SidebarItem = .home
     @State private var sidebarCollapsed = false
@@ -122,16 +123,16 @@ struct MainWindow: View {
             .padding(.leading, WindowChrome.inset)
             .padding(.top, WindowChrome.topBar)
         }
-        // Collapse toggle in the paper top bar, on the traffic-light
-        // row. Sits to their right with a gap noticeably larger than the
-        // spacing between the lights themselves (~84pt from the window
-        // edge; the lights end around 66pt).
+        // Collapse toggle styled as a fourth traffic light — positioned
+        // from the measured geometry of the real buttons so it sits on
+        // exactly their row, at their size, with a gap to their right
+        // noticeably larger than the spacing between the lights.
         .overlay(alignment: .topLeading) {
-            SidebarToggleButton(collapsed: sidebarCollapsed) {
+            SidebarToggleButton(collapsed: sidebarCollapsed, size: metrics.trafficDotSize) {
                 withAnimation(.easeInOut(duration: 0.22)) { sidebarCollapsed.toggle() }
             }
-            .padding(.leading, 84)
-            .frame(height: WindowChrome.topBar)
+            .offset(x: metrics.trafficTrailingX + 18,
+                    y: metrics.trafficCenterY - metrics.trafficDotSize / 2)
         }
         .ignoresSafeArea(.all)
         .background(Color.paper)

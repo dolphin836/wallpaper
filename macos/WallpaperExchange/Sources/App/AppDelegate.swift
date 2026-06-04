@@ -55,6 +55,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.applyWindowChrome(window)
         }
 
+        // Re-measure the traffic-light geometry when the window changes
+        // shape so the SwiftUI toggle stays aligned with them.
+        for name in [NSWindow.didResizeNotification,
+                     NSWindow.didEnterFullScreenNotification,
+                     NSWindow.didExitFullScreenNotification] {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { note in
+                guard let window = note.object as? NSWindow else { return }
+                self.updateChromeMetrics(window)
+            }
+        }
+
         // Also try once now in case the main window has already been
         // mounted (e.g. relaunch with restored window state).
         DispatchQueue.main.async {
@@ -62,6 +73,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.applyWindowChrome(window)
             }
         }
+    }
+
+    // Measure the native traffic-light buttons in the content view's
+    // coordinate space and publish them so the SwiftUI sidebar toggle
+    // can align exactly (same row, same size).
+    private func updateChromeMetrics(_ window: NSWindow) {
+        guard let content = window.contentView,
+              let close = window.standardWindowButton(.closeButton),
+              let zoom = window.standardWindowButton(.zoomButton) else { return }
+        let closeInContent = close.convert(close.bounds, to: content)
+        let zoomInContent = zoom.convert(zoom.bounds, to: content)
+        // contentView is non-flipped (origin bottom-left); SwiftUI is
+        // top-left, so flip the Y to get distance from the top.
+        let centerYFromTop = content.bounds.height - closeInContent.midY
+        WindowMetrics.shared.update(
+            centerY: centerYFromTop,
+            trailingX: zoomInContent.maxX,
+            dot: closeInContent.height
+        )
     }
 
     private func applyWindowChrome(_ window: NSWindow) {
@@ -82,6 +112,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if window.toolbar != nil {
             window.toolbar = nil
         }
+        // Buttons may need a layout pass before their frames are final.
+        DispatchQueue.main.async { [weak self] in self?.updateChromeMetrics(window) }
     }
 
     // v2: app stays alive when the main window is closed so the
