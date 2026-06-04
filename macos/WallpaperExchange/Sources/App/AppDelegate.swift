@@ -84,9 +84,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
               let zoom = window.standardWindowButton(.zoomButton) else { return }
         let closeInContent = close.convert(close.bounds, to: content)
         let zoomInContent = zoom.convert(zoom.bounds, to: content)
-        // contentView is non-flipped (origin bottom-left); SwiftUI is
-        // top-left, so flip the Y to get distance from the top.
-        let centerYFromTop = content.bounds.height - closeInContent.midY
+        // SwiftUI's hosting contentView is flipped (origin top-left), so
+        // midY is already measured from the top. Only flip when the
+        // content view is NOT flipped (origin bottom-left).
+        let centerYFromTop = content.isFlipped
+            ? closeInContent.midY
+            : content.bounds.height - closeInContent.midY
         WindowMetrics.shared.update(
             centerY: centerYFromTop,
             trailingX: zoomInContent.maxX,
