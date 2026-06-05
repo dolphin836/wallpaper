@@ -10,9 +10,10 @@ struct PaginatedData<T: Decodable>: Decodable {
     let items: [T]
     let nextCursor: Int?
     let hasMore: Bool
+    let total: Int?
 
     enum CodingKeys: String, CodingKey {
-        case items
+        case items, total
         case nextCursor = "next_cursor"
         case hasMore = "has_more"
     }

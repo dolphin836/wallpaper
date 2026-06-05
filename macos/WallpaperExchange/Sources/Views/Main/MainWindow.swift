@@ -169,6 +169,7 @@ struct MainWindow: View {
                     onWeeklyWeek: { y, w in path.append(.weeklyWeek(year: y, week: w)) },
                     onCategory: { c in path.append(.category(id: c.id, name: c.name, slug: c.slug)) },
                     onUploader: { username in path.append(.profile(username: username)) },
+                    onCollection: { c in path.append(.collection(slug: c.slug, title: c.title)) },
                     onOpenDiscover: { f in pendingDiscoverFilter = f; sidebar = .discover },
                     onOpenCollections: { sidebar = .collections },
                     onOpenWeeklyArchive: { sidebar = .weekly }
@@ -181,8 +182,9 @@ struct MainWindow: View {
                                onUploader: { path.append(.profile(username: $0)) },
                                onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
                 case .profile(let username):
-                    ProfileView(username: username,
-                                onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                    AccountView(username: username,
+                                onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) },
+                                onCollection: { c in path.append(.collection(slug: c.slug, title: c.title)) })
                 case .collection(let slug, _):
                     CollectionDetailView(slug: slug,
                                          onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
@@ -231,6 +233,7 @@ struct ContentRouter: View {
     var onWeeklyWeek: (Int, Int) -> Void
     var onCategory: (Category) -> Void
     var onUploader: (String) -> Void
+    var onCollection: (CollectionItem) -> Void = { _ in }
     var onOpenDiscover: (DiscoverView.Filter) -> Void = { _ in }
     var onOpenCollections: () -> Void = {}
     var onOpenWeeklyArchive: () -> Void = {}
@@ -244,16 +247,31 @@ struct ContentRouter: View {
         case .discover:      DiscoverView(search: search, onPick: onPick, initialFilter: discoverInitialFilter)
         case .weekly:        WeeklyArchiveView(onOpenWeek: onWeeklyWeek)
         case .collections:   CollectionsListView()
-        case .myUploads:     MyLibraryGridView(kind: .uploads, onPick: onPick)
-        case .myCollections: MyLibraryCollectionsView()
-        case .myDownloads:   MyLibraryGridView(kind: .downloads, onPick: onPick)
-        case .myFavorites:   MyLibraryGridView(kind: .favorites, onPick: onPick)
-        case .myLikes:       MyLibraryGridView(kind: .likes, onPick: onPick)
-        case .myCoins:       MyCoinsView()
-        case .settings:      SettingsView(onOpenProfile: onUploader)
+        case .myUploads:     account(.uploads)
+        case .myCollections: account(.collections)
+        case .myDownloads:   account(.downloads)
+        case .myFavorites:   account(.favorites)
+        case .myLikes:       account(.likes)
+        case .myCoins:       account(.ledger)
+        case .settings:      account(.settings)
         // Upload never becomes the active selection — its sidebar row
         // opens the upload sheet via a tap side-effect. Render nothing.
         case .upload:        Color.clear
+        }
+    }
+
+    // The owner's account page, opened on a specific tab. The whole
+    // "My Library" group + Settings now route here so the personal area
+    // is one tabbed page (matching the web profile, plus a Settings tab).
+    @ViewBuilder private func account(_ tab: AccountTab) -> some View {
+        if let me = AuthService.shared.user?.username {
+            AccountView(username: me, initialTab: tab, onWallpaper: onPick, onCollection: onCollection)
+        } else {
+            VStack(spacing: 12) {
+                Text("Sign in to view your account.").font(.sans13).foregroundStyle(Color.muted)
+                Button("Sign in") { AuthService.shared.login() }.buttonStyle(.borderedProminent)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }

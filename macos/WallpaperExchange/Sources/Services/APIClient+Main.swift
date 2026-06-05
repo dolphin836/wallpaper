@@ -34,8 +34,11 @@ extension APIClient {
         return resp.data
     }
 
-    func fetchUserUploads(username: String, cursor: Int? = nil, limit: Int = 24) async throws -> PaginatedData<Wallpaper> {
+    // `status` mirrors the web Uploads tab: "1" = published, "0,5" =
+    // pending/processing (owner-only). Omitted → server default.
+    func fetchUserUploads(username: String, cursor: Int? = nil, limit: Int = 24, status: String? = nil) async throws -> PaginatedData<Wallpaper> {
         var items: [URLQueryItem] = [.init(name: "limit", value: String(limit))]
+        if let s = status, !s.isEmpty { items.append(.init(name: "status", value: s)) }
         if let c = cursor { items.append(.init(name: "cursor", value: String(c))) }
         let resp: APIResponse<PaginatedData<Wallpaper>> = try await request("/users/\(username)/wallpapers", queryItems: items)
         return resp.data
@@ -68,6 +71,15 @@ extension APIClient {
         if let q, !q.isEmpty { items.append(.init(name: "q", value: q)) }
         if let w = wallpaperID, w > 0 { items.append(.init(name: "wallpaper_id", value: String(w))) }
         let resp: APIResponse<[CollectionBrief]> = try await request("/users/me/collections", queryItems: items)
+        return resp.data
+    }
+
+    // A user's own collections (paginated, with covers) — the profile
+    // Collections tab. Route accepts a numeric id or a username.
+    func fetchUserCollections(idOrUsername: String, cursor: Int? = nil, limit: Int = 12) async throws -> PaginatedData<CollectionItem> {
+        var items: [URLQueryItem] = [.init(name: "limit", value: String(limit))]
+        if let c = cursor { items.append(.init(name: "cursor", value: String(c))) }
+        let resp: APIResponse<PaginatedData<CollectionItem>> = try await request("/users/\(idOrUsername)/collections", queryItems: items)
         return resp.data
     }
 

@@ -165,6 +165,86 @@ actor APIClient {
         } catch { throw APIError.decodingError(error) }
     }
 
+    // ─── JSON-body writes (profile / password / privacy) ─────────
+    // Shared plumbing for PUT/POST/PATCH with an Encodable body — same
+    // token + 401/402 + error-envelope handling as request<T>. Returns
+    // the raw envelope bytes; callers decode `data` if they need it.
+    private func sendJSON<B: Encodable>(_ path: String, method: String, body: B) async throws -> Data {
+        guard let url = URL(string: baseURL + path) else { throw APIError.invalidURL }
+        var req = URLRequest(url: url)
+        req.httpMethod = method
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = await AuthService.shared.token {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.httpBody = try JSONEncoder().encode(body)
+        let (data, response): (Data, URLResponse)
+        do { (data, response) = try await session.data(for: req) }
+        catch { throw APIError.networkError(error) }
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.networkError(URLError(.badServerResponse))
+        }
+        if http.statusCode == 401 { throw APIError.unauthorized }
+        if http.statusCode == 402 { throw APIError.insufficientCoins }
+        if http.statusCode >= 400 {
+            let msg = (try? decoder.decode(MessageEnvelope.self, from: data))?.message ?? "Request failed"
+            throw APIError.serverError(http.statusCode, msg)
+        }
+        return data
+    }
+
+    func updateProfile(nickname: String, bio: String) async throws -> User {
+        struct Body: Encodable { let nickname: String; let bio: String }
+        let data = try await sendJSON("/users/me/profile", method: "PUT", body: Body(nickname: nickname, bio: bio))
+        return try decoder.decode(APIResponse<User>.self, from: data).data
+    }
+
+    func changePassword(old: String, new: String) async throws {
+        struct Body: Encodable { let old_password: String; let new_password: String }
+        _ = try await sendJSON("/users/me/password", method: "PUT", body: Body(old_password: old, new_password: new))
+    }
+
+    func updatePrivacy(likesPublic: Bool? = nil, favoritesPublic: Bool? = nil, downloadsPublic: Bool? = nil) async throws {
+        struct Body: Encodable {
+            let likes_public: Bool?
+            let favorites_public: Bool?
+            let downloads_public: Bool?
+        }
+        _ = try await sendJSON("/users/me/privacy", method: "PUT",
+                               body: Body(likes_public: likesPublic, favorites_public: favoritesPublic, downloads_public: downloadsPublic))
+    }
+
+    // Multipart avatar upload — POST /users/me/avatar with a single
+    // `avatar` file part (same field the web FormData uses). Returns the
+    // new avatar_url.
+    func uploadAvatar(imageData: Data, filename: String = "avatar.jpg", mime: String = "image/jpeg") async throws -> String {
+        guard let url = URL(string: baseURL + "/users/me/avatar") else { throw APIError.invalidURL }
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        if let token = await AuthService.shared.token {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"avatar\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mime)\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        req.httpBody = body
+        let (data, response): (Data, URLResponse)
+        do { (data, response) = try await session.data(for: req) }
+        catch { throw APIError.networkError(error) }
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.networkError(URLError(.badServerResponse))
+        }
+        if http.statusCode == 401 { throw APIError.unauthorized }
+        if http.statusCode >= 400 { throw APIError.serverError(http.statusCode, "Avatar upload failed") }
+        struct AvatarResp: Decodable { let avatar_url: String }
+        return try decoder.decode(APIResponse<AvatarResp>.self, from: data).data.avatar_url
+    }
+
     func fetchForYou(limit: Int = 30) async throws -> [Wallpaper] {
         let items: [URLQueryItem] = [
             .init(name: "limit", value: String(limit)),
@@ -268,6 +348,9 @@ actor APIClient {
         return redirectURL
     }
 }
+
+// Minimal envelope used to surface a server error message on 4xx.
+private struct MessageEnvelope: Decodable { let message: String? }
 
 private final class NoRedirectDelegate: NSObject, URLSessionTaskDelegate, Sendable {
     static let shared = NoRedirectDelegate()
