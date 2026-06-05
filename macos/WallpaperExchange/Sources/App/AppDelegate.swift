@@ -55,15 +55,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.applyWindowChrome(window)
         }
 
-        // Re-measure the traffic-light geometry when the window changes
-        // shape so the SwiftUI toggle stays aligned with them.
-        for name in [NSWindow.didResizeNotification,
-                     NSWindow.didEnterFullScreenNotification,
-                     NSWindow.didExitFullScreenNotification] {
-            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { note in
-                guard let window = note.object as? NSWindow else { return }
-                self.updateChromeMetrics(window)
-            }
+        // Full-screen is driven EXPLICITLY by the enter/exit
+        // notifications (styleMask isn't reliable mid-update, and the
+        // hidden traffic lights still report a stale frame). While
+        // full-screen the toggle re-anchors to the sidebar, so we just
+        // flag it and stop measuring.
+        NotificationCenter.default.addObserver(forName: NSWindow.didEnterFullScreenNotification, object: nil, queue: .main) { _ in
+            WindowMetrics.shared.isFullScreen = true
+        }
+        NotificationCenter.default.addObserver(forName: NSWindow.didExitFullScreenNotification, object: nil, queue: .main) { note in
+            WindowMetrics.shared.isFullScreen = false
+            guard let window = note.object as? NSWindow else { return }
+            DispatchQueue.main.async { self.updateChromeMetrics(window) }
+        }
+        // Re-measure on resize (windowed only — skipped while full-screen).
+        NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: nil, queue: .main) { note in
+            guard let window = note.object as? NSWindow else { return }
+            self.updateChromeMetrics(window)
         }
 
         // Also try once now in case the main window has already been
@@ -79,12 +87,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // coordinate space and publish them so the SwiftUI sidebar toggle
     // can align exactly (same row, same size).
     private func updateChromeMetrics(_ window: NSWindow) {
-        // In full-screen the traffic lights are hidden, so any measure
-        // would be garbage — flag it and keep the last windowed geometry
-        // (the toggle re-anchors to the sidebar's left edge instead).
-        let fullScreen = window.styleMask.contains(.fullScreen)
-        WindowMetrics.shared.isFullScreen = fullScreen
-        guard !fullScreen else { return }
+        // Skip while full-screen: the lights are hidden (stale frame),
+        // and the toggle re-anchors to the sidebar there. isFullScreen
+        // is owned by the enter/exit observers.
+        guard !WindowMetrics.shared.isFullScreen else { return }
 
         guard let content = window.contentView,
               let close = window.standardWindowButton(.closeButton),
