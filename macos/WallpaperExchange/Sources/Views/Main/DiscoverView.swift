@@ -17,6 +17,8 @@ struct DiscoverView: View {
     /// initial filter is forced to .myDevice. Discover itself starts on
     /// Latest.
     var deviceMatch: Bool = false
+    /// Set when arriving from a Home "browse more" CTA (e.g. Live / AI).
+    var initialFilter: Filter? = nil
 
     @State private var auth = AuthService.shared
     @State private var items: [Wallpaper] = []
@@ -79,7 +81,8 @@ struct DiscoverView: View {
         .padding(.horizontal, 40)
         .padding(.top, 24)
         .task(id: "discover-init") {
-            if deviceMatch { filter = .myDevice }
+            if let initialFilter { filter = initialFilter }
+            else if deviceMatch { filter = .myDevice }
             if categories.isEmpty {
                 if let list = try? await APIClient.shared.fetchCategories() {
                     categories = list.sorted { ($0.sortOrder ?? 0) < ($1.sortOrder ?? 0) }
@@ -113,15 +116,44 @@ struct DiscoverView: View {
                         .onAppear { maybeLoadMore(wp) }
                 }
             }
-            if hasMore {
-                HStack {
-                    Spacer()
-                    ProgressView().controlSize(.small).opacity(loading ? 1 : 0)
-                    Spacer()
+            feedFooter
+        }
+    }
+
+    // Infinite-scroll footer — loading spinner, a manual "Load more"
+    // fallback, a retry on pagination error, and an end-of-feed marker.
+    // Mirrors the web's FeedFooter vocabulary.
+    @ViewBuilder
+    private var feedFooter: some View {
+        Group {
+            if loading {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Loading more…").font(.sans12).foregroundStyle(Color.muted)
                 }
-                .frame(height: 24)
+            } else if loadError != nil {
+                HStack(spacing: 10) {
+                    Text("Couldn't load more").font(.sans12).foregroundStyle(Color.ink2)
+                    Button("Retry") { Task { await loadMore() } }.controlSize(.small)
+                }
+            } else if hasMore {
+                Button { Task { await loadMore() } } label: {
+                    Text("Load more")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.ink2)
+                        .padding(.horizontal, 18).padding(.vertical, 8)
+                        .background(Capsule().fill(Color.paper2))
+                        .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text("\(items.count) wallpaper\(items.count == 1 ? "" : "s") · You've reached the end")
+                    .font(.mono11).tracking(0.5).foregroundStyle(Color.muted)
             }
         }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 24)
     }
 
     // ── Toolbar: chips (left, scrollable) + filter dropdown + size ──
@@ -287,7 +319,10 @@ struct DiscoverView: View {
                 search: search.isEmpty ? nil : search,
                 categoryID: selectedCategoryID,
                 sort: filter == .trending ? "trending" : nil,
-                deviceMatch: filter == .myDevice
+                deviceMatch: filter == .myDevice,
+                // Live = Mac dynamic ∪ video (dynamic_only spans both
+                // server-side); opt video back in for this filter.
+                includeVideo: filter == .live
             )
             items.append(contentsOf: data.items)
             cursor = data.nextCursor

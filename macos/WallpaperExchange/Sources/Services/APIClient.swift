@@ -93,7 +93,8 @@ actor APIClient {
         search: String? = nil,
         categoryID: Int? = nil,
         sort: String? = nil,
-        deviceMatch: Bool = false
+        deviceMatch: Bool = false,
+        includeVideo: Bool = false
     ) async throws -> PaginatedData<Wallpaper> {
         var items: [URLQueryItem] = [
             .init(name: "limit", value: String(limit)),
@@ -124,9 +125,12 @@ actor APIClient {
             items.append(.init(name: "device_height", value: String(h)))
             items.append(.init(name: "include_dynamic", value: "true"))
         }
-        // The mac client doesn't render video wallpapers. Hide them
-        // server-side so we don't even pay the metadata round trip.
-        items.append(.init(name: "exclude_video", value: "true"))
+        // Hide video by default (the mac client doesn't render video
+        // wallpapers). The Live filter opts in — its "dynamic" feed
+        // spans Mac dynamic + video, matching the web.
+        if !includeVideo {
+            items.append(.init(name: "exclude_video", value: "true"))
+        }
         if let c = cursor {
             items.append(.init(name: "cursor", value: String(c)))
         }

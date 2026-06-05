@@ -10,6 +10,9 @@ struct MainWindow: View {
 
     @State private var sidebar: SidebarItem = .home
     @State private var sidebarCollapsed = false
+    // Set when a Home "browse more" CTA jumps to Discover with a filter
+    // (e.g. Live / AI). Cleared when leaving Discover.
+    @State private var pendingDiscoverFilter: DiscoverView.Filter?
     @State private var path: [MainRoute] = []
     @State private var search: String = ""
     @State private var committedSearch: String = ""
@@ -156,11 +159,15 @@ struct MainWindow: View {
                 ContentRouter(
                     sidebar: sidebar,
                     search: committedSearch,
+                    discoverInitialFilter: pendingDiscoverFilter,
                     onPick: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) },
                     onDevice: { d in path.append(.device(slug: d.slug, name: d.name)) },
                     onWeeklyWeek: { y, w in path.append(.weeklyWeek(year: y, week: w)) },
                     onCategory: { c in path.append(.category(id: c.id, name: c.name, slug: c.slug)) },
-                    onUploader: { username in path.append(.profile(username: username)) }
+                    onUploader: { username in path.append(.profile(username: username)) },
+                    onOpenDiscover: { f in pendingDiscoverFilter = f; sidebar = .discover },
+                    onOpenCollections: { sidebar = .collections },
+                    onOpenWeeklyArchive: { sidebar = .weekly }
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -191,8 +198,11 @@ struct MainWindow: View {
                 }
             }
         }
-        .onChange(of: sidebar) { _, _ in
+        .onChange(of: sidebar) { _, new in
             path.removeAll()
+            // Don't let a Home-CTA filter linger when Discover is opened
+            // directly from the sidebar later.
+            if new != .discover { pendingDiscoverFilter = nil }
         }
     }
 
@@ -211,16 +221,23 @@ struct MainWindow: View {
 struct ContentRouter: View {
     let sidebar: MainWindow.SidebarItem
     let search: String
+    var discoverInitialFilter: DiscoverView.Filter? = nil
     var onPick: (Wallpaper) -> Void
     var onDevice: (DeviceProfile) -> Void
     var onWeeklyWeek: (Int, Int) -> Void
     var onCategory: (Category) -> Void
     var onUploader: (String) -> Void
+    var onOpenDiscover: (DiscoverView.Filter) -> Void = { _ in }
+    var onOpenCollections: () -> Void = {}
+    var onOpenWeeklyArchive: () -> Void = {}
 
     var body: some View {
         switch sidebar {
-        case .home:          HomeView(onPick: onPick, onOpenWeek: onWeeklyWeek)
-        case .discover:      DiscoverView(search: search, onPick: onPick)
+        case .home:          HomeView(onPick: onPick, onOpenWeek: onWeeklyWeek,
+                                      onOpenDiscover: onOpenDiscover,
+                                      onOpenCollections: onOpenCollections,
+                                      onOpenWeeklyArchive: onOpenWeeklyArchive)
+        case .discover:      DiscoverView(search: search, onPick: onPick, initialFilter: discoverInitialFilter)
         case .weekly:        WeeklyArchiveView(onOpenWeek: onWeeklyWeek)
         case .collections:   CollectionsListView()
         case .myUploads:     MyLibraryGridView(kind: .uploads, onPick: onPick)

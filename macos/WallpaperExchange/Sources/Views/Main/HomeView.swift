@@ -11,6 +11,10 @@ import SwiftUI
 struct HomeView: View {
     var onPick: (Wallpaper) -> Void
     var onOpenWeek: (Int, Int) -> Void
+    // "Browse more" CTAs route to the matching top-level view.
+    var onOpenDiscover: (DiscoverView.Filter) -> Void = { _ in }
+    var onOpenCollections: () -> Void = {}
+    var onOpenWeeklyArchive: () -> Void = {}
 
     @State private var weekly: WeeklyCurrent?
     @State private var liveWalls: [Wallpaper] = []
@@ -60,8 +64,8 @@ struct HomeView: View {
                 title: "picks.",
                 accent: "This week's",
                 ctaLabel: "View archive →",
-                ctaEnabled: weekly != nil,
-                onCTA: { if let w = weekly { onOpenWeek(w.year, w.week) } }
+                ctaEnabled: true,
+                onCTA: { onOpenWeeklyArchive() }
             )
             if !restPicks.isEmpty {
                 // Web .h3-weekly: aspect-ratio 4/5 (portrait editorial)
@@ -91,7 +95,8 @@ struct HomeView: View {
                 title: "wallpapers.",
                 accent: "Live",
                 ctaLabel: "All live wallpapers →",
-                ctaEnabled: true
+                ctaEnabled: true,
+                onCTA: { onOpenDiscover(.live) }
             )
             if liveWalls.isEmpty {
                 if liveLoading {
@@ -121,7 +126,8 @@ struct HomeView: View {
                 title: "this week.",
                 accent: "Generated",
                 ctaLabel: "All AI wallpapers →",
-                ctaEnabled: true
+                ctaEnabled: true,
+                onCTA: { onOpenDiscover(.ai) }
             )
             if aiWalls.isEmpty {
                 if aiLoading {
@@ -152,7 +158,8 @@ struct HomeView: View {
                 title: "collections.",
                 accent: "Themed",
                 ctaLabel: "All collections →",
-                ctaEnabled: true
+                ctaEnabled: true,
+                onCTA: { onOpenCollections() }
             )
             if collections.isEmpty {
                 if collectionsLoading {
