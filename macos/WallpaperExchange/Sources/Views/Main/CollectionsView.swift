@@ -297,10 +297,25 @@ struct CollectionDetailView: View {
     var onWallpaper: (Wallpaper) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @State private var auth = AuthService.shared
     @State private var info: CollectionItem?
     @State private var curator: PublicProfile?
     @State private var items: [Wallpaper] = []
     @State private var loading = false
+
+    // Inline edit (owner-only, hand-made collections only).
+    @State private var editing = false
+    @State private var editTitle = ""
+    @State private var editDesc = ""
+    @State private var editIsPublic = true
+    @State private var saving = false
+
+    // Only the owner may edit, and only their own kind=0 collections —
+    // editor/weekly themes (kind=1) are admin-managed.
+    private func canEdit(_ c: CollectionItem) -> Bool {
+        guard let me = auth.user else { return false }
+        return me.id == (c.userID ?? -1) && (c.kind ?? 0) == 0
+    }
 
     private var setCountLabel: String {
         let total = info?.wallpaperCount ?? items.count
@@ -397,12 +412,29 @@ struct CollectionDetailView: View {
                 Text(((c.kind == 1 ? "Editor Theme" : "Collection") + (c.isPublic == false ? " · Private" : "")).uppercased())
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
                     .tracking(2.0).foregroundStyle(Color.muted)
-                Text(c.title).font(.display32).foregroundStyle(Color.ink)
 
-                if let desc = c.description?.trimmingCharacters(in: .whitespacesAndNewlines), !desc.isEmpty {
-                    Text(desc)
-                        .font(.system(size: 14)).foregroundStyle(Color.ink2)
-                        .lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                if editing {
+                    editForm(c)
+                } else {
+                    Text(c.title).font(.display32).foregroundStyle(Color.ink)
+
+                    if let desc = c.description?.trimmingCharacters(in: .whitespacesAndNewlines), !desc.isEmpty {
+                        Text(desc)
+                            .font(.system(size: 14)).foregroundStyle(Color.ink2)
+                            .lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    if canEdit(c) {
+                        Button(action: { editTitle = c.title; editDesc = c.description ?? ""; editIsPublic = c.isPublic ?? true; editing = true }) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "pencil").font(.system(size: 10, weight: .semibold))
+                                Text("Edit").font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundStyle(Color.ink).padding(.horizontal, 12).padding(.vertical, 6)
+                            .background(Capsule().fill(Color.paper)).overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain).pointerCursor()
+                    }
                 }
 
                 // Byline — curator avatar + "A set by @handle" + count/updated.
@@ -459,6 +491,44 @@ struct CollectionDetailView: View {
             }
         }
         .padding(.top, 4)
+    }
+
+    @ViewBuilder private func editForm(_ c: CollectionItem) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TextField("Title", text: $editTitle)
+                .textFieldStyle(.plain).font(.display32).foregroundStyle(Color.ink)
+            TextField("Optional description", text: $editDesc, axis: .vertical)
+                .textFieldStyle(.roundedBorder).font(.system(size: 14)).lineLimit(3, reservesSpace: true)
+                .frame(maxWidth: 420)
+            Toggle(isOn: $editIsPublic) {
+                Text(editIsPublic ? "Public · anyone can find this set" : "Private · only you can see it")
+                    .font(.system(size: 12)).foregroundStyle(Color.ink2)
+            }
+            .toggleStyle(.switch).tint(Color.accent).frame(maxWidth: 420, alignment: .leading)
+            HStack(spacing: 8) {
+                Button(action: { Task { await saveEdit(c) } }) {
+                    Text(saving ? "Saving…" : "Save").font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.paper).padding(.horizontal, 16).padding(.vertical, 7)
+                        .background(Capsule().fill(Color.ink))
+                }.buttonStyle(.plain).disabled(saving || editTitle.trimmingCharacters(in: .whitespaces).isEmpty).pointerCursor()
+                Button(action: { editing = false }) {
+                    Text("Cancel").font(.system(size: 12)).foregroundStyle(Color.ink2)
+                        .padding(.horizontal, 16).padding(.vertical, 7)
+                        .background(Capsule().strokeBorder(Color.hair, lineWidth: 1))
+                }.buttonStyle(.plain).pointerCursor()
+            }
+        }
+    }
+
+    private func saveEdit(_ c: CollectionItem) async {
+        let title = editTitle.trimmingCharacters(in: .whitespaces)
+        guard !title.isEmpty else { return }
+        saving = true; defer { saving = false }
+        do {
+            try await APIClient.shared.updateCollection(id: c.id, title: title, description: editDesc, isPublic: editIsPublic)
+            editing = false
+            await load()
+        } catch {}
     }
 
     private func applyBasePalette() {

@@ -176,11 +176,11 @@ struct MainGridTile: View {
     private var notLocalChip: some View {
         HStack(spacing: 4) {
             Image(systemName: "externaldrive.badge.xmark").font(.system(size: 8, weight: .semibold))
-            Text("NOT ON DISK").font(Self.chipFont).tracking(0.4)
+            Text("MISS").font(Self.chipFont).tracking(0.4)
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(Self.chipInk)
         .padding(.horizontal, 7).padding(.vertical, 2)
-        .background(Capsule().fill(Color(red: 0.78, green: 0.52, blue: 0.18).opacity(0.92)))
+        .background(Capsule().fill(Color(red: 0.99, green: 0.93, blue: 0.6).opacity(0.95)))
     }
 
     private var aiChip: some View {

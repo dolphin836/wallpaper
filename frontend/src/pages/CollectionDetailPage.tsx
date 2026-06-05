@@ -185,6 +185,7 @@ export default function CollectionDetailPage() {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
+  const [editIsPublic, setEditIsPublic] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -279,6 +280,7 @@ export default function CollectionDetailPage() {
     if (!collection) return;
     setEditTitle(collection.title);
     setEditDesc(collection.description);
+    setEditIsPublic(collection.is_public);
     setEditing(true);
   };
 
@@ -290,9 +292,9 @@ export default function CollectionDetailPage() {
       await updateCollection(collection.id, {
         title: editTitle.trim(),
         description: editDesc.trim(),
-        is_public: collection.is_public,
+        is_public: editIsPublic,
       });
-      setCollection({ ...collection, title: editTitle.trim(), description: editDesc.trim() });
+      setCollection({ ...collection, title: editTitle.trim(), description: editDesc.trim(), is_public: editIsPublic });
       setEditing(false);
       toast.success('Collection updated');
     } catch {
@@ -342,7 +344,9 @@ export default function CollectionDetailPage() {
   if (!loading && !collection && error) return <ErrorState />;
   if (!loading && !collection) return <EmptyState message="Collection not found." />;
 
-  const isOwner = !!collection && user?.id === collection.user_id;
+  // Only the owner can edit, and only their own hand-made collections —
+  // editor/weekly themes (kind !== 0) are managed by admins.
+  const isOwner = !!collection && user?.id === collection.user_id && collection.kind === 0;
   const visible = pages[currentPage] || [];
   const total = knownTotalPages ?? (hasMoreUpTo ? hasMoreUpTo + 1 : 1);
   const cover = collection?.cover_url || visible[0]?.preview_url || visible[0]?.thumb_url;
@@ -425,6 +429,18 @@ export default function CollectionDetailPage() {
                   placeholder="Optional description"
                   className="w-full px-4 py-3 text-[15px] border border-hair bg-paper text-ink-2 focus:outline-none focus:border-ink resize-none rounded-lg"
                 />
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={editIsPublic}
+                    onChange={(e) => setEditIsPublic(e.target.checked)}
+                    className="accent-ink w-4 h-4"
+                  />
+                  <span className="text-[13px] text-ink">Public</span>
+                  <span className="mono text-[11px] text-muted">
+                    {editIsPublic ? 'Anyone can find this set in the library' : 'Only you can see this set'}
+                  </span>
+                </label>
                 <div className="flex gap-2">
                   <button
                     onClick={handleSave}

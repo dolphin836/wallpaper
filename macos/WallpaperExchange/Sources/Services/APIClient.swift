@@ -193,6 +193,13 @@ actor APIClient {
         return data
     }
 
+    // Edit a collection's title / description / visibility (owner only;
+    // the server rejects editor/weekly themes). PUT /collections/:id.
+    func updateCollection(id: Int, title: String, description: String, isPublic: Bool) async throws {
+        struct Body: Encodable { let title: String; let description: String; let is_public: Bool }
+        _ = try await sendJSON("/collections/\(id)", method: "PUT", body: Body(title: title, description: description, is_public: isPublic))
+    }
+
     func updateProfile(nickname: String, bio: String) async throws -> User {
         struct Body: Encodable { let nickname: String; let bio: String }
         let data = try await sendJSON("/users/me/profile", method: "PUT", body: Body(nickname: nickname, bio: bio))
