@@ -69,10 +69,14 @@ struct DiscoverView: View {
         // at the top (always previewing the hovered tile) while the grid
         // scrolls underneath — scrolling over the header still drives
         // the feed because the header is part of the same ScrollView.
+        GeometryReader { geo in
         ScrollView(.vertical, showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                 Section {
-                    feed.padding(.top, 14).padding(.bottom, 40)
+                    feed
+                        .padding(.horizontal, 40)
+                        .padding(.top, 14)
+                        .padding(.bottom, 40)
                 } header: {
                     VStack(alignment: .leading, spacing: 14) {
                         toolbar
@@ -81,13 +85,28 @@ struct DiscoverView: View {
                             DevicePreviewBanner(featured: shown, onPick: { onPick(shown) })
                         }
                     }
+                    .padding(.horizontal, 40)
                     .padding(.top, 24)
                     .padding(.bottom, 12)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    // Re-draw the page floor (paper + the SAME mesh, sized
+                    // to the full pane and top-anchored) behind the pinned
+                    // header so wallpapers scrolling up behind it stay
+                    // hidden and the header reads as the exact same
+                    // background as the rest of the page — not a white band,
+                    // not the tiles showing through.
+                    .background(alignment: .top) {
+                        ZStack {
+                            Color.paper
+                            PageMesh()
+                        }
+                        .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+                    }
+                    .clipped()
                 }
             }
-            .padding(.horizontal, 40)
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
         }
         .task(id: "discover-init") {
             if let initialFilter { filter = initialFilter }
