@@ -76,8 +76,8 @@ struct DiscoverView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 20)
+        .padding(.horizontal, 40)
+        .padding(.top, 24)
         .task(id: "discover-init") {
             if deviceMatch { filter = .myDevice }
             if categories.isEmpty {
