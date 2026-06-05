@@ -86,6 +86,9 @@ struct MacBookOutlinePreview: View {
                         .offset(y: -screenH / 2 + bezel / 2)
                 }
                 .frame(height: screenH)
+                // Clip the whole screen so a large (cover-filled) wallpaper
+                // can never bleed past the device's screen rect.
+                .clipShape(RoundedRectangle(cornerRadius: 6))
 
                 // Base bar with notch.
                 ZStack(alignment: .top) {
