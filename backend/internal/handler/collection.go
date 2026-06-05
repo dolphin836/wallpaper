@@ -447,7 +447,8 @@ func (h *CollectionHandler) ListUserCollections(w http.ResponseWriter, r *http.R
 		limit = v
 	}
 
-	resp, ec := h.collectionSvc.ListByUser(r.Context(), ownerID, cursor, limit)
+	viewerID := middleware.GetUserID(r.Context())
+	resp, ec := h.collectionSvc.ListByUser(r.Context(), ownerID, viewerID, cursor, limit)
 	if ec != nil {
 		response.Error(w, http.StatusInternalServerError, ec)
 		return

@@ -253,12 +253,15 @@ func (s *CollectionService) ListWallpapers(ctx context.Context, collectionID int
 	return &WallpaperCollectionResponse{Items: items, NextCursor: nextCursor, HasMore: hasMore}, nil
 }
 
-func (s *CollectionService) ListByUser(ctx context.Context, ownerID int64, cursor int64, limit int) (*CollectionListResponse, *errcode.ErrCode) {
+func (s *CollectionService) ListByUser(ctx context.Context, ownerID, viewerID int64, cursor int64, limit int) (*CollectionListResponse, *errcode.ErrCode) {
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
+	// The owner sees their own private collections; everyone else only
+	// the public ones.
+	includePrivate := viewerID != 0 && viewerID == ownerID
 	fetchLimit := limit + 1
-	items, err := s.collectionRepo.ListByUser(ctx, ownerID, cursor, fetchLimit)
+	items, err := s.collectionRepo.ListByUser(ctx, ownerID, cursor, fetchLimit, includePrivate)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to list user collections", "error", err)
 		return nil, errcode.ErrInternal
@@ -273,7 +276,7 @@ func (s *CollectionService) ListByUser(ctx context.Context, ownerID int64, curso
 	}
 	// Total of the owner's own (kind = 0) collections so the profile
 	// pagination can show the real page count from the first render.
-	total, _ := s.collectionRepo.CountByOwner(ctx, ownerID, 0)
+	total, _ := s.collectionRepo.CountByOwner(ctx, ownerID, 0, includePrivate)
 	return &CollectionListResponse{Items: items, NextCursor: nextCursor, HasMore: hasMore, Total: total}, nil
 }
 

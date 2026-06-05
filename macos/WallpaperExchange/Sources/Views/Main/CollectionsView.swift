@@ -240,6 +240,18 @@ struct CollectionTileCard: View {
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.hair, lineWidth: 1))
+                    .overlay(alignment: .topLeading) {
+                        if item.isPublic == false {
+                            HStack(spacing: 3) {
+                                Image(systemName: "lock.fill").font(.system(size: 8, weight: .bold))
+                                Text("PRIVATE").font(.system(size: 9, weight: .semibold, design: .monospaced)).tracking(0.4)
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 7).padding(.vertical, 3)
+                            .background(Capsule().fill(Color.black.opacity(0.5)))
+                            .padding(8)
+                        }
+                    }
                     .offset(x: hover ? -2 : 0, y: hover ? -2 : 0)
                     .shadow(color: .black.opacity(hover ? 0.30 : 0.16), radius: hover ? 22 : 12, x: 0, y: hover ? 10 : 6)
             }

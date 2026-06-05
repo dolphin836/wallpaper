@@ -128,12 +128,18 @@ func (r *CollectionRepo) List(ctx context.Context, cursor int64, limit int, user
 	return collections, err
 }
 
-func (r *CollectionRepo) ListByUser(ctx context.Context, ownerID int64, cursor int64, limit int) ([]model.Collection, error) {
+// includePrivate is set when the viewer is the owner, so the profile
+// Collections tab shows the owner's own private sets; strangers only see
+// public ones.
+func (r *CollectionRepo) ListByUser(ctx context.Context, ownerID int64, cursor int64, limit int, includePrivate bool) ([]model.Collection, error) {
 	query := r.db.WithContext(ctx).
 		Select("id, slug, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, kind, accent_color, created_at, updated_at").
 		// kind = 0 keeps this to the user's own hand-made collections,
 		// excluding editor-curated / weekly-generated themes (kind = 1).
-		Where("user_id = ? AND is_public = ? AND kind = ?", ownerID, true, 0)
+		Where("user_id = ? AND kind = ?", ownerID, 0)
+	if !includePrivate {
+		query = query.Where("is_public = ?", true)
+	}
 
 	if cursor > 0 {
 		query = query.Where("id < ?", cursor)
@@ -147,9 +153,11 @@ func (r *CollectionRepo) ListByUser(ctx context.Context, ownerID int64, cursor i
 // CountByOwner counts a single owner's collections of a given kind
 // (kind < 0 counts all kinds), matching ListByUser's visibility filter.
 // Backs the profile Collections tab's total page count.
-func (r *CollectionRepo) CountByOwner(ctx context.Context, ownerID int64, kind int) (int64, error) {
-	query := r.db.WithContext(ctx).Model(&model.Collection{}).
-		Where("user_id = ? AND is_public = ?", ownerID, true)
+func (r *CollectionRepo) CountByOwner(ctx context.Context, ownerID int64, kind int, includePrivate bool) (int64, error) {
+	query := r.db.WithContext(ctx).Model(&model.Collection{}).Where("user_id = ?", ownerID)
+	if !includePrivate {
+		query = query.Where("is_public = ?", true)
+	}
 	if kind >= 0 {
 		query = query.Where("kind = ?", kind)
 	}
