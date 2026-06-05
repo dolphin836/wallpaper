@@ -117,21 +117,20 @@ struct DetailPage: View {
     private func hero(detail: WallpaperDetail) -> some View {
         Group {
             if mode == .off {
-                // Raw wallpaper, fully contained (web wd-hero-img:
-                // object-fit contain, max-height ~64vh). Aspect comes from
-                // the decoded image itself, so it never crops or bleeds —
-                // uniform letterbox regardless of the stored width/height.
+                // Raw wallpaper filling the card width (web wd-hero-img:
+                // width 100%, height auto). Height follows the decoded
+                // image's real aspect, so it never leaves side gaps and
+                // never crops — regardless of the stored width/height.
                 CachedAsyncImage(url: URL(string: detail.displayURL)) { img in
                     img.resizable().aspectRatio(contentMode: .fit)
                 } placeholder: {
                     Color(hex: detail.dominantColor ?? "#bbb")
                         .aspectRatio(CGFloat(max(detail.width, 1)) / CGFloat(max(detail.height, 1)), contentMode: .fit)
                 }
-                .frame(maxHeight: 520)
+                .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 18))
                 .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.white.opacity(0.18), lineWidth: 1))
                 .shadow(color: .black.opacity(0.3), radius: 24, y: 14)
-                .frame(maxWidth: .infinity)
             } else {
                 // Plain / Home / Lock → draw the actual device (monitor
                 // bezel + stand) with the wallpaper on screen.
