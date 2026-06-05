@@ -262,7 +262,10 @@ func (s *CollectionService) ListByUser(ctx context.Context, ownerID int64, curso
 	if hasMore && len(items) > 0 {
 		nextCursor = items[len(items)-1].ID
 	}
-	return &CollectionListResponse{Items: items, NextCursor: nextCursor, HasMore: hasMore}, nil
+	// Total of the owner's own (kind = 0) collections so the profile
+	// pagination can show the real page count from the first render.
+	total, _ := s.collectionRepo.CountByOwner(ctx, ownerID, 0)
+	return &CollectionListResponse{Items: items, NextCursor: nextCursor, HasMore: hasMore, Total: total}, nil
 }
 
 func (s *CollectionService) ListUserCollections(ctx context.Context, userID int64, q string, wallpaperID int64, limit int) ([]repo.CollectionBrief, *errcode.ErrCode) {
