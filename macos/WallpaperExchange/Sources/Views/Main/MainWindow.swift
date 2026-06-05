@@ -122,20 +122,19 @@ struct MainWindow: View {
             }
             .padding(.leading, WindowChrome.inset)
             .padding(.top, WindowChrome.topBar)
-        }
-        // Collapse toggle styled as a fourth traffic light — positioned
-        // from the measured geometry of the real buttons so it sits on
-        // exactly their row, at their size, with a gap to their right
-        // noticeably larger than the spacing between the lights.
-        .overlay(alignment: .topLeading) {
+
+            // Collapse toggle styled as a fourth traffic light. A
+            // top-level ZStack child (not an .overlay) so it shares the
+            // same ignoresSafeArea coordinate space and stays put in
+            // full-screen. Positioned from the measured geometry of the
+            // real buttons; full-screen (no lights) left-aligns it with
+            // the sidebar card, same distance from the top as windowed.
             SidebarToggleButton(collapsed: sidebarCollapsed, size: metrics.trafficDotSize) {
                 withAnimation(.easeInOut(duration: 0.22)) { sidebarCollapsed.toggle() }
             }
-            // Windowed: just right of the traffic lights. Full-screen
-            // (no lights): left-aligned with the sidebar card, keeping
-            // the same distance from the top as windowed.
             .offset(x: metrics.isFullScreen ? WindowChrome.inset : metrics.trafficTrailingX + 18,
                     y: metrics.trafficCenterY - metrics.trafficDotSize / 2)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .ignoresSafeArea(.all)
         .background(Color.paper)
