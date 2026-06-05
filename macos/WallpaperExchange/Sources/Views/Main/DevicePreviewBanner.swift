@@ -58,7 +58,6 @@ struct DeviceMockup: View {
     private var monitor: some View {
         VStack(spacing: 0) {
             screen
-                .aspectRatio(deviceAspect, contentMode: .fit)
                 .shadow(color: .black.opacity(0.28), radius: 14, y: 8)
 
             // Stand neck (trapezoid) + foot bar.
@@ -77,11 +76,17 @@ struct DeviceMockup: View {
     // inner 12 with a 6pt frame), a faint glass edge highlight — closer
     // to the web's clean monitor.
     private var screen: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(LinearGradient(colors: [Color(red: 0.17, green: 0.17, blue: 0.19),
-                                          Color(red: 0.11, green: 0.11, blue: 0.13)],
-                                 startPoint: .top, endPoint: .bottom))
-            .overlay {
+        ZStack {
+            // Bezel.
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(LinearGradient(colors: [Color(red: 0.17, green: 0.17, blue: 0.19),
+                                              Color(red: 0.11, green: 0.11, blue: 0.13)],
+                                     startPoint: .top, endPoint: .bottom))
+            // Screen content, inset a uniform 6pt from the bezel. A
+            // GeometryReader pins the wallpaper to an explicit size +
+            // .clipped(), so the cover-fill can't leak past the inner
+            // rect on any edge (was bleeding left/right).
+            GeometryReader { g in
                 ZStack {
                     Color.black
                     if let wp = wallpaper {
@@ -90,21 +95,25 @@ struct DeviceMockup: View {
                         } placeholder: {
                             Color(hex: wp.dominantColor ?? "#bbb").opacity(0.55)
                         }
+                        .frame(width: g.size.width, height: g.size.height)
+                        .clipped()
                     } else {
                         Image(systemName: "rectangle.on.rectangle.angled").foregroundStyle(Color.muted)
                     }
                     if mode == .home { homeOverlay }
                     if mode == .lock { lockOverlay }
                 }
-                // Cover-fill is hard-clipped to the screen rect → no overflow.
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .padding(6)
+                .frame(width: g.size.width, height: g.size.height)
             }
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(6)
+        }
+        .aspectRatio(deviceAspect, contentMode: .fit)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     // Plain / Home / Lock segmented pills.
