@@ -92,21 +92,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // is owned by the enter/exit observers.
         guard !WindowMetrics.shared.isFullScreen else { return }
 
-        guard let content = window.contentView,
-              let close = window.standardWindowButton(.closeButton),
+        guard let close = window.standardWindowButton(.closeButton),
               let zoom = window.standardWindowButton(.zoomButton) else { return }
-        let closeInContent = close.convert(close.bounds, to: content)
-        let zoomInContent = zoom.convert(zoom.bounds, to: content)
-        // SwiftUI's hosting contentView is flipped (origin top-left), so
-        // midY is already measured from the top. Only flip when the
-        // content view is NOT flipped (origin bottom-left).
-        let centerYFromTop = content.isFlipped
-            ? closeInContent.midY
-            : content.bounds.height - closeInContent.midY
+        // Convert to the WINDOW's base coordinates (always bottom-left
+        // origin — unaffected by the hosting view's isFlipped, which was
+        // unreliable). SwiftUI's y from the top = window height minus the
+        // AppKit (from-bottom) y.
+        let closeInWindow = close.convert(close.bounds, to: nil)
+        let zoomInWindow = zoom.convert(zoom.bounds, to: nil)
+        let centerYFromTop = window.frame.height - closeInWindow.midY
+        // Sanity-guard: traffic lights live within the first ~80pt from
+        // the top. Reject anything else so a bad/transient measurement
+        // can't freeze the toggle off-screen.
+        guard centerYFromTop > 0, centerYFromTop < 80 else { return }
         WindowMetrics.shared.update(
             centerY: centerYFromTop,
-            trailingX: zoomInContent.maxX,
-            dot: closeInContent.height
+            trailingX: zoomInWindow.maxX,
+            dot: closeInWindow.height
         )
     }
 
