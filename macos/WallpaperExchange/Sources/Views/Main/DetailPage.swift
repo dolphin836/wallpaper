@@ -9,6 +9,9 @@ struct DetailPage: View {
     let slug: String
     var onUploader: (String) -> Void
     var onWallpaper: (Wallpaper) -> Void
+    // Set when presented as a modal overlay — the breadcrumb close + ESC
+    // dismiss the modal instead of popping the navigation stack.
+    var onClose: (() -> Void)? = nil
 
     @State private var detail: WallpaperDetail?
     @State private var similar: [Wallpaper] = []
@@ -72,7 +75,7 @@ struct DetailPage: View {
         HStack(alignment: .center, spacing: 10) {
             Kicker(text: "Specimen №\(detail.id)")
             Spacer()
-            Button(action: { dismiss() }) {
+            Button(action: { if let onClose { onClose() } else { dismiss() } }) {
                 HStack(spacing: 6) {
                     Image(systemName: "xmark").font(.system(size: 10, weight: .medium))
                     Text("ESC").font(.kicker).tracking(1.5)

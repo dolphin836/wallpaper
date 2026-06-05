@@ -17,6 +17,9 @@ struct MainWindow: View {
     @State private var search: String = ""
     @State private var committedSearch: String = ""
     @State private var showingUpload = false
+    // Wallpaper detail is presented as a modal overlay (web-style inset
+    // panel + scrim), not a navigation push.
+    @State private var detailTarget: DetailTarget?
 
     enum SidebarItem: String, CaseIterable, Hashable {
         // Browse section.
@@ -138,6 +141,21 @@ struct MainWindow: View {
             }
             .padding(.leading, WindowChrome.inset)
             .padding(.top, WindowChrome.topBar)
+
+            // Wallpaper detail modal — web-style: dim scrim over the whole
+            // window + an inset rounded panel hosting DetailPage. Sits at
+            // the top of the ZStack so it covers the sidebar and any
+            // pushed page. Backdrop tap / ✕ / ESC all close.
+            if let target = detailTarget {
+                DetailModalOverlay(
+                    target: target,
+                    onClose: { detailTarget = nil },
+                    onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
+                    onUploader: { username in detailTarget = nil; path.append(.profile(username: username)) }
+                )
+                .transition(.opacity)
+                .zIndex(10)
+            }
         }
         .ignoresSafeArea(.all)
         .background(Color.paper)
@@ -145,6 +163,12 @@ struct MainWindow: View {
         .sheet(isPresented: $showingUpload) {
             UploadView(onClose: { showingUpload = false })
                 .frame(minWidth: 720, minHeight: 560)
+        }
+    }
+
+    private func openDetail(slug: String, fallbackID: Int) {
+        withAnimation(.easeOut(duration: 0.18)) {
+            detailTarget = DetailTarget(slug: slug, fallbackID: fallbackID)
         }
     }
 
@@ -164,7 +188,7 @@ struct MainWindow: View {
                     sidebar: sidebar,
                     search: committedSearch,
                     discoverInitialFilter: pendingDiscoverFilter,
-                    onPick: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) },
+                    onPick: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
                     onDevice: { d in path.append(.device(slug: d.slug, name: d.name)) },
                     onWeeklyWeek: { y, w in path.append(.weeklyWeek(year: y, week: w)) },
                     onCategory: { c in path.append(.category(id: c.id, name: c.name, slug: c.slug)) },
@@ -181,26 +205,26 @@ struct MainWindow: View {
                 case .detail(let slug, _):
                     DetailPage(slug: slug,
                                onUploader: { path.append(.profile(username: $0)) },
-                               onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                               onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
                 case .profile(let username):
                     AccountView(username: username,
-                                onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) },
+                                onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
                                 onCollection: { c in path.append(.collection(slug: c.slug, title: c.title)) })
                 case .collection(let slug, _):
                     CollectionDetailView(slug: slug,
-                                         onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                                         onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
                 case .device(let slug, let name):
                     DeviceDetailView(slug: slug, name: name,
-                                     onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                                     onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
                 case .search(let q):
                     SearchResultsView(query: q,
-                                      onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                                      onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
                 case .weeklyWeek(let y, let w):
                     WeeklyWeekView(year: y, week: w,
-                                   onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                                   onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
                 case .category(let id, let name, let slug):
                     CategoryFeedView(category: Category(id: id, name: name, slug: slug, sortOrder: nil),
-                                     onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                                     onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
                 }
                 }
             }
@@ -275,5 +299,60 @@ struct ContentRouter: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+}
+
+// Identifies the wallpaper currently shown in the detail modal. slug is
+// the canonical key; fallbackID covers list rows whose slug is empty.
+struct DetailTarget: Identifiable, Equatable {
+    let slug: String
+    let fallbackID: Int
+    var id: String { slug.isEmpty ? "\(fallbackID)" : slug }
+}
+
+// Web-style detail modal: a dim scrim over the whole window plus an
+// inset rounded panel hosting DetailPage. ESC / ✕ / backdrop-tap close;
+// tapping a "more like this" tile swaps the panel to that wallpaper.
+struct DetailModalOverlay: View {
+    let target: DetailTarget
+    var onClose: () -> Void
+    var onWallpaper: (Wallpaper) -> Void
+    var onUploader: (String) -> Void
+
+    @State private var closeHover = false
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(Color.black.opacity(0.55))
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture { onClose() }
+
+            DetailPage(slug: target.slug, onUploader: onUploader, onWallpaper: onWallpaper, onClose: onClose)
+                .id(target.id)
+                .background(Color.paper)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.hair, lineWidth: 1))
+                .overlay(alignment: .topTrailing) { closeButton }
+                .shadow(color: .black.opacity(0.40), radius: 48, x: 0, y: 24)
+                .padding(.top, 40)
+                .padding(.bottom, 22)
+                .padding(.horizontal, 40)
+        }
+    }
+
+    private var closeButton: some View {
+        Button(action: onClose) {
+            Image(systemName: "xmark").font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white).frame(width: 34, height: 34)
+                .background(Circle().fill(Color.black.opacity(closeHover ? 0.70 : 0.42)))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+                .opacity(closeHover ? 1 : 0.5)
+                .scaleEffect(closeHover ? 1.05 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .padding(14)
+        .onHover { h in closeHover = h; if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
     }
 }
