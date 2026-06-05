@@ -35,6 +35,17 @@ struct DiscoverView: View {
     @State private var categories: [Category] = []
     @State private var selectedCategoryID: Int? = nil
 
+    // Category strip overflow tracking — drives the trailing fade that
+    // only shows when the chips are wider than the visible strip (so
+    // full-screen, where they all fit, gets no fade).
+    @State private var chipsContentW: CGFloat = 0
+    @State private var chipsViewportW: CGFloat = 0
+    private var chipsOverflow: Bool { chipsContentW > chipsViewportW + 1 }
+    private var chipsFadeStart: CGFloat {
+        guard chipsViewportW > 28 else { return 0.85 }
+        return max(0, (chipsViewportW - 28) / chipsViewportW)
+    }
+
     enum Filter: String, CaseIterable, Hashable {
         case latest = "Latest"
         case trending = "Trending"
@@ -207,7 +218,30 @@ struct DiscoverView: View {
                         }
                     }
                     .padding(.vertical, 2)
+                    .background(GeometryReader { g in
+                        Color.clear.preference(key: ChipsContentWidthKey.self, value: g.size.width)
+                    })
                 }
+                .background(GeometryReader { g in
+                    Color.clear.preference(key: ChipsViewportWidthKey.self, value: g.size.width)
+                })
+                .onPreferenceChange(ChipsContentWidthKey.self) { chipsContentW = $0 }
+                .onPreferenceChange(ChipsViewportWidthKey.self) { chipsViewportW = $0 }
+                // Trailing fade — only when the chips overflow the strip.
+                // The gradient fades the last ~28pt to transparent so the
+                // hidden categories read as "scroll for more"; when they
+                // all fit it's a flat mask (no fade).
+                .mask(
+                    LinearGradient(
+                        stops: chipsOverflow
+                            ? [.init(color: .black, location: 0),
+                               .init(color: .black, location: chipsFadeStart),
+                               .init(color: .clear, location: 1)]
+                            : [.init(color: .black, location: 0),
+                               .init(color: .black, location: 1)],
+                        startPoint: .leading, endPoint: .trailing
+                    )
+                )
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -364,4 +398,17 @@ struct DiscoverView: View {
             loadError = error.localizedDescription
         }
     }
+}
+
+// Width probes for the category strip: the inner HStack reports its
+// intrinsic content width, the ScrollView its visible width. When the
+// former exceeds the latter the strip overflows and the trailing fade
+// turns on.
+private struct ChipsContentWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+private struct ChipsViewportWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
