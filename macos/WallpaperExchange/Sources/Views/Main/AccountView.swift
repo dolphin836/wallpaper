@@ -86,32 +86,39 @@ struct AccountView: View {
     }
 
     // ─── Tab bar (web .ptabs + .ptab-count) ──────────────────────
+    // Single row that scrolls horizontally when it can't fit (never
+    // wraps), with a full-width base hairline underneath.
     private var tabBar: some View {
-        HStack(spacing: 28) {
-            ForEach(tabs, id: \.self) { t in
-                Button(action: { tab = t }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: t.icon).font(.system(size: 12, weight: .medium))
-                        Text(t.label).font(.system(size: 14, weight: .medium))
-                        if let c = counts[t] {
-                            Text("\(c)")
-                                .font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(0.4)
-                                .padding(.horizontal, 6).padding(.vertical, 1)
-                                .foregroundStyle(tab == t ? Color.paper : Color.muted)
-                                .background(RoundedRectangle(cornerRadius: 3).fill(tab == t ? Color.ink : Color.paper2))
-                        }
-                    }
-                    .foregroundStyle(tab == t ? Color.ink : Color.muted)
-                    .padding(.vertical, 14)
-                    .overlay(alignment: .bottom) { Rectangle().fill(tab == t ? Color.ink : Color.clear).frame(height: 2) }
-                    .contentShape(Rectangle())
+        VStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 28) {
+                    ForEach(tabs, id: \.self) { t in tabButton(t) }
                 }
-                .buttonStyle(.plain).pointerCursor()
+                .padding(.top, 18)
             }
-            Spacer(minLength: 0)
+            Rectangle().fill(Color.hair).frame(height: 1)
         }
-        .padding(.top, 18)
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
+    }
+
+    private func tabButton(_ t: AccountTab) -> some View {
+        Button(action: { tab = t }) {
+            HStack(spacing: 8) {
+                Image(systemName: t.icon).font(.system(size: 12, weight: .medium))
+                Text(t.label).font(.system(size: 14, weight: .medium)).lineLimit(1).fixedSize()
+                if let c = counts[t] {
+                    Text("\(c)")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(0.4)
+                        .padding(.horizontal, 6).padding(.vertical, 1)
+                        .foregroundStyle(tab == t ? Color.paper : Color.muted)
+                        .background(RoundedRectangle(cornerRadius: 3).fill(tab == t ? Color.ink : Color.paper2))
+                }
+            }
+            .foregroundStyle(tab == t ? Color.ink : Color.muted)
+            .padding(.vertical, 14)
+            .overlay(alignment: .bottom) { Rectangle().fill(tab == t ? Color.ink : Color.clear).frame(height: 2) }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).pointerCursor()
     }
 
     // ─── Tab content ─────────────────────────────────────────────
