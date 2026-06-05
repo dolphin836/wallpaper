@@ -40,18 +40,14 @@ struct DetailPage: View {
             ScrollView(.vertical, showsIndicators: false) {
                 if let d = detail {
                     VStack(alignment: .leading, spacing: 24) {
-                        breadcrumb(detail: d)
-                        hero(detail: d)
-                        actionBar(detail: d)
+                        stagePanel(detail: d)
                         metaGrid(detail: d)
                         moreLikeThis
                         Spacer(minLength: 40)
                     }
-                    .padding(.horizontal, 40).padding(.top, 12).padding(.bottom, 60)
-                    // Same content width as the other pages (Account /
-                    // Discover use ~1180 / 40px gutters). Every block fills
-                    // this column so they line up on the same edges.
-                    .frame(maxWidth: 1180)
+                    .padding(.horizontal, 32).padding(.top, 16).padding(.bottom, 60)
+                    // Content width to match the other pages.
+                    .frame(maxWidth: 1280)
                     .frame(maxWidth: .infinity, alignment: .center)
                 } else if let err = loadError {
                     VStack(spacing: 10) {
@@ -68,19 +64,24 @@ struct DetailPage: View {
         .task(id: slug) { await load() }
     }
 
+    // Full-bleed blurred preview of the wallpaper itself behind the
+    // whole panel (web .wd-backdrop: blur 38 / saturate 1.4 / scale 1.18)
+    // with a soft paper scrim on top so content stays legible.
     private var backdrop: some View {
         ZStack {
+            Color.paper
             if let d = detail, let url = URL(string: d.displayURL) {
                 CachedAsyncImage(url: url) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
-                        .blur(radius: 60).scaleEffect(1.2)
+                        .blur(radius: 38).saturation(1.4).scaleEffect(1.18)
                 } placeholder: {
                     Color(hex: d.dominantColor ?? "#bbb").opacity(0.4)
                 }
+                .clipped()
             }
-            Color.paper.opacity(0.78)
+            LinearGradient(colors: [Color.paper.opacity(0.42), Color.paper.opacity(0.7)],
+                           startPoint: .top, endPoint: .bottom)
         }
-        .ignoresSafeArea()
     }
 
     private func breadcrumb(detail: WallpaperDetail) -> some View {
@@ -90,52 +91,55 @@ struct DetailPage: View {
         }
     }
 
-    private func hero(detail: WallpaperDetail) -> some View {
-        VStack(spacing: 12) {
-            Group {
-                if mode == .off {
-                    // Raw wallpaper.
-                    CachedAsyncImage(url: URL(string: detail.displayURL)) { img in
-                        img.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Color(hex: detail.dominantColor ?? "#bbb")
-                    }
-                    .frame(maxWidth: .infinity).frame(height: 440)
-                    .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
-                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.hair, lineWidth: 1))
-                } else {
-                    // Plain / Home / Lock → draw the actual device (monitor
-                    // bezel + stand) with the wallpaper on its screen,
-                    // reusing the Discover mockup driven by this mode.
-                    DeviceMockup(wallpaper: lightWallpaper(detail), controlledMode: deviceMode, showChrome: false)
-                        .frame(height: 440)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .frame(maxWidth: .infinity)
-
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(detail.title.isEmpty ? "Wallpaper #\(detail.id)" : detail.title)
-                        .font(.display24).foregroundStyle(Color.ink)
-                    HStack(spacing: 8) {
-                        Text("\(detail.width)×\(detail.height) px")
-                        Text("·")
-                        Text(detail.resolutionLabel)
-                        Text("·")
-                        Text(detail.fileType.uppercased())
-                        if detail.isDynamic || detail.fileType.hasPrefix("video/") {
-                            Text("·").padding(.leading, 2)
-                            Text("LIVE").foregroundStyle(Color.accent)
-                        }
-                    }
-                    .font(.mono11).tracking(0.5).foregroundStyle(Color.muted)
-                }
-                Spacer()
-            }
-            .frame(maxWidth: .infinity)
+    // Stage panel — a dominant-color gradient card holding the hero +
+    // the toolbar (web .wd-panel).
+    private func stagePanel(detail d: WallpaperDetail) -> some View {
+        let tint = Color(hex: d.dominantColor ?? "#888")
+        return VStack(spacing: 16) {
+            hero(detail: d)
+            actionBar(detail: d)
         }
+        .padding(20)
+        .background(
+            ZStack {
+                Color.paper
+                LinearGradient(colors: [tint.opacity(0.22), Color.paper.opacity(0)],
+                               startPoint: .top, endPoint: .bottom)
+                RadialGradient(colors: [tint.opacity(0.5), .clear], center: .topLeading, startRadius: 0, endRadius: 460)
+                RadialGradient(colors: [tint.opacity(0.4), .clear], center: .bottomTrailing, startRadius: 0, endRadius: 420)
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.white.opacity(0.4), lineWidth: 1))
+        .shadow(color: .black.opacity(0.22), radius: 40, x: 0, y: 22)
+    }
+
+    private func hero(detail: WallpaperDetail) -> some View {
+        Group {
+            if mode == .off {
+                // Raw wallpaper at its intrinsic aspect (web wd-hero-img:
+                // contain, max-height ~64vh) — show the whole image, not a
+                // cropped strip.
+                Color.clear
+                    .aspectRatio(CGFloat(max(detail.width, 1)) / CGFloat(max(detail.height, 1)), contentMode: .fit)
+                    .frame(maxHeight: 520)
+                    .overlay {
+                        CachedAsyncImage(url: URL(string: detail.displayURL)) { img in
+                            img.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: { Color(hex: detail.dominantColor ?? "#bbb") }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.white.opacity(0.18), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.3), radius: 24, y: 14)
+                    .frame(maxWidth: .infinity)
+            } else {
+                // Plain / Home / Lock → draw the actual device (monitor
+                // bezel + stand) with the wallpaper on screen.
+                DeviceMockup(wallpaper: lightWallpaper(detail), controlledMode: deviceMode, showChrome: false)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private struct PreviewOption { let mode: PreviewMode; let icon: String }
@@ -147,7 +151,11 @@ struct DetailPage: View {
     ]
 
     private func actionBar(detail: WallpaperDetail) -> some View {
-        HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
+            // File info (no title) + divider, then the action rows.
+            metaRow(detail: detail)
+            Rectangle().fill(Color.hair).frame(height: 1)
+            HStack(spacing: 12) {
             actionPill(icon: isLiked ? "heart.fill" : "heart", label: isLiked ? "Liked" : "Like", count: "\(detail.likeCount)", on: isLiked) {
                 Task { await toggleLike(detail) }
             }
@@ -161,7 +169,7 @@ struct DetailPage: View {
                     Button(action: { mode = opt.mode }) {
                         HStack(spacing: 5) {
                             Image(systemName: opt.icon).font(.system(size: 10, weight: .medium))
-                            Text(opt.mode.rawValue).font(.sans11)
+                            Text(opt.mode.rawValue).font(.sans11).lineLimit(1).fixedSize()
                         }
                         .foregroundStyle(mode == opt.mode ? Color.ink : Color.muted)
                         .padding(.horizontal, 10).padding(.vertical, 6)
@@ -192,21 +200,52 @@ struct DetailPage: View {
                 }
             }) {
                 HStack(spacing: 7) {
-                    Circle().fill(Color.accent).frame(width: 9, height: 9)
+                    Image(systemName: "arrow.down.circle.fill").font(.system(size: 12, weight: .semibold))
                     Text("Download & set · 1 coin")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.paper)
                 }
-                .padding(.horizontal, 14).padding(.vertical, 7)
-                .background(Capsule().fill(Color.ink))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16).padding(.vertical, 8)
+                .background(Capsule().fill(Color.accent))
+                .shadow(color: Color.accent.opacity(0.45), radius: 10, y: 4)
             }
             .buttonStyle(.plain)
             .keyboardShortcut("d", modifiers: .command)
+            }
         }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color.paper.opacity(0.85)))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.hair, lineWidth: 1))
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color.paper.opacity(0.82)))
+        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.black.opacity(0.06), lineWidth: 1))
+        .shadow(color: .black.opacity(0.12), radius: 24, y: 10)
         .frame(maxWidth: .infinity)
+    }
+
+    // File info row inside the toolbar (web .wd-actionbar-meta): big
+    // dimensions + mono "res · TYPE · size", plus LIVE / AI pills.
+    private func metaRow(detail d: WallpaperDetail) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text("\(d.width.formatted()) × \(d.height.formatted())")
+                .font(.system(size: 15, weight: .medium, design: .serif)).foregroundStyle(Color.ink)
+            Text("\(d.resolutionLabel) · \(d.fileType.uppercased()) · \(byteString(d.fileSize))")
+                .font(.system(size: 11, design: .monospaced)).tracking(0.4).foregroundStyle(Color.muted)
+            if d.isDynamic || d.fileType.hasPrefix("video/") {
+                Text("● LIVE").font(.system(size: 9, design: .monospaced)).tracking(1.4)
+                    .foregroundStyle(Color.accent)
+                    .padding(.horizontal, 8).padding(.vertical, 2)
+                    .background(Capsule().fill(Color.ink))
+            }
+            if d.isAIGenerated == true {
+                Text("✦ AI").font(.system(size: 9, design: .monospaced)).tracking(1.4)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8).padding(.vertical, 2)
+                    .background(Capsule().fill(Color(red: 0.42, green: 0.28, blue: 0.7)))
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func byteString(_ bytes: Int) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
     }
 
     private func actionPill(icon: String, label: String, count: String?, on: Bool, action: @escaping () -> Void) -> some View {

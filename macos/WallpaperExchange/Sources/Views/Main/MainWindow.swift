@@ -331,11 +331,10 @@ struct DetailModalOverlay: View {
 
             DetailPage(slug: target.slug, onUploader: onUploader, onWallpaper: onWallpaper, onClose: onClose)
                 .id(target.id)
-                // Fill the whole inset rectangle so the paper panel is the
-                // full modal frame (not just the content column) in both
-                // windowed and full-screen.
+                // Fill the whole inset rectangle. The panel's own
+                // background is DetailPage's blurred-wallpaper backdrop, so
+                // no opaque paper fill here.
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.paper)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.hair, lineWidth: 1))
                 .overlay(alignment: .topTrailing) { closeButton }

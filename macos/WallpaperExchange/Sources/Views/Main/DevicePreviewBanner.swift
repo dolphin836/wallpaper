@@ -62,8 +62,9 @@ struct DeviceMockup: View {
             .shadow(color: .black.opacity(0.10), radius: 18, y: 8)
         } else {
             // Bare monitor only — host (e.g. detail hero) supplies its
-            // own background + mode controls.
-            monitor.frame(maxWidth: 560).frame(maxWidth: .infinity)
+            // own background + mode controls. Larger cap so it fills the
+            // hero stage rather than reading as a small thumbnail.
+            monitor.frame(maxWidth: 860).frame(maxWidth: .infinity)
         }
     }
 
