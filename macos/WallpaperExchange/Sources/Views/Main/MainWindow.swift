@@ -152,10 +152,14 @@ struct MainWindow: View {
     // the web's .d3-discover-mesh), the routed content, and the
     // navigation stack for full-page pushes.
     private var detailPane: some View {
-        NavigationStack(path: $path) {
-            ZStack {
-                Color.paper
-                PageMesh()
+        // Mesh + paper sit BEHIND the NavigationStack (not inside its
+        // root) so the palette background shows through pushed
+        // destinations too — collection / weekly detail pages drive the
+        // mesh on tile hover just like the list pages do.
+        ZStack {
+            Color.paper
+            PageMesh()
+            NavigationStack(path: $path) {
                 ContentRouter(
                     sidebar: sidebar,
                     search: committedSearch,
@@ -170,8 +174,7 @@ struct MainWindow: View {
                     onOpenWeeklyArchive: { sidebar = .weekly }
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            .navigationDestination(for: MainRoute.self) { route in
+                .navigationDestination(for: MainRoute.self) { route in
                 switch route {
                 case .detail(let slug, _):
                     DetailPage(slug: slug,
@@ -195,6 +198,7 @@ struct MainWindow: View {
                 case .category(let id, let name, let slug):
                     CategoryFeedView(category: Category(id: id, name: name, slug: slug, sortOrder: nil),
                                      onWallpaper: { wp in path.append(.detail(slug: wp.slug, fallbackID: wp.id)) })
+                }
                 }
             }
         }

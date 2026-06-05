@@ -500,6 +500,17 @@ struct FramedTile: View {
     var onHover: (Bool) -> Void
     @State private var hovering = false
 
+    @State private var manager = WallpaperManager.shared
+    @State private var auth = AuthService.shared
+    @State private var liked: Bool? = nil
+    @State private var favorited: Bool? = nil
+    @State private var downloaded: Bool? = nil
+    @State private var busy = false
+
+    private var isLiked: Bool { liked ?? (wallpaper.isLiked ?? false) }
+    private var isFavorited: Bool { favorited ?? (wallpaper.isFavorited ?? false) }
+    private var isDownloaded: Bool { downloaded ?? (wallpaper.isDownloaded ?? false) }
+
     private var imageURL: URL? {
         let s = wallpaper.previewURL.isEmpty ? wallpaper.thumbURL : wallpaper.previewURL
         return URL(string: s)
@@ -533,6 +544,7 @@ struct FramedTile: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
                 .overlay(alignment: .topLeading) { chips.padding(8) }
+                .overlay(alignment: .bottomTrailing) { actionRail.padding(8) }
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.paper2)
@@ -571,6 +583,64 @@ struct FramedTile: View {
         .padding(.horizontal, 6).padding(.vertical, 3)
         .foregroundStyle(.white)
         .background(Capsule().fill(Color.black.opacity(0.45)))
+    }
+
+    // Hover-revealed action rail — Favorite · Like · Download · Set,
+    // same vocabulary as MainGridTile's rail (the web FramedTile shows
+    // favorite/like/download over the mat on hover).
+    @ViewBuilder private var actionRail: some View {
+        VStack(spacing: 5) {
+            ActionDot(icon: isFavorited ? "star.fill" : "star",
+                      kind: .favorite, active: isFavorited,
+                      help: isFavorited ? "Unfavorite" : "Favorite",
+                      busy: busy, size: 26, action: { Task { await toggleFavorite() } })
+            ActionDot(icon: isLiked ? "heart.fill" : "heart",
+                      kind: .like, active: isLiked,
+                      help: isLiked ? "Unlike" : "Like",
+                      busy: busy, size: 26, action: { Task { await toggleLike() } })
+            ActionDot(icon: isDownloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
+                      kind: .download, active: isDownloaded,
+                      help: isDownloaded ? "Downloaded" : "Download (1 coin)",
+                      busy: busy, size: 26, action: { Task { await doDownload() } })
+            ActionDot(icon: "rectangle.on.rectangle.angled",
+                      kind: .neutral, active: false,
+                      help: "Set as wallpaper",
+                      busy: busy, size: 26, action: { Task { await doSetWallpaper() } })
+        }
+        .opacity(hovering ? 1 : 0)
+        .offset(y: hovering ? 0 : 4)
+        .animation(.easeOut(duration: 0.2), value: hovering)
+        .allowsHitTesting(hovering)
+    }
+
+    private func toggleLike() async {
+        guard auth.isLoggedIn else { auth.login(); return }
+        let prev = isLiked; liked = !prev
+        do {
+            if prev { try await APIClient.shared.unlike(wallpaperID: wallpaper.id) }
+            else    { try await APIClient.shared.like(wallpaperID: wallpaper.id) }
+        } catch { liked = prev }
+    }
+    private func toggleFavorite() async {
+        guard auth.isLoggedIn else { auth.login(); return }
+        let prev = isFavorited; favorited = !prev
+        do {
+            if prev { try await APIClient.shared.unfavorite(wallpaperID: wallpaper.id) }
+            else    { try await APIClient.shared.favorite(wallpaperID: wallpaper.id) }
+        } catch { favorited = prev }
+    }
+    private func doDownload() async {
+        guard auth.isLoggedIn else { auth.login(); return }
+        busy = true; defer { busy = false }
+        do { try await manager.download(wallpaper: wallpaper); downloaded = true; await auth.refreshProfile() } catch {}
+    }
+    private func doSetWallpaper() async {
+        guard auth.isLoggedIn else { auth.login(); return }
+        busy = true; defer { busy = false }
+        do {
+            try await manager.download(wallpaper: wallpaper); downloaded = true
+            try await manager.setAsWallpaper(wallpaper); await auth.refreshProfile()
+        } catch {}
     }
 }
 
