@@ -20,7 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // brand mark. The packaged .app ships the .icns (which already
         // applies), so only override when it's missing.
         if Bundle.main.url(forResource: "AppIcon", withExtension: "icns") == nil,
-           let icon = BrandAsset.logo {
+           let icon = BrandAsset.dockIcon {
             NSApp.applicationIconImage = icon
         }
         setupStatusItem()
