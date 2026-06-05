@@ -1,9 +1,15 @@
 import SwiftUI
 
-// Main Discover content — minimal editorial chrome to match the web's
-// Discover page, just a kicker + filter pills + grid. No marketing
-// headline. Filter pills dispatch to the right query parameters
-// (sort=trending, dynamic_only, ai_only, device_width/height, etc.).
+// Main Discover content — mirrors the web Discover page:
+//   • one unified toolbar: scrollable category chips on the left,
+//     a FILTER dropdown + a size (LG/MD) control on the right
+//   • a static device banner (the Mac's stand-in for the web's
+//     floating device wall) seeded with the first feed wallpaper
+//   • a size-driven wallpaper grid with infinite scroll
+//
+// The single FilterMode fully specifies what is fetched and how it is
+// sorted (no separate sort toggle), matching the web: Latest, Trending,
+// For You (signed-in only), My Device, Live, AI Generated.
 struct DiscoverView: View {
     let search: String
     var onPick: (Wallpaper) -> Void
@@ -12,50 +18,67 @@ struct DiscoverView: View {
     /// Latest.
     var deviceMatch: Bool = false
 
+    @State private var auth = AuthService.shared
     @State private var items: [Wallpaper] = []
     @State private var cursor: Int?
     @State private var hasMore = false
     @State private var loading = false
     @State private var loadError: String?
     @State private var filter: Filter = .latest
+    @State private var sizeMode: SizeMode = .lg
     @State private var categories: [Category] = []
     @State private var selectedCategoryID: Int? = nil
 
     enum Filter: String, CaseIterable, Hashable {
         case latest = "Latest"
         case trending = "Trending"
+        case forYou = "For You"
         case myDevice = "My Device"
         case live = "Live"
-        case ai = "AI"
+        case ai = "AI Generated"
+    }
+
+    enum SizeMode: String, CaseIterable { case md = "MD", lg = "LG" }
+
+    // For You is only meaningful for signed-in users — hide it for
+    // guests so the dropdown doesn't surface an option that immediately
+    // falls back to Latest.
+    private var availableFilters: [Filter] {
+        auth.isLoggedIn
+            ? [.latest, .trending, .forYou, .myDevice, .live, .ai]
+            : [.latest, .trending, .myDevice, .live, .ai]
+    }
+
+    private var gridColumns: [GridItem] {
+        switch sizeMode {
+        case .lg: [GridItem(.adaptive(minimum: 300, maximum: 460), spacing: 14, alignment: .top)]
+        case .md: [GridItem(.adaptive(minimum: 200, maximum: 300), spacing: 12, alignment: .top)]
+        }
     }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
-                // Static MacBook chassis at the top — mirrors the web's
-                // device floating wall (without the orbiting animation).
-                // Picks the first wallpaper of the feed as the featured
-                // screen content; tapping the chassis opens that
-                // wallpaper's detail page.
+                toolbar
+
+                // Static device banner — the Mac's stand-in for the
+                // web's floating device wall (no orbiting animation).
+                // Featured with the first feed wallpaper; tapping opens
+                // its detail page.
                 if let first = items.first {
                     DevicePreviewBanner(featured: first, onPick: { onPick(first) })
                 }
-                categoryRow
-                filterRow
 
                 if loading && items.isEmpty {
                     HStack { Spacer(); ProgressView(); Spacer() }
                         .padding(.top, 60)
-                } else if let err = loadError {
+                } else if let err = loadError, items.isEmpty {
                     errorBanner(err)
                 } else if items.isEmpty {
                     Text(search.isEmpty ? "No wallpapers." : "No wallpapers match.")
                         .font(.sans13).foregroundStyle(Color.muted).padding(.top, 20)
                 } else {
-                    LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: 240, maximum: 360), spacing: 12, alignment: .top)],
-                        spacing: 12
-                    ) {
+                    LazyVGrid(columns: gridColumns, spacing: sizeMode == .lg ? 14 : 12) {
                         ForEach(items) { wp in
                             Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
                                 .buttonStyle(.plain)
@@ -90,16 +113,22 @@ struct DiscoverView: View {
         .onChange(of: selectedCategoryID) { _, _ in Task { await reload() } }
     }
 
-    // Category chip row — All + each category. Matches the web's
-    // .tile-chip family + active = ink/paper inverse.
-    private var categoryRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                categoryChip(label: "All", id: nil)
-                ForEach(categories) { c in
-                    categoryChip(label: c.name, id: c.id)
+    // ── Toolbar: chips (left, scrollable) + filter dropdown + size ──
+    private var toolbar: some View {
+        HStack(spacing: 12) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    categoryChip(label: "All", id: nil)
+                    ForEach(categories) { c in
+                        categoryChip(label: c.name, id: c.id)
+                    }
                 }
+                .padding(.vertical, 2)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            filterMenu
+            sizeControl
         }
     }
 
@@ -116,27 +145,63 @@ struct DiscoverView: View {
         .buttonStyle(.plain)
     }
 
-    private var filterRow: some View {
-        HStack(spacing: 6) {
-            ForEach(Filter.allCases, id: \.self) { f in
-                let isOn = filter == f
-                Button(action: { filter = f }) {
-                    Text(f.rawValue)
-                        .font(.sans12)
-                        .foregroundStyle(isOn ? Color.paper : Color.ink2)
-                        .padding(.horizontal, 12).padding(.vertical, 6)
-                        .background(Capsule().fill(isOn ? Color.ink : Color.paper2))
-                        .overlay(Capsule().stroke(Color.hair, lineWidth: isOn ? 0 : 1))
+    // FILTER dropdown — matches the web's labelled dropdown.
+    private var filterMenu: some View {
+        Menu {
+            ForEach(availableFilters, id: \.self) { f in
+                Button {
+                    filter = f
+                } label: {
+                    if filter == f {
+                        Label(f.rawValue, systemImage: "checkmark")
+                    } else {
+                        Text(f.rawValue)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Text("FILTER")
+                    .font(.mono10).tracking(1.2).foregroundStyle(Color.muted)
+                Text(filter.rawValue)
+                    .font(.sans12).foregroundStyle(Color.ink2)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold)).foregroundStyle(Color.muted)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.paper2))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.hair, lineWidth: 1))
+        }
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+        .fixedSize()
+    }
+
+    // LG / MD size segmented control — matches the web's SizeControls.
+    private var sizeControl: some View {
+        HStack(spacing: 2) {
+            ForEach([SizeMode.md, .lg], id: \.self) { s in
+                let on = sizeMode == s
+                Button(action: { sizeMode = s }) {
+                    Text(s.rawValue)
+                        .font(.system(size: 11, weight: on ? .semibold : .medium, design: .monospaced))
+                        .tracking(0.4)
+                        .foregroundStyle(on ? Color.paper : Color.muted)
+                        .frame(minWidth: 30, minHeight: 26)
+                        .background(
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .fill(on ? Color.ink : Color.clear)
+                        )
                 }
                 .buttonStyle(.plain)
             }
-            Spacer()
-            // Total count chip on the right.
-            if !items.isEmpty {
-                Text("\(items.count) shown")
-                    .font(.mono10).tracking(0.6).foregroundStyle(Color.muted)
-            }
         }
+        .padding(3)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.paper2))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.hair, lineWidth: 1))
+        .fixedSize()
     }
 
     private func errorBanner(_ msg: String) -> some View {
@@ -158,7 +223,32 @@ struct DiscoverView: View {
 
     private func reload() async {
         items = []; cursor = nil; hasMore = false; loadError = nil
-        await loadMore()
+        if filter == .forYou {
+            await loadForYou()
+        } else {
+            await loadMore()
+        }
+    }
+
+    // For You is a single-shot top-N feed. On empty (cold-start users)
+    // fall back to Latest so the page still shows content — the filter
+    // change re-triggers reload via onChange.
+    private func loadForYou() async {
+        guard !loading else { return }
+        loading = true
+        defer { loading = false }
+        do {
+            let list = try await APIClient.shared.fetchForYou(limit: 30)
+            if list.isEmpty {
+                filter = .latest
+                return
+            }
+            items = list
+            cursor = nil
+            hasMore = false
+        } catch {
+            loadError = error.localizedDescription
+        }
     }
 
     private func loadMore() async {

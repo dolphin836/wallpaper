@@ -134,6 +134,18 @@ actor APIClient {
         return resp.data
     }
 
+    // Personalised "For You" feed — a single-shot top-N list (no cursor
+    // pagination), signed-in only. Mirrors the web's GET
+    // /wallpapers/for-you, which returns a plain array in `data`.
+    func fetchForYou(limit: Int = 30) async throws -> [Wallpaper] {
+        let items: [URLQueryItem] = [
+            .init(name: "limit", value: String(limit)),
+            .init(name: "exclude_video", value: "true"),
+        ]
+        let resp: APIResponse<[Wallpaper]> = try await request("/wallpapers/for-you", queryItems: items)
+        return resp.data
+    }
+
     func fetchMyDownloads(
         cursor: Int? = nil,
         limit: Int = 20,
