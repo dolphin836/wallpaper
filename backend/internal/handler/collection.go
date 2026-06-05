@@ -452,5 +452,21 @@ func (h *CollectionHandler) ListUserCollections(w http.ResponseWriter, r *http.R
 		response.Error(w, http.StatusInternalServerError, ec)
 		return
 	}
+	// Attach up to 3 preview tiles per collection (same as the public
+	// list) so the profile Collections grid can render covers + drive
+	// the page-mesh tint. Non-fatal on failure.
+	if len(resp.Items) > 0 {
+		ids := make([]int64, len(resp.Items))
+		for i, c := range resp.Items {
+			ids[i] = c.ID
+		}
+		if tiles, err := h.collectionSvc.RecentTiles(r.Context(), ids); err != nil {
+			slog.WarnContext(r.Context(), "profile collection recent_tiles lookup failed", "error", err)
+		} else {
+			for i := range resp.Items {
+				resp.Items[i].RecentTiles = tiles[resp.Items[i].ID]
+			}
+		}
+	}
 	response.OK(w, resp)
 }

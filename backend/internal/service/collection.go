@@ -103,7 +103,10 @@ func (s *CollectionService) List(ctx context.Context, cursor int64, limit int, u
 		limit = 20
 	}
 	fetchLimit := limit + 1
-	items, err := s.collectionRepo.List(ctx, cursor, fetchLimit, userID, kind)
+	// The public library only ever shows public collections — pass 0 as
+	// the visibility user so a signed-in viewer's own private collections
+	// don't leak into the shared list (they live on their profile).
+	items, err := s.collectionRepo.List(ctx, cursor, fetchLimit, 0, kind)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to list collections", "error", err)
 		return nil, errcode.ErrInternal
@@ -116,7 +119,7 @@ func (s *CollectionService) List(ctx context.Context, cursor int64, limit int, u
 	if hasMore && len(items) > 0 {
 		nextCursor = items[len(items)-1].ID
 	}
-	total, err := s.collectionRepo.Count(ctx, userID, kind)
+	total, err := s.collectionRepo.Count(ctx, 0, kind)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to count collections", "error", err)
 		total = 0 // non-fatal; SPA will degrade to cursor-only pagination
@@ -134,6 +137,12 @@ func (s *CollectionService) Update(ctx context.Context, id, userID int64, title,
 		return errcode.ErrNotFound
 	}
 	if c.UserID != userID {
+		return errcode.ErrForbidden
+	}
+	// Editor-curated / weekly-generated collections (kind != 0) are not
+	// user-editable from the detail page — admins manage them in the
+	// back office.
+	if c.Kind != 0 {
 		return errcode.ErrForbidden
 	}
 	c.Title = title

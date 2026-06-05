@@ -130,7 +130,7 @@ func (r *CollectionRepo) List(ctx context.Context, cursor int64, limit int, user
 
 func (r *CollectionRepo) ListByUser(ctx context.Context, ownerID int64, cursor int64, limit int) ([]model.Collection, error) {
 	query := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, created_at, updated_at").
+		Select("id, slug, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, kind, accent_color, created_at, updated_at").
 		// kind = 0 keeps this to the user's own hand-made collections,
 		// excluding editor-curated / weekly-generated themes (kind = 1).
 		Where("user_id = ? AND is_public = ? AND kind = ?", ownerID, true, 0)
