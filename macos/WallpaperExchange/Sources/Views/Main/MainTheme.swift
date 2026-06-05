@@ -85,6 +85,9 @@ enum WindowChrome {
     /// Corner radius of the sidebar card and the detail surface's
     /// top-leading corner.
     static let radius: CGFloat = 14
+    /// Uniform gap between the window edges and the floating detail
+    /// modal panel (web-style inset overlay).
+    static let modalInset: CGFloat = 24
     /// Top padding for the first row of content measured from its own
     /// surface top (sidebar logo, detail-pane hero). The top bar is
     /// already accounted for by the layout, so this is just breathing

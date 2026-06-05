@@ -339,9 +339,14 @@ struct DetailModalOverlay: View {
                 .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.hair, lineWidth: 1))
                 .overlay(alignment: .topTrailing) { closeButton }
                 .shadow(color: .black.opacity(0.40), radius: 48, x: 0, y: 24)
-                .padding(.top, 40)
-                .padding(.bottom, 28)
-                .padding(.horizontal, 40)
+                // Float the panel with a uniform gap on every side. The
+                // whole window tree ignores the safe area, so the top must
+                // also clear the floating title bar (WindowChrome.topBar) —
+                // that keeps the visible gap below the chrome equal to the
+                // side gaps in both windowed and full-screen modes.
+                .padding(.top, WindowChrome.topBar + WindowChrome.modalInset)
+                .padding(.bottom, WindowChrome.modalInset)
+                .padding(.horizontal, WindowChrome.modalInset)
         }
     }
 
