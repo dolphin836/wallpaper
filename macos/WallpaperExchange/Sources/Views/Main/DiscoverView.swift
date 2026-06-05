@@ -127,8 +127,9 @@ struct DiscoverView: View {
     // ── Toolbar: chips (left, scrollable) + filter dropdown + size ──
     private var toolbar: some View {
         // One row: chips on the left, filter + size on the right. No
-        // ScrollView — it was swallowing the chip clicks on macOS. Chips
-        // that don't fit are clipped and faded out at the trailing edge.
+        // ScrollView (it swallowed chip clicks on macOS). Overflow chips
+        // are clipped and faded with a NON-interactive overlay gradient
+        // (a .mask can block hit-testing — this never does).
         HStack(spacing: 16) {
             HStack(spacing: 8) {
                 categoryChip(label: "All", id: nil)
@@ -139,35 +140,33 @@ struct DiscoverView: View {
             .fixedSize(horizontal: true, vertical: false)
             .frame(maxWidth: .infinity, alignment: .leading)
             .clipped()
-            .mask(
-                LinearGradient(
-                    stops: [
-                        .init(color: .black, location: 0),
-                        .init(color: .black, location: 0.9),
-                        .init(color: .black.opacity(0), location: 1),
-                    ],
-                    startPoint: .leading, endPoint: .trailing
-                )
-            )
+            .overlay(alignment: .trailing) {
+                LinearGradient(colors: [Color.paper.opacity(0), Color.paper],
+                               startPoint: .leading, endPoint: .trailing)
+                    .frame(width: 36)
+                    .allowsHitTesting(false)
+            }
 
             filterMenu
             sizeControl
         }
+        // Sit above the device banner / feed so nothing can intercept
+        // the chip clicks.
+        .zIndex(1)
     }
 
     private func categoryChip(label: String, id: Int?) -> some View {
         let active = selectedCategoryID == id
-        // onTapGesture (not Button) — a plain Button nested in a
-        // horizontal ScrollView doesn't reliably fire clicks on macOS.
-        return Text(label)
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(active ? Color.paper : Color.ink2)
-            .padding(.horizontal, 16).padding(.vertical, 6)
-            .background(Capsule().fill(active ? Color.ink : Color.paper))
-            .overlay(Capsule().stroke(active ? Color.ink : Color.hair, lineWidth: 1))
-            .contentShape(Capsule())
-            .onTapGesture { selectedCategoryID = id }
-            .pointerCursor()
+        return Button { selectedCategoryID = id } label: {
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(active ? Color.paper : Color.ink2)
+                .padding(.horizontal, 16).padding(.vertical, 6)
+                .background(Capsule().fill(active ? Color.ink : Color.paper))
+                .overlay(Capsule().stroke(active ? Color.ink : Color.hair, lineWidth: 1))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     // FILTER dropdown — matches the web's labelled dropdown.
