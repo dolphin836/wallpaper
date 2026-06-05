@@ -145,15 +145,17 @@ struct DiscoverView: View {
 
     private func categoryChip(label: String, id: Int?) -> some View {
         let active = selectedCategoryID == id
-        return Button(action: { selectedCategoryID = id }) {
-            Text(label)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(active ? Color.paper : Color.ink2)
-                .padding(.horizontal, 16).padding(.vertical, 6)
-                .background(Capsule().fill(active ? Color.ink : Color.paper))
-                .overlay(Capsule().stroke(active ? Color.ink : Color.hair, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
+        // onTapGesture (not Button) — a plain Button nested in a
+        // horizontal ScrollView doesn't reliably fire clicks on macOS.
+        return Text(label)
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(active ? Color.paper : Color.ink2)
+            .padding(.horizontal, 16).padding(.vertical, 6)
+            .background(Capsule().fill(active ? Color.ink : Color.paper))
+            .overlay(Capsule().stroke(active ? Color.ink : Color.hair, lineWidth: 1))
+            .contentShape(Capsule())
+            .onTapGesture { selectedCategoryID = id }
+            .pointerCursor()
     }
 
     // FILTER dropdown — matches the web's labelled dropdown.
