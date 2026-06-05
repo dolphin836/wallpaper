@@ -126,25 +126,32 @@ struct DiscoverView: View {
 
     // ── Toolbar: chips (left, scrollable) + filter dropdown + size ──
     private var toolbar: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Filter + size on their own right-aligned row.
-            HStack(spacing: 10) {
-                Spacer(minLength: 0)
-                filterMenu
-                sizeControl
-            }
-            // Category chips get their own full-width scroll row — when
-            // they shared an HStack with the controls the ScrollView's
-            // hit region was mis-sized and chips weren't clickable.
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    categoryChip(label: "All", id: nil)
-                    ForEach(categories) { c in
-                        categoryChip(label: c.name, id: c.id)
-                    }
+        // One row: chips on the left, filter + size on the right. No
+        // ScrollView — it was swallowing the chip clicks on macOS. Chips
+        // that don't fit are clipped and faded out at the trailing edge.
+        HStack(spacing: 16) {
+            HStack(spacing: 8) {
+                categoryChip(label: "All", id: nil)
+                ForEach(categories) { c in
+                    categoryChip(label: c.name, id: c.id)
                 }
-                .padding(.vertical, 2)
             }
+            .fixedSize(horizontal: true, vertical: false)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .clipped()
+            .mask(
+                LinearGradient(
+                    stops: [
+                        .init(color: .black, location: 0),
+                        .init(color: .black, location: 0.9),
+                        .init(color: .black.opacity(0), location: 1),
+                    ],
+                    startPoint: .leading, endPoint: .trailing
+                )
+            )
+
+            filterMenu
+            sizeControl
         }
     }
 
