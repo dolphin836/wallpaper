@@ -1,109 +1,190 @@
 import SwiftUI
 import AppKit
 
-// Simplified discover device preview. The web mounts a floating wall
-// (DeviceFloatingWall) animating wallpapers around a device chassis;
-// here we render a single static MacBook chassis at the top of
-// Discover with the first matched / featured wallpaper rendered
-// inside its screen + a small caption pulling the user's display
-// metrics. Clicking the chassis opens that wallpaper's detail.
+// Discover device preview — mirrors the web's device mockup: a monitor
+// (bezel + stand) sitting on a soft glass card tinted by the featured
+// wallpaper, with Plain / Home / Lock preview-mode pills underneath.
+// The featured wallpaper updates as the user hovers grid tiles.
 struct DevicePreviewBanner: View {
     let featured: Wallpaper?
     var onPick: () -> Void
 
-    private var screenSize: (width: Int, height: Int) {
-        let scr = NSScreen.main ?? NSScreen.screens.first!
-        let dpr = Int(scr.backingScaleFactor)
-        return (Int(scr.frame.width) * dpr, Int(scr.frame.height) * dpr)
-    }
-
     var body: some View {
-        HStack(alignment: .center, spacing: 24) {
-            // Left rail — kicker + caption about the device.
-            VStack(alignment: .leading, spacing: 8) {
-                Kicker(text: "Tailored for your screen")
-                Text("Your Mac · \(screenSize.width)×\(screenSize.height)")
-                    .font(.display24).foregroundStyle(Color.ink)
-                Text("Wallpapers below ship variants sized for this display. Hover any tile for one-click set.")
-                    .font(.sans13).foregroundStyle(Color.muted)
-                    .frame(maxWidth: 360, alignment: .leading)
-            }
-
-            Spacer()
-
-            // Right — MacBook chassis with featured wallpaper inside.
-            Button(action: onPick) {
-                MacBookOutlinePreview(wallpaper: featured)
-                    .frame(width: 360, height: 230)
-            }
-            .buttonStyle(.plain)
-            .disabled(featured == nil)
+        Button(action: onPick) {
+            DeviceMockup(wallpaper: featured)
         }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.paper.opacity(0.55))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16).stroke(Color.hair, lineWidth: 1)
-        )
+        .buttonStyle(.plain)
+        .disabled(featured == nil)
+        .frame(maxWidth: .infinity)
     }
 }
 
-// Lightweight MacBook chassis — bezel + screen + base bar. Wallpaper
-// fills the screen rect. Not a full DeviceMockup — just enough chrome
-// for the banner to read as "your laptop".
-struct MacBookOutlinePreview: View {
+// Web-parity monitor mockup. The screen wallpaper is cover-filled and
+// hard-clipped to the screen rect, so a large image can never bleed
+// past the bezel.
+struct DeviceMockup: View {
     let wallpaper: Wallpaper?
+    @State private var mode: Mode = .plain
     @State private var hover = false
 
+    enum Mode: String, CaseIterable { case plain = "Plain", home = "Home", lock = "Lock" }
+
+    private var deviceAspect: CGFloat {
+        guard let s = NSScreen.main ?? NSScreen.screens.first, s.frame.height > 0 else { return 16.0 / 10.0 }
+        return s.frame.width / s.frame.height
+    }
+
     var body: some View {
-        GeometryReader { proxy in
-            let w = proxy.size.width
-            let h = proxy.size.height
-            let bezel: CGFloat = 8
-            let baseH: CGFloat = 10
-            let screenH = h - baseH - 4
-            VStack(spacing: 4) {
-                // Screen
+        VStack(spacing: 14) {
+            monitor
+                .frame(maxWidth: 520)
+                .scaleEffect(hover ? 1.005 : 1.0)
+                .animation(.easeOut(duration: 0.2), value: hover)
+                .onHover { hover = $0 }
+            modeToggles
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity)
+        .background(glassBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.25), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: .black.opacity(0.10), radius: 18, y: 8)
+    }
+
+    // Monitor: bezel + clipped screen, then a stand neck + foot.
+    private var monitor: some View {
+        VStack(spacing: 0) {
+            screen
+                .aspectRatio(deviceAspect, contentMode: .fit)
+                .shadow(color: .black.opacity(0.28), radius: 14, y: 8)
+
+            // Stand neck (trapezoid) + foot bar.
+            Trapezoid()
+                .fill(LinearGradient(colors: [Color(white: 0.42), Color(white: 0.30)],
+                                     startPoint: .top, endPoint: .bottom))
+                .frame(width: 86, height: 24)
+            Capsule()
+                .fill(LinearGradient(colors: [Color(white: 0.50), Color(white: 0.34)],
+                                     startPoint: .top, endPoint: .bottom))
+                .frame(width: 210, height: 9)
+        }
+    }
+
+    private var screen: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(Color(red: 0.16, green: 0.17, blue: 0.19)) // bezel
+            .overlay {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 6).fill(Color(red: 0.12, green: 0.12, blue: 0.14))
+                    Color.black
                     if let wp = wallpaper {
                         CachedAsyncImage(url: URL(string: wp.displayURL)) { img in
                             img.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: {
                             Color(hex: wp.dominantColor ?? "#bbb").opacity(0.55)
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 3))
-                        .padding(bezel)
                     } else {
-                        Image(systemName: "rectangle.dashed")
-                            .foregroundStyle(Color.muted)
+                        Image(systemName: "rectangle.on.rectangle.angled").foregroundStyle(Color.muted)
                     }
-                    // Camera dot in the top bezel
-                    Circle().fill(Color(red: 0.04, green: 0.04, blue: 0.05))
-                        .frame(width: 3, height: 3)
-                        .offset(y: -screenH / 2 + bezel / 2)
+                    if mode == .home { homeOverlay }
+                    if mode == .lock { lockOverlay }
                 }
-                .frame(height: screenH)
-                // Clip the whole screen so a large (cover-filled) wallpaper
-                // can never bleed past the device's screen rect.
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-
-                // Base bar with notch.
-                ZStack(alignment: .top) {
-                    RoundedRectangle(cornerRadius: 2).fill(Color(red: 0.78, green: 0.78, blue: 0.80))
-                    Capsule().fill(Color(red: 0.58, green: 0.58, blue: 0.60))
-                        .frame(width: w * 0.18, height: 3)
-                        .offset(y: -1)
-                }
-                .frame(width: w + 16, height: baseH)
-                .padding(.horizontal, -8)
+                // Cover-fill is hard-clipped to the screen rect → no overflow.
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .padding(7)
             }
-            .scaleEffect(hover ? 1.01 : 1.0)
-            .shadow(color: Color.black.opacity(hover ? 0.22 : 0.12), radius: hover ? 18 : 10, x: 0, y: hover ? 10 : 6)
-            .animation(.easeOut(duration: 0.2), value: hover)
-            .onHover { hover = $0 }
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    // Plain / Home / Lock segmented pills.
+    private var modeToggles: some View {
+        HStack(spacing: 2) {
+            ForEach(Mode.allCases, id: \.self) { m in
+                let on = mode == m
+                Button { mode = m } label: {
+                    Text(m.rawValue.uppercased())
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .tracking(1.2)
+                        .foregroundStyle(on ? Color.paper : Color.ink2)
+                        .padding(.horizontal, 16).padding(.vertical, 7)
+                        .background(Capsule().fill(on ? Color.ink : Color.clear))
+                }
+                .buttonStyle(.plain)
+            }
         }
+        .padding(4)
+        .background(Capsule().fill(.thinMaterial))
+        .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
+    }
+
+    // Soft glass card tinted by a blurred copy of the featured wallpaper.
+    private var glassBackground: some View {
+        ZStack {
+            if let wp = wallpaper {
+                CachedAsyncImage(url: URL(string: wp.displayURL)) { img in
+                    img.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: { Color.clear }
+                .blur(radius: 60)
+                .opacity(0.55)
+            }
+            Rectangle().fill(.ultraThinMaterial)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    // Faint macOS home layer — menubar strip + a dock of coloured dots.
+    private var homeOverlay: some View {
+        VStack {
+            Rectangle().fill(.ultraThinMaterial).frame(height: 14)
+            Spacer()
+            HStack(spacing: 6) {
+                ForEach(0..<6, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Color(hue: Double(i) / 6.0, saturation: 0.55, brightness: 0.9))
+                        .frame(width: 18, height: 18)
+                }
+            }
+            .padding(6)
+            .background(Capsule().fill(.ultraThinMaterial))
+            .padding(.bottom, 8)
+        }
+    }
+
+    // Lock layer — large clock + date over a dim scrim.
+    private var lockOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.18)
+            VStack(spacing: 2) {
+                Text(Self.clock).font(.system(size: 34, weight: .semibold, design: .rounded))
+                Text(Self.day).font(.system(size: 11, weight: .medium))
+            }
+            .foregroundStyle(.white)
+            .shadow(radius: 6)
+            .padding(.top, 22)
+            .frame(maxHeight: .infinity, alignment: .top)
+        }
+    }
+
+    private static var clock: String {
+        let f = DateFormatter(); f.dateFormat = "HH:mm"; return f.string(from: Date())
+    }
+    private static var day: String {
+        let f = DateFormatter(); f.dateFormat = "EEEE, MMM d"; return f.string(from: Date())
+    }
+}
+
+// Monitor stand neck — narrower at the top.
+private struct Trapezoid: Shape {
+    func path(in r: CGRect) -> Path {
+        let inset = r.width * 0.30
+        var p = Path()
+        p.move(to: CGPoint(x: r.minX + inset, y: r.minY))
+        p.addLine(to: CGPoint(x: r.maxX - inset, y: r.minY))
+        p.addLine(to: CGPoint(x: r.maxX, y: r.maxY))
+        p.addLine(to: CGPoint(x: r.minX, y: r.maxY))
+        p.closeSubpath()
+        return p
     }
 }
