@@ -517,23 +517,23 @@ struct FramedTile: View {
 
     var body: some View {
         Button(action: onTap) {
+            // Mat chamber — Color.clear establishes the 3:4 box, the fill
+            // image rides in the overlay, and the clipShape on the whole
+            // thing bounds the overflow (so big images don't leak past
+            // the frame). Chips overlay on top, inside the mat.
             Color.clear
                 .aspectRatio(3.0 / 4.0, contentMode: .fit)
                 .overlay {
-                    ZStack(alignment: .topLeading) {
-                        CachedAsyncImage(url: imageURL) { img in
-                            img.resizable().aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            (wallpaper.dominantColor.map { Color(hex: $0) } ?? Color.paper2).opacity(0.5)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .scaleEffect(hovering ? 1.04 : 1.0)
-                        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
-
-                        chips.padding(8)
+                    CachedAsyncImage(url: imageURL) { img in
+                        img.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        (wallpaper.dominantColor.map { Color(hex: $0) } ?? Color.paper2).opacity(0.5)
                     }
-                    .padding(12)
+                    .scaleEffect(hovering ? 1.04 : 1.0)
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                .overlay(alignment: .topLeading) { chips.padding(8) }
+                .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.paper2)
                 )
