@@ -126,32 +126,31 @@ struct DiscoverView: View {
 
     // ── Toolbar: chips (left, scrollable) + filter dropdown + size ──
     private var toolbar: some View {
-        // One row: chips on the left, filter + size on the right. No
-        // ScrollView (it swallowed chip clicks on macOS). Overflow chips
-        // are clipped and faded with a NON-interactive overlay gradient
-        // (a .mask can block hit-testing — this never does).
+        // One row: [All (pinned)] [scrollable categories] … [filter][size].
+        // The category strip is bounded to the available width by the
+        // ScrollView, so it can't push the page wider than the window
+        // (which was eating the right margin in windowed mode). When the
+        // categories all fit (e.g. full-screen), the strip just doesn't
+        // scroll. "All" stays pinned at the front, outside the scroll.
         HStack(spacing: 16) {
             HStack(spacing: 8) {
                 categoryChip(label: "All", id: nil)
-                ForEach(categories) { c in
-                    categoryChip(label: c.name, id: c.id)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(categories) { c in
+                            categoryChip(label: c.name, id: c.id)
+                        }
+                    }
+                    .padding(.vertical, 2)
                 }
             }
-            .fixedSize(horizontal: true, vertical: false)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .clipped()
-            .overlay(alignment: .trailing) {
-                LinearGradient(colors: [Color.paper.opacity(0), Color.paper],
-                               startPoint: .leading, endPoint: .trailing)
-                    .frame(width: 36)
-                    .allowsHitTesting(false)
-            }
 
             filterMenu
             sizeControl
         }
-        // Sit above the device banner / feed so nothing can intercept
-        // the chip clicks.
+        // Sit above the device banner / feed so nothing layered below can
+        // intercept the chip taps.
         .zIndex(1)
     }
 
