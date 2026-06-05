@@ -69,7 +69,8 @@ struct WeeklyArchiveView: View {
                         Text("\(Self.fmtDate(e.year, e.week)) · \(String(e.year))")
                             .font(.mono10).tracking(0.4).foregroundStyle(Color.muted)
                     }
-                    .padding(.horizontal, 10).padding(.vertical, 9)
+                    .padding(.horizontal, 10).padding(.vertical, 10)
+                    .frame(maxWidth: .infinity)
                     .background(RoundedRectangle(cornerRadius: 8).fill(on ? Color.accent.opacity(0.10) : .clear))
                     .contentShape(Rectangle())
                 }
@@ -83,32 +84,36 @@ struct WeeklyArchiveView: View {
             if let s = selected {
                 Button { onOpenWeek(s.year, s.week) } label: {
                     VStack(alignment: .leading, spacing: 14) {
-                        ZStack(alignment: .bottomLeading) {
-                            CachedAsyncImage(url: URL(string: s.coverURL)) { img in
-                                img.resizable().aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Color(hex: s.dominantColor ?? "#bbb").opacity(0.5)
+                        // Color.clear sets a strict 16:10 box; the cover
+                        // fills it as an overlay and is clipped, so a
+                        // large image can't overflow the panel.
+                        Color.clear
+                            .aspectRatio(16.0 / 10.0, contentMode: .fit)
+                            .overlay {
+                                CachedAsyncImage(url: URL(string: s.coverURL)) { img in
+                                    img.resizable().aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    Color(hex: s.dominantColor ?? "#bbb").opacity(0.5)
+                                }
                             }
-                            .aspectRatio(16.0 / 10.0, contentMode: .fill)
-                            .frame(maxWidth: .infinity)
-                            .clipped()
-
-                            LinearGradient(colors: [.clear, .black.opacity(0.55)],
-                                           startPoint: .center, endPoint: .bottom)
-                                .allowsHitTesting(false)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("ISSUE").font(.kicker).tracking(2.4).foregroundStyle(.white.opacity(0.85))
-                                Text("№ \(String(format: "%02d", s.week))")
-                                    .font(.system(size: 30, weight: .semibold, design: .serif))
-                                    .foregroundStyle(.white)
-                                Text("\(Self.fmtDate(s.year, s.week)) \(String(s.year)) · \(s.count) PICKS")
-                                    .font(.mono11).tracking(0.6).foregroundStyle(.white.opacity(0.85))
+                            .overlay {
+                                LinearGradient(colors: [.clear, .black.opacity(0.55)],
+                                               startPoint: .center, endPoint: .bottom)
+                                    .allowsHitTesting(false)
                             }
-                            .padding(20)
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.hair, lineWidth: 1))
+                            .overlay(alignment: .bottomLeading) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("ISSUE").font(.kicker).tracking(2.4).foregroundStyle(.white.opacity(0.85))
+                                    Text("№ \(String(format: "%02d", s.week))")
+                                        .font(.system(size: 30, weight: .semibold, design: .serif))
+                                        .foregroundStyle(.white)
+                                    Text("\(Self.fmtDate(s.year, s.week)) \(String(s.year)) · \(s.count) PICKS")
+                                        .font(.mono11).tracking(0.6).foregroundStyle(.white.opacity(0.85))
+                                }
+                                .padding(20)
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.hair, lineWidth: 1))
 
                         HStack(spacing: 8) {
                             Text("View all \(s.count) picks")

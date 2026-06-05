@@ -43,10 +43,7 @@ struct CollectionsListView: View {
                         }
                     }
                     .padding(.top, 28)
-                    if hasMore {
-                        HStack { Spacer(); ProgressView().controlSize(.small).opacity(loading ? 1 : 0); Spacer() }
-                            .frame(height: 24).padding(.top, 16)
-                    }
+                    collectionsFooter.padding(.top, 20)
                 }
             }
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
@@ -87,6 +84,32 @@ struct CollectionsListView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var collectionsFooter: some View {
+        Group {
+            if loading {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Loading more…").font(.sans12).foregroundStyle(Color.muted)
+                }
+            } else if hasMore && filter == .all {
+                Button { Task { await loadMore() } } label: {
+                    Text("Load more")
+                        .font(.system(size: 12, weight: .medium)).foregroundStyle(Color.ink2)
+                        .padding(.horizontal, 18).padding(.vertical, 8)
+                        .background(Capsule().fill(Color.paper2))
+                        .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            } else if !visible.isEmpty {
+                Text("\(visible.count) collection\(visible.count == 1 ? "" : "s") · end")
+                    .font(.mono11).tracking(0.5).foregroundStyle(Color.muted)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func filterChip(_ label: String, on: Bool, action: @escaping () -> Void) -> some View {
@@ -144,22 +167,25 @@ struct CollectionTileCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ZStack {
-                Color.paper2
-                if let url = coverURL {
-                    CachedAsyncImage(url: url) { img in
-                        img.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: { Color.paper2 }
-                } else {
-                    Text("No cover yet").font(.mono10).foregroundStyle(Color.muted)
+            // Color.clear defines the 1:1 square from the column width;
+            // the cover fills it as an overlay and is clipped to the
+            // square so its intrinsic size can't leak and blow up the
+            // tile.
+            Color.clear
+                .aspectRatio(1, contentMode: .fit)
+                .overlay {
+                    if let url = coverURL {
+                        CachedAsyncImage(url: url) { img in
+                            img.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: { Color.paper2 }
+                    } else {
+                        Color.paper2.overlay(Text("No cover yet").font(.mono10).foregroundStyle(Color.muted))
+                    }
                 }
-            }
-            .aspectRatio(1, contentMode: .fit)
-            .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.hair, lineWidth: 1))
-            .scaleEffect(hover ? 1.01 : 1.0)
-            .shadow(color: .black.opacity(hover ? 0.16 : 0.06), radius: hover ? 16 : 8, x: 0, y: hover ? 8 : 4)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.hair, lineWidth: 1))
+                .scaleEffect(hover ? 1.01 : 1.0)
+                .shadow(color: .black.opacity(hover ? 0.16 : 0.06), radius: hover ? 16 : 8, x: 0, y: hover ? 8 : 4)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(kickerText.uppercased())
