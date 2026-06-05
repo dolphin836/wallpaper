@@ -57,6 +57,20 @@ struct AccountView: View {
             await prefetchCounts()
         }
         .onChange(of: initialTab) { _, new in tab = new }
+        // Tabs with no imagery (Settings / Ledger) fall back to the warm
+        // brand mesh; image tabs set their base palette via onPalette.
+        .onChange(of: tab) { _, new in if new == .settings { PaletteEnv.shared.resetToDefaults() } }
+        .onDisappear { PaletteEnv.shared.resetToDefaults() }
+    }
+
+    // Drive the page-mesh background. A nil palette/dominant means the
+    // tab has nothing to tint from → fall back to the brand mesh.
+    private func applyMesh(_ palette: String?, _ dominant: String?) {
+        if palette == nil && (dominant == nil || dominant?.isEmpty == true) {
+            PaletteEnv.shared.resetToDefaults()
+        } else {
+            PaletteEnv.shared.apply(palette: palette, dominant: dominant)
+        }
     }
 
     private func loadProfile() async {
@@ -128,12 +142,13 @@ struct AccountView: View {
             AccountSettingsTab()
         case .uploads:
             AccountUploadsTab(username: username, isOwner: isOwner,
-                              onWallpaper: onWallpaper, onCount: { counts[.uploads] = $0 })
+                              onWallpaper: onWallpaper, onCount: { counts[.uploads] = $0 },
+                              onPalette: applyMesh)
         case .collections:
             PagedCollectionGrid(
                 headLabel: "CREATED",
                 fetch: { cursor, limit in try await APIClient.shared.fetchUserCollections(idOrUsername: username, cursor: cursor, limit: limit) },
-                onCollection: onCollection, onCount: { counts[.collections] = $0 }
+                onCollection: onCollection, onCount: { counts[.collections] = $0 }, onPalette: applyMesh
             ).id("collections-\(username)")
         case .favorites:
             wallpaperList(.favorites, head: "FAVORITES", empty: "No favorites yet.",
@@ -151,7 +166,7 @@ struct AccountView: View {
                           fetch: { c, l in try await APIClient.shared.fetchUserDownloads(username: username, cursor: c, limit: l) },
                           toggle: { v in Task { try? await APIClient.shared.updatePrivacy(downloadsPublic: v); await auth.refreshProfile() } })
         case .ledger:
-            LedgerTab(onCount: { counts[.ledger] = $0 })
+            LedgerTab(onCount: { counts[.ledger] = $0 }, onPalette: applyMesh)
         }
     }
 
@@ -164,7 +179,7 @@ struct AccountView: View {
             headLabel: head, emptyText: empty,
             privacyNoun: isOwner ? noun : nil, privacyIsPublic: isPublic,
             onTogglePrivacy: toggle,
-            fetch: fetch, onWallpaper: onWallpaper, onCount: { counts[t] = $0 }
+            fetch: fetch, onWallpaper: onWallpaper, onCount: { counts[t] = $0 }, onPalette: applyMesh
         ).id("\(noun)-\(username)")
     }
 }
@@ -403,6 +418,7 @@ struct AccountUploadsTab: View {
     let isOwner: Bool
     var onWallpaper: (Wallpaper) -> Void
     var onCount: (Int) -> Void
+    var onPalette: (String?, String?) -> Void = { _, _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 36) {
@@ -416,7 +432,7 @@ struct AccountUploadsTab: View {
             PagedWallpaperGrid(
                 headLabel: "PUBLISHED", emptyText: "No published wallpapers yet.",
                 fetch: { cursor, limit in try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, limit: limit, status: "1") },
-                onWallpaper: onWallpaper, onCount: onCount
+                onWallpaper: onWallpaper, onCount: onCount, onPalette: onPalette
             ).id("pub-\(username)")
         }
     }
@@ -433,6 +449,7 @@ struct PagedWallpaperGrid: View {
     let fetch: (_ cursor: Int?, _ limit: Int) async throws -> PaginatedData<Wallpaper>
     var onWallpaper: (Wallpaper) -> Void
     var onCount: (Int) -> Void = { _ in }
+    var onPalette: (String?, String?) -> Void = { _, _ in }
 
     @State private var items: [Wallpaper] = []
     @State private var page = 1
@@ -471,6 +488,9 @@ struct PagedWallpaperGrid: View {
             }
         }
         .task { if !loaded { await loadPage(1) } }
+        // Re-apply this tab's base mesh tint when it reappears (e.g.
+        // switching back to an already-loaded tab).
+        .onAppear { if loaded { onPalette(items.first?.colorPalette, items.first?.dominantColor) } }
     }
 
     private func loadPage(_ p: Int) async {
@@ -481,6 +501,7 @@ struct PagedWallpaperGrid: View {
             items = data.items
             total = data.total ?? data.items.count
             onCount(total)
+            onPalette(items.first?.colorPalette, items.first?.dominantColor)
             if data.hasMore, let nc = data.nextCursor, nc > 0 {
                 if cursors.count == p { cursors.append(nc) } else if p < cursors.count { cursors[p] = nc }
             }
@@ -495,6 +516,7 @@ struct PagedCollectionGrid: View {
     let fetch: (_ cursor: Int?, _ limit: Int) async throws -> PaginatedData<CollectionItem>
     var onCollection: (CollectionItem) -> Void
     var onCount: (Int) -> Void = { _ in }
+    var onPalette: (String?, String?) -> Void = { _, _ in }
 
     @State private var items: [CollectionItem] = []
     @State private var page = 1
@@ -505,6 +527,7 @@ struct PagedCollectionGrid: View {
 
     private let pageSize = 12
     private var totalPages: Int { total > 0 ? Int(ceil(Double(total) / Double(pageSize))) : max(cursors.count, 1) }
+    private var baseTint: String? { items.first?.recentTiles?.first?.dominantColor ?? items.first?.accentColor }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -523,6 +546,7 @@ struct PagedCollectionGrid: View {
             }
         }
         .task { if !loaded { await loadPage(1) } }
+        .onAppear { if loaded { onPalette(nil, baseTint) } }
     }
 
     private func loadPage(_ p: Int) async {
@@ -533,6 +557,7 @@ struct PagedCollectionGrid: View {
             items = data.items
             total = data.total ?? data.items.count
             onCount(total)
+            onPalette(nil, baseTint)
             if data.hasMore, let nc = data.nextCursor, nc > 0 {
                 if cursors.count == p { cursors.append(nc) } else if p < cursors.count { cursors[p] = nc }
             }
@@ -544,6 +569,7 @@ struct PagedCollectionGrid: View {
 // ─── Coin ledger tab ─────────────────────────────────────────────
 struct LedgerTab: View {
     var onCount: (Int) -> Void = { _ in }
+    var onPalette: (String?, String?) -> Void = { _, _ in }
 
     @State private var txs: [CoinTransaction] = []
     @State private var page = 1
@@ -577,6 +603,8 @@ struct LedgerTab: View {
             }
         }
         .task { if !loaded { await loadPage(1) } }
+        // No imagery in the ledger — keep the warm brand mesh.
+        .onAppear { onPalette(nil, nil) }
     }
 
     private func summary(_ kicker: String, _ value: String, _ sub: String, tint: Color) -> some View {
