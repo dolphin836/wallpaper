@@ -1,92 +1,151 @@
 import SwiftUI
 
-// Weekly Picks archive — list of past weekly slates. Clicking one
-// opens WeeklyWeekView with the full pick set for that week.
+// Weekly Picks archive — mirrors the web: an editorial header, a
+// left-hand timeline of past issues, and a large cover panel for the
+// selected issue (stamp + "view all N picks" CTA). Selecting a
+// timeline row swaps the cover; clicking the cover opens that week.
 struct WeeklyArchiveView: View {
     var onOpenWeek: (Int, Int) -> Void
 
     @State private var entries: [WeeklyArchiveEntry] = []
     @State private var loading = false
     @State private var loadError: String?
+    @State private var selectedIdx = 0
+
+    private var selected: WeeklyArchiveEntry? {
+        entries.indices.contains(selectedIdx) ? entries[selectedIdx] : entries.first
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 24) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Kicker(text: "Editor-curated · every Friday")
-                    Text("Weekly Picks").font(.display32).foregroundStyle(Color.ink)
-                }
+            VStack(alignment: .leading, spacing: 0) {
+                header
 
                 if loading && entries.isEmpty {
-                    ProgressView().padding(.top, 30)
-                } else if let err = loadError {
-                    Text(err).font(.sans12).foregroundStyle(Color.warn)
+                    ProgressView().padding(.top, 40)
+                } else if let err = loadError, entries.isEmpty {
+                    Text(err).font(.sans12).foregroundStyle(Color.warn).padding(.top, 20)
                 } else if entries.isEmpty {
-                    Text("No archive yet.")
-                        .font(.sans13).foregroundStyle(Color.muted)
+                    Text("No weekly drops have been published yet.")
+                        .font(.sans13).foregroundStyle(Color.muted).padding(.top, 20)
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 280, maximum: 360), spacing: 18, alignment: .top)], spacing: 18) {
-                        ForEach(entries) { entry in
-                            Button(action: { onOpenWeek(entry.year, entry.week) }) {
-                                ArchiveCard(entry: entry)
-                            }
-                            .buttonStyle(.plain)
-                        }
+                    HStack(alignment: .top, spacing: 36) {
+                        timeline.frame(width: 240)
+                        coverPanel
                     }
+                    .padding(.top, 36)
                 }
             }
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
-            .frame(maxWidth: 1200).frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: 1280).frame(maxWidth: .infinity, alignment: .center)
         }
         .task { await load() }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Kicker(text: "The Archive")
+            Text("Every Friday, a new ten.")
+                .font(.display32).foregroundStyle(Color.ink)
+            Text("We publish ten wallpapers each ISO week. Once a piece lands in a drop it never returns. Pick an issue from the timeline.")
+                .font(.sans13).foregroundStyle(Color.ink2)
+                .frame(maxWidth: 560, alignment: .leading)
+        }
+    }
+
+    private var timeline: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(entries.enumerated()), id: \.element.id) { i, e in
+                let on = i == selectedIdx
+                Button { selectedIdx = i } label: {
+                    HStack(spacing: 12) {
+                        Circle()
+                            .fill(on ? Color.accent : Color.hair)
+                            .frame(width: 7, height: 7)
+                        Text("№ \(String(format: "%02d", e.week))")
+                            .font(.system(size: 13, weight: on ? .semibold : .medium, design: .monospaced))
+                            .foregroundStyle(on ? Color.ink : Color.ink2)
+                        Spacer(minLength: 0)
+                        Text("\(Self.fmtDate(e.year, e.week)) · \(String(e.year))")
+                            .font(.mono10).tracking(0.4).foregroundStyle(Color.muted)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 9)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(on ? Color.accent.opacity(0.10) : .clear))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var coverPanel: some View {
+        Group {
+            if let s = selected {
+                Button { onOpenWeek(s.year, s.week) } label: {
+                    VStack(alignment: .leading, spacing: 14) {
+                        ZStack(alignment: .bottomLeading) {
+                            CachedAsyncImage(url: URL(string: s.coverURL)) { img in
+                                img.resizable().aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Color(hex: s.dominantColor ?? "#bbb").opacity(0.5)
+                            }
+                            .aspectRatio(16.0 / 10.0, contentMode: .fill)
+                            .frame(maxWidth: .infinity)
+                            .clipped()
+
+                            LinearGradient(colors: [.clear, .black.opacity(0.55)],
+                                           startPoint: .center, endPoint: .bottom)
+                                .allowsHitTesting(false)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("ISSUE").font(.kicker).tracking(2.4).foregroundStyle(.white.opacity(0.85))
+                                Text("№ \(String(format: "%02d", s.week))")
+                                    .font(.system(size: 30, weight: .semibold, design: .serif))
+                                    .foregroundStyle(.white)
+                                Text("\(Self.fmtDate(s.year, s.week)) \(String(s.year)) · \(s.count) PICKS")
+                                    .font(.mono11).tracking(0.6).foregroundStyle(.white.opacity(0.85))
+                            }
+                            .padding(20)
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.hair, lineWidth: 1))
+
+                        HStack(spacing: 8) {
+                            Text("View all \(s.count) picks")
+                                .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.accent)
+                            Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.accent)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func load() async {
         loading = true; defer { loading = false }
         do {
-            entries = try await APIClient.shared.fetchWeeklyArchive(limit: 50)
+            entries = try await APIClient.shared.fetchWeeklyArchive(limit: 100)
         } catch {
             loadError = error.localizedDescription
         }
     }
-}
 
-struct ArchiveCard: View {
-    let entry: WeeklyArchiveEntry
-    @State private var hover = false
-    var body: some View {
-        GeometryReader { proxy in
-            let h = proxy.size.width * 2.0 / 3.0
-            ZStack(alignment: .bottomLeading) {
-                CachedAsyncImage(url: URL(string: entry.coverURL)) { img in
-                    img.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Color(hex: entry.dominantColor ?? "#bbb").opacity(0.5)
-                }
-                .frame(width: proxy.size.width, height: h)
-                .clipped()
-
-                LinearGradient(colors: [.clear, .black.opacity(0.35)], startPoint: .top, endPoint: .bottom)
-                    .allowsHitTesting(false)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("WEEK \(entry.week) · \(entry.year)")
-                        .font(.kicker).tracking(2.2)
-                        .foregroundStyle(.white.opacity(0.92))
-                    Text("\(entry.count) wallpapers")
-                        .font(.system(size: 16, weight: .semibold, design: .serif))
-                        .foregroundStyle(.white)
-                }
-                .padding(14)
-            }
-            .frame(width: proxy.size.width, height: h)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false))
-            .shadow(color: Color.black.opacity(hover ? 0.10 : 0), radius: 8, x: 0, y: 4)
-        }
-        .aspectRatio(3.0 / 2.0, contentMode: .fit)
-        .animation(.easeOut(duration: 0.18), value: hover)
-        .onHover { hover = $0 }
+    // ISO-week → that week's Friday (weeklies drop Fridays), UTC. → "JUN 05".
+    static func fmtDate(_ year: Int, _ week: Int) -> String {
+        var cal = Calendar(identifier: .iso8601)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        var comps = DateComponents()
+        comps.weekOfYear = week
+        comps.yearForWeekOfYear = year
+        comps.weekday = 6 // Friday
+        let date = cal.date(from: comps) ?? Date()
+        let f = DateFormatter()
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.dateFormat = "MMM dd"
+        f.locale = Locale(identifier: "en_US")
+        return f.string(from: date).uppercased()
     }
 }
 
