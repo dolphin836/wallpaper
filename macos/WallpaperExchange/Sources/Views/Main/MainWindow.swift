@@ -111,6 +111,20 @@ struct MainWindow: View {
                         RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
                             .strokeBorder(Color.hair, lineWidth: 1)
                     )
+                    // Alternate (form #2) collapse toggle: a circle
+                    // straddling the sidebar's right edge, vertically
+                    // centred on the logo. Kept alongside the
+                    // traffic-light toggle for comparison.
+                    .overlay(alignment: .topTrailing) {
+                        SidebarEdgeToggle(collapsed: sidebarCollapsed) {
+                            withAnimation(.easeInOut(duration: 0.22)) { sidebarCollapsed.toggle() }
+                        }
+                        // x: half the button straddles the edge.
+                        // y: logo centre = topInset + half the 24pt logo,
+                        //    minus half the button to get its top.
+                        .offset(x: SidebarEdgeToggle.size / 2,
+                                y: WindowChrome.topInset + 12 - SidebarEdgeToggle.size / 2)
+                    }
                     .padding(.bottom, WindowChrome.inset)
                     // Draw above the detail pane so overflowing hover
                     // tooltips aren't covered by it.

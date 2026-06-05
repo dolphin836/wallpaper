@@ -393,6 +393,39 @@ struct SidebarToggleButton: View {
     }
 }
 
+// Alternate collapse toggle (kept alongside the traffic-light one for
+// comparison): a small circle straddling the sidebar's right edge,
+// vertically centred on the logo — the common "edge handle" pattern
+// (VS Code / Notion / Linear). Chevron points the way it will move:
+// left = collapse, right = expand.
+struct SidebarEdgeToggle: View {
+    var collapsed: Bool
+    var action: () -> Void
+    @State private var hover = false
+    static let size: CGFloat = 22
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: collapsed ? "chevron.right" : "chevron.left")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(hover ? Color.ink : Color.ink2)
+                .frame(width: Self.size, height: Self.size)
+                .background(Circle().fill(hover ? Color.paper2 : Color.paper))
+                .overlay(Circle().strokeBorder(Color.hair, lineWidth: 1))
+                .shadow(color: .black.opacity(0.10), radius: 3, y: 1)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .focusEffectDisabled()
+        .help(collapsed ? "Expand sidebar" : "Collapse sidebar")
+        .onHover { h in
+            hover = h
+            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .animation(.easeOut(duration: 0.12), value: hover)
+    }
+}
+
 extension View {
     // Pointing-hand cursor while hovering. push/pop pairs enter/exit.
     func pointerCursor() -> some View {
