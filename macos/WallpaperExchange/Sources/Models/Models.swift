@@ -29,11 +29,17 @@ struct User: Decodable, Identifiable {
     let coins: Int
     let status: Int
     let createdAt: String
+    let likesPublic: Bool?
+    let favoritesPublic: Bool?
+    let downloadsPublic: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id, username, email, nickname, bio, coins, status
         case avatarURL = "avatar_url"
         case createdAt = "created_at"
+        case likesPublic = "likes_public"
+        case favoritesPublic = "favorites_public"
+        case downloadsPublic = "downloads_public"
     }
 }
 

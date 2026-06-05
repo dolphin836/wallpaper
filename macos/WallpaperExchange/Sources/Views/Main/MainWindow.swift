@@ -170,6 +170,7 @@ struct MainWindow: View {
                     onCategory: { c in path.append(.category(id: c.id, name: c.name, slug: c.slug)) },
                     onUploader: { username in path.append(.profile(username: username)) },
                     onCollection: { c in path.append(.collection(slug: c.slug, title: c.title)) },
+                    onUpload: { showingUpload = true },
                     onOpenDiscover: { f in pendingDiscoverFilter = f; sidebar = .discover },
                     onOpenCollections: { sidebar = .collections },
                     onOpenWeeklyArchive: { sidebar = .weekly }
@@ -234,6 +235,7 @@ struct ContentRouter: View {
     var onCategory: (Category) -> Void
     var onUploader: (String) -> Void
     var onCollection: (CollectionItem) -> Void = { _ in }
+    var onUpload: () -> Void = {}
     var onOpenDiscover: (DiscoverView.Filter) -> Void = { _ in }
     var onOpenCollections: () -> Void = {}
     var onOpenWeeklyArchive: () -> Void = {}
@@ -265,7 +267,7 @@ struct ContentRouter: View {
     // is one tabbed page (matching the web profile, plus a Settings tab).
     @ViewBuilder private func account(_ tab: AccountTab) -> some View {
         if let me = AuthService.shared.user?.username {
-            AccountView(username: me, initialTab: tab, onWallpaper: onPick, onCollection: onCollection)
+            AccountView(username: me, initialTab: tab, onWallpaper: onPick, onCollection: onCollection, onUpload: onUpload)
         } else {
             VStack(spacing: 12) {
                 Text("Sign in to view your account.").font(.sans13).foregroundStyle(Color.muted)

@@ -3,24 +3,24 @@ import AppKit
 import UniformTypeIdentifiers
 
 // Unified account / profile page — the Mac port of the web ProfilePage.
-// One editorial header + an underline tab bar (.ptabs) + per-tab paged
-// content. For the signed-in owner the tab list gains a Mac-only
-// "Settings" tab (first) plus the owner-only Downloads / Coin ledger
-// tabs and account editing. Viewing someone else shows the public
-// subset (Uploads / Collections / Favorites / Likes). All grids use
-// prev/next pagination (no infinite scroll) and the same web-matching
-// cards as the rest of the app.
+// One editorial header (with owner inline-editing + avatar + balance +
+// Edit/Password/Upload pills) + an underline tab bar with count badges +
+// per-tab paged content. For the signed-in owner the tab list gains a
+// Mac-only "Settings" tab (first) plus owner-only Downloads / Coin
+// ledger. All grids use prev/next pagination (no infinite scroll).
 struct AccountView: View {
     let username: String
     var initialTab: AccountTab = .uploads
     var onWallpaper: (Wallpaper) -> Void
     var onCollection: (CollectionItem) -> Void
+    var onUpload: () -> Void = {}
 
     @State private var auth = AuthService.shared
     @State private var profile: PublicProfile?
     @State private var loadError: String?
     @State private var tab: AccountTab = .uploads
     @State private var didInit = false
+    @State private var counts: [AccountTab: Int] = [:]
 
     private var isOwner: Bool {
         guard let me = auth.user else { return false }
@@ -38,10 +38,10 @@ struct AccountView: View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
                 if let p = profile {
-                    header(p)
+                    AccountHeader(profile: p, isOwner: isOwner, onUpload: onUpload,
+                                  onChanged: { await loadProfile() })
                     tabBar
-                    content(p)
-                        .padding(.top, 26)
+                    content(p).padding(.top, 26)
                 } else if let err = loadError {
                     Text(err).font(.sans12).foregroundStyle(Color.muted).padding(.top, 80)
                 } else {
@@ -54,10 +54,8 @@ struct AccountView: View {
         .task(id: username) {
             if !didInit { tab = initialTab; didInit = true }
             await loadProfile()
+            await prefetchCounts()
         }
-        // Sidebar re-routes (My Uploads → My Likes …) keep the same
-        // username, so the task above won't refire — track initialTab
-        // directly so the selected tab follows the sidebar.
         .onChange(of: initialTab) { _, new in tab = new }
     }
 
@@ -67,99 +65,27 @@ struct AccountView: View {
         catch { loadError = error.localizedDescription }
     }
 
-    // ─── Header ──────────────────────────────────────────────────
-    private func header(_ p: PublicProfile) -> some View {
-        HStack(alignment: .top, spacing: 28) {
-            avatar(p).frame(width: 128, height: 128)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Contributor · Member since \(memberSince(p.createdAt))".uppercased())
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .tracking(1.8).foregroundStyle(Color.muted)
-                Text(p.nickname?.isEmpty == false ? p.nickname! : p.username)
-                    .font(.system(size: 44, weight: .regular, design: .serif))
-                    .foregroundStyle(Color.ink).lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 6) {
-                    Text("@\(p.username)").font(.system(size: 12, design: .monospaced)).foregroundStyle(Color.ink2)
-                    if isOwner, let e = auth.user?.email, !e.isEmpty {
-                        Text("· \(e)").font(.system(size: 12, design: .monospaced)).foregroundStyle(Color.muted)
-                    }
-                }
-                if let bio = p.bio, !bio.isEmpty {
-                    Text(bio)
-                        .font(.system(size: 14)).foregroundStyle(Color.ink2)
-                        .lineSpacing(3).frame(maxWidth: 620, alignment: .leading).fixedSize(horizontal: false, vertical: true)
-                        .padding(.leading, 12)
-                        .overlay(alignment: .leading) {
-                            Rectangle().fill(Color.hair.blended(with: Color.accent, fraction: 0.4)).frame(width: 2)
-                        }
-                        .padding(.top, 4)
-                }
-                statRow(p).padding(.top, 8)
-            }
-            Spacer(minLength: 0)
-
-            if isOwner { balanceCard }
-        }
-        .padding(.bottom, 24)
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
-    }
-
-    @ViewBuilder private func avatar(_ p: PublicProfile) -> some View {
-        let initial = String((p.nickname?.isEmpty == false ? p.nickname! : p.username).prefix(1)).uppercased()
-        Circle().fill(Color.paper2)
-            .overlay {
-                if let a = p.avatarURL, !a.isEmpty, let url = URL(string: a) {
-                    CachedAsyncImage(url: url) { img in
-                        img.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Text(initial).font(.system(size: 52, weight: .regular, design: .serif)).foregroundStyle(Color.ink)
-                    }
-                    .clipShape(Circle())
-                } else {
-                    Text(initial).font(.system(size: 52, weight: .regular, design: .serif)).foregroundStyle(Color.ink)
-                }
-            }
-            .overlay(Circle().strokeBorder(Color.hair, lineWidth: 2))
-            .shadow(color: .black.opacity(0.18), radius: 18, x: 0, y: 10)
-    }
-
-    private func statRow(_ p: PublicProfile) -> some View {
-        HStack(spacing: 28) {
-            stat("UPLOADS", p.uploadCount ?? 0)
-            stat("DOWNLOADS", p.downloadCount ?? 0)
-            stat("LIKES", p.likeCount ?? 0)
-            stat("COLLECTIONS", p.collectionCount ?? 0)
+    // Counts shown on the tabs — fetched cheaply (limit 1, reading the
+    // `total`) so the badges are populated before each tab is visited.
+    // Each tab's grid also reports its real total back as it loads.
+    private func prefetchCounts() async {
+        for t in tabs where t != .settings {
+            if let c = try? await countFor(t) { counts[t] = c }
         }
     }
-    private func stat(_ label: String, _ value: Int) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(label).font(.system(size: 9, weight: .medium, design: .monospaced)).tracking(1.6).foregroundStyle(Color.muted)
-            Text("\(value)").font(.system(size: 26, weight: .regular, design: .serif)).foregroundStyle(Color.ink)
+    private func countFor(_ t: AccountTab) async throws -> Int {
+        switch t {
+        case .uploads:     return try await APIClient.shared.fetchUserUploads(username: username, limit: 1, status: "1").total ?? 0
+        case .collections: return try await APIClient.shared.fetchUserCollections(idOrUsername: username, limit: 1).total ?? 0
+        case .favorites:   return try await APIClient.shared.fetchUserFavorites(username: username, limit: 1).total ?? 0
+        case .likes:       return try await APIClient.shared.fetchUserLikes(username: username, limit: 1).total ?? 0
+        case .downloads:   return try await APIClient.shared.fetchUserDownloads(username: username, limit: 1).total ?? 0
+        case .ledger:      return try await APIClient.shared.fetchCoinTransactions(limit: 1).total ?? 0
+        case .settings:    return 0
         }
     }
 
-    private var balanceCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("BALANCE").font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(2.0).foregroundStyle(Color.muted)
-            HStack(spacing: 10) {
-                Circle().fill(
-                    RadialGradient(colors: [Color(hex: "#f6d68a"), Color(hex: "#d8a23a")], center: .topLeading, startRadius: 1, endRadius: 30)
-                ).frame(width: 32, height: 32)
-                .overlay(Image(systemName: "circle.hexagongrid.fill").font(.system(size: 13)).foregroundStyle(.white.opacity(0.9)))
-                Text("\(auth.user?.coins ?? 0)").font(.system(size: 38, weight: .semibold, design: .monospaced)).foregroundStyle(Color.ink)
-                Text("COINS").font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(2.0).foregroundStyle(Color.muted)
-            }
-        }
-        .padding(.horizontal, 22).padding(.vertical, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(LinearGradient(colors: [Color(hex: "#fbf2dd").opacity(0.92), Color(hex: "#f3e2c2").opacity(0.92)], startPoint: .topLeading, endPoint: .bottomTrailing))
-        )
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color(hex: "#e6c48a"), lineWidth: 1))
-    }
-
-    // ─── Tab bar (web .ptabs) ────────────────────────────────────
+    // ─── Tab bar (web .ptabs + .ptab-count) ──────────────────────
     private var tabBar: some View {
         HStack(spacing: 28) {
             ForEach(tabs, id: \.self) { t in
@@ -167,16 +93,20 @@ struct AccountView: View {
                     HStack(spacing: 8) {
                         Image(systemName: t.icon).font(.system(size: 12, weight: .medium))
                         Text(t.label).font(.system(size: 14, weight: .medium))
+                        if let c = counts[t] {
+                            Text("\(c)")
+                                .font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(0.4)
+                                .padding(.horizontal, 6).padding(.vertical, 1)
+                                .foregroundStyle(tab == t ? Color.paper : Color.muted)
+                                .background(RoundedRectangle(cornerRadius: 3).fill(tab == t ? Color.ink : Color.paper2))
+                        }
                     }
                     .foregroundStyle(tab == t ? Color.ink : Color.muted)
                     .padding(.vertical, 14)
-                    .overlay(alignment: .bottom) {
-                        Rectangle().fill(tab == t ? Color.ink : Color.clear).frame(height: 2)
-                    }
+                    .overlay(alignment: .bottom) { Rectangle().fill(tab == t ? Color.ink : Color.clear).frame(height: 2) }
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .pointerCursor()
+                .buttonStyle(.plain).pointerCursor()
             }
             Spacer(minLength: 0)
         }
@@ -190,44 +120,45 @@ struct AccountView: View {
         case .settings:
             AccountSettingsTab()
         case .uploads:
-            AccountUploadsTab(username: username, isOwner: isOwner, onWallpaper: onWallpaper)
+            AccountUploadsTab(username: username, isOwner: isOwner,
+                              onWallpaper: onWallpaper, onCount: { counts[.uploads] = $0 })
         case .collections:
             PagedCollectionGrid(
                 headLabel: "CREATED",
                 fetch: { cursor, limit in try await APIClient.shared.fetchUserCollections(idOrUsername: username, cursor: cursor, limit: limit) },
-                onCollection: onCollection
-            )
-            .id("collections-\(username)")
+                onCollection: onCollection, onCount: { counts[.collections] = $0 }
+            ).id("collections-\(username)")
         case .favorites:
-            PagedWallpaperGrid(
-                headLabel: "FAVORITES", emptyText: "No favorites yet.",
-                fetch: { cursor, limit in try await APIClient.shared.fetchUserFavorites(username: username, cursor: cursor, limit: limit) },
-                onWallpaper: onWallpaper
-            )
-            .id("fav-\(username)")
+            wallpaperList(.favorites, head: "FAVORITES", empty: "No favorites yet.",
+                          isPublic: auth.user?.favoritesPublic ?? false, noun: "favorites",
+                          fetch: { c, l in try await APIClient.shared.fetchUserFavorites(username: username, cursor: c, limit: l) },
+                          toggle: { v in Task { try? await APIClient.shared.updatePrivacy(favoritesPublic: v); await auth.refreshProfile() } })
         case .likes:
-            PagedWallpaperGrid(
-                headLabel: "LIKES", emptyText: "No likes yet.",
-                fetch: { cursor, limit in try await APIClient.shared.fetchUserLikes(username: username, cursor: cursor, limit: limit) },
-                onWallpaper: onWallpaper
-            )
-            .id("like-\(username)")
+            wallpaperList(.likes, head: "LIKES", empty: "No likes yet.",
+                          isPublic: auth.user?.likesPublic ?? false, noun: "likes",
+                          fetch: { c, l in try await APIClient.shared.fetchUserLikes(username: username, cursor: c, limit: l) },
+                          toggle: { v in Task { try? await APIClient.shared.updatePrivacy(likesPublic: v); await auth.refreshProfile() } })
         case .downloads:
-            PagedWallpaperGrid(
-                headLabel: "DOWNLOADS", emptyText: "No downloads yet.",
-                fetch: { cursor, limit in try await APIClient.shared.fetchUserDownloads(username: username, cursor: cursor, limit: limit) },
-                onWallpaper: onWallpaper
-            )
-            .id("dl-\(username)")
+            wallpaperList(.downloads, head: "DOWNLOADS", empty: "No downloads yet.",
+                          isPublic: auth.user?.downloadsPublic ?? false, noun: "downloads",
+                          fetch: { c, l in try await APIClient.shared.fetchUserDownloads(username: username, cursor: c, limit: l) },
+                          toggle: { v in Task { try? await APIClient.shared.updatePrivacy(downloadsPublic: v); await auth.refreshProfile() } })
         case .ledger:
-            LedgerTab()
+            LedgerTab(onCount: { counts[.ledger] = $0 })
         }
     }
 
-    private func memberSince(_ iso: String?) -> String {
-        guard let iso, let date = ISO8601DateFormatter().date(from: iso) else { return "—" }
-        let f = DateFormatter(); f.dateFormat = "MMMM yyyy"
-        return f.string(from: date)
+    @ViewBuilder
+    private func wallpaperList(_ t: AccountTab, head: String, empty: String,
+                               isPublic: Bool, noun: String,
+                               fetch: @escaping (_ c: Int?, _ l: Int) async throws -> PaginatedData<Wallpaper>,
+                               toggle: @escaping (Bool) -> Void) -> some View {
+        PagedWallpaperGrid(
+            headLabel: head, emptyText: empty,
+            privacyNoun: isOwner ? noun : nil, privacyIsPublic: isPublic,
+            onTogglePrivacy: toggle,
+            fetch: fetch, onWallpaper: onWallpaper, onCount: { counts[t] = $0 }
+        ).id("\(noun)-\(username)")
     }
 }
 
@@ -257,29 +188,229 @@ enum AccountTab: String, Hashable {
     }
 }
 
+// ─── Editorial header (avatar + identity + balance + pills) ──────
+struct AccountHeader: View {
+    let profile: PublicProfile
+    let isOwner: Bool
+    var onUpload: () -> Void
+    var onChanged: () async -> Void
+
+    @State private var auth = AuthService.shared
+    @State private var editing = false
+    @State private var editNickname = ""
+    @State private var editBio = ""
+    @State private var saving = false
+    @State private var showPassword = false
+    @State private var oldPw = ""
+    @State private var newPw = ""
+    @State private var savingPw = false
+    @State private var pwError: String?
+
+    // For the owner, render live from auth.user so edits/avatar reflect
+    // immediately; otherwise from the fetched public profile.
+    private var displayName: String {
+        if isOwner, let u = auth.user { return u.nickname.isEmpty ? u.username : u.nickname }
+        return profile.nickname?.isEmpty == false ? profile.nickname! : profile.username
+    }
+    private var bioText: String {
+        if isOwner, let u = auth.user { return u.bio }
+        return profile.bio ?? ""
+    }
+    private var avatarURLString: String? {
+        if isOwner { return auth.user?.avatarURL }
+        return profile.avatarURL
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 28) {
+            avatar.frame(width: 128, height: 128)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Contributor · Member since \(memberSince(profile.createdAt))".uppercased())
+                    .font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(1.8).foregroundStyle(Color.muted)
+
+                if editing {
+                    TextField("Nickname", text: $editNickname)
+                        .textFieldStyle(.plain).font(.system(size: 34, weight: .regular, design: .serif))
+                        .foregroundStyle(Color.ink)
+                    TextField("Bio", text: $editBio, axis: .vertical)
+                        .textFieldStyle(.roundedBorder).font(.system(size: 13)).lineLimit(3, reservesSpace: true)
+                        .frame(maxWidth: 620)
+                    HStack(spacing: 8) {
+                        pill("Save", primary: true) { Task { await saveProfile() } }
+                        pill("Cancel") { editing = false }
+                    }.padding(.top, 4)
+                } else {
+                    Text(displayName)
+                        .font(.system(size: 44, weight: .regular, design: .serif)).foregroundStyle(Color.ink)
+                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 6) {
+                        Text("@\(profile.username)").font(.system(size: 12, design: .monospaced)).foregroundStyle(Color.ink2)
+                        if isOwner, let e = auth.user?.email, !e.isEmpty {
+                            Text("· \(e)").font(.system(size: 12, design: .monospaced)).foregroundStyle(Color.muted)
+                        }
+                    }
+                    if !bioText.isEmpty {
+                        Text(bioText)
+                            .font(.system(size: 14)).foregroundStyle(Color.ink2).lineSpacing(3)
+                            .frame(maxWidth: 620, alignment: .leading).fixedSize(horizontal: false, vertical: true)
+                            .padding(.leading, 12)
+                            .overlay(alignment: .leading) { Rectangle().fill(Color.hair.blended(with: Color.accent, fraction: 0.4)).frame(width: 2) }
+                            .padding(.top, 4)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+
+            if isOwner && !editing {
+                VStack(alignment: .trailing, spacing: 12) {
+                    balanceCard
+                    HStack(spacing: 8) {
+                        pill("Edit profile") { editNickname = auth.user?.nickname ?? ""; editBio = auth.user?.bio ?? ""; editing = true }
+                        pill("Password") { showPassword = true }
+                        pill("Upload", primary: true, icon: "plus", action: onUpload)
+                    }
+                }
+            }
+        }
+        .padding(.bottom, 24)
+        .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
+        .sheet(isPresented: $showPassword) { passwordSheet }
+    }
+
+    @ViewBuilder private var avatar: some View {
+        let initial = String(displayName.prefix(1)).uppercased()
+        Circle().fill(Color.paper2)
+            .overlay {
+                if let a = avatarURLString, !a.isEmpty, let url = URL(string: a) {
+                    CachedAsyncImage(url: url) { img in img.resizable().aspectRatio(contentMode: .fill) }
+                    placeholder: { Text(initial).font(.system(size: 52, weight: .regular, design: .serif)).foregroundStyle(Color.ink) }
+                    .clipShape(Circle())
+                } else {
+                    Text(initial).font(.system(size: 52, weight: .regular, design: .serif)).foregroundStyle(Color.ink)
+                }
+            }
+            .overlay(Circle().strokeBorder(Color.hair, lineWidth: 2))
+            .overlay(alignment: .bottomTrailing) {
+                if isOwner {
+                    Button(action: pickAvatar) {
+                        Image(systemName: "camera.fill").font(.system(size: 12))
+                            .foregroundStyle(Color.paper).frame(width: 32, height: 32)
+                            .background(Circle().fill(Color.ink)).overlay(Circle().strokeBorder(Color.paper, lineWidth: 3))
+                    }.buttonStyle(.plain).pointerCursor()
+                }
+            }
+            .shadow(color: .black.opacity(0.18), radius: 18, x: 0, y: 10)
+    }
+
+    private var balanceCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("BALANCE").font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(2.0).foregroundStyle(Color.muted)
+            HStack(spacing: 10) {
+                Circle().fill(RadialGradient(colors: [Color(hex: "#f6d68a"), Color(hex: "#d8a23a")], center: .topLeading, startRadius: 1, endRadius: 30))
+                    .frame(width: 32, height: 32)
+                    .overlay(Image(systemName: "circle.hexagongrid.fill").font(.system(size: 13)).foregroundStyle(.white.opacity(0.9)))
+                Text("\(auth.user?.coins ?? 0)").font(.system(size: 38, weight: .semibold, design: .monospaced)).foregroundStyle(Color.ink)
+                Text("COINS").font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(2.0).foregroundStyle(Color.muted)
+            }
+        }
+        .padding(.horizontal, 22).padding(.vertical, 16)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(LinearGradient(colors: [Color(hex: "#fbf2dd").opacity(0.92), Color(hex: "#f3e2c2").opacity(0.92)], startPoint: .topLeading, endPoint: .bottomTrailing)))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color(hex: "#e6c48a"), lineWidth: 1))
+    }
+
+    private func pill(_ label: String, primary: Bool = false, icon: String? = nil, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if let icon { Image(systemName: icon).font(.system(size: 10, weight: .semibold)) }
+                Text(label).font(.system(size: 12, weight: .medium))
+            }
+            .foregroundStyle(primary ? Color.paper : Color.ink)
+            .padding(.horizontal, 14).padding(.vertical, 7)
+            .background(Capsule().fill(primary ? Color.ink : Color.paper))
+            .overlay(Capsule().strokeBorder(primary ? Color.ink : Color.hair, lineWidth: 1))
+        }
+        .buttonStyle(.plain).pointerCursor()
+    }
+
+    private var passwordSheet: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("CHANGE PASSWORD").font(.system(size: 11, weight: .medium, design: .monospaced)).tracking(1.5).foregroundStyle(Color.muted)
+            SecureField("Current password", text: $oldPw).textFieldStyle(.roundedBorder)
+            SecureField("New password (min 8 chars)", text: $newPw).textFieldStyle(.roundedBorder)
+            if let e = pwError { Text(e).font(.system(size: 11)).foregroundStyle(.red) }
+            HStack {
+                Spacer()
+                Button("Cancel") { showPassword = false; oldPw = ""; newPw = ""; pwError = nil }
+                Button(savingPw ? "Saving…" : "Confirm") { Task { await changePassword() } }
+                    .buttonStyle(.borderedProminent).disabled(savingPw || newPw.count < 8)
+            }
+        }
+        .padding(24).frame(width: 360)
+    }
+
+    private func saveProfile() async {
+        saving = true; defer { saving = false }
+        do {
+            _ = try await APIClient.shared.updateProfile(nickname: editNickname, bio: editBio)
+            await auth.refreshProfile()
+            await onChanged()
+            editing = false
+        } catch {}
+    }
+    private func changePassword() async {
+        guard newPw.count >= 8 else { pwError = "New password must be at least 8 characters."; return }
+        savingPw = true; defer { savingPw = false }
+        do {
+            try await APIClient.shared.changePassword(old: oldPw, new: newPw)
+            showPassword = false; oldPw = ""; newPw = ""; pwError = nil
+        } catch { pwError = error.localizedDescription }
+    }
+    private func pickAvatar() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.jpeg, .png, .webP]
+        panel.allowsMultipleSelection = false; panel.canChooseDirectories = false
+        guard panel.runModal() == .OK, let url = panel.url, let data = try? Data(contentsOf: url) else { return }
+        let ext = url.pathExtension.lowercased()
+        let mime = ext == "png" ? "image/png" : (ext == "webp" ? "image/webp" : "image/jpeg")
+        Task {
+            do {
+                _ = try await APIClient.shared.uploadAvatar(imageData: data, filename: url.lastPathComponent, mime: mime)
+                await auth.refreshProfile()
+                await onChanged()
+            } catch {}
+        }
+    }
+
+    private func memberSince(_ iso: String?) -> String {
+        guard let iso, let date = ISO8601DateFormatter().date(from: iso) else { return "—" }
+        let f = DateFormatter(); f.dateFormat = "MMMM yyyy"
+        return f.string(from: date)
+    }
+}
+
 // ─── Uploads tab: Published list (+ owner Pending list) ──────────
 struct AccountUploadsTab: View {
     let username: String
     let isOwner: Bool
     var onWallpaper: (Wallpaper) -> Void
+    var onCount: (Int) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 36) {
             if isOwner {
                 PagedWallpaperGrid(
-                    headLabel: "PENDING", emptyText: "",
-                    hideWhenEmpty: true,
+                    headLabel: "PENDING", emptyText: "", hideWhenEmpty: true,
                     fetch: { cursor, limit in try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, limit: limit, status: "0,5") },
                     onWallpaper: onWallpaper
-                )
-                .id("pending-\(username)")
+                ).id("pending-\(username)")
             }
             PagedWallpaperGrid(
                 headLabel: "PUBLISHED", emptyText: "No published wallpapers yet.",
                 fetch: { cursor, limit in try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, limit: limit, status: "1") },
-                onWallpaper: onWallpaper
-            )
-            .id("pub-\(username)")
+                onWallpaper: onWallpaper, onCount: onCount
+            ).id("pub-\(username)")
         }
     }
 }
@@ -289,8 +420,12 @@ struct PagedWallpaperGrid: View {
     let headLabel: String
     var emptyText: String = "Nothing here yet."
     var hideWhenEmpty: Bool = false
+    var privacyNoun: String? = nil
+    var privacyIsPublic: Bool = false
+    var onTogglePrivacy: ((Bool) -> Void)? = nil
     let fetch: (_ cursor: Int?, _ limit: Int) async throws -> PaginatedData<Wallpaper>
     var onWallpaper: (Wallpaper) -> Void
+    var onCount: (Int) -> Void = { _ in }
 
     @State private var items: [Wallpaper] = []
     @State private var page = 1
@@ -308,6 +443,9 @@ struct PagedWallpaperGrid: View {
                 EmptyView()
             } else {
                 VStack(alignment: .leading, spacing: 16) {
+                    if let noun = privacyNoun {
+                        PrivacyBanner(noun: noun, isPublic: privacyIsPublic) { onTogglePrivacy?(!privacyIsPublic) }
+                    }
                     LabelRule(text: "\(headLabel) · \(loaded ? "\(total)" : "…")")
 
                     if loading && items.isEmpty {
@@ -317,13 +455,10 @@ struct PagedWallpaperGrid: View {
                     } else {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14, alignment: .top)], spacing: 14) {
                             ForEach(items) { wp in
-                                Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp) }
-                                    .buttonStyle(.plain)
+                                Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp) }.buttonStyle(.plain)
                             }
                         }
-                        PageBar(current: page, totalPages: totalPages, maxReachable: cursors.count) { p in
-                            Task { await loadPage(p) }
-                        }
+                        PageBar(current: page, totalPages: totalPages, maxReachable: cursors.count) { p in Task { await loadPage(p) } }
                     }
                 }
             }
@@ -335,18 +470,15 @@ struct PagedWallpaperGrid: View {
         guard p >= 1, p <= cursors.count else { return }
         loading = true; defer { loading = false }
         do {
-            let cur = cursors[p - 1]
-            let data = try await fetch(cur, pageSize)
+            let data = try await fetch(cursors[p - 1], pageSize)
             items = data.items
             total = data.total ?? data.items.count
+            onCount(total)
             if data.hasMore, let nc = data.nextCursor, nc > 0 {
                 if cursors.count == p { cursors.append(nc) } else if p < cursors.count { cursors[p] = nc }
             }
-            page = p
-            loaded = true
-        } catch {
-            loaded = true
-        }
+            page = p; loaded = true
+        } catch { loaded = true }
     }
 }
 
@@ -355,6 +487,7 @@ struct PagedCollectionGrid: View {
     let headLabel: String
     let fetch: (_ cursor: Int?, _ limit: Int) async throws -> PaginatedData<CollectionItem>
     var onCollection: (CollectionItem) -> Void
+    var onCount: (Int) -> Void = { _ in }
 
     @State private var items: [CollectionItem] = []
     @State private var page = 1
@@ -369,7 +502,6 @@ struct PagedCollectionGrid: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             LabelRule(text: "\(headLabel) · \(loaded ? "\(total)" : "…")")
-
             if loading && items.isEmpty {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
             } else if items.isEmpty {
@@ -377,13 +509,10 @@ struct PagedCollectionGrid: View {
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)], spacing: 28) {
                     ForEach(items) { c in
-                        Button(action: { onCollection(c) }) { CollectionTileCard(item: c) }
-                            .buttonStyle(.plain)
+                        Button(action: { onCollection(c) }) { CollectionTileCard(item: c) }.buttonStyle(.plain)
                     }
                 }
-                PageBar(current: page, totalPages: totalPages, maxReachable: cursors.count) { p in
-                    Task { await loadPage(p) }
-                }
+                PageBar(current: page, totalPages: totalPages, maxReachable: cursors.count) { p in Task { await loadPage(p) } }
             }
         }
         .task { if !loaded { await loadPage(1) } }
@@ -393,21 +522,22 @@ struct PagedCollectionGrid: View {
         guard p >= 1, p <= cursors.count else { return }
         loading = true; defer { loading = false }
         do {
-            let cur = cursors[p - 1]
-            let data = try await fetch(cur, pageSize)
+            let data = try await fetch(cursors[p - 1], pageSize)
             items = data.items
             total = data.total ?? data.items.count
+            onCount(total)
             if data.hasMore, let nc = data.nextCursor, nc > 0 {
                 if cursors.count == p { cursors.append(nc) } else if p < cursors.count { cursors[p] = nc }
             }
-            page = p
-            loaded = true
+            page = p; loaded = true
         } catch { loaded = true }
     }
 }
 
 // ─── Coin ledger tab ─────────────────────────────────────────────
 struct LedgerTab: View {
+    var onCount: (Int) -> Void = { _ in }
+
     @State private var txs: [CoinTransaction] = []
     @State private var page = 1
     @State private var cursors: [Int?] = [nil]
@@ -423,27 +553,20 @@ struct LedgerTab: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Summary cards
             HStack(spacing: 12) {
                 summary("BALANCE", "\(auth.user?.coins ?? 0)", "Lifetime balance", tint: Color(hex: "#d8a23a"))
                 summary("EARNED", "+\(earned)", "This page", tint: Color(hex: "#3e9e5e"))
                 summary("SPENT", "−\(spent)", "This page", tint: Color.ink2)
                 summary("NEXT EARN", "+1", "Per upload", tint: Color.ink2)
             }
-
             LabelRule(text: "LEDGER · \(loaded ? "\(total)" : "…")")
-
             if loading && txs.isEmpty {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
             } else if txs.isEmpty {
                 Text("No transactions yet.").font(.sans13).foregroundStyle(Color.muted).padding(.vertical, 24)
             } else {
-                VStack(spacing: 8) {
-                    ForEach(txs) { tx in ledgerRow(tx) }
-                }
-                PageBar(current: page, totalPages: totalPages, maxReachable: cursors.count) { p in
-                    Task { await loadPage(p) }
-                }
+                VStack(spacing: 8) { ForEach(txs) { tx in ledgerRow(tx) } }
+                PageBar(current: page, totalPages: totalPages, maxReachable: cursors.count) { p in Task { await loadPage(p) } }
             }
         }
         .task { if !loaded { await loadPage(1) } }
@@ -466,16 +589,14 @@ struct LedgerTab: View {
             ZStack {
                 Circle().fill(earn ? Color(hex: "#3e9e5e").opacity(0.16) : Color.paper2)
                 Text(glyph(tx.txType)).font(.system(size: 14)).foregroundStyle(earn ? Color(hex: "#3e9e5e") : Color.ink2)
-            }
-            .frame(width: 36, height: 36)
+            }.frame(width: 36, height: 36)
             VStack(alignment: .leading, spacing: 2) {
                 Text(ledgerLabel(tx)).font(.system(size: 13)).foregroundStyle(Color.ink)
                 Text(relativeCoinTime(tx.createdAt)).font(.system(size: 10, design: .monospaced)).foregroundStyle(Color.muted)
             }
             Spacer()
             Text(earn ? "+\(tx.amount)" : "\(tx.amount)")
-                .font(.system(size: 18, weight: .medium, design: .monospaced))
-                .foregroundStyle(earn ? Color(hex: "#3e9e5e") : Color.ink2)
+                .font(.system(size: 18, weight: .medium, design: .monospaced)).foregroundStyle(earn ? Color(hex: "#3e9e5e") : Color.ink2)
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.paper.opacity(0.5)))
@@ -493,12 +614,9 @@ struct LedgerTab: View {
     }
     private func ledgerLabel(_ tx: CoinTransaction) -> String {
         let map: [String: String] = [
-            "register_bonus": "Welcome bonus",
-            "upload_reward": "Upload reward",
-            "download_cost": "Download",
-            "download_spent": "Download",
-            "download_earned": "Download received",
-            "download_received": "Download received",
+            "register_bonus": "Welcome bonus", "upload_reward": "Upload reward",
+            "download_cost": "Download", "download_spent": "Download",
+            "download_earned": "Download received", "download_received": "Download received",
             "admin_grant": "Admin grant",
         ]
         if let l = map[tx.txType] { return l }
@@ -509,16 +627,42 @@ struct LedgerTab: View {
         guard p >= 1, p <= cursors.count else { return }
         loading = true; defer { loading = false }
         do {
-            let cur = cursors[p - 1]
-            let data = try await APIClient.shared.fetchCoinTransactions(cursor: cur, limit: pageSize)
+            let data = try await APIClient.shared.fetchCoinTransactions(cursor: cursors[p - 1], limit: pageSize)
             txs = data.items
             total = data.total ?? data.items.count
+            onCount(total)
             if data.hasMore, let nc = data.nextCursor, nc > 0 {
                 if cursors.count == p { cursors.append(nc) } else if p < cursors.count { cursors[p] = nc }
             }
-            page = p
-            loaded = true
+            page = p; loaded = true
         } catch { loaded = true }
+    }
+}
+
+// ─── Per-tab privacy banner (owner) ──────────────────────────────
+struct PrivacyBanner: View {
+    let noun: String
+    let isPublic: Bool
+    var onToggle: () -> Void
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack { Circle().fill(Color.paper2); Image(systemName: isPublic ? "globe" : "lock").font(.system(size: 13)).foregroundStyle(Color.ink2) }
+                .frame(width: 36, height: 36).overlay(Circle().strokeBorder(Color.hair, lineWidth: 1))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Your \(noun) are \(isPublic ? "public" : "private")").font(.system(size: 13, weight: .medium)).foregroundStyle(Color.ink)
+                Text(isPublic ? "Anyone can see this list on your profile." : "Only you can see this list.")
+                    .font(.system(size: 11)).foregroundStyle(Color.muted)
+            }
+            Spacer()
+            Button(action: onToggle) {
+                Text(isPublic ? "Make private" : "Make public").font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.ink).padding(.horizontal, 14).padding(.vertical, 7)
+                    .background(Capsule().fill(Color.paper)).overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
+            }.buttonStyle(.plain).pointerCursor()
+        }
+        .padding(.horizontal, 16).padding(.vertical, 14)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.paper.opacity(0.5)))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.hair, lineWidth: 1))
     }
 }
 
@@ -546,20 +690,15 @@ struct PageBar: View {
                     navButton("PREV", enabled: current > 1) { onChange(current - 1) }
                     HStack(spacing: 4) {
                         ForEach(Array(pages.enumerated()), id: \.offset) { _, p in
-                            if let p {
-                                pageButton(p)
-                            } else {
-                                Text("…").font(.system(size: 11, design: .monospaced)).foregroundStyle(Color.muted).frame(minWidth: 24)
-                            }
+                            if let p { pageButton(p) }
+                            else { Text("…").font(.system(size: 11, design: .monospaced)).foregroundStyle(Color.muted).frame(minWidth: 24) }
                         }
                     }
                     navButton("NEXT", enabled: current < totalPages && current < maxReachable) { onChange(current + 1) }
                 }
-                Text("PAGE \(current) OF \(totalPages)")
-                    .font(.system(size: 10, design: .monospaced)).tracking(1.2).foregroundStyle(Color.muted)
+                Text("PAGE \(current) OF \(totalPages)").font(.system(size: 10, design: .monospaced)).tracking(1.2).foregroundStyle(Color.muted)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.top, 28).padding(.bottom, 8)
+            .frame(maxWidth: .infinity).padding(.top, 28).padding(.bottom, 8)
         }
     }
 
@@ -568,22 +707,17 @@ struct PageBar: View {
             Text(label).font(.system(size: 11, weight: .medium, design: .monospaced)).tracking(1.0)
                 .foregroundStyle(enabled ? Color.ink2 : Color.muted.opacity(0.5))
                 .padding(.horizontal, 16).padding(.vertical, 9)
-                .background(Capsule().fill(Color.paper))
-                .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
-        }
-        .buttonStyle(.plain).disabled(!enabled).pointerCursor()
+                .background(Capsule().fill(Color.paper)).overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
+        }.buttonStyle(.plain).disabled(!enabled).pointerCursor()
     }
-
     private func pageButton(_ p: Int) -> some View {
         let isCurrent = p == current
         let reachable = p <= maxReachable
         return Button(action: { if reachable && !isCurrent { onChange(p) } }) {
             Text("\(p)").font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(isCurrent ? Color.paper : (reachable ? Color.ink2 : Color.muted.opacity(0.4)))
-                .frame(minWidth: 32, minHeight: 32)
-                .background(Capsule().fill(isCurrent ? Color.ink : Color.clear))
-        }
-        .buttonStyle(.plain).disabled(!reachable || isCurrent).pointerCursor()
+                .frame(minWidth: 32, minHeight: 32).background(Capsule().fill(isCurrent ? Color.ink : Color.clear))
+        }.buttonStyle(.plain).disabled(!reachable || isCurrent).pointerCursor()
     }
 }
 
@@ -598,7 +732,6 @@ struct LabelRule: View {
     }
 }
 
-// Relative-time formatter for ledger rows.
 private func relativeCoinTime(_ iso: String) -> String {
     let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     let plain = ISO8601DateFormatter()
