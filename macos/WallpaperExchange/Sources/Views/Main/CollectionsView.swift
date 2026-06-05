@@ -330,26 +330,40 @@ struct CollectionDetailView: View {
         .onDisappear { PaletteEnv.shared.resetToDefaults() }
     }
 
-    // Hero row — framed cover on the left, kicker / title / count on
-    // the right (mirrors the web collection-detail header).
+    private var tint: Color {
+        (info?.recentTiles?.first?.dominantColor ?? info?.accentColor).map { Color(hex: $0) } ?? Color.accent
+    }
+
+    // Hero row — a framed (paper-mat) cover on the left, kicker / title
+    // / count on the right (mirrors the web collection-detail header).
     private func heroRow(_ c: CollectionItem) -> some View {
-        HStack(alignment: .top, spacing: 28) {
-            Color.clear
-                .frame(width: 280, height: 280)
-                .overlay {
-                    if let cover = c.coverURL, let url = URL(string: cover) {
-                        CachedAsyncImage(url: url) { img in
-                            img.resizable().aspectRatio(contentMode: .fill)
-                        } placeholder: { Color.paper2 }
-                    } else {
-                        Color.paper2.overlay(
+        HStack(alignment: .top, spacing: 32) {
+            // Photo-frame: paper mat (16pt) + accent-tinted edge + a
+            // soft accent halo, with the image in an inner chamber.
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.paper)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Color.paper2)
+                    .overlay {
+                        if let cover = c.coverURL, let url = URL(string: cover) {
+                            CachedAsyncImage(url: url) { img in
+                                img.resizable().aspectRatio(contentMode: .fill)
+                            } placeholder: { Color.paper2 }
+                        } else {
                             Text("NO COVER YET").font(.system(size: 10, design: .monospaced))
-                                .tracking(1.8).foregroundStyle(Color.muted))
+                                .tracking(1.8).foregroundStyle(Color.muted)
+                        }
                     }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.hair, lineWidth: 1))
-                .shadow(color: .black.opacity(0.10), radius: 16, y: 8)
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .padding(16)
+            }
+            .frame(width: 340, height: 340)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Color.hair.blended(with: tint, fraction: 0.30), lineWidth: 1)
+            )
+            .shadow(color: tint.opacity(0.30), radius: 28, x: 0, y: 16)
+            .shadow(color: .black.opacity(0.16), radius: 14, x: 0, y: 8)
 
             VStack(alignment: .leading, spacing: 10) {
                 Text(((c.kind == 1 ? "Editor Theme" : "Collection") + (c.isPublic == false ? " · Private" : "")).uppercased())
