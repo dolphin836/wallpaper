@@ -126,7 +126,16 @@ struct DiscoverView: View {
 
     // ── Toolbar: chips (left, scrollable) + filter dropdown + size ──
     private var toolbar: some View {
-        HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
+            // Filter + size on their own right-aligned row.
+            HStack(spacing: 10) {
+                Spacer(minLength: 0)
+                filterMenu
+                sizeControl
+            }
+            // Category chips get their own full-width scroll row — when
+            // they shared an HStack with the controls the ScrollView's
+            // hit region was mis-sized and chips weren't clickable.
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     categoryChip(label: "All", id: nil)
@@ -136,10 +145,6 @@ struct DiscoverView: View {
                 }
                 .padding(.vertical, 2)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            filterMenu
-            sizeControl
         }
     }
 
