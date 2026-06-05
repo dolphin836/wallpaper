@@ -178,44 +178,100 @@ struct WeeklyWeekView: View {
     let week: Int
     var onWallpaper: (Wallpaper) -> Void
 
+    @Environment(\.dismiss) private var dismiss
     @State private var picks: [WeeklyPicked] = []
     @State private var loading = false
 
+    private var hero: WeeklyPicked? { picks.first(where: { $0.isHero }) ?? picks.first }
+
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 24) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Kicker(text: "Week \(week) · \(year)")
-                    Text("This week's picks")
-                        .font(.display32).foregroundStyle(Color.ink)
+            VStack(alignment: .leading, spacing: 0) {
+                BackLink(label: "All weekly issues") { dismiss() }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Week \(week)").font(.display32).foregroundStyle(Color.ink)
+                    Text("\(WeeklyArchiveView.fmtDate(year, week)), \(String(year))")
+                        .font(.mono11).tracking(0.6).foregroundStyle(Color.muted)
                 }
-                .padding(.bottom, 4)
-                .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
+                .padding(.top, 10)
 
                 if loading && picks.isEmpty {
-                    ProgressView().padding(.top, 30)
+                    ProgressView().padding(.top, 40).frame(maxWidth: .infinity)
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 380), spacing: 14, alignment: .top)], spacing: 14) {
+                    if let h = hero { heroCard(h).padding(.top, 28) }
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 190, maximum: 280), spacing: 16, alignment: .top)], spacing: 16) {
                         ForEach(picks) { p in
                             Button(action: { onWallpaper(asWallpaper(p)) }) {
-                                MainGridTile(wallpaper: asWallpaper(p))
+                                MainGridTile(wallpaper: asWallpaper(p), aspectRatio: 4.0 / 5.0)
                             }
                             .buttonStyle(.plain)
+                            .onHover { h in
+                                if h { PaletteEnv.shared.apply(palette: nil, dominant: p.dominantColor) }
+                                else { applyHeroPalette() }
+                            }
                         }
                     }
+                    .padding(.top, 32)
                 }
             }
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
-            .frame(maxWidth: 1200).frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: 1280).frame(maxWidth: .infinity, alignment: .center)
         }
-        // page-mesh shows through; no opaque paper background here
         .task(id: "\(year)-\(week)") { await load() }
+        .onDisappear { PaletteEnv.shared.resetToDefaults() }
     }
+
+    // Masthead hero — the issue's hero pick, 16:9, with a curation
+    // overlay + trade CTA (mirrors the web/home hero card).
+    private func heroCard(_ h: WeeklyPicked) -> some View {
+        Button(action: { onWallpaper(asWallpaper(h)) }) {
+            Color.clear
+                .aspectRatio(16.0 / 9.0, contentMode: .fit)
+                .overlay {
+                    CachedAsyncImage(url: URL(string: h.previewURL.isEmpty ? h.originalURL : h.previewURL)) { img in
+                        img.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: { Color(hex: h.dominantColor ?? "#bbb").opacity(0.5) }
+                }
+                .overlay {
+                    LinearGradient(colors: [.clear, .black.opacity(0.5)], startPoint: .center, endPoint: .bottom)
+                        .allowsHitTesting(false)
+                }
+                .overlay(alignment: .bottom) {
+                    HStack(alignment: .bottom) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("CURATION · WEEK \(week) · \(String(year))")
+                                .font(.kicker).tracking(2.0).foregroundStyle(.white.opacity(0.9))
+                            Text("\(h.width)×\(h.height) · \(mb(h.fileSize))")
+                                .font(.mono11).tracking(0.5).foregroundStyle(.white.opacity(0.85))
+                        }
+                        Spacer(minLength: 0)
+                        HStack(spacing: 6) {
+                            Circle().fill(Color.accent).frame(width: 9, height: 9)
+                            Text("Trade for 1").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.ink)
+                        }
+                        .padding(.horizontal, 14).padding(.vertical, 8)
+                        .background(Capsule().fill(.white))
+                    }
+                    .padding(18)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.hair, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func applyHeroPalette() {
+        if let h = hero { PaletteEnv.shared.apply(palette: nil, dominant: h.dominantColor) }
+        else { PaletteEnv.shared.resetToDefaults() }
+    }
+    private func mb(_ b: Int) -> String { String(format: "%.1f MB", Double(b) / 1024 / 1024) }
 
     private func load() async {
         loading = true; defer { loading = false }
         if let data = try? await APIClient.shared.fetchWeeklyByWeek(year: year, week: week) {
             picks = data.picks
+            applyHeroPalette()
         }
     }
 
@@ -230,5 +286,25 @@ struct WeeklyWeekView: View {
             isAIGenerated: p.isAIGenerated, isLiked: nil, isFavorited: nil, isDownloaded: nil,
             createdAt: ""
         )
+    }
+}
+
+// Small "‹ label" back link for detail pages. Pops the nav stack.
+struct BackLink: View {
+    let label: String
+    var action: () -> Void
+    @State private var hover = false
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.left").font(.system(size: 11, weight: .semibold))
+                Text(label).font(.system(size: 12, weight: .medium))
+            }
+            .foregroundStyle(hover ? Color.ink : Color.ink2)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { h in hover = h; if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
     }
 }

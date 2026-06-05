@@ -295,41 +295,81 @@ struct CollectionDetailView: View {
     let slug: String
     var onWallpaper: (Wallpaper) -> Void
 
+    @Environment(\.dismiss) private var dismiss
     @State private var info: CollectionItem?
     @State private var items: [Wallpaper] = []
     @State private var loading = false
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 24) {
-                if let c = info {
-                    header(c)
-                }
+            VStack(alignment: .leading, spacing: 0) {
+                BackLink(label: "All collections") { dismiss() }
+
+                if let c = info { heroRow(c).padding(.top, 14) }
+
                 if loading && items.isEmpty {
-                    ProgressView()
+                    ProgressView().padding(.top, 40).frame(maxWidth: .infinity)
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 14, alignment: .top)], spacing: 14) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 16, alignment: .top)], spacing: 16) {
                         ForEach(items) { wp in
                             Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp) }
                                 .buttonStyle(.plain)
+                                .onHover { h in
+                                    if h { PaletteEnv.shared.apply(palette: wp.colorPalette, dominant: wp.dominantColor) }
+                                    else { applyBasePalette() }
+                                }
                         }
                     }
+                    .padding(.top, 28)
                 }
             }
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
-            .frame(maxWidth: 1200).frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: 1280).frame(maxWidth: .infinity, alignment: .center)
         }
-        // page-mesh shows through; no opaque paper background here
         .task(id: slug) { await load() }
+        .onDisappear { PaletteEnv.shared.resetToDefaults() }
     }
 
-    private func header(_ c: CollectionItem) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Kicker(text: "Collection №\(c.id) · \(c.wallpaperCount) wallpapers")
-            Text(c.title).font(.display32).foregroundStyle(Color.ink)
+    // Hero row — framed cover on the left, kicker / title / count on
+    // the right (mirrors the web collection-detail header).
+    private func heroRow(_ c: CollectionItem) -> some View {
+        HStack(alignment: .top, spacing: 28) {
+            Color.clear
+                .frame(width: 280, height: 280)
+                .overlay {
+                    if let cover = c.coverURL, let url = URL(string: cover) {
+                        CachedAsyncImage(url: url) { img in
+                            img.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: { Color.paper2 }
+                    } else {
+                        Color.paper2.overlay(
+                            Text("NO COVER YET").font(.system(size: 10, design: .monospaced))
+                                .tracking(1.8).foregroundStyle(Color.muted))
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.hair, lineWidth: 1))
+                .shadow(color: .black.opacity(0.10), radius: 16, y: 8)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(((c.kind == 1 ? "Editor Theme" : "Collection") + (c.isPublic == false ? " · Private" : "")).uppercased())
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .tracking(2.0).foregroundStyle(Color.muted)
+                Text(c.title).font(.display32).foregroundStyle(Color.ink)
+                Text("\(c.wallpaperCount) \(c.wallpaperCount == 1 ? "wallpaper" : "wallpapers")")
+                    .font(.system(size: 12, design: .monospaced)).tracking(0.6).foregroundStyle(Color.ink2)
+                Spacer(minLength: 0)
+            }
+            Spacer(minLength: 0)
         }
-        .padding(.bottom, 4)
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
+    }
+
+    private func applyBasePalette() {
+        if let hex = info?.recentTiles?.first?.dominantColor ?? info?.accentColor {
+            PaletteEnv.shared.apply(palette: nil, dominant: hex)
+        } else {
+            PaletteEnv.shared.resetToDefaults()
+        }
     }
 
     private func load() async {
@@ -337,6 +377,7 @@ struct CollectionDetailView: View {
         do {
             let c = try await APIClient.shared.fetchCollection(slug: slug)
             info = c
+            applyBasePalette()
             let data = try await APIClient.shared.fetchCollectionWallpapers(collectionID: c.id, limit: 36)
             items = data.items
         } catch {}
