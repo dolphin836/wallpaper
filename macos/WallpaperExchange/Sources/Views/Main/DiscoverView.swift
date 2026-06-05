@@ -26,10 +26,6 @@ struct DiscoverView: View {
     @State private var loadError: String?
     @State private var filter: Filter = .latest
     @State private var sizeMode: SizeMode = .lg
-    // The wallpaper currently shown on the device mockup. Driven by
-    // hovering grid tiles (web "floating wall" feel); falls back to the
-    // first feed item.
-    @State private var featuredHover: Wallpaper?
     @State private var categories: [Category] = []
     @State private var selectedCategoryID: Int? = nil
 
@@ -53,28 +49,11 @@ struct DiscoverView: View {
             : [.latest, .trending, .myDevice, .live, .ai]
     }
 
-    private var gridColumns: [GridItem] {
-        switch sizeMode {
-        case .lg: [GridItem(.adaptive(minimum: 300, maximum: 460), spacing: 14, alignment: .top)]
-        case .md: [GridItem(.adaptive(minimum: 200, maximum: 300), spacing: 12, alignment: .top)]
-        }
-    }
-
     var body: some View {
-        // Toolbar + device mockup stay pinned at the top so the mockup
-        // always previews whatever tile you hover, while the grid below
-        // scrolls — the Mac take on the web's floating device wall.
         VStack(alignment: .leading, spacing: 14) {
             toolbar
-
-            if let shown = featuredHover ?? items.first {
-                DevicePreviewBanner(featured: shown, onPick: { onPick(shown) })
-            }
-
-            ScrollView(.vertical, showsIndicators: false) {
-                feed.padding(.bottom, 40)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            wallArea
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding(.horizontal, 24)
         .padding(.top, 20)
@@ -92,10 +71,10 @@ struct DiscoverView: View {
         .onChange(of: selectedCategoryID) { _, _ in Task { await reload() } }
     }
 
-    // ── Feed: the scrolling grid + loading / empty / error states.
-    // Hovering a tile lifts it into the pinned device mockup above. ──
+    // ── Wall: the floating device mockup + tile canvas (one combined
+    // scroll), plus the loading / empty / error states. ──
     @ViewBuilder
-    private var feed: some View {
+    private var wallArea: some View {
         if loading && items.isEmpty {
             HStack { Spacer(); ProgressView(); Spacer() }
                 .padding(.top, 60)
@@ -105,22 +84,13 @@ struct DiscoverView: View {
             Text(search.isEmpty ? "No wallpapers." : "No wallpapers match.")
                 .font(.sans13).foregroundStyle(Color.muted).padding(.top, 20)
         } else {
-            LazyVGrid(columns: gridColumns, spacing: sizeMode == .lg ? 14 : 12) {
-                ForEach(items) { wp in
-                    Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
-                        .buttonStyle(.plain)
-                        .onHover { if $0 { featuredHover = wp } }
-                        .onAppear { maybeLoadMore(wp) }
-                }
-            }
-            if hasMore {
-                HStack {
-                    Spacer()
-                    ProgressView().controlSize(.small).opacity(loading ? 1 : 0)
-                    Spacer()
-                }
-                .frame(height: 24)
-            }
+            DeviceFloatingWall(
+                wallpapers: items,
+                onPick: onPick,
+                onFeature: { _ in },
+                onNearEnd: { if hasMore { Task { await loadMore() } } },
+                compact: sizeMode == .md
+            )
         }
     }
 
@@ -227,13 +197,8 @@ struct DiscoverView: View {
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.warn.opacity(0.06)))
     }
 
-    private func maybeLoadMore(_ wp: Wallpaper) {
-        guard hasMore, !loading, let last = items.last, wp.id == last.id else { return }
-        Task { await loadMore() }
-    }
-
     private func reload() async {
-        items = []; cursor = nil; hasMore = false; loadError = nil; featuredHover = nil
+        items = []; cursor = nil; hasMore = false; loadError = nil
         if filter == .forYou {
             await loadForYou()
         } else {
