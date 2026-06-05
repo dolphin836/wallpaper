@@ -74,6 +74,13 @@ else
     echo "==> Generating picks + themed collection for ${EXTRA_ARGS[*]}"
 fi
 cd "${REPO_ROOT}/backend"
+# NOTE: keep the env assignments and `go run` on one continued command.
+# A comment line between a trailing `\` and the command silently breaks
+# the continuation, so the env (DB_PORT etc.) never reaches `go run` and
+# it falls back to localhost:5432 → connection refused. (The
+# ${arr[@]+"${arr[@]}"} form expands to nothing when the array is empty
+# without tripping `set -u` on macOS's bash 3.2, where a plain
+# "${arr[@]}" would error.)
 DB_HOST=127.0.0.1 \
 DB_PORT="${TUNNEL_PORT}" \
 DB_USER=wallpaper \
@@ -81,6 +88,4 @@ DB_PASSWORD="${DB_PASSWORD}" \
 DB_NAME=wallpaper \
 DB_SSLMODE=disable \
 ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
-# ${arr[@]+"${arr[@]}"} expands to nothing when the array is empty without
-# tripping `set -u` on macOS's bash 3.2 (plain "${arr[@]}" errors there).
 go run ./cmd/weekly-drop --commit ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
