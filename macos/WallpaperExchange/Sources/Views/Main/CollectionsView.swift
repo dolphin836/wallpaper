@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 // Public collections list. Loads /collections (cursor-paginated) and
 // renders cards with a 2×2 cover composition built from recent_tiles.
@@ -297,8 +298,15 @@ struct CollectionDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var info: CollectionItem?
+    @State private var curator: PublicProfile?
     @State private var items: [Wallpaper] = []
     @State private var loading = false
+
+    private var setCountLabel: String {
+        let total = info?.wallpaperCount ?? items.count
+        if !items.isEmpty && items.count < total { return "\(items.count) OF \(total)" }
+        return "\(total) \(total == 1 ? "PIECE" : "PIECES")"
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -307,17 +315,37 @@ struct CollectionDetailView: View {
 
                 if let c = info { heroRow(c).padding(.top, 14) }
 
+                // "THE SET" head — mirrors the web's c-detail-grid-head.
+                HStack {
+                    Text("THE SET")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .tracking(2.2).foregroundStyle(Color.muted)
+                    Spacer()
+                    Text(setCountLabel)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .tracking(1.8).foregroundStyle(Color.muted)
+                }
+                .padding(.top, 34)
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(Color.hair.opacity(0.6)).frame(height: 1).offset(y: 12)
+                }
+
                 if loading && items.isEmpty {
                     ProgressView().padding(.top, 40).frame(maxWidth: .infinity)
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 16, alignment: .top)], spacing: 16) {
+                    // Framed-print grid — 3:4 paper-mat tiles like a gallery
+                    // wall (the web's FramedTile / .cd-frame).
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 200, maximum: 280), spacing: 24, alignment: .top)], spacing: 24) {
                         ForEach(items) { wp in
-                            Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp) }
-                                .buttonStyle(.plain)
-                                .onHover { h in
+                            FramedTile(
+                                wallpaper: wp,
+                                accent: tint,
+                                onTap: { onWallpaper(wp) },
+                                onHover: { h in
                                     if h { PaletteEnv.shared.apply(palette: wp.colorPalette, dominant: wp.dominantColor) }
                                     else { applyBasePalette() }
                                 }
+                            )
                         }
                     }
                     .padding(.top, 28)
@@ -365,17 +393,72 @@ struct CollectionDetailView: View {
             .shadow(color: tint.opacity(0.30), radius: 28, x: 0, y: 16)
             .shadow(color: .black.opacity(0.16), radius: 14, x: 0, y: 8)
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 14) {
                 Text(((c.kind == 1 ? "Editor Theme" : "Collection") + (c.isPublic == false ? " · Private" : "")).uppercased())
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
                     .tracking(2.0).foregroundStyle(Color.muted)
                 Text(c.title).font(.display32).foregroundStyle(Color.ink)
-                Text("\(c.wallpaperCount) \(c.wallpaperCount == 1 ? "wallpaper" : "wallpapers")")
-                    .font(.system(size: 12, design: .monospaced)).tracking(0.6).foregroundStyle(Color.ink2)
+
+                if let desc = c.description?.trimmingCharacters(in: .whitespacesAndNewlines), !desc.isEmpty {
+                    Text(desc)
+                        .font(.system(size: 14)).foregroundStyle(Color.ink2)
+                        .lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                }
+
+                // Byline — curator avatar + "A set by @handle" + count/updated.
+                bylineRow(c)
+
+                // Like pill (heart + count), matching the web c-detail-like.
+                HStack(spacing: 6) {
+                    Image(systemName: (c.isLiked ?? false) ? "heart.fill" : "heart")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle((c.isLiked ?? false) ? tint : Color.ink2)
+                    Text("\(c.likeCount ?? 0)")
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Color.ink2)
+                }
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .background(Capsule().fill(Color.paper2))
+                .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
+                .padding(.top, 2)
+
                 Spacer(minLength: 0)
             }
             Spacer(minLength: 0)
         }
+    }
+
+    private func bylineRow(_ c: CollectionItem) -> some View {
+        let handle = curator?.username ?? "user-\(c.userID ?? 0)"
+        let initial = String((curator?.nickname ?? curator?.username ?? "U").prefix(1)).uppercased()
+        let sub: String = {
+            var s = "\(c.wallpaperCount) \(c.wallpaperCount == 1 ? "wallpaper" : "wallpapers")"
+            if let u = c.updatedAt, !relativeCollTime(u).isEmpty { s += " · updated \(relativeCollTime(u))" }
+            return s
+        }()
+        return HStack(spacing: 10) {
+            ZStack {
+                Circle().fill(tint.opacity(0.18))
+                if let a = curator?.avatarURL, let url = URL(string: a), !a.isEmpty {
+                    CachedAsyncImage(url: url) { img in
+                        img.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: { Color.clear }
+                    .clipShape(Circle())
+                } else {
+                    Text(initial)
+                        .font(.system(size: 14, weight: .semibold, design: .serif))
+                        .foregroundStyle(tint)
+                }
+            }
+            .frame(width: 34, height: 34)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("A set by @\(handle)")
+                    .font(.system(size: 13, design: .serif)).foregroundStyle(Color.ink)
+                Text(sub)
+                    .font(.system(size: 11, design: .monospaced)).tracking(0.4).foregroundStyle(Color.muted)
+            }
+        }
+        .padding(.top, 4)
     }
 
     private func applyBasePalette() {
@@ -392,8 +475,120 @@ struct CollectionDetailView: View {
             let c = try await APIClient.shared.fetchCollection(slug: slug)
             info = c
             applyBasePalette()
+            // Curator handle + avatar for the byline — the /users/{id}
+            // route resolves a numeric id, so pass user_id as the param.
+            // Optional: the byline degrades to "user-N" if this fails.
+            if let uid = c.userID {
+                if let p = try? await APIClient.shared.fetchPublicProfile(username: String(uid)) {
+                    curator = p
+                }
+            }
             let data = try await APIClient.shared.fetchCollectionWallpapers(collectionID: c.id, limit: 36)
             items = data.items
         } catch {}
     }
+}
+
+// Framed-print tile — a 3:4 paper "mat" with a hairline border + soft
+// drop shadow, the image in an inner chamber. Hover lifts the frame,
+// tints the edge to the collection accent, and scales the image. This
+// is the Mac port of the web's FramedTile / .cd-frame.
+struct FramedTile: View {
+    let wallpaper: Wallpaper
+    var accent: Color
+    var onTap: () -> Void
+    var onHover: (Bool) -> Void
+    @State private var hovering = false
+
+    private var imageURL: URL? {
+        let s = wallpaper.previewURL.isEmpty ? wallpaper.thumbURL : wallpaper.previewURL
+        return URL(string: s)
+    }
+    private var resLabel: String? {
+        let px = max(wallpaper.width, wallpaper.height)
+        if px >= 7680 { return "8K" }
+        if px >= 3840 { return "4K" }
+        if px >= 2560 { return "2K" }
+        if px >= 1920 { return "1080P" }
+        if px >= 1280 { return "720P" }
+        return nil
+    }
+    private var isVideo: Bool { wallpaper.fileType.hasPrefix("video/") }
+
+    var body: some View {
+        Button(action: onTap) {
+            Color.clear
+                .aspectRatio(3.0 / 4.0, contentMode: .fit)
+                .overlay {
+                    ZStack(alignment: .topLeading) {
+                        CachedAsyncImage(url: imageURL) { img in
+                            img.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            (wallpaper.dominantColor.map { Color(hex: $0) } ?? Color.paper2).opacity(0.5)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .scaleEffect(hovering ? 1.04 : 1.0)
+                        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+
+                        chips.padding(8)
+                    }
+                    .padding(12)
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.paper2)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(hovering ? Color.hair.blended(with: accent, fraction: 0.4) : Color.hair, lineWidth: 1)
+                )
+                .shadow(color: hovering ? accent.opacity(0.32) : Color.black.opacity(0.18),
+                        radius: hovering ? 22 : 8, x: 0, y: hovering ? 14 : 6)
+                .offset(y: hovering ? -3 : 0)
+        }
+        .buttonStyle(.plain)
+        .animation(.easeOut(duration: 0.32), value: hovering)
+        .onHover { h in
+            hovering = h
+            onHover(h)
+            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+    }
+
+    @ViewBuilder private var chips: some View {
+        HStack(spacing: 5) {
+            if let r = resLabel { tileChip(r, icon: nil) }
+            if isVideo || wallpaper.isDynamic { tileChip("Live", icon: "play.fill") }
+            if wallpaper.isAIGenerated == true { tileChip("AI", icon: "sparkles") }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func tileChip(_ text: String, icon: String?) -> some View {
+        HStack(spacing: 3) {
+            if let icon { Image(systemName: icon).font(.system(size: 8, weight: .bold)) }
+            Text(text).font(.system(size: 9, weight: .semibold, design: .monospaced)).tracking(0.4)
+        }
+        .padding(.horizontal, 6).padding(.vertical, 3)
+        .foregroundStyle(.white)
+        .background(Capsule().fill(Color.black.opacity(0.45)))
+    }
+}
+
+// Relative-time formatter for the collection byline — mirrors the web's
+// relativeTime(): just now / N min / N hr / N days / N months / N years.
+fileprivate func relativeCollTime(_ iso: String) -> String {
+    let withFrac = ISO8601DateFormatter()
+    withFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    let plain = ISO8601DateFormatter()
+    guard let date = withFrac.date(from: iso) ?? plain.date(from: iso) else { return "" }
+    let diff = Date().timeIntervalSince(date)
+    if diff < 60 { return "just now" }
+    if diff < 3600 { return "\(Int(diff / 60)) min ago" }
+    if diff < 86400 { return "\(Int(diff / 3600)) hr ago" }
+    let days = Int(diff / 86400)
+    if days < 30 { return "\(days) \(days == 1 ? "day" : "days") ago" }
+    let months = days / 30
+    if months < 12 { return "\(months) \(months == 1 ? "month" : "months") ago" }
+    let years = months / 12
+    return "\(years) \(years == 1 ? "year" : "years") ago"
 }
