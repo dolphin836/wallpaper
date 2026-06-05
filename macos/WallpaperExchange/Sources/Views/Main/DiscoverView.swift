@@ -26,6 +26,10 @@ struct DiscoverView: View {
     @State private var loadError: String?
     @State private var filter: Filter = .latest
     @State private var sizeMode: SizeMode = .lg
+    // The wallpaper currently shown on the device mockup. Driven by
+    // hovering grid tiles (web "floating wall" feel); falls back to the
+    // first feed item.
+    @State private var featuredHover: Wallpaper?
     @State private var categories: [Category] = []
     @State private var selectedCategoryID: Int? = nil
 
@@ -57,48 +61,23 @@ struct DiscoverView: View {
     }
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 16) {
-                toolbar
+        // Toolbar + device mockup stay pinned at the top so the mockup
+        // always previews whatever tile you hover, while the grid below
+        // scrolls — the Mac take on the web's floating device wall.
+        VStack(alignment: .leading, spacing: 14) {
+            toolbar
 
-                // Static device banner — the Mac's stand-in for the
-                // web's floating device wall (no orbiting animation).
-                // Featured with the first feed wallpaper; tapping opens
-                // its detail page.
-                if let first = items.first {
-                    DevicePreviewBanner(featured: first, onPick: { onPick(first) })
-                }
-
-                if loading && items.isEmpty {
-                    HStack { Spacer(); ProgressView(); Spacer() }
-                        .padding(.top, 60)
-                } else if let err = loadError, items.isEmpty {
-                    errorBanner(err)
-                } else if items.isEmpty {
-                    Text(search.isEmpty ? "No wallpapers." : "No wallpapers match.")
-                        .font(.sans13).foregroundStyle(Color.muted).padding(.top, 20)
-                } else {
-                    LazyVGrid(columns: gridColumns, spacing: sizeMode == .lg ? 14 : 12) {
-                        ForEach(items) { wp in
-                            Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
-                                .buttonStyle(.plain)
-                                .onAppear { maybeLoadMore(wp) }
-                        }
-                    }
-                    if hasMore {
-                        HStack {
-                            Spacer()
-                            ProgressView().controlSize(.small).opacity(loading ? 1 : 0)
-                            Spacer()
-                        }
-                        .frame(height: 24)
-                    }
-                }
+            if let shown = featuredHover ?? items.first {
+                DevicePreviewBanner(featured: shown, onPick: { onPick(shown) })
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 20)
-            .padding(.bottom, 60)
+
+            ScrollView(.vertical, showsIndicators: false) {
+                feed.padding(.bottom, 40)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .padding(.horizontal, 24)
+        .padding(.top, 20)
         .task(id: "discover-init") {
             if deviceMatch { filter = .myDevice }
             if categories.isEmpty {
@@ -111,6 +90,38 @@ struct DiscoverView: View {
         .onChange(of: filter) { _, _ in Task { await reload() } }
         .onChange(of: search) { _, _ in Task { await reload() } }
         .onChange(of: selectedCategoryID) { _, _ in Task { await reload() } }
+    }
+
+    // ── Feed: the scrolling grid + loading / empty / error states.
+    // Hovering a tile lifts it into the pinned device mockup above. ──
+    @ViewBuilder
+    private var feed: some View {
+        if loading && items.isEmpty {
+            HStack { Spacer(); ProgressView(); Spacer() }
+                .padding(.top, 60)
+        } else if let err = loadError, items.isEmpty {
+            errorBanner(err)
+        } else if items.isEmpty {
+            Text(search.isEmpty ? "No wallpapers." : "No wallpapers match.")
+                .font(.sans13).foregroundStyle(Color.muted).padding(.top, 20)
+        } else {
+            LazyVGrid(columns: gridColumns, spacing: sizeMode == .lg ? 14 : 12) {
+                ForEach(items) { wp in
+                    Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
+                        .buttonStyle(.plain)
+                        .onHover { if $0 { featuredHover = wp } }
+                        .onAppear { maybeLoadMore(wp) }
+                }
+            }
+            if hasMore {
+                HStack {
+                    Spacer()
+                    ProgressView().controlSize(.small).opacity(loading ? 1 : 0)
+                    Spacer()
+                }
+                .frame(height: 24)
+            }
+        }
     }
 
     // ── Toolbar: chips (left, scrollable) + filter dropdown + size ──
@@ -222,7 +233,7 @@ struct DiscoverView: View {
     }
 
     private func reload() async {
-        items = []; cursor = nil; hasMore = false; loadError = nil
+        items = []; cursor = nil; hasMore = false; loadError = nil; featuredHover = nil
         if filter == .forYou {
             await loadForYou()
         } else {
