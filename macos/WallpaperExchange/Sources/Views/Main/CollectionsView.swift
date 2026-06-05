@@ -5,7 +5,9 @@ import SwiftUI
 struct CollectionsListView: View {
     @State private var auth = AuthService.shared
     @State private var items: [CollectionItem] = []
-    @State private var cursor: Int?
+    @State private var page = 0
+    // Cursor needed to fetch each page (index 0 = first page = nil).
+    @State private var pageCursors: [Int?] = [nil]
     @State private var hasMore = false
     @State private var loading = false
     @State private var loadError: String?
@@ -13,6 +15,7 @@ struct CollectionsListView: View {
     @State private var showCreate = false
 
     enum Filter { case all, yours }
+    private let pageSize = 12
 
     private var visible: [CollectionItem] {
         guard filter == .yours, let uid = auth.user?.id else { return items }
@@ -39,17 +42,18 @@ struct CollectionsListView: View {
                                 CollectionTileCard(item: c)
                             }
                             .buttonStyle(.plain)
-                            .onAppear { maybeLoadMore(c) }
                         }
                     }
                     .padding(.top, 28)
-                    collectionsFooter.padding(.top, 20)
+                    pagination.padding(.top, 28)
                 }
             }
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
             .frame(maxWidth: 1280).frame(maxWidth: .infinity, alignment: .center)
         }
         .task { await reload() }
+        .onChange(of: filter) { _, _ in Task { await reload() } }
+        .onDisappear { PaletteEnv.shared.resetToDefaults() }
         .sheet(isPresented: $showCreate) {
             NewCollectionSheet(onCreated: { Task { await reload() } },
                                onClose: { showCreate = false })
@@ -86,30 +90,40 @@ struct CollectionsListView: View {
         }
     }
 
+    // Prev / page / Next pagination (cursor-backed), mirroring the web.
     @ViewBuilder
-    private var collectionsFooter: some View {
-        Group {
-            if loading {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Loading more…").font(.sans12).foregroundStyle(Color.muted)
-                }
-            } else if hasMore && filter == .all {
-                Button { Task { await loadMore() } } label: {
-                    Text("Load more")
-                        .font(.system(size: 12, weight: .medium)).foregroundStyle(Color.ink2)
-                        .padding(.horizontal, 18).padding(.vertical, 8)
-                        .background(Capsule().fill(Color.paper2))
-                        .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            } else if !visible.isEmpty {
-                Text("\(visible.count) collection\(visible.count == 1 ? "" : "s") · end")
-                    .font(.mono11).tracking(0.5).foregroundStyle(Color.muted)
+    private var pagination: some View {
+        HStack(spacing: 12) {
+            Spacer()
+            pageButton("‹ Prev", enabled: page > 0 && !loading) {
+                Task { await loadPage(page - 1) }
             }
+            if loading {
+                ProgressView().controlSize(.small).frame(width: 60)
+            } else {
+                Text("Page \(page + 1)")
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .tracking(0.5).foregroundStyle(Color.ink2).frame(minWidth: 60)
+            }
+            pageButton("Next ›", enabled: hasMore && !loading) {
+                Task { await loadPage(page + 1) }
+            }
+            Spacer()
         }
-        .frame(maxWidth: .infinity)
+    }
+
+    private func pageButton(_ label: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(enabled ? Color.ink2 : Color.muted.opacity(0.5))
+                .padding(.horizontal, 16).padding(.vertical, 8)
+                .background(Capsule().fill(Color.paper2))
+                .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
     }
 
     private func filterChip(_ label: String, on: Bool, action: @escaping () -> Void) -> some View {
@@ -126,24 +140,26 @@ struct CollectionsListView: View {
     }
 
     private func reload() async {
-        items = []; cursor = nil; hasMore = false; loadError = nil
-        await loadMore()
+        pageCursors = [nil]
+        await loadPage(0)
     }
-    private func loadMore() async {
-        guard !loading else { return }
+
+    private func loadPage(_ p: Int) async {
+        guard !loading, p >= 0, p < pageCursors.count else { return }
         loading = true; defer { loading = false }
+        loadError = nil
         do {
-            let data = try await APIClient.shared.fetchPublicCollections(cursor: cursor, limit: 24)
-            items.append(contentsOf: data.items)
-            cursor = data.nextCursor
+            let data = try await APIClient.shared.fetchPublicCollections(cursor: pageCursors[p], limit: pageSize)
+            items = data.items
             hasMore = data.hasMore
+            page = p
+            // Record the cursor to fetch the *next* page (once).
+            if data.hasMore, let next = data.nextCursor, p + 1 >= pageCursors.count {
+                pageCursors.append(next)
+            }
         } catch {
             loadError = error.localizedDescription
         }
-    }
-    private func maybeLoadMore(_ c: CollectionItem) {
-        guard hasMore, !loading, let last = items.last, c.id == last.id else { return }
-        Task { await loadMore() }
     }
 }
 
@@ -164,42 +180,71 @@ struct CollectionTileCard: View {
         if item.isPublic == false { s += " · Private" }
         return s
     }
+    // Tint for the stacked-paper layers (web mixes accent into hair).
+    private var tintHex: String? { item.recentTiles?.first?.dominantColor ?? item.accentColor }
+    private var tint: Color { tintHex.map { Color(hex: $0) } ?? Color.accent }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Color.clear defines the 1:1 square from the column width;
-            // the cover fills it as an overlay and is clipped to the
-            // square so its intrinsic size can't leak and blow up the
-            // tile.
-            Color.clear
-                .aspectRatio(1, contentMode: .fit)
-                .overlay {
-                    if let url = coverURL {
-                        CachedAsyncImage(url: url) { img in
-                            img.resizable().aspectRatio(contentMode: .fill)
-                        } placeholder: { Color.paper2 }
-                    } else {
-                        Color.paper2.overlay(Text("No cover yet").font(.mono10).foregroundStyle(Color.muted))
-                    }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.hair, lineWidth: 1))
-                .scaleEffect(hover ? 1.01 : 1.0)
-                .shadow(color: .black.opacity(hover ? 0.16 : 0.06), radius: hover ? 16 : 8, x: 0, y: hover ? 8 : 4)
-
-            VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 12) {
+            cover
+            VStack(alignment: .leading, spacing: 5) {
                 Text(kickerText.uppercased())
-                    .font(.kicker).tracking(1.6).foregroundStyle(Color.muted)
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .tracking(2.0).foregroundStyle(Color.muted)
                 Text(item.title.isEmpty ? "Untitled set" : item.title)
-                    .font(.system(size: 15, weight: .semibold, design: .serif))
-                    .foregroundStyle(Color.ink).lineLimit(1)
-                Text("\(item.wallpaperCount) \(item.wallpaperCount == 1 ? "wallpaper" : "wallpapers")")
-                    .font(.mono10).tracking(0.4).foregroundStyle(Color.muted)
+                    .font(.system(size: 21, weight: .regular, design: .serif))
+                    .foregroundStyle(Color.ink).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                Text("\(item.wallpaperCount) \(item.wallpaperCount == 1 ? "WALLPAPER" : "WALLPAPERS")")
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .tracking(1.4).foregroundStyle(Color.muted)
             }
         }
         .contentShape(Rectangle())
-        .animation(.easeOut(duration: 0.2), value: hover)
-        .onHover { hover = $0 }
+        .animation(.easeOut(duration: 0.34), value: hover)
+        .onHover { h in
+            hover = h
+            if h { PaletteEnv.shared.apply(palette: nil, dominant: tintHex) }
+            else { PaletteEnv.shared.resetToDefaults() }
+        }
+    }
+
+    // 1:1 cover with the web's stacked-paper effect: two offset,
+    // accent-tinted layers behind the cover. 12pt is reserved at the
+    // bottom-right so the deepest layer sits inside the cell.
+    private var cover: some View {
+        GeometryReader { geom in
+            let cell = geom.size.width
+            let card = max(0, cell - 12)
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.hair.blended(with: tint, fraction: 0.18))
+                    .frame(width: card, height: card)
+                    .offset(x: hover ? 12 : 8, y: hover ? 12 : 8)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.hair.blended(with: tint, fraction: 0.30))
+                    .frame(width: card, height: card)
+                    .offset(x: hover ? 6 : 4, y: hover ? 6 : 4)
+                Color.clear
+                    .frame(width: card, height: card)
+                    .overlay {
+                        if let url = coverURL {
+                            CachedAsyncImage(url: url) { img in
+                                img.resizable().aspectRatio(contentMode: .fill).scaleEffect(hover ? 1.04 : 1.0)
+                            } placeholder: { Color.paper2 }
+                        } else {
+                            Color.paper2.overlay(
+                                Text("NO COVER YET").font(.system(size: 10, design: .monospaced))
+                                    .tracking(1.8).foregroundStyle(Color.muted))
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.hair, lineWidth: 1))
+                    .offset(x: hover ? -2 : 0, y: hover ? -2 : 0)
+                    .shadow(color: .black.opacity(hover ? 0.30 : 0.16), radius: hover ? 22 : 12, x: 0, y: hover ? 10 : 6)
+            }
+            .frame(width: cell, height: cell, alignment: .topLeading)
+        }
+        .aspectRatio(1, contentMode: .fit)
     }
 }
 

@@ -40,6 +40,18 @@ struct WeeklyArchiveView: View {
             .frame(maxWidth: 1280).frame(maxWidth: .infinity, alignment: .center)
         }
         .task { await load() }
+        .onChange(of: selectedIdx) { _, _ in applySelectedPalette() }
+        .onDisappear { PaletteEnv.shared.resetToDefaults() }
+    }
+
+    // Tint the page mesh to the selected issue (hover temporarily
+    // overrides it; leaving a row falls back here).
+    private func applySelectedPalette() {
+        if let s = selected {
+            PaletteEnv.shared.apply(palette: s.colorPalette, dominant: s.dominantColor)
+        } else {
+            PaletteEnv.shared.resetToDefaults()
+        }
     }
 
     private var header: some View {
@@ -75,6 +87,10 @@ struct WeeklyArchiveView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .onHover { h in
+                    if h { PaletteEnv.shared.apply(palette: e.colorPalette, dominant: e.dominantColor) }
+                    else { applySelectedPalette() }
+                }
             }
         }
     }
@@ -132,6 +148,7 @@ struct WeeklyArchiveView: View {
         loading = true; defer { loading = false }
         do {
             entries = try await APIClient.shared.fetchWeeklyArchive(limit: 100)
+            applySelectedPalette()
         } catch {
             loadError = error.localizedDescription
         }
