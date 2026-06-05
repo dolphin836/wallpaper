@@ -84,12 +84,6 @@ struct DiscoverView: View {
                     .padding(.top, 24)
                     .padding(.bottom, 12)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    // Opaque floor so wallpaper tiles don't show through
-                    // the pinned header as they scroll up behind it.
-                    .background(Color.paper)
-                    .overlay(alignment: .bottom) {
-                        Rectangle().fill(Color.hair.opacity(0.5)).frame(height: 1)
-                    }
                 }
             }
             .padding(.horizontal, 40)
