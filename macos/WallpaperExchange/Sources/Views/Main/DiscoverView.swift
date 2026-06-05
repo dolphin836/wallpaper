@@ -63,23 +63,25 @@ struct DiscoverView: View {
     }
 
     var body: some View {
-        // Toolbar + device mockup stay pinned at the top so the mockup
-        // always previews whatever tile you hover, while the grid below
-        // scrolls — the Mac take on the web's floating device wall.
-        VStack(alignment: .leading, spacing: 14) {
-            toolbar
+        // Toolbar + device mockup + grid all live inside ONE vertical
+        // ScrollView so a scroll gesture anywhere in the content area
+        // moves the page — the device mockup and the wallpaper list
+        // scroll together (the Mac take on the web's floating device
+        // wall), rather than only the grid responding to the wheel.
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 14) {
+                toolbar
 
-            if let shown = featuredHover ?? items.first {
-                DevicePreviewBanner(featured: shown, onPick: { onPick(shown) })
-            }
+                if let shown = featuredHover ?? items.first {
+                    DevicePreviewBanner(featured: shown, onPick: { onPick(shown) })
+                }
 
-            ScrollView(.vertical, showsIndicators: false) {
                 feed.padding(.bottom, 40)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, 40)
+            .padding(.top, 24)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 40)
-        .padding(.top, 24)
         .task(id: "discover-init") {
             if let initialFilter { filter = initialFilter }
             else if deviceMatch { filter = .myDevice }
