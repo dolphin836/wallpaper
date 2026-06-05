@@ -173,7 +173,7 @@ struct HomeView: View {
                 LazyVGrid(columns: fixedCols(4), spacing: 14) {
                     ForEach(collections.prefix(4)) { c in
                         NavigationLink(value: MainWindow.MainRoute.collection(slug: c.slug, title: c.title)) {
-                            CollectionCard(item: c)
+                            CollectionTileCard(item: c)
                         }
                         .buttonStyle(.plain)
                     }

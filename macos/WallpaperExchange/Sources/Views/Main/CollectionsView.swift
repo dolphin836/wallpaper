@@ -3,44 +3,103 @@ import SwiftUI
 // Public collections list. Loads /collections (cursor-paginated) and
 // renders cards with a 2×2 cover composition built from recent_tiles.
 struct CollectionsListView: View {
+    @State private var auth = AuthService.shared
     @State private var items: [CollectionItem] = []
     @State private var cursor: Int?
     @State private var hasMore = false
     @State private var loading = false
     @State private var loadError: String?
+    @State private var filter: Filter = .all
+    @State private var showCreate = false
+
+    enum Filter { case all, yours }
+
+    private var visible: [CollectionItem] {
+        guard filter == .yours, let uid = auth.user?.id else { return items }
+        return items.filter { $0.userID == uid }
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 24) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Kicker(text: "Curated lists · yours and the community's")
-                    Text("Collections").font(.display32).foregroundStyle(Color.ink)
-                }
+            VStack(alignment: .leading, spacing: 0) {
+                header
 
                 if loading && items.isEmpty {
-                    ProgressView().padding(.top, 40)
-                } else if let err = loadError {
-                    Text(err).font(.sans12).foregroundStyle(Color.warn).padding(.top, 24)
+                    ProgressView().padding(.top, 50).frame(maxWidth: .infinity)
+                } else if let err = loadError, items.isEmpty {
+                    Text(err).font(.sans12).foregroundStyle(Color.warn).padding(.top, 30)
+                } else if visible.isEmpty {
+                    Text(filter == .yours ? "You haven't created any collections yet." : "No collections yet.")
+                        .font(.sans13).foregroundStyle(Color.muted)
+                        .padding(.top, 50).frame(maxWidth: .infinity)
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 280, maximum: 360), spacing: 18, alignment: .top)], spacing: 18) {
-                        ForEach(items) { c in
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)], spacing: 28) {
+                        ForEach(visible) { c in
                             NavigationLink(value: MainWindow.MainRoute.collection(slug: c.slug, title: c.title)) {
-                                CollectionCard(item: c)
+                                CollectionTileCard(item: c)
                             }
                             .buttonStyle(.plain)
                             .onAppear { maybeLoadMore(c) }
                         }
                     }
+                    .padding(.top, 28)
                     if hasMore {
                         HStack { Spacer(); ProgressView().controlSize(.small).opacity(loading ? 1 : 0); Spacer() }
-                            .frame(height: 24)
+                            .frame(height: 24).padding(.top, 16)
                     }
                 }
             }
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
-            .frame(maxWidth: 1200).frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: 1280).frame(maxWidth: .infinity, alignment: .center)
         }
         .task { await reload() }
+        .sheet(isPresented: $showCreate) {
+            NewCollectionSheet(onCreated: { Task { await reload() } },
+                               onClose: { showCreate = false })
+        }
+    }
+
+    // Editorial header + All / Yours filter chips + New button.
+    private var header: some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 10) {
+                Kicker(text: "The Library")
+                Text("Crates, curated.").font(.display32).foregroundStyle(Color.ink)
+                Text("Themed sets put together by the community and the editors. Each collection has its own colour, voice, and pace.")
+                    .font(.sans13).foregroundStyle(Color.ink2)
+                    .frame(maxWidth: 560, alignment: .leading)
+            }
+            Spacer(minLength: 0)
+            HStack(spacing: 8) {
+                filterChip("All", on: filter == .all) { filter = .all }
+                if auth.isLoggedIn {
+                    filterChip("Yours", on: filter == .yours) { filter = .yours }
+                    Button { showCreate = true } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "plus").font(.system(size: 11, weight: .bold))
+                            Text("New").font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12).padding(.vertical, 7)
+                        .background(Capsule().fill(Color.accent))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func filterChip(_ label: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(on ? Color.paper : Color.ink2)
+                .padding(.horizontal, 14).padding(.vertical, 6)
+                .background(Capsule().fill(on ? Color.ink : Color.paper))
+                .overlay(Capsule().stroke(on ? Color.ink : Color.hair, lineWidth: 1))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     private func reload() async {
@@ -65,135 +124,97 @@ struct CollectionsListView: View {
     }
 }
 
-// Mirrors web's .h3-tile-collection — the "stacked paper" tile.
-//
-// Layout strategy (GeometryReader-bounded so the LazyVGrid cell math
-// never breaks): the cell is a 1:1 square of size W×W. The card sits
-// at the top-left at (W-12)×(W-12), with two paper layers offset 4 and
-// 8 points into the reserved 12pt bottom-right margin. Everything
-// stays strictly within the W×W cell — adjacent grid cells never
-// overlap our content, no matter the hover state.
-struct CollectionCard: View {
+// Web .c-tile — a clean 1:1 cover with the caption (kicker / title /
+// count) BELOW the image rather than overlaid on it.
+struct CollectionTileCard: View {
     let item: CollectionItem
     @State private var hover = false
-    @State private var imgLoaded = false
 
-    // Web HomePage CollectionTile uses `c.cover_url` exclusively —
-    // recent_tiles is only used by the editorial CollectionCard
-    // (in the /collections page). Match the web home tile here.
-    private var imageURL: URL? {
-        if let cover = item.coverURL, !cover.isEmpty {
-            return URL(string: cover)
-        }
+    private var coverURL: URL? {
+        if let p = item.recentTiles?.first?.previewURL, !p.isEmpty { return URL(string: p) }
+        if let c = item.coverURL, !c.isEmpty { return URL(string: c) }
+        if let t = item.recentTiles?.first?.thumbURL, !t.isEmpty { return URL(string: t) }
         return nil
+    }
+    private var kickerText: String {
+        var s = item.kind == 1 ? "Editor Theme" : "Collection"
+        if item.isPublic == false { s += " · Private" }
+        return s
     }
 
     var body: some View {
-        GeometryReader { geom in
-            // Some columns get fractional widths; use min() to be safe.
-            let cell = min(geom.size.width, geom.size.height)
-            // Reserve 12pt at the bottom-right for the two paper layers.
-            // Card itself stays (cell - 12) so the deepest paper edge
-            // sits flush at the cell's bottom-right corner.
-            let cardSize = max(0, cell - 12)
-
-            ZStack(alignment: .topLeading) {
-                // Paper 2 — furthest behind. Web uses oklch(82% 0.012 240)
-                // which is barely-there light gray on the warm bg. Need
-                // to match the subtle "stacked sheets" feel, not a
-                // chunky offset rectangle.
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(red: 0.89, green: 0.88, blue: 0.87))
-                    .frame(width: cardSize, height: cardSize)
-                    .offset(x: hover ? 12 : 8, y: hover ? 12 : 8)
-                    .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
-
-                // Paper 1 — between paper 2 and the front card.
-                // oklch(86% 0.010 240) — slightly lighter than paper 2.
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(red: 0.92, green: 0.91, blue: 0.90))
-                    .frame(width: cardSize, height: cardSize)
-                    .offset(x: hover ? 6 : 4, y: hover ? 6 : 4)
-                    .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 1)
-
-                // Front card
-                frontCard(cardSize: cardSize)
-                    .frame(width: cardSize, height: cardSize)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
-                            .blendMode(.overlay)
-                            .allowsHitTesting(false)
-                    )
-                    // Tiny lift on hover. Bounded so it doesn't
-                    // overflow the cell top-left.
-                    .offset(x: hover ? -2 : 0, y: hover ? -2 : 0)
-                    .shadow(color: Color.black.opacity(hover ? 0.30 : 0.18),
-                            radius: hover ? 22 : 12,
-                            x: 0, y: hover ? 10 : 6)
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack {
+                Color.paper2
+                if let url = coverURL {
+                    CachedAsyncImage(url: url) { img in
+                        img.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: { Color.paper2 }
+                } else {
+                    Text("No cover yet").font(.mono10).foregroundStyle(Color.muted)
+                }
             }
-            // Lock the ZStack to the full cell so paper layers can't
-            // bleed past geom bounds.
-            .frame(width: cell, height: cell, alignment: .topLeading)
+            .aspectRatio(1, contentMode: .fit)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.hair, lineWidth: 1))
+            .scaleEffect(hover ? 1.01 : 1.0)
+            .shadow(color: .black.opacity(hover ? 0.16 : 0.06), radius: hover ? 16 : 8, x: 0, y: hover ? 8 : 4)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(kickerText.uppercased())
+                    .font(.kicker).tracking(1.6).foregroundStyle(Color.muted)
+                Text(item.title.isEmpty ? "Untitled set" : item.title)
+                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.ink).lineLimit(1)
+                Text("\(item.wallpaperCount) \(item.wallpaperCount == 1 ? "wallpaper" : "wallpapers")")
+                    .font(.mono10).tracking(0.4).foregroundStyle(Color.muted)
+            }
         }
-        .aspectRatio(1.0, contentMode: .fit)
-        .animation(.easeOut(duration: 0.38), value: hover)
         .contentShape(Rectangle())
+        .animation(.easeOut(duration: 0.2), value: hover)
         .onHover { hover = $0 }
     }
+}
 
-    // ─── Front card content ────────────────────────────────────
-    // cardSize is passed in so we can give each Text an EXPLICIT
-    // `.frame(width: cardSize - 28)`. `.frame(maxWidth: .infinity)`
-    // alone wasn't enough — propagation through ZStack / .padding /
-    // CachedAsyncImage was letting the title overflow at natural
-    // width, then the outer .frame(cardSize) center-clipped it.
-    private func frontCard(cardSize: CGFloat) -> some View {
-        let textWidth = max(0, cardSize - 28)
-        return ZStack(alignment: .bottomLeading) {
-            Color.paper2
+// Minimal create-collection sheet (title + public toggle).
+struct NewCollectionSheet: View {
+    var onCreated: () -> Void
+    var onClose: () -> Void
+    @State private var title = ""
+    @State private var isPublic = true
+    @State private var creating = false
+    @State private var error: String?
 
-            if let url = imageURL {
-                CachedAsyncImage(url: url) { img in
-                    img.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Color.paper2
-                }
-                .frame(width: cardSize, height: cardSize)
-                .clipped()
-                .scaleEffect(hover ? 1.04 : 1.0)
-                .opacity(imgLoaded ? 1 : 0.001)
-                .onAppear { imgLoaded = true }
-                .animation(.easeOut(duration: 0.4), value: imgLoaded)
-                .animation(.easeOut(duration: 0.8), value: hover)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("New collection").font(.display20).foregroundStyle(Color.ink)
+            TextField("Title", text: $title).textFieldStyle(.roundedBorder)
+            Toggle("Public", isOn: $isPublic).toggleStyle(.switch)
+            if let e = error { Text(e).font(.sans11).foregroundStyle(Color.warn) }
+            HStack {
+                Spacer()
+                Button("Cancel") { onClose() }
+                Button(creating ? "Creating…" : "Create") { create() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || creating)
             }
+        }
+        .padding(24)
+        .frame(width: 360)
+    }
 
-            // Bottom gradient — transparent 40% → rgba(0,0,0,0.7)
-            LinearGradient(
-                stops: [
-                    .init(color: .clear, location: 0.4),
-                    .init(color: Color.black.opacity(0.7), location: 1.0),
-                ],
-                startPoint: .top, endPoint: .bottom
-            )
-            .allowsHitTesting(false)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(item.title.isEmpty ? "Untitled set" : item.title)
-                    .font(.system(size: 18, weight: .regular, design: .serif))
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .frame(width: textWidth, alignment: .leading)
-                    .shadow(color: .black.opacity(0.7), radius: 14, x: 0, y: 2)
-                Text("\(item.wallpaperCount) WALLPAPERS")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .tracking(1.4)
-                    .foregroundStyle(Color.white.opacity(0.85))
-                    .frame(width: textWidth, alignment: .leading)
+    private func create() {
+        let t = title.trimmingCharacters(in: .whitespaces)
+        guard !t.isEmpty else { return }
+        creating = true; error = nil
+        Task {
+            do {
+                _ = try await APIClient.shared.createCollection(title: t, isPublic: isPublic)
+                creating = false; onCreated(); onClose()
+            } catch {
+                creating = false; self.error = "Couldn't create. Try again."
             }
-            .padding(14)
         }
     }
 }

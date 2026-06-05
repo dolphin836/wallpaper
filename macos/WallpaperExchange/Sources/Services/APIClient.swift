@@ -141,6 +141,30 @@ actor APIClient {
     // Personalised "For You" feed — a single-shot top-N list (no cursor
     // pagination), signed-in only. Mirrors the web's GET
     // /wallpapers/for-you, which returns a plain array in `data`.
+    // Create a community collection (POST /collections with a JSON body).
+    func createCollection(title: String, isPublic: Bool = true) async throws -> CollectionItem {
+        struct Body: Encodable { let title: String; let is_public: Bool }
+        guard let url = URL(string: baseURL + "/collections") else { throw APIError.invalidURL }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = await AuthService.shared.token {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        req.httpBody = try JSONEncoder().encode(Body(title: title, is_public: isPublic))
+        let (data, response): (Data, URLResponse)
+        do { (data, response) = try await session.data(for: req) }
+        catch { throw APIError.networkError(error) }
+        if let http = response as? HTTPURLResponse {
+            if http.statusCode == 401 { throw APIError.unauthorized }
+            if http.statusCode >= 400 { throw APIError.networkError(URLError(.badServerResponse)) }
+        }
+        do {
+            let resp = try decoder.decode(APIResponse<CollectionItem>.self, from: data)
+            return resp.data
+        } catch { throw APIError.decodingError(error) }
+    }
+
     func fetchForYou(limit: Int = 30) async throws -> [Wallpaper] {
         let items: [URLQueryItem] = [
             .init(name: "limit", value: String(limit)),

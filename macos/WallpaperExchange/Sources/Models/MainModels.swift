@@ -140,15 +140,18 @@ struct CollectionItem: Decodable, Identifiable, Hashable {
     let userID: Int?
     let createdAt: String?
     let recentTiles: [CollectionTile]?
+    let kind: Int?
+    let accentColor: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, slug, title
+        case id, slug, title, kind
         case coverURL = "cover_url"
         case wallpaperCount = "wallpaper_count"
         case isPublic = "is_public"
         case userID = "user_id"
         case createdAt = "created_at"
         case recentTiles = "recent_tiles"
+        case accentColor = "accent_color"
     }
 }
 
