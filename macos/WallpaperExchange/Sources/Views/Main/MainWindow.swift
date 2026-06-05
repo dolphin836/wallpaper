@@ -331,13 +331,17 @@ struct DetailModalOverlay: View {
 
             DetailPage(slug: target.slug, onUploader: onUploader, onWallpaper: onWallpaper, onClose: onClose)
                 .id(target.id)
+                // Fill the whole inset rectangle so the paper panel is the
+                // full modal frame (not just the content column) in both
+                // windowed and full-screen.
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.paper)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.hair, lineWidth: 1))
                 .overlay(alignment: .topTrailing) { closeButton }
                 .shadow(color: .black.opacity(0.40), radius: 48, x: 0, y: 24)
                 .padding(.top, 40)
-                .padding(.bottom, 22)
+                .padding(.bottom, 28)
                 .padding(.horizontal, 40)
         }
     }

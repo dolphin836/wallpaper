@@ -39,7 +39,11 @@ struct DetailPage: View {
                         Spacer(minLength: 40)
                     }
                     .padding(.horizontal, 48).padding(.top, 12).padding(.bottom, 60)
-                    .frame(maxWidth: 1100)
+                    // Single content column — keep it ≤ the per-section
+                    // 880 cap so every block (breadcrumb / hero / actions /
+                    // meta / more-like-this) lines up on the same edges
+                    // instead of the breadcrumb running wider than the rest.
+                    .frame(maxWidth: 880)
                     .frame(maxWidth: .infinity, alignment: .center)
                 } else if let err = loadError {
                     VStack(spacing: 10) {
