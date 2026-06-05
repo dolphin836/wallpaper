@@ -101,6 +101,11 @@ struct DiscoverView: View {
                             PageMesh()
                         }
                         .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+                        // Never let the oversized floor intercept events —
+                        // otherwise its hit region covers the grid below the
+                        // pinned header and swallows tile hover (which drives
+                        // the device preview + page mesh + card action rail).
+                        .allowsHitTesting(false)
                     }
                     .clipped()
                 }
