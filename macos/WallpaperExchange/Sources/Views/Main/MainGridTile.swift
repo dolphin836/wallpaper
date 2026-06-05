@@ -8,6 +8,9 @@ import AppKit
 struct MainGridTile: View {
     let wallpaper: Wallpaper
     var aspectRatio: CGFloat = 3.0 / 2.0
+    // When true (the My Downloads grid), show a chip on tiles whose
+    // file is no longer in the local downloads folder (e.g. cleared).
+    var flagIfNotLocal: Bool = false
     @State private var hover = false
     @State private var manager = WallpaperManager.shared
     @State private var auth = AuthService.shared
@@ -65,6 +68,7 @@ struct MainGridTile: View {
                         resolutionChip
                         if wallpaper.fileType.hasPrefix("video/") || wallpaper.isDynamic { liveChip }
                         if wallpaper.isAIGenerated == true        { aiChip }
+                        if flagIfNotLocal && !manager.isDownloaded(wallpaper.id) { notLocalChip }
                         Spacer()
                     }
                     Spacer()
@@ -165,6 +169,18 @@ struct MainGridTile: View {
         .foregroundStyle(Self.chipInk)
         .padding(.horizontal, 7).padding(.vertical, 2)
         .background(Capsule().fill(Self.chipBG))
+    }
+
+    // Local-file-missing tag for the My Downloads grid — amber wash so
+    // it reads as a gentle "not on this Mac" status rather than an error.
+    private var notLocalChip: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "externaldrive.badge.xmark").font(.system(size: 8, weight: .semibold))
+            Text("NOT ON DISK").font(Self.chipFont).tracking(0.4)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 7).padding(.vertical, 2)
+        .background(Capsule().fill(Color(red: 0.78, green: 0.52, blue: 0.18).opacity(0.92)))
     }
 
     private var aiChip: some View {

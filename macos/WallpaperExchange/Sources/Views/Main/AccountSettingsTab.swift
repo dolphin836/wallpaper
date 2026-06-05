@@ -10,12 +10,21 @@ struct AccountSettingsTab: View {
     @State private var auth = AuthService.shared
     @State private var manager = WallpaperManager.shared
     @AppStorage(AppearancePref.storageKey) private var appearanceRaw: String = AppearancePref.system.rawValue
+    @State private var showClearConfirm = false
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+    }
+    private var localSizeText: String {
+        ByteCountFormatter.string(fromByteCount: manager.totalLocalBytes, countStyle: .file)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             appearanceSection
             wallpaperSection
             storageSection
+            aboutSection
             sessionSection
         }
         .frame(maxWidth: 720, alignment: .leading)
@@ -66,6 +75,36 @@ struct AccountSettingsTab: View {
                     try? FileManager.default.createDirectory(at: manager.storageDir, withIntermediateDirectories: true)
                     NSWorkspace.shared.open(manager.storageDir)
                 }
+            }
+            Divider().background(Color.hair)
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Local cache").font(.system(size: 13)).foregroundStyle(Color.ink)
+                    Text("\(localSizeText) used by downloaded wallpapers")
+                        .font(.system(size: 11)).foregroundStyle(Color.muted)
+                }
+                Spacer()
+                Button("Clear downloads", role: .destructive) { showClearConfirm = true }
+                    .disabled(manager.totalLocalBytes == 0)
+            }
+        }
+        .confirmationDialog("Clear all downloaded wallpapers?", isPresented: $showClearConfirm, titleVisibility: .visible) {
+            Button("Delete \(localSizeText)", role: .destructive) { manager.clearDownloads() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Removes every wallpaper file from the local downloads folder. Your download history stays on the server and files can be re-downloaded.")
+        }
+    }
+
+    private var aboutSection: some View {
+        sectionCard(title: "About") {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Wallpaper Exchange").font(.system(size: 13)).foregroundStyle(Color.ink)
+                    Text("Version \(appVersion)").font(.system(size: 11, design: .monospaced)).foregroundStyle(Color.muted)
+                }
+                Spacer()
+                Button("Check for updates") { UpdateService.shared.checkManually() }
             }
         }
     }

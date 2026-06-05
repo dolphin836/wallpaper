@@ -348,6 +348,23 @@ final class WallpaperManager {
         recomputeTotalBytes()
     }
 
+    /// Wipe every cached wallpaper from the downloads folder. The
+    /// server-side download history is untouched — these files can be
+    /// re-fetched on demand. Clears the current-wallpaper marker too.
+    @discardableResult
+    func clearDownloads() -> Int {
+        let fm = FileManager.default
+        var removed = 0
+        if let contents = try? fm.contentsOfDirectory(at: storageDir, includingPropertiesForKeys: nil) {
+            for url in contents where (try? fm.removeItem(at: url)) != nil { removed += 1 }
+        }
+        downloadedIDs.removeAll()
+        currentWallpaperID = nil
+        UserDefaults.standard.removeObject(forKey: currentWallpaperIDDefaultsKey)
+        totalLocalBytes = 0
+        return removed
+    }
+
     // Total size in bytes of every file in the downloads folder. Surfaced
     // to the popover footer so the user can see at a glance how much disk
     // the cached wallpapers are using. Recomputed whenever the local set

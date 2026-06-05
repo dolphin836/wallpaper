@@ -164,7 +164,8 @@ struct AccountView: View {
             wallpaperList(.downloads, head: "DOWNLOADS", empty: "No downloads yet.",
                           isPublic: auth.user?.downloadsPublic ?? false, noun: "downloads",
                           fetch: { c, l in try await APIClient.shared.fetchUserDownloads(username: username, cursor: c, limit: l) },
-                          toggle: { v in Task { try? await APIClient.shared.updatePrivacy(downloadsPublic: v); await auth.refreshProfile() } })
+                          toggle: { v in Task { try? await APIClient.shared.updatePrivacy(downloadsPublic: v); await auth.refreshProfile() } },
+                          flagIfNotLocal: true)
         case .ledger:
             LedgerTab(onCount: { counts[.ledger] = $0 }, onPalette: applyMesh)
         }
@@ -174,12 +175,14 @@ struct AccountView: View {
     private func wallpaperList(_ t: AccountTab, head: String, empty: String,
                                isPublic: Bool, noun: String,
                                fetch: @escaping (_ c: Int?, _ l: Int) async throws -> PaginatedData<Wallpaper>,
-                               toggle: @escaping (Bool) -> Void) -> some View {
+                               toggle: @escaping (Bool) -> Void,
+                               flagIfNotLocal: Bool = false) -> some View {
         PagedWallpaperGrid(
             headLabel: head, emptyText: empty,
             privacyNoun: isOwner ? noun : nil, privacyIsPublic: isPublic,
             onTogglePrivacy: toggle,
-            fetch: fetch, onWallpaper: onWallpaper, onCount: { counts[t] = $0 }, onPalette: applyMesh
+            fetch: fetch, onWallpaper: onWallpaper, onCount: { counts[t] = $0 }, onPalette: applyMesh,
+            flagIfNotLocal: flagIfNotLocal
         ).id("\(noun)-\(username)")
     }
 }
@@ -450,6 +453,7 @@ struct PagedWallpaperGrid: View {
     var onWallpaper: (Wallpaper) -> Void
     var onCount: (Int) -> Void = { _ in }
     var onPalette: (String?, String?) -> Void = { _, _ in }
+    var flagIfNotLocal: Bool = false
 
     @State private var items: [Wallpaper] = []
     @State private var page = 1
@@ -479,7 +483,7 @@ struct PagedWallpaperGrid: View {
                     } else {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14, alignment: .top)], spacing: 14) {
                             ForEach(items) { wp in
-                                Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp) }.buttonStyle(.plain)
+                                Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp, flagIfNotLocal: flagIfNotLocal) }.buttonStyle(.plain)
                             }
                         }
                         PageBar(current: page, totalPages: totalPages, maxReachable: cursors.count) { p in Task { await loadPage(p) } }
