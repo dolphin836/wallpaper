@@ -355,64 +355,28 @@ struct SidebarRow: View {
     }
 }
 
-// Collapse/expand toggle. Lives in the window top bar, on the
-// traffic-light row. Neutral icon button.
-struct SidebarToggleButton: View {
-    var collapsed: Bool
-    var size: CGFloat = 14
-    var action: () -> Void
-    @State private var hover = false
-
-    var body: some View {
-        Button(action: action) {
-            // A fourth traffic light: brand-orange circle the exact size
-            // of the system buttons, with an always-visible white glyph
-            // (the system ones reveal theirs only on hover). Two glyphs
-            // signal direction — chevron.right collapsed (expand),
-            // chevron.left expanded (collapse).
-            Circle()
-                .fill(Color.accent)
-                .frame(width: size, height: size)
-                .overlay(
-                    Image(systemName: collapsed ? "chevron.right" : "chevron.left")
-                        .font(.system(size: size * 0.5, weight: .black))
-                        .foregroundStyle(.white)
-                )
-                .brightness(hover ? -0.06 : 0)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        // Kill the blue macOS keyboard focus ring around the button.
-        .focusEffectDisabled()
-        .help(collapsed ? "Expand sidebar" : "Collapse sidebar")
-        .onHover { h in
-            hover = h
-            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-        }
-        .animation(.easeOut(duration: 0.12), value: hover)
-    }
-}
-
-// Alternate collapse toggle (kept alongside the traffic-light one for
-// comparison): a small circle straddling the sidebar's right edge,
-// vertically centred on the logo — the common "edge handle" pattern
-// (VS Code / Notion / Linear). Chevron points the way it will move:
-// left = collapse, right = expand.
+// Collapse toggle: a small brand-orange circle straddling the sidebar's
+// right edge, vertically centred on the logo — the common "edge handle"
+// pattern (VS Code / Notion / Linear). Chevron points the way it will
+// move: left = collapse, right = expand.
 struct SidebarEdgeToggle: View {
     var collapsed: Bool
     var action: () -> Void
     @State private var hover = false
-    static let size: CGFloat = 22
+    static let size: CGFloat = 14
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: collapsed ? "chevron.right" : "chevron.left")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(hover ? Color.ink : Color.ink2)
+            Circle()
+                .fill(Color.accent)
                 .frame(width: Self.size, height: Self.size)
-                .background(Circle().fill(hover ? Color.paper2 : Color.paper))
-                .overlay(Circle().strokeBorder(Color.hair, lineWidth: 1))
-                .shadow(color: .black.opacity(0.10), radius: 3, y: 1)
+                .overlay(
+                    Image(systemName: collapsed ? "chevron.right" : "chevron.left")
+                        .font(.system(size: Self.size * 0.5, weight: .black))
+                        .foregroundStyle(.white)
+                )
+                .brightness(hover ? -0.06 : 0)
+                .shadow(color: .black.opacity(0.18), radius: 2.5, y: 1)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)

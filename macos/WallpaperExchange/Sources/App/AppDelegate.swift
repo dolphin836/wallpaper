@@ -55,25 +55,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.applyWindowChrome(window)
         }
 
-        // Full-screen is driven EXPLICITLY by the enter/exit
-        // notifications (styleMask isn't reliable mid-update, and the
-        // hidden traffic lights still report a stale frame). While
-        // full-screen the toggle re-anchors to the sidebar, so we just
-        // flag it and stop measuring.
-        NotificationCenter.default.addObserver(forName: NSWindow.didEnterFullScreenNotification, object: nil, queue: .main) { _ in
-            WindowMetrics.shared.isFullScreen = true
-        }
-        NotificationCenter.default.addObserver(forName: NSWindow.didExitFullScreenNotification, object: nil, queue: .main) { note in
-            WindowMetrics.shared.isFullScreen = false
-            guard let window = note.object as? NSWindow else { return }
-            DispatchQueue.main.async { self.updateChromeMetrics(window) }
-        }
-        // Re-measure on resize (windowed only — skipped while full-screen).
-        NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: nil, queue: .main) { note in
-            guard let window = note.object as? NSWindow else { return }
-            self.updateChromeMetrics(window)
-        }
-
         // Also try once now in case the main window has already been
         // mounted (e.g. relaunch with restored window state).
         DispatchQueue.main.async {
@@ -86,31 +67,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // Measure the native traffic-light buttons in the content view's
     // coordinate space and publish them so the SwiftUI sidebar toggle
     // can align exactly (same row, same size).
-    private func updateChromeMetrics(_ window: NSWindow) {
-        // Skip while full-screen: the lights are hidden (stale frame),
-        // and the toggle re-anchors to the sidebar there. isFullScreen
-        // is owned by the enter/exit observers.
-        guard !WindowMetrics.shared.isFullScreen else { return }
-
-        guard let close = window.standardWindowButton(.closeButton),
-              let zoom = window.standardWindowButton(.zoomButton) else { return }
-        // Convert to the WINDOW's base coordinates (always bottom-left
-        // origin — unaffected by the hosting view's isFlipped, which was
-        // unreliable). SwiftUI's y from the top = window height minus the
-        // AppKit (from-bottom) y.
-        let closeInWindow = close.convert(close.bounds, to: nil)
-        let zoomInWindow = zoom.convert(zoom.bounds, to: nil)
-        let centerYFromTop = window.frame.height - closeInWindow.midY
-        // Sanity-guard: traffic lights live within the first ~80pt from
-        // the top. Reject anything else so a bad/transient measurement
-        // can't freeze the toggle off-screen.
-        guard centerYFromTop > 0, centerYFromTop < 80 else { return }
-        WindowMetrics.shared.update(
-            centerY: centerYFromTop,
-            trailingX: zoomInWindow.maxX,
-            dot: closeInWindow.height
-        )
-    }
 
     private func applyWindowChrome(_ window: NSWindow) {
         window.collectionBehavior.remove(.fullScreenNone)
@@ -130,8 +86,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if window.toolbar != nil {
             window.toolbar = nil
         }
-        // Buttons may need a layout pass before their frames are final.
-        DispatchQueue.main.async { [weak self] in self?.updateChromeMetrics(window) }
     }
 
     // v2: app stays alive when the main window is closed so the

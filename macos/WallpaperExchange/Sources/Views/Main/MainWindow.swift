@@ -7,7 +7,6 @@ import AppKit
 struct MainWindow: View {
     @State private var auth = AuthService.shared
     @State private var manager = WallpaperManager.shared
-    @ObservedObject private var metrics = WindowMetrics.shared
 
     @State private var sidebar: SidebarItem = .home
     @State private var sidebarCollapsed = false
@@ -136,19 +135,6 @@ struct MainWindow: View {
             }
             .padding(.leading, WindowChrome.inset)
             .padding(.top, WindowChrome.topBar)
-
-            // Collapse toggle styled as a fourth traffic light. A
-            // top-level ZStack child (not an .overlay) so it shares the
-            // same ignoresSafeArea coordinate space and stays put in
-            // full-screen. Positioned from the measured geometry of the
-            // real buttons; full-screen (no lights) left-aligns it with
-            // the sidebar card, same distance from the top as windowed.
-            SidebarToggleButton(collapsed: sidebarCollapsed, size: metrics.trafficDotSize) {
-                withAnimation(.easeInOut(duration: 0.22)) { sidebarCollapsed.toggle() }
-            }
-            .offset(x: metrics.isFullScreen ? WindowChrome.inset + 2 : metrics.trafficTrailingX + 18,
-                    y: metrics.trafficCenterY - metrics.trafficDotSize / 2)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .ignoresSafeArea(.all)
         .background(Color.paper)
