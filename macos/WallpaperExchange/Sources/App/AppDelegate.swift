@@ -79,6 +79,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // coordinate space and publish them so the SwiftUI sidebar toggle
     // can align exactly (same row, same size).
     private func updateChromeMetrics(_ window: NSWindow) {
+        // In full-screen the traffic lights are hidden, so any measure
+        // would be garbage — flag it and keep the last windowed geometry
+        // (the toggle re-anchors to the sidebar's left edge instead).
+        let fullScreen = window.styleMask.contains(.fullScreen)
+        WindowMetrics.shared.isFullScreen = fullScreen
+        guard !fullScreen else { return }
+
         guard let content = window.contentView,
               let close = window.standardWindowButton(.closeButton),
               let zoom = window.standardWindowButton(.zoomButton) else { return }

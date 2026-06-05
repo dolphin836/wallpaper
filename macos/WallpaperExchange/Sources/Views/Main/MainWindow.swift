@@ -131,7 +131,10 @@ struct MainWindow: View {
             SidebarToggleButton(collapsed: sidebarCollapsed, size: metrics.trafficDotSize) {
                 withAnimation(.easeInOut(duration: 0.22)) { sidebarCollapsed.toggle() }
             }
-            .offset(x: metrics.trafficTrailingX + 18,
+            // Windowed: just right of the traffic lights. Full-screen
+            // (no lights): left-aligned with the sidebar card, keeping
+            // the same distance from the top as windowed.
+            .offset(x: metrics.isFullScreen ? WindowChrome.inset : metrics.trafficTrailingX + 18,
                     y: metrics.trafficCenterY - metrics.trafficDotSize / 2)
         }
         .ignoresSafeArea(.all)

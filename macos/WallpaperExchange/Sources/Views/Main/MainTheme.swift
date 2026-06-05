@@ -83,6 +83,7 @@ final class WindowMetrics: ObservableObject {
     @Published var trafficCenterY: CGFloat = 14   // from the window's top
     @Published var trafficTrailingX: CGFloat = 70 // right edge from window's left
     @Published var trafficDotSize: CGFloat = 14   // button diameter
+    @Published var isFullScreen = false
 
     func update(centerY: CGFloat, trailingX: CGFloat, dot: CGFloat) {
         if abs(centerY - trafficCenterY) > 0.5 { trafficCenterY = centerY }
