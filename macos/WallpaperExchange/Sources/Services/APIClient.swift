@@ -200,6 +200,12 @@ actor APIClient {
         _ = try await sendJSON("/collections/\(id)", method: "PUT", body: Body(title: title, description: description, is_public: isPublic))
     }
 
+    // Add a wallpaper to one of the user's collections.
+    func addToCollection(collectionID: Int, wallpaperID: Int) async throws {
+        struct Body: Encodable { let wallpaper_id: Int }
+        _ = try await sendJSON("/collections/\(collectionID)/wallpapers", method: "POST", body: Body(wallpaper_id: wallpaperID))
+    }
+
     func updateProfile(nickname: String, bio: String) async throws -> User {
         struct Body: Encodable { let nickname: String; let bio: String }
         let data = try await sendJSON("/users/me/profile", method: "PUT", body: Body(nickname: nickname, bio: bio))

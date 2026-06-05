@@ -352,11 +352,13 @@ struct DetailModalOverlay: View {
                 .foregroundStyle(.white).frame(width: 34, height: 34)
                 .background(Circle().fill(Color.black.opacity(closeHover ? 0.70 : 0.42)))
                 .overlay(Circle().strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
-                .opacity(closeHover ? 1 : 0.5)
+                .opacity(closeHover ? 1 : 0.55)
                 .scaleEffect(closeHover ? 1.05 : 1.0)
         }
         .buttonStyle(.plain)
-        .padding(14)
+        // ESC also closes (the in-content ESC pill was removed).
+        .keyboardShortcut(.cancelAction)
+        .padding(16)
         .onHover { h in closeHover = h; if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
     }
 }

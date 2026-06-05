@@ -24,10 +24,17 @@ struct DevicePreviewBanner: View {
 // past the bezel.
 struct DeviceMockup: View {
     let wallpaper: Wallpaper?
+    // When set, the mode is driven externally (e.g. the detail page's
+    // Plain/Home/Lock action pills) and the built-in toggles + glass
+    // chrome are hidden so it's just the bare monitor.
+    var controlledMode: Mode? = nil
+    var showChrome: Bool = true
     @State private var mode: Mode = .plain
     @State private var hover = false
 
     enum Mode: String, CaseIterable { case plain = "Plain", home = "Home", lock = "Lock" }
+
+    private var activeMode: Mode { controlledMode ?? mode }
 
     private var deviceAspect: CGFloat {
         guard let s = NSScreen.main ?? NSScreen.screens.first, s.frame.height > 0 else { return 16.0 / 10.0 }
@@ -35,23 +42,29 @@ struct DeviceMockup: View {
     }
 
     var body: some View {
-        VStack(spacing: 18) {
-            monitor
-                .frame(maxWidth: 520)
-                .scaleEffect(hover ? 1.005 : 1.0)
-                .animation(.easeOut(duration: 0.2), value: hover)
-                .onHover { hover = $0 }
-            modeToggles
+        if showChrome {
+            VStack(spacing: 18) {
+                monitor
+                    .frame(maxWidth: 520)
+                    .scaleEffect(hover ? 1.005 : 1.0)
+                    .animation(.easeOut(duration: 0.2), value: hover)
+                    .onHover { hover = $0 }
+                if controlledMode == nil { modeToggles }
+            }
+            .padding(28)
+            .frame(maxWidth: .infinity)
+            .background(glassBackground)
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.25), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: .black.opacity(0.10), radius: 18, y: 8)
+        } else {
+            // Bare monitor only — host (e.g. detail hero) supplies its
+            // own background + mode controls.
+            monitor.frame(maxWidth: 560).frame(maxWidth: .infinity)
         }
-        .padding(28)
-        .frame(maxWidth: .infinity)
-        .background(glassBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.25), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: .black.opacity(0.10), radius: 18, y: 8)
     }
 
     // Monitor: bezel + clipped screen, then a stand neck + foot.
@@ -100,8 +113,8 @@ struct DeviceMockup: View {
                     } else {
                         Image(systemName: "rectangle.on.rectangle.angled").foregroundStyle(Color.muted)
                     }
-                    if mode == .home { homeOverlay }
-                    if mode == .lock { lockOverlay }
+                    if activeMode == .home { homeOverlay }
+                    if activeMode == .lock { lockOverlay }
                 }
                 .frame(width: g.size.width, height: g.size.height)
             }

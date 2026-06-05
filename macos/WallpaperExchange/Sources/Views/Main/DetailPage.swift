@@ -21,9 +21,18 @@ struct DetailPage: View {
     @State private var auth = AuthService.shared
     @State private var isLiked: Bool = false
     @State private var isFavorited: Bool = false
+    @State private var myCollections: [CollectionBrief] = []
     @Environment(\.dismiss) private var dismiss
 
     enum PreviewMode: String { case off = "Wallpaper", plain = "Plain", home = "Home", lock = "Lock" }
+
+    private var deviceMode: DeviceMockup.Mode {
+        switch mode {
+        case .home: .home
+        case .lock: .lock
+        default: .plain
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -38,12 +47,11 @@ struct DetailPage: View {
                         moreLikeThis
                         Spacer(minLength: 40)
                     }
-                    .padding(.horizontal, 48).padding(.top, 12).padding(.bottom, 60)
-                    // Single content column — keep it ≤ the per-section
-                    // 880 cap so every block (breadcrumb / hero / actions /
-                    // meta / more-like-this) lines up on the same edges
-                    // instead of the breadcrumb running wider than the rest.
-                    .frame(maxWidth: 880)
+                    .padding(.horizontal, 40).padding(.top, 12).padding(.bottom, 60)
+                    // Same content width as the other pages (Account /
+                    // Discover use ~1180 / 40px gutters). Every block fills
+                    // this column so they line up on the same edges.
+                    .frame(maxWidth: 1180)
                     .frame(maxWidth: .infinity, alignment: .center)
                 } else if let err = loadError {
                     VStack(spacing: 10) {
@@ -79,38 +87,33 @@ struct DetailPage: View {
         HStack(alignment: .center, spacing: 10) {
             Kicker(text: "Specimen №\(detail.id)")
             Spacer()
-            Button(action: { if let onClose { onClose() } else { dismiss() } }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "xmark").font(.system(size: 10, weight: .medium))
-                    Text("ESC").font(.kicker).tracking(1.5)
-                }
-                .foregroundStyle(Color.ink2)
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(Capsule().fill(Color.paper2))
-                .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-            .keyboardShortcut(.cancelAction)
         }
     }
 
     private func hero(detail: WallpaperDetail) -> some View {
         VStack(spacing: 12) {
-            ZStack(alignment: .bottomLeading) {
-                CachedAsyncImage(url: URL(string: detail.displayURL)) { img in
-                    img.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Color(hex: detail.dominantColor ?? "#bbb")
+            Group {
+                if mode == .off {
+                    // Raw wallpaper.
+                    CachedAsyncImage(url: URL(string: detail.displayURL)) { img in
+                        img.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Color(hex: detail.dominantColor ?? "#bbb")
+                    }
+                    .frame(maxWidth: .infinity).frame(height: 440)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.hair, lineWidth: 1))
+                } else {
+                    // Plain / Home / Lock → draw the actual device (monitor
+                    // bezel + stand) with the wallpaper on its screen,
+                    // reusing the Discover mockup driven by this mode.
+                    DeviceMockup(wallpaper: lightWallpaper(detail), controlledMode: deviceMode, showChrome: false)
+                        .frame(height: 440)
+                        .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity).frame(height: 440)
-                .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 18))
-                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.hair, lineWidth: 1))
-
-                if mode == .home { HomeMockOverlay() }
-                if mode == .lock { LockMockOverlay() }
             }
-            .frame(maxWidth: 880).frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: .infinity)
 
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -131,7 +134,7 @@ struct DetailPage: View {
                 }
                 Spacer()
             }
-            .frame(maxWidth: 880).frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: .infinity)
         }
     }
 
@@ -151,6 +154,7 @@ struct DetailPage: View {
             actionPill(icon: isFavorited ? "star.fill" : "star", label: isFavorited ? "Saved" : "Favorite", count: nil, on: isFavorited) {
                 Task { await toggleFavorite(detail) }
             }
+            addToListMenu(detail)
             divider
             HStack(spacing: 4) {
                 ForEach(Self.previewOptions, id: \.mode.rawValue) { opt in
@@ -169,11 +173,11 @@ struct DetailPage: View {
             .padding(3)
             .background(Capsule().fill(Color.paper2))
             .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
-            divider
+            Spacer(minLength: 16)
             Button(action: { Task { try? await manager.download(wallpaper: lightWallpaper(detail)) } }) {
                 HStack(spacing: 6) {
                     Image(systemName: "tray.and.arrow.down").font(.system(size: 11, weight: .medium))
-                    Text("Save").font(.sans11)
+                    Text("Download").font(.sans11)
                 }
                 .foregroundStyle(Color.ink2)
                 .padding(.horizontal, 11).padding(.vertical, 6)
@@ -189,7 +193,7 @@ struct DetailPage: View {
             }) {
                 HStack(spacing: 7) {
                     Circle().fill(Color.accent).frame(width: 9, height: 9)
-                    Text("Set on Mac · 1 coin")
+                    Text("Download & set · 1 coin")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color.paper)
                 }
@@ -202,7 +206,7 @@ struct DetailPage: View {
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 14).fill(Color.paper.opacity(0.85)))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.hair, lineWidth: 1))
-        .frame(maxWidth: 880).frame(maxWidth: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity)
     }
 
     private func actionPill(icon: String, label: String, count: String?, on: Bool, action: @escaping () -> Void) -> some View {
@@ -240,7 +244,7 @@ struct DetailPage: View {
         }
         .background(RoundedRectangle(cornerRadius: 16).fill(Color.paper))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.hair, lineWidth: 1))
-        .frame(maxWidth: 880).frame(maxWidth: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity)
     }
 
     private func statsStrip(detail: WallpaperDetail) -> some View {
@@ -356,7 +360,7 @@ struct DetailPage: View {
                 }
             }
         }
-        .frame(maxWidth: 880).frame(maxWidth: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity)
     }
 
     // ─── Actions ────────────────────────────────────────────────
@@ -367,6 +371,7 @@ struct DetailPage: View {
             detail = d
             isLiked = d.isLiked ?? false
             isFavorited = d.isFavorited ?? false
+            await loadCollections(wallpaperID: d.id)
             if let s = try? await APIClient.shared.fetchSimilarWallpapers(wallpaperID: d.id, limit: 12) {
                 similar = s
             }
@@ -406,6 +411,49 @@ struct DetailPage: View {
 
     // Reconstruct a lightweight Wallpaper from a WallpaperDetail so we
     // can hand it to WallpaperManager (which expects the popover shape).
+    // "Add to list" — a menu of the user's collections (checkmark on the
+    // ones already containing this wallpaper). Mirrors the web's
+    // AddToCollectionModal entry point.
+    private func addToListMenu(_ detail: WallpaperDetail) -> some View {
+        Menu {
+            if myCollections.isEmpty {
+                Text("No collections yet")
+            } else {
+                ForEach(myCollections) { c in
+                    Button {
+                        Task {
+                            try? await APIClient.shared.addToCollection(collectionID: c.id, wallpaperID: detail.id)
+                            await loadCollections(wallpaperID: detail.id)
+                        }
+                    } label: {
+                        if c.containsWallpaper == true {
+                            Label(c.title, systemImage: "checkmark")
+                        } else {
+                            Text(c.title)
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "plus").font(.system(size: 11, weight: .medium))
+                Text("Add to list").font(.sans11)
+            }
+            .foregroundStyle(Color.ink2)
+            .padding(.horizontal, 11).padding(.vertical, 6)
+            .background(Capsule().fill(Color.paper))
+            .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
+        }
+        .menuStyle(.button).menuIndicator(.hidden).buttonStyle(.plain).fixedSize()
+    }
+
+    private func loadCollections(wallpaperID: Int) async {
+        guard auth.isLoggedIn else { return }
+        if let list = try? await APIClient.shared.fetchMyCollections(wallpaperID: wallpaperID) {
+            myCollections = list
+        }
+    }
+
     private func lightWallpaper(_ d: WallpaperDetail) -> Wallpaper {
         Wallpaper(
             id: d.id, slug: d.slug, userID: d.userID, categoryID: d.categoryID, title: d.title,
