@@ -35,7 +35,7 @@ struct DeviceMockup: View {
     }
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 18) {
             monitor
                 .frame(maxWidth: 520)
                 .scaleEffect(hover ? 1.005 : 1.0)
@@ -73,9 +73,14 @@ struct DeviceMockup: View {
         }
     }
 
+    // Thin, neutral charcoal bezel with concentric corners (outer 18 /
+    // inner 12 with a 6pt frame), a faint glass edge highlight — closer
+    // to the web's clean monitor.
     private var screen: some View {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .fill(Color(red: 0.16, green: 0.17, blue: 0.19)) // bezel
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(LinearGradient(colors: [Color(red: 0.17, green: 0.17, blue: 0.19),
+                                          Color(red: 0.11, green: 0.11, blue: 0.13)],
+                                 startPoint: .top, endPoint: .bottom))
             .overlay {
                 ZStack {
                     Color.black
@@ -92,10 +97,14 @@ struct DeviceMockup: View {
                     if mode == .lock { lockOverlay }
                 }
                 // Cover-fill is hard-clipped to the screen rect → no overflow.
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .padding(7)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(6)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     // Plain / Home / Lock segmented pills.
@@ -126,8 +135,8 @@ struct DeviceMockup: View {
                 CachedAsyncImage(url: URL(string: wp.displayURL)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color.clear }
-                .blur(radius: 60)
-                .opacity(0.55)
+                .blur(radius: 70)
+                .opacity(0.38)
             }
             Rectangle().fill(.ultraThinMaterial)
         }
