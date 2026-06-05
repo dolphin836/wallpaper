@@ -63,23 +63,36 @@ struct DiscoverView: View {
     }
 
     var body: some View {
-        // Toolbar + device mockup + grid all live inside ONE vertical
-        // ScrollView so a scroll gesture anywhere in the content area
-        // moves the page — the device mockup and the wallpaper list
-        // scroll together (the Mac take on the web's floating device
-        // wall), rather than only the grid responding to the wheel.
+        // Everything lives in ONE vertical ScrollView so a scroll
+        // gesture anywhere in the content moves the page. The toolbar +
+        // device mockup are a PINNED section header so they stay fixed
+        // at the top (always previewing the hovered tile) while the grid
+        // scrolls underneath — scrolling over the header still drives
+        // the feed because the header is part of the same ScrollView.
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 14) {
-                toolbar
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                Section {
+                    feed.padding(.top, 14).padding(.bottom, 40)
+                } header: {
+                    VStack(alignment: .leading, spacing: 14) {
+                        toolbar
 
-                if let shown = featuredHover ?? items.first {
-                    DevicePreviewBanner(featured: shown, onPick: { onPick(shown) })
+                        if let shown = featuredHover ?? items.first {
+                            DevicePreviewBanner(featured: shown, onPick: { onPick(shown) })
+                        }
+                    }
+                    .padding(.top, 24)
+                    .padding(.bottom, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    // Opaque floor so wallpaper tiles don't show through
+                    // the pinned header as they scroll up behind it.
+                    .background(Color.paper)
+                    .overlay(alignment: .bottom) {
+                        Rectangle().fill(Color.hair.opacity(0.5)).frame(height: 1)
+                    }
                 }
-
-                feed.padding(.bottom, 40)
             }
             .padding(.horizontal, 40)
-            .padding(.top, 24)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .task(id: "discover-init") {
