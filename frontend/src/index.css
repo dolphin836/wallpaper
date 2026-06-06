@@ -4115,8 +4115,6 @@
    .dev-spec-card chrome so the family stays consistent. */
 .upload-page {
   position: relative;
-  /* The fixed submit bar is portalled to document.body so route
-     animation stacking contexts and the global footer cannot cover it. */
   min-height: 100%;
   background: var(--color-paper);
 }
@@ -4379,30 +4377,41 @@
   min-width: 0;
 }
 
-/* Sticky submit bar — sits at the bottom of viewport while
-   files are queued. Glass-card chrome, progress fill across the
-   inner width when uploading. */
+/* In-page submit bar. It sits directly below the selected queue so the
+   upload action stays attached to the files it will submit. */
 .upload-bar {
-  position: fixed;
-  left: 0; right: 0;
-  bottom: 0;
-  z-index: 30;
-  border-top: 1px solid var(--color-hair);
-  background: color-mix(in oklch, var(--color-paper) 88%, transparent);
-  backdrop-filter: blur(14px) saturate(1.1);
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
-  box-shadow: 0 -10px 36px -16px oklch(0% 0 0 / 0.18);
+  margin-top: 22px;
+  border: 1px solid var(--color-hair);
+  border-radius: 14px;
+  background: color-mix(in oklch, var(--color-paper) 92%, transparent);
+  box-shadow: 0 8px 24px -18px oklch(0% 0 0 / 0.22);
 }
 .dark .upload-bar {
-  background: color-mix(in oklch, var(--color-paper-2) 88%, transparent);
-  border-top-color: var(--color-hair-soft);
+  background: color-mix(in oklch, var(--color-paper-2) 92%, transparent);
+  border-color: var(--color-hair-soft);
 }
 .upload-bar.is-done {
   background: color-mix(in oklch, oklch(72% 0.18 145) 6%, var(--color-paper));
 }
+.upload-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+}
+.upload-bar-status {
+  flex: 1;
+  min-width: 0;
+}
+.upload-bar-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .upload-bar-progress {
   height: 4px;
   flex: 1;
+  min-width: 160px;
   border-radius: 999px;
   background: var(--color-paper-2);
   overflow: hidden;
@@ -4414,6 +4423,8 @@
   transition: width 200ms ease;
 }
 .upload-bar-link {
+  display: inline-flex;
+  align-items: center;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.14em;
@@ -4450,6 +4461,25 @@
   box-shadow: 0 8px 22px -8px oklch(20% 0.02 240 / 0.55);
 }
 .upload-bar-go:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+@media (max-width: 640px) {
+  .upload-bar-inner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .upload-bar-progress-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .upload-bar-progress {
+    width: 100%;
+  }
+  .upload-bar-link,
+  .upload-bar-go {
+    justify-content: center;
+    width: 100%;
+  }
+}
 
 /* ─── Profile page ────────────────────────────────────────────────
    Editorial hero (avatar + name + balance card) over a neutral

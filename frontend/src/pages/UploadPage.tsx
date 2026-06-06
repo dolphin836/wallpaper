@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate, Link } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import * as tus from 'tus-js-client';
@@ -243,13 +242,75 @@ export default function UploadPage() {
   const overallProgress = files.length > 0 ? Math.round((totalDone / files.length) * 100) : 0;
   const allDone = files.length > 0 && files.every((f) => f.status === 'success');
 
+  const uploadControls = files.length > 0 && (
+    <div className={`upload-bar${allDone ? ' is-done' : ''}`}>
+      <div className="upload-bar-inner">
+        <div className="upload-bar-status">
+          {uploading ? (
+            <div className="upload-bar-progress-row">
+              <div className="upload-bar-progress">
+                <div
+                  className="upload-bar-progress-fill"
+                  style={{ width: `${overallProgress}%` }}
+                />
+              </div>
+              <span className="mono text-[11px] tracking-[0.06em] text-ink-2 tabular-nums shrink-0">
+                {totalDone}/{files.length} · {overallProgress}%
+              </span>
+            </div>
+          ) : allDone ? (
+            <div className="flex items-center gap-2 text-ink">
+              <AiOutlineCheck size={16} className="text-accent" />
+              <span className="text-[13px]">All set, redirecting to your profile…</span>
+            </div>
+          ) : (
+            <div className="text-[13px] text-ink-2">
+              {totalPending} {totalPending === 1 ? 'file' : 'files'} ready to upload
+              {totalError > 0 && (
+                <span className="text-red-500"> · {totalError} need a retry</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {!uploading && !allDone && (
+          <Link
+            to={user?.username ? `/user/${user.username}` : '/'}
+            className="upload-bar-link"
+          >
+            Cancel
+          </Link>
+        )}
+
+        <button
+          onClick={handleUpload}
+          disabled={uploading || allDone}
+          className="upload-bar-go"
+        >
+          {uploading ? (
+            <>
+              <AiOutlineLoading3Quarters size={14} className="animate-spin" />
+              Uploading
+            </>
+          ) : totalError > 0 ? (
+            'Retry failed'
+          ) : allDone ? (
+            'Done'
+          ) : (
+            <>Upload {files.length} {files.length === 1 ? 'file' : 'files'} →</>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+
   if (!isAuthenticated) return null;
 
   return (
     <div className="upload-page min-h-full">
       <div className="upload-mesh" aria-hidden />
 
-      <div className="relative z-10 max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 py-10 pb-32">
+      <div className="relative z-10 max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 py-10 pb-20">
         {/* Editorial header */}
         <header className="mb-10">
           <div className="kicker text-muted">Contribute · Wallpaper Exchange</div>
@@ -334,77 +395,10 @@ export default function UploadPage() {
                 />
               ))}
             </div>
+            {uploadControls}
           </section>
         )}
       </div>
-
-      {/* Sticky submit bar — sits at the bottom of viewport while
-          files are queued. Single-axis affordance so the user
-          always knows where the "Upload" button is. Rendered at the
-          document root so Layout's footer and route animation stacking
-          contexts can never cover it. */}
-      {files.length > 0 && createPortal(
-        <div className={`upload-bar${allDone ? ' is-done' : ''}`}>
-          <div className="max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 py-3.5 flex items-center gap-4">
-            <div className="flex-1 min-w-0">
-              {uploading ? (
-                <div className="flex items-center gap-3">
-                  <div className="upload-bar-progress">
-                    <div
-                      className="upload-bar-progress-fill"
-                      style={{ width: `${overallProgress}%` }}
-                    />
-                  </div>
-                  <span className="mono text-[11px] tracking-[0.06em] text-ink-2 tabular-nums shrink-0">
-                    {totalDone}/{files.length} · {overallProgress}%
-                  </span>
-                </div>
-              ) : allDone ? (
-                <div className="flex items-center gap-2 text-ink">
-                  <AiOutlineCheck size={16} className="text-accent" />
-                  <span className="text-[13px]">All set — redirecting to your profile…</span>
-                </div>
-              ) : (
-                <div className="text-[13px] text-ink-2">
-                  {totalPending} {totalPending === 1 ? 'file' : 'files'} ready to upload
-                  {totalError > 0 && (
-                    <span className="text-red-500"> · {totalError} need a retry</span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {!uploading && !allDone && (
-              <Link
-                to={user?.username ? `/user/${user.username}` : '/'}
-                className="upload-bar-link"
-              >
-                Cancel
-              </Link>
-            )}
-
-            <button
-              onClick={handleUpload}
-              disabled={uploading || allDone}
-              className="upload-bar-go"
-            >
-              {uploading ? (
-                <>
-                  <AiOutlineLoading3Quarters size={14} className="animate-spin" />
-                  Uploading
-                </>
-              ) : totalError > 0 ? (
-                'Retry failed'
-              ) : allDone ? (
-                'Done'
-              ) : (
-                <>Upload {files.length} {files.length === 1 ? 'file' : 'files'} →</>
-              )}
-            </button>
-          </div>
-        </div>,
-        document.body,
-      )}
     </div>
   );
 }
