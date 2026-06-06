@@ -42,9 +42,6 @@ struct DetailPage: View {
         var topPadding: CGFloat { isCompact ? 14 : 18 }
         var bottomPadding: CGFloat { isCompact ? 44 : 60 }
         var contentMaxWidth: CGFloat { 1280 }
-        var contentWidth: CGFloat {
-            max(1, min(size.width, contentMaxWidth) - horizontalPadding * 2)
-        }
         var stagePadding: CGFloat { isCompact ? 14 : 20 }
         var stageSpacing: CGFloat { isCompact ? 14 : 16 }
         var actionPadding: CGFloat { isCompact ? 12 : 14 }
@@ -73,25 +70,22 @@ struct DetailPage: View {
                 backdrop
                 ScrollView(.vertical, showsIndicators: false) {
                     if let d = detail {
-                        HStack(alignment: .top, spacing: 0) {
-                            Spacer(minLength: 0)
-                            VStack(alignment: .leading, spacing: layout.isCompact ? 18 : 24) {
-                                stagePanel(detail: d, layout: layout)
-                                metaGrid(detail: d, layout: layout)
-                                if !similar.isEmpty {
-                                    moreLikeThis(layout: layout)
-                                }
-                                Color.clear
-                                    .frame(height: 40)
-                                    .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: layout.isCompact ? 18 : 24) {
+                            stagePanel(detail: d, layout: layout)
+                            metaGrid(detail: d, layout: layout)
+                            if !similar.isEmpty {
+                                moreLikeThis
                             }
-                            .frame(width: layout.contentWidth, alignment: .leading)
-                            .padding(.horizontal, layout.horizontalPadding)
-                            .padding(.top, layout.topPadding)
-                            .padding(.bottom, layout.bottomPadding)
-                            Spacer(minLength: 0)
+                            Color.clear
+                                .frame(height: 40)
+                                .accessibilityHidden(true)
                         }
-                        .frame(width: layout.size.width, alignment: .top)
+                        .padding(.horizontal, layout.horizontalPadding)
+                        .padding(.top, layout.topPadding)
+                        .padding(.bottom, layout.bottomPadding)
+                        // Content width to match the other pages.
+                        .frame(maxWidth: layout.contentMaxWidth)
+                        .frame(maxWidth: .infinity, alignment: .center)
                     } else if let err = loadError {
                         VStack(spacing: 10) {
                             Image(systemName: "exclamationmark.triangle").font(.system(size: 30)).foregroundStyle(Color.warn)
@@ -199,7 +193,8 @@ struct DetailPage: View {
     }
 
     private func rawHeroSize(detail: WallpaperDetail, layout: DetailLayout) -> CGSize {
-        let maxWidth = max(1, layout.contentWidth - layout.stagePadding * 2)
+        let contentWidth = min(layout.contentMaxWidth, max(1, layout.size.width - layout.horizontalPadding * 2))
+        let maxWidth = max(1, contentWidth - layout.stagePadding * 2)
         let maxHeight = layout.heroMaxHeight
         let sourceWidth = CGFloat(max(detail.width, 1))
         let sourceHeight = CGFloat(max(detail.height, 1))
@@ -563,48 +558,23 @@ struct DetailPage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func moreLikeThis(layout: DetailLayout) -> some View {
-        let spacing: CGFloat = 14
-        let columns = recommendationColumnCount(layout: layout, spacing: spacing)
-        let rows = Int(ceil(Double(similar.count) / Double(columns)))
-        let tileWidth = (layout.contentWidth - CGFloat(columns - 1) * spacing) / CGFloat(columns)
-        let tileHeight = tileWidth / (3.0 / 2.0)
-
-        return VStack(alignment: .leading, spacing: 12) {
+    private var moreLikeThis: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("More like this · \(similar.count)")
                     .font(.displayLg).foregroundStyle(Color.ink)
                 Spacer()
                 Rectangle().fill(Color.hair).frame(height: 1)
             }
-            VStack(alignment: .leading, spacing: spacing) {
-                ForEach(0..<rows, id: \.self) { row in
-                    HStack(spacing: spacing) {
-                        ForEach(0..<columns, id: \.self) { column in
-                            let index = row * columns + column
-                            if index < similar.count {
-                                let wallpaper = similar[index]
-                                Button(action: { onWallpaper(wallpaper) }) {
-                                    MainGridTile(wallpaper: wallpaper)
-                                }
-                                .buttonStyle(.plain)
-                                .frame(width: tileWidth, height: tileHeight)
-                            } else {
-                                Color.clear
-                                    .frame(width: tileWidth, height: tileHeight)
-                                    .accessibilityHidden(true)
-                            }
-                        }
-                    }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 14, alignment: .top)], spacing: 14) {
+                ForEach(similar) { wp in
+                    Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp) }
+                        .buttonStyle(.plain)
                 }
             }
+            .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity)
-    }
-
-    private func recommendationColumnCount(layout: DetailLayout, spacing: CGFloat) -> Int {
-        let minimumTileWidth: CGFloat = 220
-        return max(1, Int(floor((layout.contentWidth + spacing) / (minimumTileWidth + spacing))))
     }
 
     // ─── Actions ────────────────────────────────────────────────
