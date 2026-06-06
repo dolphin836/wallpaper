@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import UniformTypeIdentifiers
 
 enum APIError: LocalizedError {
     case invalidURL
@@ -289,6 +290,132 @@ actor APIClient {
         return try decoder.decode(APIResponse<User>.self, from: data).data
     }
 
+    func uploadWallpaperFile(
+        fileURL: URL,
+        progress: @escaping @Sendable (Double) -> Void
+    ) async throws {
+        guard let url = URL(string: baseURL + "/wallpapers") else { throw APIError.invalidURL }
+        guard let token = await AuthService.shared.token else { throw APIError.unauthorized }
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        let filename = fileURL.lastPathComponent
+        let mime = Self.mimeType(for: fileURL)
+        let didAccess = fileURL.startAccessingSecurityScopedResource()
+        defer {
+            if didAccess { fileURL.stopAccessingSecurityScopedResource() }
+        }
+
+        let fileData = try Data(contentsOf: fileURL)
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mime)\r\n\r\n".data(using: .utf8)!)
+        body.append(fileData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        let delegate = UploadProgressDelegate(progress: progress)
+        let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+        defer { session.finishTasksAndInvalidate() }
+
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await session.upload(for: req, from: body)
+        } catch {
+            throw APIError.networkError(error)
+        }
+        try handleUploadResponse(data: data, response: response)
+        progress(1)
+    }
+
+    func uploadVideoTus(
+        fileURL: URL,
+        progress: @escaping @Sendable (Double) -> Void
+    ) async throws {
+        guard let token = await AuthService.shared.token else { throw APIError.unauthorized }
+        guard let createURL = URL(string: baseURL + "/uploads/tus") else { throw APIError.invalidURL }
+
+        let didAccess = fileURL.startAccessingSecurityScopedResource()
+        defer {
+            if didAccess { fileURL.stopAccessingSecurityScopedResource() }
+        }
+
+        let size = try fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        guard size > 0 else { throw APIError.serverError(400, "Empty file") }
+
+        let mime = Self.mimeType(for: fileURL)
+        var create = URLRequest(url: createURL)
+        create.httpMethod = "POST"
+        create.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        create.setValue("1.0.0", forHTTPHeaderField: "Tus-Resumable")
+        create.setValue(String(size), forHTTPHeaderField: "Upload-Length")
+        create.setValue(Self.tusMetadata([
+            "filename": fileURL.lastPathComponent,
+            "filetype": mime,
+        ]), forHTTPHeaderField: "Upload-Metadata")
+
+        let createResponse: URLResponse
+        do {
+            (_, createResponse) = try await URLSession.shared.data(for: create)
+        } catch {
+            throw APIError.networkError(error)
+        }
+        guard let http = createResponse as? HTTPURLResponse else {
+            throw APIError.networkError(URLError(.badServerResponse))
+        }
+        if http.statusCode == 401 { throw APIError.unauthorized }
+        if http.statusCode >= 400 {
+            throw APIError.serverError(http.statusCode, "Video upload could not start")
+        }
+        guard let location = http.value(forHTTPHeaderField: "Location"),
+              let uploadURL = tusUploadURL(from: location) else {
+            throw APIError.serverError(http.statusCode, "Video upload location missing")
+        }
+
+        let handle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? handle.close() }
+        let chunkSize = 8 * 1024 * 1024
+        var offset = 0
+        while offset < size {
+            let length = min(chunkSize, size - offset)
+            let chunk = try handle.read(upToCount: length) ?? Data()
+            guard !chunk.isEmpty else { break }
+
+            var patch = URLRequest(url: uploadURL)
+            patch.httpMethod = "PATCH"
+            patch.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            patch.setValue("1.0.0", forHTTPHeaderField: "Tus-Resumable")
+            patch.setValue("application/offset+octet-stream", forHTTPHeaderField: "Content-Type")
+            patch.setValue(String(offset), forHTTPHeaderField: "Upload-Offset")
+
+            let patchResponse: URLResponse
+            do {
+                (_, patchResponse) = try await URLSession.shared.upload(for: patch, from: chunk)
+            } catch {
+                throw APIError.networkError(error)
+            }
+            guard let patchHTTP = patchResponse as? HTTPURLResponse else {
+                throw APIError.networkError(URLError(.badServerResponse))
+            }
+            if patchHTTP.statusCode == 401 { throw APIError.unauthorized }
+            if patchHTTP.statusCode >= 400 {
+                throw APIError.serverError(patchHTTP.statusCode, "Video upload failed")
+            }
+
+            if let rawOffset = patchHTTP.value(forHTTPHeaderField: "Upload-Offset"),
+               let serverOffset = Int(rawOffset) {
+                offset = serverOffset
+            } else {
+                offset += chunk.count
+            }
+            progress(min(1, Double(offset) / Double(size)))
+        }
+    }
+
     func changePassword(old: String, new: String) async throws {
         struct Body: Encodable { let old_password: String; let new_password: String }
         _ = try await sendJSON("/users/me/password", method: "PUT", body: Body(old_password: old, new_password: new))
@@ -433,6 +560,61 @@ actor APIClient {
 
         return redirectURL
     }
+
+    private func handleUploadResponse(data: Data, response: URLResponse) throws {
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.networkError(URLError(.badServerResponse))
+        }
+        if http.statusCode == 401 { throw APIError.unauthorized }
+        if http.statusCode == 402 { throw APIError.insufficientCoins }
+        if http.statusCode >= 400 {
+            let msg = (try? decoder.decode(MessageEnvelope.self, from: data))?.message ?? "Upload failed"
+            throw APIError.serverError(http.statusCode, msg)
+        }
+    }
+
+    private func tusUploadURL(from location: String) -> URL? {
+        if let absolute = URL(string: location), absolute.scheme != nil {
+            return absolute
+        }
+        guard var components = URLComponents(string: baseURL) else { return nil }
+        if location.hasPrefix("/") {
+            components.path = location
+            components.query = nil
+            return components.url
+        }
+        return URL(string: location, relativeTo: URL(string: baseURL))?.absoluteURL
+    }
+
+    private static func tusMetadata(_ values: [String: String]) -> String {
+        values.map { key, value in
+            let encoded = Data(value.utf8).base64EncodedString()
+            return "\(key) \(encoded)"
+        }
+        .joined(separator: ",")
+    }
+
+    static func mimeType(for url: URL) -> String {
+        let ext = url.pathExtension.lowercased()
+        switch ext {
+        case "jpg", "jpeg": return "image/jpeg"
+        case "png": return "image/png"
+        case "heic": return "image/heic"
+        case "heif": return "image/heif"
+        case "webp": return "image/webp"
+        case "avif": return "image/avif"
+        case "mp4": return "video/mp4"
+        case "mov": return "video/quicktime"
+        case "webm": return "video/webm"
+        case "mkv": return "video/x-matroska"
+        default:
+            if let type = UTType(filenameExtension: ext),
+               let mime = type.preferredMIMEType {
+                return mime
+            }
+            return "application/octet-stream"
+        }
+    }
 }
 
 // Minimal envelope used to surface a server error message on 4xx.
@@ -443,5 +625,24 @@ private final class NoRedirectDelegate: NSObject, URLSessionTaskDelegate, Sendab
 
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest) async -> URLRequest? {
         nil
+    }
+}
+
+private final class UploadProgressDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    private let progress: @Sendable (Double) -> Void
+
+    init(progress: @escaping @Sendable (Double) -> Void) {
+        self.progress = progress
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didSendBodyData bytesSent: Int64,
+        totalBytesSent: Int64,
+        totalBytesExpectedToSend: Int64
+    ) {
+        guard totalBytesExpectedToSend > 0 else { return }
+        progress(min(1, Double(totalBytesSent) / Double(totalBytesExpectedToSend)))
     }
 }
