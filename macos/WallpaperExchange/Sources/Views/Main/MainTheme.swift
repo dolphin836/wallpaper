@@ -79,6 +79,9 @@ enum WindowChrome {
     /// Height of the paper top bar the traffic lights float on, above
     /// the sidebar card and the detail surface.
     static let topBar: CGFloat = 42
+    /// Breathing room between the toolbar row and the sidebar/detail
+    /// surfaces. Keeps the custom chrome from feeling glued to content.
+    static let toolbarGap: CGFloat = 8
     /// Gap between the window edges (and the two panes) and the
     /// floating sidebar card.
     static let inset: CGFloat = 10

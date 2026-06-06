@@ -141,7 +141,7 @@ struct MainWindow: View {
                     .clipShape(.rect(topLeadingRadius: WindowChrome.radius))
             }
             .padding(.leading, WindowChrome.inset)
-            .padding(.top, WindowChrome.topBar)
+            .padding(.top, WindowChrome.topBar + WindowChrome.toolbarGap)
 
             topToolbar
                 .zIndex(3)
@@ -181,18 +181,24 @@ struct MainWindow: View {
         !forwardPath.isEmpty
     }
 
+    private var contentLeading: CGFloat {
+        WindowChrome.inset + (sidebarCollapsed ? 64 : 240) + WindowChrome.inset
+    }
+
     private var topToolbar: some View {
-        HStack(spacing: 10) {
-            ToolbarButtonGroup {
+        HStack(spacing: 12) {
+            ToolbarButtonGroup(style: .navigation) {
                 ChromeToolbarButton(
                     icon: "chevron.left",
                     help: "Back",
+                    role: .navigation,
                     disabled: !canGoBack,
                     action: goBack
                 )
                 ChromeToolbarButton(
                     icon: "chevron.right",
                     help: "Forward",
+                    role: .navigation,
                     disabled: !canGoForward,
                     action: goForward
                 )
@@ -200,47 +206,59 @@ struct MainWindow: View {
 
             Spacer(minLength: 16)
 
-            HStack(spacing: 8) {
-                ToolbarButtonGroup {
+            HStack(spacing: 10) {
+                ToolbarButtonGroup(style: .primary) {
                     ChromeToolbarButton(
                         icon: "square.and.arrow.up",
                         help: "Upload",
+                        role: .primary,
                         active: sidebar == .upload,
                         action: { selectTopLevel(.upload) }
                     )
+                }
+
+                ToolbarButtonGroup(style: .utility) {
                     ChromeToolbarButton(
                         icon: "gearshape",
                         help: "Settings",
+                        role: .utility,
                         active: sidebar == .settings,
                         action: { selectTopLevel(.settings) }
                     )
-                }
-
-                ToolbarButtonGroup {
                     ChromeToolbarButton(
                         icon: "arrow.clockwise",
                         help: "Refresh current page",
+                        role: .utility,
                         action: refreshCurrentPage
                     )
-                }
-
-                ToolbarButtonGroup {
                     ChromeToolbarButton(
                         icon: themeToolbarIcon,
                         help: themeToolbarHelp,
+                        role: .utility,
                         action: toggleTheme
                     )
                 }
             }
         }
-        .padding(.leading, isFullScreen ? 12 : 86)
-        .padding(.trailing, 14)
+        .padding(.leading, max(contentLeading, isFullScreen ? 12 : 86))
+        .padding(.trailing, 16)
         .frame(maxWidth: .infinity)
         .frame(height: WindowChrome.topBar)
-        .background(Color.paper.opacity(0.94))
+        .background(
+            LinearGradient(
+                colors: [
+                    Color.paper.opacity(0.98),
+                    Color.paper.opacity(0.88),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.hair.opacity(0.7)).frame(height: 1)
+            Rectangle().fill(Color.hair.opacity(0.38)).frame(height: 1)
         }
+        .animation(.easeInOut(duration: 0.22), value: sidebarCollapsed)
+        .animation(.easeInOut(duration: 0.22), value: isFullScreen)
     }
 
     private var themeToolbarIcon: String {
@@ -371,10 +389,50 @@ struct MainWindow: View {
     }
 }
 
+private enum ToolbarGroupStyle {
+    case navigation, primary, utility
+
+    var horizontalPadding: CGFloat {
+        switch self {
+        case .primary: 0
+        case .navigation, .utility: 3
+        }
+    }
+
+    var fill: Color {
+        switch self {
+        case .navigation: Color.paper.opacity(0.64)
+        case .primary: .clear
+        case .utility: Color.paper2.opacity(0.78)
+        }
+    }
+
+    var stroke: Color {
+        switch self {
+        case .navigation: Color.hair.opacity(0.55)
+        case .primary: .clear
+        case .utility: Color.hair.opacity(0.9)
+        }
+    }
+
+    var shadow: Color {
+        switch self {
+        case .utility: Color.black.opacity(0.035)
+        default: .clear
+        }
+    }
+}
+
+private enum ToolbarButtonRole {
+    case navigation, primary, utility
+}
+
 private struct ToolbarButtonGroup<Content: View>: View {
+    var style: ToolbarGroupStyle = .utility
     let content: Content
 
-    init(@ViewBuilder content: () -> Content) {
+    init(style: ToolbarGroupStyle = .utility, @ViewBuilder content: () -> Content) {
+        self.style = style
         self.content = content()
     }
 
@@ -382,35 +440,79 @@ private struct ToolbarButtonGroup<Content: View>: View {
         HStack(spacing: 2) {
             content
         }
-        .padding(3)
+        .padding(style.horizontalPadding)
         .background(
-            Capsule().fill(Color.paper2.opacity(0.78))
+            Capsule().fill(style.fill)
         )
         .overlay(
-            Capsule().stroke(Color.hair.opacity(0.95), lineWidth: 1)
+            Capsule().stroke(style.stroke, lineWidth: 1)
         )
+        .shadow(color: style.shadow, radius: 7, y: 2)
     }
 }
 
 private struct ChromeToolbarButton: View {
     let icon: String
     let help: String
+    var role: ToolbarButtonRole = .utility
     var active: Bool = false
     var disabled: Bool = false
     var action: () -> Void
 
     @State private var hover = false
 
+    private var size: CGSize {
+        switch role {
+        case .primary: CGSize(width: 34, height: 28)
+        case .navigation, .utility: CGSize(width: 28, height: 24)
+        }
+    }
+
+    private var cornerRadius: CGFloat {
+        role == .primary ? 14 : 7
+    }
+
     private var iconColor: Color {
         if disabled { return Color.muted.opacity(0.55) }
-        if active { return Color.accent }
-        return hover ? Color.ink : Color.ink2
+        switch role {
+        case .primary:
+            return .white
+        case .navigation:
+            return hover || active ? Color.ink : Color.ink2
+        case .utility:
+            if active { return Color.accent }
+            return hover ? Color.ink : Color.ink2
+        }
     }
 
     private var fill: Color {
         if disabled { return .clear }
-        if active { return Color.accent.opacity(0.14) }
-        if hover { return Color.ink.opacity(0.07) }
+        switch role {
+        case .primary:
+            return hover || active ? Color.accent : Color.accent.opacity(0.88)
+        case .navigation:
+            if active { return Color.ink.opacity(0.08) }
+            return hover ? Color.ink.opacity(0.06) : .clear
+        case .utility:
+            if active { return Color.accent.opacity(0.13) }
+            return hover ? Color.ink.opacity(0.06) : .clear
+        }
+    }
+
+    private var stroke: Color {
+        if disabled { return .clear }
+        switch role {
+        case .primary:
+            return Color.white.opacity(0.24)
+        case .navigation, .utility:
+            return active ? Color.accent.opacity(0.22) : .clear
+        }
+    }
+
+    private var shadowColor: Color {
+        if role == .primary && !disabled {
+            return Color.accent.opacity(hover || active ? 0.34 : 0.24)
+        }
         return .clear
     }
 
@@ -420,14 +522,18 @@ private struct ChromeToolbarButton: View {
             action()
         }) {
             Image(systemName: icon)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: role == .primary ? 13 : 12, weight: .semibold))
                 .foregroundStyle(iconColor)
-                .frame(width: 28, height: 24)
-                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(fill))
-                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .frame(width: size.width, height: size.height)
+                .background(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).fill(fill))
+                .overlay(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).stroke(stroke, lineWidth: 1))
+                .shadow(color: shadowColor, radius: role == .primary ? 10 : 0, y: role == .primary ? 4 : 0)
+                .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(disabled)
+        .focusEffectDisabled()
+        .focusable(false)
         .help(help)
         .onHover { h in
             hover = h
