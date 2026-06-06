@@ -492,12 +492,9 @@ struct PagedWallpaperGrid: View {
     private let pageSize = 24
     private var totalPages: Int { total > 0 ? Int(ceil(Double(total) / Double(pageSize))) : max(cursors.count, 1) }
     private var gridColumns: [GridItem] {
-        if showProcessing {
-            return [GridItem(.adaptive(minimum: 320, maximum: 460), spacing: 18, alignment: .top)]
-        }
-        return [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14, alignment: .top)]
+        [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14, alignment: .top)]
     }
-    private var gridSpacing: CGFloat { showProcessing ? 22 : 14 }
+    private var gridSpacing: CGFloat { 14 }
 
     var body: some View {
         Group {
@@ -513,7 +510,7 @@ struct PagedWallpaperGrid: View {
                     if loading && items.isEmpty {
                         WallpaperGridSkeleton(
                             columns: gridColumns,
-                            count: showProcessing ? 6 : 12,
+                            count: 12,
                             spacing: gridSpacing,
                             aspectRatio: 3.0 / 2.0,
                             cornerRadius: 10

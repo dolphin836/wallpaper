@@ -313,13 +313,13 @@ struct UploadView: View {
                 .frame(maxWidth: 680, alignment: .leading)
 
             if pendingLoading && pendingUploads.isEmpty {
-                WallpaperGridSkeleton(columns: pendingGridColumns, count: 6, spacing: 22, aspectRatio: 3.0 / 2.0, cornerRadius: 10)
+                WallpaperGridSkeleton(columns: pendingGridColumns, count: 12, spacing: 14, aspectRatio: 3.0 / 2.0, cornerRadius: 10)
             } else if let pendingError {
                 RemoteLoadErrorView(title: "Could not load pending uploads", message: pendingError) {
                     Task { await loadPendingUploads() }
                 }
             } else {
-                LazyVGrid(columns: pendingGridColumns, spacing: 22) {
+                LazyVGrid(columns: pendingGridColumns, spacing: 14) {
                     ForEach(pendingUploads) { wallpaper in
                         PendingUploadTileView(wallpaper: wallpaper)
                     }
@@ -329,7 +329,7 @@ struct UploadView: View {
     }
 
     private var pendingGridColumns: [GridItem] {
-        [GridItem(.adaptive(minimum: 320, maximum: 460), spacing: 18, alignment: .top)]
+        [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14, alignment: .top)]
     }
 
     private var uploadBar: some View {
@@ -860,39 +860,44 @@ struct PendingUploadTileView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ZStack {
-                Color(hex: wallpaper.dominantColor ?? "#c8c2b8").opacity(0.58)
-                if let displayURL {
-                    CachedAsyncImage(url: displayURL) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        placeholder
-                    }
-                } else {
-                    placeholder
-                }
-
-                if let resolutionText {
-                    VStack {
-                        HStack {
-                            Text(resolutionText)
-                                .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                                .tracking(0.4)
-                                .foregroundStyle(Color(red: 0.20, green: 0.21, blue: 0.23))
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .background(Capsule().fill(Color.white.opacity(0.78)))
-                            Spacer()
+            Color.clear
+                .aspectRatio(3.0 / 2.0, contentMode: .fit)
+                .overlay {
+                    ZStack {
+                        Color(hex: wallpaper.dominantColor ?? "#c8c2b8").opacity(0.58)
+                        if let displayURL {
+                            CachedAsyncImage(url: displayURL) { image in
+                                image.resizable().aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                placeholder
+                            }
+                        } else {
+                            placeholder
                         }
-                        Spacer()
-                    }
-                    .padding(10)
-                    .allowsHitTesting(false)
-                }
 
-                processingOverlay
-            }
-            .aspectRatio(3.0 / 2.0, contentMode: .fit)
+                        if let resolutionText {
+                            VStack {
+                                HStack {
+                                    Text(resolutionText)
+                                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                                        .tracking(0.4)
+                                        .foregroundStyle(Color(red: 0.20, green: 0.21, blue: 0.23))
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 2)
+                                        .background(Capsule().fill(Color.white.opacity(0.78)))
+                                    Spacer()
+                                }
+                                Spacer()
+                            }
+                            .padding(10)
+                            .allowsHitTesting(false)
+                        }
+
+                        processingOverlay
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
+                }
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
