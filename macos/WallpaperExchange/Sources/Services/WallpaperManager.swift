@@ -56,6 +56,10 @@ final class WallpaperManager {
         if autoRotate {
             startRotation()
         }
+        if !autoRotate, let savedID = currentWallpaperID, let savedURL = localURL(for: savedID),
+           Self.isVideoFileURL(savedURL) {
+            VideoWallpaperController.shared.start(videoURL: savedURL, wallpaperID: savedID)
+        }
 
         // Re-apply the current wallpaper whenever the screen layout
         // changes (display connect / disconnect / wake-from-sleep) or
@@ -104,12 +108,12 @@ final class WallpaperManager {
         }
     }
 
-    /// Re-run setDesktopImageURL on every connected screen for the
-    /// wallpaper currently marked as active. No-op when nothing is
-    /// active or the file is missing locally.
+    /// Re-run the current wallpaper on every connected screen. Static
+    /// wallpapers use the system desktop API; video wallpapers rebuild the
+    /// desktop-level AVPlayer windows for the current screen topology.
     private func reapplyCurrentWallpaper(source: String) {
-        guard let id = currentWallpaperID, let url = desktopURLForLocalWallpaper(id) else { return }
-        applyToAllScreens(url: url, source: source)
+        guard let id = currentWallpaperID, let url = localURL(for: id) else { return }
+        applyLocalWallpaper(id: id, url: url, source: source)
     }
 
     // MARK: - Auto-rotate
@@ -160,12 +164,11 @@ final class WallpaperManager {
         // currentWallpaperID after applying — the rotation tile should
         // show the same Active chip as a manual Set Wallpaper does.
         let pairs: [(Int, URL)] = downloadedIDs.compactMap { id in
-            guard let url = desktopURLForLocalWallpaper(id) else { return nil }
+            guard let url = localURL(for: id) else { return nil }
             return (id, url)
         }
         guard let pick = pairs.randomElement() else { return }
-        applyToAllScreens(url: pick.1, source: "auto-rotate")
-        markCurrent(pick.0)
+        applyLocalWallpaper(id: pick.0, url: pick.1, source: "auto-rotate")
     }
 
     /// Set the same image URL on every connected NSScreen and log the
@@ -191,6 +194,19 @@ final class WallpaperManager {
                 logger.error("screen[\(idx, privacy: .public)] \(name, privacy: .public) \(Int(frame.width), privacy: .public)x\(Int(frame.height), privacy: .public): FAILED — \(error.localizedDescription, privacy: .public)")
             }
         }
+    }
+
+    private func applyLocalWallpaper(id: Int, url: URL, source: String) {
+        if Self.isVideoFileURL(url) {
+            logger.info("applying video wallpaper from \(source, privacy: .public): id=\(id, privacy: .public)")
+            VideoWallpaperController.shared.start(videoURL: url, wallpaperID: id)
+            markCurrent(id)
+            return
+        }
+
+        VideoWallpaperController.shared.stop()
+        applyToAllScreens(url: url, source: source)
+        markCurrent(id)
     }
 
     var storagePath: URL { storageDir }
@@ -243,9 +259,12 @@ final class WallpaperManager {
     }
 
     private func download(wallpaper: Wallpaper, targetWidth: Int, targetHeight: Int) async throws {
-        if localURL(for: wallpaper.id) != nil {
-            downloadedIDs.insert(wallpaper.id)
-            return
+        if let existing = localURL(for: wallpaper.id) {
+            if !Self.isVideo(wallpaper) || Self.isVideoFileURL(existing) {
+                downloadedIDs.insert(wallpaper.id)
+                return
+            }
+            try removeLocalFiles(for: wallpaper.id)
         }
         guard !downloading.contains(wallpaper.id) else { return }
         downloading.insert(wallpaper.id)
@@ -338,10 +357,9 @@ final class WallpaperManager {
     }
 
     /// Apply the wallpaper to every connected display. Static images and Mac
-    /// dynamic HEIC wallpapers use the local downloaded file directly. Video
-    /// wallpapers cannot be passed to NSWorkspace as a desktop image, so the
-    /// Mac client applies the poster/preview image while keeping the original
-    /// video in the downloads folder.
+    /// dynamic HEIC wallpapers use the system desktop API. Video wallpapers
+    /// use a desktop-level AVPlayer window per screen, with the poster image
+    /// also set as a fallback for app quit / playback interruption.
     ///
     /// If the file is not yet on disk locally (e.g. the wallpaper was downloaded
     /// on another device — the "Downloaded" column is sourced from the server,
@@ -351,11 +369,11 @@ final class WallpaperManager {
     /// another device is free.
     func setAsWallpaper(_ wallpaper: Wallpaper) async throws {
         if Self.isVideo(wallpaper) {
-            if localURL(for: wallpaper.id) == nil {
-                try await download(wallpaper: wallpaper)
+            let videoURL = try await ensureLocalVideo(wallpaper)
+            if let poster = try? await ensureVideoPoster(wallpaper) {
+                applyToAllScreens(url: poster, source: "video-poster id=\(wallpaper.id)")
             }
-            let poster = try await ensureVideoPoster(wallpaper)
-            applyToAllScreens(url: poster, source: "manual-set-video id=\(wallpaper.id)")
+            VideoWallpaperController.shared.start(videoURL: videoURL, wallpaperID: wallpaper.id)
             markCurrent(wallpaper.id)
             return
         }
@@ -366,8 +384,7 @@ final class WallpaperManager {
         guard let url = localURL(for: wallpaper.id) else {
             throw WallpaperError.fileUnavailable
         }
-        applyToAllScreens(url: url, source: "manual-set id=\(wallpaper.id)")
-        markCurrent(wallpaper.id)
+        applyLocalWallpaper(id: wallpaper.id, url: url, source: "manual-set id=\(wallpaper.id)")
     }
 
     // Record the wallpaper id that is currently on the desktop. Drives the
@@ -385,6 +402,7 @@ final class WallpaperManager {
         removeVideoPosterFiles(for: wallpaperID)
         downloadedIDs.remove(wallpaperID)
         if currentWallpaperID == wallpaperID {
+            VideoWallpaperController.shared.stopIfActive(wallpaperID: wallpaperID)
             currentWallpaperID = nil
             UserDefaults.standard.removeObject(forKey: currentWallpaperIDDefaultsKey)
         }
@@ -398,6 +416,7 @@ final class WallpaperManager {
     func clearDownloads() -> Int {
         let fm = FileManager.default
         var removed = 0
+        VideoWallpaperController.shared.stop()
         if let contents = try? fm.contentsOfDirectory(at: storageDir, includingPropertiesForKeys: nil) {
             for url in contents where (try? fm.removeItem(at: url)) != nil { removed += 1 }
         }
@@ -496,17 +515,6 @@ final class WallpaperManager {
         }
     }
 
-    private func desktopURLForLocalWallpaper(_ wallpaperID: Int) -> URL? {
-        guard let url = localURL(for: wallpaperID) else { return nil }
-        if let poster = videoPosterURL(for: wallpaperID) {
-            return poster
-        }
-        if Self.isVideoFileURL(url) {
-            return nil
-        }
-        return url
-    }
-
     private func videoPosterURL(for wallpaperID: Int) -> URL? {
         let prefix = "poster-\(wallpaperID)."
         guard let contents = try? fm.contentsOfDirectory(at: storageDir, includingPropertiesForKeys: nil) else { return nil }
@@ -519,6 +527,20 @@ final class WallpaperManager {
         for url in contents where url.lastPathComponent.hasPrefix(prefix) {
             try? fm.removeItem(at: url)
         }
+    }
+
+    private func ensureLocalVideo(_ wallpaper: Wallpaper) async throws -> URL {
+        if let existing = localURL(for: wallpaper.id), Self.isVideoFileURL(existing) {
+            return existing
+        }
+        if localURL(for: wallpaper.id) != nil {
+            try removeLocalFiles(for: wallpaper.id)
+        }
+        try await download(wallpaper: wallpaper, targetWidth: 0, targetHeight: 0)
+        guard let url = localURL(for: wallpaper.id), Self.isVideoFileURL(url) else {
+            throw WallpaperError.fileUnavailable
+        }
+        return url
     }
 
     private func ensureVideoPoster(_ wallpaper: Wallpaper) async throws -> URL {
