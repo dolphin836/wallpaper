@@ -823,13 +823,23 @@ struct DetailPage: View {
     }
 
     private func moreLikeThis(layout: DetailLayout) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("More like this · \(similar.count)")
-                    .font(.displayLg).foregroundStyle(Color.ink)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .bottom, spacing: 18) {
+                VStack(alignment: .leading, spacing: 7) {
+                    Kicker(text: "Related archive")
+                    Text("More like this")
+                        .font(.system(size: 32, weight: .regular, design: .serif))
+                        .foregroundStyle(Color.ink)
+                        .tracking(-0.3)
+                }
                 Spacer()
-                Rectangle().fill(Color.hair).frame(height: 1)
+                Text("\(similar.count) PICKS")
+                    .font(.mono10)
+                    .tracking(1.4)
+                    .foregroundStyle(Color.muted)
+                    .lineLimit(1)
             }
+            Rectangle().fill(Color.hair).frame(height: 1)
             LazyVGrid(
                 columns: Array(
                     repeating: GridItem(.flexible(), spacing: 14, alignment: .top),

@@ -1060,19 +1060,16 @@ export default function WallpaperDetailPage() {
             {(ctaState !== 'default') && (
               <div className="mt-5">
                 {ctaState === 'success' ? (
-                  <div
-                    className="p-5 rounded-2xl"
-                    style={{ background: 'oklch(95% 0.05 150)', border: '1px solid #2f6b3e', color: 'var(--color-ink)' }}
-                  >
+                  <div className="wd-notice is-success">
                     <div className="flex justify-between items-center gap-4 flex-wrap">
                       <div className="min-w-0">
-                        <div className="kicker tracking-[0.14em] inline-flex items-center gap-1.5" style={{ color: '#2f6b3e' }}>
+                        <div className="wd-notice-kicker inline-flex items-center gap-1.5">
                           <AiOutlineCheckCircle size={11} /> DOWNLOADED
                         </div>
-                        <div className="display text-[24px] sm:text-[28px] leading-tight mt-1.5" style={{ color: '#1f4827' }}>
+                        <div className="wd-notice-title">
                           wallpaper_<span className="mono text-[20px] sm:text-[24px]">{String(wallpaper.id).padStart(3, '0')}</span>.jpg
                         </div>
-                        <div className="mono text-[10px] tracking-[0.14em] mt-2" style={{ color: '#2f6b3e' }}>
+                        <div className="wd-notice-meta">
                           {fileSize}  ·  {userBalance} COINS REMAINING
                         </div>
                       </div>
@@ -1089,51 +1086,50 @@ export default function WallpaperDetailPage() {
                     </div>
                     {!isMacUA && (
                       <>
-                        <hr className="my-3.5 border-0" style={{ borderTop: '1px solid rgba(47,107,62,0.25)' }} />
-                        <div className="flex flex-wrap gap-x-2 gap-y-1 items-center text-[12px]" style={{ color: '#1f4827' }}>
-                          <span>🍎 On macOS? Use the menu-bar app to set this as your wallpaper in one click.</span>
-                          <Link to="/download/mac" className="underline" style={{ color: '#2f6b3e' }}>Get it →</Link>
+                        <hr className="wd-notice-rule" />
+                        <div className="wd-notice-foot">
+                          <span>On macOS? Use the menu-bar app to set this as your wallpaper in one click.</span>
+                          <Link to="/download/mac" className="underline">Get it →</Link>
                         </div>
                       </>
                     )}
                   </div>
                 ) : ctaState === 'insufficient' ? (
-                  <div className="p-5 rounded-2xl border border-[#b07a1a]" style={{ background: 'oklch(96% 0.05 70)' }}>
+                  <div className="wd-notice is-warning">
                     <div className="flex justify-between items-center gap-4 flex-wrap">
                       <div className="min-w-0">
-                        <div className="kicker tracking-[0.14em]" style={{ color: '#9a6a18' }}>INSUFFICIENT COINS</div>
-                        <div className="display text-[28px] sm:text-[34px] leading-none mt-1.5" style={{ color: '#5e3f08' }}>
-                          Need <span style={{ color: '#9a6a18' }}>{downloadCost - userBalance}</span> more
+                        <div className="wd-notice-kicker">INSUFFICIENT COINS</div>
+                        <div className="wd-notice-title is-large">
+                          Need <span>{downloadCost - userBalance}</span> more
                         </div>
-                        <div className="mono text-[10px] tracking-[0.14em] mt-2" style={{ color: '#9a6a18' }}>
+                        <div className="wd-notice-meta">
                           YOUR BALANCE · {userBalance} COINS · COST · {downloadCost}
                         </div>
                       </div>
-                      <Link to="/upload" className="inline-flex items-center gap-2.5 px-5 py-3 rounded-full text-white font-medium text-[13px] no-underline whitespace-nowrap" style={{ background: '#9a6a18' }}>
+                      <Link to="/upload" className="wd-notice-primary">
                         Upload to earn
                       </Link>
                     </div>
-                    <hr className="my-3.5 border-0" style={{ borderTop: '1px solid rgba(154,106,24,0.28)' }} />
-                    <div className="flex flex-wrap gap-x-5 gap-y-1 text-[12px]" style={{ color: '#5e3f08' }}>
-                      <span><strong className="mono mr-1.5" style={{ color: '#9a6a18' }}>+1</strong>each upload</span>
-                      <span><strong className="mono mr-1.5" style={{ color: '#9a6a18' }}>+1</strong>others download yours</span>
+                    <hr className="wd-notice-rule" />
+                    <div className="wd-notice-foot gap-x-5">
+                      <span><strong className="mono mr-1.5">+1</strong>each upload</span>
+                      <span><strong className="mono mr-1.5">+1</strong>others download yours</span>
                     </div>
                   </div>
                 ) : ctaState === 'confirm' ? (
-                  <div className="bg-ink text-paper p-5 rounded-2xl" style={{ border: '2px solid var(--color-accent)' }}>
+                  <div className="wd-notice is-confirm">
                     <div className="flex justify-between items-center gap-4 flex-wrap">
                       <div className="min-w-0">
-                        <div className="kicker tracking-[0.14em] text-accent">CONFIRM EXCHANGE</div>
-                        <div className="display text-[30px] sm:text-[36px] leading-none mt-1.5">
+                        <div className="wd-notice-kicker">CONFIRM EXCHANGE</div>
+                        <div className="wd-notice-title is-xl">
                           −{downloadCost} <span className="text-accent">coin{downloadCost > 1 ? 's' : ''}</span>
                         </div>
-                        <div className="mono text-[10px] tracking-[0.14em] mt-2" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                        <div className="wd-notice-meta">
                           {userBalance} <span className="text-accent">→</span> {userBalance - downloadCost} COINS REMAINING
                         </div>
                         <Link
                           to="/upload"
-                          className="mono text-[10px] tracking-[0.14em] mt-1.5 inline-flex items-center gap-1 no-underline transition-colors duration-200 hover:text-accent"
-                          style={{ color: 'rgba(255,255,255,0.4)' }}
+                          className="wd-notice-refill"
                         >
                           UPLOAD ONE TO REFILL <span aria-hidden>→</span>
                         </Link>
@@ -1142,8 +1138,7 @@ export default function WallpaperDetailPage() {
                         <button
                           onClick={handleConfirmYes}
                           disabled={dlLoading}
-                          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-white font-semibold text-[13px] disabled:opacity-60 whitespace-nowrap"
-                          style={{ background: 'var(--color-accent)' }}
+                          className="wd-notice-primary"
                         >
                           {dlLoading ? <AiOutlineLoading3Quarters size={14} className="animate-spin" /> : (
                             <>
@@ -1155,19 +1150,17 @@ export default function WallpaperDetailPage() {
                         <button
                           onClick={handleConfirmCancel}
                           disabled={dlLoading}
-                          className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full font-medium text-[12px] whitespace-nowrap transition-colors disabled:opacity-60"
-                          style={{ background: 'transparent', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.18)' }}
+                          className="wd-notice-secondary"
                         >Cancel</button>
                       </div>
                     </div>
-                    <hr className="my-3.5 border-0" style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }} />
-                    <label className="inline-flex items-center gap-2 text-[11px] cursor-pointer select-none" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                    <hr className="wd-notice-rule" />
+                    <label className="wd-notice-check">
                       <input
                         type="checkbox"
                         checked={confirmDontAsk}
                         onChange={(e) => setConfirmDontAsk(e.target.checked)}
-                        className="appearance-none w-[13px] h-[13px] rounded-sm cursor-pointer checked:bg-accent transition-colors"
-                        style={{ border: '1px solid rgba(255,255,255,0.4)' }}
+                        className="appearance-none w-[13px] h-[13px] rounded-sm cursor-pointer checked:bg-accent transition-colors border border-current"
                       />
                       Skip confirm next time
                     </label>
@@ -1315,7 +1308,13 @@ export default function WallpaperDetailPage() {
                   if (shown.length === 0) return null;
                   return (
                     <>
-                      <div className="label-rule mb-4">More like this · {shown.length}</div>
+                      <div className="wd-similar-head">
+                        <div>
+                          <div className="kicker text-muted">Related archive</div>
+                          <h2 className="display">More like this</h2>
+                        </div>
+                        <span className="mono">{shown.length} PICKS</span>
+                      </div>
                       <WallpaperGrid wallpapers={shown} viewMode="grid" sizeMode="md" />
                     </>
                   );
@@ -1531,11 +1530,73 @@ function SpotlightStyles() {
 .wd-btn-cta:hover { filter: brightness(1.05); }
 .wd-btn-cta:disabled { opacity: 0.7; cursor: not-allowed; }
 
+/* ── Detail notices — trade / download / coin states ─────────── */
+.wd-notice { padding: 20px; border-radius: 18px; border: 1px solid; box-shadow: 0 10px 30px -20px rgba(0,0,0,0.28); }
+.wd-notice-kicker { font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+.wd-notice-title { font-family: var(--font-display); font-size: clamp(24px, 2.4vw, 28px); line-height: 1.05; margin-top: 6px; color: var(--wd-notice-title, currentColor); }
+.wd-notice-title.is-large { font-size: clamp(28px, 3vw, 34px); line-height: 1; }
+.wd-notice-title.is-xl { font-size: clamp(30px, 3.3vw, 36px); line-height: 1; }
+.wd-notice-title span { color: var(--wd-notice-ink, currentColor); }
+.wd-notice-meta { margin-top: 8px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; color: var(--wd-notice-ink, currentColor); }
+.wd-notice-rule { margin: 14px 0; border: 0; border-top: 1px solid var(--wd-notice-rule, var(--color-hair)); }
+.wd-notice-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 12px; color: var(--wd-notice-text, currentColor); }
+.wd-notice-foot a { color: var(--wd-notice-ink, currentColor); }
+.wd-notice-foot strong { color: var(--wd-notice-ink, currentColor); }
+.wd-notice-primary,
+.wd-notice-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 10px; border-radius: 999px; white-space: nowrap; text-decoration: none; transition: filter .15s ease, background-color .15s ease, color .15s ease, border-color .15s ease; }
+.wd-notice-primary { padding: 12px 20px; background: var(--wd-notice-action, var(--color-ink)); color: var(--wd-notice-action-text, var(--color-paper)); font-size: 13px; font-weight: 650; }
+.wd-notice-primary:hover { filter: brightness(1.05); }
+.wd-notice-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.wd-notice-secondary { padding: 8px 20px; border: 1px solid var(--wd-notice-secondary-border, var(--color-hair)); color: var(--wd-notice-secondary-text, var(--color-ink-2)); font-size: 12px; font-weight: 600; background: transparent; }
+.wd-notice-check { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; cursor: pointer; user-select: none; color: var(--wd-notice-muted, var(--color-muted)); }
+.wd-notice-refill { margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-decoration: none; color: var(--wd-notice-muted, var(--color-muted)); transition: color .15s ease; }
+.wd-notice-refill:hover { color: var(--color-accent); }
+.wd-notice.is-success {
+  --wd-notice-ink: oklch(43% 0.09 145);
+  --wd-notice-title: oklch(32% 0.08 145);
+  --wd-notice-text: oklch(35% 0.07 145);
+  --wd-notice-action: var(--color-ink);
+  --wd-notice-action-text: var(--color-paper);
+  --wd-notice-rule: oklch(43% 0.09 145 / 0.25);
+  color: var(--wd-notice-ink);
+  background: oklch(95% 0.05 150);
+  border-color: oklch(43% 0.09 145 / 0.65);
+}
+.wd-notice.is-warning {
+  --wd-notice-ink: oklch(47% 0.12 72);
+  --wd-notice-title: oklch(35% 0.10 72);
+  --wd-notice-text: oklch(40% 0.10 72);
+  --wd-notice-action: oklch(47% 0.12 72);
+  --wd-notice-action-text: white;
+  --wd-notice-rule: oklch(47% 0.12 72 / 0.28);
+  color: var(--wd-notice-ink);
+  background: oklch(96% 0.05 70);
+  border-color: oklch(52% 0.13 72 / 0.72);
+}
+.wd-notice.is-confirm {
+  --wd-notice-ink: var(--color-accent);
+  --wd-notice-title: var(--color-paper);
+  --wd-notice-action: var(--color-accent);
+  --wd-notice-action-text: white;
+  --wd-notice-secondary-border: rgba(255,255,255,0.18);
+  --wd-notice-secondary-text: rgba(255,255,255,0.85);
+  --wd-notice-muted: rgba(255,255,255,0.62);
+  --wd-notice-rule: rgba(255,255,255,0.12);
+  color: var(--color-paper);
+  background: var(--color-ink);
+  border-color: var(--color-accent);
+  border-width: 2px;
+}
+
 /* ── Content card (stats + meta + palette) ─────────────────── */
 .wd-content-card { background: var(--color-paper); border: 1px solid var(--color-hair); border-radius: 20px; overflow: hidden; box-shadow: 0 8px 28px -16px rgba(0,0,0,0.16); }
 .wd-tag-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; border: 1px solid; line-height: 1.4; transition: transform .15s ease; }
 .wd-tag-chip:hover { transform: translateY(-1px); }
 .wd-tag-chip-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+.wd-similar-head { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding-bottom: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--color-hair); }
+.wd-similar-head h2 { margin-top: 7px; font-size: clamp(28px, 3vw, 36px); line-height: 1; color: var(--color-ink); }
+.wd-similar-head .mono { font-size: 10px; letter-spacing: 0.14em; color: var(--color-muted); white-space: nowrap; }
 
 /* ── Devices drawer — right-side slide-in ──────────────────── */
 .wd-drawer-scrim { position: fixed; inset: 0; background: rgba(20,18,15,0.42); backdrop-filter: blur(2px); z-index: 60; display: flex; justify-content: flex-end; animation: wdFadeIn .2s ease; }
