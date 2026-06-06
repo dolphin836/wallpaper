@@ -168,6 +168,84 @@
   animation: route-in 280ms var(--ease-out-expo) both;
 }
 
+/* Global motion contract. Default users keep the tactile hover and
+   palette response; reduced-motion users get instant state changes,
+   frozen decorative meshes, and no card lift/zoom. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+
+  .animate-fade-in,
+  .animate-route-in,
+  .shimmer-overlay::after,
+  .skeleton-card::after,
+  .feed-spinner,
+  .dl-indeterminate,
+  .h3-tile.h3-ai .h3-foil,
+  .h3-tile.h3-ai::after,
+  .w-weekly-mesh,
+  .auth-mesh,
+  .c-list-mesh,
+  .c-detail-mesh,
+  .h3-home-mesh,
+  .d3-discover-mesh,
+  .dev-wall-slot.is-rippled > .dev-spec-card,
+  .uploader-card-aura {
+    animation: none !important;
+  }
+
+  .tile-cell,
+  .wp-card,
+  .h3-tile,
+  .h3-hero,
+  .h3-tile-collection,
+  .w-archive-cover,
+  .cd-frame,
+  .c-tile,
+  .uploader-card,
+  .dev-spec-card,
+  .avatar-btn,
+  .balance-pill,
+  .feed-foot__btn,
+  .t-act {
+    transition-property: background, border-color, box-shadow, color, opacity !important;
+  }
+
+  .tile-cell:hover,
+  .tile-cell:focus-within,
+  .wp-card:hover,
+  .wp-card:focus-within,
+  .h3-tile:hover,
+  .h3-hero:hover,
+  .h3-tile-collection:hover,
+  .w-archive-cover-link:hover .w-archive-cover,
+  .cd-frame:hover,
+  .c-tile:hover,
+  .uploader-card:hover,
+  .dev-spec-card:hover,
+  .avatar-shell:hover .avatar-btn,
+  .balance-pill:hover {
+    transform: none !important;
+  }
+
+  .tile-cell:hover .tile-img,
+  .tile-cell:focus-within .tile-img,
+  .wp-card:hover .tile-img,
+  .wp-card:focus-within .tile-img,
+  .h3-tile:hover img,
+  .h3-tile-collection:hover img,
+  .w-archive-cover-link:hover .w-archive-cover img,
+  .cd-frame:hover .cd-frame-img,
+  .c-tile:hover .c-tile-frame img,
+  .uploader-card:hover .uploader-card-thumb img,
+  .dev-spec-card:hover .dev-spec-card-img {
+    transform: none !important;
+  }
+}
+
 .shimmer-overlay {
   overflow: hidden;
 }

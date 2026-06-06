@@ -85,9 +85,9 @@ struct PageMesh: View {
             .blur(radius: 80)
             .saturation(1.4)
             .opacity(0.55)
-            .animation(.easeInOut(duration: 1.0), value: env.c1)
-            .animation(.easeInOut(duration: 1.0), value: env.c2)
-            .animation(.easeInOut(duration: 1.0), value: env.c3)
+            .animation(.easeOut(duration: 0.42), value: env.c1)
+            .animation(.easeOut(duration: 0.42), value: env.c2)
+            .animation(.easeOut(duration: 0.42), value: env.c3)
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
