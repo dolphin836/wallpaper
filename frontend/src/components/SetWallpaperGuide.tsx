@@ -70,28 +70,36 @@ export default function SetWallpaperGuide({ onClose }: Props) {
   const guide = guides[os];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-[2px]"
+      style={{ background: 'rgba(15,12,8,0.55)' }}
+      onClick={onClose}
+    >
       <div
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden"
+        className="bg-paper text-ink rounded-[20px] shadow-[0_24px_70px_rgba(0,0,0,0.28)] border border-hair w-full max-w-[420px] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{guide.title}</h3>
+        <div className="flex items-start justify-between gap-4 p-5 border-b border-hair">
+          <div>
+            <div className="kicker text-muted">Local setup</div>
+            <h3 className="display text-[22px] leading-none mt-2">{guide.title}</h3>
+          </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+            aria-label="Close"
+            className="w-8 h-8 rounded-full border border-hair text-ink-2 hover:text-ink hover:bg-paper-2 inline-flex items-center justify-center transition-colors"
           >
-            <AiOutlineClose size={20} />
+            <AiOutlineClose size={13} />
           </button>
         </div>
 
-        <div className="p-5 space-y-3">
+        <div className="p-5 space-y-3.5">
           {guide.steps.map((step, i) => (
             <div key={i} className="flex gap-3">
-              <div className="shrink-0 w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-sm font-semibold">
+              <div className="shrink-0 w-7 h-7 rounded-full bg-accent-soft text-accent-ink border border-accent/20 flex items-center justify-center text-[12px] font-semibold tabular-nums">
                 {i + 1}
               </div>
-              <p className="text-sm text-gray-700 dark:text-gray-300 pt-1">{step}</p>
+              <p className="text-[13px] leading-relaxed text-ink-2 pt-0.5">{step}</p>
             </div>
           ))}
         </div>
@@ -99,7 +107,7 @@ export default function SetWallpaperGuide({ onClose }: Props) {
         <div className="px-5 pb-5">
           <button
             onClick={onClose}
-            className="w-full py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors"
+            className="w-full py-2.5 text-[13px] font-semibold text-paper bg-ink hover:bg-ink-2 rounded-full transition-colors"
           >
             Got it
           </button>

@@ -40,7 +40,7 @@ export default function Avatar({ src, name, size = 48, className = '', alt = '' 
 
   return (
     <div
-      className={`relative inline-flex items-center justify-center overflow-hidden rounded-full bg-ws-purple-light dark:bg-ws-dark-active text-ws-purple dark:text-purple-400 ${className}`}
+      className={`relative inline-flex items-center justify-center overflow-hidden rounded-full bg-accent-soft text-accent-ink ring-1 ring-hair ${className}`}
       style={{ width: size, height: size }}
     >
       {/* Placeholder always rendered behind the <img> so it shows during

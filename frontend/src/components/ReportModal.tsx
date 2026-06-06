@@ -35,25 +35,36 @@ export default function ReportModal({ wallpaperId, onClose }: ReportModalProps) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-[2px]"
+      style={{ background: 'rgba(15,12,8,0.55)' }}
+      onClick={onClose}
+    >
       <div
-        className="bg-white dark:bg-ws-dark-card rounded-2xl shadow-xl border border-ws-border dark:border-white/5 p-6 w-full max-w-md"
+        className="bg-paper text-ink rounded-[20px] shadow-[0_24px_70px_rgba(0,0,0,0.28)] border border-hair p-5 w-full max-w-[420px]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Report this wallpaper</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 dark:hover:text-white">
-            <AiOutlineClose size={20} />
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div>
+            <div className="kicker text-muted">Catalog moderation</div>
+            <h3 className="display text-[22px] leading-none mt-2">Report this wallpaper</h3>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="w-8 h-8 rounded-full border border-hair text-ink-2 hover:text-ink hover:bg-paper-2 inline-flex items-center justify-center transition-colors"
+          >
+            <AiOutlineClose size={13} />
           </button>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-ws-muted dark:text-ws-dark-muted mb-1">Reason</label>
+            <label className="block mono text-[10px] tracking-[0.14em] uppercase text-muted mb-1.5">Reason</label>
             <select
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full bg-ws-bg dark:bg-ws-dark-bg border border-ws-border dark:border-white/10 rounded-xl py-2.5 px-4 text-sm outline-none focus:ring-1 focus:ring-ws-purple dark:text-white"
+              className="w-full bg-paper-2 border border-hair rounded-lg py-2.5 px-3.5 text-[13px] text-ink outline-none focus:border-ink-2 transition-colors"
             >
               {REASONS.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
@@ -62,32 +73,32 @@ export default function ReportModal({ wallpaperId, onClose }: ReportModalProps) 
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-ws-muted dark:text-ws-dark-muted mb-1">Additional details (optional)</label>
+            <label className="block mono text-[10px] tracking-[0.14em] uppercase text-muted mb-1.5">Additional details</label>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               maxLength={2000}
               rows={4}
               placeholder="Source URL, copyright owner, or anything else useful for moderators…"
-              className="w-full bg-ws-bg dark:bg-ws-dark-bg border border-ws-border dark:border-white/10 rounded-xl py-2.5 px-4 text-sm outline-none focus:ring-1 focus:ring-ws-purple dark:text-white resize-none"
+              className="w-full bg-paper-2 border border-hair rounded-lg py-2.5 px-3.5 text-[13px] text-ink placeholder:text-muted outline-none focus:border-ink-2 transition-colors resize-none"
             />
-            <p className="text-[11px] text-ws-muted dark:text-ws-dark-muted mt-1">
+            <p className="text-[11px] text-muted mt-1.5 leading-relaxed">
               For formal DMCA notices please use the dedicated channel on the{' '}
-              <a href="/legal/dmca" className="text-ws-purple hover:underline">Copyright page</a>.
+              <a href="/legal/dmca" className="text-accent-ink hover:underline">Copyright page</a>.
             </p>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex justify-end gap-2 pt-1">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm rounded-xl border border-ws-border dark:border-white/10 hover:bg-ws-bg dark:hover:bg-white/5 transition-colors dark:text-white"
+              className="px-4 py-2 text-[13px] rounded-full border border-hair text-ink-2 hover:text-ink hover:bg-paper-2 transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={submit}
               disabled={submitting}
-              className="px-4 py-2 text-sm rounded-xl bg-ws-purple text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="px-5 py-2 text-[13px] font-semibold rounded-full bg-ink text-paper hover:bg-ink-2 transition-colors disabled:opacity-50"
             >
               {submitting ? 'Submitting…' : 'Submit'}
             </button>

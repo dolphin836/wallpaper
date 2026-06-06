@@ -25,9 +25,9 @@ export default function CoverImage({ src, alt = '', className = '' }: Props) {
   }, [src]);
 
   return (
-    // Brand-purple tint as the placeholder. Soft enough to read as a paint
-    // swatch (not a "broken image" hint), but recognisably ours.
-    <div className={`absolute inset-0 bg-ws-purple-light dark:bg-purple-900/20 overflow-hidden ${className}`}>
+    // Archive-token placeholder. Soft enough to read as a paint swatch
+    // instead of a broken image hint, while staying in the paper/ink system.
+    <div className={`absolute inset-0 bg-paper-3 overflow-hidden ${className}`}>
       {src && !errored && (
         <img
           src={src}

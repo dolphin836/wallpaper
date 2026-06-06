@@ -176,20 +176,25 @@ export default function AvatarCropModal({ file, onSave, onCancel }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onCancel}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-[2px]"
+      style={{ background: 'rgba(15,12,8,0.55)' }}
+      onClick={onCancel}
+    >
       <div
-        className="bg-white dark:bg-ws-dark-card rounded-2xl shadow-xl border border-ws-border dark:border-white/5 p-5 w-full max-w-md"
+        className="bg-paper text-ink rounded-[20px] shadow-[0_24px_70px_rgba(0,0,0,0.28)] border border-hair p-5 w-full max-w-[420px]"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">裁剪头像</h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">拖拽调整位置，滚轮或滑块缩放</p>
+        <div className="kicker text-muted">Profile image</div>
+        <h3 className="display text-[22px] leading-none mt-2">裁剪头像</h3>
+        <p className="text-[12px] text-muted mt-2 mb-4">拖拽调整位置，滚轮或滑块缩放</p>
 
         <div className="relative mx-auto" style={{ width: VIEWPORT, height: VIEWPORT }}>
           {image ? (
             <canvas
               ref={canvasRef}
               style={{ width: VIEWPORT, height: VIEWPORT, touchAction: 'none', cursor: draggingRef.current ? 'grabbing' : 'grab' }}
-              className="rounded-lg bg-slate-100 dark:bg-slate-800"
+              className="rounded-xl bg-paper-2 border border-hair"
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
@@ -197,12 +202,12 @@ export default function AvatarCropModal({ file, onSave, onCancel }: Props) {
               onWheel={onWheel}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-sm text-slate-400">加载图片中…</div>
+            <div className="w-full h-full flex items-center justify-center text-sm text-muted bg-paper-2 border border-hair rounded-xl">加载图片中…</div>
           )}
           {/* Tiny round preview in the corner so the user sees the final result
               independent of the dim mask. */}
           {image && imageURL && (
-            <div className="absolute -bottom-2 right-2 w-14 h-14 rounded-full overflow-hidden ring-2 ring-white dark:ring-slate-900 shadow-md bg-slate-200">
+            <div className="absolute -bottom-2 right-2 w-14 h-14 rounded-full overflow-hidden ring-2 ring-paper shadow-[0_8px_18px_rgba(0,0,0,0.22)] bg-paper-2">
               <CircleMini
                 image={image}
                 scale={scale}
@@ -213,7 +218,7 @@ export default function AvatarCropModal({ file, onSave, onCancel }: Props) {
         </div>
 
         <div className="flex items-center gap-3 mt-5">
-          <span className="text-xs text-slate-400 select-none">缩放</span>
+          <span className="mono text-[10px] tracking-[0.14em] uppercase text-muted select-none">缩放</span>
           <input
             type="range"
             min={minScale}
@@ -221,7 +226,7 @@ export default function AvatarCropModal({ file, onSave, onCancel }: Props) {
             step={0.01}
             value={scale}
             onChange={(e) => setScale(Number(e.target.value))}
-            className="flex-1 accent-ws-purple"
+            className="flex-1 accent-[var(--color-accent)]"
           />
         </div>
 
@@ -229,12 +234,12 @@ export default function AvatarCropModal({ file, onSave, onCancel }: Props) {
           <button
             onClick={onCancel}
             disabled={saving}
-            className="flex-1 py-2.5 text-sm font-medium rounded-xl border border-ws-border dark:border-white/10 text-ws-muted dark:text-ws-dark-muted hover:bg-ws-bg dark:hover:bg-white/5 transition-colors disabled:opacity-50"
+            className="flex-1 py-2.5 text-[13px] font-medium rounded-full border border-hair text-ink-2 hover:text-ink hover:bg-paper-2 transition-colors disabled:opacity-50"
           >取消</button>
           <button
             onClick={save}
             disabled={saving || !image}
-            className="flex-1 py-2.5 text-sm font-semibold text-white bg-ws-purple hover:bg-ws-purple-hover rounded-xl transition-colors disabled:opacity-50"
+            className="flex-1 py-2.5 text-[13px] font-semibold text-paper bg-ink hover:bg-ink-2 rounded-full transition-colors disabled:opacity-50"
           >{saving ? '上传中…' : '确定上传'}</button>
         </div>
       </div>

@@ -52,40 +52,40 @@ export default function InAppConfirm({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[90] flex items-center justify-center px-6 bg-black/45"
+      className="fixed inset-0 z-[90] flex items-center justify-center px-6 backdrop-blur-[2px]"
+      style={{ background: 'rgba(15,12,8,0.55)' }}
       onClick={onCancel}
       role="dialog"
       aria-modal="true"
       aria-labelledby="iac-title"
     >
       <div
-        className="w-full max-w-sm bg-ink text-paper border-2 border-accent p-5 shadow-2xl"
+        className="w-full max-w-sm bg-paper text-ink border border-hair rounded-[20px] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="kicker tracking-[0.14em] text-accent">
+        <div className="kicker tracking-[0.14em] text-accent-ink">
           {destructive ? 'CONFIRM DELETION' : 'CONFIRM ACTION'}
         </div>
         <h2 id="iac-title" className="display text-[24px] sm:text-[28px] leading-tight mt-1.5">
           {title}
         </h2>
         {message && (
-          <p className="mt-3 text-[13px] leading-snug" style={{ color: 'rgba(255,255,255,0.65)' }}>
+          <p className="mt-3 text-[13px] leading-snug text-ink-2">
             {message}
           </p>
         )}
         <div className="mt-5 flex items-center justify-end gap-2.5">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-full font-medium text-[12px] transition-colors"
-            style={{ background: 'transparent', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.18)' }}
+            className="px-4 py-2 rounded-full font-medium text-[12px] border border-hair text-ink-2 hover:text-ink hover:bg-paper-2 transition-colors"
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
             autoFocus
-            className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full text-white font-semibold text-[12px] transition-transform hover:translate-y-[-1px]"
-            style={{ background: destructive ? 'oklch(54% 0.22 28)' : 'var(--color-accent)' }}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full text-paper font-semibold text-[12px] transition-transform hover:translate-y-[-1px]"
+            style={{ background: destructive ? 'oklch(54% 0.22 28)' : 'var(--color-ink)' }}
           >
             {confirmLabel}
           </button>
