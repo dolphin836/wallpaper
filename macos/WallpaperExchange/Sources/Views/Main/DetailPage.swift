@@ -42,6 +42,8 @@ struct DetailPage: View {
         var topPadding: CGFloat { isCompact ? 14 : 18 }
         var bottomPadding: CGFloat { isCompact ? 44 : 60 }
         var contentMaxWidth: CGFloat { 1280 }
+        var pageWidth: CGFloat { min(size.width, contentMaxWidth) }
+        var contentWidth: CGFloat { max(1, pageWidth - horizontalPadding * 2) }
         var stagePadding: CGFloat { isCompact ? 14 : 20 }
         var stageSpacing: CGFloat { isCompact ? 14 : 16 }
         var actionPadding: CGFloat { isCompact ? 12 : 14 }
@@ -83,9 +85,10 @@ struct DetailPage: View {
                         .padding(.horizontal, layout.horizontalPadding)
                         .padding(.top, layout.topPadding)
                         .padding(.bottom, layout.bottomPadding)
-                        // Content width to match the other pages.
-                        .frame(maxWidth: layout.contentMaxWidth)
-                        .frame(maxWidth: .infinity, alignment: .center)
+                        .frame(width: layout.pageWidth, alignment: .leading)
+                        // A vertical ScrollView otherwise lets a child's
+                        // intrinsic width influence its horizontal origin.
+                        .frame(width: layout.size.width, alignment: .center)
                     } else if let err = loadError {
                         VStack(spacing: 10) {
                             Image(systemName: "exclamationmark.triangle").font(.system(size: 30)).foregroundStyle(Color.warn)
@@ -193,8 +196,7 @@ struct DetailPage: View {
     }
 
     private func rawHeroSize(detail: WallpaperDetail, layout: DetailLayout) -> CGSize {
-        let contentWidth = min(layout.contentMaxWidth, max(1, layout.size.width - layout.horizontalPadding * 2))
-        let maxWidth = max(1, contentWidth - layout.stagePadding * 2)
+        let maxWidth = max(1, layout.contentWidth - layout.stagePadding * 2)
         let maxHeight = layout.heroMaxHeight
         let sourceWidth = CGFloat(max(detail.width, 1))
         let sourceHeight = CGFloat(max(detail.height, 1))
