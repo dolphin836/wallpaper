@@ -37,10 +37,30 @@ extension APIClient {
 
     // `status` mirrors the web Uploads tab: "1" = published, "0,5" =
     // pending/processing (owner-only). Omitted → server default.
-    func fetchUserUploads(username: String, cursor: Int? = nil, limit: Int = 24, status: String? = nil) async throws -> PaginatedData<Wallpaper> {
+    //
+    // Published grids keep `compatibleOnly` enabled so the Mac client
+    // only shows wallpapers that can fill the current display. Owner
+    // workflow surfaces, such as UploadView's pending/review section,
+    // can disable it because processing rows may not have width/height
+    // yet and would otherwise disappear.
+    func fetchUserUploads(
+        username: String,
+        cursor: Int? = nil,
+        limit: Int = 24,
+        status: String? = nil,
+        compatibleOnly: Bool = true
+    ) async throws -> PaginatedData<Wallpaper> {
         var items: [URLQueryItem] = []
         if let s = status, !s.isEmpty { items.append(.init(name: "status", value: s)) }
-        return try await fetchCompatibleWallpaperPage("/users/\(username)/wallpapers", cursor: cursor, limit: limit, queryItems: items)
+        if compatibleOnly {
+            return try await fetchCompatibleWallpaperPage("/users/\(username)/wallpapers", cursor: cursor, limit: limit, queryItems: items)
+        }
+        items.append(.init(name: "limit", value: String(limit)))
+        if let cursor {
+            items.append(.init(name: "cursor", value: String(cursor)))
+        }
+        let resp: APIResponse<PaginatedData<Wallpaper>> = try await request("/users/\(username)/wallpapers", queryItems: items)
+        return resp.data
     }
 
     func fetchUserLikes(username: String, cursor: Int? = nil, limit: Int = 24) async throws -> PaginatedData<Wallpaper> {

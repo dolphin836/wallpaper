@@ -4,6 +4,7 @@ import AppKit
 
 private let uploadMaxBytes = 200 * 1024 * 1024
 private let uploadMaxFiles = 20
+private let pendingUploadLimit = 12
 
 private enum UploadStatus: Equatable {
     case pending
@@ -36,6 +37,11 @@ struct UploadView: View {
     @State private var isDropTargeting = false
     @State private var uploading = false
     @State private var message: String?
+    @State private var pendingUploads: [Wallpaper] = []
+    @State private var pendingTotal = 0
+    @State private var pendingLoading = false
+    @State private var pendingLoaded = false
+    @State private var pendingError: String?
 
     private var totalDone: Int { files.filter { $0.status == .success }.count }
     private var totalError: Int {
@@ -53,6 +59,9 @@ struct UploadView: View {
         }.count
     }
     private var allDone: Bool { !files.isEmpty && files.allSatisfy { $0.status == .success } }
+    private var showPendingUploadsSection: Bool {
+        pendingLoading || pendingError != nil || !pendingUploads.isEmpty
+    }
     private var overallProgress: Int {
         guard !files.isEmpty else { return 0 }
         let total = files.reduce(0) { partial, file in
@@ -78,7 +87,11 @@ struct UploadView: View {
                             queueSection
                                 .padding(.top, 32)
                         }
-                        Color.clear.frame(height: files.isEmpty ? 32 : 106)
+                        if showPendingUploadsSection {
+                            pendingUploadsSection
+                                .padding(.top, files.isEmpty ? 34 : 36)
+                        }
+                        Color.clear.frame(height: files.isEmpty ? 48 : 106)
                     }
                     .padding(.horizontal, 40)
                     .padding(.top, 32)
@@ -92,6 +105,11 @@ struct UploadView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !files.isEmpty {
                 uploadBar
+            }
+        }
+        .task(id: auth.user?.username ?? "") {
+            if auth.isLoggedIn {
+                await loadPendingUploads()
             }
         }
     }
@@ -283,6 +301,58 @@ struct UploadView: View {
 
     private var gridColumns: [GridItem] {
         [GridItem(.adaptive(minimum: 132, maximum: 180), spacing: 14, alignment: .top)]
+    }
+
+    private var pendingUploadsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            LabelRule(text: "PENDING · \(pendingLoaded ? "\(pendingTotal)" : "…")")
+            Text("Wallpapers still being processed or waiting on admin review. Each tile shows its exact stage; they enter the public archive once approved.")
+                .font(.system(size: 12))
+                .lineSpacing(3)
+                .foregroundStyle(Color.muted)
+                .frame(maxWidth: 680, alignment: .leading)
+
+            if pendingLoading && pendingUploads.isEmpty {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 28)
+            } else if let pendingError {
+                HStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.circle")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Color.warn)
+                    Text(pendingError)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.ink2)
+                    Spacer(minLength: 0)
+                    Button(action: { Task { await loadPendingUploads() } }) {
+                        Text("Retry")
+                            .font(.mono10)
+                            .tracking(1.2)
+                            .foregroundStyle(Color.ink)
+                            .textCase(.uppercase)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(Capsule().fill(Color.paper2))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.paper.opacity(0.72)))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.hair, lineWidth: 1))
+            } else {
+                LazyVGrid(columns: pendingGridColumns, spacing: 14) {
+                    ForEach(pendingUploads) { wallpaper in
+                        PendingUploadTileView(wallpaper: wallpaper)
+                    }
+                }
+            }
+        }
+    }
+
+    private var pendingGridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 180, maximum: 240), spacing: 14, alignment: .top)]
     }
 
     private var uploadBar: some View {
@@ -577,6 +647,9 @@ struct UploadView: View {
 
         uploading = false
         await auth.refreshProfile()
+        if succeeded > 0 {
+            await loadPendingUploads()
+        }
         if failed == 0 {
             message = succeeded == 1
                 ? "Upload received. It will appear after review."
@@ -589,6 +662,38 @@ struct UploadView: View {
     private func updateFile(_ id: UUID, mutate: (inout UploadItem) -> Void) {
         guard let idx = files.firstIndex(where: { $0.id == id }) else { return }
         mutate(&files[idx])
+    }
+
+    private func loadPendingUploads() async {
+        guard let username = auth.user?.username, !username.isEmpty else {
+            pendingUploads = []
+            pendingTotal = 0
+            pendingLoaded = true
+            pendingError = nil
+            return
+        }
+
+        pendingLoading = true
+        pendingError = nil
+        defer {
+            pendingLoading = false
+            pendingLoaded = true
+        }
+
+        do {
+            let data = try await APIClient.shared.fetchUserUploads(
+                username: username,
+                limit: pendingUploadLimit,
+                status: "0,5",
+                compatibleOnly: false
+            )
+            pendingUploads = data.items
+            pendingTotal = data.total ?? data.items.count
+        } catch {
+            pendingUploads = []
+            pendingTotal = 0
+            pendingError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
     }
 }
 
@@ -740,5 +845,161 @@ private struct UploadTileView: View {
             }
         }
         .frame(height: 4)
+    }
+}
+
+struct PendingUploadTileView: View {
+    let wallpaper: Wallpaper
+
+    private var displayURL: URL? {
+        let raw = wallpaper.displayURL
+        return raw.isEmpty ? nil : URL(string: raw)
+    }
+
+    private var title: String {
+        wallpaper.title.isEmpty ? "Wallpaper \(wallpaper.id)" : wallpaper.title
+    }
+
+    private var statusText: String {
+        switch wallpaper.status {
+        case 0: "Processing"
+        case 5: "Pending admin review"
+        default: "Pending"
+        }
+    }
+
+    private var statusSubtext: String {
+        switch wallpaper.status {
+        case 0: "Generating device variants"
+        case 5: "Usually within a few hours"
+        default: "Waiting for the next step"
+        }
+    }
+
+    private var resolutionText: String? {
+        guard wallpaper.width > 0, wallpaper.height > 0 else { return nil }
+        return wallpaper.resolutionLabel
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ZStack {
+                Color(hex: wallpaper.dominantColor ?? "#c8c2b8").opacity(0.58)
+                if let displayURL {
+                    CachedAsyncImage(url: displayURL) { image in
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        placeholder
+                    }
+                } else {
+                    placeholder
+                }
+
+                if let resolutionText {
+                    VStack {
+                        HStack {
+                            Text(resolutionText)
+                                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                                .tracking(0.4)
+                                .foregroundStyle(Color(red: 0.20, green: 0.21, blue: 0.23))
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Color.white.opacity(0.78)))
+                            Spacer()
+                        }
+                        Spacer()
+                    }
+                    .padding(10)
+                    .allowsHitTesting(false)
+                }
+
+                processingOverlay
+            }
+            .aspectRatio(3.0 / 2.0, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.hair, lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.08), radius: 10, y: 3)
+
+            HStack(spacing: 8) {
+                Text(statusBadge)
+                    .font(.mono10)
+                    .tracking(0.5)
+                    .foregroundStyle(Color.muted)
+                    .frame(width: 34, alignment: .leading)
+                Text(title)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.ink2)
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private var placeholder: some View {
+        VStack(spacing: 7) {
+            Image(systemName: wallpaper.fileType.hasPrefix("video/") ? "play.rectangle.fill" : "photo")
+                .font(.system(size: 26, weight: .light))
+                .foregroundStyle(Color.paper.opacity(0.78))
+            Text(wallpaper.fileType.hasPrefix("video/") ? "VIDEO" : "IMAGE")
+                .font(.mono10)
+                .tracking(1.0)
+                .foregroundStyle(Color.paper.opacity(0.68))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var processingOverlay: some View {
+        VStack(spacing: 10) {
+            Text(statusText)
+                .font(.mono10)
+                .tracking(1.6)
+                .textCase(.uppercase)
+                .foregroundStyle(Color.paper)
+            Text(statusSubtext)
+                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .tracking(0.8)
+                .foregroundStyle(Color.paper.opacity(0.72))
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 14)
+        .background(
+            ZStack {
+                LinearGradient(
+                    colors: [Color.black.opacity(0.50), Color.black.opacity(0.70)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                Stripes()
+                    .stroke(Color.black.opacity(0.20), lineWidth: 8)
+                    .blendMode(.overlay)
+            }
+        )
+        .allowsHitTesting(false)
+    }
+
+    private var statusBadge: String {
+        switch wallpaper.status {
+        case 0: "PROC"
+        case 5: "REV"
+        default: "PEND"
+        }
+    }
+}
+
+private struct Stripes: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let step: CGFloat = 16
+        var x = -rect.height
+        while x < rect.width + rect.height {
+            path.move(to: CGPoint(x: x, y: rect.maxY))
+            path.addLine(to: CGPoint(x: x + rect.height, y: rect.minY))
+            x += step
+        }
+        return path
     }
 }

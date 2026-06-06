@@ -428,8 +428,9 @@ struct AccountUploadsTab: View {
             if isOwner {
                 PagedWallpaperGrid(
                     headLabel: "PENDING", emptyText: "", hideWhenEmpty: true,
-                    fetch: { cursor, limit in try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, limit: limit, status: "0,5") },
-                    onWallpaper: onWallpaper
+                    fetch: { cursor, limit in try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, limit: limit, status: "0,5", compatibleOnly: false) },
+                    onWallpaper: onWallpaper,
+                    showProcessing: true
                 ).id("pending-\(username)")
             }
             PagedWallpaperGrid(
@@ -454,6 +455,7 @@ struct PagedWallpaperGrid: View {
     var onCount: (Int) -> Void = { _ in }
     var onPalette: (String?, String?) -> Void = { _, _ in }
     var flagIfNotLocal: Bool = false
+    var showProcessing: Bool = false
 
     @State private var items: [Wallpaper] = []
     @State private var page = 1
@@ -483,7 +485,11 @@ struct PagedWallpaperGrid: View {
                     } else {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14, alignment: .top)], spacing: 14) {
                             ForEach(items) { wp in
-                                Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp, flagIfNotLocal: flagIfNotLocal) }.buttonStyle(.plain)
+                                if showProcessing {
+                                    PendingUploadTileView(wallpaper: wp)
+                                } else {
+                                    Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp, flagIfNotLocal: flagIfNotLocal) }.buttonStyle(.plain)
+                                }
                             }
                         }
                         PageBar(current: page, totalPages: totalPages, maxReachable: cursors.count) { p in Task { await loadPage(p) } }
