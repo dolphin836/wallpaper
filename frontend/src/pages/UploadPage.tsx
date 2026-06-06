@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, Link } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import * as tus from 'tus-js-client';
@@ -339,8 +340,10 @@ export default function UploadPage() {
 
       {/* Sticky submit bar — sits at the bottom of viewport while
           files are queued. Single-axis affordance so the user
-          always knows where the "Upload" button is. */}
-      {files.length > 0 && (
+          always knows where the "Upload" button is. Rendered at the
+          document root so Layout's footer and route animation stacking
+          contexts can never cover it. */}
+      {files.length > 0 && createPortal(
         <div className={`upload-bar${allDone ? ' is-done' : ''}`}>
           <div className="max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 py-3.5 flex items-center gap-4">
             <div className="flex-1 min-w-0">
@@ -399,7 +402,8 @@ export default function UploadPage() {
               )}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
