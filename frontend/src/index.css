@@ -515,7 +515,6 @@
   width: 100%;
   background: var(--color-paper-2);
   overflow: hidden;
-  clip-path: inset(0 round 8px);
   /* Four hairline corner brackets via box-shadow stacks on
      ::before/::after — adds a 'spec-sheet index card' read without
      extra elements. */
@@ -547,15 +546,6 @@
   border-color: var(--color-accent);
   width: 16px; height: 16px;
 }
-.dev-spec-card-image-shell {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  clip-path: inset(0 round 8px);
-  will-change: clip-path;
-}
 .dev-spec-card-img {
   width: 100%; height: 100%;
   object-fit: cover;
@@ -564,62 +554,6 @@
 }
 .dev-spec-card:hover .dev-spec-card-img {
   transform: scale(1.04);
-}
-.dev-spec-card-wave {
-  position: absolute;
-  pointer-events: none;
-  z-index: 2;
-  filter: blur(8px);
-  mix-blend-mode: screen;
-  opacity: 0;
-  will-change: opacity;
-}
-.dev-spec-card-wave.is-left,
-.dev-spec-card-wave.is-right {
-  top: 16%;
-  bottom: 16%;
-  width: 42px;
-}
-.dev-spec-card-wave.is-left {
-  left: -20px;
-  background:
-    radial-gradient(ellipse at left,
-      oklch(98% 0.035 230 / 0.70) 0%,
-      oklch(82% 0.075 235 / 0.28) 44%,
-      transparent 72%);
-}
-.dev-spec-card-wave.is-right {
-  right: -20px;
-  background:
-    radial-gradient(ellipse at right,
-      oklch(98% 0.035 230 / 0.70) 0%,
-      oklch(82% 0.075 235 / 0.28) 44%,
-      transparent 72%);
-}
-.dev-spec-card-wave.is-top,
-.dev-spec-card-wave.is-bottom {
-  left: 16%;
-  right: 16%;
-  height: 42px;
-}
-.dev-spec-card-wave.is-top {
-  top: -20px;
-  background:
-    radial-gradient(ellipse at top,
-      oklch(98% 0.035 230 / 0.70) 0%,
-      oklch(82% 0.075 235 / 0.28) 44%,
-      transparent 72%);
-}
-.dev-spec-card-wave.is-bottom {
-  bottom: -20px;
-  background:
-    radial-gradient(ellipse at bottom,
-      oklch(98% 0.035 230 / 0.70) 0%,
-      oklch(82% 0.075 235 / 0.28) 44%,
-      transparent 72%);
-}
-@media (prefers-reduced-motion: reduce) {
-  .dev-spec-card-wave { display: none; }
 }
 /* Top-left sequence badge on each dev tile — small mono pill so the
    grid reads as an ordered set ('№ 01' … '№ 47') and the running
@@ -1359,26 +1293,42 @@
   left: 0;
   will-change: transform;
 }
-.dev-wall-ripple-body {
-  width: 100%;
-  height: 100%;
-}
 /* The Link inside DevTile fills the slot exactly. The
    .dev-spec-card-screen inside still uses aspectRatio for the
    device aspect, but the outer card stretches to 100/100% so
    any leftover slot-cell space wraps the card cleanly. */
-.dev-wall-slot > .dev-spec-card,
-.dev-wall-ripple-body > .dev-spec-card {
+.dev-wall-slot > .dev-spec-card {
   width: 100%;
   height: 100%;
 }
-.dev-wall-slot > .dev-spec-card > .dev-spec-card-screen,
-.dev-wall-ripple-body > .dev-spec-card > .dev-spec-card-screen {
+.dev-wall-slot > .dev-spec-card > .dev-spec-card-screen {
   flex: 1;
   height: 100%;
   /* Reset the inline aspectRatio's effect; the slot already sized
      us to the device aspect so we just want to fill. */
   aspect-ratio: auto !important;
+}
+/* Tiles adjacent to the preview footprint pulse with a soft
+   shadow / scale tick — the "ripple at contact edge" the user
+   asked for. Uses transform so it doesn't trigger layout. */
+.dev-wall-slot.is-rippled {
+  z-index: 1;
+}
+.dev-wall-slot.is-rippled > .dev-spec-card {
+  animation: dev-tile-ripple 1.6s ease-in-out infinite;
+}
+@keyframes dev-tile-ripple {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 oklch(70% 0.08 250 / 0);
+  }
+  50% {
+    transform: scale(1.014);
+    box-shadow: 0 8px 22px -10px oklch(70% 0.12 250 / 0.35);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dev-wall-slot.is-rippled > .dev-spec-card { animation: none; }
 }
 
 /* The draggable preview. position: absolute so it sits on the
