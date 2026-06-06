@@ -40,7 +40,10 @@ struct DetailPage: View {
         }
 
         var topPadding: CGFloat { isCompact ? 14 : 18 }
-        var bottomPadding: CGFloat { isCompact ? 44 : 60 }
+        var scrollBottomClearance: CGFloat {
+            if isModal { return isCompact ? 96 : 112 }
+            return isCompact ? 64 : 80
+        }
         var contentMaxWidth: CGFloat { 1280 }
         var stagePadding: CGFloat { isCompact ? 14 : 20 }
         var stageSpacing: CGFloat { isCompact ? 14 : 16 }
@@ -76,11 +79,17 @@ struct DetailPage: View {
                             if !similar.isEmpty {
                                 moreLikeThis
                             }
-                            Spacer(minLength: 40)
+                            // An explicit footer is measured reliably by
+                            // ScrollView, unlike a Spacer in unbounded
+                            // vertical space. Modal mode needs extra room so
+                            // the last recommendation row can scroll clear of
+                            // the panel's rounded bottom clip.
+                            Color.clear
+                                .frame(height: layout.scrollBottomClearance)
+                                .accessibilityHidden(true)
                         }
                         .padding(.horizontal, layout.horizontalPadding)
                         .padding(.top, layout.topPadding)
-                        .padding(.bottom, layout.bottomPadding)
                         // Content width to match the other pages.
                         .frame(maxWidth: layout.contentMaxWidth)
                         .frame(maxWidth: .infinity, alignment: .center)
