@@ -315,7 +315,6 @@ struct CollectionDetailView: View {
     let slug: String
     var onWallpaper: (Wallpaper) -> Void
 
-    @Environment(\.dismiss) private var dismiss
     @State private var auth = AuthService.shared
     @State private var info: CollectionItem?
     @State private var curator: PublicProfile?
@@ -350,8 +349,6 @@ struct CollectionDetailView: View {
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                BackLink(label: "All collections") { dismiss() }
-
                 if loading && info == nil && items.isEmpty {
                     detailSkeleton.padding(.top, 14)
                 } else if let err = loadError, info == nil && items.isEmpty {

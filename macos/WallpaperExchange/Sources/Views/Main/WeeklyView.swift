@@ -205,7 +205,6 @@ struct WeeklyWeekView: View {
     let week: Int
     var onWallpaper: (Wallpaper) -> Void
 
-    @Environment(\.dismiss) private var dismiss
     @State private var picks: [WeeklyPicked] = []
     @State private var loading = false
     @State private var loadError: String?
@@ -218,8 +217,6 @@ struct WeeklyWeekView: View {
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                BackLink(label: "All weekly issues") { dismiss() }
-
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Week \(week)").font(.display32).foregroundStyle(Color.ink)
                     Text("\(WeeklyArchiveView.fmtDate(year, week)), \(String(year))")
@@ -332,25 +329,5 @@ struct WeeklyWeekView: View {
             isAIGenerated: p.isAIGenerated, isLiked: nil, isFavorited: nil, isDownloaded: nil,
             createdAt: ""
         )
-    }
-}
-
-// Small "‹ label" back link for detail pages. Pops the nav stack.
-struct BackLink: View {
-    let label: String
-    var action: () -> Void
-    @State private var hover = false
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: "arrow.left").font(.system(size: 11, weight: .semibold))
-                Text(label).font(.system(size: 12, weight: .medium))
-            }
-            .foregroundStyle(hover ? Color.ink : Color.ink2)
-            .padding(.vertical, 4)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { h in hover = h; if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
     }
 }
