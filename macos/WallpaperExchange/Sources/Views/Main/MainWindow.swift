@@ -7,6 +7,7 @@ import AppKit
 struct MainWindow: View {
     @State private var auth = AuthService.shared
     @State private var manager = WallpaperManager.shared
+    @AppStorage(AppearancePref.storageKey) private var appearanceRaw: String = AppearancePref.system.rawValue
 
     @State private var sidebar: SidebarItem = .home
     @State private var sidebarCollapsed = false
@@ -19,13 +20,17 @@ struct MainWindow: View {
     // Wallpaper detail is presented as a modal overlay (web-style inset
     // panel + scrim), not a navigation push.
     @State private var detailTarget: DetailTarget?
+    @State private var refreshToken = UUID()
+    @State private var forwardPath: [MainRoute] = []
+    @State private var isRestoringForward = false
+    @State private var isFullScreen = false
 
     enum SidebarItem: String, CaseIterable, Hashable {
         // Browse section.
         case home, discover, weekly, collections
         // My Library section (signed-in only).
         case myUploads, myCollections, myDownloads, myFavorites, myLikes, myCoins
-        // Actions group at the bottom of the sidebar.
+        // Toolbar-only destinations.
         case upload, settings
 
         var label: String {
@@ -138,6 +143,9 @@ struct MainWindow: View {
             .padding(.leading, WindowChrome.inset)
             .padding(.top, WindowChrome.topBar)
 
+            topToolbar
+                .zIndex(3)
+
             // Wallpaper detail modal — web-style: dim scrim over the whole
             // window + an inset rounded panel hosting DetailPage. Sits at
             // the top of the ZStack so it covers the sidebar and any
@@ -147,7 +155,7 @@ struct MainWindow: View {
                     target: target,
                     onClose: { detailTarget = nil },
                     onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
-                    onUploader: { username in detailTarget = nil; path.append(.profile(username: username)) }
+                    onUploader: { username in detailTarget = nil; push(.profile(username: username)) }
                 )
                 .transition(.opacity)
                 .zIndex(10)
@@ -155,6 +163,7 @@ struct MainWindow: View {
         }
         .ignoresSafeArea(.all)
         .background(Color.paper)
+        .background(WindowFullScreenReader(isFullScreen: $isFullScreen))
         .task { await auth.refreshProfile() }
     }
 
@@ -162,6 +171,113 @@ struct MainWindow: View {
         withAnimation(.easeOut(duration: 0.18)) {
             detailTarget = DetailTarget(slug: slug, fallbackID: fallbackID)
         }
+    }
+
+    private var canGoBack: Bool {
+        !path.isEmpty
+    }
+
+    private var canGoForward: Bool {
+        !forwardPath.isEmpty
+    }
+
+    private var topToolbar: some View {
+        HStack(spacing: 10) {
+            ToolbarButtonGroup {
+                ChromeToolbarButton(
+                    icon: "chevron.left",
+                    help: "Back",
+                    disabled: !canGoBack,
+                    action: goBack
+                )
+                ChromeToolbarButton(
+                    icon: "chevron.right",
+                    help: "Forward",
+                    disabled: !canGoForward,
+                    action: goForward
+                )
+            }
+
+            Spacer(minLength: 16)
+
+            HStack(spacing: 8) {
+                ToolbarButtonGroup {
+                    ChromeToolbarButton(
+                        icon: "square.and.arrow.up",
+                        help: "Upload",
+                        active: sidebar == .upload,
+                        action: { selectTopLevel(.upload) }
+                    )
+                    ChromeToolbarButton(
+                        icon: "gearshape",
+                        help: "Settings",
+                        active: sidebar == .settings,
+                        action: { selectTopLevel(.settings) }
+                    )
+                }
+
+                ToolbarButtonGroup {
+                    ChromeToolbarButton(
+                        icon: "arrow.clockwise",
+                        help: "Refresh current page",
+                        action: refreshCurrentPage
+                    )
+                }
+
+                ToolbarButtonGroup {
+                    ChromeToolbarButton(
+                        icon: themeToolbarIcon,
+                        help: themeToolbarHelp,
+                        action: toggleTheme
+                    )
+                }
+            }
+        }
+        .padding(.leading, isFullScreen ? 12 : 86)
+        .padding(.trailing, 14)
+        .frame(maxWidth: .infinity)
+        .frame(height: WindowChrome.topBar)
+        .background(Color.paper.opacity(0.94))
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.hair.opacity(0.7)).frame(height: 1)
+        }
+    }
+
+    private var themeToolbarIcon: String {
+        AppearancePref.fromStorage(appearanceRaw) == .dark ? "sun.max" : "moon"
+    }
+
+    private var themeToolbarHelp: String {
+        AppearancePref.fromStorage(appearanceRaw) == .dark ? "Switch to light theme" : "Switch to dark theme"
+    }
+
+    private func selectTopLevel(_ item: SidebarItem) {
+        sidebar = item
+    }
+
+    private func goBack() {
+        guard let last = path.popLast() else { return }
+        forwardPath.append(last)
+    }
+
+    private func goForward() {
+        guard let next = forwardPath.popLast() else { return }
+        isRestoringForward = true
+        path.append(next)
+    }
+
+    private func push(_ route: MainRoute) {
+        forwardPath.removeAll()
+        path.append(route)
+    }
+
+    private func refreshCurrentPage() {
+        refreshToken = UUID()
+    }
+
+    private func toggleTheme() {
+        let current = AppearancePref.fromStorage(appearanceRaw)
+        appearanceRaw = current == .dark ? AppearancePref.light.rawValue : AppearancePref.dark.rawValue
     }
 
     // Detail surface: page-mesh palette tint behind every page (mirrors
@@ -181,52 +297,66 @@ struct MainWindow: View {
                     search: committedSearch,
                     discoverInitialFilter: pendingDiscoverFilter,
                     onPick: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
-                    onDevice: { d in path.append(.device(slug: d.slug, name: d.name)) },
-                    onWeeklyWeek: { y, w in path.append(.weeklyWeek(year: y, week: w)) },
-                    onCategory: { c in path.append(.category(id: c.id, name: c.name, slug: c.slug)) },
-                    onUploader: { username in path.append(.profile(username: username)) },
-                    onCollection: { c in path.append(.collection(slug: c.slug, title: c.title)) },
+                    onDevice: { d in push(.device(slug: d.slug, name: d.name)) },
+                    onWeeklyWeek: { y, w in push(.weeklyWeek(year: y, week: w)) },
+                    onCategory: { c in push(.category(id: c.id, name: c.name, slug: c.slug)) },
+                    onUploader: { username in push(.profile(username: username)) },
+                    onCollection: { c in push(.collection(slug: c.slug, title: c.title)) },
                     onUpload: { sidebar = .upload },
                     onCancelUpload: { sidebar = auth.isLoggedIn ? .myUploads : .home },
                     onOpenDiscover: { f in pendingDiscoverFilter = f; sidebar = .discover },
                     onOpenCollections: { sidebar = .collections },
                     onOpenWeeklyArchive: { sidebar = .weekly }
                 )
+                .id(refreshToken)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationDestination(for: MainRoute.self) { route in
-                switch route {
-                case .detail(let slug, _):
-                    DetailPage(slug: slug,
-                               onUploader: { path.append(.profile(username: $0)) },
-                               onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-                case .profile(let username):
-                    AccountView(username: username,
-                                onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
-                                onCollection: { c in path.append(.collection(slug: c.slug, title: c.title)) })
-                case .collection(let slug, _):
-                    CollectionDetailView(slug: slug,
-                                         onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-                case .device(let slug, let name):
-                    DeviceDetailView(slug: slug, name: name,
-                                     onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-                case .search(let q):
-                    SearchResultsView(query: q,
-                                      onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-                case .weeklyWeek(let y, let w):
-                    WeeklyWeekView(year: y, week: w,
-                                   onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-                case .category(let id, let name, let slug):
-                    CategoryFeedView(category: Category(id: id, name: name, slug: slug, sortOrder: nil),
-                                     onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-                }
+                    Group {
+                        switch route {
+                        case .detail(let slug, _):
+                            DetailPage(slug: slug,
+                                       onUploader: { push(.profile(username: $0)) },
+                                       onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                        case .profile(let username):
+                            AccountView(username: username,
+                                        onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
+                                        onCollection: { c in push(.collection(slug: c.slug, title: c.title)) })
+                        case .collection(let slug, _):
+                            CollectionDetailView(slug: slug,
+                                                 onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                        case .device(let slug, let name):
+                            DeviceDetailView(slug: slug, name: name,
+                                             onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                        case .search(let q):
+                            SearchResultsView(query: q,
+                                              onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                        case .weeklyWeek(let y, let w):
+                            WeeklyWeekView(year: y, week: w,
+                                           onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                        case .category(let id, let name, let slug):
+                            CategoryFeedView(category: Category(id: id, name: name, slug: slug, sortOrder: nil),
+                                             onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                        }
+                    }
+                    .id(refreshToken)
                 }
             }
         }
         .onChange(of: sidebar) { _, new in
             path.removeAll()
+            forwardPath.removeAll()
             // Don't let a Home-CTA filter linger when Discover is opened
             // directly from the sidebar later.
             if new != .discover { pendingDiscoverFilter = nil }
+        }
+        .onChange(of: path) { old, new in
+            if new.count > old.count {
+                if isRestoringForward {
+                    isRestoringForward = false
+                } else {
+                    forwardPath.removeAll()
+                }
+            }
         }
     }
 
@@ -236,7 +366,140 @@ struct MainWindow: View {
             committedSearch = ""
         } else {
             committedSearch = q
-            path.append(.search(query: q))
+            push(.search(query: q))
+        }
+    }
+}
+
+private struct ToolbarButtonGroup<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        HStack(spacing: 2) {
+            content
+        }
+        .padding(3)
+        .background(
+            Capsule().fill(Color.paper2.opacity(0.78))
+        )
+        .overlay(
+            Capsule().stroke(Color.hair.opacity(0.95), lineWidth: 1)
+        )
+    }
+}
+
+private struct ChromeToolbarButton: View {
+    let icon: String
+    let help: String
+    var active: Bool = false
+    var disabled: Bool = false
+    var action: () -> Void
+
+    @State private var hover = false
+
+    private var iconColor: Color {
+        if disabled { return Color.muted.opacity(0.55) }
+        if active { return Color.accent }
+        return hover ? Color.ink : Color.ink2
+    }
+
+    private var fill: Color {
+        if disabled { return .clear }
+        if active { return Color.accent.opacity(0.14) }
+        if hover { return Color.ink.opacity(0.07) }
+        return .clear
+    }
+
+    var body: some View {
+        Button(action: {
+            guard !disabled else { return }
+            action()
+        }) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(iconColor)
+                .frame(width: 28, height: 24)
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(fill))
+                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .help(help)
+        .onHover { h in
+            hover = h
+            guard !disabled else { return }
+            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .animation(.easeOut(duration: 0.12), value: hover)
+        .animation(.easeOut(duration: 0.12), value: active)
+    }
+}
+
+private struct WindowFullScreenReader: NSViewRepresentable {
+    @Binding var isFullScreen: Bool
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(isFullScreen: $isFullScreen)
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        DispatchQueue.main.async {
+            context.coordinator.attach(to: view.window)
+        }
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        DispatchQueue.main.async {
+            context.coordinator.attach(to: view.window)
+        }
+    }
+
+    final class Coordinator {
+        private var isFullScreen: Binding<Bool>
+        private weak var window: NSWindow?
+        private var observers: [NSObjectProtocol] = []
+
+        init(isFullScreen: Binding<Bool>) {
+            self.isFullScreen = isFullScreen
+        }
+
+        deinit {
+            observers.forEach(NotificationCenter.default.removeObserver)
+        }
+
+        func attach(to window: NSWindow?) {
+            guard self.window !== window else {
+                update()
+                return
+            }
+
+            observers.forEach(NotificationCenter.default.removeObserver)
+            observers.removeAll()
+            self.window = window
+            update()
+
+            guard let window else { return }
+            let center = NotificationCenter.default
+            observers.append(center.addObserver(
+                forName: NSWindow.didEnterFullScreenNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in self?.update() })
+            observers.append(center.addObserver(
+                forName: NSWindow.didExitFullScreenNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in self?.update() })
+        }
+
+        private func update() {
+            isFullScreen.wrappedValue = window?.styleMask.contains(.fullScreen) == true
         }
     }
 }

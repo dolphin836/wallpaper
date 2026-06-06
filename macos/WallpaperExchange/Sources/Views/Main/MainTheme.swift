@@ -78,7 +78,7 @@ struct ChipFlow: Layout {
 enum WindowChrome {
     /// Height of the paper top bar the traffic lights float on, above
     /// the sidebar card and the detail surface.
-    static let topBar: CGFloat = 38
+    static let topBar: CGFloat = 42
     /// Gap between the window edges (and the two panes) and the
     /// floating sidebar card.
     static let inset: CGFloat = 10

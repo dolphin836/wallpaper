@@ -6,6 +6,7 @@ import AppKit
 // coin pill + logout). Per the design review the top nav was rolled
 // back into a sidebar so the Mac client matches the layout we used
 // to have, with the My-section mirroring the web's profile page tabs.
+// Upload and Settings live in the window toolbar, not in this rail.
 struct MainSidebar: View {
     @Binding var selection: MainWindow.SidebarItem
     @Binding var collapsed: Bool
@@ -31,7 +32,6 @@ struct MainSidebar: View {
                         navSection("MY LIBRARY", topPad: 16,
                                    items: [.myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins])
                     }
-                    navSection("ACTIONS", topPad: 16, items: [.upload, .settings])
                 }
                 .listStyle(.sidebar)
                 .scrollContentBackground(.hidden)
@@ -92,8 +92,6 @@ struct MainSidebar: View {
                     Color.clear.frame(height: 10)
                     collapsedGroup([.myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins])
                 }
-                Color.clear.frame(height: 10)
-                collapsedGroup([.upload, .settings])
             }
             // No horizontal padding: rows fill the full rail width so the
             // hover-label offset (rowWidth + 4) lands just past the
