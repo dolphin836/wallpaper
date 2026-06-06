@@ -491,6 +491,13 @@ struct PagedWallpaperGrid: View {
 
     private let pageSize = 24
     private var totalPages: Int { total > 0 ? Int(ceil(Double(total) / Double(pageSize))) : max(cursors.count, 1) }
+    private var gridColumns: [GridItem] {
+        if showProcessing {
+            return [GridItem(.adaptive(minimum: 320, maximum: 460), spacing: 18, alignment: .top)]
+        }
+        return [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14, alignment: .top)]
+    }
+    private var gridSpacing: CGFloat { showProcessing ? 22 : 14 }
 
     var body: some View {
         Group {
@@ -505,8 +512,11 @@ struct PagedWallpaperGrid: View {
 
                     if loading && items.isEmpty {
                         WallpaperGridSkeleton(
-                            columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14, alignment: .top)],
-                            count: 12
+                            columns: gridColumns,
+                            count: showProcessing ? 6 : 12,
+                            spacing: gridSpacing,
+                            aspectRatio: 3.0 / 2.0,
+                            cornerRadius: 10
                         )
                     } else if let err = loadError, items.isEmpty {
                         RemoteLoadErrorView(message: err) {
@@ -515,7 +525,7 @@ struct PagedWallpaperGrid: View {
                     } else if items.isEmpty {
                         Text(emptyText).font(.sans13).foregroundStyle(Color.muted).padding(.vertical, 24)
                     } else {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14, alignment: .top)], spacing: 14) {
+                        LazyVGrid(columns: gridColumns, spacing: gridSpacing) {
                             ForEach(items) { wp in
                                 if showProcessing {
                                     PendingUploadTileView(wallpaper: wp)

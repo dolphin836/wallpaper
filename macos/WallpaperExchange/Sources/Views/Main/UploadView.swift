@@ -313,13 +313,13 @@ struct UploadView: View {
                 .frame(maxWidth: 680, alignment: .leading)
 
             if pendingLoading && pendingUploads.isEmpty {
-                WallpaperGridSkeleton(columns: pendingGridColumns, count: 8, spacing: 14, aspectRatio: 3.0 / 2.0, cornerRadius: 10)
+                WallpaperGridSkeleton(columns: pendingGridColumns, count: 6, spacing: 22, aspectRatio: 3.0 / 2.0, cornerRadius: 10)
             } else if let pendingError {
                 RemoteLoadErrorView(title: "Could not load pending uploads", message: pendingError) {
                     Task { await loadPendingUploads() }
                 }
             } else {
-                LazyVGrid(columns: pendingGridColumns, spacing: 14) {
+                LazyVGrid(columns: pendingGridColumns, spacing: 22) {
                     ForEach(pendingUploads) { wallpaper in
                         PendingUploadTileView(wallpaper: wallpaper)
                     }
@@ -329,7 +329,7 @@ struct UploadView: View {
     }
 
     private var pendingGridColumns: [GridItem] {
-        [GridItem(.adaptive(minimum: 180, maximum: 240), spacing: 14, alignment: .top)]
+        [GridItem(.adaptive(minimum: 320, maximum: 460), spacing: 18, alignment: .top)]
     }
 
     private var uploadBar: some View {
@@ -910,8 +910,11 @@ struct PendingUploadTileView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(Color.ink2)
                     .lineLimit(1)
+                    .truncationMode(.tail)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var placeholder: some View {
