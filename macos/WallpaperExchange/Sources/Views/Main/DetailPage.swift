@@ -44,6 +44,12 @@ struct DetailPage: View {
         var contentMaxWidth: CGFloat { 1280 }
         var pageWidth: CGFloat { min(size.width, contentMaxWidth) }
         var contentWidth: CGFloat { max(1, pageWidth - horizontalPadding * 2) }
+        var recommendationColumns: Int {
+            let spacing: CGFloat = 14
+            let minimumTileWidth: CGFloat = 220
+            return max(1, Int(floor((contentWidth + spacing) / (minimumTileWidth + spacing))))
+        }
+        var recommendationLimit: Int { recommendationColumns * 2 }
         var stagePadding: CGFloat { isCompact ? 14 : 20 }
         var stageSpacing: CGFloat { isCompact ? 14 : 16 }
         var actionPadding: CGFloat { isCompact ? 12 : 14 }
@@ -76,7 +82,7 @@ struct DetailPage: View {
                             stagePanel(detail: d, layout: layout)
                             metaGrid(detail: d, layout: layout)
                             if !similar.isEmpty {
-                                moreLikeThis
+                                moreLikeThis(layout: layout)
                             }
                             Color.clear
                                 .frame(height: 40)
@@ -107,6 +113,9 @@ struct DetailPage: View {
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
+            .task(id: "\(slug)-\(detail?.id ?? 0)-\(layout.recommendationLimit)") {
+                await loadSimilar(limit: layout.recommendationLimit)
+            }
         }
         .task(id: slug) { await load() }
     }
@@ -565,7 +574,7 @@ struct DetailPage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var moreLikeThis: some View {
+    private func moreLikeThis(layout: DetailLayout) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("More like this · \(similar.count)")
@@ -573,7 +582,13 @@ struct DetailPage: View {
                 Spacer()
                 Rectangle().fill(Color.hair).frame(height: 1)
             }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 14, alignment: .top)], spacing: 14) {
+            LazyVGrid(
+                columns: Array(
+                    repeating: GridItem(.flexible(), spacing: 14, alignment: .top),
+                    count: layout.recommendationColumns
+                ),
+                spacing: 14
+            ) {
                 ForEach(similar) { wp in
                     Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp) }
                         .buttonStyle(.plain)
@@ -593,11 +608,15 @@ struct DetailPage: View {
             isLiked = d.isLiked ?? false
             isFavorited = d.isFavorited ?? false
             await loadCollections(wallpaperID: d.id)
-            if let s = try? await APIClient.shared.fetchSimilarWallpapers(wallpaperID: d.id, limit: 12) {
-                similar = s
-            }
         } catch {
             loadError = error.localizedDescription
+        }
+    }
+
+    private func loadSimilar(limit: Int) async {
+        guard let detail else { return }
+        if let wallpapers = try? await APIClient.shared.fetchSimilarWallpapers(wallpaperID: detail.id, limit: limit) {
+            similar = wallpapers
         }
     }
 

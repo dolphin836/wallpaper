@@ -74,15 +74,13 @@ struct DiscoverView: View {
     }
 
     var body: some View {
-        // Everything lives in ONE vertical ScrollView so a scroll
-        // gesture anywhere in the content moves the page. The toolbar +
-        // device mockup are a PINNED section header so they stay fixed
-        // at the top (always previewing the hovered tile) while the grid
-        // scrolls underneath — scrolling over the header still drives
-        // the feed because the header is part of the same ScrollView.
+        // Everything lives in one vertical ScrollView. Keeping the
+        // toolbar and device mockup in normal document flow prevents a
+        // pinned section header from leaving an invisible hit region over
+        // the grid in large full-screen windows.
         GeometryReader { geo in
         ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+            LazyVStack(alignment: .leading, spacing: 0) {
                 Section {
                     feed
                         .padding(.horizontal, 40)
@@ -119,6 +117,7 @@ struct DiscoverView: View {
                         .allowsHitTesting(false)
                     }
                     .clipped()
+                    .contentShape(Rectangle())
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
