@@ -361,10 +361,8 @@ struct MainWindow: View {
                     .id(refreshToken)
                     .navigationTitle("")
                     .navigationBarBackButtonHidden(true)
-                    .toolbar(.hidden, for: .windowToolbar)
                 }
             }
-            .toolbar(.hidden, for: .windowToolbar)
         }
         .onChange(of: sidebar) { _, new in
             path.removeAll()
