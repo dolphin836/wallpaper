@@ -4,7 +4,7 @@ import {
 import { useLocation, Link } from 'react-router-dom';
 import {
   motion, useMotionValue, useTransform, useSpring, animate,
-  type MotionValue,
+  useVelocity, type MotionValue,
 } from 'framer-motion';
 import {
   AiOutlineHeart, AiFillHeart,
@@ -23,7 +23,7 @@ import { useWallpaperActions } from '../hooks/useWallpaperActions';
  *   - Tiles are absolutely positioned on a measured canvas, sized
  *     to the device's display aspect.
  *   - A device-mockup motion.div sits in the top-left, draggable
- *     within the wall's rect. When the user drags it past 70% of a
+ *     within the wall's rect. When the user drags it past 62% of a
  *     cell boundary, it snaps to the new cell; otherwise it springs
  *     back to where it was last parked.
  *   - As the mockup moves (drag, or one-row-at-a-time scroll-
@@ -45,23 +45,20 @@ const DEFAULT_COLS_FOR_WIDTH = (w: number): number => {
   if (w >= 760) return 3;
   return 2;
 };
+const PREVIEW_SNAP_THRESHOLD = 0.62;
 
 type WaveSide = 'none' | 'left' | 'right' | 'top' | 'bottom';
 
 interface ContactWaveState {
   pressure: number;
   side: WaveSide;
-  pushX: number;
-  pushY: number;
-  origin: string;
+  center: number;
 }
 
 const NO_WAVE: ContactWaveState = {
   pressure: 0,
   side: 'none',
-  pushX: 0,
-  pushY: 0,
-  origin: '50% 50%',
+  center: 0,
 };
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -70,30 +67,35 @@ const smooth = (value: number) => {
   return t * t * (3 - 2 * t);
 };
 
-const waveClipPath = (side: WaveSide, pressure: number) => {
-  if (side === 'none' || pressure < 0.025) return 'inset(0 round 8px)';
-  const dent = Math.round(8 + pressure * 24);
+const curvedWaveClipPath = (
+  side: WaveSide,
+  pressure: number,
+  width: number,
+  height: number,
+  center: number,
+) => {
+  if (side === 'none' || pressure < 0.025 || width <= 0 || height <= 0) return 'inset(0 round 8px)';
+  const w = Math.round(width);
+  const h = Math.round(height);
+  const horizontal = side === 'left' || side === 'right';
+  const axisLength = horizontal ? h : w;
+  const dent = Math.round(clamp(Math.min(w, h) * (0.035 + pressure * 0.115), 8, 42));
+  const halfWave = clamp(axisLength * (0.16 + pressure * 0.10), 34, axisLength * 0.36);
+  const c = clamp(center || axisLength / 2, halfWave + 6, axisLength - halfWave - 6);
+  const a = Math.round(c - halfWave);
+  const b = Math.round(c + halfWave);
+
   switch (side) {
     case 'left':
-      return `polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 70%, ${dent}px 50%, 0 30%)`;
+      return `path("M 0 0 H ${w} V ${h} H 0 V ${b} C ${dent} ${b} ${dent} ${a} 0 ${a} V 0 Z")`;
     case 'right':
-      return `polygon(0 0, 100% 0, 100% 30%, calc(100% - ${dent}px) 50%, 100% 70%, 100% 100%, 0 100%)`;
+      return `path("M 0 0 H ${w} V ${a} C ${w - dent} ${a} ${w - dent} ${b} ${w} ${b} V ${h} H 0 Z")`;
     case 'top':
-      return `polygon(0 0, 30% 0, 50% ${dent}px, 70% 0, 100% 0, 100% 100%, 0 100%)`;
+      return `path("M 0 0 H ${a} C ${a} ${dent} ${b} ${dent} ${b} 0 H ${w} V ${h} H 0 Z")`;
     case 'bottom':
-      return `polygon(0 0, 100% 0, 100% 100%, 70% 100%, 50% calc(100% - ${dent}px), 30% 100%, 0 100%)`;
+      return `path("M 0 0 H ${w} V ${h} H ${b} C ${b} ${h - dent} ${a} ${h - dent} ${a} ${h} H 0 Z")`;
     default:
       return 'inset(0 round 8px)';
-  }
-};
-
-const waveOrigin = (side: WaveSide) => {
-  switch (side) {
-    case 'left': return '0% 50%';
-    case 'right': return '100% 50%';
-    case 'top': return '50% 0%';
-    case 'bottom': return '50% 100%';
-    default: return '50% 50%';
   }
 };
 
@@ -184,6 +186,8 @@ export default function DeviceFloatingWall({
   // ── Preview motion state ──────────────────────────────────────
   const previewX = useMotionValue(0);
   const previewY = useMotionValue(0);
+  const previewVX = useVelocity(previewX);
+  const previewVY = useVelocity(previewY);
   const [isDragging, setIsDragging] = useState(false);
   const [parkedCell, setParkedCell] = useState({ col: 0, row: 0 });
 
@@ -200,7 +204,7 @@ export default function DeviceFloatingWall({
   isDraggingRef.current = isDragging;
 
   // Continuous scroll-follow Y (no row snap during scroll). The
-  // 70% hysteresis on previewCol/RowMV below converts the
+  // 62% hysteresis on previewCol/RowMV below converts the
   // continuous Y into discrete previewCell jumps, which is what
   // drives tile reflow — so as the user scrolls, tiles around
   // the preview compress (dent) just like during drag, then pop
@@ -259,14 +263,13 @@ export default function DeviceFloatingWall({
     return () => { ax.stop(); ay.stop(); };
   }, [isDragging, parkedCell.col, parkedCell.row, tileW, gap, computeFollowY, previewX, previewY]);
 
-  // 70% hysteresis snap for the running preview cell.
-  const SNAP_THRESHOLD = 0.7;
+  // 62% hysteresis snap for the running preview cell.
   const previewColMV = useTransform(previewX, (x) => {
     if (tileW <= 0) return 0;
     const cellW = tileW + gap;
     const base = Math.floor(x / cellW);
     const progress = (x - base * cellW) / cellW;
-    const c = progress > SNAP_THRESHOLD ? base + 1 : base;
+    const c = progress > PREVIEW_SNAP_THRESHOLD ? base + 1 : base;
     return Math.max(0, Math.min(cols - previewColSpan, c));
   });
   const previewRowMV = useTransform(previewY, (y) => {
@@ -274,7 +277,7 @@ export default function DeviceFloatingWall({
     const cellH = tileH + gap;
     const base = Math.floor(y / cellH);
     const progress = (y - base * cellH) / cellH;
-    const r = progress > SNAP_THRESHOLD ? base + 1 : base;
+    const r = progress > PREVIEW_SNAP_THRESHOLD ? base + 1 : base;
     return Math.max(0, r);
   });
   const [previewCell, setPreviewCell] = useState({ col: 0, row: 0 });
@@ -436,8 +439,11 @@ export default function DeviceFloatingWall({
             tileH={pos.h}
             previewX={previewX}
             previewY={previewY}
+            previewVX={previewVX}
+            previewVY={previewVY}
             previewW={previewW}
             previewH={previewH}
+            gap={gap}
           />
         );
       })}
@@ -484,7 +490,7 @@ function DevWallSlot({
   wp, device, index, isFeatured, onHover,
   targetLeft, targetTop,
   tileW, tileH,
-  previewX, previewY, previewW, previewH,
+  previewX, previewY, previewVX, previewVY, previewW, previewH, gap,
 }: {
   wp: Wallpaper;
   device: DeviceProfile;
@@ -497,15 +503,25 @@ function DevWallSlot({
   tileH: number;
   previewX: MotionValue<number>;
   previewY: MotionValue<number>;
+  previewVX: MotionValue<number>;
+  previewVY: MotionValue<number>;
   previewW: number;
   previewH: number;
+  gap: number;
 }) {
   const cellX = useSpring(targetLeft, { stiffness: 240, damping: 28, mass: 0.6 });
   const cellY = useSpring(targetTop, { stiffness: 240, damping: 28, mass: 0.6 });
   useEffect(() => { cellX.set(targetLeft); }, [targetLeft, cellX]);
   useEffect(() => { cellY.set(targetTop); }, [targetTop, cellY]);
 
-  const computeWave = (cx: number, cy: number, px: number, py: number): ContactWaveState => {
+  const computeWave = (
+    cx: number,
+    cy: number,
+    px: number,
+    py: number,
+    vx: number,
+    vy: number,
+  ): ContactWaveState => {
     if (tileW <= 0 || tileH <= 0 || previewW <= 0 || previewH <= 0) return NO_WAVE;
 
     const tileRight = cx + tileW;
@@ -519,24 +535,32 @@ function DevWallSlot({
     const previewCenterX = px + previewW / 2;
     const previewCenterY = py + previewH / 2;
     const radius = clamp(Math.min(tileW, tileH) * 0.24, 42, 92);
-    let side: WaveSide = 'none';
-    let pressure = 0;
-    let pushX = 0;
-    let pushY = 0;
+    const pick = (a: ContactWaveState, b: ContactWaveState) => (b.pressure > a.pressure ? b : a);
+    let best = NO_WAVE;
+
+    const makeState = (side: WaveSide, pressure: number, center: number): ContactWaveState => ({
+      side,
+      pressure: smooth(pressure),
+      center,
+    });
 
     if (xSpan > 0 && ySpan > 0) {
       const xRatio = xSpan / Math.max(tileW, 1);
       const yRatio = ySpan / Math.max(tileH, 1);
       if (xRatio <= yRatio) {
         const fromRight = tileCenterX >= previewCenterX;
-        side = fromRight ? 'left' : 'right';
-        pushX = fromRight ? 1 : -1;
-        pressure = 0.56 + clamp(xRatio, 0, 1) * 0.44;
+        best = pick(best, makeState(
+          fromRight ? 'left' : 'right',
+          0.44 + clamp(xRatio, 0, 1) * 0.42,
+          clamp(previewCenterY - cy, tileH * 0.2, tileH * 0.8),
+        ));
       } else {
         const fromBottom = tileCenterY >= previewCenterY;
-        side = fromBottom ? 'top' : 'bottom';
-        pushY = fromBottom ? 1 : -1;
-        pressure = 0.56 + clamp(yRatio, 0, 1) * 0.44;
+        best = pick(best, makeState(
+          fromBottom ? 'top' : 'bottom',
+          0.44 + clamp(yRatio, 0, 1) * 0.42,
+          clamp(previewCenterX - cx, tileW * 0.2, tileW * 0.8),
+        ));
       }
     } else {
       const horizontalGap = cx >= previewRight
@@ -554,38 +578,88 @@ function DevWallSlot({
 
       if (nearHorizontalFace && (!nearVerticalFace || horizontalGap <= verticalGap)) {
         const fromRight = tileCenterX >= previewCenterX;
-        side = fromRight ? 'left' : 'right';
-        pushX = fromRight ? 1 : -1;
-        pressure = Math.pow(1 - horizontalGap / radius, 1.45) * 0.82;
+        best = pick(best, makeState(
+          fromRight ? 'left' : 'right',
+          Math.pow(1 - horizontalGap / radius, 1.45) * 0.54,
+          clamp(previewCenterY - cy, tileH * 0.2, tileH * 0.8),
+        ));
       } else if (nearVerticalFace) {
         const fromBottom = tileCenterY >= previewCenterY;
-        side = fromBottom ? 'top' : 'bottom';
-        pushY = fromBottom ? 1 : -1;
-        pressure = Math.pow(1 - verticalGap / radius, 1.45) * 0.82;
+        best = pick(best, makeState(
+          fromBottom ? 'top' : 'bottom',
+          Math.pow(1 - verticalGap / radius, 1.45) * 0.54,
+          clamp(previewCenterX - cx, tileW * 0.2, tileW * 0.8),
+        ));
       }
     }
 
-    if (pressure <= 0) return NO_WAVE;
-    return {
-      pressure: smooth(pressure),
-      side,
-      pushX,
-      pushY,
-      origin: waveOrigin(side),
-    };
+    const cellW = tileW + gap;
+    const cellH = tileH + gap;
+    const absVX = Math.abs(vx);
+    const absVY = Math.abs(vy);
+    const velocity = Math.max(absVX, absVY);
+
+    if (velocity > 24) {
+      if (absVY >= absVX) {
+        const dir = vy >= 0 ? 1 : -1;
+        const gridY = py / cellH;
+        const frac = gridY - Math.floor(gridY);
+        const progress = dir > 0 ? frac / PREVIEW_SNAP_THRESHOLD : (1 - frac) / PREVIEW_SNAP_THRESHOLD;
+        const crossOverlap = Math.min(tileRight, previewRight) - Math.max(cx, px);
+        if (crossOverlap > tileW * 0.08) {
+          const distance = dir > 0 ? cy - previewBottom : py - tileBottom;
+          if (distance > -tileH * 0.55) {
+            const rank = Math.floor(Math.max(distance, 0) / cellH);
+            if (rank >= 0 && rank <= 2) {
+              const starts = [0.02, 0.24, 0.44];
+              const weights = [0.95, 0.62, 0.38];
+              const local = (clamp(progress, 0, 1.08) - starts[rank]) / Math.max(0.01, 1 - starts[rank]);
+              if (local > 0) {
+                best = pick(best, makeState(
+                  dir > 0 ? 'top' : 'bottom',
+                  clamp(local, 0, 1) * weights[rank],
+                  clamp(previewCenterX - cx, tileW * 0.18, tileW * 0.82),
+                ));
+              }
+            }
+          }
+        }
+      } else {
+        const dir = vx >= 0 ? 1 : -1;
+        const gridX = px / cellW;
+        const frac = gridX - Math.floor(gridX);
+        const progress = dir > 0 ? frac / PREVIEW_SNAP_THRESHOLD : (1 - frac) / PREVIEW_SNAP_THRESHOLD;
+        const crossOverlap = Math.min(tileBottom, previewBottom) - Math.max(cy, py);
+        if (crossOverlap > tileH * 0.08) {
+          const distance = dir > 0 ? cx - previewRight : px - tileRight;
+          if (distance > -tileW * 0.55) {
+            const rank = Math.floor(Math.max(distance, 0) / cellW);
+            if (rank >= 0 && rank <= 2) {
+              const starts = [0.02, 0.24, 0.44];
+              const weights = [0.95, 0.62, 0.38];
+              const local = (clamp(progress, 0, 1.08) - starts[rank]) / Math.max(0.01, 1 - starts[rank]);
+              if (local > 0) {
+                best = pick(best, makeState(
+                  dir > 0 ? 'left' : 'right',
+                  clamp(local, 0, 1) * weights[rank],
+                  clamp(previewCenterY - cy, tileH * 0.18, tileH * 0.82),
+                ));
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return best.pressure > 0 ? best : NO_WAVE;
   };
 
-  const wave = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => (
-    computeWave(cx as number, cy as number, px as number, py as number)
+  const wave = useTransform([cellX, cellY, previewX, previewY, previewVX, previewVY], ([cx, cy, px, py, vx, vy]) => (
+    computeWave(cx as number, cy as number, px as number, py as number, vx as number, vy as number)
   ));
-  const rippleX = useTransform(wave, (state) => state.pushX * state.pressure * 14);
-  const rippleY = useTransform(wave, (state) => state.pushY * state.pressure * 14);
-  const rippleScale = useTransform(wave, (state) => 1 + state.pressure * 0.012);
-  const rippleOrigin = useTransform(wave, (state) => state.origin);
-  const screenClipPath = useTransform(wave, (state) => waveClipPath(state.side, state.pressure));
-  const imageX = useTransform(wave, (state) => state.pushX * state.pressure * 5);
-  const imageY = useTransform(wave, (state) => state.pushY * state.pressure * 5);
-  const imageScale = useTransform(wave, (state) => 1 + state.pressure * 0.028);
+  const imageClipPath = useTransform(wave, (state) => (
+    curvedWaveClipPath(state.side, state.pressure, tileW, tileH, state.center)
+  ));
   const waveLeftOpacity = useTransform(wave, (state) => state.side === 'left' ? state.pressure : 0);
   const waveRightOpacity = useTransform(wave, (state) => state.side === 'right' ? state.pressure : 0);
   const waveTopOpacity = useTransform(wave, (state) => state.side === 'top' ? state.pressure : 0);
@@ -598,12 +672,6 @@ function DevWallSlot({
     >
       <motion.div
         className="dev-wall-ripple-body"
-        style={{
-          x: rippleX,
-          y: rippleY,
-          scale: rippleScale,
-          transformOrigin: rippleOrigin,
-        }}
       >
         <DevTile
           wallpaper={wp}
@@ -611,10 +679,7 @@ function DevWallSlot({
           index={index}
           isFeatured={isFeatured}
           onHover={onHover}
-          waveClipPath={screenClipPath}
-          imageX={imageX}
-          imageY={imageY}
-          imageScale={imageScale}
+          imageClipPath={imageClipPath}
           waveLeftOpacity={waveLeftOpacity}
           waveRightOpacity={waveRightOpacity}
           waveTopOpacity={waveTopOpacity}
@@ -627,7 +692,7 @@ function DevWallSlot({
 
 function DevTile({
   wallpaper: w, device, index, isFeatured, onHover,
-  waveClipPath, imageX, imageY, imageScale,
+  imageClipPath,
   waveLeftOpacity, waveRightOpacity, waveTopOpacity, waveBottomOpacity,
 }: {
   wallpaper: Wallpaper;
@@ -635,10 +700,7 @@ function DevTile({
   index: number;
   isFeatured: boolean;
   onHover: (idx: number) => void;
-  waveClipPath?: MotionValue<string>;
-  imageX?: MotionValue<number>;
-  imageY?: MotionValue<number>;
-  imageScale?: MotionValue<number>;
+  imageClipPath?: MotionValue<string>;
   waveLeftOpacity?: MotionValue<number>;
   waveRightOpacity?: MotionValue<number>;
   waveTopOpacity?: MotionValue<number>;
@@ -678,11 +740,11 @@ function DevTile({
     >
       <motion.div
         className="dev-spec-card-screen"
-        style={{ aspectRatio: aspect, clipPath: waveClipPath }}
+        style={{ aspectRatio: aspect }}
       >
         <motion.div
-          className="dev-spec-card-image-layer"
-          style={{ x: imageX, y: imageY, scale: imageScale }}
+          className="dev-spec-card-image-shell"
+          style={{ clipPath: imageClipPath }}
         >
           <img
             src={w.preview_url || w.thumb_url}
