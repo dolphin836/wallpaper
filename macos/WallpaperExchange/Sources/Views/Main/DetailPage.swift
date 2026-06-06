@@ -69,7 +69,7 @@ struct DetailPage: View {
         GeometryReader { proxy in
             let layout = DetailLayout(size: proxy.size, isModal: onClose != nil)
             ZStack {
-                backdrop
+                backdrop(size: proxy.size)
                 ScrollView(.vertical, showsIndicators: false) {
                     if let d = detail {
                         VStack(alignment: .leading, spacing: layout.isCompact ? 18 : 24) {
@@ -103,7 +103,10 @@ struct DetailPage: View {
                             .frame(maxWidth: .infinity)
                     }
                 }
+                .frame(width: proxy.size.width, height: proxy.size.height)
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipped()
         }
         .task(id: slug) { await load() }
     }
@@ -111,7 +114,7 @@ struct DetailPage: View {
     // Full-bleed blurred preview of the wallpaper itself behind the
     // whole panel (web .wd-backdrop: blur 38 / saturate 1.4 / scale 1.18)
     // with a soft paper scrim on top so content stays legible.
-    private var backdrop: some View {
+    private func backdrop(size: CGSize) -> some View {
         ZStack {
             Color.paper
             if let d = detail, let url = URL(string: d.displayURL) {
@@ -126,6 +129,8 @@ struct DetailPage: View {
             LinearGradient(colors: [Color.paper.opacity(0.42), Color.paper.opacity(0.7)],
                            startPoint: .top, endPoint: .bottom)
         }
+        .frame(width: size.width, height: size.height)
+        .clipped()
     }
 
     private func breadcrumb(detail: WallpaperDetail) -> some View {
