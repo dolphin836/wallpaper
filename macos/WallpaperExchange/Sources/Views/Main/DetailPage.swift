@@ -589,8 +589,8 @@ struct DetailPage: View {
         let downloaded = isLocalDownloaded(detail)
         return HStack(spacing: 6) {
             Button(action: { Task { await downloadOriginal(detail) } }) {
-                downloadLabel(icon: "tray.and.arrow.down",
-                              text: downloaded ? "Downloaded" : (downloading ? "Downloading" : "Download"),
+                downloadLabel(icon: downloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
+                              text: downloadButtonText(detail: detail, downloaded: downloaded, downloading: downloading),
                               emphasized: true)
             }
             .disabled(downloading || downloaded)
@@ -599,7 +599,7 @@ struct DetailPage: View {
                 Task { await downloadOriginalAndSet(detail) }
             }) {
                 downloadLabel(icon: downloaded ? "display" : "arrow.down.circle.fill",
-                              text: downloaded ? "Set as wallpaper" : "Download & set · 1 coin",
+                              text: downloadAndSetButtonText(detail: detail, downloaded: downloaded),
                               emphasized: true)
             }
             .disabled(downloading)
@@ -848,8 +848,27 @@ struct DetailPage: View {
     }
 
     // ─── Actions ────────────────────────────────────────────────
+    private func isOwner(_ detail: WallpaperDetail) -> Bool {
+        auth.user?.id == detail.userID
+    }
+
+    private func requiresTrade(_ detail: WallpaperDetail) -> Bool {
+        !isOwner(detail) && detail.isDownloaded != true && !isLocalDownloaded(detail)
+    }
+
+    private func downloadButtonText(detail: WallpaperDetail, downloaded: Bool, downloading: Bool) -> String {
+        if downloaded { return "Got it" }
+        if downloading { return "Downloading" }
+        return requiresTrade(detail) ? "Trade for 1" : "Download"
+    }
+
+    private func downloadAndSetButtonText(detail: WallpaperDetail, downloaded: Bool) -> String {
+        if downloaded { return "Set as wallpaper" }
+        return requiresTrade(detail) ? "Download & set · 1 coin" : "Download & set"
+    }
+
     private func canSpendForDownload(_ detail: WallpaperDetail) -> Bool {
-        if auth.user?.id == detail.userID { return true }
+        if isOwner(detail) || detail.isDownloaded == true { return true }
         return (auth.user?.coins ?? 0) > 0
     }
 
