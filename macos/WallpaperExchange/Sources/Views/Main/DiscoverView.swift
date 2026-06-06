@@ -143,8 +143,11 @@ struct DiscoverView: View {
     @ViewBuilder
     private var feed: some View {
         if loading && items.isEmpty {
-            HStack { Spacer(); ProgressView(); Spacer() }
-                .padding(.top, 60)
+            WallpaperGridSkeleton(
+                columns: gridColumns,
+                count: sizeMode == .lg ? 12 : 16,
+                spacing: sizeMode == .lg ? 14 : 12
+            )
         } else if let err = loadError, items.isEmpty {
             errorBanner(err)
         } else if items.isEmpty {
@@ -326,15 +329,9 @@ struct DiscoverView: View {
     }
 
     private func errorBanner(_ msg: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 11)).foregroundStyle(Color.warn)
-            Text(msg).font(.sans11).foregroundStyle(Color.ink2).lineLimit(2)
-            Spacer()
-            Button("Retry") { Task { await reload() } }.controlSize(.small)
+        RemoteLoadErrorView(message: msg) {
+            Task { await reload() }
         }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.warn.opacity(0.06)))
     }
 
     private func maybeLoadMore(_ wp: Wallpaper) {

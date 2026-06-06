@@ -27,6 +27,7 @@ struct HomeView: View {
     @State private var liveLoading = true
     @State private var aiLoading = true
     @State private var collectionsLoading = true
+    @State private var allFailed = false
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -38,10 +39,16 @@ struct HomeView: View {
                 } else if weeklyLoading {
                     SkeletonTile(variant: .hero)
                 }
-                weeklySection
-                liveSection
-                aiSection
-                collectionsSection
+                if allFailed {
+                    RemoteLoadErrorView(message: "The home feed could not load. Please try again.") {
+                        Task { await loadAll() }
+                    }
+                } else {
+                    weeklySection
+                    liveSection
+                    aiSection
+                    collectionsSection
+                }
             }
             // WindowChrome.topInset matches the sidebar logo's top
             // padding, so the hero card and the sidebar logo line up
@@ -266,6 +273,12 @@ struct HomeView: View {
     // pattern web HomePage uses — one slow row doesn't stall the
     // skeleton swap for the others.
     private func loadAll() async {
+        weeklyLoading = true
+        liveLoading = true
+        aiLoading = true
+        collectionsLoading = true
+        allFailed = false
+
         async let weeklyTask: WeeklyCurrent? = try? await APIClient.shared.fetchWeeklyCurrent()
         async let liveTask:   PaginatedData<Wallpaper>? = try? await APIClient.shared.fetchWallpapers(limit: 12, dynamicOnly: true)
         async let aiTask:     PaginatedData<Wallpaper>? = try? await APIClient.shared.fetchWallpapers(limit: 12, aiOnly: true)
@@ -286,6 +299,8 @@ struct HomeView: View {
         let c = await colsTask
         collections = c?.items ?? []
         collectionsLoading = false
+
+        allFailed = w == nil && l == nil && a == nil && c == nil
     }
 
     private func weeklyToWallpaper(_ p: WeeklyPicked) -> Wallpaper {

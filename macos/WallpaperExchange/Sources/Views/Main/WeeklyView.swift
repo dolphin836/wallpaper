@@ -22,9 +22,11 @@ struct WeeklyArchiveView: View {
                 header
 
                 if loading && entries.isEmpty {
-                    ProgressView().padding(.top, 40)
+                    archiveSkeleton.padding(.top, 36)
                 } else if let err = loadError, entries.isEmpty {
-                    Text(err).font(.sans12).foregroundStyle(Color.warn).padding(.top, 20)
+                    RemoteLoadErrorView(message: err) {
+                        Task { await load() }
+                    }
                 } else if entries.isEmpty {
                     Text("No weekly drops have been published yet.")
                         .font(.sans13).foregroundStyle(Color.muted).padding(.top, 20)
@@ -42,6 +44,30 @@ struct WeeklyArchiveView: View {
         .task { await load() }
         .onChange(of: selectedIdx) { _, _ in applySelectedPalette() }
         .onDisappear { PaletteEnv.shared.resetToDefaults() }
+    }
+
+    private var archiveSkeleton: some View {
+        HStack(alignment: .top, spacing: 36) {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(0..<4, id: \.self) { _ in
+                    HStack(spacing: 12) {
+                        SkeletonPlate(aspectRatio: 1, cornerRadius: 4, shadow: false)
+                            .frame(width: 7, height: 7)
+                        SkeletonLine(width: 68, height: 13)
+                        Spacer(minLength: 0)
+                        SkeletonLine(width: 92, height: 10)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 10)
+                }
+            }
+            .frame(width: 240)
+            VStack(alignment: .leading, spacing: 14) {
+                SkeletonPlate(aspectRatio: 16.0 / 10.0, cornerRadius: 14)
+                SkeletonLine(width: 148, height: 16)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     // Tint the page mesh to the selected issue (hover temporarily
@@ -145,6 +171,7 @@ struct WeeklyArchiveView: View {
     }
 
     private func load() async {
+        loadError = nil
         loading = true; defer { loading = false }
         do {
             entries = try await APIClient.shared.fetchWeeklyArchive(limit: 100)
@@ -181,8 +208,12 @@ struct WeeklyWeekView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var picks: [WeeklyPicked] = []
     @State private var loading = false
+    @State private var loadError: String?
 
     private var hero: WeeklyPicked? { picks.first(where: { $0.isHero }) ?? picks.first }
+    private var gridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 190, maximum: 280), spacing: 16, alignment: .top)]
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -197,10 +228,14 @@ struct WeeklyWeekView: View {
                 .padding(.top, 10)
 
                 if loading && picks.isEmpty {
-                    ProgressView().padding(.top, 40).frame(maxWidth: .infinity)
+                    weekSkeleton.padding(.top, 28)
+                } else if let err = loadError, picks.isEmpty {
+                    RemoteLoadErrorView(message: err) {
+                        Task { await load() }
+                    }
                 } else {
                     if let h = hero { heroCard(h).padding(.top, 28) }
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 190, maximum: 280), spacing: 16, alignment: .top)], spacing: 16) {
+                    LazyVGrid(columns: gridColumns, spacing: 16) {
                         ForEach(picks) { p in
                             Button(action: { onWallpaper(asWallpaper(p)) }) {
                                 MainGridTile(wallpaper: asWallpaper(p), aspectRatio: 4.0 / 5.0)
@@ -220,6 +255,13 @@ struct WeeklyWeekView: View {
         }
         .task(id: "\(year)-\(week)") { await load() }
         .onDisappear { PaletteEnv.shared.resetToDefaults() }
+    }
+
+    private var weekSkeleton: some View {
+        VStack(alignment: .leading, spacing: 28) {
+            SkeletonPlate(aspectRatio: 16.0 / 9.0, cornerRadius: 16)
+            WallpaperGridSkeleton(columns: gridColumns, count: 12, spacing: 16, aspectRatio: 4.0 / 5.0, cornerRadius: 10)
+        }
     }
 
     // Masthead hero — the issue's hero pick, 16:9, with a curation
@@ -268,10 +310,14 @@ struct WeeklyWeekView: View {
     private func mb(_ b: Int) -> String { String(format: "%.1f MB", Double(b) / 1024 / 1024) }
 
     private func load() async {
+        loadError = nil
         loading = true; defer { loading = false }
-        if let data = try? await APIClient.shared.fetchWeeklyByWeek(year: year, week: week) {
+        do {
+            let data = try await APIClient.shared.fetchWeeklyByWeek(year: year, week: week)
             picks = data.picks
             applyHeroPalette()
+        } catch {
+            loadError = error.localizedDescription
         }
     }
 

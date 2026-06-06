@@ -13,10 +13,15 @@ struct ProfileView: View {
     @State private var tab: Tab = .uploaded
     @State private var loading = false
     @State private var loadError: String?
+    @State private var itemsError: String?
     @State private var auth = AuthService.shared
 
     enum Tab: String, CaseIterable {
         case uploaded = "Uploaded", liked = "Liked", favorited = "Favorited", downloads = "Downloads"
+    }
+
+    private var gridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 14, alignment: .top)]
     }
 
     var body: some View {
@@ -30,14 +35,31 @@ struct ProfileView: View {
                 .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
                 .frame(maxWidth: 1100).frame(maxWidth: .infinity, alignment: .center)
             } else if let err = loadError {
-                Text(err).font(.sans12).foregroundStyle(Color.muted).padding(.top, 60)
+                RemoteLoadErrorView(message: err) {
+                    Task { await loadProfile() }
+                }
+                .padding(.horizontal, 40)
             } else {
-                ProgressView().padding(.top, 60)
+                profileSkeleton
+                    .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
+                    .frame(maxWidth: 1100).frame(maxWidth: .infinity, alignment: .center)
             }
         }
         // page-mesh shows through; no opaque paper background here
         .task(id: username) { await loadProfile() }
-        .task(id: "tab-\(tab.rawValue)") { await loadItems() }
+        .task(id: "\(username)-tab-\(tab.rawValue)") { await loadItems() }
+    }
+
+    private var profileSkeleton: some View {
+        VStack(alignment: .leading, spacing: 28) {
+            ProfileHeaderSkeleton()
+            HStack(spacing: 8) {
+                ForEach(0..<4, id: \.self) { _ in
+                    SkeletonLine(width: 92, height: 30, cornerRadius: 15)
+                }
+            }
+            WallpaperGridSkeleton(columns: gridColumns, count: 12)
+        }
     }
 
     private func header(profile p: PublicProfile) -> some View {
@@ -120,12 +142,16 @@ struct ProfileView: View {
     private var grid: some View {
         Group {
             if loading && items.isEmpty {
-                ProgressView()
+                WallpaperGridSkeleton(columns: gridColumns, count: 12)
+            } else if let err = itemsError, items.isEmpty {
+                RemoteLoadErrorView(message: err) {
+                    Task { await loadItems() }
+                }
             } else if items.isEmpty {
                 Text("Nothing here yet.")
                     .font(.sans13).foregroundStyle(Color.muted).padding(.top, 24)
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 14, alignment: .top)], spacing: 14) {
+                LazyVGrid(columns: gridColumns, spacing: 14) {
                     ForEach(items) { wp in
                         Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp) }
                             .buttonStyle(.plain)
@@ -146,6 +172,7 @@ struct ProfileView: View {
 
     private func loadItems() async {
         items = []
+        itemsError = nil
         loading = true; defer { loading = false }
         do {
             let data: PaginatedData<Wallpaper>
@@ -156,7 +183,9 @@ struct ProfileView: View {
             case .downloads: data = try await APIClient.shared.fetchUserDownloads(username: username, limit: 36)
             }
             items = data.items
-        } catch {}
+        } catch {
+            itemsError = error.localizedDescription
+        }
     }
 
     private func monthYear(_ iso: String?) -> String {

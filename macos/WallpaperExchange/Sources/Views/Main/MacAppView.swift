@@ -8,6 +8,7 @@ import AppKit
 struct MacAppView: View {
     @State private var release: MacRelease?
     @State private var loading = false
+    @State private var loadError: String?
 
     private var currentVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
@@ -70,7 +71,23 @@ struct MacAppView: View {
         VStack(alignment: .leading, spacing: 14) {
             Kicker(text: "Release notes")
             if loading && release == nil {
-                ProgressView().controlSize(.small)
+                VStack(alignment: .leading, spacing: 18) {
+                    ForEach(0..<4, id: \.self) { _ in
+                        VStack(alignment: .leading, spacing: 7) {
+                            HStack {
+                                SkeletonLine(width: 82, height: 16)
+                                Spacer()
+                                SkeletonLine(width: 86, height: 10)
+                            }
+                            SkeletonLine(width: 420, height: 11)
+                            SkeletonLine(width: 300, height: 11)
+                        }
+                    }
+                }
+            } else if let err = loadError {
+                RemoteLoadErrorView(title: "Could not load release notes", message: err) {
+                    Task { await load() }
+                }
             } else if let r = release, let entries = r.releases, !entries.isEmpty {
                 VStack(alignment: .leading, spacing: 18) {
                     ForEach(entries.prefix(6), id: \.version) { entry in
@@ -114,8 +131,13 @@ struct MacAppView: View {
     }
 
     private func load() async {
+        loadError = nil
         loading = true; defer { loading = false }
-        release = try? await APIClient.shared.fetchMacRelease()
+        do {
+            release = try await APIClient.shared.fetchMacRelease()
+        } catch {
+            loadError = error.localizedDescription
+        }
     }
 
     private func openInBrowser() {

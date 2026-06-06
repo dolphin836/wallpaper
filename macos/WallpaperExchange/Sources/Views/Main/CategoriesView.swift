@@ -9,6 +9,11 @@ struct CategoriesView: View {
 
     @State private var cats: [Category] = []
     @State private var loading = false
+    @State private var loadError: String?
+
+    private var gridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 12, alignment: .top)]
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -18,9 +23,13 @@ struct CategoriesView: View {
                     Text("Categories").font(.display32).foregroundStyle(Color.ink)
                 }
                 if loading && cats.isEmpty {
-                    ProgressView()
+                    WallpaperGridSkeleton(columns: gridColumns, count: 12, spacing: 12, aspectRatio: 3.0 / 2.0, cornerRadius: 12)
+                } else if let err = loadError {
+                    RemoteLoadErrorView(message: err) {
+                        Task { await load() }
+                    }
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 12, alignment: .top)], spacing: 12) {
+                    LazyVGrid(columns: gridColumns, spacing: 12) {
                         ForEach(cats) { c in
                             Button(action: { onPickCategory(c) }) {
                                 CategoryCard(name: c.name, slug: c.slug)
@@ -37,9 +46,13 @@ struct CategoriesView: View {
     }
 
     private func load() async {
+        loadError = nil
         loading = true; defer { loading = false }
-        if let list = try? await APIClient.shared.fetchCategories() {
+        do {
+            let list = try await APIClient.shared.fetchCategories()
             cats = list.sorted { ($0.sortOrder ?? 0) < ($1.sortOrder ?? 0) }
+        } catch {
+            loadError = error.localizedDescription
         }
     }
 }
@@ -94,6 +107,11 @@ struct CategoryFeedView: View {
     @State private var cursor: Int?
     @State private var hasMore = false
     @State private var loading = false
+    @State private var loadError: String?
+
+    private var gridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 260, maximum: 380), spacing: 14, alignment: .top)]
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -105,14 +123,29 @@ struct CategoryFeedView: View {
                 .padding(.bottom, 4)
                 .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
                 if loading && items.isEmpty {
-                    ProgressView()
+                    WallpaperGridSkeleton(columns: gridColumns, count: 12)
+                } else if let err = loadError, items.isEmpty {
+                    RemoteLoadErrorView(message: err) {
+                        Task { await reload() }
+                    }
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 380), spacing: 14, alignment: .top)], spacing: 14) {
+                    LazyVGrid(columns: gridColumns, spacing: 14) {
                         ForEach(items) { wp in
                             Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp) }
                                 .buttonStyle(.plain)
                                 .onAppear { maybeLoadMore(wp) }
                         }
+                    }
+                    if let err = loadError, !items.isEmpty {
+                        HStack(spacing: 10) {
+                            Text(err).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
+                            Button("Retry") { Task { await loadMore() } }.controlSize(.small)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 18)
+                    } else if hasMore {
+                        HStack { Spacer(); ProgressView().controlSize(.small).opacity(loading ? 1 : 0); Spacer() }
+                            .frame(height: 24)
                     }
                 }
             }
@@ -125,15 +158,20 @@ struct CategoryFeedView: View {
 
     private func reload() async {
         items = []; cursor = nil; hasMore = false
+        loadError = nil
         await loadMore()
     }
     private func loadMore() async {
         guard !loading else { return }
         loading = true; defer { loading = false }
-        if let data = try? await APIClient.shared.fetchWallpapers(cursor: cursor, limit: 24, categoryID: category.id) {
+        loadError = nil
+        do {
+            let data = try await APIClient.shared.fetchWallpapers(cursor: cursor, limit: 24, categoryID: category.id)
             items.append(contentsOf: data.items)
             cursor = data.nextCursor
             hasMore = data.hasMore
+        } catch {
+            loadError = error.localizedDescription
         }
     }
     private func maybeLoadMore(_ wp: Wallpaper) {

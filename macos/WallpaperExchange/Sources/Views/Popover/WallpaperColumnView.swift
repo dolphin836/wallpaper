@@ -52,7 +52,7 @@ struct WallpaperColumnView: View {
                         // Skeleton placeholder tiles — same 16:10 chrome,
                         // paper-2 fill, no image. Layout stays stable when
                         // the real tiles arrive.
-                        ForEach(0..<3, id: \.self) { _ in skeletonTile }
+                        ForEach(0..<4, id: \.self) { _ in skeletonTile }
                     } else {
                         ForEach(Array(wallpapers.enumerated()), id: \.element.id) { idx, wp in
                             WallpaperTileView(
@@ -143,9 +143,7 @@ struct WallpaperColumnView: View {
     }
 
     private var skeletonTile: some View {
-        RoundedRectangle(cornerRadius: 8)
-            .fill(Color.paper2)
-            .aspectRatio(16.0/10.0, contentMode: .fit)
+        SkeletonPlate(aspectRatio: 16.0 / 10.0, cornerRadius: 8, shadow: false)
     }
 
     // Tri-state footer sitting under the last tile. Order matters:

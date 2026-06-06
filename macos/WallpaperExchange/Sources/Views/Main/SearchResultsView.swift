@@ -11,6 +11,11 @@ struct SearchResultsView: View {
     @State private var cursor: Int?
     @State private var hasMore = false
     @State private var loading = false
+    @State private var loadError: String?
+
+    private var gridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 260, maximum: 380), spacing: 14, alignment: .top)]
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -28,12 +33,16 @@ struct SearchResultsView: View {
                 .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
 
                 if loading && items.isEmpty {
-                    ProgressView()
+                    WallpaperGridSkeleton(columns: gridColumns, count: 12)
+                } else if let err = loadError, items.isEmpty {
+                    RemoteLoadErrorView(message: err) {
+                        Task { await reload() }
+                    }
                 } else if items.isEmpty {
                     Text("No wallpapers match.")
                         .font(.sans13).foregroundStyle(Color.muted).padding(.top, 24)
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 380), spacing: 14, alignment: .top)], spacing: 14) {
+                    LazyVGrid(columns: gridColumns, spacing: 14) {
                         ForEach(items) { wp in
                             Button(action: { onWallpaper(wp) }) {
                                 MainGridTile(wallpaper: wp)
@@ -42,7 +51,14 @@ struct SearchResultsView: View {
                             .onAppear { maybeLoadMore(wp) }
                         }
                     }
-                    if hasMore {
+                    if let loadError {
+                        HStack(spacing: 10) {
+                            Text(loadError).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
+                            Button("Retry") { Task { await loadMore() } }.controlSize(.small)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 18)
+                    } else if hasMore {
                         HStack { Spacer(); ProgressView().controlSize(.small).opacity(loading ? 1 : 0); Spacer() }
                             .frame(height: 24)
                     }
@@ -57,17 +73,20 @@ struct SearchResultsView: View {
 
     private func reload() async {
         items = []; cursor = nil; hasMore = false
+        loadError = nil
         await loadMore()
     }
     private func loadMore() async {
         guard !loading else { return }
         loading = true; defer { loading = false }
-        if let data = try? await APIClient.shared.fetchWallpapers(
-            cursor: cursor, limit: 24, search: query
-        ) {
+        loadError = nil
+        do {
+            let data = try await APIClient.shared.fetchWallpapers(cursor: cursor, limit: 24, search: query)
             items.append(contentsOf: data.items)
             cursor = data.nextCursor
             hasMore = data.hasMore
+        } catch {
+            loadError = error.localizedDescription
         }
     }
     private func maybeLoadMore(_ wp: Wallpaper) {

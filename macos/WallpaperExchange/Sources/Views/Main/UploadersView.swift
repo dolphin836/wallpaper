@@ -10,6 +10,7 @@ struct UploadersView: View {
     @State private var items: [UploaderListItem] = []
     @State private var sort: String = "trending"
     @State private var loading = false
+    @State private var loadError: String?
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -26,7 +27,11 @@ struct UploadersView: View {
                 .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
 
                 if loading && items.isEmpty {
-                    ProgressView()
+                    CardListSkeleton(rows: 4)
+                } else if let err = loadError {
+                    RemoteLoadErrorView(message: err) {
+                        Task { await load() }
+                    }
                 } else {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 320, maximum: 480), spacing: 14, alignment: .top)], spacing: 14) {
                         ForEach(items) { u in
@@ -64,9 +69,13 @@ struct UploadersView: View {
     }
 
     private func load() async {
+        loadError = nil
         loading = true; defer { loading = false }
-        if let resp = try? await APIClient.shared.fetchUploaders(sort: sort, page: 1, limit: 36) {
+        do {
+            let resp = try await APIClient.shared.fetchUploaders(sort: sort, page: 1, limit: 36)
             items = resp.items
+        } catch {
+            loadError = error.localizedDescription
         }
     }
 }

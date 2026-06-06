@@ -8,6 +8,10 @@ struct DevicesIndexView: View {
     @State private var loading = false
     @State private var loadError: String?
 
+    private var gridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 220, maximum: 280), spacing: 12, alignment: .top)]
+    }
+
     private var grouped: [(platform: String, items: [DeviceProfile])] {
         let order = ["desktop", "laptop", "tablet", "phone", "watch", "tv", "other"]
         let buckets = Dictionary(grouping: devices) { $0.platform }
@@ -26,14 +30,16 @@ struct DevicesIndexView: View {
                 }
 
                 if loading && devices.isEmpty {
-                    ProgressView().padding(.top, 30)
+                    WallpaperGridSkeleton(columns: gridColumns, count: 12, spacing: 12, aspectRatio: 4.0 / 3.0, cornerRadius: 12)
                 } else if let err = loadError {
-                    Text(err).font(.sans12).foregroundStyle(Color.warn)
+                    RemoteLoadErrorView(message: err) {
+                        Task { await load() }
+                    }
                 } else {
                     ForEach(grouped, id: \.platform) { group in
                         VStack(alignment: .leading, spacing: 10) {
                             Kicker(text: "\(group.platform.uppercased()) · \(group.items.count)")
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 280), spacing: 12, alignment: .top)], spacing: 12) {
+                            LazyVGrid(columns: gridColumns, spacing: 12) {
                                 ForEach(group.items) { d in
                                     Button(action: { onPick(d) }) {
                                         DeviceCard(device: d)
@@ -52,6 +58,7 @@ struct DevicesIndexView: View {
     }
 
     private func load() async {
+        loadError = nil
         loading = true; defer { loading = false }
         do {
             devices = try await APIClient.shared.fetchDevices().filter { $0.isActive }
@@ -113,6 +120,11 @@ struct DeviceDetailView: View {
     @State private var cursor: Int?
     @State private var hasMore = false
     @State private var loading = false
+    @State private var loadError: String?
+
+    private var gridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 260, maximum: 380), spacing: 14, alignment: .top)]
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -124,12 +136,21 @@ struct DeviceDetailView: View {
                 }
 
                 if loading && items.isEmpty {
-                    ProgressView()
+                    VStack(alignment: .leading, spacing: 18) {
+                        SkeletonLine(width: 220, height: 32)
+                        SkeletonLine(width: 280, height: 10)
+                        WallpaperGridSkeleton(columns: gridColumns, count: 12)
+                            .padding(.top, 4)
+                    }
+                } else if let err = loadError, items.isEmpty {
+                    RemoteLoadErrorView(message: err) {
+                        Task { await reload() }
+                    }
                 } else if items.isEmpty {
                     Text("No wallpapers for this device yet.")
                         .font(.sans13).foregroundStyle(Color.muted).padding(.top, 24)
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 380), spacing: 14, alignment: .top)], spacing: 14) {
+                    LazyVGrid(columns: gridColumns, spacing: 14) {
                         ForEach(items) { wp in
                             Button(action: { onWallpaper(wp) }) {
                                 MainGridTile(wallpaper: wp)
@@ -138,7 +159,14 @@ struct DeviceDetailView: View {
                             .onAppear { maybeLoadMore(wp) }
                         }
                     }
-                    if hasMore {
+                    if let err = loadError {
+                        HStack(spacing: 10) {
+                            Text(err).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
+                            Button("Retry") { Task { await loadMore() } }.controlSize(.small)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 18)
+                    } else if hasMore {
                         HStack { Spacer(); ProgressView().controlSize(.small).opacity(loading ? 1 : 0); Spacer() }
                             .frame(height: 24)
                     }
@@ -164,16 +192,27 @@ struct DeviceDetailView: View {
 
     private func reload() async {
         items = []; cursor = nil; hasMore = false
-        if let d = try? await APIClient.shared.fetchDevice(slug: slug) { info = d }
+        loadError = nil
+        loading = true
+        do {
+            info = try await APIClient.shared.fetchDevice(slug: slug)
+        } catch {
+            loadError = error.localizedDescription
+        }
+        loading = false
         await loadMore()
     }
     private func loadMore() async {
         guard !loading else { return }
         loading = true; defer { loading = false }
-        if let data = try? await APIClient.shared.fetchDeviceWallpapers(slug: slug, cursor: cursor, limit: 24) {
+        loadError = nil
+        do {
+            let data = try await APIClient.shared.fetchDeviceWallpapers(slug: slug, cursor: cursor, limit: 24)
             items.append(contentsOf: data.items)
             cursor = data.nextCursor
             hasMore = data.hasMore
+        } catch {
+            loadError = error.localizedDescription
         }
     }
     private func maybeLoadMore(_ wp: Wallpaper) {

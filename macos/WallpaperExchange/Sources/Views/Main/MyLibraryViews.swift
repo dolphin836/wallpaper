@@ -12,6 +12,11 @@ struct MyLibraryGridView: View {
     @State private var cursor: Int?
     @State private var hasMore = false
     @State private var loading = false
+    @State private var loadError: String?
+
+    private var gridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 240, maximum: 360), spacing: 12, alignment: .top)]
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -19,19 +24,30 @@ struct MyLibraryGridView: View {
                 if !auth.isLoggedIn {
                     SignedOutInline(message: "Sign in to view your \(kind.rawValue).")
                 } else if loading && items.isEmpty {
-                    HStack { Spacer(); ProgressView(); Spacer() }.frame(height: 120)
+                    WallpaperGridSkeleton(columns: gridColumns, count: 12, spacing: 12)
+                } else if let err = loadError, items.isEmpty {
+                    RemoteLoadErrorView(message: err) {
+                        Task { await reload() }
+                    }
                 } else if items.isEmpty {
                     Text("Nothing here yet.")
                         .font(.sans13).foregroundStyle(Color.muted).padding(.top, 24)
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: 360), spacing: 12, alignment: .top)], spacing: 12) {
+                    LazyVGrid(columns: gridColumns, spacing: 12) {
                         ForEach(items) { wp in
                             Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
                                 .buttonStyle(.plain)
                                 .onAppear { maybeLoadMore(wp) }
                         }
                     }
-                    if hasMore {
+                    if let err = loadError {
+                        HStack(spacing: 10) {
+                            Text(err).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
+                            Button("Retry") { Task { await loadMore() } }.controlSize(.small)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 18)
+                    } else if hasMore {
                         HStack { Spacer(); ProgressView().controlSize(.small).opacity(loading ? 1 : 0); Spacer() }
                             .frame(height: 24)
                     }
@@ -44,11 +60,13 @@ struct MyLibraryGridView: View {
 
     private func reload() async {
         items = []; cursor = nil; hasMore = false
+        loadError = nil
         await loadMore()
     }
     private func loadMore() async {
         guard auth.isLoggedIn, !loading, let u = auth.user else { return }
         loading = true; defer { loading = false }
+        loadError = nil
         do {
             let data: PaginatedData<Wallpaper>
             switch kind {
@@ -60,7 +78,9 @@ struct MyLibraryGridView: View {
             items.append(contentsOf: data.items)
             cursor = data.nextCursor
             hasMore = data.hasMore
-        } catch {}
+        } catch {
+            loadError = error.localizedDescription
+        }
     }
     private func maybeLoadMore(_ wp: Wallpaper) {
         guard hasMore, !loading, let last = items.last, wp.id == last.id else { return }
@@ -74,6 +94,11 @@ struct MyLibraryCollectionsView: View {
     @State private var auth = AuthService.shared
     @State private var items: [CollectionBrief] = []
     @State private var loading = false
+    @State private var loadError: String?
+
+    private var gridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 12, alignment: .top)]
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -81,12 +106,16 @@ struct MyLibraryCollectionsView: View {
                 if !auth.isLoggedIn {
                     SignedOutInline(message: "Sign in to view your collections.")
                 } else if loading && items.isEmpty {
-                    HStack { Spacer(); ProgressView(); Spacer() }.frame(height: 120)
+                    WallpaperGridSkeleton(columns: gridColumns, count: 12, spacing: 12, aspectRatio: 3.0 / 2.0, cornerRadius: 12)
+                } else if let err = loadError {
+                    RemoteLoadErrorView(message: err) {
+                        Task { await load() }
+                    }
                 } else if items.isEmpty {
                     Text("You haven't created any collections yet.")
                         .font(.sans13).foregroundStyle(Color.muted).padding(.top, 24)
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 12, alignment: .top)], spacing: 12) {
+                    LazyVGrid(columns: gridColumns, spacing: 12) {
                         ForEach(items) { c in
                             MyCollectionCard(brief: c)
                         }
@@ -98,9 +127,14 @@ struct MyLibraryCollectionsView: View {
         .task { await load() }
     }
     private func load() async {
+        guard auth.isLoggedIn else { return }
+        loadError = nil
         loading = true; defer { loading = false }
-        if let list = try? await APIClient.shared.fetchMyCollections(limit: 100) {
+        do {
+            let list = try await APIClient.shared.fetchMyCollections(limit: 100)
             items = list
+        } catch {
+            loadError = error.localizedDescription
         }
     }
 }
@@ -140,6 +174,7 @@ struct MyCoinsView: View {
     @State private var cursor: Int?
     @State private var hasMore = false
     @State private var loading = false
+    @State private var loadError: String?
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -191,8 +226,11 @@ struct MyCoinsView: View {
             .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
 
             if loading && tx.isEmpty {
-                HStack { Spacer(); ProgressView().controlSize(.small); Spacer() }
-                    .frame(height: 60)
+                LedgerRowsSkeleton(rows: 4)
+            } else if let err = loadError, tx.isEmpty {
+                RemoteLoadErrorView(title: "Could not load transactions", message: err) {
+                    Task { await reload() }
+                }
             } else if tx.isEmpty {
                 Text("No transactions yet.")
                     .font(.sans12).foregroundStyle(Color.muted)
@@ -203,7 +241,14 @@ struct MyCoinsView: View {
                         ledgerRow(t).onAppear { maybeLoadMore(t) }
                     }
                 }
-                if hasMore {
+                if let err = loadError {
+                    HStack(spacing: 10) {
+                        Text(err).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
+                        Button("Retry") { Task { await loadMore() } }.controlSize(.small)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                } else if hasMore {
                     HStack { Spacer(); ProgressView().controlSize(.small).opacity(loading ? 1 : 0); Spacer() }
                         .frame(height: 24)
                 }
@@ -261,16 +306,21 @@ struct MyCoinsView: View {
 
     private func reload() async {
         tx = []; cursor = nil; hasMore = false
+        loadError = nil
         await loadMore()
         await auth.refreshProfile()
     }
     private func loadMore() async {
         guard auth.isLoggedIn, !loading else { return }
         loading = true; defer { loading = false }
-        if let data = try? await APIClient.shared.fetchCoinTransactions(cursor: cursor, limit: 30) {
+        loadError = nil
+        do {
+            let data = try await APIClient.shared.fetchCoinTransactions(cursor: cursor, limit: 30)
             tx.append(contentsOf: data.items)
             cursor = data.nextCursor
             hasMore = data.hasMore
+        } catch {
+            loadError = error.localizedDescription
         }
     }
     private func maybeLoadMore(_ t: CoinTransaction) {

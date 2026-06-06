@@ -96,17 +96,20 @@ struct DetailPage: View {
                         // intrinsic width influence its horizontal origin.
                         .frame(width: layout.size.width, alignment: .center)
                     } else if let err = loadError {
-                        VStack(spacing: 10) {
-                            Image(systemName: "exclamationmark.triangle").font(.system(size: 30)).foregroundStyle(Color.warn)
-                            Text(err).font(.sans12).foregroundStyle(Color.muted)
-                            Button("Retry") { Task { await load() } }
+                        RemoteLoadErrorView(message: err) {
+                            Task { await load() }
                         }
-                        .padding(.top, 80)
-                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, layout.horizontalPadding)
+                        .padding(.top, 48)
+                        .frame(width: layout.pageWidth, alignment: .leading)
+                        .frame(width: layout.size.width, alignment: .center)
                     } else {
-                        ProgressView()
-                            .padding(.top, 80)
-                            .frame(maxWidth: .infinity)
+                        detailSkeleton(layout: layout)
+                            .padding(.horizontal, layout.horizontalPadding)
+                            .padding(.top, layout.topPadding)
+                            .padding(.bottom, layout.bottomPadding)
+                            .frame(width: layout.pageWidth, alignment: .leading)
+                            .frame(width: layout.size.width, alignment: .center)
                     }
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
@@ -118,6 +121,70 @@ struct DetailPage: View {
             }
         }
         .task(id: slug) { await load() }
+    }
+
+    private func detailSkeleton(layout: DetailLayout) -> some View {
+        VStack(alignment: .leading, spacing: layout.isCompact ? 18 : 24) {
+            VStack(spacing: layout.stageSpacing) {
+                SkeletonPlate(aspectRatio: 16.0 / 9.0, cornerRadius: 18)
+                    .frame(maxHeight: layout.heroMaxHeight)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        SkeletonLine(width: 160, height: 16)
+                        SkeletonLine(width: 220, height: 11)
+                        Spacer(minLength: 0)
+                    }
+                    Rectangle().fill(Color.hair).frame(height: 1)
+                    HStack(spacing: 8) {
+                        ForEach(0..<4, id: \.self) { _ in
+                            SkeletonLine(width: 96, height: 30, cornerRadius: 15)
+                        }
+                        Spacer(minLength: 0)
+                        SkeletonLine(width: 160, height: 34, cornerRadius: 17)
+                    }
+                }
+                .padding(layout.actionPadding)
+                .background(RoundedRectangle(cornerRadius: 18).fill(Color.paper.opacity(0.82)))
+            }
+            .padding(layout.stagePadding)
+            .background(
+                ZStack {
+                    Color.paper
+                    LinearGradient(colors: [Color.paper2.opacity(0.8), Color.paper.opacity(0)],
+                                   startPoint: .top, endPoint: .bottom)
+                }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.white.opacity(0.4), lineWidth: 1))
+
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    ForEach(0..<4, id: \.self) { _ in
+                        VStack(alignment: .leading, spacing: 6) {
+                            SkeletonLine(width: 86, height: 8)
+                            SkeletonLine(width: 42, height: 24)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                    }
+                }
+                .padding(.vertical, 14)
+                .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
+                HStack(alignment: .top, spacing: 24) {
+                    ForEach(0..<3, id: \.self) { _ in
+                        VStack(alignment: .leading, spacing: 10) {
+                            SkeletonLine(width: 112, height: 9)
+                            SkeletonLine(width: 180, height: 24)
+                            SkeletonLine(width: 220, height: 12)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(layout.metaPadding)
+            }
+            .background(RoundedRectangle(cornerRadius: 16).fill(Color.paper))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.hair, lineWidth: 1))
+        }
     }
 
     // Full-bleed blurred preview of the wallpaper itself behind the

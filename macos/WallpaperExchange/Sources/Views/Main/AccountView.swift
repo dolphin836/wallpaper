@@ -43,9 +43,15 @@ struct AccountView: View {
                     tabBar
                     content(p).padding(.top, 26)
                 } else if let err = loadError {
-                    Text(err).font(.sans12).foregroundStyle(Color.muted).padding(.top, 80)
+                    RemoteLoadErrorView(message: err) {
+                        Task {
+                            await loadProfile()
+                            await prefetchCounts()
+                        }
+                    }
+                    .padding(.top, 36)
                 } else {
-                    ProgressView().frame(maxWidth: .infinity).padding(.top, 80)
+                    accountSkeleton
                 }
             }
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
@@ -61,6 +67,24 @@ struct AccountView: View {
         // brand mesh; image tabs set their base palette via onPalette.
         .onChange(of: tab) { _, new in if new == .settings { PaletteEnv.shared.resetToDefaults() } }
         .onDisappear { PaletteEnv.shared.resetToDefaults() }
+    }
+
+    private var accountSkeleton: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            ProfileHeaderSkeleton()
+            HStack(spacing: 22) {
+                ForEach(0..<6, id: \.self) { _ in
+                    SkeletonLine(width: 104, height: 38, cornerRadius: 4)
+                }
+            }
+            .padding(.top, 4)
+            .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
+            WallpaperGridSkeleton(
+                columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14, alignment: .top)],
+                count: 12
+            )
+            .padding(.top, 2)
+        }
     }
 
     // Drive the page-mesh background. A nil palette/dominant means the
@@ -463,13 +487,14 @@ struct PagedWallpaperGrid: View {
     @State private var total = 0
     @State private var loading = false
     @State private var loaded = false
+    @State private var loadError: String?
 
     private let pageSize = 24
     private var totalPages: Int { total > 0 ? Int(ceil(Double(total) / Double(pageSize))) : max(cursors.count, 1) }
 
     var body: some View {
         Group {
-            if hideWhenEmpty && loaded && items.isEmpty {
+            if hideWhenEmpty && loaded && items.isEmpty && loadError == nil {
                 EmptyView()
             } else {
                 VStack(alignment: .leading, spacing: 16) {
@@ -479,7 +504,14 @@ struct PagedWallpaperGrid: View {
                     LabelRule(text: "\(headLabel) · \(loaded ? "\(total)" : "…")")
 
                     if loading && items.isEmpty {
-                        ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
+                        WallpaperGridSkeleton(
+                            columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14, alignment: .top)],
+                            count: 12
+                        )
+                    } else if let err = loadError, items.isEmpty {
+                        RemoteLoadErrorView(message: err) {
+                            Task { await loadPage(page) }
+                        }
                     } else if items.isEmpty {
                         Text(emptyText).font(.sans13).foregroundStyle(Color.muted).padding(.vertical, 24)
                     } else {
@@ -493,6 +525,14 @@ struct PagedWallpaperGrid: View {
                             }
                         }
                         PageBar(current: page, totalPages: totalPages, maxReachable: cursors.count) { p in Task { await loadPage(p) } }
+                        if let err = loadError {
+                            HStack(spacing: 10) {
+                                Text(err).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
+                                Button("Retry") { Task { await loadPage(page) } }.controlSize(.small)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 8)
+                        }
                     }
                 }
             }
@@ -506,6 +546,7 @@ struct PagedWallpaperGrid: View {
     private func loadPage(_ p: Int) async {
         guard p >= 1, p <= cursors.count else { return }
         loading = true; defer { loading = false }
+        loadError = nil
         do {
             let data = try await fetch(cursors[p - 1], pageSize)
             items = data.items
@@ -516,7 +557,10 @@ struct PagedWallpaperGrid: View {
                 if cursors.count == p { cursors.append(nc) } else if p < cursors.count { cursors[p] = nc }
             }
             page = p; loaded = true
-        } catch { loaded = true }
+        } catch {
+            loadError = error.localizedDescription
+            loaded = true
+        }
     }
 }
 
@@ -534,6 +578,7 @@ struct PagedCollectionGrid: View {
     @State private var total = 0
     @State private var loading = false
     @State private var loaded = false
+    @State private var loadError: String?
 
     private let pageSize = 12
     private var totalPages: Int { total > 0 ? Int(ceil(Double(total) / Double(pageSize))) : max(cursors.count, 1) }
@@ -543,7 +588,15 @@ struct PagedCollectionGrid: View {
         VStack(alignment: .leading, spacing: 16) {
             LabelRule(text: "\(headLabel) · \(loaded ? "\(total)" : "…")")
             if loading && items.isEmpty {
-                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
+                CollectionGridSkeleton(
+                    columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)],
+                    count: 8,
+                    spacing: 28
+                )
+            } else if let err = loadError, items.isEmpty {
+                RemoteLoadErrorView(message: err) {
+                    Task { await loadPage(page) }
+                }
             } else if items.isEmpty {
                 Text("No collections yet.").font(.sans13).foregroundStyle(Color.muted).padding(.vertical, 24)
             } else {
@@ -553,6 +606,14 @@ struct PagedCollectionGrid: View {
                     }
                 }
                 PageBar(current: page, totalPages: totalPages, maxReachable: cursors.count) { p in Task { await loadPage(p) } }
+                if let err = loadError {
+                    HStack(spacing: 10) {
+                        Text(err).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
+                        Button("Retry") { Task { await loadPage(page) } }.controlSize(.small)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 8)
+                }
             }
         }
         .task { if !loaded { await loadPage(1) } }
@@ -562,6 +623,7 @@ struct PagedCollectionGrid: View {
     private func loadPage(_ p: Int) async {
         guard p >= 1, p <= cursors.count else { return }
         loading = true; defer { loading = false }
+        loadError = nil
         do {
             let data = try await fetch(cursors[p - 1], pageSize)
             items = data.items
@@ -572,7 +634,10 @@ struct PagedCollectionGrid: View {
                 if cursors.count == p { cursors.append(nc) } else if p < cursors.count { cursors[p] = nc }
             }
             page = p; loaded = true
-        } catch { loaded = true }
+        } catch {
+            loadError = error.localizedDescription
+            loaded = true
+        }
     }
 }
 
@@ -587,6 +652,7 @@ struct LedgerTab: View {
     @State private var total = 0
     @State private var loading = false
     @State private var loaded = false
+    @State private var loadError: String?
     @State private var auth = AuthService.shared
 
     private let pageSize = 12
@@ -604,12 +670,24 @@ struct LedgerTab: View {
             }
             LabelRule(text: "LEDGER · \(loaded ? "\(total)" : "…")")
             if loading && txs.isEmpty {
-                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
+                LedgerRowsSkeleton(rows: 4)
+            } else if let err = loadError, txs.isEmpty {
+                RemoteLoadErrorView(title: "Could not load transactions", message: err) {
+                    Task { await loadPage(page) }
+                }
             } else if txs.isEmpty {
                 Text("No transactions yet.").font(.sans13).foregroundStyle(Color.muted).padding(.vertical, 24)
             } else {
                 VStack(spacing: 8) { ForEach(txs) { tx in ledgerRow(tx) } }
                 PageBar(current: page, totalPages: totalPages, maxReachable: cursors.count) { p in Task { await loadPage(p) } }
+                if let err = loadError {
+                    HStack(spacing: 10) {
+                        Text(err).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
+                        Button("Retry") { Task { await loadPage(page) } }.controlSize(.small)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 8)
+                }
             }
         }
         .task { if !loaded { await loadPage(1) } }
@@ -671,6 +749,7 @@ struct LedgerTab: View {
     private func loadPage(_ p: Int) async {
         guard p >= 1, p <= cursors.count else { return }
         loading = true; defer { loading = false }
+        loadError = nil
         do {
             let data = try await APIClient.shared.fetchCoinTransactions(cursor: cursors[p - 1], limit: pageSize)
             txs = data.items
@@ -680,7 +759,10 @@ struct LedgerTab: View {
                 if cursors.count == p { cursors.append(nc) } else if p < cursors.count { cursors[p] = nc }
             }
             page = p; loaded = true
-        } catch { loaded = true }
+        } catch {
+            loadError = error.localizedDescription
+            loaded = true
+        }
     }
 }
 

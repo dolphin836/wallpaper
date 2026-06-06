@@ -313,34 +313,11 @@ struct UploadView: View {
                 .frame(maxWidth: 680, alignment: .leading)
 
             if pendingLoading && pendingUploads.isEmpty {
-                ProgressView()
-                    .controlSize(.small)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 28)
+                WallpaperGridSkeleton(columns: pendingGridColumns, count: 8, spacing: 14, aspectRatio: 3.0 / 2.0, cornerRadius: 10)
             } else if let pendingError {
-                HStack(spacing: 12) {
-                    Image(systemName: "exclamationmark.circle")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(Color.warn)
-                    Text(pendingError)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.ink2)
-                    Spacer(minLength: 0)
-                    Button(action: { Task { await loadPendingUploads() } }) {
-                        Text("Retry")
-                            .font(.mono10)
-                            .tracking(1.2)
-                            .foregroundStyle(Color.ink)
-                            .textCase(.uppercase)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(Capsule().fill(Color.paper2))
-                    }
-                    .buttonStyle(.plain)
+                RemoteLoadErrorView(title: "Could not load pending uploads", message: pendingError) {
+                    Task { await loadPendingUploads() }
                 }
-                .padding(14)
-                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.paper.opacity(0.72)))
-                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.hair, lineWidth: 1))
             } else {
                 LazyVGrid(columns: pendingGridColumns, spacing: 14) {
                     ForEach(pendingUploads) { wallpaper in

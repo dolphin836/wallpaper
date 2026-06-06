@@ -29,9 +29,16 @@ struct CollectionsListView: View {
                 header
 
                 if loading && items.isEmpty {
-                    ProgressView().padding(.top, 50).frame(maxWidth: .infinity)
+                    CollectionGridSkeleton(
+                        columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)],
+                        count: 8,
+                        spacing: 28
+                    )
+                    .padding(.top, 28)
                 } else if let err = loadError, items.isEmpty {
-                    Text(err).font(.sans12).foregroundStyle(Color.warn).padding(.top, 30)
+                    RemoteLoadErrorView(message: err) {
+                        Task { await reload() }
+                    }
                 } else if visible.isEmpty {
                     Text(filter == .yours ? "You haven't created any collections yet." : "No collections yet.")
                         .font(.sans13).foregroundStyle(Color.muted)
@@ -314,6 +321,7 @@ struct CollectionDetailView: View {
     @State private var curator: PublicProfile?
     @State private var items: [Wallpaper] = []
     @State private var loading = false
+    @State private var loadError: String?
 
     // Inline edit (owner-only, hand-made collections only).
     @State private var editing = false
@@ -335,47 +343,65 @@ struct CollectionDetailView: View {
         return "\(total) \(total == 1 ? "PIECE" : "PIECES")"
     }
 
+    private var gridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 200, maximum: 280), spacing: 24, alignment: .top)]
+    }
+
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
                 BackLink(label: "All collections") { dismiss() }
 
-                if let c = info { heroRow(c).padding(.top, 14) }
-
-                // "THE SET" head — mirrors the web's c-detail-grid-head.
-                HStack {
-                    Text("THE SET")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .tracking(2.2).foregroundStyle(Color.muted)
-                    Spacer()
-                    Text(setCountLabel)
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .tracking(1.8).foregroundStyle(Color.muted)
-                }
-                .padding(.top, 34)
-                .overlay(alignment: .bottom) {
-                    Rectangle().fill(Color.hair.opacity(0.6)).frame(height: 1).offset(y: 12)
-                }
-
-                if loading && items.isEmpty {
-                    ProgressView().padding(.top, 40).frame(maxWidth: .infinity)
-                } else {
-                    // Framed-print grid — 3:4 paper-mat tiles like a gallery
-                    // wall (the web's FramedTile / .cd-frame).
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 200, maximum: 280), spacing: 24, alignment: .top)], spacing: 24) {
-                        ForEach(items) { wp in
-                            FramedTile(
-                                wallpaper: wp,
-                                accent: tint,
-                                onTap: { onWallpaper(wp) },
-                                onHover: { h in
-                                    if h { PaletteEnv.shared.apply(palette: wp.colorPalette, dominant: wp.dominantColor) }
-                                    else { applyBasePalette() }
-                                }
-                            )
-                        }
+                if loading && info == nil && items.isEmpty {
+                    detailSkeleton.padding(.top, 14)
+                } else if let err = loadError, info == nil && items.isEmpty {
+                    RemoteLoadErrorView(message: err) {
+                        Task { await load() }
                     }
-                    .padding(.top, 28)
+                    .padding(.top, 20)
+                } else {
+                    if let c = info { heroRow(c).padding(.top, 14) }
+
+                    // "THE SET" head — mirrors the web's c-detail-grid-head.
+                    HStack {
+                        Text("THE SET")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .tracking(2.2).foregroundStyle(Color.muted)
+                        Spacer()
+                        Text(setCountLabel)
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .tracking(1.8).foregroundStyle(Color.muted)
+                    }
+                    .padding(.top, 34)
+                    .overlay(alignment: .bottom) {
+                        Rectangle().fill(Color.hair.opacity(0.6)).frame(height: 1).offset(y: 12)
+                    }
+
+                    if loading && items.isEmpty {
+                        WallpaperGridSkeleton(columns: gridColumns, count: 12, spacing: 24, aspectRatio: 3.0 / 4.0, cornerRadius: 6)
+                            .padding(.top, 28)
+                    } else if let err = loadError, items.isEmpty {
+                        RemoteLoadErrorView(message: err) {
+                            Task { await load() }
+                        }
+                    } else {
+                        // Framed-print grid — 3:4 paper-mat tiles like a gallery
+                        // wall (the web's FramedTile / .cd-frame).
+                        LazyVGrid(columns: gridColumns, spacing: 24) {
+                            ForEach(items) { wp in
+                                FramedTile(
+                                    wallpaper: wp,
+                                    accent: tint,
+                                    onTap: { onWallpaper(wp) },
+                                    onHover: { h in
+                                        if h { PaletteEnv.shared.apply(palette: wp.colorPalette, dominant: wp.dominantColor) }
+                                        else { applyBasePalette() }
+                                    }
+                                )
+                            }
+                        }
+                        .padding(.top, 28)
+                    }
                 }
             }
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
@@ -387,6 +413,25 @@ struct CollectionDetailView: View {
 
     private var tint: Color {
         (info?.recentTiles?.first?.dominantColor ?? info?.accentColor).map { Color(hex: $0) } ?? Color.accent
+    }
+
+    private var detailSkeleton: some View {
+        VStack(alignment: .leading, spacing: 34) {
+            HStack(alignment: .top, spacing: 32) {
+                SkeletonPlate(aspectRatio: 1, cornerRadius: 10)
+                    .frame(width: 340, height: 340)
+                VStack(alignment: .leading, spacing: 14) {
+                    SkeletonLine(width: 128, height: 9)
+                    SkeletonLine(width: 320, height: 36)
+                    SkeletonLine(width: 420, height: 12)
+                    SkeletonLine(width: 360, height: 12)
+                    SkeletonLine(width: 180, height: 34, cornerRadius: 17)
+                }
+                Spacer(minLength: 0)
+            }
+            LabelRule(text: "THE SET · …")
+            WallpaperGridSkeleton(columns: gridColumns, count: 12, spacing: 24, aspectRatio: 3.0 / 4.0, cornerRadius: 6)
+        }
     }
 
     // Hero row — a framed (paper-mat) cover on the left, kicker / title
@@ -552,6 +597,7 @@ struct CollectionDetailView: View {
     }
 
     private func load() async {
+        loadError = nil
         loading = true; defer { loading = false }
         do {
             let c = try await APIClient.shared.fetchCollection(slug: slug)
@@ -567,7 +613,9 @@ struct CollectionDetailView: View {
             }
             let data = try await APIClient.shared.fetchCollectionWallpapers(collectionID: c.id, limit: 36)
             items = data.items
-        } catch {}
+        } catch {
+            loadError = error.localizedDescription
+        }
     }
 }
 

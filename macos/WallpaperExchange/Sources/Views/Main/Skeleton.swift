@@ -1,8 +1,8 @@
 import SwiftUI
 
-// Skeleton placeholder tiles for the Home page sections, mirroring the
-// web's <SkeletonTile variant="..."/> from HomePage.tsx + the
-// .skeleton-card shimmer in index.css.
+// Shared skeleton placeholders for remote-loading surfaces. The original
+// tiles mirror the web's <SkeletonTile variant="..."/> from HomePage.tsx
+// + the .skeleton-card shimmer in index.css.
 //
 // Web recipe:
 //   1. Tile chrome — same rounded-corner box the real tile uses
@@ -40,6 +40,214 @@ enum SkeletonVariant {
         case .live:       return 10
         case .collection: return 14
         }
+    }
+}
+
+struct SkeletonPlate: View {
+    var aspectRatio: CGFloat = 3.0 / 2.0
+    var cornerRadius: CGFloat = 10
+    var shadow: Bool = true
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color.paper2)
+            ShimmerBand()
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(Color.white.opacity(0.45), lineWidth: 0.5)
+                .blendMode(.overlay)
+                .allowsHitTesting(false)
+        }
+        .aspectRatio(aspectRatio, contentMode: .fit)
+        .shadow(color: Color.black.opacity(shadow ? 0.10 : 0), radius: 8, x: 0, y: 4)
+    }
+}
+
+struct SkeletonLine: View {
+    var width: CGFloat? = nil
+    var height: CGFloat = 10
+    var cornerRadius: CGFloat = 4
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color.paper2)
+            .frame(width: width, height: height)
+            .overlay { ShimmerBand().clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)) }
+    }
+}
+
+struct WallpaperGridSkeleton: View {
+    let columns: [GridItem]
+    var count: Int = 12
+    var spacing: CGFloat = 14
+    var aspectRatio: CGFloat = 3.0 / 2.0
+    var cornerRadius: CGFloat = 10
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: spacing) {
+            ForEach(0..<count, id: \.self) { _ in
+                VStack(alignment: .leading, spacing: 8) {
+                    SkeletonPlate(aspectRatio: aspectRatio, cornerRadius: cornerRadius)
+                    SkeletonLine(width: 92, height: 9)
+                }
+            }
+        }
+    }
+}
+
+struct CollectionGridSkeleton: View {
+    let columns: [GridItem]
+    var count: Int = 8
+    var spacing: CGFloat = 24
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: spacing) {
+            ForEach(0..<count, id: \.self) { _ in
+                VStack(alignment: .leading, spacing: 12) {
+                    SkeletonTile(variant: .collection)
+                    SkeletonLine(width: 86, height: 8)
+                    SkeletonLine(width: 150, height: 18)
+                    SkeletonLine(width: 102, height: 8)
+                }
+            }
+        }
+    }
+}
+
+struct CardListSkeleton: View {
+    var rows: Int = 4
+    var thumbSize: CGSize = CGSize(width: 56, height: 56)
+    var rowHeight: CGFloat = 112
+
+    var body: some View {
+        VStack(spacing: 14) {
+            ForEach(0..<rows, id: \.self) { _ in
+                HStack(alignment: .top, spacing: 14) {
+                    SkeletonPlate(aspectRatio: thumbSize.width / max(thumbSize.height, 1), cornerRadius: min(thumbSize.width, thumbSize.height) / 2)
+                        .frame(width: thumbSize.width, height: thumbSize.height)
+                    VStack(alignment: .leading, spacing: 8) {
+                        SkeletonLine(width: 160, height: 16)
+                        SkeletonLine(width: 100, height: 9)
+                        SkeletonLine(width: 230, height: 9)
+                        HStack(spacing: 14) {
+                            SkeletonLine(width: 68, height: 20)
+                            SkeletonLine(width: 82, height: 20)
+                        }
+                        .padding(.top, 2)
+                    }
+                    Spacer(minLength: 0)
+                    VStack(spacing: 3) {
+                        ForEach(0..<3, id: \.self) { _ in
+                            SkeletonPlate(aspectRatio: 38.0 / 26.0, cornerRadius: 3, shadow: false)
+                                .frame(width: 38, height: 26)
+                        }
+                    }
+                }
+                .padding(14)
+                .frame(minHeight: rowHeight, alignment: .top)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.paper.opacity(0.55)))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.hair, lineWidth: 1))
+            }
+        }
+    }
+}
+
+struct ProfileHeaderSkeleton: View {
+    var body: some View {
+        HStack(alignment: .top, spacing: 24) {
+            SkeletonPlate(aspectRatio: 1, cornerRadius: 48)
+                .frame(width: 96, height: 96)
+            VStack(alignment: .leading, spacing: 10) {
+                SkeletonLine(width: 180, height: 10)
+                SkeletonLine(width: 240, height: 30)
+                SkeletonLine(width: 420, height: 12)
+                HStack(spacing: 24) {
+                    ForEach(0..<4, id: \.self) { _ in
+                        VStack(alignment: .leading, spacing: 6) {
+                            SkeletonLine(width: 72, height: 8)
+                            SkeletonLine(width: 42, height: 22)
+                        }
+                    }
+                }
+                .padding(.top, 6)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.bottom, 20)
+        .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
+    }
+}
+
+struct LedgerRowsSkeleton: View {
+    var rows: Int = 4
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(0..<rows, id: \.self) { _ in
+                HStack(spacing: 14) {
+                    SkeletonPlate(aspectRatio: 1, cornerRadius: 14, shadow: false)
+                        .frame(width: 28, height: 28)
+                    VStack(alignment: .leading, spacing: 6) {
+                        SkeletonLine(width: 220, height: 12)
+                        SkeletonLine(width: 96, height: 8)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 6) {
+                        SkeletonLine(width: 42, height: 14)
+                        SkeletonLine(width: 58, height: 8)
+                    }
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 12)
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(Color.hair.opacity(0.6)).frame(height: 0.5).padding(.horizontal, 18)
+                }
+            }
+        }
+    }
+}
+
+struct RemoteLoadErrorView: View {
+    var title: String = "Could not load this page"
+    var message: String
+    var retryTitle: String = "Retry"
+    var retry: (() -> Void)? = nil
+
+    var body: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle().fill(Color.warn.opacity(0.12))
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(Color.warn)
+            }
+            .frame(width: 44, height: 44)
+            Text(title)
+                .font(.system(size: 18, weight: .regular, design: .serif))
+                .foregroundStyle(Color.ink)
+            Text(message)
+                .font(.system(size: 12))
+                .lineSpacing(3)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Color.muted)
+                .frame(maxWidth: 420)
+            if let retry = retry {
+                Button(action: retry) {
+                    Text(retryTitle)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.ink)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(Color.paper2))
+                        .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 56)
     }
 }
 
