@@ -22,9 +22,16 @@ struct DetailPage: View {
     @State private var isLiked: Bool = false
     @State private var isFavorited: Bool = false
     @State private var myCollections: [CollectionBrief] = []
+    @State private var downloadNotice: DownloadNotice?
     @Environment(\.dismiss) private var dismiss
 
     enum PreviewMode: String { case off = "Wallpaper", plain = "Plain", home = "Home", lock = "Lock" }
+    private enum DownloadNotice: Equatable {
+        case success
+        case insufficientCoins
+        case unavailable
+        case failed(String)
+    }
 
     private struct DetailLayout {
         let size: CGSize
@@ -222,7 +229,9 @@ struct DetailPage: View {
         let tint = Color(hex: d.dominantColor ?? "#888")
         return VStack(spacing: layout.stageSpacing) {
             hero(detail: d, layout: layout)
+            downloadProgressBar(detail: d)
             actionBar(detail: d, layout: layout)
+            downloadNoticeView(detail: d)
         }
         .padding(layout.stagePadding)
         .background(
@@ -252,6 +261,149 @@ struct DetailPage: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private func downloadProgressBar(detail d: WallpaperDetail) -> some View {
+        if manager.downloading.contains(d.id) {
+            let progress = max(0, min(manager.downloadProgress[d.id] ?? 0, 1))
+            VStack(alignment: .leading, spacing: 7) {
+                HStack {
+                    Text(progress > 0 ? "DOWNLOADING ORIGINAL" : "PREPARING ORIGINAL")
+                        .font(.mono10)
+                        .tracking(1.4)
+                        .foregroundStyle(Color.accentInk)
+                    Spacer()
+                    Text(progress > 0 ? "\(Int(progress * 100))%" : "…")
+                        .font(.mono10)
+                        .tracking(0.8)
+                        .foregroundStyle(Color.muted)
+                        .monospacedDigit()
+                }
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.accent.opacity(0.16))
+                        Capsule()
+                            .fill(LinearGradient(
+                                colors: [Color.accent, Color.accent.blended(with: Color.ink, fraction: 0.28)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ))
+                            .frame(width: max(progress > 0 ? 16 : 28, proxy.size.width * CGFloat(progress)))
+                    }
+                }
+                .frame(height: 6)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.accentSoft.opacity(0.92)))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.accent.opacity(0.24), lineWidth: 1))
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
+    @ViewBuilder
+    private func downloadNoticeView(detail d: WallpaperDetail) -> some View {
+        if let downloadNotice {
+            let tone = noticeTone(downloadNotice)
+            HStack(alignment: .center, spacing: 14) {
+                ZStack {
+                    Circle().fill(tone.ink.opacity(0.13))
+                    Image(systemName: noticeIcon(downloadNotice))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(tone.ink)
+                }
+                .frame(width: 34, height: 34)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(noticeTitle(downloadNotice))
+                        .font(.mono10)
+                        .tracking(1.4)
+                        .textCase(.uppercase)
+                        .foregroundStyle(tone.ink)
+                    Text(noticeMessage(downloadNotice, detail: d))
+                        .font(.system(size: 12))
+                        .lineSpacing(2)
+                        .foregroundStyle(tone.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                if downloadNotice == .insufficientCoins {
+                    Button(action: openUploadOnWeb) {
+                        Text("Upload to earn")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(tone.ink))
+                    }
+                    .buttonStyle(.plain)
+                }
+                Button(action: { self.downloadNotice = nil }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(tone.ink.opacity(0.74))
+                        .frame(width: 24, height: 24)
+                        .background(Circle().fill(Color.white.opacity(0.45)))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(tone.background))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(tone.border, lineWidth: 1))
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
+    private func noticeTone(_ notice: DownloadNotice) -> (background: Color, border: Color, ink: Color, text: Color) {
+        switch notice {
+        case .success:
+            let ink = Color(hex: "#2f6b3e")
+            return (Color(hex: "#edf8ef"), ink.opacity(0.65), ink, Color(hex: "#1f4827"))
+        case .insufficientCoins:
+            let ink = Color(hex: "#9a6a18")
+            return (Color(hex: "#fbf2dd"), Color(hex: "#b07a1a").opacity(0.72), ink, Color(hex: "#5e3f08"))
+        case .unavailable, .failed:
+            return (Color.warn.opacity(0.10), Color.warn.opacity(0.36), Color.warn, Color.ink2)
+        }
+    }
+
+    private func noticeIcon(_ notice: DownloadNotice) -> String {
+        switch notice {
+        case .success: "checkmark"
+        case .insufficientCoins: "creditcard"
+        case .unavailable: "hammer"
+        case .failed: "exclamationmark"
+        }
+    }
+
+    private func noticeTitle(_ notice: DownloadNotice) -> String {
+        switch notice {
+        case .success: "Downloaded"
+        case .insufficientCoins: "Insufficient coins"
+        case .unavailable: "Not ready to download"
+        case .failed: "Download failed"
+        }
+    }
+
+    private func noticeMessage(_ notice: DownloadNotice, detail d: WallpaperDetail) -> String {
+        switch notice {
+        case .success:
+            return "wallpaper_\(String(format: "%03d", d.id)) · \(byteString(d.fileSize)) saved to your Wallpaper Exchange downloads."
+        case .insufficientCoins:
+            let balance = auth.user?.coins ?? 0
+            return "Your balance is \(balance) coin\(balance == 1 ? "" : "s"). Upload wallpapers to earn more and keep downloading."
+        case .unavailable:
+            return "The original file is still being prepared or is temporarily unavailable. Try again in a moment."
+        case .failed(let message):
+            return message
+        }
+    }
+
+    private func openUploadOnWeb() {
+        if let url = URL(string: "https://wallpaperexchange.com/upload") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     // Raw wallpaper mirrors web .wd-hero-img: the image gets max-width /
@@ -380,34 +532,25 @@ struct DetailPage: View {
 
     private func downloadActions(detail: WallpaperDetail) -> some View {
         let downloading = manager.downloading.contains(detail.id)
-        let progress = manager.downloadProgress[detail.id]
         return HStack(spacing: 6) {
-            Button(action: { Task { try? await manager.download(wallpaper: lightWallpaper(detail)) } }) {
+            Button(action: { Task { await downloadOriginal(detail) } }) {
                 downloadLabel(icon: "tray.and.arrow.down",
-                              text: progressText(defaultText: "Download", progress: progress),
-                              emphasized: false)
+                              text: downloading ? "Downloading" : "Download",
+                              emphasized: true)
             }
             .disabled(downloading)
             .buttonStyle(.plain)
             Button(action: {
-                Task {
-                    try? await manager.download(wallpaper: lightWallpaper(detail))
-                    try? await manager.setAsWallpaper(lightWallpaper(detail))
-                }
+                Task { await downloadOriginalAndSet(detail) }
             }) {
                 downloadLabel(icon: "arrow.down.circle.fill",
-                              text: progressText(defaultText: "Download & set · 1 coin", progress: progress),
+                              text: "Download & set · 1 coin",
                               emphasized: true)
             }
             .disabled(downloading)
             .buttonStyle(.plain)
             .keyboardShortcut("d", modifiers: .command)
         }
-    }
-
-    private func progressText(defaultText: String, progress: Double?) -> String {
-        guard let progress else { return defaultText }
-        return "\(Int(progress * 100))%"
     }
 
     private func downloadLabel(icon: String, text: String, emphasized: Bool) -> some View {
@@ -667,8 +810,80 @@ struct DetailPage: View {
     }
 
     // ─── Actions ────────────────────────────────────────────────
+    private func canSpendForDownload(_ detail: WallpaperDetail) -> Bool {
+        if auth.user?.id == detail.userID { return true }
+        return (auth.user?.coins ?? 0) > 0
+    }
+
+    private func downloadOriginal(_ detail: WallpaperDetail) async {
+        guard auth.isLoggedIn else {
+            downloadNotice = .failed("Please sign in to download this wallpaper.")
+            auth.login()
+            return
+        }
+        guard canSpendForDownload(detail) else {
+            downloadNotice = .insufficientCoins
+            return
+        }
+        downloadNotice = nil
+        do {
+            try await manager.downloadOriginal(wallpaper: lightWallpaper(detail))
+            await auth.refreshProfile()
+            downloadNotice = .success
+        } catch {
+            handleDownloadError(error)
+        }
+    }
+
+    private func downloadOriginalAndSet(_ detail: WallpaperDetail) async {
+        guard auth.isLoggedIn else {
+            downloadNotice = .failed("Please sign in to download and set this wallpaper.")
+            auth.login()
+            return
+        }
+        guard canSpendForDownload(detail) else {
+            downloadNotice = .insufficientCoins
+            return
+        }
+        downloadNotice = nil
+        do {
+            let wallpaper = lightWallpaper(detail)
+            try await manager.downloadOriginal(wallpaper: wallpaper)
+            try await manager.setAsWallpaper(wallpaper)
+            await auth.refreshProfile()
+            downloadNotice = .success
+        } catch {
+            handleDownloadError(error)
+        }
+    }
+
+    private func handleDownloadError(_ error: Error) {
+        if let api = error as? APIError {
+            switch api {
+            case .insufficientCoins:
+                downloadNotice = .insufficientCoins
+            case .unsupportedResolution:
+                downloadNotice = .unavailable
+            case .unauthorized:
+                downloadNotice = .failed("Please sign in again to download this wallpaper.")
+                auth.login()
+            case .serverError(let code, let message):
+                if code == 404 || code == 409 || code == 423 {
+                    downloadNotice = .unavailable
+                } else {
+                    downloadNotice = .failed(message.isEmpty ? "The server could not prepare this download." : message)
+                }
+            default:
+                downloadNotice = .failed(api.errorDescription ?? "Download failed.")
+            }
+        } else {
+            downloadNotice = .failed(error.localizedDescription.isEmpty ? "Download failed." : error.localizedDescription)
+        }
+    }
+
     private func load() async {
         loadError = nil
+        downloadNotice = nil
         do {
             let d = try await APIClient.shared.fetchWallpaperDetail(slug: slug)
             detail = d

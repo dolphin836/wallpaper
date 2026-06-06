@@ -227,6 +227,15 @@ final class WallpaperManager {
     }
 
     func download(wallpaper: Wallpaper) async throws {
+        let (tw, th) = Self.maxScreenPixels()
+        try await download(wallpaper: wallpaper, targetWidth: tw, targetHeight: th)
+    }
+
+    func downloadOriginal(wallpaper: Wallpaper) async throws {
+        try await download(wallpaper: wallpaper, targetWidth: 0, targetHeight: 0)
+    }
+
+    private func download(wallpaper: Wallpaper, targetWidth: Int, targetHeight: Int) async throws {
         guard !downloading.contains(wallpaper.id) else { return }
         downloading.insert(wallpaper.id)
         downloadProgress[wallpaper.id] = 0
@@ -235,8 +244,7 @@ final class WallpaperManager {
             downloadProgress.removeValue(forKey: wallpaper.id)
         }
 
-        let (tw, th) = Self.maxScreenPixels()
-        let remoteURL = try await APIClient.shared.getDownloadURL(wallpaperID: wallpaper.id, targetWidth: tw, targetHeight: th)
+        let remoteURL = try await APIClient.shared.getDownloadURL(wallpaperID: wallpaper.id, targetWidth: targetWidth, targetHeight: targetHeight)
 
         let (tempURL, response) = try await Self.downloadWithProgress(from: remoteURL) { [weak self] p in
             self?.downloadProgress[wallpaper.id] = p
@@ -244,14 +252,21 @@ final class WallpaperManager {
         let ext = Self.fileExtension(from: response, url: remoteURL, fallback: wallpaper.fileType)
         let dest = storageDir.appendingPathComponent("\(wallpaper.id).\(ext)")
 
-        let fm = FileManager.default
-        if fm.fileExists(atPath: dest.path) {
-            try fm.removeItem(at: dest)
-        }
+        try removeLocalFiles(for: wallpaper.id)
         try fm.moveItem(at: tempURL, to: dest)
 
         downloadedIDs.insert(wallpaper.id)
         recomputeTotalBytes()
+    }
+
+    private var fm: FileManager { FileManager.default }
+
+    private func removeLocalFiles(for wallpaperID: Int) throws {
+        let prefix = "\(wallpaperID)."
+        guard let contents = try? fm.contentsOfDirectory(at: storageDir, includingPropertiesForKeys: nil) else { return }
+        for url in contents where url.lastPathComponent.hasPrefix(prefix) {
+            try fm.removeItem(at: url)
+        }
     }
 
     // Wraps URLSessionDownloadTask in async/await with progress reporting via KVO

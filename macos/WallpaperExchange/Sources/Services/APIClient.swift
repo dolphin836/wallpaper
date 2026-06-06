@@ -544,7 +544,7 @@ actor APIClient {
         config.httpShouldSetCookies = false
         let noRedirectSession = URLSession(configuration: config, delegate: NoRedirectDelegate.shared, delegateQueue: nil)
 
-        let (_, response) = try await noRedirectSession.data(for: req)
+        let (data, response) = try await noRedirectSession.data(for: req)
         guard let http = response as? HTTPURLResponse else {
             throw APIError.networkError(URLError(.badServerResponse))
         }
@@ -555,7 +555,8 @@ actor APIClient {
         guard http.statusCode == 302 || http.statusCode == 301,
               let location = http.value(forHTTPHeaderField: "Location"),
               let redirectURL = URL(string: location) else {
-            throw APIError.serverError(http.statusCode, "No redirect")
+            let msg = (try? decoder.decode(MessageEnvelope.self, from: data))?.message ?? "Download is not available"
+            throw APIError.serverError(http.statusCode, msg)
         }
 
         return redirectURL
