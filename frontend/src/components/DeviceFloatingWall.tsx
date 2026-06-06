@@ -27,10 +27,10 @@ import { useWallpaperActions } from '../hooks/useWallpaperActions';
  *     cell boundary, it snaps to the new cell; otherwise it springs
  *     back to where it was last parked.
  *   - As the mockup moves (drag, or one-row-at-a-time scroll-
- *     follow), each tile that overlaps its bounding box dents
- *     inward via a one-sided scale with transform-origin pinned to
- *     the far edge. No React re-renders during the interaction —
- *     framer-motion drives transforms on the DOM directly.
+ *     follow), adjacent tiles keep a stable layout box while their
+ *     image surface dents at the contact edge with a small liquid
+ *     push. No React re-renders during the interaction — framer-
+ *     motion drives transforms on the DOM directly.
  *
  * The component is self-contained: it manages its own featured-tile
  * state, preview-mode (Plain/Home/Lock) state, and wall measurement
@@ -44,6 +44,57 @@ const DEFAULT_COLS_FOR_WIDTH = (w: number): number => {
   if (w >= 1100) return 4;
   if (w >= 760) return 3;
   return 2;
+};
+
+type WaveSide = 'none' | 'left' | 'right' | 'top' | 'bottom';
+
+interface ContactWaveState {
+  pressure: number;
+  side: WaveSide;
+  pushX: number;
+  pushY: number;
+  origin: string;
+}
+
+const NO_WAVE: ContactWaveState = {
+  pressure: 0,
+  side: 'none',
+  pushX: 0,
+  pushY: 0,
+  origin: '50% 50%',
+};
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+const smooth = (value: number) => {
+  const t = clamp(value, 0, 1);
+  return t * t * (3 - 2 * t);
+};
+
+const waveClipPath = (side: WaveSide, pressure: number) => {
+  if (side === 'none' || pressure < 0.025) return 'inset(0 round 8px)';
+  const dent = Math.round(8 + pressure * 24);
+  switch (side) {
+    case 'left':
+      return `polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 70%, ${dent}px 50%, 0 30%)`;
+    case 'right':
+      return `polygon(0 0, 100% 0, 100% 30%, calc(100% - ${dent}px) 50%, 100% 70%, 100% 100%, 0 100%)`;
+    case 'top':
+      return `polygon(0 0, 30% 0, 50% ${dent}px, 70% 0, 100% 0, 100% 100%, 0 100%)`;
+    case 'bottom':
+      return `polygon(0 0, 100% 0, 100% 100%, 70% 100%, 50% calc(100% - ${dent}px), 30% 100%, 0 100%)`;
+    default:
+      return 'inset(0 round 8px)';
+  }
+};
+
+const waveOrigin = (side: WaveSide) => {
+  switch (side) {
+    case 'left': return '0% 50%';
+    case 'right': return '100% 50%';
+    case 'top': return '50% 0%';
+    case 'bottom': return '50% 100%';
+    default: return '50% 50%';
+  }
 };
 
 export interface DeviceFloatingWallProps {
@@ -426,8 +477,8 @@ export default function DeviceFloatingWall({
 }
 
 /* DevWallSlot — one wallpaper tile, absolutely positioned. Owns a
-   useSpring for its assigned cell + useTransforms for the live
-   overlap-driven directional dent. See DeviceFloatingWall for the
+   useSpring for its assigned cell + a contact-wave MotionValue for
+   the liquid edge deformation. See DeviceFloatingWall for the
    overall interaction model. */
 function DevWallSlot({
   wp, device, index, isFeatured, onHover,
@@ -454,68 +505,144 @@ function DevWallSlot({
   useEffect(() => { cellX.set(targetLeft); }, [targetLeft, cellX]);
   useEffect(() => { cellY.set(targetTop); }, [targetTop, cellY]);
 
-  const computeSquish = (cx: number, cy: number, px: number, py: number) => {
-    if (tileW <= 0 || tileH <= 0) return null;
-    const xOv = Math.max(0, Math.min(cx + tileW, px + previewW) - Math.max(cx, px));
-    const yOv = Math.max(0, Math.min(cy + tileH, py + previewH) - Math.max(cy, py));
-    if (xOv === 0 || yOv === 0) return null;
-    const dx = (cx + tileW / 2) - (px + previewW / 2);
-    const dy = (cy + tileH / 2) - (py + previewH / 2);
-    const xRatio = Math.min(1, xOv / tileW);
-    const yRatio = Math.min(1, yOv / tileH);
-    const DENT_MAX = 0.20;
-    let scaleX = 1;
-    let scaleY = 1;
-    let origin = '50% 50%';
-    if (xRatio > yRatio) {
-      scaleY = 1 - Math.min(DENT_MAX, yRatio * 0.7);
-      const oy = dy > 0 ? '100%' : '0%';
-      origin = `50% ${oy}`;
+  const computeWave = (cx: number, cy: number, px: number, py: number): ContactWaveState => {
+    if (tileW <= 0 || tileH <= 0 || previewW <= 0 || previewH <= 0) return NO_WAVE;
+
+    const tileRight = cx + tileW;
+    const tileBottom = cy + tileH;
+    const previewRight = px + previewW;
+    const previewBottom = py + previewH;
+    const xSpan = Math.min(tileRight, previewRight) - Math.max(cx, px);
+    const ySpan = Math.min(tileBottom, previewBottom) - Math.max(cy, py);
+    const tileCenterX = cx + tileW / 2;
+    const tileCenterY = cy + tileH / 2;
+    const previewCenterX = px + previewW / 2;
+    const previewCenterY = py + previewH / 2;
+    const radius = clamp(Math.min(tileW, tileH) * 0.24, 42, 92);
+    let side: WaveSide = 'none';
+    let pressure = 0;
+    let pushX = 0;
+    let pushY = 0;
+
+    if (xSpan > 0 && ySpan > 0) {
+      const xRatio = xSpan / Math.max(tileW, 1);
+      const yRatio = ySpan / Math.max(tileH, 1);
+      if (xRatio <= yRatio) {
+        const fromRight = tileCenterX >= previewCenterX;
+        side = fromRight ? 'left' : 'right';
+        pushX = fromRight ? 1 : -1;
+        pressure = 0.56 + clamp(xRatio, 0, 1) * 0.44;
+      } else {
+        const fromBottom = tileCenterY >= previewCenterY;
+        side = fromBottom ? 'top' : 'bottom';
+        pushY = fromBottom ? 1 : -1;
+        pressure = 0.56 + clamp(yRatio, 0, 1) * 0.44;
+      }
     } else {
-      scaleX = 1 - Math.min(DENT_MAX, xRatio * 0.7);
-      const ox = dx > 0 ? '100%' : '0%';
-      origin = `${ox} 50%`;
+      const horizontalGap = cx >= previewRight
+        ? cx - previewRight
+        : px >= tileRight
+          ? px - tileRight
+          : 0;
+      const verticalGap = cy >= previewBottom
+        ? cy - previewBottom
+        : py >= tileBottom
+          ? py - tileBottom
+          : 0;
+      const nearHorizontalFace = horizontalGap > 0 && horizontalGap <= radius && ySpan > -radius * 0.45;
+      const nearVerticalFace = verticalGap > 0 && verticalGap <= radius && xSpan > -radius * 0.45;
+
+      if (nearHorizontalFace && (!nearVerticalFace || horizontalGap <= verticalGap)) {
+        const fromRight = tileCenterX >= previewCenterX;
+        side = fromRight ? 'left' : 'right';
+        pushX = fromRight ? 1 : -1;
+        pressure = Math.pow(1 - horizontalGap / radius, 1.45) * 0.82;
+      } else if (nearVerticalFace) {
+        const fromBottom = tileCenterY >= previewCenterY;
+        side = fromBottom ? 'top' : 'bottom';
+        pushY = fromBottom ? 1 : -1;
+        pressure = Math.pow(1 - verticalGap / radius, 1.45) * 0.82;
+      }
     }
-    return { scaleX, scaleY, origin };
+
+    if (pressure <= 0) return NO_WAVE;
+    return {
+      pressure: smooth(pressure),
+      side,
+      pushX,
+      pushY,
+      origin: waveOrigin(side),
+    };
   };
 
-  const scaleX = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
-    const s = computeSquish(cx as number, cy as number, px as number, py as number);
-    return s?.scaleX ?? 1;
-  });
-  const scaleY = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
-    const s = computeSquish(cx as number, cy as number, px as number, py as number);
-    return s?.scaleY ?? 1;
-  });
-  const transformOrigin = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
-    const s = computeSquish(cx as number, cy as number, px as number, py as number);
-    return s?.origin ?? '50% 50%';
-  });
+  const wave = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => (
+    computeWave(cx as number, cy as number, px as number, py as number)
+  ));
+  const rippleX = useTransform(wave, (state) => state.pushX * state.pressure * 14);
+  const rippleY = useTransform(wave, (state) => state.pushY * state.pressure * 14);
+  const rippleScale = useTransform(wave, (state) => 1 + state.pressure * 0.012);
+  const rippleOrigin = useTransform(wave, (state) => state.origin);
+  const screenClipPath = useTransform(wave, (state) => waveClipPath(state.side, state.pressure));
+  const imageX = useTransform(wave, (state) => state.pushX * state.pressure * 5);
+  const imageY = useTransform(wave, (state) => state.pushY * state.pressure * 5);
+  const imageScale = useTransform(wave, (state) => 1 + state.pressure * 0.028);
+  const waveLeftOpacity = useTransform(wave, (state) => state.side === 'left' ? state.pressure : 0);
+  const waveRightOpacity = useTransform(wave, (state) => state.side === 'right' ? state.pressure : 0);
+  const waveTopOpacity = useTransform(wave, (state) => state.side === 'top' ? state.pressure : 0);
+  const waveBottomOpacity = useTransform(wave, (state) => state.side === 'bottom' ? state.pressure : 0);
 
   return (
     <motion.div
       className="dev-wall-slot"
-      style={{ x: cellX, y: cellY, scaleX, scaleY, transformOrigin, width: tileW, height: tileH }}
+      style={{ x: cellX, y: cellY, width: tileW, height: tileH }}
     >
-      <DevTile
-        wallpaper={wp}
-        device={device}
-        index={index}
-        isFeatured={isFeatured}
-        onHover={onHover}
-      />
+      <motion.div
+        className="dev-wall-ripple-body"
+        style={{
+          x: rippleX,
+          y: rippleY,
+          scale: rippleScale,
+          transformOrigin: rippleOrigin,
+        }}
+      >
+        <DevTile
+          wallpaper={wp}
+          device={device}
+          index={index}
+          isFeatured={isFeatured}
+          onHover={onHover}
+          waveClipPath={screenClipPath}
+          imageX={imageX}
+          imageY={imageY}
+          imageScale={imageScale}
+          waveLeftOpacity={waveLeftOpacity}
+          waveRightOpacity={waveRightOpacity}
+          waveTopOpacity={waveTopOpacity}
+          waveBottomOpacity={waveBottomOpacity}
+        />
+      </motion.div>
     </motion.div>
   );
 }
 
 function DevTile({
   wallpaper: w, device, index, isFeatured, onHover,
+  waveClipPath, imageX, imageY, imageScale,
+  waveLeftOpacity, waveRightOpacity, waveTopOpacity, waveBottomOpacity,
 }: {
   wallpaper: Wallpaper;
   device: DeviceProfile;
   index: number;
   isFeatured: boolean;
   onHover: (idx: number) => void;
+  waveClipPath?: MotionValue<string>;
+  imageX?: MotionValue<number>;
+  imageY?: MotionValue<number>;
+  imageScale?: MotionValue<number>;
+  waveLeftOpacity?: MotionValue<number>;
+  waveRightOpacity?: MotionValue<number>;
+  waveTopOpacity?: MotionValue<number>;
+  waveBottomOpacity?: MotionValue<number>;
 }) {
   const location = useLocation();
   const acts = useWallpaperActions(w);
@@ -549,14 +676,26 @@ function DevTile({
       style={{ animationDelay: `${Math.min(index, 16) * 30}ms` }}
       onMouseEnter={() => onHover(index)}
     >
-      <div className="dev-spec-card-screen" style={{ aspectRatio: aspect }}>
-        <img
-          src={w.preview_url || w.thumb_url}
-          alt={w.title || `Wallpaper ${w.id}`}
-          loading="lazy"
-          className="dev-spec-card-img"
-          style={{ backgroundColor: w.dominant_color || undefined }}
-        />
+      <motion.div
+        className="dev-spec-card-screen"
+        style={{ aspectRatio: aspect, clipPath: waveClipPath }}
+      >
+        <motion.div
+          className="dev-spec-card-image-layer"
+          style={{ x: imageX, y: imageY, scale: imageScale }}
+        >
+          <img
+            src={w.preview_url || w.thumb_url}
+            alt={w.title || `Wallpaper ${w.id}`}
+            loading="lazy"
+            className="dev-spec-card-img"
+            style={{ backgroundColor: w.dominant_color || undefined }}
+          />
+        </motion.div>
+        <motion.span className="dev-spec-card-wave is-left" style={{ opacity: waveLeftOpacity }} aria-hidden />
+        <motion.span className="dev-spec-card-wave is-right" style={{ opacity: waveRightOpacity }} aria-hidden />
+        <motion.span className="dev-spec-card-wave is-top" style={{ opacity: waveTopOpacity }} aria-hidden />
+        <motion.span className="dev-spec-card-wave is-bottom" style={{ opacity: waveBottomOpacity }} aria-hidden />
         {/* Top-left chip strip — resolution + video / mac-dynamic /
             AI badges. Same component vocabulary as the salon
             WallpaperCard. Positioned absolutely on top of the
@@ -621,7 +760,7 @@ function DevTile({
             </button>
           )}
         </div>
-      </div>
+      </motion.div>
     </Link>
   );
 }
