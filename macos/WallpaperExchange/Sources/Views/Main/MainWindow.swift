@@ -210,6 +210,7 @@ struct MainWindow: View {
                 ToolbarButtonGroup(style: .primary) {
                     ChromeToolbarButton(
                         icon: "square.and.arrow.up",
+                        label: "Upload",
                         help: "Upload",
                         role: .primary,
                         active: sidebar == .upload,
@@ -245,14 +246,10 @@ struct MainWindow: View {
         .frame(maxWidth: .infinity)
         .frame(height: WindowChrome.topBar)
         .background(
-            LinearGradient(
-                colors: [
-                    Color.paper.opacity(0.98),
-                    Color.paper.opacity(0.88),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+            ZStack {
+                Rectangle().fill(.regularMaterial)
+                Rectangle().fill(Color.paper.opacity(0.74))
+            }
         )
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.hair.opacity(0.38)).frame(height: 1)
@@ -405,9 +402,9 @@ private enum ToolbarGroupStyle {
 
     var fill: Color {
         switch self {
-        case .navigation: Color.paper.opacity(0.64)
+        case .navigation: Color.paper2.opacity(0.70)
         case .primary: .clear
-        case .utility: Color.paper2.opacity(0.78)
+        case .utility: Color.paper2.opacity(0.76)
         }
     }
 
@@ -457,6 +454,7 @@ private struct ToolbarButtonGroup<Content: View>: View {
 
 private struct ChromeToolbarButton: View {
     let icon: String
+    var label: String? = nil
     let help: String
     var role: ToolbarButtonRole = .utility
     var active: Bool = false
@@ -467,7 +465,7 @@ private struct ChromeToolbarButton: View {
 
     private var size: CGSize {
         switch role {
-        case .primary: CGSize(width: 34, height: 28)
+        case .primary: CGSize(width: label == nil ? 34 : 86, height: 28)
         case .navigation, .utility: CGSize(width: 28, height: 24)
         }
     }
@@ -493,7 +491,7 @@ private struct ChromeToolbarButton: View {
         if disabled { return .clear }
         switch role {
         case .primary:
-            return hover || active ? Color.accent : Color.accent.opacity(0.88)
+            return hover || active ? Color.accent.blended(with: Color.ink, fraction: 0.12) : Color.accent
         case .navigation:
             if active { return Color.ink.opacity(0.08) }
             return hover ? Color.ink.opacity(0.06) : .clear
@@ -525,14 +523,21 @@ private struct ChromeToolbarButton: View {
             guard !disabled else { return }
             action()
         }) {
-            Image(systemName: icon)
-                .font(.system(size: role == .primary ? 13 : 12, weight: .semibold))
-                .foregroundStyle(iconColor)
-                .frame(width: size.width, height: size.height)
-                .background(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).fill(fill))
-                .overlay(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).stroke(stroke, lineWidth: 1))
-                .shadow(color: shadowColor, radius: role == .primary ? 10 : 0, y: role == .primary ? 4 : 0)
-                .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            HStack(spacing: label == nil ? 0 : 6) {
+                Image(systemName: icon)
+                    .font(.system(size: role == .primary ? 13 : 12, weight: .semibold))
+                if let label {
+                    Text(label)
+                        .font(.system(size: 12, weight: .semibold))
+                        .lineLimit(1)
+                }
+            }
+            .foregroundStyle(iconColor)
+            .frame(width: size.width, height: size.height)
+            .background(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).fill(fill))
+            .overlay(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).stroke(stroke, lineWidth: 1))
+            .shadow(color: shadowColor, radius: role == .primary ? 10 : 0, y: role == .primary ? 4 : 0)
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(disabled)

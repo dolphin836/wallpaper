@@ -259,7 +259,7 @@ struct SidebarRow: View {
     private var isUpload: Bool { item == .upload }
 
     private var fg: Color {
-        (isSelected || isUpload) ? Color.accent : Color.ink
+        isSelected ? Color.ink : (isUpload ? Color.accent : Color.ink)
     }
     private var iconColor: Color {
         if isSelected || isUpload { return Color.accent }
