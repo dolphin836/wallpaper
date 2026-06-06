@@ -156,20 +156,7 @@ struct DetailPage: View {
     private func hero(detail: WallpaperDetail, layout: DetailLayout) -> some View {
         Group {
             if mode == .off {
-                // Raw wallpaper mirrors web wd-hero-img: it fits the
-                // available box and caps at a viewport-relative height, so
-                // tall or wide images never push the toolbar off-screen.
-                CachedAsyncImage(url: URL(string: detail.displayURL)) { img in
-                    img.resizable().aspectRatio(contentMode: .fit)
-                } placeholder: {
-                    Color(hex: detail.dominantColor ?? "#bbb")
-                        .aspectRatio(CGFloat(max(detail.width, 1)) / CGFloat(max(detail.height, 1)), contentMode: .fit)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(maxHeight: layout.heroMaxHeight)
-                .clipShape(RoundedRectangle(cornerRadius: 18))
-                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.white.opacity(0.18), lineWidth: 1))
-                .shadow(color: .black.opacity(0.3), radius: 24, y: 14)
+                rawHeroImage(detail: detail, layout: layout)
             } else {
                 // Plain / Home / Lock → draw the actual device (monitor
                 // bezel + stand) with the wallpaper on screen.
@@ -179,6 +166,42 @@ struct DetailPage: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    // Raw wallpaper mirrors web .wd-hero-img: the image gets max-width /
+    // max-height constraints, then the rounded border is attached to the
+    // actual rendered image rect rather than a full-width SwiftUI frame.
+    private func rawHeroImage(detail: WallpaperDetail, layout: DetailLayout) -> some View {
+        let size = rawHeroSize(detail: detail, layout: layout)
+        return HStack {
+            Spacer(minLength: 0)
+            CachedAsyncImage(url: URL(string: detail.displayURL)) { img in
+                img.resizable().aspectRatio(contentMode: .fit)
+            } placeholder: {
+                Color(hex: detail.dominantColor ?? "#bbb")
+            }
+            .frame(width: size.width, height: size.height)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.white.opacity(0.18), lineWidth: 1))
+            .shadow(color: .black.opacity(0.3), radius: 24, y: 14)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: size.height)
+    }
+
+    private func rawHeroSize(detail: WallpaperDetail, layout: DetailLayout) -> CGSize {
+        let contentWidth = min(layout.contentMaxWidth, max(1, layout.size.width - layout.horizontalPadding * 2))
+        let maxWidth = max(1, contentWidth - layout.stagePadding * 2)
+        let maxHeight = layout.heroMaxHeight
+        let sourceWidth = CGFloat(max(detail.width, 1))
+        let sourceHeight = CGFloat(max(detail.height, 1))
+        let aspect = sourceWidth / sourceHeight
+
+        if maxWidth / maxHeight > aspect {
+            return CGSize(width: maxHeight * aspect, height: maxHeight)
+        }
+        return CGSize(width: maxWidth, height: maxWidth / aspect)
     }
 
     private static let previewOptions: [PreviewMode] = [.off, .plain, .home, .lock]
