@@ -32,7 +32,7 @@ struct MacScreenRequirement: Sendable {
         let screens = NSScreen.screens.isEmpty ? [NSScreen.main].compactMap { $0 } : NSScreen.screens
         return screens
             .map {
-                let pixels = Self.physicalPixels(for: $0)
+                let pixels = Self.displayModePixels(for: $0)
                 return MacScreenRequirement(width: pixels.width, height: pixels.height)
             }
             .min { lhs, rhs in
@@ -44,19 +44,14 @@ struct MacScreenRequirement: Sendable {
             ?? MacScreenRequirement(width: 1920, height: 1080)
     }
 
-    private static func physicalPixels(for screen: NSScreen) -> (width: Int, height: Int) {
-        if let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber {
-            let displayID = CGDirectDisplayID(number.uint32Value)
-            let width = CGDisplayPixelsWide(displayID)
-            let height = CGDisplayPixelsHigh(displayID)
-            if width > 0 && height > 0 {
-                return (width, height)
-            }
-        }
-
+    private static func displayModePixels(for screen: NSScreen) -> (width: Int, height: Int) {
+        // NSScreen.frame is the current "looks like" display mode size.
+        // Do not multiply by backingScaleFactor or use the panel's native
+        // pixels here; a 5K display scaled to 1920 should still accept a
+        // 4K wallpaper in the Mac client's compatibility filter.
         return (
-            Int((screen.frame.width * screen.backingScaleFactor).rounded()),
-            Int((screen.frame.height * screen.backingScaleFactor).rounded())
+            Int(screen.frame.width.rounded()),
+            Int(screen.frame.height.rounded())
         )
     }
 

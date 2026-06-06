@@ -206,16 +206,16 @@ final class WallpaperManager {
         return contents.first { $0.lastPathComponent.hasPrefix(prefix) }
     }
 
-    /// Largest pixel dimensions across all connected screens, accounting for
-    /// retina scale. This is the resolution we ask the backend to size the
-    /// download for — picking max(screen) lets the same file cover every
-    /// display without anyone needing to upscale. Returns (0, 0) when there
-    /// is no screen (unlikely, but better safe than asking for a 0×0 image).
+    /// Largest current display-mode dimensions across all connected screens.
+    /// This follows the same "looks like" resolution used for compatibility
+    /// filtering, so a display scaled to 1920 asks for a 1920-covering variant
+    /// rather than a native-panel-sized one. Returns (0, 0) when there is no
+    /// screen (unlikely, but better safe than asking for a 0x0 image).
     private static func maxScreenPixels() -> (Int, Int) {
         var maxW = 0
         var maxH = 0
         for screen in NSScreen.screens {
-            let pixels = physicalPixels(for: screen)
+            let pixels = displayModePixels(for: screen)
             let w = pixels.width
             let h = pixels.height
             if w * h > maxW * maxH {
@@ -226,19 +226,10 @@ final class WallpaperManager {
         return (maxW, maxH)
     }
 
-    private static func physicalPixels(for screen: NSScreen) -> (width: Int, height: Int) {
-        if let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber {
-            let displayID = CGDirectDisplayID(number.uint32Value)
-            let width = CGDisplayPixelsWide(displayID)
-            let height = CGDisplayPixelsHigh(displayID)
-            if width > 0 && height > 0 {
-                return (width, height)
-            }
-        }
-
+    private static func displayModePixels(for screen: NSScreen) -> (width: Int, height: Int) {
         return (
-            Int((screen.frame.width * screen.backingScaleFactor).rounded()),
-            Int((screen.frame.height * screen.backingScaleFactor).rounded())
+            Int(screen.frame.width.rounded()),
+            Int(screen.frame.height.rounded())
         )
     }
 
