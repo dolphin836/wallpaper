@@ -41,6 +41,7 @@ func main() {
 
 	wallpaperRepo := repo.NewWallpaperRepo(db)
 	deviceRepo := repo.NewDeviceRepo(db)
+	eventRepo := repo.NewEventRepo(db)
 	jobRepo := repo.NewWorkerJobRepo(db)
 
 	indexClient, err := indexnow.New(cfg.IndexNow.Key, cfg.IndexNow.SiteURL)
@@ -58,7 +59,7 @@ func main() {
 		indexClient,
 		cfg.IndexNow.SiteURL,
 	)
-	statsWorker := worker.NewStatsWorker(cfg.Kafka.Brokers, wallpaperRepo, jobRepo)
+	statsWorker := worker.NewStatsWorker(cfg.Kafka.Brokers, wallpaperRepo, eventRepo, jobRepo)
 
 	// Transcode worker is optional — if ffmpeg isn't installed or the
 	// work dir can't be created, log and continue so the image +

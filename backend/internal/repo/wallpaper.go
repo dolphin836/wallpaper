@@ -88,16 +88,16 @@ func (r *WallpaperRepo) GetBySlug(ctx context.Context, slug string) (*model.Wall
 }
 
 type ListOptions struct {
-	Cursor           int64
-	Limit            int
-	CategoryID       int64
-	UserID           int64
-	Status           int16
+	Cursor     int64
+	Limit      int
+	CategoryID int64
+	UserID     int64
+	Status     int16
 	// StatusFilter overrides Status / IncludeAllActive when set, and is
 	// honored even when the value is 0 (Processing). Without this, callers
 	// can't ask for processing wallpapers because `Status: 0` collides with
 	// the struct zero-value and silently fell back to "published only".
-	StatusFilter     *int16
+	StatusFilter *int16
 	// StatusFilterIn lets the caller ask for several statuses at once
 	// (e.g. Processing + PendingReview for the profile's "Pending" tab).
 	// Takes precedence over StatusFilter/Status/IncludeAllActive when set.
@@ -115,8 +115,8 @@ type ListOptions struct {
 	// types they can't render. Windows hides macOS-dynamic HEIC (it
 	// has no system support for them); macOS hides video/* wallpapers
 	// (mac doesn't ship a video-wallpaper engine yet).
-	ExcludeDynamic   bool
-	ExcludeVideo     bool
+	ExcludeDynamic bool
+	ExcludeVideo   bool
 }
 
 // applyListFilters applies every WHERE clause from ListOptions except the cursor.
@@ -158,10 +158,10 @@ func (r *WallpaperRepo) applyListFilters(query *gorm.DB, opts ListOptions) *gorm
 		query = query.Where("is_dynamic = true OR file_type LIKE 'video/%'")
 	} else if opts.DeviceWidth > 0 && opts.DeviceHeight > 0 {
 		if opts.IncludeDynamic {
-			query = query.Where("(id IN (SELECT wallpaper_id FROM wallpaper_variants WHERE width = ? AND height = ?) OR is_dynamic = true)",
+			query = query.Where("((width >= ? AND height >= ?) OR is_dynamic = true)",
 				opts.DeviceWidth, opts.DeviceHeight)
 		} else {
-			query = query.Where("id IN (SELECT wallpaper_id FROM wallpaper_variants WHERE width = ? AND height = ?)",
+			query = query.Where("width >= ? AND height >= ?",
 				opts.DeviceWidth, opts.DeviceHeight)
 		}
 	}
@@ -402,10 +402,14 @@ func (r *WallpaperRepo) IncrementCounter(ctx context.Context, id int64, field st
 	if !validCounterFields[field] {
 		return fmt.Errorf("invalid counter field: %s", field)
 	}
+	expr := gorm.Expr(field+" + ?", delta)
+	if delta < 0 {
+		expr = gorm.Expr("GREATEST("+field+" + ?, 0)", delta)
+	}
 	return r.db.WithContext(ctx).
 		Model(&model.Wallpaper{}).
 		Where("id = ?", id).
-		Update(field, gorm.Expr(field+" + ?", delta)).Error
+		Update(field, expr).Error
 }
 
 func (r *WallpaperRepo) Delete(ctx context.Context, id int64) error {

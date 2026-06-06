@@ -168,6 +168,13 @@ func (w *TranscodeWorker) processVideo(ctx context.Context, event WallpaperUploa
 	if out, err := exec.CommandContext(ctx, "ffmpeg", transcodeArgs...).CombinedOutput(); err != nil {
 		return fmt.Errorf("ffmpeg transcode: %w (%s)", err, snippet(out, 400))
 	}
+	servedProbe, err := ffprobe(ctx, outMp4)
+	if err != nil {
+		return fmt.Errorf("ffprobe transcoded mp4: %w", err)
+	}
+	if servedProbe.Width <= 0 || servedProbe.Height <= 0 {
+		return fmt.Errorf("ffprobe transcoded mp4 returned zero dimensions")
+	}
 
 	// Poster from the 1s mark (or the first frame if the video is
 	// shorter). webp keeps the file ≈10× smaller than jpeg for the
@@ -231,7 +238,8 @@ func (w *TranscodeWorker) processVideo(ctx context.Context, event WallpaperUploa
 	//                   actually serve to all clients)
 	//   thumb_url    → poster (cards / list)
 	//   preview_url  → poster (detail page hero before video play)
-	//   width/height → from probe (for aspect-ratio styling)
+	//   width/height → transcoded mp4 dimensions, matching what clients
+	//                  actually download and filter against
 	//   file_size    → transcoded size
 	//   status       → PendingReview
 	st, _ := os.Stat(outMp4)
@@ -240,8 +248,8 @@ func (w *TranscodeWorker) processVideo(ctx context.Context, event WallpaperUploa
 		ThumbURL:        w.storage.GetURL(posterKey),
 		PreviewURL:      w.storage.GetURL(posterKey),
 		PreviewVideoURL: w.storage.GetURL(previewKey),
-		Width:           probe.Width,
-		Height:          probe.Height,
+		Width:           servedProbe.Width,
+		Height:          servedProbe.Height,
 		FileSize:        st.Size(),
 		FileType:        "video/mp4",
 	}); err != nil {
@@ -250,7 +258,8 @@ func (w *TranscodeWorker) processVideo(ctx context.Context, event WallpaperUploa
 
 	slog.Info("transcode: done",
 		"wallpaper_id", event.WallpaperID,
-		"width", probe.Width, "height", probe.Height,
+		"source_width", probe.Width, "source_height", probe.Height,
+		"width", servedProbe.Width, "height", servedProbe.Height,
 		"duration_s", probe.Duration,
 		"size_mb", float64(st.Size())/1024.0/1024.0,
 	)

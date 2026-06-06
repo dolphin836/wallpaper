@@ -17,16 +17,18 @@ func NewInteractionRepo(db *gorm.DB) *InteractionRepo {
 	return &InteractionRepo{db: db}
 }
 
-func (r *InteractionRepo) Like(ctx context.Context, userID, wallpaperID int64) error {
-	return r.db.WithContext(ctx).
+func (r *InteractionRepo) Like(ctx context.Context, userID, wallpaperID int64) (bool, error) {
+	res := r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{DoNothing: true}).
-		Create(&model.UserLike{UserID: userID, WallpaperID: wallpaperID}).Error
+		Create(&model.UserLike{UserID: userID, WallpaperID: wallpaperID})
+	return res.RowsAffected > 0, res.Error
 }
 
-func (r *InteractionRepo) Unlike(ctx context.Context, userID, wallpaperID int64) error {
-	return r.db.WithContext(ctx).
+func (r *InteractionRepo) Unlike(ctx context.Context, userID, wallpaperID int64) (bool, error) {
+	res := r.db.WithContext(ctx).
 		Where("user_id = ? AND wallpaper_id = ?", userID, wallpaperID).
-		Delete(&model.UserLike{}).Error
+		Delete(&model.UserLike{})
+	return res.RowsAffected > 0, res.Error
 }
 
 func (r *InteractionRepo) IsLiked(ctx context.Context, userID, wallpaperID int64) (bool, error) {
@@ -41,16 +43,18 @@ func (r *InteractionRepo) IsLiked(ctx context.Context, userID, wallpaperID int64
 	return count > 0, nil
 }
 
-func (r *InteractionRepo) Favorite(ctx context.Context, userID, wallpaperID int64) error {
-	return r.db.WithContext(ctx).
+func (r *InteractionRepo) Favorite(ctx context.Context, userID, wallpaperID int64) (bool, error) {
+	res := r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{DoNothing: true}).
-		Create(&model.UserFavorite{UserID: userID, WallpaperID: wallpaperID}).Error
+		Create(&model.UserFavorite{UserID: userID, WallpaperID: wallpaperID})
+	return res.RowsAffected > 0, res.Error
 }
 
-func (r *InteractionRepo) Unfavorite(ctx context.Context, userID, wallpaperID int64) error {
-	return r.db.WithContext(ctx).
+func (r *InteractionRepo) Unfavorite(ctx context.Context, userID, wallpaperID int64) (bool, error) {
+	res := r.db.WithContext(ctx).
 		Where("user_id = ? AND wallpaper_id = ?", userID, wallpaperID).
-		Delete(&model.UserFavorite{}).Error
+		Delete(&model.UserFavorite{})
+	return res.RowsAffected > 0, res.Error
 }
 
 func (r *InteractionRepo) IsFavorited(ctx context.Context, userID, wallpaperID int64) (bool, error) {
@@ -150,10 +154,11 @@ func (r *InteractionRepo) HasDownloaded(ctx context.Context, userID, wallpaperID
 	return count > 0, nil
 }
 
-func (r *InteractionRepo) RecordDownload(ctx context.Context, userID, wallpaperID int64) error {
-	return r.db.WithContext(ctx).
+func (r *InteractionRepo) RecordDownload(ctx context.Context, userID, wallpaperID int64) (bool, error) {
+	res := r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{DoNothing: true}).
-		Create(&model.UserDownload{UserID: userID, WallpaperID: wallpaperID}).Error
+		Create(&model.UserDownload{UserID: userID, WallpaperID: wallpaperID})
+	return res.RowsAffected > 0, res.Error
 }
 
 func (r *InteractionRepo) ListDownloads(ctx context.Context, userID int64, cursor int64, limit int, filters DownloadFilters) ([]model.Wallpaper, error) {
@@ -209,12 +214,12 @@ func (r *InteractionRepo) applyDownloadFilters(query *gorm.DB, f DownloadFilters
 	if f.DeviceWidth > 0 && f.DeviceHeight > 0 {
 		if f.IncludeDynamic {
 			return query.Where(
-				"(wallpapers.id IN (SELECT wallpaper_id FROM wallpaper_variants WHERE width = ? AND height = ?) OR wallpapers.is_dynamic = true)",
+				"((wallpapers.width >= ? AND wallpapers.height >= ?) OR wallpapers.is_dynamic = true)",
 				f.DeviceWidth, f.DeviceHeight,
 			)
 		}
 		return query.Where(
-			"wallpapers.id IN (SELECT wallpaper_id FROM wallpaper_variants WHERE width = ? AND height = ?)",
+			"wallpapers.width >= ? AND wallpapers.height >= ?",
 			f.DeviceWidth, f.DeviceHeight,
 		)
 	}

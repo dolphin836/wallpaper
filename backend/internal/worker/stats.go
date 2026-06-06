@@ -16,6 +16,7 @@ import (
 type StatsWorker struct {
 	reader        *kafka.Reader
 	wallpaperRepo *repo.WallpaperRepo
+	eventRepo     *repo.EventRepo
 	jobRepo       *repo.WorkerJobRepo
 	mu            sync.Mutex
 	counters      map[counterKey]int64
@@ -33,7 +34,7 @@ type WallpaperStatsEvent struct {
 	Timestamp   string `json:"timestamp"`
 }
 
-func NewStatsWorker(brokers []string, wallpaperRepo *repo.WallpaperRepo, jobRepo *repo.WorkerJobRepo) *StatsWorker {
+func NewStatsWorker(brokers []string, wallpaperRepo *repo.WallpaperRepo, eventRepo *repo.EventRepo, jobRepo *repo.WorkerJobRepo) *StatsWorker {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:  brokers,
 		Topic:    "wallpaper.stats",
@@ -44,6 +45,7 @@ func NewStatsWorker(brokers []string, wallpaperRepo *repo.WallpaperRepo, jobRepo
 	return &StatsWorker{
 		reader:        reader,
 		wallpaperRepo: wallpaperRepo,
+		eventRepo:     eventRepo,
 		jobRepo:       jobRepo,
 		counters:      make(map[counterKey]int64),
 	}
@@ -93,6 +95,16 @@ func (w *StatsWorker) Run(ctx context.Context) error {
 				slog.Error("commit message failed", "error", commitErr)
 			}
 			continue
+		}
+
+		if w.eventRepo != nil {
+			if err := w.eventRepo.Record(ctx, event.WallpaperID, event.EventType, event.UserID, nil); err != nil {
+				slog.Error("record stats event failed",
+					"wallpaper_id", event.WallpaperID,
+					"event_type", event.EventType,
+					"error", err,
+				)
+			}
 		}
 
 		w.mu.Lock()

@@ -191,14 +191,7 @@ func (s *WallpaperService) GetBySlug(ctx context.Context, idOrSlug string, curre
 		return nil, errcode.ErrNotFound
 	}
 
-	if err := s.wallpaperRepo.IncrementCounter(ctx, w.ID, "view_count", 1); err != nil {
-		slog.ErrorContext(ctx, "failed to increment view count", "error", err)
-	}
-	w.ViewCount++
-
-	if err := s.eventRepo.Record(ctx, w.ID, "view", currentUserID, nil); err != nil {
-		slog.ErrorContext(ctx, "failed to record view event", "error", err, "wallpaper_id", w.ID)
-	}
+	s.publishStatsEvent(ctx, w.ID, "view", currentUserID)
 
 	tags, err := s.tagRepo.GetByWallpaperID(ctx, w.ID)
 	if err != nil {
@@ -440,9 +433,13 @@ func (s *WallpaperService) Like(ctx context.Context, userID, wallpaperID int64) 
 		return errcode.ErrNotFound
 	}
 
-	if err := s.interactionRepo.Like(ctx, userID, wallpaperID); err != nil {
+	changed, err := s.interactionRepo.Like(ctx, userID, wallpaperID)
+	if err != nil {
 		slog.ErrorContext(ctx, "failed to like wallpaper", "error", err)
 		return errcode.ErrInternal
+	}
+	if !changed {
+		return nil
 	}
 	if err := s.wallpaperRepo.IncrementCounter(ctx, wallpaperID, "like_count", 1); err != nil {
 		slog.ErrorContext(ctx, "failed to increment like count", "error", err)
@@ -467,9 +464,13 @@ func (s *WallpaperService) Unlike(ctx context.Context, userID, wallpaperID int64
 		return errcode.ErrNotFound
 	}
 
-	if err := s.interactionRepo.Unlike(ctx, userID, wallpaperID); err != nil {
+	changed, err := s.interactionRepo.Unlike(ctx, userID, wallpaperID)
+	if err != nil {
 		slog.ErrorContext(ctx, "failed to unlike wallpaper", "error", err)
 		return errcode.ErrInternal
+	}
+	if !changed {
+		return nil
 	}
 	if err := s.wallpaperRepo.IncrementCounter(ctx, wallpaperID, "like_count", -1); err != nil {
 		slog.ErrorContext(ctx, "failed to decrement like count", "error", err)
@@ -489,9 +490,13 @@ func (s *WallpaperService) Favorite(ctx context.Context, userID, wallpaperID int
 		return errcode.ErrNotFound
 	}
 
-	if err := s.interactionRepo.Favorite(ctx, userID, wallpaperID); err != nil {
+	changed, err := s.interactionRepo.Favorite(ctx, userID, wallpaperID)
+	if err != nil {
 		slog.ErrorContext(ctx, "failed to favorite wallpaper", "error", err)
 		return errcode.ErrInternal
+	}
+	if !changed {
+		return nil
 	}
 	if err := s.wallpaperRepo.IncrementCounter(ctx, wallpaperID, "favorite_count", 1); err != nil {
 		slog.ErrorContext(ctx, "failed to increment favorite count", "error", err)
@@ -511,9 +516,13 @@ func (s *WallpaperService) Unfavorite(ctx context.Context, userID, wallpaperID i
 		return errcode.ErrNotFound
 	}
 
-	if err := s.interactionRepo.Unfavorite(ctx, userID, wallpaperID); err != nil {
+	changed, err := s.interactionRepo.Unfavorite(ctx, userID, wallpaperID)
+	if err != nil {
 		slog.ErrorContext(ctx, "failed to unfavorite wallpaper", "error", err)
 		return errcode.ErrInternal
+	}
+	if !changed {
+		return nil
 	}
 	if err := s.wallpaperRepo.IncrementCounter(ctx, wallpaperID, "favorite_count", -1); err != nil {
 		slog.ErrorContext(ctx, "failed to decrement favorite count", "error", err)
@@ -564,8 +573,9 @@ func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, user
 }
 
 // chargeAndRecordDownload runs the coin transfer (first download only, owner
-// exempt), records the download, and bumps counters. Shared by the legacy
-// width/height Download path and the device-id DownloadForDevice path.
+// exempt), records the user's download history, and emits async stats.
+// Shared by the legacy width/height Download path and the device-id
+// DownloadForDevice path.
 func (s *WallpaperService) chargeAndRecordDownload(ctx context.Context, w *model.Wallpaper, userID int64) *errcode.ErrCode {
 	if w.UserID != userID {
 		alreadyPaid, err := s.interactionRepo.HasDownloaded(ctx, userID, w.ID)
@@ -583,15 +593,10 @@ func (s *WallpaperService) chargeAndRecordDownload(ctx context.Context, w *model
 		}
 	}
 
-	if err := s.interactionRepo.RecordDownload(ctx, userID, w.ID); err != nil {
+	if _, err := s.interactionRepo.RecordDownload(ctx, userID, w.ID); err != nil {
 		slog.ErrorContext(ctx, "failed to record download", "error", err)
 	}
-	if err := s.wallpaperRepo.IncrementCounter(ctx, w.ID, "download_count", 1); err != nil {
-		slog.ErrorContext(ctx, "failed to increment download count", "error", err)
-	}
-	if err := s.eventRepo.Record(ctx, w.ID, "download", userID, nil); err != nil {
-		slog.ErrorContext(ctx, "failed to record download event", "error", err, "wallpaper_id", w.ID)
-	}
+	s.publishStatsEvent(ctx, w.ID, "download", userID)
 	return nil
 }
 
@@ -721,6 +726,9 @@ func (s *WallpaperService) publishUploadedEvent(ctx context.Context, w *model.Wa
 }
 
 func (s *WallpaperService) publishStatsEvent(ctx context.Context, wallpaperID int64, eventType string, userID int64) {
+	if s.kafkaWriter == nil {
+		return
+	}
 	event := WallpaperStatsEvent{
 		WallpaperID: wallpaperID,
 		EventType:   eventType,
@@ -732,7 +740,9 @@ func (s *WallpaperService) publishStatsEvent(ctx context.Context, wallpaperID in
 		slog.ErrorContext(ctx, "failed to marshal stats event", "error", err)
 		return
 	}
-	if err := s.kafkaWriter.WriteMessages(ctx, kafka.Message{
+	writeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	defer cancel()
+	if err := s.kafkaWriter.WriteMessages(writeCtx, kafka.Message{
 		Topic: "wallpaper.stats",
 		Key:   []byte(strconv.FormatInt(wallpaperID, 10)),
 		Value: data,
