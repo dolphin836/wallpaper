@@ -207,11 +207,10 @@ struct PopoverContentView: View {
         isLoadingDownloaded = true
         defer { isLoadingDownloaded = false }
         do {
-            // No device-resolution filter on Downloaded — the user expects
-            // every wallpaper they've downloaded to surface here. Filtering
-            // on `device_width` excluded items that don't have a variant
-            // matching this Mac's screen, which after a successful download
-            // looked like the just-downloaded wallpaper had vanished.
+            // APIClient applies the same minimum-screen requirement used by
+            // every other Mac wallpaper feed. Keep the endpoint's optional
+            // exact-device variant filter off here; compatibility is based on
+            // the original wallpaper dimensions.
             let data = try await APIClient.shared.fetchMyDownloads(
                 cursor: reset ? nil : downloadedCursor,
                 limit: 20,

@@ -5,6 +5,7 @@ enum APIError: LocalizedError {
     case invalidURL
     case unauthorized
     case insufficientCoins
+    case unsupportedResolution
     case serverError(Int, String)
     case decodingError(Error)
     case networkError(Error)
@@ -14,10 +15,38 @@ enum APIError: LocalizedError {
         case .invalidURL: return "Invalid URL"
         case .unauthorized: return "Please log in"
         case .insufficientCoins: return "Insufficient coins"
+        case .unsupportedResolution: return "This wallpaper is too small for the current display"
         case .serverError(let code, let msg): return "Server error (\(code)): \(msg)"
         case .decodingError(let err): return "Decode error: \(err.localizedDescription)"
         case .networkError(let err): return err.localizedDescription
         }
+    }
+}
+
+struct MacScreenRequirement: Sendable {
+    let width: Int
+    let height: Int
+
+    static var current: MacScreenRequirement {
+        let screens = NSScreen.screens.isEmpty ? [NSScreen.main].compactMap { $0 } : NSScreen.screens
+        return screens
+            .map {
+                MacScreenRequirement(
+                    width: Int(($0.frame.width * $0.backingScaleFactor).rounded()),
+                    height: Int(($0.frame.height * $0.backingScaleFactor).rounded())
+                )
+            }
+            .min { lhs, rhs in
+                let lhsPixels = lhs.width * lhs.height
+                let rhsPixels = rhs.width * rhs.height
+                if lhsPixels == rhsPixels { return lhs.width < rhs.width }
+                return lhsPixels < rhsPixels
+            }
+            ?? MacScreenRequirement(width: 1920, height: 1080)
+    }
+
+    func supports(width: Int, height: Int) -> Bool {
+        width >= self.width && height >= self.height
     }
 }
 
@@ -37,6 +66,62 @@ actor APIClient {
         config.timeoutIntervalForRequest = 30
         session = URLSession(configuration: config)
         decoder = JSONDecoder()
+    }
+
+    func compatibleWallpapers(_ wallpapers: [Wallpaper]) -> [Wallpaper] {
+        let requirement = MacScreenRequirement.current
+        return wallpapers.filter { requirement.supports(width: $0.width, height: $0.height) }
+    }
+
+    // Keep following server cursors when a page contains undersized
+    // wallpapers so a compatible feed never appears empty prematurely.
+    func fetchCompatibleWallpaperPage(
+        _ path: String,
+        cursor: Int?,
+        limit: Int,
+        queryItems: [URLQueryItem] = []
+    ) async throws -> PaginatedData<Wallpaper> {
+        var accepted: [Wallpaper] = []
+        var nextCursor = cursor
+        var hasMore = true
+        var total: Int?
+        var rounds = 0
+        let maxRounds = limit <= 1 ? 1 : 50
+
+        while accepted.count < limit && hasMore && rounds < maxRounds {
+            rounds += 1
+            let previousCursor = nextCursor
+            var items = queryItems
+            items.append(.init(name: "limit", value: String(max(1, limit - accepted.count))))
+            if let nextCursor {
+                items.append(.init(name: "cursor", value: String(nextCursor)))
+            }
+
+            let resp: APIResponse<PaginatedData<Wallpaper>> = try await request(path, queryItems: items)
+            let page = resp.data
+            accepted.append(contentsOf: compatibleWallpapers(page.items))
+            total = total ?? page.total
+            nextCursor = page.nextCursor
+            hasMore = page.hasMore
+
+            if hasMore && nextCursor == previousCursor {
+                hasMore = false
+            }
+        }
+
+        return PaginatedData(items: accepted, nextCursor: nextCursor, hasMore: hasMore, total: total)
+    }
+
+    func requireCompatibleDetail(_ detail: WallpaperDetail) throws -> WallpaperDetail {
+        guard MacScreenRequirement.current.supports(width: detail.width, height: detail.height) else {
+            throw APIError.unsupportedResolution
+        }
+        return detail
+    }
+
+    func compatibleWeeklyPicks(_ picks: [WeeklyPicked]) -> [WeeklyPicked] {
+        let requirement = MacScreenRequirement.current
+        return picks.filter { requirement.supports(width: $0.width, height: $0.height) }
     }
 
     // Internal (not private) so extensions in sibling files can route
@@ -96,9 +181,7 @@ actor APIClient {
         deviceMatch: Bool = false,
         includeVideo: Bool = false
     ) async throws -> PaginatedData<Wallpaper> {
-        var items: [URLQueryItem] = [
-            .init(name: "limit", value: String(limit)),
-        ]
+        var items: [URLQueryItem] = []
         if dynamicOnly {
             items.append(.init(name: "dynamic_only", value: "true"))
         }
@@ -117,12 +200,10 @@ actor APIClient {
         // Device-resolution match — sends this Mac's physical pixel
         // dimensions so the backend filters to wallpapers with a
         // matching variant.
-        if deviceMatch, let screen = NSScreen.main {
-            let dpr = Int(screen.backingScaleFactor)
-            let w = Int(screen.frame.width) * dpr
-            let h = Int(screen.frame.height) * dpr
-            items.append(.init(name: "device_width", value: String(w)))
-            items.append(.init(name: "device_height", value: String(h)))
+        if deviceMatch {
+            let requirement = MacScreenRequirement.current
+            items.append(.init(name: "device_width", value: String(requirement.width)))
+            items.append(.init(name: "device_height", value: String(requirement.height)))
             items.append(.init(name: "include_dynamic", value: "true"))
         }
         // Hide video by default (the mac client doesn't render video
@@ -131,11 +212,7 @@ actor APIClient {
         if !includeVideo {
             items.append(.init(name: "exclude_video", value: "true"))
         }
-        if let c = cursor {
-            items.append(.init(name: "cursor", value: String(c)))
-        }
-        let resp: APIResponse<PaginatedData<Wallpaper>> = try await request("/wallpapers", queryItems: items)
-        return resp.data
+        return try await fetchCompatibleWallpaperPage("/wallpapers", cursor: cursor, limit: limit, queryItems: items)
     }
 
     // Personalised "For You" feed — a single-shot top-N list (no cursor
@@ -259,12 +336,13 @@ actor APIClient {
     }
 
     func fetchForYou(limit: Int = 30) async throws -> [Wallpaper] {
+        let requestLimit = min(60, max(limit, limit * 2))
         let items: [URLQueryItem] = [
-            .init(name: "limit", value: String(limit)),
+            .init(name: "limit", value: String(requestLimit)),
             .init(name: "exclude_video", value: "true"),
         ]
         let resp: APIResponse<[Wallpaper]> = try await request("/wallpapers/for-you", queryItems: items)
-        return resp.data
+        return Array(compatibleWallpapers(resp.data).prefix(limit))
     }
 
     func fetchMyDownloads(
@@ -275,14 +353,10 @@ actor APIClient {
         dynamicOnly: Bool = false
     ) async throws -> PaginatedData<Wallpaper> {
         var items: [URLQueryItem] = [
-            .init(name: "limit", value: String(limit)),
             // The mac client can't render video wallpapers. Downloads are
             // cross-platform, so drop any video the user pulled elsewhere.
             .init(name: "exclude_video", value: "true"),
         ]
-        if let c = cursor {
-            items.append(.init(name: "cursor", value: String(c)))
-        }
         // Same mutual exclusion as fetchWallpapers — dynamic-only wins over
         // resolution match when both are conceptually set.
         if dynamicOnly {
@@ -292,8 +366,7 @@ actor APIClient {
             items.append(.init(name: "device_height", value: String(h)))
             items.append(.init(name: "include_dynamic", value: "true"))
         }
-        let resp: APIResponse<PaginatedData<Wallpaper>> = try await request("/users/me/downloads", queryItems: items)
-        return resp.data
+        return try await fetchCompatibleWallpaperPage("/users/me/downloads", cursor: cursor, limit: limit, queryItems: items)
     }
 
     func fetchCoins() async throws -> Int {

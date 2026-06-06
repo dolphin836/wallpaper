@@ -9,17 +9,18 @@ extension APIClient {
     // ─── Detail / similar ────────────────────────────────────────
     func fetchWallpaperDetail(slug: String) async throws -> WallpaperDetail {
         let resp: APIResponse<WallpaperDetail> = try await request("/wallpapers/\(slug)")
-        return resp.data
+        return try requireCompatibleDetail(resp.data)
     }
 
     // Returns the lighter Wallpaper shape — same as fetchWallpapers —
     // for the 'More like this' grid on the detail page.
     func fetchSimilarWallpapers(wallpaperID: Int, limit: Int = 12) async throws -> [Wallpaper] {
+        let requestLimit = min(24, max(limit, limit * 2))
         let resp: APIResponse<[Wallpaper]> = try await request(
             "/wallpapers/\(wallpaperID)/similar",
-            queryItems: [.init(name: "limit", value: String(limit))]
+            queryItems: [.init(name: "limit", value: String(requestLimit))]
         )
-        return resp.data
+        return Array(compatibleWallpapers(resp.data).prefix(limit))
     }
 
     // ─── Categories ──────────────────────────────────────────────
@@ -37,32 +38,21 @@ extension APIClient {
     // `status` mirrors the web Uploads tab: "1" = published, "0,5" =
     // pending/processing (owner-only). Omitted → server default.
     func fetchUserUploads(username: String, cursor: Int? = nil, limit: Int = 24, status: String? = nil) async throws -> PaginatedData<Wallpaper> {
-        var items: [URLQueryItem] = [.init(name: "limit", value: String(limit))]
+        var items: [URLQueryItem] = []
         if let s = status, !s.isEmpty { items.append(.init(name: "status", value: s)) }
-        if let c = cursor { items.append(.init(name: "cursor", value: String(c))) }
-        let resp: APIResponse<PaginatedData<Wallpaper>> = try await request("/users/\(username)/wallpapers", queryItems: items)
-        return resp.data
+        return try await fetchCompatibleWallpaperPage("/users/\(username)/wallpapers", cursor: cursor, limit: limit, queryItems: items)
     }
 
     func fetchUserLikes(username: String, cursor: Int? = nil, limit: Int = 24) async throws -> PaginatedData<Wallpaper> {
-        var items: [URLQueryItem] = [.init(name: "limit", value: String(limit))]
-        if let c = cursor { items.append(.init(name: "cursor", value: String(c))) }
-        let resp: APIResponse<PaginatedData<Wallpaper>> = try await request("/users/\(username)/likes", queryItems: items)
-        return resp.data
+        try await fetchCompatibleWallpaperPage("/users/\(username)/likes", cursor: cursor, limit: limit)
     }
 
     func fetchUserFavorites(username: String, cursor: Int? = nil, limit: Int = 24) async throws -> PaginatedData<Wallpaper> {
-        var items: [URLQueryItem] = [.init(name: "limit", value: String(limit))]
-        if let c = cursor { items.append(.init(name: "cursor", value: String(c))) }
-        let resp: APIResponse<PaginatedData<Wallpaper>> = try await request("/users/\(username)/favorites", queryItems: items)
-        return resp.data
+        try await fetchCompatibleWallpaperPage("/users/\(username)/favorites", cursor: cursor, limit: limit)
     }
 
     func fetchUserDownloads(username: String, cursor: Int? = nil, limit: Int = 24) async throws -> PaginatedData<Wallpaper> {
-        var items: [URLQueryItem] = [.init(name: "limit", value: String(limit))]
-        if let c = cursor { items.append(.init(name: "cursor", value: String(c))) }
-        let resp: APIResponse<PaginatedData<Wallpaper>> = try await request("/users/\(username)/downloads", queryItems: items)
-        return resp.data
+        try await fetchCompatibleWallpaperPage("/users/\(username)/downloads", cursor: cursor, limit: limit)
     }
 
     // ─── Collections ─────────────────────────────────────────────
@@ -96,16 +86,18 @@ extension APIClient {
     }
 
     func fetchCollectionWallpapers(collectionID: Int, cursor: Int? = nil, limit: Int = 24) async throws -> PaginatedData<Wallpaper> {
-        var items: [URLQueryItem] = [.init(name: "limit", value: String(limit))]
-        if let c = cursor { items.append(.init(name: "cursor", value: String(c))) }
-        let resp: APIResponse<PaginatedData<Wallpaper>> = try await request("/collections/\(collectionID)/wallpapers", queryItems: items)
-        return resp.data
+        try await fetchCompatibleWallpaperPage("/collections/\(collectionID)/wallpapers", cursor: cursor, limit: limit)
     }
 
     // ─── Weekly Picks ────────────────────────────────────────────
     func fetchWeeklyCurrent() async throws -> WeeklyCurrent {
         let resp: APIResponse<WeeklyCurrent> = try await request("/weekly-picks/current")
-        return resp.data
+        return WeeklyCurrent(
+            year: resp.data.year,
+            week: resp.data.week,
+            picks: compatibleWeeklyPicks(resp.data.picks),
+            themes: resp.data.themes
+        )
     }
 
     func fetchWeeklyArchive(limit: Int = 50) async throws -> [WeeklyArchiveEntry] {
@@ -118,7 +110,7 @@ extension APIClient {
 
     func fetchWeeklyByWeek(year: Int, week: Int) async throws -> WeeklyByWeek {
         let resp: APIResponse<WeeklyByWeek> = try await request("/weekly-picks/\(year)/\(week)")
-        return resp.data
+        return WeeklyByWeek(year: resp.data.year, week: resp.data.week, picks: compatibleWeeklyPicks(resp.data.picks))
     }
 
     // ─── Devices ─────────────────────────────────────────────────
@@ -133,10 +125,7 @@ extension APIClient {
     }
 
     func fetchDeviceWallpapers(slug: String, cursor: Int? = nil, limit: Int = 24) async throws -> PaginatedData<Wallpaper> {
-        var items: [URLQueryItem] = [.init(name: "limit", value: String(limit))]
-        if let c = cursor { items.append(.init(name: "cursor", value: String(c))) }
-        let resp: APIResponse<PaginatedData<Wallpaper>> = try await request("/devices/\(slug)/wallpapers", queryItems: items)
-        return resp.data
+        try await fetchCompatibleWallpaperPage("/devices/\(slug)/wallpapers", cursor: cursor, limit: limit)
     }
 
     // ─── Uploaders ───────────────────────────────────────────────
@@ -180,4 +169,3 @@ extension APIClient {
 // `request<T>` helper means we don't have to special-case auth/error
 // handling for these paths.
 struct EmptyData: Decodable {}
-
