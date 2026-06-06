@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { AiOutlineClose } from 'react-icons/ai';
 
 interface Props {
@@ -69,6 +69,14 @@ export default function SetWallpaperGuide({ onClose }: Props) {
   const os = useMemo(() => detectOS(), []);
   const guide = guides[os];
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-[2px]"
@@ -78,11 +86,14 @@ export default function SetWallpaperGuide({ onClose }: Props) {
       <div
         className="bg-paper text-ink rounded-[20px] shadow-[0_24px_70px_rgba(0,0,0,0.28)] border border-hair w-full max-w-[420px] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="set-wallpaper-guide-title"
       >
         <div className="flex items-start justify-between gap-4 p-5 border-b border-hair">
           <div>
             <div className="kicker text-muted">Local setup</div>
-            <h3 className="display text-[22px] leading-none mt-2">{guide.title}</h3>
+            <h3 id="set-wallpaper-guide-title" className="display text-[22px] leading-none mt-2">{guide.title}</h3>
           </div>
           <button
             onClick={onClose}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { AiOutlineClose } from 'react-icons/ai';
 import { reportWallpaper } from '../api';
@@ -21,6 +21,14 @@ export default function ReportModal({ wallpaperId, onClose }: ReportModalProps) 
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !submitting) onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, submitting]);
+
   const submit = async () => {
     setSubmitting(true);
     try {
@@ -38,21 +46,25 @@ export default function ReportModal({ wallpaperId, onClose }: ReportModalProps) 
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-[2px]"
       style={{ background: 'rgba(15,12,8,0.55)' }}
-      onClick={onClose}
+      onClick={() => { if (!submitting) onClose(); }}
     >
       <div
         className="bg-paper text-ink rounded-[20px] shadow-[0_24px_70px_rgba(0,0,0,0.28)] border border-hair p-5 w-full max-w-[420px]"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="report-modal-title"
       >
         <div className="flex items-start justify-between gap-4 mb-5">
           <div>
             <div className="kicker text-muted">Catalog moderation</div>
-            <h3 className="display text-[22px] leading-none mt-2">Report this wallpaper</h3>
+            <h3 id="report-modal-title" className="display text-[22px] leading-none mt-2">Report this wallpaper</h3>
           </div>
           <button
             onClick={onClose}
+            disabled={submitting}
             aria-label="Close"
-            className="w-8 h-8 rounded-full border border-hair text-ink-2 hover:text-ink hover:bg-paper-2 inline-flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full border border-hair text-ink-2 hover:text-ink hover:bg-paper-2 inline-flex items-center justify-center transition-colors disabled:opacity-50"
           >
             <AiOutlineClose size={13} />
           </button>
@@ -91,7 +103,8 @@ export default function ReportModal({ wallpaperId, onClose }: ReportModalProps) 
           <div className="flex justify-end gap-2 pt-1">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-[13px] rounded-full border border-hair text-ink-2 hover:text-ink hover:bg-paper-2 transition-colors"
+              disabled={submitting}
+              className="px-4 py-2 text-[13px] rounded-full border border-hair text-ink-2 hover:text-ink hover:bg-paper-2 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>

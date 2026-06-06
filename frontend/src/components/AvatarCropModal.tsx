@@ -27,6 +27,14 @@ export default function AvatarCropModal({ file, onSave, onCancel }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const draggingRef = useRef<{ startX: number; startY: number; offX: number; offY: number } | null>(null);
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !saving) onCancel();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onCancel, saving]);
+
   // Load the file once, decoded into an HTMLImageElement. We hold an object
   // URL for the lifetime of the modal so the <img> for the canvas source has
   // somewhere to point — revoked on unmount.
@@ -179,15 +187,19 @@ export default function AvatarCropModal({ file, onSave, onCancel }: Props) {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-[2px]"
       style={{ background: 'rgba(15,12,8,0.55)' }}
-      onClick={onCancel}
+      onClick={() => { if (!saving) onCancel(); }}
     >
       <div
         className="bg-paper text-ink rounded-[20px] shadow-[0_24px_70px_rgba(0,0,0,0.28)] border border-hair p-5 w-full max-w-[420px]"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="avatar-crop-title"
+        aria-describedby="avatar-crop-desc"
       >
         <div className="kicker text-muted">Profile image</div>
-        <h3 className="display text-[22px] leading-none mt-2">裁剪头像</h3>
-        <p className="text-[12px] text-muted mt-2 mb-4">拖拽调整位置，滚轮或滑块缩放</p>
+        <h3 id="avatar-crop-title" className="display text-[22px] leading-none mt-2">裁剪头像</h3>
+        <p id="avatar-crop-desc" className="text-[12px] text-muted mt-2 mb-4">拖拽调整位置，滚轮或滑块缩放</p>
 
         <div className="relative mx-auto" style={{ width: VIEWPORT, height: VIEWPORT }}>
           {image ? (
@@ -195,6 +207,7 @@ export default function AvatarCropModal({ file, onSave, onCancel }: Props) {
               ref={canvasRef}
               style={{ width: VIEWPORT, height: VIEWPORT, touchAction: 'none', cursor: draggingRef.current ? 'grabbing' : 'grab' }}
               className="rounded-xl bg-paper-2 border border-hair"
+              aria-label="Avatar crop canvas"
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}

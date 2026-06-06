@@ -62,6 +62,20 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
     if (composing) newInputRef.current?.focus();
   }, [composing]);
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || creating) return;
+      if (composing) {
+        setComposing(false);
+        setNewTitle('');
+        return;
+      }
+      onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [composing, creating, onClose]);
+
   const handleAdd = async (collectionId: number, alreadyContains: boolean) => {
     // Server-side contains + same-session adds both block re-adding.
     if (alreadyContains || addedIds.has(collectionId)) return;
@@ -103,7 +117,7 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
 
   return (
     <div
-      onClick={onClose}
+      onClick={() => { if (!creating) onClose(); }}
       className="fixed inset-0 z-[60] flex items-start justify-center pt-[15vh] px-4"
       style={{ background: 'rgba(15,12,8,0.55)' }}
     >
@@ -111,15 +125,19 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
         className="bg-paper border border-hair w-full max-w-[360px] max-h-[70vh] flex flex-col rounded-2xl"
         style={{ boxShadow: '0 24px 48px rgba(0,0,0,0.22)' }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-to-collection-title"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-3">
           <div className="min-w-0">
-            <span className="kicker text-muted">Add to a list{headerCount}</span>
+            <h2 id="add-to-collection-title" className="kicker text-muted">Add to a list{headerCount}</h2>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-full border border-hair text-ink-2 hover:bg-paper-2 inline-flex items-center justify-center transition-colors flex-shrink-0"
+            disabled={creating}
+            className="w-7 h-7 rounded-full border border-hair text-ink-2 hover:bg-paper-2 inline-flex items-center justify-center transition-colors flex-shrink-0 disabled:opacity-50"
             aria-label="Close"
           >
             <AiOutlineClose size={12} />
@@ -135,6 +153,7 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search your lists…"
+              aria-label="Search your lists"
               className="w-full pl-9 pr-8 py-2 text-[13px] border border-hair rounded-full bg-paper-2 text-ink placeholder:text-muted focus:outline-none focus:border-ink-2 focus:bg-paper transition-colors"
             />
             {search && (
@@ -153,10 +172,10 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
         <ul className="list-none m-0 p-0 mx-4 border-t border-hair overflow-y-auto flex-1">
           {loading ? (
             <li className="py-6 flex justify-center">
-              <div className="w-5 h-5 border-2 border-hair border-t-ink rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-hair border-t-ink rounded-full animate-spin" role="status" aria-label="Loading lists" />
             </li>
           ) : collections.length === 0 ? (
-            <li className="py-6 text-center text-[12px] text-muted">
+            <li className="py-6 text-center text-[12px] text-muted" aria-live="polite">
               {isSearching ? `No lists match “${search}”` : 'No lists yet. Create one below.'}
             </li>
           ) : (
@@ -212,6 +231,7 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
                   if (e.key === 'Escape') { setComposing(false); setNewTitle(''); }
                 }}
                 placeholder="New list name"
+                aria-label="New list name"
                 maxLength={100}
                 className="flex-1 px-3 py-2 text-[13px] border border-dashed border-hair rounded-full bg-paper text-ink placeholder:text-muted focus:outline-none focus:border-ink"
               />
