@@ -299,6 +299,19 @@
   background: oklch(58% 0.21 295 / 0.85);
   color: oklch(99% 0 0);
 }
+.tile-chip.is-processing,
+.tile-chip.is-review {
+  background: color-mix(in oklch, var(--color-accent) 76%, oklch(100% 0 0 / 0.18));
+  color: oklch(99% 0 0);
+}
+.tile-chip.is-failed {
+  background: oklch(54% 0.22 28 / 0.88);
+  color: oklch(99% 0 0);
+}
+.tile-chip.is-muted {
+  background: oklch(42% 0.025 240 / 0.72);
+  color: oklch(99% 0 0);
+}
 
 /* ────────────────────────────────────────────────────────────────
    .wp-card — default WallpaperCard variant (Home / Profile /
@@ -311,43 +324,31 @@
 
 .wp-card {
   position: relative;
-  border-radius: 0 !important;          /* override rounded-lg */
-  background: var(--color-paper-3) !important;  /* override bg-slate-100 — the wallpaper fills above this */
+  border-radius: 14px;
+  background: var(--color-paper-3);
   isolation: isolate;
+  color: var(--color-ink);
+  border: 1px solid var(--color-hair);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 8px 22px -10px oklch(0% 0 0 / 0.28);
+  transition: transform 320ms var(--ease-out-quart),
+              box-shadow 320ms var(--ease-out-quart),
+              border-color 220ms ease;
 }
-.dark .wp-card { background: var(--color-paper-2) !important; }
+.dark .wp-card {
+  background: var(--color-paper-2);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.08),
+    0 8px 22px -10px oklch(0% 0 0 / 0.55);
+}
 
-/* Two pseudo-elements draw 4 corner brackets (14px L's) using stacked
-   backgrounds. ::before owns the top two corners, ::after owns the bottom
-   two. The brackets sit OVER the image (z-index 3) but never above the
-   action rail (z-index ≥ 5 in tile-actions). */
+/* The old wp-card variant drew four focus-frame corner brackets here.
+   Public wallpaper cards now share the rounded media-card language with
+   salon tiles, so the pseudo-elements are intentionally disabled. */
 .wp-card::before,
 .wp-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 3;
-  background-color: transparent;
-  background-repeat: no-repeat;
-  background-size:
-    14px 1px,  /* horizontal bar  */
-    1px 14px,  /* vertical bar    */
-    14px 1px,
-    1px 14px;
-  background-image:
-    linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)),
-    linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)),
-    linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)),
-    linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85));
-  opacity: 0.7;
-  transition:
-    inset 320ms cubic-bezier(0.16, 1, 0.30, 1),
-    opacity 240ms cubic-bezier(0.16, 1, 0.30, 1);
-  /* Mount-time entrance — corners draw in from outside the frame, like a
-     focus-lock landing. Animation runs once per element mount, then the
-     hover/transition rules take over. */
-  animation: wp-card-corners-in 520ms cubic-bezier(0.16, 1, 0.30, 1) both;
+  content: none;
 }
 @keyframes wp-card-corners-in {
   0%   { inset: 18px; opacity: 0; }
@@ -372,20 +373,21 @@
 .wp-card:hover::after,
 .wp-card:focus-within::before,
 .wp-card:focus-within::after {
-  inset: 6px;
-  opacity: 1;
+  content: none;
 }
 .wp-card:hover,
 .wp-card:focus-within {
+  transform: translateY(-4px);
+  border-color: color-mix(in oklch, var(--color-accent) 44%, var(--color-hair));
   box-shadow:
-    0 18px 36px -16px oklch(20% 0.020 230 / 0.55),
-    0 1px 0 oklch(96% 0.010 230 / 0.45);
+    inset 0 1px 0 oklch(100% 0 0 / 0.5),
+    0 20px 42px -12px oklch(0% 0 0 / 0.38);
 }
 .dark .wp-card:hover,
 .dark .wp-card:focus-within {
   box-shadow:
-    0 22px 40px -16px oklch(8% 0.012 230 / 0.85),
-    0 0 0 1px oklch(28% 0.024 230);
+    inset 0 1px 0 oklch(100% 0 0 / 0.08),
+    0 20px 42px -12px oklch(0% 0 0 / 0.7);
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -449,6 +451,7 @@
    prints), and .dev-spec-card-screen (device spec card). Same
    chrome, same hover reveal; the host class differs per surface. */
 .tile-cell .tile-actions,
+.wp-card .tile-actions,
 .h3-tile .tile-actions,
 .cd-frame .tile-actions,
 .dev-spec-card-screen .tile-actions {
@@ -466,6 +469,8 @@
 }
 .tile-cell:hover .tile-actions,
 .tile-cell:focus-within .tile-actions,
+.wp-card:hover .tile-actions,
+.wp-card:focus-within .tile-actions,
 .h3-tile:hover .tile-actions,
 .h3-tile:focus-within .tile-actions,
 .cd-frame:hover .tile-actions,

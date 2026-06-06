@@ -85,6 +85,15 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
     return '';
   })();
 
+  const statusChip = (() => {
+    if (!showStatus || wallpaper.status === STATUS_PUBLISHED) return null;
+    if (isProcessing) return { label: 'Processing', tone: 'is-processing' };
+    if (isFailed) return { label: 'Failed', tone: 'is-failed' };
+    if (wallpaper.status === STATUS_PENDING_REVIEW) return { label: 'Review', tone: 'is-review' };
+    if (wallpaper.status === STATUS_REJECTED) return { label: 'Rejected', tone: 'is-failed' };
+    return { label: `Status ${wallpaper.status}`, tone: 'is-muted' };
+  })();
+
   const handleAction = (e: React.MouseEvent, action: () => void) => {
     e.preventDefault();
     e.stopPropagation();
@@ -293,6 +302,14 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               AI
             </span>
           )}
+          {statusChip && (
+            <span
+              className={`tile-chip ${statusChip.tone}`}
+              title={wallpaper.status === STATUS_REJECTED && wallpaper.rejection_reason ? wallpaper.rejection_reason : undefined}
+            >
+              {statusChip.label}
+            </span>
+          )}
         </div>
 
         {/* Hover action rail. Order: favorite → like → download.
@@ -334,8 +351,13 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   return (
     <Wrapper
       {...(wrapperProps as any)}
-      className={`wp-card group block rounded-lg overflow-hidden bg-slate-100 dark:bg-ws-dark-card transition-all duration-300 ${fillHeight ? 'h-full' : ''} animate-fade-in`}
-      style={{ ...style, animationDelay: `${animDelay}ms`, ...(isPublished ? {} : { cursor: 'default' }) }}
+      className={`wp-card group block relative overflow-hidden transition-all duration-300 no-underline ${fillHeight ? 'h-full' : ''} animate-fade-in ${isPublished ? '' : 'cursor-default'}`}
+      style={{
+        ...style,
+        animationDelay: `${animDelay}ms`,
+        backgroundColor: wallpaper.dominant_color || 'var(--color-paper-3)',
+        ...(isPublished ? {} : { cursor: 'default' }),
+      }}
     >
       <div
         className={`relative overflow-hidden ${fillHeight ? 'h-full' : ''} ${fixedAspect ? 'aspect-[3/2]' : ''}`}
@@ -388,97 +410,65 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         ) : (
           <div className={`w-full flex items-center justify-center ${fixedAspect || fillHeight ? 'h-full' : 'aspect-[4/3]'}`}>
             {isProcessing ? (
-              <AiOutlineLoading3Quarters size={32} className="text-slate-400 animate-spin" />
+              <AiOutlineLoading3Quarters size={32} className="text-white/70 animate-spin" />
             ) : (
-              <AiOutlineWarning size={32} className="text-slate-400" />
+              <AiOutlineWarning size={32} className="text-white/70" />
             )}
           </div>
         )}
 
         {/* Tags: top-left */}
-        <div className="absolute top-2.5 left-2.5 z-[3] flex items-center gap-1.5">
+        <div className="absolute top-2.5 left-2.5 z-[3] flex items-center gap-1.5 flex-wrap max-w-[calc(100%-20px)]">
+          {resLabel && (
+            <span className="tile-chip">
+              {resLabel}
+            </span>
+          )}
           {(isVideo || wallpaper.is_dynamic) && (
-            <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-black/50 text-white backdrop-blur-sm">
+            <span className="tile-chip">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
               Live
             </span>
           )}
           {wallpaper.is_ai_generated && (
-            <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-violet-600/85 text-white backdrop-blur-sm">
+            <span className="tile-chip is-ai">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.6 4.6L18 8.2l-4.4 1.6L12 14.4l-1.6-4.6L6 8.2l4.4-1.6L12 2zm7 10l1 2.8 2.8 1-2.8 1L19 19.6l-1-2.8-2.8-1 2.8-1L19 12zM5 14l.9 2.6L8.4 17.6l-2.5 1L5 21.2 4.1 18.6 1.6 17.6 4.1 16.6 5 14z"/></svg>
               AI
             </span>
           )}
-          {resLabel && (
-            <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-black/50 text-white/80 backdrop-blur-sm">
-              {resLabel}
+          {statusChip && (
+            <span
+              className={`tile-chip ${statusChip.tone}`}
+              title={wallpaper.status === STATUS_REJECTED && wallpaper.rejection_reason ? wallpaper.rejection_reason : undefined}
+            >
+              {statusChip.label}
             </span>
           )}
         </div>
 
-        {showStatus && wallpaper.status !== STATUS_PUBLISHED && (() => {
-          // Tone + label table indexed by status. Pending review +
-          // Rejected are owner-only states that appear on the "my
-          // uploads" view; they never reach strangers because the
-          // public list filter restricts to Published.
-          const tone =
-            isProcessing ? 'bg-amber-500/80 text-white' :
-            isFailed ? 'bg-red-500/80 text-white' :
-            wallpaper.status === STATUS_PENDING_REVIEW ? 'bg-violet-500/85 text-white' :
-            wallpaper.status === STATUS_REJECTED ? 'bg-red-500/85 text-white' :
-            'bg-slate-500/80 text-white';
-          const label =
-            isProcessing ? 'Processing' :
-            isFailed ? 'Failed' :
-            wallpaper.status === STATUS_PENDING_REVIEW ? 'Pending review' :
-            wallpaper.status === STATUS_REJECTED ? 'Rejected' :
-            `Status ${wallpaper.status}`;
-          return (
-            <span
-              className={`absolute ${wallpaper.is_dynamic || isVideo || resLabel || wallpaper.is_ai_generated ? 'top-8' : 'top-2.5'} left-2.5 z-[3] px-2 py-0.5 text-[10px] font-semibold rounded-full backdrop-blur-sm ${tone}`}
-              title={wallpaper.status === STATUS_REJECTED && wallpaper.rejection_reason ? wallpaper.rejection_reason : undefined}
-            >
-              {label}
-            </span>
-          );
-        })()}
-
         {/* Action buttons — appear on hover, only for published wallpapers */}
-        {isPublished && !hideActions && <div className="absolute right-0 top-0 bottom-0 z-[2] p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end">
-          <div className="flex flex-col gap-1.5">
-            <button
-              onClick={(e) => handleAction(e, () => requireAuth(handleLike))}
-              disabled={likeLoading}
-              className={`p-2.5 rounded-full backdrop-blur-md transition-all duration-200 disabled:opacity-50 ${
-                liked
-                  ? 'bg-red-500/90 text-white'
-                  : 'bg-white/20 text-white hover:bg-white/30'
-              }`}
-              title={liked ? 'Unlike' : 'Like'}
-            >
-              {likeLoading ? <AiOutlineLoading3Quarters size={16} className="animate-spin" /> : liked ? <AiFillHeart size={16} /> : <AiOutlineHeart size={16} />}
-            </button>
+        {isPublished && !hideActions && <div className="tile-actions">
             <button
               onClick={(e) => handleAction(e, () => requireAuth(handleFavorite))}
               disabled={favLoading}
-              className={`p-2.5 rounded-full backdrop-blur-md transition-all duration-200 disabled:opacity-50 ${
-                favorited
-                  ? 'bg-amber-500/90 text-white'
-                  : 'bg-white/20 text-white hover:bg-white/30'
-              }`}
+              className={`t-act ${favorited ? 'is-favorited' : ''}`}
               title={favorited ? 'Unfavorite' : 'Favorite'}
             >
               {favLoading ? <AiOutlineLoading3Quarters size={16} className="animate-spin" /> : favorited ? <AiFillStar size={16} /> : <AiOutlineStar size={16} />}
+            </button>
+            <button
+              onClick={(e) => handleAction(e, () => requireAuth(handleLike))}
+              disabled={likeLoading}
+              className={`t-act ${liked ? 'is-liked' : ''}`}
+              title={liked ? 'Unlike' : 'Like'}
+            >
+              {likeLoading ? <AiOutlineLoading3Quarters size={16} className="animate-spin" /> : liked ? <AiFillHeart size={16} /> : <AiOutlineHeart size={16} />}
             </button>
             {canDownload && (
               <button
                 onClick={(e) => handleAction(e, () => requireAuth(handleDownload))}
                 disabled={downloading}
-                className={`p-2.5 rounded-full backdrop-blur-md transition-all duration-200 disabled:opacity-50 ${
-                  downloaded
-                    ? 'bg-green-500/90 text-white'
-                    : 'bg-white/20 text-white hover:bg-white/30'
-                }`}
+                className={`t-act ${downloaded ? 'is-downloaded' : ''}`}
                 title={downloaded ? 'Downloaded' : 'Download (1 coin)'}
               >
                 {downloading ? (
@@ -490,7 +480,6 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
                 )}
               </button>
             )}
-          </div>
         </div>}
       </div>
     </Wrapper>
