@@ -28,6 +28,7 @@ struct DetailPage: View {
     enum PreviewMode: String { case off = "Wallpaper", plain = "Plain", home = "Home", lock = "Lock" }
     private enum DownloadNotice: Equatable {
         case success
+        case set
         case insufficientCoins
         case unavailable
         case failed(String)
@@ -258,6 +259,10 @@ struct DetailPage: View {
                 DeviceMockup(wallpaper: lightWallpaper(detail), controlledMode: deviceMode, showChrome: false)
                     .frame(maxWidth: .infinity)
                     .frame(maxHeight: layout.heroMaxHeight)
+                    .overlay(alignment: .topLeading) {
+                        previewChips(detail: detail)
+                            .padding(14)
+                    }
             }
         }
         .frame(maxWidth: .infinity)
@@ -357,7 +362,7 @@ struct DetailPage: View {
 
     private func noticeTone(_ notice: DownloadNotice) -> (background: Color, border: Color, ink: Color, text: Color) {
         switch notice {
-        case .success:
+        case .success, .set:
             let ink = Color(hex: "#2f6b3e")
             return (Color(hex: "#edf8ef"), ink.opacity(0.65), ink, Color(hex: "#1f4827"))
         case .insufficientCoins:
@@ -371,6 +376,7 @@ struct DetailPage: View {
     private func noticeIcon(_ notice: DownloadNotice) -> String {
         switch notice {
         case .success: "checkmark"
+        case .set: "display"
         case .insufficientCoins: "creditcard"
         case .unavailable: "hammer"
         case .failed: "exclamationmark"
@@ -380,6 +386,7 @@ struct DetailPage: View {
     private func noticeTitle(_ notice: DownloadNotice) -> String {
         switch notice {
         case .success: "Downloaded"
+        case .set: "Wallpaper set"
         case .insufficientCoins: "Insufficient coins"
         case .unavailable: "Not ready to download"
         case .failed: "Download failed"
@@ -390,6 +397,8 @@ struct DetailPage: View {
         switch notice {
         case .success:
             return "wallpaper_\(String(format: "%03d", d.id)) · \(byteString(d.fileSize)) saved to your Wallpaper Exchange downloads."
+        case .set:
+            return "Applied to every connected display from your local Wallpaper Exchange file."
         case .insufficientCoins:
             let balance = auth.user?.coins ?? 0
             return "Your balance is \(balance) coin\(balance == 1 ? "" : "s"). Upload wallpapers to earn more and keep downloading."
@@ -420,12 +429,57 @@ struct DetailPage: View {
             }
             .frame(width: size.width, height: size.height)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(alignment: .topLeading) {
+                previewChips(detail: detail)
+                    .padding(10)
+            }
             .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.white.opacity(0.18), lineWidth: 1))
             .shadow(color: .black.opacity(0.3), radius: 24, y: 14)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity)
         .frame(height: size.height)
+    }
+
+    private func previewChips(detail d: WallpaperDetail) -> some View {
+        HStack(alignment: .top, spacing: 4) {
+            previewChip(d.resolutionLabel, icon: nil, variant: .regular)
+            if isLive(detail: d) {
+                previewChip("LIVE", icon: "play.fill", variant: .regular)
+            }
+            if d.isAIGenerated == true {
+                previewChip("AI", icon: "sparkles", variant: .ai)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private enum PreviewChipVariant { case regular, ai }
+
+    private func previewChip(_ text: String, icon: String?, variant: PreviewChipVariant) -> some View {
+        HStack(spacing: 4) {
+            if let icon {
+                Image(systemName: icon)
+                    .font(.system(size: 8, weight: .semibold))
+            }
+            Text(text)
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .tracking(0.4)
+        }
+        .foregroundStyle(variant == .ai ? Color.white : Color(red: 0.20, green: 0.21, blue: 0.23))
+        .padding(.horizontal, 7)
+        .padding(.vertical, 2)
+        .background(
+            Capsule().fill(
+                variant == .ai
+                ? Color(red: 0.62, green: 0.30, blue: 0.82).opacity(0.85)
+                : Color.white.opacity(0.78)
+            )
+        )
+    }
+
+    private func isLive(detail d: WallpaperDetail) -> Bool {
+        d.isDynamic || d.fileType.hasPrefix("video/")
     }
 
     private func rawHeroSize(detail: WallpaperDetail, layout: DetailLayout) -> CGSize {
@@ -532,19 +586,20 @@ struct DetailPage: View {
 
     private func downloadActions(detail: WallpaperDetail) -> some View {
         let downloading = manager.downloading.contains(detail.id)
+        let downloaded = isLocalDownloaded(detail)
         return HStack(spacing: 6) {
             Button(action: { Task { await downloadOriginal(detail) } }) {
                 downloadLabel(icon: "tray.and.arrow.down",
-                              text: downloading ? "Downloading" : "Download",
+                              text: downloaded ? "Downloaded" : (downloading ? "Downloading" : "Download"),
                               emphasized: true)
             }
-            .disabled(downloading)
+            .disabled(downloading || downloaded)
             .buttonStyle(.plain)
             Button(action: {
                 Task { await downloadOriginalAndSet(detail) }
             }) {
-                downloadLabel(icon: "arrow.down.circle.fill",
-                              text: "Download & set · 1 coin",
+                downloadLabel(icon: downloaded ? "display" : "arrow.down.circle.fill",
+                              text: downloaded ? "Set as wallpaper" : "Download & set · 1 coin",
                               emphasized: true)
             }
             .disabled(downloading)
@@ -569,19 +624,18 @@ struct DetailPage: View {
     }
 
     // File info row inside the toolbar (web .wd-actionbar-meta): big
-    // dimensions + mono "res · TYPE · size", plus LIVE / AI pills.
+    // dimensions + mono "res · TYPE · size". Content tags live on the
+    // preview image itself, matching the list tiles.
     private func metaRow(detail d: WallpaperDetail) -> some View {
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 metaDimensions(detail: d)
                 metaSpecs(detail: d)
-                metaBadges(detail: d)
                 Spacer(minLength: 0)
             }
             VStack(alignment: .leading, spacing: 7) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     metaDimensions(detail: d)
-                    metaBadges(detail: d)
                     Spacer(minLength: 0)
                 }
                 metaSpecs(detail: d)
@@ -603,22 +657,6 @@ struct DetailPage: View {
             .foregroundStyle(Color.muted)
             .lineLimit(1)
             .truncationMode(.tail)
-    }
-
-    @ViewBuilder
-    private func metaBadges(detail d: WallpaperDetail) -> some View {
-        if d.isDynamic || d.fileType.hasPrefix("video/") {
-            Text("● LIVE").font(.system(size: 9, design: .monospaced)).tracking(1.4)
-                .foregroundStyle(Color.accent)
-                .padding(.horizontal, 8).padding(.vertical, 2)
-                .background(Capsule().fill(Color.ink))
-        }
-        if d.isAIGenerated == true {
-            Text("✦ AI").font(.system(size: 9, design: .monospaced)).tracking(1.4)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8).padding(.vertical, 2)
-                .background(Capsule().fill(Color(red: 0.42, green: 0.28, blue: 0.7)))
-        }
     }
 
     private func byteString(_ bytes: Int) -> String {
@@ -815,7 +853,15 @@ struct DetailPage: View {
         return (auth.user?.coins ?? 0) > 0
     }
 
+    private func isLocalDownloaded(_ detail: WallpaperDetail) -> Bool {
+        manager.localURL(for: detail.id) != nil
+    }
+
     private func downloadOriginal(_ detail: WallpaperDetail) async {
+        if isLocalDownloaded(detail) {
+            downloadNotice = .success
+            return
+        }
         guard auth.isLoggedIn else {
             downloadNotice = .failed("Please sign in to download this wallpaper.")
             auth.login()
@@ -836,6 +882,17 @@ struct DetailPage: View {
     }
 
     private func downloadOriginalAndSet(_ detail: WallpaperDetail) async {
+        let wallpaper = lightWallpaper(detail)
+        if isLocalDownloaded(detail) {
+            downloadNotice = nil
+            do {
+                try await manager.setAsWallpaper(wallpaper)
+                downloadNotice = .set
+            } catch {
+                handleDownloadError(error)
+            }
+            return
+        }
         guard auth.isLoggedIn else {
             downloadNotice = .failed("Please sign in to download and set this wallpaper.")
             auth.login()
@@ -847,11 +904,10 @@ struct DetailPage: View {
         }
         downloadNotice = nil
         do {
-            let wallpaper = lightWallpaper(detail)
             try await manager.downloadOriginal(wallpaper: wallpaper)
             try await manager.setAsWallpaper(wallpaper)
             await auth.refreshProfile()
-            downloadNotice = .success
+            downloadNotice = .set
         } catch {
             handleDownloadError(error)
         }

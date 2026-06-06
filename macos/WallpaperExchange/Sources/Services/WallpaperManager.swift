@@ -108,7 +108,7 @@ final class WallpaperManager {
     /// wallpaper currently marked as active. No-op when nothing is
     /// active or the file is missing locally.
     private func reapplyCurrentWallpaper(source: String) {
-        guard let id = currentWallpaperID, let url = localURL(for: id) else { return }
+        guard let id = currentWallpaperID, let url = desktopURLForLocalWallpaper(id) else { return }
         applyToAllScreens(url: url, source: source)
     }
 
@@ -160,7 +160,7 @@ final class WallpaperManager {
         // currentWallpaperID after applying — the rotation tile should
         // show the same Active chip as a manual Set Wallpaper does.
         let pairs: [(Int, URL)] = downloadedIDs.compactMap { id in
-            guard let url = localURL(for: id) else { return nil }
+            guard let url = desktopURLForLocalWallpaper(id) else { return nil }
             return (id, url)
         }
         guard let pick = pairs.randomElement() else { return }
@@ -236,6 +236,10 @@ final class WallpaperManager {
     }
 
     private func download(wallpaper: Wallpaper, targetWidth: Int, targetHeight: Int) async throws {
+        if localURL(for: wallpaper.id) != nil {
+            downloadedIDs.insert(wallpaper.id)
+            return
+        }
         guard !downloading.contains(wallpaper.id) else { return }
         downloading.insert(wallpaper.id)
         downloadProgress[wallpaper.id] = 0
@@ -326,13 +330,29 @@ final class WallpaperManager {
         }
     }
 
-    /// Apply the wallpaper to every connected display. If the file is not yet on
-    /// disk locally (e.g. the wallpaper was downloaded on another device — the
-    /// "Downloaded" column is sourced from the server, not the local file scan),
-    /// download it first. The backend's `HasDownloaded` check skips the coin
-    /// charge when the user has already paid for this wallpaper, so re-fetching
-    /// a previously-downloaded item from another device is free.
+    /// Apply the wallpaper to every connected display. Static images and Mac
+    /// dynamic HEIC wallpapers use the local downloaded file directly. Video
+    /// wallpapers cannot be passed to NSWorkspace as a desktop image, so the
+    /// Mac client applies the poster/preview image while keeping the original
+    /// video in the downloads folder.
+    ///
+    /// If the file is not yet on disk locally (e.g. the wallpaper was downloaded
+    /// on another device — the "Downloaded" column is sourced from the server,
+    /// not the local file scan), download it first. The backend's
+    /// `HasDownloaded` check skips the coin charge when the user has already
+    /// paid for this wallpaper, so re-fetching a previously-downloaded item from
+    /// another device is free.
     func setAsWallpaper(_ wallpaper: Wallpaper) async throws {
+        if Self.isVideo(wallpaper) {
+            if localURL(for: wallpaper.id) == nil {
+                try await download(wallpaper: wallpaper)
+            }
+            let poster = try await ensureVideoPoster(wallpaper)
+            applyToAllScreens(url: poster, source: "manual-set-video id=\(wallpaper.id)")
+            markCurrent(wallpaper.id)
+            return
+        }
+
         if localURL(for: wallpaper.id) == nil {
             try await download(wallpaper: wallpaper)
         }
@@ -355,6 +375,7 @@ final class WallpaperManager {
         if let url = localURL(for: wallpaperID) {
             try? FileManager.default.removeItem(at: url)
         }
+        removeVideoPosterFiles(for: wallpaperID)
         downloadedIDs.remove(wallpaperID)
         if currentWallpaperID == wallpaperID {
             currentWallpaperID = nil
@@ -436,6 +457,10 @@ final class WallpaperManager {
             case "image/png": return "png"
             case "image/heic", "image/heif": return "heic"
             case "image/webp": return "webp"
+            case "video/mp4": return "mp4"
+            case "video/quicktime": return "mov"
+            case "video/webm": return "webm"
+            case "video/x-matroska": return "mkv"
             default: break
             }
         }
@@ -444,6 +469,70 @@ final class WallpaperManager {
         if ft.contains("heic") { return "heic" }
         if ft.contains("png") { return "png" }
         if ft.contains("webp") { return "webp" }
+        if ft.contains("quicktime") || ft.contains("mov") { return "mov" }
+        if ft.contains("webm") { return "webm" }
+        if ft.contains("matroska") || ft.contains("mkv") { return "mkv" }
+        if ft.contains("mp4") || ft.hasPrefix("video/") { return "mp4" }
         return "jpg"
+    }
+
+    private static func isVideo(_ wallpaper: Wallpaper) -> Bool {
+        wallpaper.fileType.lowercased().hasPrefix("video/")
+    }
+
+    private static func isVideoFileURL(_ url: URL) -> Bool {
+        switch url.pathExtension.lowercased() {
+        case "mp4", "mov", "webm", "mkv":
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func desktopURLForLocalWallpaper(_ wallpaperID: Int) -> URL? {
+        guard let url = localURL(for: wallpaperID) else { return nil }
+        if let poster = videoPosterURL(for: wallpaperID) {
+            return poster
+        }
+        if Self.isVideoFileURL(url) {
+            return nil
+        }
+        return url
+    }
+
+    private func videoPosterURL(for wallpaperID: Int) -> URL? {
+        let prefix = "poster-\(wallpaperID)."
+        guard let contents = try? fm.contentsOfDirectory(at: storageDir, includingPropertiesForKeys: nil) else { return nil }
+        return contents.first { $0.lastPathComponent.hasPrefix(prefix) }
+    }
+
+    private func removeVideoPosterFiles(for wallpaperID: Int) {
+        let prefix = "poster-\(wallpaperID)."
+        guard let contents = try? fm.contentsOfDirectory(at: storageDir, includingPropertiesForKeys: nil) else { return }
+        for url in contents where url.lastPathComponent.hasPrefix(prefix) {
+            try? fm.removeItem(at: url)
+        }
+    }
+
+    private func ensureVideoPoster(_ wallpaper: Wallpaper) async throws -> URL {
+        if let existing = videoPosterURL(for: wallpaper.id) {
+            return existing
+        }
+
+        let posterString = [wallpaper.previewURL, wallpaper.thumbURL]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+        guard let posterString, let remoteURL = URL(string: posterString) else {
+            throw WallpaperError.fileUnavailable
+        }
+
+        let (tempURL, response) = try await Self.downloadWithProgress(from: remoteURL) { _ in }
+        let ext = Self.fileExtension(from: response, url: remoteURL, fallback: "image/jpeg")
+        let dest = storageDir.appendingPathComponent("poster-\(wallpaper.id).\(ext)")
+
+        removeVideoPosterFiles(for: wallpaper.id)
+        try fm.moveItem(at: tempURL, to: dest)
+        recomputeTotalBytes()
+        return dest
     }
 }

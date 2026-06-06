@@ -207,10 +207,10 @@ actor APIClient {
             items.append(.init(name: "device_height", value: String(requirement.height)))
             items.append(.init(name: "include_dynamic", value: "true"))
         }
-        // Hide video by default (the mac client doesn't render video
-        // wallpapers). The Live filter opts in — its "dynamic" feed
-        // spans Mac dynamic + video, matching the web.
-        if !includeVideo {
+        // Hide video by default. The dynamic/live feed intentionally opts
+        // video back in because the backend's dynamic_only filter spans
+        // Mac dynamic wallpapers + video wallpapers, matching the web.
+        if !includeVideo && !dynamicOnly {
             items.append(.init(name: "exclude_video", value: "true"))
         }
         return try await fetchCompatibleWallpaperPage("/wallpapers", cursor: cursor, limit: limit, queryItems: items)
