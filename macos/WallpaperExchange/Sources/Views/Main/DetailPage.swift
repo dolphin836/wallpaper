@@ -40,10 +40,7 @@ struct DetailPage: View {
         }
 
         var topPadding: CGFloat { isCompact ? 14 : 18 }
-        var scrollBottomClearance: CGFloat {
-            if isModal { return isCompact ? 96 : 112 }
-            return isCompact ? 64 : 80
-        }
+        var bottomPadding: CGFloat { isCompact ? 44 : 60 }
         var contentMaxWidth: CGFloat { 1280 }
         var stagePadding: CGFloat { isCompact ? 14 : 20 }
         var stageSpacing: CGFloat { isCompact ? 14 : 16 }
@@ -77,19 +74,13 @@ struct DetailPage: View {
                             stagePanel(detail: d, layout: layout)
                             metaGrid(detail: d, layout: layout)
                             if !similar.isEmpty {
-                                moreLikeThis(layout: layout)
+                                moreLikeThis
                             }
-                            // An explicit footer is measured reliably by
-                            // ScrollView, unlike a Spacer in unbounded
-                            // vertical space. Modal mode needs extra room so
-                            // the last recommendation row can scroll clear of
-                            // the panel's rounded bottom clip.
-                            Color.clear
-                                .frame(height: layout.scrollBottomClearance)
-                                .accessibilityHidden(true)
+                            Spacer(minLength: 40)
                         }
                         .padding(.horizontal, layout.horizontalPadding)
                         .padding(.top, layout.topPadding)
+                        .padding(.bottom, layout.bottomPadding)
                         // Content width to match the other pages.
                         .frame(maxWidth: layout.contentMaxWidth)
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -565,9 +556,8 @@ struct DetailPage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func moreLikeThis(layout: DetailLayout) -> some View {
-        let gridHeight = recommendationGridHeight(layout: layout)
-        return VStack(alignment: .leading, spacing: 12) {
+    private var moreLikeThis: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("More like this · \(similar.count)")
                     .font(.displayLg).foregroundStyle(Color.ink)
@@ -580,20 +570,8 @@ struct DetailPage: View {
                         .buttonStyle(.plain)
                 }
             }
-            .frame(height: gridHeight, alignment: .top)
         }
         .frame(maxWidth: .infinity)
-    }
-
-    private func recommendationGridHeight(layout: DetailLayout) -> CGFloat {
-        let spacing: CGFloat = 14
-        let minimumCellWidth: CGFloat = 220
-        let aspectRatio: CGFloat = 3.0 / 2.0
-        let width = min(layout.contentMaxWidth, max(1, layout.size.width - layout.horizontalPadding * 2))
-        let columns = max(1, Int(floor((width + spacing) / (minimumCellWidth + spacing))))
-        let rows = Int(ceil(Double(similar.count) / Double(columns)))
-        let cellWidth = (width - CGFloat(columns - 1) * spacing) / CGFloat(columns)
-        return CGFloat(rows) * (cellWidth / aspectRatio) + CGFloat(max(rows - 1, 0)) * spacing
     }
 
     // ─── Actions ────────────────────────────────────────────────
