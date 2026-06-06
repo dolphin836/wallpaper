@@ -32,10 +32,8 @@ struct MacScreenRequirement: Sendable {
         let screens = NSScreen.screens.isEmpty ? [NSScreen.main].compactMap { $0 } : NSScreen.screens
         return screens
             .map {
-                MacScreenRequirement(
-                    width: Int(($0.frame.width * $0.backingScaleFactor).rounded()),
-                    height: Int(($0.frame.height * $0.backingScaleFactor).rounded())
-                )
+                let pixels = Self.physicalPixels(for: $0)
+                return MacScreenRequirement(width: pixels.width, height: pixels.height)
             }
             .min { lhs, rhs in
                 let lhsPixels = lhs.width * lhs.height
@@ -44,6 +42,22 @@ struct MacScreenRequirement: Sendable {
                 return lhsPixels < rhsPixels
             }
             ?? MacScreenRequirement(width: 1920, height: 1080)
+    }
+
+    private static func physicalPixels(for screen: NSScreen) -> (width: Int, height: Int) {
+        if let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber {
+            let displayID = CGDirectDisplayID(number.uint32Value)
+            let width = CGDisplayPixelsWide(displayID)
+            let height = CGDisplayPixelsHigh(displayID)
+            if width > 0 && height > 0 {
+                return (width, height)
+            }
+        }
+
+        return (
+            Int((screen.frame.width * screen.backingScaleFactor).rounded()),
+            Int((screen.frame.height * screen.backingScaleFactor).rounded())
+        )
     }
 
     func supports(width: Int, height: Int) -> Bool {
@@ -479,11 +493,10 @@ actor APIClient {
         deviceHeight: Int? = nil,
         dynamicOnly: Bool = false
     ) async throws -> PaginatedData<Wallpaper> {
-        var items: [URLQueryItem] = [
-            // The mac client can't render video wallpapers. Downloads are
-            // cross-platform, so drop any video the user pulled elsewhere.
-            .init(name: "exclude_video", value: "true"),
-        ]
+        var items: [URLQueryItem] = []
+        if !dynamicOnly {
+            items.append(.init(name: "exclude_video", value: "true"))
+        }
         // Same mutual exclusion as fetchWallpapers — dynamic-only wins over
         // resolution match when both are conceptually set.
         if dynamicOnly {

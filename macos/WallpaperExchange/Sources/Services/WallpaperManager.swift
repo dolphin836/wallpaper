@@ -215,15 +215,31 @@ final class WallpaperManager {
         var maxW = 0
         var maxH = 0
         for screen in NSScreen.screens {
-            let scale = screen.backingScaleFactor
-            let w = Int(screen.frame.width * scale)
-            let h = Int(screen.frame.height * scale)
+            let pixels = physicalPixels(for: screen)
+            let w = pixels.width
+            let h = pixels.height
             if w * h > maxW * maxH {
                 maxW = w
                 maxH = h
             }
         }
         return (maxW, maxH)
+    }
+
+    private static func physicalPixels(for screen: NSScreen) -> (width: Int, height: Int) {
+        if let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber {
+            let displayID = CGDirectDisplayID(number.uint32Value)
+            let width = CGDisplayPixelsWide(displayID)
+            let height = CGDisplayPixelsHigh(displayID)
+            if width > 0 && height > 0 {
+                return (width, height)
+            }
+        }
+
+        return (
+            Int((screen.frame.width * screen.backingScaleFactor).rounded()),
+            Int((screen.frame.height * screen.backingScaleFactor).rounded())
+        )
     }
 
     func download(wallpaper: Wallpaper) async throws {
