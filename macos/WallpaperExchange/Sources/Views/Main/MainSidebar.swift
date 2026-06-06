@@ -9,7 +9,6 @@ import AppKit
 struct MainSidebar: View {
     @Binding var selection: MainWindow.SidebarItem
     @Binding var collapsed: Bool
-    var onUpload: () -> Void
     @State private var auth = AuthService.shared
 
     var body: some View {
@@ -113,10 +112,9 @@ struct MainSidebar: View {
         }
     }
 
-    // Upload opens the sheet without becoming the active selection;
-    // everything else routes by setting the selection.
+    // Drive every row through the same page-level navigation model.
     private func tap(_ item: MainWindow.SidebarItem) {
-        if item == .upload { onUpload() } else { selection = item }
+        selection = item
     }
 
     @ViewBuilder

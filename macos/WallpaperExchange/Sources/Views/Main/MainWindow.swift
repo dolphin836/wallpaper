@@ -16,7 +16,6 @@ struct MainWindow: View {
     @State private var path: [MainRoute] = []
     @State private var search: String = ""
     @State private var committedSearch: String = ""
-    @State private var showingUpload = false
     // Wallpaper detail is presented as a modal overlay (web-style inset
     // panel + scrim), not a navigation push.
     @State private var detailTarget: DetailTarget?
@@ -26,9 +25,7 @@ struct MainWindow: View {
         case home, discover, weekly, collections
         // My Library section (signed-in only).
         case myUploads, myCollections, myDownloads, myFavorites, myLikes, myCoins
-        // Actions group at the bottom of the sidebar. Upload opens the
-        // upload sheet (handled by a tap side-effect, never becomes the
-        // active selection); Settings routes to SettingsView.
+        // Actions group at the bottom of the sidebar.
         case upload, settings
 
         var label: String {
@@ -99,8 +96,7 @@ struct MainWindow: View {
             Color.paper.ignoresSafeArea()
 
             HStack(spacing: WindowChrome.inset) {
-                MainSidebar(selection: $sidebar, collapsed: $sidebarCollapsed,
-                            onUpload: { showingUpload = true })
+                MainSidebar(selection: $sidebar, collapsed: $sidebarCollapsed)
                     .frame(width: sidebarCollapsed ? 64 : 240)
                     // Card visual lives in the BACKGROUND (not a clipShape)
                     // so the collapsed nav icons' hover tooltips can spill
@@ -160,10 +156,6 @@ struct MainWindow: View {
         .ignoresSafeArea(.all)
         .background(Color.paper)
         .task { await auth.refreshProfile() }
-        .sheet(isPresented: $showingUpload) {
-            UploadView(onClose: { showingUpload = false })
-                .frame(minWidth: 720, minHeight: 560)
-        }
     }
 
     private func openDetail(slug: String, fallbackID: Int) {
@@ -194,7 +186,8 @@ struct MainWindow: View {
                     onCategory: { c in path.append(.category(id: c.id, name: c.name, slug: c.slug)) },
                     onUploader: { username in path.append(.profile(username: username)) },
                     onCollection: { c in path.append(.collection(slug: c.slug, title: c.title)) },
-                    onUpload: { showingUpload = true },
+                    onUpload: { sidebar = .upload },
+                    onCancelUpload: { sidebar = auth.isLoggedIn ? .myUploads : .home },
                     onOpenDiscover: { f in pendingDiscoverFilter = f; sidebar = .discover },
                     onOpenCollections: { sidebar = .collections },
                     onOpenWeeklyArchive: { sidebar = .weekly }
@@ -260,6 +253,7 @@ struct ContentRouter: View {
     var onUploader: (String) -> Void
     var onCollection: (CollectionItem) -> Void = { _ in }
     var onUpload: () -> Void = {}
+    var onCancelUpload: () -> Void = {}
     var onOpenDiscover: (DiscoverView.Filter) -> Void = { _ in }
     var onOpenCollections: () -> Void = {}
     var onOpenWeeklyArchive: () -> Void = {}
@@ -280,9 +274,7 @@ struct ContentRouter: View {
         case .myLikes:       account(.likes)
         case .myCoins:       account(.ledger)
         case .settings:      account(.settings)
-        // Upload never becomes the active selection — its sidebar row
-        // opens the upload sheet via a tap side-effect. Render nothing.
-        case .upload:        Color.clear
+        case .upload:        UploadView(onCancel: onCancelUpload)
         }
     }
 

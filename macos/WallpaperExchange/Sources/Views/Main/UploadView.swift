@@ -29,7 +29,7 @@ private struct UploadItem: Identifiable {
 }
 
 struct UploadView: View {
-    var onClose: () -> Void
+    var onCancel: () -> Void = {}
 
     @State private var auth = AuthService.shared
     @State private var files: [UploadItem] = []
@@ -113,32 +113,19 @@ struct UploadView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 18) {
-            VStack(alignment: .leading, spacing: 12) {
-                Kicker(text: "Contribute · Wallpaper Exchange")
-                Text("Share ")
-                    .font(.system(size: 48, weight: .regular, design: .serif))
-                    .foregroundStyle(Color.ink)
-                + Text("what's on your screen.")
-                    .font(.system(size: 48, weight: .medium, design: .serif))
-                    .foregroundStyle(Color.accent)
-                Text("Drop images (JPG / PNG / HEIC, up to \(uploadMaxFiles) at a time) or a single video (MP4 / MOV / WebM / MKV). Each file capped at 200 MB. Every upload earns one coin once it clears review.")
-                    .font(.system(size: 14))
-                    .lineSpacing(3)
-                    .foregroundStyle(Color.ink2)
-                    .frame(maxWidth: 640, alignment: .leading)
-            }
-            Spacer(minLength: 0)
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.ink2)
-                    .frame(width: 30, height: 30)
-                    .background(Circle().fill(Color.paper2))
-                    .overlay(Circle().stroke(Color.hair, lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-            .disabled(uploading)
+        VStack(alignment: .leading, spacing: 12) {
+            Kicker(text: "Contribute · Wallpaper Exchange")
+            Text("Share ")
+                .font(.system(size: 48, weight: .regular, design: .serif))
+                .foregroundStyle(Color.ink)
+            + Text("what's on your screen.")
+                .font(.system(size: 48, weight: .medium, design: .serif))
+                .foregroundStyle(Color.accent)
+            Text("Drop images (JPG / PNG / HEIC, up to \(uploadMaxFiles) at a time) or a single video (MP4 / MOV / WebM / MKV). Each file capped at 200 MB. Every upload earns one coin once it clears review.")
+                .font(.system(size: 14))
+                .lineSpacing(3)
+                .foregroundStyle(Color.ink2)
+                .frame(maxWidth: 640, alignment: .leading)
         }
     }
 
@@ -334,7 +321,7 @@ struct UploadView: View {
             }
             Spacer(minLength: 0)
             if !uploading && !allDone {
-                Button(action: onClose) {
+                Button(action: onCancel) {
                     Text("Cancel")
                         .font(.mono11)
                         .tracking(1.4)
