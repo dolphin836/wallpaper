@@ -573,7 +573,7 @@ struct DetailPage: View {
                 Spacer()
                 Rectangle().fill(Color.hair).frame(height: 1)
             }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 14, alignment: .top)], spacing: 14) {
+            DetailRecommendationGrid(preferredCellWidth: 320, spacing: 14, aspectRatio: 3.0 / 2.0) {
                 ForEach(similar) { wp in
                     Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp) }
                         .buttonStyle(.plain)
@@ -685,6 +685,49 @@ struct DetailPage: View {
             isLiked: d.isLiked, isFavorited: d.isFavorited, isDownloaded: d.isDownloaded,
             createdAt: d.createdAt
         )
+    }
+}
+
+// LazyVGrid can under-report its final adaptive row inside a clipped
+// ScrollView, which makes the detail modal stop scrolling before the last
+// recommendation tiles are fully visible. This layout calculates and returns
+// the exact row height up front so every row participates in the scroll range.
+private struct DetailRecommendationGrid: Layout {
+    let preferredCellWidth: CGFloat
+    let spacing: CGFloat
+    let aspectRatio: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? preferredCellWidth
+        guard !subviews.isEmpty else { return CGSize(width: width, height: 0) }
+        let columns = columnCount(for: width, itemCount: subviews.count)
+        let cellWidth = (width - CGFloat(columns - 1) * spacing) / CGFloat(columns)
+        let cellHeight = cellWidth / aspectRatio
+        let rows = Int(ceil(Double(subviews.count) / Double(columns)))
+        let height = CGFloat(rows) * cellHeight + CGFloat(max(rows - 1, 0)) * spacing
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard !subviews.isEmpty else { return }
+        let columns = columnCount(for: bounds.width, itemCount: subviews.count)
+        let cellWidth = (bounds.width - CGFloat(columns - 1) * spacing) / CGFloat(columns)
+        let cellHeight = cellWidth / aspectRatio
+        let cellProposal = ProposedViewSize(width: cellWidth, height: cellHeight)
+
+        for (index, subview) in subviews.enumerated() {
+            let column = index % columns
+            let row = index / columns
+            let x = bounds.minX + CGFloat(column) * (cellWidth + spacing)
+            let y = bounds.minY + CGFloat(row) * (cellHeight + spacing)
+            subview.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: cellProposal)
+        }
+    }
+
+    private func columnCount(for width: CGFloat, itemCount: Int) -> Int {
+        let available = max(width, preferredCellWidth)
+        let count = max(1, Int(floor((available + spacing) / (preferredCellWidth + spacing))))
+        return min(count, itemCount)
     }
 }
 
