@@ -90,11 +90,9 @@ struct MainWindow: View {
         //     lights float on it at their natural top-left position
         //     (we do NOT reposition them). Full-screen drops the buttons
         //     and the bar simply reads as a top margin.
-        //   • A floating Liquid-Glass sidebar card: inset on left / top /
-        //     bottom, rounded on all corners, hairline border, with a
-        //     cool→warm vertical gradient fill.
-        //   • A transparent content surface over the full-window palette
-        //     mesh, so pages do not read as a separate rounded panel.
+        //   • A floating sidebar with only a hairline frame. The dynamic
+        //     page mesh remains visible underneath the sidebar and toolbar.
+        //   • A transparent content surface over the full-window palette mesh.
         ZStack(alignment: .topLeading) {
             // Full-window palette mesh. Tiles still drive PaletteEnv, but
             // the responsive backdrop now spans the toolbar, sidebar gaps,
@@ -109,18 +107,8 @@ struct MainWindow: View {
                     // so the collapsed nav icons' hover tooltips can spill
                     // past the card's right edge without being clipped.
                     .background(
-                        ZStack {
-                            RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
-                                .fill(.ultraThinMaterial)
-                            RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
-                                .fill(LinearGradient(
-                                    colors: [
-                                        Color(red: 0.93, green: 0.95, blue: 0.97).opacity(0.34),
-                                        Color.paper.opacity(0.18),
-                                    ],
-                                    startPoint: .top, endPoint: .bottom))
-                        }
-                        .shadow(color: .black.opacity(0.06), radius: 10, y: 2)
+                        RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
+                            .fill(Color.paper.opacity(0.06))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
@@ -253,12 +241,7 @@ struct MainWindow: View {
         .padding(.trailing, 16)
         .frame(maxWidth: .infinity)
         .frame(height: WindowChrome.topBar)
-        .background(
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                Rectangle().fill(Color.paper.opacity(0.22))
-            }
-        )
+        .background(Color.clear)
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.hair.opacity(0.38)).frame(height: 1)
         }
@@ -308,13 +291,66 @@ struct MainWindow: View {
     // toolbar and sidebar as well.
     private var detailPane: some View {
         ZStack {
-            routedContent
+            NavigationStack(path: $path) {
+                ContentRouter(
+                    sidebar: sidebar,
+                    search: committedSearch,
+                    discoverInitialFilter: pendingDiscoverFilter,
+                    onPick: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
+                    onDevice: { d in push(.device(slug: d.slug, name: d.name)) },
+                    onWeeklyWeek: { y, w in push(.weeklyWeek(year: y, week: w)) },
+                    onCategory: { c in push(.category(id: c.id, name: c.name, slug: c.slug)) },
+                    onUploader: { username in push(.profile(username: username)) },
+                    onCollection: { c in push(.collection(slug: c.slug, title: c.title)) },
+                    onUpload: { sidebar = .upload },
+                    onCancelUpload: { sidebar = auth.isLoggedIn ? .myUploads : .home },
+                    onOpenDiscover: { f in pendingDiscoverFilter = f; sidebar = .discover },
+                    onOpenCollections: { sidebar = .collections },
+                    onOpenWeeklyArchive: { sidebar = .weekly }
+                )
                 .id(refreshToken)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .navigationTitle("")
+                .navigationBarBackButtonHidden(true)
+                .navigationDestination(for: MainRoute.self) { route in
+                    Group {
+                        switch route {
+                        case .detail(let slug, _):
+                            DetailPage(slug: slug,
+                                       onUploader: { push(.profile(username: $0)) },
+                                       onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                        case .profile(let username):
+                            AccountView(username: username,
+                                        onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
+                                        onCollection: { c in push(.collection(slug: c.slug, title: c.title)) })
+                        case .collection(let slug, _):
+                            CollectionDetailView(slug: slug,
+                                                 onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                        case .device(let slug, let name):
+                            DeviceDetailView(slug: slug, name: name,
+                                             onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                        case .search(let q):
+                            SearchResultsView(query: q,
+                                              onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                        case .weeklyWeek(let y, let w):
+                            WeeklyWeekView(year: y, week: w,
+                                           onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                        case .category(let id, let name, let slug):
+                            CategoryFeedView(category: Category(id: id, name: name, slug: slug, sortOrder: nil),
+                                             onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                        }
+                    }
+                    .id(refreshToken)
+                    .navigationTitle("")
+                    .navigationBarBackButtonHidden(true)
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
+            .background(TransparentAppKitBackground())
         }
         .scrollContentBackground(.hidden)
         .background(Color.clear)
-        .background(TransparentAppKitBackground())
         .onChange(of: sidebar) { _, new in
             path.removeAll()
             forwardPath.removeAll()
@@ -333,59 +369,6 @@ struct MainWindow: View {
         }
     }
 
-    @ViewBuilder
-    private var routedContent: some View {
-        if let route = path.last {
-            routeContent(route)
-        } else {
-            ContentRouter(
-                sidebar: sidebar,
-                search: committedSearch,
-                discoverInitialFilter: pendingDiscoverFilter,
-                onPick: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
-                onDevice: { d in push(.device(slug: d.slug, name: d.name)) },
-                onWeeklyWeek: { y, w in push(.weeklyWeek(year: y, week: w)) },
-                onCategory: { c in push(.category(id: c.id, name: c.name, slug: c.slug)) },
-                onUploader: { username in push(.profile(username: username)) },
-                onCollection: { c in push(.collection(slug: c.slug, title: c.title)) },
-                onUpload: { sidebar = .upload },
-                onCancelUpload: { sidebar = auth.isLoggedIn ? .myUploads : .home },
-                onOpenDiscover: { f in pendingDiscoverFilter = f; sidebar = .discover },
-                onOpenCollections: { sidebar = .collections },
-                onOpenWeeklyArchive: { sidebar = .weekly }
-            )
-        }
-    }
-
-    @ViewBuilder
-    private func routeContent(_ route: MainRoute) -> some View {
-        switch route {
-        case .detail(let slug, _):
-            DetailPage(slug: slug,
-                       onUploader: { push(.profile(username: $0)) },
-                       onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-        case .profile(let username):
-            AccountView(username: username,
-                        onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
-                        onCollection: { c in push(.collection(slug: c.slug, title: c.title)) })
-        case .collection(let slug, _):
-            CollectionDetailView(slug: slug,
-                                 onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-        case .device(let slug, let name):
-            DeviceDetailView(slug: slug, name: name,
-                             onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-        case .search(let q):
-            SearchResultsView(query: q,
-                              onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-        case .weeklyWeek(let y, let w):
-            WeeklyWeekView(year: y, week: w,
-                           onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-        case .category(let id, let name, let slug):
-            CategoryFeedView(category: Category(id: id, name: name, slug: slug, sortOrder: nil),
-                             onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-        }
-    }
-
     private func commitSearch() {
         let q = search.trimmingCharacters(in: .whitespaces)
         if q.isEmpty {
@@ -397,57 +380,36 @@ struct MainWindow: View {
     }
 }
 
-struct TransparentAppKitBackground: NSViewRepresentable {
+private struct TransparentAppKitBackground: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView(frame: .zero)
-        clearWindowChromeAround(view)
+        clearAround(view)
         return view
     }
 
     func updateNSView(_ view: NSView, context: Context) {
-        clearWindowChromeAround(view)
+        clearAround(view)
     }
 
-    private func clearWindowChromeAround(_ view: NSView) {
+    private func clearAround(_ view: NSView) {
         DispatchQueue.main.async {
-            let root = view.window?.contentView ?? topmostSuperview(from: view)
-            clearRecursively(root)
-
             var current: NSView? = view
             var depth = 0
             while let node = current, depth < 12 {
-                clearOne(node)
+                if let scroll = node as? NSScrollView {
+                    scroll.drawsBackground = false
+                    scroll.backgroundColor = .clear
+                    scroll.contentView.drawsBackground = false
+                } else if let clip = node as? NSClipView {
+                    clip.drawsBackground = false
+                    clip.backgroundColor = .clear
+                } else if !(node is NSVisualEffectView) {
+                    node.wantsLayer = true
+                    node.layer?.backgroundColor = NSColor.clear.cgColor
+                }
                 current = node.superview
                 depth += 1
             }
-        }
-    }
-
-    private func topmostSuperview(from view: NSView) -> NSView {
-        var current = view
-        while let next = current.superview { current = next }
-        return current
-    }
-
-    private func clearRecursively(_ view: NSView) {
-        clearOne(view)
-        guard !(view is NSVisualEffectView) else { return }
-        for child in view.subviews {
-            clearRecursively(child)
-        }
-    }
-
-    private func clearOne(_ view: NSView) {
-        if let scroll = view as? NSScrollView {
-            scroll.drawsBackground = false
-            scroll.backgroundColor = .clear
-            scroll.contentView.drawsBackground = false
-        } else if let clip = view as? NSClipView {
-            clip.drawsBackground = false
-            clip.backgroundColor = .clear
-        } else if !(view is NSVisualEffectView) {
-            view.wantsLayer = true
-            view.layer?.backgroundColor = NSColor.clear.cgColor
         }
     }
 }
