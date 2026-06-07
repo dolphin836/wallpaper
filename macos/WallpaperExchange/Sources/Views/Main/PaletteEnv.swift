@@ -62,9 +62,9 @@ final class PaletteEnv {
 extension Color {
     // Warm peach / sand / terracotta — matches the web's d3-c1/2/3
     // defaults so the mesh reads as the same product surface.
-    static let brandPaletteC1 = Color.adaptive(light: (0.94, 0.78, 0.55), dark: (0.48, 0.32, 0.19))
-    static let brandPaletteC2 = Color.adaptive(light: (0.95, 0.74, 0.62), dark: (0.42, 0.23, 0.19))
-    static let brandPaletteC3 = Color.adaptive(light: (0.96, 0.84, 0.66), dark: (0.38, 0.31, 0.22))
+    static let brandPaletteC1 = Color.adaptive(light: (0.94, 0.78, 0.55), dark: (0.257, 0.112, 0.076))
+    static let brandPaletteC2 = Color.adaptive(light: (0.95, 0.74, 0.62), dark: (0.011, 0.117, 0.163))
+    static let brandPaletteC3 = Color.adaptive(light: (0.96, 0.84, 0.66), dark: (0.308, 0.151, 0.052))
 }
 
 // Fixed-position blurred mesh, mirrors .d3-discover-mesh in
@@ -72,9 +72,12 @@ extension Color {
 // (22/30, 78/20, 50/82) heavily blurred to bleed into each other.
 struct PageMesh: View {
     @State private var env = PaletteEnv.shared
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         GeometryReader { proxy in
             let r = max(proxy.size.width, proxy.size.height)
+            let dark = colorScheme == .dark
             ZStack {
                 LinearGradient(
                     colors: [
@@ -98,8 +101,8 @@ struct PageMesh: View {
                                    startRadius: 0, endRadius: r * 0.55)
                 }
                 .blur(radius: 80)
-                .saturation(1.4)
-                .opacity(0.58)
+                .saturation(dark ? 2.0 : 1.4)
+                .opacity(dark ? 0.72 : 0.58)
             }
             .animation(.easeOut(duration: 0.42), value: env.c1)
             .animation(.easeOut(duration: 0.42), value: env.c2)

@@ -7,9 +7,9 @@ import AppKit
 // tokens in one extension makes it obvious which sizes are 'new for
 // the main window' vs. 'existing popover'.
 extension Color {
-    static let paper3   = Color.adaptive(light: (0.922, 0.912, 0.892), dark: (0.214, 0.202, 0.190))
-    static let hairSoft = Color.adaptive(light: (0.902, 0.892, 0.876), dark: (0.270, 0.255, 0.238))
-    static let muted2   = Color.adaptive(light: (0.700, 0.692, 0.680), dark: (0.520, 0.493, 0.455))
+    static let paper3   = Color.adaptive(light: (0.922, 0.912, 0.892), dark: (0.098, 0.128, 0.142))
+    static let hairSoft = Color.adaptive(light: (0.902, 0.892, 0.876), dark: (0.100, 0.127, 0.141))
+    static let muted2   = Color.adaptive(light: (0.700, 0.692, 0.680), dark: (0.341, 0.373, 0.389))
 }
 
 extension Font {

@@ -103,7 +103,10 @@ struct MainWindow: View {
             HStack(spacing: WindowChrome.inset) {
                 MainSidebar(selection: $sidebar, collapsed: $sidebarCollapsed)
                     .frame(width: sidebarCollapsed ? 64 : 240)
-                    .background(Color.clear)
+                    .background(
+                        RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
+                            .fill(Color.chromePanel)
+                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
                             .strokeBorder(ChromeLine.border(for: palette), lineWidth: 1)

@@ -19,6 +19,13 @@ extension Color {
         })
     }
 
+    static func adaptiveRGBA(light: (Double, Double, Double, Double), dark: (Double, Double, Double, Double)) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let rgba = appearance.wallxIsDark ? dark : light
+            return NSColor(srgbRed: rgba.0, green: rgba.1, blue: rgba.2, alpha: rgba.3)
+        })
+    }
+
     // Parses a "#RRGGBB" string into a Color. Used for dominant-color
     // placeholder fills on tiles before the image decodes.
     init(hex: String) {
@@ -36,17 +43,18 @@ extension Color {
         self.init(red: r, green: g, blue: b)
     }
 
-    static let paper      = Color.adaptive(light: (0.972, 0.964, 0.945), dark: (0.122, 0.116, 0.108))
-    static let paper2     = Color.adaptive(light: (0.948, 0.940, 0.921), dark: (0.168, 0.158, 0.148))
-    static let hair       = Color.adaptive(light: (0.872, 0.862, 0.846), dark: (0.336, 0.316, 0.292))
-    static let ink        = Color.adaptive(light: (0.176, 0.170, 0.164), dark: (0.910, 0.892, 0.858))
-    static let ink2       = Color.adaptive(light: (0.286, 0.278, 0.270), dark: (0.742, 0.716, 0.674))
-    static let muted      = Color.adaptive(light: (0.524, 0.516, 0.504), dark: (0.602, 0.570, 0.526))
-    static let accent     = Color.adaptive(light: (0.886, 0.491, 0.282), dark: (0.950, 0.560, 0.340))
-    static let accentSoft = Color.adaptive(light: (0.957, 0.911, 0.866), dark: (0.314, 0.198, 0.146))
+    static let paper      = Color.adaptive(light: (0.972, 0.964, 0.945), dark: (0.025, 0.048, 0.060))
+    static let paper2     = Color.adaptive(light: (0.948, 0.940, 0.921), dark: (0.065, 0.091, 0.104))
+    static let hair       = Color.adaptive(light: (0.872, 0.862, 0.846), dark: (0.137, 0.165, 0.179))
+    static let ink        = Color.adaptive(light: (0.176, 0.170, 0.164), dark: (0.915, 0.939, 0.952))
+    static let ink2       = Color.adaptive(light: (0.286, 0.278, 0.270), dark: (0.745, 0.774, 0.790))
+    static let muted      = Color.adaptive(light: (0.524, 0.516, 0.504), dark: (0.499, 0.532, 0.549))
+    static let accent     = Color.adaptive(light: (0.886, 0.491, 0.282), dark: (1.000, 0.435, 0.155))
+    static let accentSoft = Color.adaptive(light: (0.957, 0.911, 0.866), dark: (0.281, 0.092, 0.010))
     static let accentInk  = Color.adaptive(light: (0.553, 0.293, 0.149), dark: (1.000, 0.748, 0.552))
     static let warn       = Color.adaptive(light: (0.604, 0.416, 0.094), dark: (0.934, 0.694, 0.248))
     static let lightText  = Color(red: 0.972, green: 0.964, blue: 0.945)
+    static let chromePanel = Color.adaptiveRGBA(light: (0.972, 0.964, 0.945, 0.10), dark: (0.025, 0.048, 0.060, 0.62))
 }
 
 // Editorial type ramp. We deliberately don't bundle Instrument Serif or
