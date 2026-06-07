@@ -5,17 +5,77 @@ import AppKit
 // (bezel + stand) sitting on a soft glass card tinted by the featured
 // wallpaper, with Plain / Home / Lock preview-mode pills underneath.
 // The featured wallpaper updates as the user hovers grid tiles.
-struct DevicePreviewBanner: View {
+struct DevicePreviewBanner<Header: View>: View {
     let featured: Wallpaper?
     var onPick: () -> Void
+    @ViewBuilder var header: () -> Header
+    @State private var mode: DeviceMockup.Mode = .plain
 
     var body: some View {
-        Button(action: onPick) {
-            DeviceMockup(wallpaper: featured)
+        VStack(spacing: 18) {
+            header()
+                .frame(maxWidth: .infinity)
+                .zIndex(2)
+
+            Button(action: onPick) {
+                DeviceMockup(wallpaper: featured, controlledMode: mode, showChrome: false)
+                    .frame(maxWidth: 520)
+            }
+            .buttonStyle(.plain)
+            .disabled(featured == nil)
+
+            modeToggles
         }
-        .buttonStyle(.plain)
-        .disabled(featured == nil)
+        .padding(24)
         .frame(maxWidth: .infinity)
+        .background(glassBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.25), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: .black.opacity(0.10), radius: 18, y: 8)
+    }
+
+    private var modeToggles: some View {
+        HStack(spacing: 2) {
+            ForEach(DeviceMockup.Mode.allCases, id: \.self) { item in
+                let on = mode == item
+                Button {
+                    mode = item
+                } label: {
+                    Text(item.rawValue.uppercased())
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .tracking(1.2)
+                        .foregroundStyle(on ? Color.paper : Color.ink2)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(on ? Color.ink : Color.clear))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(Capsule().fill(.thinMaterial))
+        .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
+    }
+
+    private var glassBackground: some View {
+        ZStack {
+            if let featured {
+                CachedAsyncImage(url: URL(string: featured.displayURL)) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color.clear
+                }
+                .blur(radius: 70)
+                .opacity(0.34)
+            }
+
+            Rectangle().fill(.ultraThinMaterial)
+            Rectangle().fill(Color.paper.opacity(0.30))
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 

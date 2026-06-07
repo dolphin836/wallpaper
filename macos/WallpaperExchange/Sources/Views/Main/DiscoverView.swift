@@ -66,6 +66,10 @@ struct DiscoverView: View {
             : [.latest, .trending, .myDevice, .live, .ai]
     }
 
+    private var featuredWallpaper: Wallpaper? {
+        featuredHover ?? items.first
+    }
+
     private var gridColumns: [GridItem] {
         switch sizeMode {
         case .lg: [GridItem(.adaptive(minimum: 300, maximum: 460), spacing: 14, alignment: .top)]
@@ -82,11 +86,16 @@ struct DiscoverView: View {
                         .padding(.top, 14)
                         .padding(.bottom, 40)
                 } header: {
-                    VStack(alignment: .leading, spacing: 14) {
-                        toolbar
-
-                        if let shown = featuredHover ?? items.first {
-                            DevicePreviewBanner(featured: shown, onPick: { onPick(shown) })
+                    VStack(alignment: .leading, spacing: 0) {
+                        DevicePreviewBanner(
+                            featured: featuredWallpaper,
+                            onPick: {
+                                if let shown = featuredWallpaper {
+                                    onPick(shown)
+                                }
+                            }
+                        ) {
+                            toolbar
                         }
                     }
                     .padding(.horizontal, 40)
