@@ -103,13 +103,7 @@ struct MainWindow: View {
             HStack(spacing: WindowChrome.inset) {
                 MainSidebar(selection: $sidebar, collapsed: $sidebarCollapsed)
                     .frame(width: sidebarCollapsed ? 64 : 240)
-                    // Card visual lives in the BACKGROUND (not a clipShape)
-                    // so the collapsed nav icons' hover tooltips can spill
-                    // past the card's right edge without being clipped.
-                    .background(
-                        RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
-                            .fill(Color.paper.opacity(0.06))
-                    )
+                    .background(Color.clear)
                     .overlay(
                         RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
                             .strokeBorder(Color.hair, lineWidth: 1)
@@ -291,66 +285,13 @@ struct MainWindow: View {
     // toolbar and sidebar as well.
     private var detailPane: some View {
         ZStack {
-            NavigationStack(path: $path) {
-                ContentRouter(
-                    sidebar: sidebar,
-                    search: committedSearch,
-                    discoverInitialFilter: pendingDiscoverFilter,
-                    onPick: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
-                    onDevice: { d in push(.device(slug: d.slug, name: d.name)) },
-                    onWeeklyWeek: { y, w in push(.weeklyWeek(year: y, week: w)) },
-                    onCategory: { c in push(.category(id: c.id, name: c.name, slug: c.slug)) },
-                    onUploader: { username in push(.profile(username: username)) },
-                    onCollection: { c in push(.collection(slug: c.slug, title: c.title)) },
-                    onUpload: { sidebar = .upload },
-                    onCancelUpload: { sidebar = auth.isLoggedIn ? .myUploads : .home },
-                    onOpenDiscover: { f in pendingDiscoverFilter = f; sidebar = .discover },
-                    onOpenCollections: { sidebar = .collections },
-                    onOpenWeeklyArchive: { sidebar = .weekly }
-                )
+            routedContent
                 .id(refreshToken)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .navigationTitle("")
-                .navigationBarBackButtonHidden(true)
-                .navigationDestination(for: MainRoute.self) { route in
-                    Group {
-                        switch route {
-                        case .detail(let slug, _):
-                            DetailPage(slug: slug,
-                                       onUploader: { push(.profile(username: $0)) },
-                                       onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-                        case .profile(let username):
-                            AccountView(username: username,
-                                        onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
-                                        onCollection: { c in push(.collection(slug: c.slug, title: c.title)) })
-                        case .collection(let slug, _):
-                            CollectionDetailView(slug: slug,
-                                                 onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-                        case .device(let slug, let name):
-                            DeviceDetailView(slug: slug, name: name,
-                                             onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-                        case .search(let q):
-                            SearchResultsView(query: q,
-                                              onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-                        case .weeklyWeek(let y, let w):
-                            WeeklyWeekView(year: y, week: w,
-                                           onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-                        case .category(let id, let name, let slug):
-                            CategoryFeedView(category: Category(id: id, name: name, slug: slug, sortOrder: nil),
-                                             onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
-                        }
-                    }
-                    .id(refreshToken)
-                    .navigationTitle("")
-                    .navigationBarBackButtonHidden(true)
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .background(Color.clear)
-            .background(TransparentAppKitBackground())
         }
         .scrollContentBackground(.hidden)
         .background(Color.clear)
+        .background(TransparentAppKitBackground())
         .onChange(of: sidebar) { _, new in
             path.removeAll()
             forwardPath.removeAll()
@@ -366,6 +307,59 @@ struct MainWindow: View {
                     forwardPath.removeAll()
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var routedContent: some View {
+        if let route = path.last {
+            routeContent(route)
+        } else {
+            ContentRouter(
+                sidebar: sidebar,
+                search: committedSearch,
+                discoverInitialFilter: pendingDiscoverFilter,
+                onPick: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
+                onDevice: { d in push(.device(slug: d.slug, name: d.name)) },
+                onWeeklyWeek: { y, w in push(.weeklyWeek(year: y, week: w)) },
+                onCategory: { c in push(.category(id: c.id, name: c.name, slug: c.slug)) },
+                onUploader: { username in push(.profile(username: username)) },
+                onCollection: { c in push(.collection(slug: c.slug, title: c.title)) },
+                onUpload: { sidebar = .upload },
+                onCancelUpload: { sidebar = auth.isLoggedIn ? .myUploads : .home },
+                onOpenDiscover: { f in pendingDiscoverFilter = f; sidebar = .discover },
+                onOpenCollections: { sidebar = .collections },
+                onOpenWeeklyArchive: { sidebar = .weekly }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func routeContent(_ route: MainRoute) -> some View {
+        switch route {
+        case .detail(let slug, _):
+            DetailPage(slug: slug,
+                       onUploader: { push(.profile(username: $0)) },
+                       onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+        case .profile(let username):
+            AccountView(username: username,
+                        onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
+                        onCollection: { c in push(.collection(slug: c.slug, title: c.title)) })
+        case .collection(let slug, _):
+            CollectionDetailView(slug: slug,
+                                 onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+        case .device(let slug, let name):
+            DeviceDetailView(slug: slug, name: name,
+                             onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+        case .search(let q):
+            SearchResultsView(query: q,
+                              onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+        case .weeklyWeek(let y, let w):
+            WeeklyWeekView(year: y, week: w,
+                           onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+        case .category(let id, let name, let slug):
+            CategoryFeedView(category: Category(id: id, name: name, slug: slug, sortOrder: nil),
+                             onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
         }
     }
 
@@ -665,10 +659,11 @@ struct ContentRouter: View {
         case .home:          HomeView(onPick: onPick, onOpenWeek: onWeeklyWeek,
                                       onOpenDiscover: onOpenDiscover,
                                       onOpenCollections: onOpenCollections,
-                                      onOpenWeeklyArchive: onOpenWeeklyArchive)
+                                      onOpenWeeklyArchive: onOpenWeeklyArchive,
+                                      onCollection: onCollection)
         case .discover:      DiscoverView(search: search, onPick: onPick, initialFilter: discoverInitialFilter)
         case .weekly:        WeeklyArchiveView(onOpenWeek: onWeeklyWeek)
-        case .collections:   CollectionsListView()
+        case .collections:   CollectionsListView(onCollection: onCollection)
         case .myUploads:     account(.uploads)
         case .myCollections: account(.collections)
         case .myDownloads:   account(.downloads)

@@ -15,6 +15,7 @@ struct HomeView: View {
     var onOpenDiscover: (DiscoverView.Filter) -> Void = { _ in }
     var onOpenCollections: () -> Void = {}
     var onOpenWeeklyArchive: () -> Void = {}
+    var onCollection: (CollectionItem) -> Void = { _ in }
 
     @State private var weekly: WeeklyCurrent?
     @State private var liveWalls: [Wallpaper] = []
@@ -181,7 +182,7 @@ struct HomeView: View {
             } else {
                 LazyVGrid(columns: fixedCols(4), spacing: 14) {
                     ForEach(collections.prefix(4)) { c in
-                        NavigationLink(value: MainWindow.MainRoute.collection(slug: c.slug, title: c.title)) {
+                        Button(action: { onCollection(c) }) {
                             CollectionTileCard(item: c)
                         }
                         .buttonStyle(.plain)

@@ -4,6 +4,8 @@ import AppKit
 // Public collections list. Loads /collections (cursor-paginated) and
 // renders cards with a 2×2 cover composition built from recent_tiles.
 struct CollectionsListView: View {
+    var onCollection: (CollectionItem) -> Void = { _ in }
+
     @State private var auth = AuthService.shared
     @State private var items: [CollectionItem] = []
     @State private var page = 0
@@ -46,7 +48,7 @@ struct CollectionsListView: View {
                 } else {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)], spacing: 28) {
                         ForEach(visible) { c in
-                            NavigationLink(value: MainWindow.MainRoute.collection(slug: c.slug, title: c.title)) {
+                            Button(action: { onCollection(c) }) {
                                 CollectionTileCard(item: c)
                             }
                             .buttonStyle(.plain)
