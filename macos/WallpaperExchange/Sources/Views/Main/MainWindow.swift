@@ -93,8 +93,8 @@ struct MainWindow: View {
         //   • A floating Liquid-Glass sidebar card: inset on left / top /
         //     bottom, rounded on all corners, hairline border, with a
         //     cool→warm vertical gradient fill.
-        //   • A full-bleed detail surface reaching the window's right and
-        //     bottom edges, rounded only on its top-leading corner.
+        //   • A transparent content surface over the full-window palette
+        //     mesh, so pages do not read as a separate rounded panel.
         ZStack(alignment: .topLeading) {
             // Full-window palette mesh. Tiles still drive PaletteEnv, but
             // the responsive backdrop now spans the toolbar, sidebar gaps,
@@ -147,7 +147,6 @@ struct MainWindow: View {
                     .animation(.easeInOut(duration: 0.22), value: sidebarCollapsed)
 
                 detailPane
-                    .clipShape(.rect(topLeadingRadius: WindowChrome.radius))
             }
             .padding(.leading, WindowChrome.inset)
             .padding(.top, WindowChrome.topBar + WindowChrome.toolbarGap)
