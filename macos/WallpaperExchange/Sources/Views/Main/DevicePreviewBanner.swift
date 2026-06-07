@@ -29,6 +29,9 @@ struct DeviceMockup: View {
     // chrome are hidden so it's just the bare monitor.
     var controlledMode: Mode? = nil
     var showChrome: Bool = true
+    var maxMonitorWidth: CGFloat = 520
+    var chromePadding: CGFloat = 28
+    var chromeSpacing: CGFloat = 18
     @State private var mode: Mode = .plain
     @State private var hover = false
 
@@ -43,15 +46,15 @@ struct DeviceMockup: View {
 
     var body: some View {
         if showChrome {
-            VStack(spacing: 18) {
+            VStack(spacing: chromeSpacing) {
                 monitor
-                    .frame(maxWidth: 520)
+                    .frame(maxWidth: maxMonitorWidth)
                     .scaleEffect(hover ? 1.005 : 1.0)
                     .animation(.easeOut(duration: 0.2), value: hover)
                     .onHover { hover = $0 }
                 if controlledMode == nil { modeToggles }
             }
-            .padding(28)
+            .padding(chromePadding)
             .frame(maxWidth: .infinity)
             .background(glassBackground)
             .overlay(
