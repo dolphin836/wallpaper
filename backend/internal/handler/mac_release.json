@@ -1,8 +1,22 @@
 {
-  "current_version": "1.3.6",
-  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-1.3.6.dmg",
+  "current_version": "2.0",
+  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-2.0.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0",
+      "released_at": "2026-06-07",
+      "notes": [
+        "New: full Dock-visible macOS app with Home, Discover, Weekly, Collections, Upload, Settings, and personal library pages while keeping the status-bar quick actions.",
+        "New: web-aligned wallpaper detail modal with preview, stats, palette, similar wallpapers, trade/download actions, progress, and set-wallpaper flows.",
+        "New: standalone Upload page with queue progress, pending/reviewing wallpapers, and processing states matching the web UI.",
+        "New: dynamic palette-mesh window background, page-specific skeleton placeholders, shared retry UI, and web-aligned dark appearance.",
+        "Changed: Discover and Home layouts now mirror the web more closely, including the device preview, category filters, card actions, and window chrome.",
+        "Changed: wallpaper lists are resolution-aware across the Mac client, hiding wallpapers that cannot satisfy the smallest connected display while keeping higher-resolution wallpapers visible.",
+        "Changed: download and set-wallpaper behavior is unified for already-downloaded wallpapers, normal images, macOS dynamic wallpapers, and video wallpapers.",
+        "Fixed: detail modal layout, similar-wallpaper row sizing, bottom clipping, full-screen card interaction, and several palette/background/chrome polish issues."
+      ]
+    },
     {
       "version": "1.3.6",
       "released_at": "2026-05-27",

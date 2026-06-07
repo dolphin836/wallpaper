@@ -10,6 +10,54 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0] - 2026-06-07
+
+### Added
+
+- **Full macOS app experience.** The Mac client now has a Dock-visible
+  main window with Home, Discover, Weekly, Collections, Upload, Settings,
+  and personal library pages while keeping the status-bar quick actions.
+- **Web-aligned wallpaper detail.** Wallpaper detail now opens as a
+  large modal with a proper preview stage, stats, palette, similar
+  wallpapers, trade/download actions, download progress, and set-wallpaper
+  flows.
+- **Full upload page.** Upload is now a standalone page with queue
+  progress, pending/reviewing wallpaper sections, and processing states
+  that match the web UI.
+- **Dynamic preview background.** The main window background reacts to
+  hovered wallpapers using the same palette-mesh idea as the web app.
+- **Loading and error states.** Remote-data pages now use page-specific
+  skeleton placeholders and shared retry UI instead of blank surfaces.
+- **Dark appearance.** Light/dark mode is now backed by adaptive design
+  tokens and a web-aligned dark palette.
+
+### Changed
+
+- **Discover and Home layouts now mirror the web more closely.** The
+  device preview, category filters, cards, hover actions, and page chrome
+  were rebuilt for the larger Mac window.
+- **Wallpaper availability is resolution-aware across the Mac client.**
+  Lists filter out wallpapers that cannot satisfy the smallest connected
+  display while keeping higher-resolution wallpapers such as 4K visible
+  on 1080p screens.
+- **Download and set-wallpaper behavior is unified.** Already-downloaded
+  wallpapers show the correct "Got it" / "Set as wallpaper" actions and
+  video, normal, and macOS dynamic wallpapers route through the proper
+  apply path.
+- **Toolbar actions moved to the window chrome.** Upload, Settings,
+  Refresh, theme toggle, Back, and Forward now live in the top toolbar
+  instead of the sidebar action group.
+
+### Fixed
+
+- Detail modal layout issues in windowed and full-screen modes, including
+  right-edge drift, preview sizing, similar-wallpaper row sizing, and
+  bottom content clipping.
+- Discover interaction issues in full-screen mode where some cards could
+  not open the detail modal or expose card actions.
+- Several visual polish issues around window backgrounds, sidebar chrome,
+  toolbar borders, and palette-driven backgrounds.
+
 ## [1.3.6] - 2026-05-27
 
 ### Fixed
