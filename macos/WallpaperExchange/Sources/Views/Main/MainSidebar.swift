@@ -11,6 +11,7 @@ struct MainSidebar: View {
     @Binding var selection: MainWindow.SidebarItem
     @Binding var collapsed: Bool
     @State private var auth = AuthService.shared
+    @State private var palette = PaletteEnv.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -144,7 +145,7 @@ struct MainSidebar: View {
                     .padding(.vertical, 12)
                     .frame(maxWidth: .infinity)
                     .background(Color.clear)
-                    .overlay(alignment: .top) { Rectangle().fill(Color.hair).frame(height: 1) }
+                    .overlay(alignment: .top) { Rectangle().fill(ChromeLine.divider(for: palette)).frame(height: 1) }
             } else if auth.isLoggedIn, let u = auth.user {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
@@ -169,7 +170,7 @@ struct MainSidebar: View {
                 .padding(.vertical, 12)
                 .background(Color.clear)
                 .overlay(alignment: .top) {
-                    Rectangle().fill(Color.hair).frame(height: 1)
+                    Rectangle().fill(ChromeLine.divider(for: palette)).frame(height: 1)
                 }
             } else {
                 HStack(spacing: 10) {
@@ -188,7 +189,7 @@ struct MainSidebar: View {
                 .padding(.horizontal, 14).padding(.vertical, 12)
                 .background(Color.clear)
                 .overlay(alignment: .top) {
-                    Rectangle().fill(Color.hair).frame(height: 1)
+                    Rectangle().fill(ChromeLine.divider(for: palette)).frame(height: 1)
                 }
             }
         }

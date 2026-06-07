@@ -21,8 +21,10 @@ final class PaletteEnv {
     var c2: Color = .brandPaletteC2
     var c3: Color = .brandPaletteC3
     var dominant: Color? = nil
+    var isDefault = true
 
     func apply(palette raw: String?, dominant rawDominant: String?) {
+        isDefault = false
         if let rawDominant, !rawDominant.isEmpty {
             dominant = Color(hex: rawDominant)
         }
@@ -49,9 +51,11 @@ final class PaletteEnv {
     }
 
     func resetToDefaults() {
+        isDefault = true
         c1 = .brandPaletteC1
         c2 = .brandPaletteC2
         c3 = .brandPaletteC3
+        dominant = nil
     }
 }
 

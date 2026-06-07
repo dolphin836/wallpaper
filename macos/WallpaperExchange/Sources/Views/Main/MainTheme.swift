@@ -98,6 +98,36 @@ enum WindowChrome {
     static let topInset: CGFloat = 20
 }
 
+@MainActor
+enum ChromeLine {
+    static func border(for palette: PaletteEnv) -> Color {
+        if palette.isDefault {
+            return Color.hair.opacity(0.92)
+        }
+        return Color.hair
+            .blended(with: palette.c2, fraction: 0.58)
+            .opacity(0.56)
+    }
+
+    static func softBorder(for palette: PaletteEnv) -> Color {
+        if palette.isDefault {
+            return Color.hair.opacity(0.62)
+        }
+        return Color.hair
+            .blended(with: palette.c2, fraction: 0.64)
+            .opacity(0.42)
+    }
+
+    static func divider(for palette: PaletteEnv) -> Color {
+        if palette.isDefault {
+            return Color.hair.opacity(0.38)
+        }
+        return Color.hair
+            .blended(with: palette.c2, fraction: 0.68)
+            .opacity(0.30)
+    }
+}
+
 extension Color {
     // RGB-space blend for chip tinting. Tag chips lean toward ink so
     // they stay legible while still palette-coloured.

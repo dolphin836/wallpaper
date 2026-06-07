@@ -24,6 +24,7 @@ struct MainWindow: View {
     @State private var forwardPath: [MainRoute] = []
     @State private var isRestoringForward = false
     @State private var isFullScreen = false
+    @State private var palette = PaletteEnv.shared
 
     enum SidebarItem: String, CaseIterable, Hashable {
         // Browse section.
@@ -105,7 +106,7 @@ struct MainWindow: View {
                     .background(Color.clear)
                     .overlay(
                         RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
-                            .strokeBorder(Color.hair, lineWidth: 1)
+                            .strokeBorder(ChromeLine.border(for: palette), lineWidth: 1)
                     )
                     // Alternate (form #2) collapse toggle: a circle
                     // straddling the sidebar's right edge, vertically
@@ -237,10 +238,11 @@ struct MainWindow: View {
         .frame(height: WindowChrome.topBar)
         .background(Color.clear)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.hair.opacity(0.38)).frame(height: 1)
+            Rectangle().fill(ChromeLine.divider(for: palette)).frame(height: 1)
         }
         .animation(.easeInOut(duration: 0.22), value: sidebarCollapsed)
         .animation(.easeInOut(duration: 0.22), value: isFullScreen)
+        .animation(.easeOut(duration: 0.42), value: palette.c2)
     }
 
     private var themeToolbarIcon: String {
@@ -426,11 +428,12 @@ private enum ToolbarGroupStyle {
         }
     }
 
-    var stroke: Color {
+    @MainActor
+    func stroke(for palette: PaletteEnv) -> Color {
         switch self {
-        case .navigation: Color.hair.opacity(0.55)
+        case .navigation: ChromeLine.softBorder(for: palette)
         case .primary: .clear
-        case .utility: Color.hair.opacity(0.9)
+        case .utility: ChromeLine.border(for: palette)
         }
     }
 
@@ -449,6 +452,7 @@ private enum ToolbarButtonRole {
 private struct ToolbarButtonGroup<Content: View>: View {
     var style: ToolbarGroupStyle = .utility
     let content: Content
+    @State private var palette = PaletteEnv.shared
 
     init(style: ToolbarGroupStyle = .utility, @ViewBuilder content: () -> Content) {
         self.style = style
@@ -464,9 +468,10 @@ private struct ToolbarButtonGroup<Content: View>: View {
             Capsule().fill(style.fill)
         )
         .overlay(
-            Capsule().stroke(style.stroke, lineWidth: 1)
+            Capsule().stroke(style.stroke(for: palette), lineWidth: 1)
         )
         .shadow(color: style.shadow, radius: 7, y: 2)
+        .animation(.easeOut(duration: 0.42), value: palette.c2)
     }
 }
 
