@@ -78,36 +78,20 @@ struct DiscoverView: View {
     }
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
-                Section {
-                    feed
-                        .padding(.horizontal, 40)
-                        .padding(.top, 14)
-                        .padding(.bottom, 40)
-                } header: {
-                    VStack(alignment: .leading, spacing: 0) {
-                        DevicePreviewBanner(
-                            featured: featuredWallpaper,
-                            onPick: {
-                                if let shown = featuredWallpaper {
-                                    onPick(shown)
-                                }
-                            }
-                        ) {
-                            toolbar
-                        }
-                    }
+        VStack(spacing: 0) {
+            discoverHeader
+
+            ScrollView(.vertical, showsIndicators: false) {
+                feed
                     .padding(.horizontal, 40)
-                    .padding(.top, 0)
-                    .padding(.bottom, 0)
+                    .padding(.top, 14)
+                    .padding(.bottom, 40)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
         }
-        .scrollContentBackground(.hidden)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color.clear)
         .task(id: "discover-init") {
             if let initialFilter { filter = initialFilter }
@@ -122,6 +106,22 @@ struct DiscoverView: View {
         .onChange(of: filter) { _, _ in Task { await reload() } }
         .onChange(of: search) { _, _ in Task { await reload() } }
         .onChange(of: selectedCategoryID) { _, _ in Task { await reload() } }
+    }
+
+    private var discoverHeader: some View {
+        DevicePreviewBanner(
+            featured: featuredWallpaper,
+            onPick: {
+                if let shown = featuredWallpaper {
+                    onPick(shown)
+                }
+            }
+        ) {
+            toolbar
+        }
+        .padding(.horizontal, 40)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 
     // ── Feed: the scrolling grid + loading / empty / error states.
