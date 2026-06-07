@@ -696,7 +696,7 @@ private struct UploadTileView: View {
                     Button(action: onRemove) {
                         Image(systemName: "xmark")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Color.paper)
+                            .foregroundStyle(Color.lightText)
                             .frame(width: 24, height: 24)
                             .background(Circle().fill(Color.black.opacity(0.58)))
                     }
@@ -758,12 +758,12 @@ private struct UploadTileView: View {
             VStack(spacing: 8) {
                 ProgressView()
                     .scaleEffect(0.72)
-                    .tint(Color.paper)
+                    .tint(Color.lightText)
                 tileProgress(value: item.progress)
                     .frame(width: 86)
                 Text("\(item.progress)%")
                     .font(.mono10)
-                    .foregroundStyle(Color.paper)
+                    .foregroundStyle(Color.lightText)
                     .monospacedDigit()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -815,9 +815,9 @@ private struct UploadTileView: View {
     private func tileProgress(value: Int) -> some View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.paper.opacity(0.32))
+                Capsule().fill(Color.lightText.opacity(0.32))
                 Capsule()
-                    .fill(Color.paper)
+                    .fill(Color.lightText)
                     .frame(width: max(0, proxy.size.width * CGFloat(value) / 100))
             }
         }
@@ -926,11 +926,11 @@ struct PendingUploadTileView: View {
         VStack(spacing: 7) {
             Image(systemName: wallpaper.fileType.hasPrefix("video/") ? "play.rectangle.fill" : "photo")
                 .font(.system(size: 26, weight: .light))
-                .foregroundStyle(Color.paper.opacity(0.78))
+                .foregroundStyle(Color.lightText.opacity(0.78))
             Text(wallpaper.fileType.hasPrefix("video/") ? "VIDEO" : "IMAGE")
                 .font(.mono10)
                 .tracking(1.0)
-                .foregroundStyle(Color.paper.opacity(0.68))
+                .foregroundStyle(Color.lightText.opacity(0.68))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -941,11 +941,11 @@ struct PendingUploadTileView: View {
                 .font(.mono10)
                 .tracking(1.6)
                 .textCase(.uppercase)
-                .foregroundStyle(Color.paper)
+                .foregroundStyle(Color.lightText)
             Text(statusSubtext)
                 .font(.system(size: 9, weight: .medium, design: .monospaced))
                 .tracking(0.8)
-                .foregroundStyle(Color.paper.opacity(0.72))
+                .foregroundStyle(Color.lightText.opacity(0.72))
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
         }

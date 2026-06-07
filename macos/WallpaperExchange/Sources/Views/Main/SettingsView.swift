@@ -266,7 +266,19 @@ enum AppearancePref: String, CaseIterable {
         }
     }
 
+    var nsAppearance: NSAppearance? {
+        switch self {
+        case .system: nil
+        case .light:  NSAppearance(named: .aqua)
+        case .dark:   NSAppearance(named: .darkAqua)
+        }
+    }
+
     static func fromStorage(_ raw: String) -> AppearancePref {
         AppearancePref(rawValue: raw) ?? .system
+    }
+
+    static func applyToApp(_ raw: String) {
+        NSApp.appearance = fromStorage(raw).nsAppearance
     }
 }

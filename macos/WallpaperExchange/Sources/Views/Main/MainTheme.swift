@@ -7,9 +7,9 @@ import AppKit
 // tokens in one extension makes it obvious which sizes are 'new for
 // the main window' vs. 'existing popover'.
 extension Color {
-    static let paper3   = Color(red: 0.922, green: 0.912, blue: 0.892)
-    static let hairSoft = Color(red: 0.902, green: 0.892, blue: 0.876)
-    static let muted2   = Color(red: 0.700, green: 0.692, blue: 0.680)
+    static let paper3   = Color.adaptive(light: (0.922, 0.912, 0.892), dark: (0.214, 0.202, 0.190))
+    static let hairSoft = Color.adaptive(light: (0.902, 0.892, 0.876), dark: (0.270, 0.255, 0.238))
+    static let muted2   = Color.adaptive(light: (0.700, 0.692, 0.680), dark: (0.520, 0.493, 0.455))
 }
 
 extension Font {
@@ -132,8 +132,12 @@ extension Color {
     // RGB-space blend for chip tinting. Tag chips lean toward ink so
     // they stay legible while still palette-coloured.
     func blended(with other: Color, fraction: Double) -> Color {
-        let a = NSColor(self).usingColorSpace(.sRGB) ?? .black
-        let b = NSColor(other).usingColorSpace(.sRGB) ?? .black
+        var a = NSColor.black
+        var b = NSColor.black
+        NSApp.effectiveAppearance.performAsCurrentDrawingAppearance {
+            a = NSColor(self).usingColorSpace(.sRGB) ?? .black
+            b = NSColor(other).usingColorSpace(.sRGB) ?? .black
+        }
         let r = a.redComponent   * (1 - fraction) + b.redComponent   * fraction
         let g = a.greenComponent * (1 - fraction) + b.greenComponent * fraction
         let bl = a.blueComponent * (1 - fraction) + b.blueComponent  * fraction

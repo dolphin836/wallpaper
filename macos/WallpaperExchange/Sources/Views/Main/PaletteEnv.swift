@@ -62,9 +62,9 @@ final class PaletteEnv {
 extension Color {
     // Warm peach / sand / terracotta — matches the web's d3-c1/2/3
     // defaults so the mesh reads as the same product surface.
-    static let brandPaletteC1 = Color(red: 0.94, green: 0.78, blue: 0.55)
-    static let brandPaletteC2 = Color(red: 0.95, green: 0.74, blue: 0.62)
-    static let brandPaletteC3 = Color(red: 0.96, green: 0.84, blue: 0.66)
+    static let brandPaletteC1 = Color.adaptive(light: (0.94, 0.78, 0.55), dark: (0.48, 0.32, 0.19))
+    static let brandPaletteC2 = Color.adaptive(light: (0.95, 0.74, 0.62), dark: (0.42, 0.23, 0.19))
+    static let brandPaletteC3 = Color.adaptive(light: (0.96, 0.84, 0.66), dark: (0.38, 0.31, 0.22))
 }
 
 // Fixed-position blurred mesh, mirrors .d3-discover-mesh in

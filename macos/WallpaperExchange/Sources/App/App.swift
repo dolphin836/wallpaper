@@ -21,6 +21,10 @@ struct WallpaperExchangeApp: App {
             MainWindow()
                 .frame(minWidth: 1080, minHeight: 720)
                 .preferredColorScheme(AppearancePref.fromStorage(appearanceRaw).colorScheme)
+                .onAppear { AppearancePref.applyToApp(appearanceRaw) }
+                .onChange(of: appearanceRaw) { _, newValue in
+                    AppearancePref.applyToApp(newValue)
+                }
         }
         // Hidden title bar lets content extend up to the very top of
         // the window — the traffic-light buttons float over the
