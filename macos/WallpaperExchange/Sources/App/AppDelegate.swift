@@ -1,11 +1,9 @@
 import AppKit
 import ServiceManagement
-import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
-    private var popover: NSPopover!
-    private var eventMonitor: Any?
+    private var openMainWindowHandler: (() -> Void)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Force Dock-visible regular app. LSUIElement was removed from
@@ -24,8 +22,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.applicationIconImage = icon
         }
         setupStatusItem()
-        setupPopover()
-        setupEventMonitor()
         registerURLScheme()
         configureMainWindow()
         UpdateService.shared.checkAtLaunch()
@@ -130,26 +126,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // v2: app stays alive when the main window is closed so the
-    // status-bar quick-action popover keeps working. Reopening from
-    // the Dock (or ⇧⌘0) brings the window back.
+    // status-bar quick action keeps working. Reopening from the Dock
+    // (or ⇧⌘0) brings the window back.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag {
-            for window in sender.windows where window.canBecomeMain {
-                window.makeKeyAndOrderFront(nil)
-                return true
-            }
-        }
+        openMainWindow()
         return true
     }
 
-    // Bridge so the SwiftUI command menu can toggle the popover
+    // Bridge so the SwiftUI command menu can open the main window
     // without owning the NSStatusItem reference itself.
-    func togglePopoverExternally() {
-        togglePopover()
+    func openMainWindowExternally() {
+        openMainWindow()
+    }
+
+    func setOpenMainWindowHandler(_ handler: @escaping () -> Void) {
+        openMainWindowHandler = handler
     }
 
     private func setupStatusItem() {
@@ -169,15 +164,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             button.action = #selector(handleStatusItemClick)
             button.target = self
-            // Receive both kinds of clicks so we can show the popover on
-            // primary click and the right-click menu on secondary click.
+            // Receive both kinds of clicks so primary click can open the
+            // main window and secondary click can keep the utility menu.
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
     }
 
     // Right-click menu: surfaces "Check for Updates…" and Quit alongside
-    // the popover. Built lazily on each invocation so the version label
-    // always shows the running app's current version, not a stale cache.
+    // the main-window launcher. Built lazily on each invocation so the
+    // version label always shows the running app's current version, not
+    // a stale cache.
     private func buildStatusMenu() -> NSMenu {
         let menu = NSMenu()
 
@@ -253,22 +249,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func setupPopover() {
-        popover = NSPopover()
-        popover.contentSize = NSSize(width: 720, height: 700)
-        popover.behavior = .transient
-        popover.animates = true
-        popover.contentViewController = NSHostingController(rootView: PopoverContentView())
-    }
-
-    private func setupEventMonitor() {
-        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-            if let popover = self?.popover, popover.isShown {
-                popover.performClose(nil)
-            }
-        }
-    }
-
     private func registerURLScheme() {
         NSAppleEventManager.shared().setEventHandler(
             self,
@@ -293,14 +273,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func handleStatusItemClick() {
-        // Right click (or Ctrl-left-click) → menu. Anything else → popover.
+        // Right click (or Ctrl-left-click) → utility menu. Anything else
+        // opens the redesigned main window.
         let event = NSApp.currentEvent
         let isSecondary = event?.type == .rightMouseUp
             || (event?.modifierFlags.contains(.control) ?? false)
         if isSecondary {
             showStatusMenu()
         } else {
-            togglePopover()
+            openMainWindow()
         }
     }
 
@@ -313,13 +294,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = nil
     }
 
-    private func togglePopover() {
-        guard let button = statusItem.button else { return }
-        if popover.isShown {
-            popover.performClose(nil)
-        } else {
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            popover.contentViewController?.view.window?.makeKey()
+    private func openMainWindow(requestNewWindowIfNeeded: Bool = true) {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+
+        if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {
+            applyWindowChrome(window)
+            if window.isMiniaturized {
+                window.deminiaturize(nil)
+            }
+            window.makeKeyAndOrderFront(nil)
+        } else if requestNewWindowIfNeeded, let openMainWindowHandler {
+            openMainWindowHandler()
+            DispatchQueue.main.async {
+                self.openMainWindow(requestNewWindowIfNeeded: false)
+            }
         }
     }
 }
