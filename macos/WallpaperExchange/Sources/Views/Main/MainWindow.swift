@@ -111,12 +111,12 @@ struct MainWindow: View {
                     .background(
                         ZStack {
                             RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
-                                .fill(.regularMaterial)
+                                .fill(.ultraThinMaterial)
                             RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
                                 .fill(LinearGradient(
                                     colors: [
-                                        Color(red: 0.93, green: 0.95, blue: 0.97).opacity(0.76),
-                                        Color.paper.opacity(0.54),
+                                        Color(red: 0.93, green: 0.95, blue: 0.97).opacity(0.34),
+                                        Color.paper.opacity(0.18),
                                     ],
                                     startPoint: .top, endPoint: .bottom))
                         }
@@ -255,8 +255,8 @@ struct MainWindow: View {
         .frame(height: WindowChrome.topBar)
         .background(
             ZStack {
-                Rectangle().fill(.regularMaterial)
-                Rectangle().fill(Color.paper.opacity(0.60))
+                Rectangle().fill(.ultraThinMaterial)
+                Rectangle().fill(Color.paper.opacity(0.22))
             }
         )
         .overlay(alignment: .bottom) {
