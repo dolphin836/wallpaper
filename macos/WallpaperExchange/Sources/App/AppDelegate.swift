@@ -151,27 +151,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
             // Brand logo, mirrored from frontend/public/logo-192.png so web + desktop share
-            // one asset. Copied into Contents/Resources/ by build-app.sh — loaded via
-            // Bundle.main (NOT Bundle.module: SwiftPM's resource accessor expects the bundle
-            // at the .app root, which violates the macOS bundle layout and breaks codesign).
-            // Rendered in full color — isTemplate=false — because the web logo is colour-loaded.
+            // one asset. In the menu bar it must render as a template icon so AppKit
+            // adapts it to the current light/dark menu-bar appearance.
             if let img = BrandAsset.logo?.copy() as? NSImage {
-                img.isTemplate = false
-                img.size = NSSize(width: 18, height: 18)
+                img.isTemplate = true
+                img.size = NSSize(width: 17, height: 17)
                 button.image = img
             } else {
-                button.image = NSImage(systemSymbolName: "photo.on.rectangle", accessibilityDescription: "Wallpaper Exchange")
+                let fallback = NSImage(systemSymbolName: "photo.on.rectangle", accessibilityDescription: "Wallpaper Exchange")
+                fallback?.isTemplate = true
+                button.image = fallback
             }
+            button.imagePosition = .imageOnly
             button.action = #selector(handleStatusItemClick)
             button.target = self
-            // Receive both kinds of clicks so primary click can open the
-            // main window and secondary click can keep the utility menu.
+            // Receive both kinds of clicks; either one opens the utility menu.
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
     }
 
-    // Right-click menu: surfaces "Check for Updates…" and Quit alongside
-    // the main-window launcher. Built lazily on each invocation so the
+    // Status menu: surfaces the main-window launcher, launch-at-login,
+    // updates, and Quit. Built lazily on each invocation so the
     // version label always shows the running app's current version, not
     // a stale cache.
     private func buildStatusMenu() -> NSMenu {
@@ -183,6 +183,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(versionItem)
 
         menu.addItem(NSMenuItem.separator())
+
+        let openItem = NSMenuItem(title: "Open Wallpaper Exchange", action: #selector(menuOpenMainWindow), keyEquivalent: "")
+        openItem.target = self
+        menu.addItem(openItem)
 
         // Launch-at-login toggle. SMAppService.mainApp reports the live
         // state directly — no UserDefaults gymnastics needed; macOS owns
@@ -211,6 +215,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(quitItem)
 
         return menu
+    }
+
+    @objc private func menuOpenMainWindow() {
+        openMainWindow()
     }
 
     @objc private func menuCheckForUpdates() {
@@ -273,16 +281,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func handleStatusItemClick() {
-        // Right click (or Ctrl-left-click) → utility menu. Anything else
-        // opens the redesigned main window.
-        let event = NSApp.currentEvent
-        let isSecondary = event?.type == .rightMouseUp
-            || (event?.modifierFlags.contains(.control) ?? false)
-        if isSecondary {
-            showStatusMenu()
-        } else {
-            openMainWindow()
-        }
+        showStatusMenu()
     }
 
     private func showStatusMenu() {
