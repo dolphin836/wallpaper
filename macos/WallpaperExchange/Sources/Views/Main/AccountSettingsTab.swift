@@ -52,13 +52,7 @@ struct AccountSettingsTab: View {
 
     private var wallpaperSection: some View {
         sectionCard(title: "Wallpaper") {
-            Toggle(isOn: Binding(get: { manager.autoRotate }, set: { manager.setAutoRotate($0) })) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Auto-shuffle").font(.system(size: 13)).foregroundStyle(Color.ink)
-                    Text("Switch to a random downloaded wallpaper every 4 hours")
-                        .font(.system(size: 11)).foregroundStyle(Color.muted)
-                }
-            }.toggleStyle(.switch).tint(Color.accent)
+            AutoShuffleSettings()
         }
     }
 

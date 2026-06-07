@@ -253,6 +253,7 @@ struct ShuffleStatusBanner: View {
     // visible, but defensive). Otherwise the absolute moment of the next
     // rotation tick; the banner derives the H/M countdown from it.
     let nextAt: Date?
+    let intervalText: String
 
     // Re-render once a minute so the countdown stays roughly accurate
     // without burning CPU. The underlying timer fires for the lifetime of
@@ -296,7 +297,7 @@ struct ShuffleStatusBanner: View {
     private var message: AttributedString {
         var bold = AttributedString("Auto-shuffle is on. ")
         bold.font = .system(size: 12, weight: .semibold)
-        var rest = AttributedString("Pulling from your downloads every 4 hours.")
+        var rest = AttributedString("Pulling from your downloads every \(intervalText).")
         rest.font = .sans12
         return bold + rest
     }

@@ -41,7 +41,7 @@ struct WallpaperColumnView: View {
                 .padding(.bottom, 12)
 
             if shuffleOn {
-                ShuffleStatusBanner(nextAt: shuffleNextAt)
+                ShuffleStatusBanner(nextAt: shuffleNextAt, intervalText: manager.autoRotateIntervalLabel)
                     .padding(.horizontal, 14)
                     .padding(.bottom, 10)
             }
@@ -113,7 +113,7 @@ struct WallpaperColumnView: View {
                         icon: "shuffle",
                         help: shuffleOn
                             ? "Auto-shuffle on — click to stop"
-                            : "Auto-shuffle every 4 hours",
+                            : "Auto-shuffle every \(manager.autoRotateIntervalLabel)",
                         isOn: shuffleOn,
                         action: onShuffleToggle
                     )

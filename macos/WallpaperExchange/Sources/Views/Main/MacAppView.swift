@@ -36,7 +36,7 @@ struct MacAppView: View {
                     .font(.system(size: 18, weight: .medium, design: .monospaced))
                     .foregroundStyle(Color.muted)
             }
-            Text("Native menu-bar quick actions plus a Dock-visible main window. Drag wallpapers straight to your desktop, set per-display in detail, or let auto-shuffle rotate every 4 hours.")
+            Text("Native menu-bar quick actions plus a Dock-visible main window. Drag wallpapers straight to your desktop, set per-display in detail, or let auto-shuffle rotate on your own schedule.")
                 .font(.sans13).foregroundStyle(Color.muted)
                 .frame(maxWidth: 600, alignment: .leading)
             HStack(spacing: 10) {

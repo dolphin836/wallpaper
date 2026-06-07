@@ -16,23 +16,28 @@ final class WallpaperManager {
     private(set) var downloadProgress: [Int: Double] = [:]
 
     // When true, a background task picks a random locally-downloaded wallpaper
-    // and applies it every 4 hours. State is persisted across launches via
-    // UserDefaults, so quitting + reopening the app preserves the rotation.
+    // and applies it on the user's chosen cadence. State is persisted across
+    // launches via UserDefaults, so quitting + reopening the app preserves the
+    // rotation.
     private(set) var autoRotate: Bool = false
+    private(set) var autoRotateInterval: TimeInterval = WallpaperManager.defaultAutoRotateInterval
     // Absolute timestamp of the next rotation tick. Surfaced to the
     // ShuffleStatusBanner so it can render a live "NEXT · 2 H 34 M"
     // countdown. nil whenever autoRotate is off.
     private(set) var nextRotationAt: Date?
     private var rotationTask: Task<Void, Never>?
     private let autoRotateDefaultsKey = "wallpaper.autoRotate"
-    private let rotationInterval: TimeInterval = 4 * 3600
+    private let autoRotateIntervalDefaultsKey = "wallpaper.autoRotate.interval"
+    static let defaultAutoRotateInterval: TimeInterval = 4 * 3600
+    static let minAutoRotateInterval: TimeInterval = 15 * 60
+    static let maxAutoRotateInterval: TimeInterval = 7 * 24 * 3600
 
     // Console.app subsystem for setDesktopImageURL diagnostics. Useful for
     // chasing reports of "only the main screen got the new wallpaper" —
     // users can filter the unified log to com.wallpaperexchange.mac and
     // see per-screen success / failure for each rotation tick.
     private let logger = Logger(subsystem: "com.wallpaperexchange.mac", category: "wallpaper")
-    private var rotationIntervalNs: UInt64 { UInt64(rotationInterval * 1_000_000_000) }
+    private var rotationIntervalNs: UInt64 { UInt64(autoRotateInterval * 1_000_000_000) }
 
     // ID of the wallpaper most recently applied to the desktop, regardless
     // of how it got there (Set Wallpaper from the popover, Set & download,
@@ -50,6 +55,10 @@ final class WallpaperManager {
         scanLocalFiles()
 
         // Resume rotation if the user had it on before quitting the app.
+        let savedInterval = UserDefaults.standard.double(forKey: autoRotateIntervalDefaultsKey)
+        autoRotateInterval = Self.sanitizedAutoRotateInterval(
+            savedInterval > 0 ? savedInterval : Self.defaultAutoRotateInterval
+        )
         autoRotate = UserDefaults.standard.bool(forKey: autoRotateDefaultsKey)
         let saved = UserDefaults.standard.integer(forKey: currentWallpaperIDDefaultsKey)
         currentWallpaperID = saved > 0 ? saved : nil
@@ -129,20 +138,65 @@ final class WallpaperManager {
         }
     }
 
-    private func startRotation() {
+    func setAutoRotateInterval(_ interval: TimeInterval) {
+        let sanitized = Self.sanitizedAutoRotateInterval(interval)
+        guard abs(autoRotateInterval - sanitized) > 0.5 else { return }
+        autoRotateInterval = sanitized
+        UserDefaults.standard.set(sanitized, forKey: autoRotateIntervalDefaultsKey)
+        if autoRotate {
+            startRotation(applyImmediately: false)
+        }
+    }
+
+    var autoRotateIntervalLabel: String {
+        Self.formatAutoRotateInterval(autoRotateInterval)
+    }
+
+    static func sanitizedAutoRotateInterval(_ interval: TimeInterval) -> TimeInterval {
+        min(max(interval, minAutoRotateInterval), maxAutoRotateInterval)
+    }
+
+    static func formatAutoRotateInterval(_ interval: TimeInterval) -> String {
+        let minutes = max(1, Int((sanitizedAutoRotateInterval(interval) / 60).rounded()))
+        if minutes < 60 {
+            return minutes == 1 ? "1 minute" : "\(minutes) minutes"
+        }
+
+        if minutes % (24 * 60) == 0 {
+            let days = minutes / (24 * 60)
+            return days == 1 ? "1 day" : "\(days) days"
+        }
+
+        if minutes % 60 == 0 {
+            let hours = minutes / 60
+            return hours == 1 ? "1 hour" : "\(hours) hours"
+        }
+
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        if hours == 0 {
+            return remainder == 1 ? "1 minute" : "\(remainder) minutes"
+        }
+        let hourText = hours == 1 ? "1 h" : "\(hours) h"
+        return "\(hourText) \(remainder) min"
+    }
+
+    private func startRotation(applyImmediately: Bool = true) {
         stopRotation()
-        // Apply once immediately so the user sees the rotation took effect,
-        // then sleep 4h between subsequent picks. WallpaperManager is
-        // @MainActor so the Task inherits that isolation.
-        nextRotationAt = Date().addingTimeInterval(rotationInterval)
+        // Apply once immediately when the user turns rotation on so the
+        // setting feels active, then sleep between subsequent picks.
+        // WallpaperManager is @MainActor so the Task inherits that isolation.
+        nextRotationAt = Date().addingTimeInterval(autoRotateInterval)
         rotationTask = Task { [weak self] in
             guard let self else { return }
-            self.applyRandomLocalWallpaper()
+            if applyImmediately {
+                self.applyRandomLocalWallpaper()
+            }
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: self.rotationIntervalNs)
                 guard !Task.isCancelled else { break }
                 self.applyRandomLocalWallpaper()
-                self.nextRotationAt = Date().addingTimeInterval(self.rotationInterval)
+                self.nextRotationAt = Date().addingTimeInterval(self.autoRotateInterval)
             }
         }
     }
