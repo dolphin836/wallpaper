@@ -363,7 +363,12 @@ struct MainWindow: View {
                     .navigationBarBackButtonHidden(true)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
+            .background(TransparentAppKitBackground())
         }
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
         .onChange(of: sidebar) { _, new in
             path.removeAll()
             forwardPath.removeAll()
@@ -389,6 +394,40 @@ struct MainWindow: View {
         } else {
             committedSearch = q
             push(.search(query: q))
+        }
+    }
+}
+
+private struct TransparentAppKitBackground: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        clearAround(view)
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        clearAround(view)
+    }
+
+    private func clearAround(_ view: NSView) {
+        DispatchQueue.main.async {
+            var current: NSView? = view
+            var depth = 0
+            while let node = current, depth < 12 {
+                if let scroll = node as? NSScrollView {
+                    scroll.drawsBackground = false
+                    scroll.backgroundColor = .clear
+                    scroll.contentView.drawsBackground = false
+                } else if let clip = node as? NSClipView {
+                    clip.drawsBackground = false
+                    clip.backgroundColor = .clear
+                } else if !(node is NSVisualEffectView) {
+                    node.wantsLayer = true
+                    node.layer?.backgroundColor = NSColor.clear.cgColor
+                }
+                current = node.superview
+                depth += 1
+            }
         }
     }
 }
