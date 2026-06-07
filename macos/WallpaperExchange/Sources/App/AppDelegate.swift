@@ -90,6 +90,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if window.toolbar != nil {
             window.toolbar = nil
         }
+        clearWindowBackdrop(window)
+    }
+
+    private func clearWindowBackdrop(_ window: NSWindow) {
+        guard let root = window.contentView?.superview else { return }
+
+        func clear(_ view: NSView) {
+            let className = String(describing: type(of: view))
+            let isWindowChrome =
+                className.contains("NSThemeFrame") ||
+                className.contains("NSTitlebar") ||
+                className.contains("AppKitWindowHostingView")
+            let isDecorativeTitlebarLayer =
+                className.contains("TitlebarBackground") ||
+                className.contains("TitlebarDecoration")
+
+            if isWindowChrome || isDecorativeTitlebarLayer {
+                view.wantsLayer = true
+                view.layer?.backgroundColor = NSColor.clear.cgColor
+            }
+
+            if isDecorativeTitlebarLayer {
+                view.isHidden = true
+            }
+
+            if let effect = view as? NSVisualEffectView, isWindowChrome {
+                effect.material = .windowBackground
+                effect.blendingMode = .behindWindow
+                effect.state = .inactive
+            }
+
+            for subview in view.subviews {
+                clear(subview)
+            }
+        }
+
+        clear(root)
     }
 
     // v2: app stays alive when the main window is closed so the

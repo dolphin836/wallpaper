@@ -449,14 +449,17 @@ struct HeroCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 24))
         }
         .buttonStyle(.plain)
-        // Drop-shadow stack — web has 3 layers (inset top white + 2 dark
-        // drops). SwiftUI doesn't do multi-layer inset shadows cleanly,
-        // so collapse to a single combined drop that hits the same
-        // weight under default lighting.
+        // Keep the hero attached to the mesh. A large soft shadow reads
+        // like a separate rounded background card in the desktop window.
         .scaleEffect(hover ? 1.005 : 1.0)
-        .shadow(color: Color.black.opacity(hover ? 0.35 : 0.30),
-                radius: hover ? 40 : 30,
-                x: 0, y: hover ? 14 : 10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                .allowsHitTesting(false)
+        )
+        .shadow(color: Color.black.opacity(hover ? 0.20 : 0.14),
+                radius: hover ? 18 : 12,
+                x: 0, y: hover ? 8 : 5)
         .animation(.easeOut(duration: 0.6), value: hover)
         .onHover { entered in
             hover = entered

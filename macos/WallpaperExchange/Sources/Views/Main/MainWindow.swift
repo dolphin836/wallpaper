@@ -152,6 +152,7 @@ struct MainWindow: View {
         }
         .ignoresSafeArea(.all)
         .background(Color.clear)
+        .background(WindowBackdropClearer())
         .background(WindowFullScreenReader(isFullScreen: $isFullScreen))
         .task { await auth.refreshProfile() }
     }
@@ -633,6 +634,69 @@ private struct WindowFullScreenReader: NSViewRepresentable {
         private func update() {
             isFullScreen.wrappedValue = window?.styleMask.contains(.fullScreen) == true
         }
+    }
+}
+
+private struct WindowBackdropClearer: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        clear(from: view)
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        clear(from: view)
+    }
+
+    private func clear(from view: NSView) {
+        DispatchQueue.main.async {
+            apply(to: view.window)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                apply(to: view.window)
+            }
+        }
+    }
+
+    private func apply(to window: NSWindow?) {
+        guard let window else { return }
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.contentView?.wantsLayer = true
+        window.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
+
+        guard let root = window.contentView?.superview else { return }
+
+        func scrub(_ node: NSView) {
+            let className = String(describing: type(of: node))
+            let isChrome =
+                className.contains("NSThemeFrame") ||
+                className.contains("NSTitlebar") ||
+                className.contains("AppKitWindowHostingView")
+            let isTitlebarDecoration =
+                className.contains("TitlebarBackground") ||
+                className.contains("TitlebarDecoration")
+
+            if isChrome || isTitlebarDecoration {
+                node.wantsLayer = true
+                node.layer?.backgroundColor = NSColor.clear.cgColor
+            }
+
+            if isTitlebarDecoration {
+                node.isHidden = true
+            }
+
+            if let effect = node as? NSVisualEffectView, isChrome {
+                effect.material = .windowBackground
+                effect.blendingMode = .behindWindow
+                effect.state = .inactive
+            }
+
+            for child in node.subviews {
+                scrub(child)
+            }
+        }
+
+        scrub(root)
     }
 }
 
