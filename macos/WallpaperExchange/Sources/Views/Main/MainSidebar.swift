@@ -22,19 +22,7 @@ struct MainSidebar: View {
             if collapsed {
                 collapsedNav
             } else {
-                // Drive selection by tap (no List(selection:) — its macOS
-                // system highlight paints the row in the OS blue and
-                // fights our warm-orange brand).
-                List {
-                    navSection("BROWSE", topPad: 4,
-                               items: [.home, .discover, .weekly, .collections])
-                    if auth.isLoggedIn {
-                        navSection("MY LIBRARY", topPad: 16,
-                                   items: [.myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins])
-                    }
-                }
-                .listStyle(.sidebar)
-                .scrollContentBackground(.hidden)
+                expandedNav
             }
         }
         .safeAreaInset(edge: .bottom) { identityFooter }
@@ -63,20 +51,36 @@ struct MainSidebar: View {
         }
     }
 
-    @ViewBuilder
-    private func navSection(_ title: String, topPad: CGFloat, items: [MainWindow.SidebarItem]) -> some View {
-        Section {
+    private var expandedNav: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                expandedSection("BROWSE", topPad: 4,
+                                items: [.home, .discover, .weekly, .collections])
+                if auth.isLoggedIn {
+                    expandedSection("MY LIBRARY", topPad: 16,
+                                    items: [.myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins])
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 4)
+        }
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
+    }
+
+    private func expandedSection(_ title: String, topPad: CGFloat, items: [MainWindow.SidebarItem]) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.kicker)
+                .tracking(1.8)
+                .foregroundStyle(Color.muted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 6)
+                .padding(.top, topPad)
+                .padding(.bottom, 5)
             ForEach(items, id: \.self) { item in
                 SidebarRow(item: item, isSelected: item == selection, collapsed: collapsed)
                     .onTapGesture { tap(item) }
-                    .listRowInsets(EdgeInsets(top: 1, leading: 6, bottom: 1, trailing: 6))
-                    .listRowBackground(Color.clear)
-            }
-        } header: {
-            if !collapsed {
-                Text(title)
-                    .font(.kicker).tracking(1.8).foregroundStyle(Color.muted)
-                    .padding(.top, topPad)
             }
         }
     }
@@ -139,7 +143,7 @@ struct MainSidebar: View {
                 collapsedFooter
                     .padding(.vertical, 12)
                     .frame(maxWidth: .infinity)
-                    .background(.thinMaterial)
+                    .background(Color.clear)
                     .overlay(alignment: .top) { Rectangle().fill(Color.hair).frame(height: 1) }
             } else if auth.isLoggedIn, let u = auth.user {
                 VStack(alignment: .leading, spacing: 10) {
@@ -163,7 +167,7 @@ struct MainSidebar: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .background(.thinMaterial)
+                .background(Color.clear)
                 .overlay(alignment: .top) {
                     Rectangle().fill(Color.hair).frame(height: 1)
                 }
@@ -182,7 +186,7 @@ struct MainSidebar: View {
                     Button("Sign in") { auth.login() }.controlSize(.small)
                 }
                 .padding(.horizontal, 14).padding(.vertical, 12)
-                .background(.thinMaterial)
+                .background(Color.clear)
                 .overlay(alignment: .top) {
                     Rectangle().fill(Color.hair).frame(height: 1)
                 }

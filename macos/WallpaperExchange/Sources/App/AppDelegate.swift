@@ -74,6 +74,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.styleMask.insert([.resizable, .miniaturizable, .closable, .fullSizeContentView])
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.contentView?.wantsLayer = true
+        window.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
         window.isMovableByWindowBackground = false
         // Hide the titlebar separator (the hairline under the title
         // bar area). Without this macOS still draws a faint line

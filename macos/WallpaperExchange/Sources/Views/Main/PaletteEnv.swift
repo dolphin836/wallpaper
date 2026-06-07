@@ -72,19 +72,31 @@ struct PageMesh: View {
         GeometryReader { proxy in
             let r = max(proxy.size.width, proxy.size.height)
             ZStack {
-                RadialGradient(colors: [env.c1, .clear],
-                               center: UnitPoint(x: 0.22, y: 0.30),
-                               startRadius: 0, endRadius: r * 0.45)
-                RadialGradient(colors: [env.c2, .clear],
-                               center: UnitPoint(x: 0.78, y: 0.20),
-                               startRadius: 0, endRadius: r * 0.50)
-                RadialGradient(colors: [env.c3, .clear],
-                               center: UnitPoint(x: 0.50, y: 0.82),
-                               startRadius: 0, endRadius: r * 0.55)
+                LinearGradient(
+                    colors: [
+                        Color.paper.blended(with: env.c1, fraction: 0.20),
+                        Color.paper.blended(with: env.c2, fraction: 0.14),
+                        Color.paper.blended(with: env.c3, fraction: 0.18),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                ZStack {
+                    RadialGradient(colors: [env.c1, .clear],
+                                   center: UnitPoint(x: 0.22, y: 0.30),
+                                   startRadius: 0, endRadius: r * 0.45)
+                    RadialGradient(colors: [env.c2, .clear],
+                                   center: UnitPoint(x: 0.78, y: 0.20),
+                                   startRadius: 0, endRadius: r * 0.50)
+                    RadialGradient(colors: [env.c3, .clear],
+                                   center: UnitPoint(x: 0.50, y: 0.82),
+                                   startRadius: 0, endRadius: r * 0.55)
+                }
+                .blur(radius: 80)
+                .saturation(1.4)
+                .opacity(0.58)
             }
-            .blur(radius: 80)
-            .saturation(1.4)
-            .opacity(0.55)
             .animation(.easeOut(duration: 0.42), value: env.c1)
             .animation(.easeOut(duration: 0.42), value: env.c2)
             .animation(.easeOut(duration: 0.42), value: env.c3)

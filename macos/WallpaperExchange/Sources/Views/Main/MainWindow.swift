@@ -97,7 +97,6 @@ struct MainWindow: View {
             // Full-window palette mesh. Tiles still drive PaletteEnv, but
             // the responsive backdrop now spans the toolbar, sidebar gaps,
             // and content surface instead of living only under detailPane.
-            Color.paper.ignoresSafeArea()
             PageMesh()
 
             HStack(spacing: WindowChrome.inset) {
@@ -152,7 +151,7 @@ struct MainWindow: View {
             }
         }
         .ignoresSafeArea(.all)
-        .background(Color.paper)
+        .background(Color.clear)
         .background(WindowFullScreenReader(isFullScreen: $isFullScreen))
         .task { await auth.refreshProfile() }
     }
