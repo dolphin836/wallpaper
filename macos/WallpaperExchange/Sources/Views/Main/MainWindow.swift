@@ -96,9 +96,11 @@ struct MainWindow: View {
         //   • A full-bleed detail surface reaching the window's right and
         //     bottom edges, rounded only on its top-leading corner.
         ZStack(alignment: .topLeading) {
-            // Warm paper behind everything — shows as the top bar and the
-            // thin gaps around the floating sidebar card.
+            // Full-window palette mesh. Tiles still drive PaletteEnv, but
+            // the responsive backdrop now spans the toolbar, sidebar gaps,
+            // and content surface instead of living only under detailPane.
             Color.paper.ignoresSafeArea()
+            PageMesh()
 
             HStack(spacing: WindowChrome.inset) {
                 MainSidebar(selection: $sidebar, collapsed: $sidebarCollapsed)
@@ -107,11 +109,18 @@ struct MainWindow: View {
                     // so the collapsed nav icons' hover tooltips can spill
                     // past the card's right edge without being clipped.
                     .background(
-                        RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
-                            .fill(LinearGradient(
-                                colors: [Color(red: 0.93, green: 0.95, blue: 0.97), Color.paper],
-                                startPoint: .top, endPoint: .bottom))
-                            .shadow(color: .black.opacity(0.06), radius: 10, y: 2)
+                        ZStack {
+                            RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
+                                .fill(.regularMaterial)
+                            RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
+                                .fill(LinearGradient(
+                                    colors: [
+                                        Color(red: 0.93, green: 0.95, blue: 0.97).opacity(0.76),
+                                        Color.paper.opacity(0.54),
+                                    ],
+                                    startPoint: .top, endPoint: .bottom))
+                        }
+                        .shadow(color: .black.opacity(0.06), radius: 10, y: 2)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
@@ -248,7 +257,7 @@ struct MainWindow: View {
         .background(
             ZStack {
                 Rectangle().fill(.regularMaterial)
-                Rectangle().fill(Color.paper.opacity(0.74))
+                Rectangle().fill(Color.paper.opacity(0.60))
             }
         )
         .overlay(alignment: .bottom) {
@@ -295,17 +304,11 @@ struct MainWindow: View {
         appearanceRaw = current == .dark ? AppearancePref.light.rawValue : AppearancePref.dark.rawValue
     }
 
-    // Detail surface: page-mesh palette tint behind every page (mirrors
-    // the web's .d3-discover-mesh), the routed content, and the
-    // navigation stack for full-page pushes.
+    // Detail surface: routed content and full-page pushes. The palette mesh
+    // now lives at the root window layer so it can continue underneath the
+    // toolbar and sidebar as well.
     private var detailPane: some View {
-        // Mesh + paper sit BEHIND the NavigationStack (not inside its
-        // root) so the palette background shows through pushed
-        // destinations too — collection / weekly detail pages drive the
-        // mesh on tile hover just like the list pages do.
         ZStack {
-            Color.paper
-            PageMesh()
             NavigationStack(path: $path) {
                 ContentRouter(
                     sidebar: sidebar,
