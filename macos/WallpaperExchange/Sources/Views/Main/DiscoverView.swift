@@ -74,13 +74,8 @@ struct DiscoverView: View {
     }
 
     var body: some View {
-        // Everything lives in one vertical ScrollView. Keeping the
-        // toolbar and device mockup in normal document flow prevents a
-        // pinned section header from leaving an invisible hit region over
-        // the grid in large full-screen windows.
-        GeometryReader { geo in
         ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                 Section {
                     feed
                         .padding(.horizontal, 40)
@@ -98,31 +93,13 @@ struct DiscoverView: View {
                     .padding(.top, 24)
                     .padding(.bottom, 12)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    // Re-draw the page floor (paper + the SAME mesh, sized
-                    // to the full pane and top-anchored) behind the pinned
-                    // header so wallpapers scrolling up behind it stay
-                    // hidden and the header reads as the exact same
-                    // background as the rest of the page — not a white band,
-                    // not the tiles showing through.
-                    .background(alignment: .top) {
-                        ZStack {
-                            Color.paper
-                            PageMesh()
-                        }
-                        .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
-                        // Never let the oversized floor intercept events —
-                        // otherwise its hit region covers the grid below the
-                        // pinned header and swallows tile hover (which drives
-                        // the device preview + page mesh + card action rail).
-                        .allowsHitTesting(false)
-                    }
-                    .clipped()
                     .contentShape(Rectangle())
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        }
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
         .task(id: "discover-init") {
             if let initialFilter { filter = initialFilter }
             else if deviceMatch { filter = .myDevice }

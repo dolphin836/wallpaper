@@ -239,7 +239,7 @@ struct WeeklyWeekView: View {
                             }
                             .buttonStyle(.plain)
                             .onHover { h in
-                                if h { PaletteEnv.shared.apply(palette: nil, dominant: p.dominantColor) }
+                                if h { PaletteEnv.shared.apply(palette: p.colorPalette, dominant: p.dominantColor) }
                                 else { applyHeroPalette() }
                             }
                         }
@@ -250,7 +250,10 @@ struct WeeklyWeekView: View {
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
             .frame(maxWidth: 1280).frame(maxWidth: .infinity, alignment: .center)
         }
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
         .task(id: "\(year)-\(week)") { await load() }
+        .onAppear { applyHeroPalette() }
         .onDisappear { PaletteEnv.shared.resetToDefaults() }
     }
 
@@ -301,7 +304,7 @@ struct WeeklyWeekView: View {
     }
 
     private func applyHeroPalette() {
-        if let h = hero { PaletteEnv.shared.apply(palette: nil, dominant: h.dominantColor) }
+        if let h = hero { PaletteEnv.shared.apply(palette: h.colorPalette, dominant: h.dominantColor) }
         else { PaletteEnv.shared.resetToDefaults() }
     }
     private func mb(_ b: Int) -> String { String(format: "%.1f MB", Double(b) / 1024 / 1024) }
@@ -324,7 +327,7 @@ struct WeeklyWeekView: View {
             id: p.id, slug: p.slug, userID: 0, categoryID: nil, title: p.title, description: "",
             originalURL: p.originalURL, thumbURL: p.thumbURL, previewURL: p.previewURL,
             width: p.width, height: p.height, fileSize: p.fileSize, fileType: p.fileType,
-            dominantColor: p.dominantColor, colorPalette: nil, status: 1, viewCount: 0, likeCount: 0,
+            dominantColor: p.dominantColor, colorPalette: p.colorPalette, status: 1, viewCount: 0, likeCount: 0,
             downloadCount: 0, favoriteCount: 0, isDynamic: p.isDynamic,
             isAIGenerated: p.isAIGenerated, isLiked: nil, isFavorited: nil, isDownloaded: nil,
             createdAt: ""

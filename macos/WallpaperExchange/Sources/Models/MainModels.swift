@@ -189,6 +189,7 @@ struct WeeklyPicked: Decodable, Identifiable {
     let fileSize: Int
     let fileType: String
     let dominantColor: String?
+    let colorPalette: String?
     let isDynamic: Bool
     let isAIGenerated: Bool?
     let sortOrder: Int
@@ -202,6 +203,7 @@ struct WeeklyPicked: Decodable, Identifiable {
         case fileSize = "file_size"
         case fileType = "file_type"
         case dominantColor = "dominant_color"
+        case colorPalette = "color_palette"
         case isDynamic = "is_dynamic"
         case isAIGenerated = "is_ai_generated"
         case sortOrder = "sort_order"
