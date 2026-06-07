@@ -377,6 +377,7 @@ private struct DeviceFloatingWallpaperWall: View {
     private let gap: CGFloat = 12
     private let previewSpan = 2
     private let snapThreshold: CGFloat = 0.70
+    private var measuringHeight: CGFloat { sizeMode == .lg ? 420 : 300 }
 
     private var deviceAspect: CGFloat {
         let req = MacScreenRequirement.current
@@ -386,6 +387,7 @@ private struct DeviceFloatingWallpaperWall: View {
 
     var body: some View {
         let layout = makeLayout(width: wallWidth, previewCell: previewCell)
+        let wallHeight = layout.isReady ? max(layout.wallHeight, layout.previewH) : measuringHeight
 
         ZStack(alignment: .topLeading) {
             ForEach(layout.positions) { pos in
@@ -423,7 +425,7 @@ private struct DeviceFloatingWallpaperWall: View {
                 .animation(.easeOut(duration: 0.16), value: dragging)
             }
         }
-        .frame(height: max(layout.wallHeight, layout.previewH))
+        .frame(height: wallHeight)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(
             GeometryReader { proxy in
