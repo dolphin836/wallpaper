@@ -401,33 +401,54 @@ struct MainWindow: View {
 struct TransparentAppKitBackground: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView(frame: .zero)
-        clearAround(view)
+        clearWindowChromeAround(view)
         return view
     }
 
     func updateNSView(_ view: NSView, context: Context) {
-        clearAround(view)
+        clearWindowChromeAround(view)
     }
 
-    private func clearAround(_ view: NSView) {
+    private func clearWindowChromeAround(_ view: NSView) {
         DispatchQueue.main.async {
+            let root = view.window?.contentView ?? topmostSuperview(from: view)
+            clearRecursively(root)
+
             var current: NSView? = view
             var depth = 0
             while let node = current, depth < 12 {
-                if let scroll = node as? NSScrollView {
-                    scroll.drawsBackground = false
-                    scroll.backgroundColor = .clear
-                    scroll.contentView.drawsBackground = false
-                } else if let clip = node as? NSClipView {
-                    clip.drawsBackground = false
-                    clip.backgroundColor = .clear
-                } else if !(node is NSVisualEffectView) {
-                    node.wantsLayer = true
-                    node.layer?.backgroundColor = NSColor.clear.cgColor
-                }
+                clearOne(node)
                 current = node.superview
                 depth += 1
             }
+        }
+    }
+
+    private func topmostSuperview(from view: NSView) -> NSView {
+        var current = view
+        while let next = current.superview { current = next }
+        return current
+    }
+
+    private func clearRecursively(_ view: NSView) {
+        clearOne(view)
+        guard !(view is NSVisualEffectView) else { return }
+        for child in view.subviews {
+            clearRecursively(child)
+        }
+    }
+
+    private func clearOne(_ view: NSView) {
+        if let scroll = view as? NSScrollView {
+            scroll.drawsBackground = false
+            scroll.backgroundColor = .clear
+            scroll.contentView.drawsBackground = false
+        } else if let clip = view as? NSClipView {
+            clip.drawsBackground = false
+            clip.backgroundColor = .clear
+        } else if !(view is NSVisualEffectView) {
+            view.wantsLayer = true
+            view.layer?.backgroundColor = NSColor.clear.cgColor
         }
     }
 }
