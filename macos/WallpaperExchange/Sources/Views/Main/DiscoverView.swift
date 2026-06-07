@@ -100,9 +100,8 @@ struct DiscoverView: View {
                     }
                     .padding(.horizontal, 40)
                     .padding(.top, 0)
-                    .padding(.bottom, 12)
+                    .padding(.bottom, 0)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(pinnedHeaderShield)
                     .contentShape(Rectangle())
                 }
             }
@@ -240,16 +239,6 @@ struct DiscoverView: View {
         // Sit above the device banner / feed so nothing layered below can
         // intercept the chip taps.
         .zIndex(1)
-    }
-
-    private var pinnedHeaderShield: some View {
-        ZStack {
-            Rectangle().fill(.ultraThinMaterial)
-            Rectangle().fill(Color.paper.opacity(0.72))
-        }
-        .padding(.horizontal, -40)
-        .padding(.top, -WindowChrome.toolbarGap)
-        .allowsHitTesting(false)
     }
 
     private func categoryChip(label: String, id: Int?) -> some View {
