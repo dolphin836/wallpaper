@@ -60,6 +60,7 @@ struct HomeView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Color.clear)
+        .background(TransparentAppKitBackground())
         .task { await loadAll() }
     }
 

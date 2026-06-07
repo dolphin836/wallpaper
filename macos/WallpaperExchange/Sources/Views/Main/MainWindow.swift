@@ -398,7 +398,7 @@ struct MainWindow: View {
     }
 }
 
-private struct TransparentAppKitBackground: NSViewRepresentable {
+struct TransparentAppKitBackground: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView(frame: .zero)
         clearAround(view)
