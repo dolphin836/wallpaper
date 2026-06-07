@@ -373,11 +373,15 @@ private struct DeviceFloatingWallpaperWall: View {
     @State private var parkedCell = DeviceWallCell()
     @State private var dragStartOffset: CGPoint = .zero
     @State private var dragging = false
+    @State private var measuredHeight: CGFloat = 420
 
     private let gap: CGFloat = 12
     private let previewSpan = 2
     private let snapThreshold: CGFloat = 0.70
     private var measuringHeight: CGFloat { sizeMode == .lg ? 420 : 300 }
+    private var fallbackWallWidth: CGFloat {
+        max(640, (NSScreen.main?.visibleFrame.width ?? 1280) - 360)
+    }
 
     private var deviceAspect: CGFloat {
         let req = MacScreenRequirement.current
@@ -386,9 +390,45 @@ private struct DeviceFloatingWallpaperWall: View {
     }
 
     var body: some View {
-        let layout = makeLayout(width: wallWidth, previewCell: previewCell)
-        let wallHeight = layout.isReady ? max(layout.wallHeight, layout.previewH) : measuringHeight
+        GeometryReader { proxy in
+            let width = proxy.size.width > 1 ? proxy.size.width : fallbackWallWidth
+            let layout = makeLayout(width: width, previewCell: previewCell)
+            let height = layout.isReady ? max(layout.wallHeight, layout.previewH) : measuringHeight
 
+            wallContent(layout: layout)
+                .frame(width: width, height: height, alignment: .topLeading)
+                .background(
+                    Color.clear.preference(
+                        key: DeviceWallTopKey.self,
+                        value: proxy.frame(in: .global).minY
+                    )
+                )
+                .onAppear {
+                    syncGeometry(width: width, height: height, layout: layout)
+                }
+                .onChange(of: proxy.size.width) { _, _ in
+                    syncGeometry(width: width, height: height, layout: layout)
+                }
+                .onChange(of: wallpapers.count) { _, _ in
+                    syncGeometry(width: width, height: height, layout: layout)
+                    applyScrollFollow(animated: false)
+                }
+        }
+        .frame(height: measuredHeight)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .onPreferenceChange(DeviceWallTopKey.self) { top in
+            wallTop = top
+            if !dragging { applyScrollFollow(animated: false) }
+        }
+        .onChange(of: sizeMode) { _, _ in
+            previewCell = .zero
+            parkedCell = .zero
+            measuredHeight = measuringHeight
+            settleToParkedCell(animated: false)
+        }
+    }
+
+    private func wallContent(layout: DeviceWallLayout) -> some View {
         ZStack(alignment: .topLeading) {
             ForEach(layout.positions) { pos in
                 let wp = wallpapers[pos.index]
@@ -425,32 +465,27 @@ private struct DeviceFloatingWallpaperWall: View {
                 .animation(.easeOut(duration: 0.16), value: dragging)
             }
         }
-        .frame(height: wallHeight)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(
-            GeometryReader { proxy in
-                Color.clear
-                    .preference(key: DeviceWallWidthKey.self, value: proxy.size.width)
-                    .preference(key: DeviceWallTopKey.self, value: proxy.frame(in: .global).minY)
-            }
-        )
-        .onPreferenceChange(DeviceWallWidthKey.self) { width in
-            let next = max(0, width)
-            guard abs(next - wallWidth) > 0.5 else { return }
-            wallWidth = next
-            settleToParkedCell(animated: false)
+    }
+
+    private func syncGeometry(width: CGFloat, height: CGFloat, layout: DeviceWallLayout) {
+        guard layout.isReady else { return }
+        if abs(wallWidth - width) > 0.5 {
+            wallWidth = width
         }
-        .onPreferenceChange(DeviceWallTopKey.self) { top in
-            wallTop = top
-            if !dragging { applyScrollFollow(animated: false) }
+        if abs(measuredHeight - height) > 0.5 {
+            measuredHeight = height
         }
-        .onChange(of: sizeMode) { _, _ in
-            previewCell = .zero
-            parkedCell = .zero
-            settleToParkedCell(animated: false)
+        let nextParked = clampCell(parkedCell, layout: layout)
+        if parkedCell != nextParked {
+            parkedCell = nextParked
         }
-        .onChange(of: wallpapers.count) { _, _ in
-            applyScrollFollow(animated: false)
+        let nextPreviewCell = clampCell(previewCell, layout: layout)
+        if previewCell != nextPreviewCell {
+            previewCell = nextPreviewCell
+        }
+        let nextOffset = clampOffset(previewOffset, layout: layout)
+        if abs(previewOffset.x - nextOffset.x) > 0.5 || abs(previewOffset.y - nextOffset.y) > 0.5 {
+            previewOffset = nextOffset
         }
     }
 
