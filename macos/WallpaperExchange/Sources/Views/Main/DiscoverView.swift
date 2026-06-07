@@ -367,7 +367,6 @@ private struct DeviceFloatingWallpaperWall: View {
     var onTileAppear: (Wallpaper) -> Void
 
     @State private var wallWidth: CGFloat = 0
-    @State private var wallTop: CGFloat = 0
     @State private var previewOffset: CGPoint = .zero
     @State private var previewCell = DeviceWallCell()
     @State private var parkedCell = DeviceWallCell()
@@ -397,12 +396,6 @@ private struct DeviceFloatingWallpaperWall: View {
 
             wallContent(layout: layout)
                 .frame(width: width, height: height, alignment: .topLeading)
-                .background(
-                    Color.clear.preference(
-                        key: DeviceWallTopKey.self,
-                        value: proxy.frame(in: .global).minY
-                    )
-                )
                 .onAppear {
                     syncGeometry(width: width, height: height, layout: layout)
                 }
@@ -411,15 +404,10 @@ private struct DeviceFloatingWallpaperWall: View {
                 }
                 .onChange(of: wallpapers.count) { _, _ in
                     syncGeometry(width: width, height: height, layout: layout)
-                    applyScrollFollow(animated: false)
                 }
         }
         .frame(height: measuredHeight)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .onPreferenceChange(DeviceWallTopKey.self) { top in
-            wallTop = top
-            if !dragging { applyScrollFollow(animated: false) }
-        }
         .onChange(of: sizeMode) { _, _ in
             previewCell = .zero
             parkedCell = .zero
@@ -513,28 +501,6 @@ private struct DeviceFloatingWallpaperWall: View {
                     previewOffset = clampOffset(target, layout: layout)
                 }
             }
-    }
-
-    private func applyScrollFollow(animated: Bool) {
-        let layout = makeLayout(width: wallWidth, previewCell: previewCell)
-        guard layout.isReady else { return }
-
-        let baseY = CGFloat(parkedCell.row) * layout.cellH
-        let followTarget = max(0, 96 - wallTop)
-        let y = min(layout.maxPreviewY, max(baseY, followTarget))
-        let target = clampOffset(CGPoint(x: CGFloat(parkedCell.col) * layout.cellW, y: y), layout: layout)
-        guard abs(target.x - previewOffset.x) > 0.5 || abs(target.y - previewOffset.y) > 0.5 else { return }
-
-        let nextCell = cell(for: target, layout: layout)
-        if animated {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
-                previewOffset = target
-                previewCell = nextCell
-            }
-        } else {
-            previewOffset = target
-            previewCell = nextCell
-        }
     }
 
     private func settleToParkedCell(animated: Bool) {
@@ -713,16 +679,6 @@ private struct DeviceWallSqueeze {
     var y: CGFloat
     var anchor: UnitPoint
     static let identity = DeviceWallSqueeze(x: 1, y: 1, anchor: .center)
-}
-
-private struct DeviceWallWidthKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
-}
-
-private struct DeviceWallTopKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
 // Width probes for the category strip: the inner HStack reports its
