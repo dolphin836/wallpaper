@@ -3,8 +3,9 @@ import SwiftUI
 // Main Discover content — mirrors the web Discover page:
 //   • one unified toolbar: scrollable category chips on the left,
 //     a FILTER dropdown + a size (LG/MD) control on the right
-//   • a draggable device preview inside the wallpaper wall
-//   • tiles that compress and reflow around the device preview
+//   • a static device banner (the Mac's stand-in for the web's
+//     floating device wall) seeded with the first feed wallpaper
+//   • a size-driven wallpaper grid with infinite scroll
 //
 // The single FilterMode fully specifies what is fetched and how it is
 // sorted (no separate sort toggle), matching the web: Latest, Trending,
@@ -74,13 +75,27 @@ struct DiscoverView: View {
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 18) {
-                toolbar
-                wallFeed
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                Section {
+                    feed
+                        .padding(.horizontal, 40)
+                        .padding(.top, 14)
+                        .padding(.bottom, 40)
+                } header: {
+                    VStack(alignment: .leading, spacing: 14) {
+                        toolbar
+
+                        if let shown = featuredHover ?? items.first {
+                            DevicePreviewBanner(featured: shown, onPick: { onPick(shown) })
+                        }
+                    }
+                    .padding(.horizontal, 40)
+                    .padding(.top, 24)
+                    .padding(.bottom, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
             }
-            .padding(.horizontal, 40)
-            .padding(.top, 24)
-            .padding(.bottom, 40)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollContentBackground(.hidden)
@@ -100,10 +115,10 @@ struct DiscoverView: View {
         .onChange(of: selectedCategoryID) { _, _ in Task { await reload() } }
     }
 
-    // ── Feed: the scrolling floating wall + loading / empty / error states.
-    // Hovering a tile updates the draggable device preview. ──
+    // ── Feed: the scrolling grid + loading / empty / error states.
+    // Hovering a tile lifts it into the pinned device mockup above. ──
     @ViewBuilder
-    private var wallFeed: some View {
+    private var feed: some View {
         if loading && items.isEmpty {
             WallpaperGridSkeleton(
                 columns: gridColumns,
@@ -116,14 +131,14 @@ struct DiscoverView: View {
             Text(search.isEmpty ? "No wallpapers." : "No wallpapers match.")
                 .font(.sans13).foregroundStyle(Color.muted).padding(.top, 20)
         } else {
-            DeviceFloatingWallpaperWall(
-                wallpapers: items,
-                sizeMode: sizeMode,
-                featured: featuredHover ?? items.first,
-                onFeature: { featuredHover = $0 },
-                onPick: onPick,
-                onTileAppear: maybeLoadMore
-            )
+            LazyVGrid(columns: gridColumns, spacing: sizeMode == .lg ? 14 : 12) {
+                ForEach(items) { wp in
+                    Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
+                        .buttonStyle(.plain)
+                        .onHover { if $0 { featuredHover = wp } }
+                        .onAppear { maybeLoadMore(wp) }
+                }
+            }
             feedFooter
         }
     }
@@ -356,329 +371,6 @@ struct DiscoverView: View {
             loadError = error.localizedDescription
         }
     }
-}
-
-private struct DeviceFloatingWallpaperWall: View {
-    let wallpapers: [Wallpaper]
-    let sizeMode: DiscoverView.SizeMode
-    let featured: Wallpaper?
-    var onFeature: (Wallpaper) -> Void
-    var onPick: (Wallpaper) -> Void
-    var onTileAppear: (Wallpaper) -> Void
-
-    @State private var wallWidth: CGFloat = 0
-    @State private var previewOffset: CGPoint = .zero
-    @State private var previewCell = DeviceWallCell()
-    @State private var parkedCell = DeviceWallCell()
-    @State private var dragStartOffset: CGPoint = .zero
-    @State private var dragging = false
-    @State private var measuredHeight: CGFloat = 420
-
-    private let gap: CGFloat = 12
-    private let previewSpan = 2
-    private let snapThreshold: CGFloat = 0.70
-    private var measuringHeight: CGFloat { sizeMode == .lg ? 420 : 300 }
-    private var fallbackWallWidth: CGFloat {
-        max(640, (NSScreen.main?.visibleFrame.width ?? 1280) - 360)
-    }
-
-    private var deviceAspect: CGFloat {
-        let req = MacScreenRequirement.current
-        guard req.height > 0 else { return 16.0 / 10.0 }
-        return CGFloat(req.width) / CGFloat(req.height)
-    }
-
-    var body: some View {
-        GeometryReader { proxy in
-            let width = proxy.size.width > 1 ? proxy.size.width : fallbackWallWidth
-            let layout = makeLayout(width: width, previewCell: previewCell)
-            let height = layout.isReady ? max(layout.wallHeight, layout.previewH) : measuringHeight
-
-            wallContent(layout: layout)
-                .frame(width: width, height: height, alignment: .topLeading)
-                .onAppear {
-                    syncGeometry(width: width, height: height, layout: layout)
-                }
-                .onChange(of: proxy.size.width) { _, _ in
-                    syncGeometry(width: width, height: height, layout: layout)
-                }
-                .onChange(of: wallpapers.count) { _, _ in
-                    syncGeometry(width: width, height: height, layout: layout)
-                }
-        }
-        .frame(height: measuredHeight)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .onChange(of: sizeMode) { _, _ in
-            previewCell = .zero
-            parkedCell = .zero
-            measuredHeight = measuringHeight
-            settleToParkedCell(animated: false)
-        }
-    }
-
-    private func wallContent(layout: DeviceWallLayout) -> some View {
-        ZStack(alignment: .topLeading) {
-            ForEach(layout.positions) { pos in
-                let wp = wallpapers[pos.index]
-                let squeeze = squeeze(for: pos.frame, layout: layout)
-                Button(action: { onPick(wp) }) {
-                    MainGridTile(wallpaper: wp, aspectRatio: deviceAspect)
-                }
-                .buttonStyle(.plain)
-                .frame(width: pos.frame.width, height: pos.frame.height)
-                .scaleEffect(x: squeeze.x, y: squeeze.y, anchor: squeeze.anchor)
-                .offset(x: pos.frame.minX, y: pos.frame.minY)
-                .zIndex(1)
-                .animation(.spring(response: 0.34, dampingFraction: 0.86), value: previewCell)
-                .onHover { hovering in
-                    if hovering { onFeature(wp) }
-                }
-                .onAppear { onTileAppear(wp) }
-            }
-
-            if let featured, layout.isReady {
-                DeviceMockup(
-                    wallpaper: featured,
-                    maxMonitorWidth: layout.mockupMaxWidth,
-                    chromePadding: layout.chromePadding,
-                    chromeSpacing: layout.chromeSpacing
-                )
-                .frame(width: layout.previewW, height: layout.previewH)
-                .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .offset(x: previewOffset.x, y: previewOffset.y)
-                .zIndex(5)
-                .shadow(color: .black.opacity(dragging ? 0.18 : 0.10), radius: dragging ? 26 : 18, y: dragging ? 12 : 8)
-                .scaleEffect(dragging ? 1.012 : 1)
-                .gesture(dragGesture(layout: layout))
-                .animation(.easeOut(duration: 0.16), value: dragging)
-            }
-        }
-    }
-
-    private func syncGeometry(width: CGFloat, height: CGFloat, layout: DeviceWallLayout) {
-        guard layout.isReady else { return }
-        if abs(wallWidth - width) > 0.5 {
-            wallWidth = width
-        }
-        if abs(measuredHeight - height) > 0.5 {
-            measuredHeight = height
-        }
-        let nextParked = clampCell(parkedCell, layout: layout)
-        if parkedCell != nextParked {
-            parkedCell = nextParked
-        }
-        let nextPreviewCell = clampCell(previewCell, layout: layout)
-        if previewCell != nextPreviewCell {
-            previewCell = nextPreviewCell
-        }
-        let nextOffset = clampOffset(previewOffset, layout: layout)
-        if abs(previewOffset.x - nextOffset.x) > 0.5 || abs(previewOffset.y - nextOffset.y) > 0.5 {
-            previewOffset = nextOffset
-        }
-    }
-
-    private func dragGesture(layout: DeviceWallLayout) -> some Gesture {
-        DragGesture(minimumDistance: 4)
-            .onChanged { value in
-                if !dragging {
-                    dragging = true
-                    dragStartOffset = previewOffset
-                }
-                let proposed = CGPoint(
-                    x: dragStartOffset.x + value.translation.width,
-                    y: dragStartOffset.y + value.translation.height
-                )
-                let clamped = clampOffset(proposed, layout: layout)
-                previewOffset = clamped
-                previewCell = cell(for: clamped, layout: layout)
-            }
-            .onEnded { _ in
-                let layout = makeLayout(width: wallWidth, previewCell: previewCell)
-                dragging = false
-                parkedCell = previewCell
-                let target = origin(for: parkedCell, layout: layout)
-                withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
-                    previewOffset = clampOffset(target, layout: layout)
-                }
-            }
-    }
-
-    private func settleToParkedCell(animated: Bool) {
-        let layout = makeLayout(width: wallWidth, previewCell: previewCell)
-        guard layout.isReady else { return }
-        let clampedCell = clampCell(parkedCell, layout: layout)
-        parkedCell = clampedCell
-        previewCell = clampCell(previewCell, layout: layout)
-        let target = clampOffset(origin(for: clampedCell, layout: layout), layout: layout)
-        if animated {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) { previewOffset = target }
-        } else {
-            previewOffset = target
-        }
-    }
-
-    private func makeLayout(width: CGFloat, previewCell: DeviceWallCell) -> DeviceWallLayout {
-        let cols = columns(for: width)
-        guard width > 1, cols >= previewSpan else {
-            return DeviceWallLayout(cols: previewSpan, gap: gap, tileW: 0, tileH: 0, previewW: 0, previewH: 0, wallHeight: 0, positions: [])
-        }
-
-        let tileW = (width - gap * CGFloat(cols - 1)) / CGFloat(cols)
-        let rawTileH = tileW / max(deviceAspect, 0.1)
-        let tileH = min(480, max(140, rawTileH))
-        let previewW = tileW * CGFloat(previewSpan) + gap * CGFloat(previewSpan - 1)
-        let previewH = tileH * CGFloat(previewSpan) + gap * CGFloat(previewSpan - 1)
-        let cell = clampCell(previewCell, cols: cols)
-        let positions = positionsForTiles(count: wallpapers.count, cols: cols, tileW: tileW, tileH: tileH, previewCell: cell)
-        let maxBottom = positions.reduce(previewH) { partial, pos in
-            max(partial, pos.frame.maxY)
-        }
-        return DeviceWallLayout(
-            cols: cols,
-            gap: gap,
-            tileW: tileW,
-            tileH: tileH,
-            previewW: previewW,
-            previewH: previewH,
-            wallHeight: maxBottom,
-            positions: positions
-        )
-    }
-
-    private func columns(for width: CGFloat) -> Int {
-        switch sizeMode {
-        case .lg:
-            return width >= 1180 ? 3 : 2
-        case .md:
-            if width >= 1420 { return 5 }
-            if width >= 1060 { return 4 }
-            if width >= 760 { return 3 }
-            return 2
-        }
-    }
-
-    private func positionsForTiles(count: Int, cols: Int, tileW: CGFloat, tileH: CGFloat, previewCell: DeviceWallCell) -> [DeviceWallPosition] {
-        guard count > 0 else { return [] }
-        let cellW = tileW + gap
-        let cellH = tileH + gap
-        let previewEndCol = previewCell.col + previewSpan
-        let previewEndRow = previewCell.row + previewSpan
-        var positions: [DeviceWallPosition] = []
-        var row = 0
-        var col = 0
-
-        while positions.count < count {
-            let insidePreview = col >= previewCell.col && col < previewEndCol && row >= previewCell.row && row < previewEndRow
-            if !insidePreview {
-                let frame = CGRect(x: CGFloat(col) * cellW, y: CGFloat(row) * cellH, width: tileW, height: tileH)
-                positions.append(DeviceWallPosition(index: positions.count, frame: frame))
-            }
-            col += 1
-            if col >= cols {
-                col = 0
-                row += 1
-            }
-        }
-        return positions
-    }
-
-    private func cell(for offset: CGPoint, layout: DeviceWallLayout) -> DeviceWallCell {
-        guard layout.isReady else { return .zero }
-        let rawCol = offset.x / layout.cellW
-        let rawRow = offset.y / layout.cellH
-        let baseCol = max(0, Int(floor(rawCol)))
-        let baseRow = max(0, Int(floor(rawRow)))
-        let colProgress = rawCol - CGFloat(baseCol)
-        let rowProgress = rawRow - CGFloat(baseRow)
-        return clampCell(
-            DeviceWallCell(
-                col: colProgress > snapThreshold ? baseCol + 1 : baseCol,
-                row: rowProgress > snapThreshold ? baseRow + 1 : baseRow
-            ),
-            layout: layout
-        )
-    }
-
-    private func clampCell(_ cell: DeviceWallCell, layout: DeviceWallLayout) -> DeviceWallCell {
-        clampCell(cell, cols: layout.cols)
-    }
-
-    private func clampCell(_ cell: DeviceWallCell, cols: Int) -> DeviceWallCell {
-        let maxCol = max(0, cols - previewSpan)
-        return DeviceWallCell(col: min(max(cell.col, 0), maxCol), row: max(cell.row, 0))
-    }
-
-    private func origin(for cell: DeviceWallCell, layout: DeviceWallLayout) -> CGPoint {
-        CGPoint(x: CGFloat(cell.col) * layout.cellW, y: CGFloat(cell.row) * layout.cellH)
-    }
-
-    private func clampOffset(_ offset: CGPoint, layout: DeviceWallLayout) -> CGPoint {
-        CGPoint(
-            x: min(max(0, offset.x), layout.maxPreviewX),
-            y: min(max(0, offset.y), layout.maxPreviewY)
-        )
-    }
-
-    private func squeeze(for frame: CGRect, layout: DeviceWallLayout) -> DeviceWallSqueeze {
-        guard layout.isReady else { return .identity }
-        let previewFrame = CGRect(origin: previewOffset, size: CGSize(width: layout.previewW, height: layout.previewH))
-        let overlapX = max(0, min(frame.maxX, previewFrame.maxX) - max(frame.minX, previewFrame.minX))
-        let overlapY = max(0, min(frame.maxY, previewFrame.maxY) - max(frame.minY, previewFrame.minY))
-        guard overlapX > 0, overlapY > 0 else { return .identity }
-
-        let dx = frame.midX - previewFrame.midX
-        let dy = frame.midY - previewFrame.midY
-        let xRatio = min(1, overlapX / max(frame.width, 1))
-        let yRatio = min(1, overlapY / max(frame.height, 1))
-        let maxDent: CGFloat = 0.20
-
-        if xRatio > yRatio {
-            let scaleY = 1 - min(maxDent, yRatio * 0.70)
-            return DeviceWallSqueeze(x: 1, y: scaleY, anchor: dy > 0 ? .bottom : .top)
-        } else {
-            let scaleX = 1 - min(maxDent, xRatio * 0.70)
-            return DeviceWallSqueeze(x: scaleX, y: 1, anchor: dx > 0 ? .trailing : .leading)
-        }
-    }
-}
-
-private struct DeviceWallLayout {
-    let cols: Int
-    let gap: CGFloat
-    let tileW: CGFloat
-    let tileH: CGFloat
-    let previewW: CGFloat
-    let previewH: CGFloat
-    let wallHeight: CGFloat
-    let positions: [DeviceWallPosition]
-
-    var isReady: Bool { tileW > 0 && tileH > 0 && previewW > 0 && previewH > 0 }
-    var cellW: CGFloat { tileW + gap }
-    var cellH: CGFloat { tileH + gap }
-    var maxPreviewX: CGFloat { max(0, CGFloat(cols) * cellW - gap - previewW) }
-    var maxPreviewY: CGFloat { max(0, wallHeight - previewH) }
-    var mockupMaxWidth: CGFloat { max(180, min(520, previewW - 44)) }
-    var chromePadding: CGFloat { previewH < 360 ? 18 : 28 }
-    var chromeSpacing: CGFloat { previewH < 360 ? 10 : 18 }
-}
-
-private struct DeviceWallPosition: Identifiable {
-    let index: Int
-    let frame: CGRect
-    var id: Int { index }
-}
-
-private struct DeviceWallCell: Equatable {
-    var col: Int = 0
-    var row: Int = 0
-    static let zero = DeviceWallCell()
-}
-
-private struct DeviceWallSqueeze {
-    var x: CGFloat
-    var y: CGFloat
-    var anchor: UnitPoint
-    static let identity = DeviceWallSqueeze(x: 1, y: 1, anchor: .center)
 }
 
 // Width probes for the category strip: the inner HStack reports its
