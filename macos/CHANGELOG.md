@@ -10,6 +10,17 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-06-08
+
+### Fixed
+
+- **My Downloads now reflects missing local files.** If a downloaded
+  wallpaper file has been cleared from this Mac, its card returns to the
+  normal Download action instead of showing as already downloaded.
+- **Multi-display auto-shuffle is more reliable.** The selected wallpaper
+  is re-synced after the first apply pass so secondary displays and Spaces
+  are less likely to remain on a previous wallpaper.
+
 ## [2.0.1] - 2026-06-08
 
 ### Added

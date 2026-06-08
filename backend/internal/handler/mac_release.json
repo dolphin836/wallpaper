@@ -1,8 +1,16 @@
 {
-  "current_version": "2.0.1",
-  "current_dmg_url": "https://wallpaperexchange.com/storage/wallpapers/releases/mac/WallpaperExchange-2.0.1.dmg",
+  "current_version": "2.0.2",
+  "current_dmg_url": "https://wallpaperexchange.com/storage/wallpapers/releases/mac/WallpaperExchange-2.0.2.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.2",
+      "released_at": "2026-06-08",
+      "notes": [
+        "Fix: My Downloads now checks whether the local file actually exists. If the file was cleared from this Mac, the card returns to the normal Download action instead of showing as already downloaded.",
+        "Fix: multi-display auto-shuffle now re-syncs the selected wallpaper after the first apply pass, making secondary displays and Spaces less likely to remain on a previous wallpaper."
+      ]
+    },
     {
       "version": "2.0.1",
       "released_at": "2026-06-08",
