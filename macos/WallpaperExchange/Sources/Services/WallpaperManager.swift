@@ -306,7 +306,7 @@ final class WallpaperManager {
     var storagePath: URL { storageDir }
 
     func isDownloaded(_ wallpaperID: Int) -> Bool {
-        downloadedIDs.contains(wallpaperID)
+        localURL(for: wallpaperID) != nil
     }
 
     func localURL(for wallpaperID: Int) -> URL? {

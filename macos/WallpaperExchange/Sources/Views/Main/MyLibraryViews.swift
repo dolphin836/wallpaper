@@ -35,7 +35,9 @@ struct MyLibraryGridView: View {
                 } else {
                     LazyVGrid(columns: gridColumns, spacing: 12) {
                         ForEach(items) { wp in
-                            Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
+                            Button(action: { onPick(wp) }) {
+                                MainGridTile(wallpaper: wp, flagIfNotLocal: kind == .downloads)
+                            }
                                 .buttonStyle(.plain)
                                 .onAppear { maybeLoadMore(wp) }
                         }

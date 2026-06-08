@@ -26,7 +26,16 @@ struct MainGridTile: View {
 
     private var isLiked: Bool { liked ?? (wallpaper.isLiked ?? false) }
     private var isFavorited: Bool { favorited ?? (wallpaper.isFavorited ?? false) }
-    private var isDownloaded: Bool { downloaded ?? (wallpaper.isDownloaded ?? false) }
+    private var localFileExists: Bool { manager.isDownloaded(wallpaper.id) }
+    private var isDownloaded: Bool {
+        if let downloaded { return downloaded }
+        if flagIfNotLocal { return localFileExists }
+        return wallpaper.isDownloaded ?? localFileExists
+    }
+    private var downloadHelp: String {
+        if isDownloaded { return "Downloaded" }
+        return flagIfNotLocal ? "Download" : "Download (1 coin)"
+    }
     private var isTransferring: Bool { manager.downloading.contains(wallpaper.id) }
     private var downloadProgress: Double? { manager.downloadProgress[wallpaper.id] }
     private var downloadButtonLoading: Bool { isTransferring && (transferAction == .download || transferAction == nil) }
@@ -73,7 +82,7 @@ struct MainGridTile: View {
                         resolutionChip
                         if wallpaper.fileType.hasPrefix("video/") || wallpaper.isDynamic { liveChip }
                         if wallpaper.isAIGenerated == true        { aiChip }
-                        if flagIfNotLocal && !manager.isDownloaded(wallpaper.id) { notLocalChip }
+                        if flagIfNotLocal && !localFileExists { notLocalChip }
                         Spacer()
                     }
                     Spacer()
@@ -107,7 +116,7 @@ struct MainGridTile: View {
                             ActionDot(icon: isDownloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
                                       kind: .download,
                                       active: isDownloaded,
-                                      help: isDownloaded ? "Downloaded" : "Download (1 coin)",
+                                      help: downloadHelp,
                                       busy: busy,
                                       loading: downloadButtonLoading,
                                       progress: downloadProgress,
