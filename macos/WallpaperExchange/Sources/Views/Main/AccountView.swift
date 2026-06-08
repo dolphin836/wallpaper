@@ -480,7 +480,7 @@ struct AccountUploadsTab: View {
             if isOwner {
                 PagedWallpaperGrid(
                     headLabel: "PENDING", emptyText: "", hideWhenEmpty: true,
-                    fetch: { cursor, limit in try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, limit: limit, status: "0,5", compatibleOnly: false) },
+                    fetch: { cursor, limit in try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, limit: limit, status: "0,5") },
                     onWallpaper: onWallpaper,
                     showProcessing: true
                 ).id("pending-\(username)")

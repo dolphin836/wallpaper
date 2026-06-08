@@ -6,7 +6,6 @@ enum APIError: LocalizedError {
     case invalidURL
     case unauthorized
     case insufficientCoins
-    case unsupportedResolution
     case serverError(Int, String)
     case decodingError(Error)
     case networkError(Error)
@@ -16,7 +15,6 @@ enum APIError: LocalizedError {
         case .invalidURL: return "Invalid URL"
         case .unauthorized: return "Please log in"
         case .insufficientCoins: return "Insufficient coins"
-        case .unsupportedResolution: return "This wallpaper is too small for the current display"
         case .serverError(let code, let msg): return "Server error (\(code)): \(msg)"
         case .decodingError(let err): return "Decode error: \(err.localizedDescription)"
         case .networkError(let err): return err.localizedDescription
@@ -47,17 +45,14 @@ struct MacScreenRequirement: Sendable {
     private static func displayModePixels(for screen: NSScreen) -> (width: Int, height: Int) {
         // NSScreen.frame is the current "looks like" display mode size.
         // Do not multiply by backingScaleFactor or use the panel's native
-        // pixels here; a 5K display scaled to 1920 should still accept a
-        // 4K wallpaper in the Mac client's compatibility filter.
+        // pixels here; explicit My Device queries should match the user's
+        // effective desktop size.
         return (
             Int(screen.frame.width.rounded()),
             Int(screen.frame.height.rounded())
         )
     }
 
-    func supports(width: Int, height: Int) -> Bool {
-        width >= self.width && height >= self.height
-    }
 }
 
 actor APIClient {
@@ -78,60 +73,23 @@ actor APIClient {
         decoder = JSONDecoder()
     }
 
-    func compatibleWallpapers(_ wallpapers: [Wallpaper]) -> [Wallpaper] {
-        let requirement = MacScreenRequirement.current
-        return wallpapers.filter { requirement.supports(width: $0.width, height: $0.height) }
-    }
-
-    // Keep following server cursors when a page contains undersized
-    // wallpapers so a compatible feed never appears empty prematurely.
-    func fetchCompatibleWallpaperPage(
+    // Shared paginated helper. The Mac client no longer applies a local
+    // screen-size filter by default; explicit My Device filters still
+    // send dimensions to the backend.
+    func fetchWallpaperPage(
         _ path: String,
         cursor: Int?,
         limit: Int,
         queryItems: [URLQueryItem] = []
     ) async throws -> PaginatedData<Wallpaper> {
-        var accepted: [Wallpaper] = []
-        var nextCursor = cursor
-        var hasMore = true
-        var total: Int?
-        var rounds = 0
-        let maxRounds = limit <= 1 ? 1 : 50
-
-        while accepted.count < limit && hasMore && rounds < maxRounds {
-            rounds += 1
-            let previousCursor = nextCursor
-            var items = queryItems
-            items.append(.init(name: "limit", value: String(max(1, limit - accepted.count))))
-            if let nextCursor {
-                items.append(.init(name: "cursor", value: String(nextCursor)))
-            }
-
-            let resp: APIResponse<PaginatedData<Wallpaper>> = try await request(path, queryItems: items)
-            let page = resp.data
-            accepted.append(contentsOf: compatibleWallpapers(page.items))
-            total = total ?? page.total
-            nextCursor = page.nextCursor
-            hasMore = page.hasMore
-
-            if hasMore && nextCursor == previousCursor {
-                hasMore = false
-            }
+        var items = queryItems
+        items.append(.init(name: "limit", value: String(limit)))
+        if let cursor {
+            items.append(.init(name: "cursor", value: String(cursor)))
         }
 
-        return PaginatedData(items: accepted, nextCursor: nextCursor, hasMore: hasMore, total: total)
-    }
-
-    func requireCompatibleDetail(_ detail: WallpaperDetail) throws -> WallpaperDetail {
-        guard MacScreenRequirement.current.supports(width: detail.width, height: detail.height) else {
-            throw APIError.unsupportedResolution
-        }
-        return detail
-    }
-
-    func compatibleWeeklyPicks(_ picks: [WeeklyPicked]) -> [WeeklyPicked] {
-        let requirement = MacScreenRequirement.current
-        return picks.filter { requirement.supports(width: $0.width, height: $0.height) }
+        let resp: APIResponse<PaginatedData<Wallpaper>> = try await request(path, queryItems: items)
+        return resp.data
     }
 
     // Internal (not private) so extensions in sibling files can route
@@ -222,7 +180,7 @@ actor APIClient {
         if !includeVideo && !dynamicOnly {
             items.append(.init(name: "exclude_video", value: "true"))
         }
-        return try await fetchCompatibleWallpaperPage("/wallpapers", cursor: cursor, limit: limit, queryItems: items)
+        return try await fetchWallpaperPage("/wallpapers", cursor: cursor, limit: limit, queryItems: items)
     }
 
     // Personalised "For You" feed — a single-shot top-N list (no cursor
@@ -472,13 +430,12 @@ actor APIClient {
     }
 
     func fetchForYou(limit: Int = 30) async throws -> [Wallpaper] {
-        let requestLimit = min(60, max(limit, limit * 2))
         let items: [URLQueryItem] = [
-            .init(name: "limit", value: String(requestLimit)),
+            .init(name: "limit", value: String(limit)),
             .init(name: "exclude_video", value: "true"),
         ]
         let resp: APIResponse<[Wallpaper]> = try await request("/wallpapers/for-you", queryItems: items)
-        return Array(compatibleWallpapers(resp.data).prefix(limit))
+        return resp.data
     }
 
     func fetchMyDownloads(
@@ -501,7 +458,7 @@ actor APIClient {
             items.append(.init(name: "device_height", value: String(h)))
             items.append(.init(name: "include_dynamic", value: "true"))
         }
-        return try await fetchCompatibleWallpaperPage("/users/me/downloads", cursor: cursor, limit: limit, queryItems: items)
+        return try await fetchWallpaperPage("/users/me/downloads", cursor: cursor, limit: limit, queryItems: items)
     }
 
     func fetchCoins() async throws -> Int {

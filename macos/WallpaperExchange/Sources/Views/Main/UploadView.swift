@@ -661,8 +661,7 @@ struct UploadView: View {
             let data = try await APIClient.shared.fetchUserUploads(
                 username: username,
                 limit: pendingUploadLimit,
-                status: "0,5",
-                compatibleOnly: false
+                status: "0,5"
             )
             pendingUploads = data.items
             pendingTotal = data.total ?? data.items.count

@@ -9,18 +9,17 @@ extension APIClient {
     // ─── Detail / similar ────────────────────────────────────────
     func fetchWallpaperDetail(slug: String) async throws -> WallpaperDetail {
         let resp: APIResponse<WallpaperDetail> = try await request("/wallpapers/\(slug)")
-        return try requireCompatibleDetail(resp.data)
+        return resp.data
     }
 
     // Returns the lighter Wallpaper shape — same as fetchWallpapers —
     // for the 'More like this' grid on the detail page.
     func fetchSimilarWallpapers(wallpaperID: Int, limit: Int = 12) async throws -> [Wallpaper] {
-        let requestLimit = min(24, max(limit, limit * 2))
         let resp: APIResponse<[Wallpaper]> = try await request(
             "/wallpapers/\(wallpaperID)/similar",
-            queryItems: [.init(name: "limit", value: String(requestLimit))]
+            queryItems: [.init(name: "limit", value: String(limit))]
         )
-        return Array(compatibleWallpapers(resp.data).prefix(limit))
+        return resp.data
     }
 
     // ─── Categories ──────────────────────────────────────────────
@@ -37,42 +36,27 @@ extension APIClient {
 
     // `status` mirrors the web Uploads tab: "1" = published, "0,5" =
     // pending/processing (owner-only). Omitted → server default.
-    //
-    // Published grids keep `compatibleOnly` enabled so the Mac client
-    // only shows wallpapers that can fill the current display. Owner
-    // workflow surfaces, such as UploadView's pending/review section,
-    // can disable it because processing rows may not have width/height
-    // yet and would otherwise disappear.
     func fetchUserUploads(
         username: String,
         cursor: Int? = nil,
         limit: Int = 24,
-        status: String? = nil,
-        compatibleOnly: Bool = true
+        status: String? = nil
     ) async throws -> PaginatedData<Wallpaper> {
         var items: [URLQueryItem] = []
         if let s = status, !s.isEmpty { items.append(.init(name: "status", value: s)) }
-        if compatibleOnly {
-            return try await fetchCompatibleWallpaperPage("/users/\(username)/wallpapers", cursor: cursor, limit: limit, queryItems: items)
-        }
-        items.append(.init(name: "limit", value: String(limit)))
-        if let cursor {
-            items.append(.init(name: "cursor", value: String(cursor)))
-        }
-        let resp: APIResponse<PaginatedData<Wallpaper>> = try await request("/users/\(username)/wallpapers", queryItems: items)
-        return resp.data
+        return try await fetchWallpaperPage("/users/\(username)/wallpapers", cursor: cursor, limit: limit, queryItems: items)
     }
 
     func fetchUserLikes(username: String, cursor: Int? = nil, limit: Int = 24) async throws -> PaginatedData<Wallpaper> {
-        try await fetchCompatibleWallpaperPage("/users/\(username)/likes", cursor: cursor, limit: limit)
+        try await fetchWallpaperPage("/users/\(username)/likes", cursor: cursor, limit: limit)
     }
 
     func fetchUserFavorites(username: String, cursor: Int? = nil, limit: Int = 24) async throws -> PaginatedData<Wallpaper> {
-        try await fetchCompatibleWallpaperPage("/users/\(username)/favorites", cursor: cursor, limit: limit)
+        try await fetchWallpaperPage("/users/\(username)/favorites", cursor: cursor, limit: limit)
     }
 
     func fetchUserDownloads(username: String, cursor: Int? = nil, limit: Int = 24) async throws -> PaginatedData<Wallpaper> {
-        try await fetchCompatibleWallpaperPage("/users/\(username)/downloads", cursor: cursor, limit: limit)
+        try await fetchWallpaperPage("/users/\(username)/downloads", cursor: cursor, limit: limit)
     }
 
     // ─── Collections ─────────────────────────────────────────────
@@ -106,18 +90,13 @@ extension APIClient {
     }
 
     func fetchCollectionWallpapers(collectionID: Int, cursor: Int? = nil, limit: Int = 24) async throws -> PaginatedData<Wallpaper> {
-        try await fetchCompatibleWallpaperPage("/collections/\(collectionID)/wallpapers", cursor: cursor, limit: limit)
+        try await fetchWallpaperPage("/collections/\(collectionID)/wallpapers", cursor: cursor, limit: limit)
     }
 
     // ─── Weekly Picks ────────────────────────────────────────────
     func fetchWeeklyCurrent() async throws -> WeeklyCurrent {
         let resp: APIResponse<WeeklyCurrent> = try await request("/weekly-picks/current")
-        return WeeklyCurrent(
-            year: resp.data.year,
-            week: resp.data.week,
-            picks: compatibleWeeklyPicks(resp.data.picks),
-            themes: resp.data.themes
-        )
+        return resp.data
     }
 
     func fetchWeeklyArchive(limit: Int = 50) async throws -> [WeeklyArchiveEntry] {
@@ -130,7 +109,7 @@ extension APIClient {
 
     func fetchWeeklyByWeek(year: Int, week: Int) async throws -> WeeklyByWeek {
         let resp: APIResponse<WeeklyByWeek> = try await request("/weekly-picks/\(year)/\(week)")
-        return WeeklyByWeek(year: resp.data.year, week: resp.data.week, picks: compatibleWeeklyPicks(resp.data.picks))
+        return resp.data
     }
 
     // ─── Devices ─────────────────────────────────────────────────
@@ -145,7 +124,7 @@ extension APIClient {
     }
 
     func fetchDeviceWallpapers(slug: String, cursor: Int? = nil, limit: Int = 24) async throws -> PaginatedData<Wallpaper> {
-        try await fetchCompatibleWallpaperPage("/devices/\(slug)/wallpapers", cursor: cursor, limit: limit)
+        try await fetchWallpaperPage("/devices/\(slug)/wallpapers", cursor: cursor, limit: limit)
     }
 
     // ─── Uploaders ───────────────────────────────────────────────

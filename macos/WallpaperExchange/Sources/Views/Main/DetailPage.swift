@@ -947,8 +947,6 @@ struct DetailPage: View {
             switch api {
             case .insufficientCoins:
                 downloadNotice = .insufficientCoins
-            case .unsupportedResolution:
-                downloadNotice = .unavailable
             case .unauthorized:
                 downloadNotice = .failed("Please sign in again to download this wallpaper.")
                 auth.login()
