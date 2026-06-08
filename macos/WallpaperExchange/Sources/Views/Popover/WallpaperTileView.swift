@@ -37,7 +37,7 @@ struct WallpaperTileView: View {
 
     private var thumbURL: URL? { wallpaper.thumbURL.isEmpty ? nil : URL(string: wallpaper.thumbURL) }
     private var previewURL: URL? { wallpaper.previewURL.isEmpty ? nil : URL(string: wallpaper.previewURL) }
-    private var showActions: Bool { isHovering && !isDownloading }
+    private var showActions: Bool { isHovering || isDownloading }
     private var showLocalMissing: Bool { kind == .downloaded && !localFileExists }
 
     var body: some View {
@@ -54,8 +54,8 @@ struct WallpaperTileView: View {
             .overlay { hoverGradient }
             .overlay(alignment: .topLeading) { topLeftChips }
             .overlay(alignment: .topTrailing) { topRightChip }
-            .overlay(alignment: .bottomTrailing) { actionRow }
             .overlay { downloadingOverlayIfActive }
+            .overlay(alignment: .bottomTrailing) { actionRow }
             .background(Color.paper2)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             // contentShape on a Rectangle (not the rounded one) makes the
@@ -110,12 +110,27 @@ struct WallpaperTileView: View {
                 if localFileExists {
                     PillButton(icon: "display", label: "Set as wallpaper", primary: true, action: onSetWallpaper)
                 } else {
-                    PillButton(icon: "arrow.down", label: "Download", primary: false, action: onDownload)
-                    PillButton(icon: "display", label: "Set & download", primary: true, action: onDownloadAndSet)
+                    PillButton(icon: "arrow.down",
+                               label: "Download",
+                               primary: false,
+                               loading: isDownloading,
+                               progress: downloadProgress,
+                               action: onDownload)
+                    PillButton(icon: "display",
+                               label: "Set & download",
+                               primary: true,
+                               loading: isDownloading,
+                               progress: downloadProgress,
+                               action: onDownloadAndSet)
                 }
             case .downloaded:
                 if !localFileExists {
-                    PillButton(icon: "arrow.clockwise", label: "Re-download", primary: false, action: onRedownload)
+                    PillButton(icon: "arrow.clockwise",
+                               label: "Re-download",
+                               primary: false,
+                               loading: isDownloading,
+                               progress: downloadProgress,
+                               action: onRedownload)
                 }
                 PillButton(icon: "display", label: "Set as wallpaper", primary: true, action: onSetWallpaper)
             }
@@ -172,29 +187,8 @@ struct WallpaperTileView: View {
     }
 
     private var downloadingOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.6)
-            VStack(spacing: 8) {
-                if let p = downloadProgress, p > 0 {
-                    ProgressView(value: p)
-                        .progressViewStyle(.linear)
-                        .tint(.white)
-                        .frame(maxWidth: 200)
-                    Text("\(Int(p * 100))%")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(.white)
-                } else {
-                    ProgressView()
-                        .controlSize(.small)
-                        .progressViewStyle(.circular)
-                        .tint(.white)
-                    Text("Downloading…")
-                        .font(.sans11)
-                        .foregroundStyle(.white)
-                }
-            }
-            .padding(.horizontal, 16)
-        }
+        Color.black.opacity(0.42)
+            .allowsHitTesting(false)
     }
 }
 
@@ -253,6 +247,8 @@ private struct PillButton: View {
     let icon: String
     let label: String
     let primary: Bool
+    var loading: Bool = false
+    var progress: Double? = nil
     let action: () -> Void
 
     @State private var pressed = false
@@ -273,16 +269,19 @@ private struct PillButton: View {
             .overlay(
                 Capsule().stroke(primary ? Color.clear : Color.white.opacity(0.28), lineWidth: 1)
             )
+            .overlay(progressBorder)
             .clipShape(Capsule())
             .fixedSize()
             .scaleEffect(pressed ? 0.96 : 1.0)
         }
         .buttonStyle(.plain)
+        .disabled(loading)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in pressed = true }
                 .onEnded { _ in pressed = false }
         )
+        .animation(.easeOut(duration: 0.18), value: loadingProgress)
     }
 
     @ViewBuilder private var background: some View {
@@ -294,5 +293,22 @@ private struct PillButton: View {
             // the image.
             Color.white.opacity(0.18)
         }
+    }
+
+    private var loadingProgress: Double {
+        guard loading else { return 0 }
+        return min(max(progress ?? 0.08, 0.08), 1)
+    }
+
+    private var progressBorder: some View {
+        ZStack {
+            if loading {
+                Capsule().stroke(Color.accent.opacity(0.28), lineWidth: 2)
+                Capsule()
+                    .trim(from: 0, to: loadingProgress)
+                    .stroke(Color.accent, style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
+            }
+        }
+        .allowsHitTesting(false)
     }
 }

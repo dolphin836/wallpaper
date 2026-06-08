@@ -22,10 +22,15 @@ struct MainGridTile: View {
     @State private var favorited: Bool? = nil
     @State private var downloaded: Bool? = nil
     @State private var busy: Bool = false
+    @State private var transferAction: TransferAction? = nil
 
     private var isLiked: Bool { liked ?? (wallpaper.isLiked ?? false) }
     private var isFavorited: Bool { favorited ?? (wallpaper.isFavorited ?? false) }
     private var isDownloaded: Bool { downloaded ?? (wallpaper.isDownloaded ?? false) }
+    private var isTransferring: Bool { manager.downloading.contains(wallpaper.id) }
+    private var downloadProgress: Double? { manager.downloadProgress[wallpaper.id] }
+    private var downloadButtonLoading: Bool { isTransferring && (transferAction == .download || transferAction == nil) }
+    private var setButtonLoading: Bool { isTransferring && transferAction == .set }
 
     // GeometryReader-anchored sizing — proven reliable in
     // MacDynamicTile after Rectangle/.aspectRatio variants leaked the
@@ -104,6 +109,8 @@ struct MainGridTile: View {
                                       active: isDownloaded,
                                       help: isDownloaded ? "Downloaded" : "Download (1 coin)",
                                       busy: busy,
+                                      loading: downloadButtonLoading,
+                                      progress: downloadProgress,
                                       size: dotSize,
                                       action: { Task { await doDownload() } })
                             ActionDot(icon: "rectangle.on.rectangle.angled",
@@ -111,6 +118,8 @@ struct MainGridTile: View {
                                       active: false,
                                       help: "Set as wallpaper",
                                       busy: busy,
+                                      loading: setButtonLoading,
+                                      progress: downloadProgress,
                                       size: dotSize,
                                       action: { Task { await doSetWallpaper() } })
                         }
@@ -218,7 +227,8 @@ struct MainGridTile: View {
     }
     private func doDownload() async {
         guard auth.isLoggedIn else { auth.login(); return }
-        busy = true; defer { busy = false }
+        busy = true; transferAction = .download
+        defer { busy = false; transferAction = nil }
         do {
             try await manager.download(wallpaper: wallpaper)
             downloaded = true
@@ -227,7 +237,8 @@ struct MainGridTile: View {
     }
     private func doSetWallpaper() async {
         guard auth.isLoggedIn else { auth.login(); return }
-        busy = true; defer { busy = false }
+        busy = true; transferAction = .set
+        defer { busy = false; transferAction = nil }
         do {
             try await manager.download(wallpaper: wallpaper)
             downloaded = true
@@ -235,6 +246,11 @@ struct MainGridTile: View {
             await auth.refreshProfile()
         } catch {}
     }
+}
+
+private enum TransferAction {
+    case download
+    case set
 }
 
 // ─── ActionDot — single hover-revealed action button ───────────
@@ -250,6 +266,8 @@ struct ActionDot: View {
     let active: Bool
     let help: String
     let busy: Bool
+    var loading: Bool = false
+    var progress: Double? = nil
     // Diameter of the circle. Defaults to the web's 34pt, but the grid
     // shrinks it on short tiles (e.g. windowed 16:10 Live tiles) so the
     // 4-dot rail always fits without overflowing into the chips.
@@ -260,21 +278,21 @@ struct ActionDot: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: size * 0.42, weight: .medium))
-                .foregroundStyle(.white)
-                .frame(width: size, height: size)
-                .background(
-                    Circle()
-                        .fill(bgColor)
-                )
-                .overlay(
-                    Circle().stroke(borderColor, lineWidth: 1)
-                )
+            ZStack {
+                Circle().fill(bgColor)
+                Image(systemName: icon)
+                    .font(.system(size: size * 0.42, weight: .medium))
+                    .foregroundStyle(.white)
+                Circle().stroke(borderColor, lineWidth: 1)
+                if loading {
+                    progressRing
+                }
+            }
+            .frame(width: size, height: size)
         }
         .buttonStyle(.plain)
         .help(help)
-        .disabled(busy)
+        .disabled(busy || loading)
         .onHover { hovering in
             hover = hovering
             // Pointing-hand cursor on hover so the dots read as
@@ -296,6 +314,7 @@ struct ActionDot: View {
             }
         }
         .animation(.easeOut(duration: 0.12), value: hover)
+        .animation(.easeOut(duration: 0.18), value: loadingProgress)
     }
 
     private var tooltip: some View {
@@ -328,8 +347,26 @@ struct ActionDot: View {
     }
 
     private var borderColor: Color {
+        if loading { return Color.accent.opacity(0.34) }
         if active { return .clear }
         // Brighten the ring on hover for a clear affordance.
         return Color.white.opacity(hover ? 0.6 : 0.22)
+    }
+
+    private var loadingProgress: Double {
+        guard loading else { return 0 }
+        return min(max(progress ?? 0.08, 0.08), 1)
+    }
+
+    private var progressRing: some View {
+        ZStack {
+            Circle().stroke(Color.accent.opacity(0.25), lineWidth: 2)
+            Circle()
+                .trim(from: 0, to: loadingProgress)
+                .stroke(Color.accent, style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
+        .padding(1)
+        .allowsHitTesting(false)
     }
 }

@@ -635,10 +635,15 @@ struct FramedTile: View {
     @State private var favorited: Bool? = nil
     @State private var downloaded: Bool? = nil
     @State private var busy = false
+    @State private var transferAction: FramedTransferAction? = nil
 
     private var isLiked: Bool { liked ?? (wallpaper.isLiked ?? false) }
     private var isFavorited: Bool { favorited ?? (wallpaper.isFavorited ?? false) }
     private var isDownloaded: Bool { downloaded ?? (wallpaper.isDownloaded ?? false) }
+    private var isTransferring: Bool { manager.downloading.contains(wallpaper.id) }
+    private var downloadProgress: Double? { manager.downloadProgress[wallpaper.id] }
+    private var downloadButtonLoading: Bool { isTransferring && (transferAction == .download || transferAction == nil) }
+    private var setButtonLoading: Bool { isTransferring && transferAction == .set }
 
     private var imageURL: URL? {
         let s = wallpaper.previewURL.isEmpty ? wallpaper.thumbURL : wallpaper.previewURL
@@ -730,11 +735,19 @@ struct FramedTile: View {
             ActionDot(icon: isDownloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
                       kind: .download, active: isDownloaded,
                       help: isDownloaded ? "Downloaded" : "Download (1 coin)",
-                      busy: busy, size: 26, action: { Task { await doDownload() } })
+                      busy: busy,
+                      loading: downloadButtonLoading,
+                      progress: downloadProgress,
+                      size: 26,
+                      action: { Task { await doDownload() } })
             ActionDot(icon: "rectangle.on.rectangle.angled",
                       kind: .neutral, active: false,
                       help: "Set as wallpaper",
-                      busy: busy, size: 26, action: { Task { await doSetWallpaper() } })
+                      busy: busy,
+                      loading: setButtonLoading,
+                      progress: downloadProgress,
+                      size: 26,
+                      action: { Task { await doSetWallpaper() } })
         }
         .opacity(hovering ? 1 : 0)
         .offset(y: hovering ? 0 : 4)
@@ -760,17 +773,24 @@ struct FramedTile: View {
     }
     private func doDownload() async {
         guard auth.isLoggedIn else { auth.login(); return }
-        busy = true; defer { busy = false }
+        busy = true; transferAction = .download
+        defer { busy = false; transferAction = nil }
         do { try await manager.download(wallpaper: wallpaper); downloaded = true; await auth.refreshProfile() } catch {}
     }
     private func doSetWallpaper() async {
         guard auth.isLoggedIn else { auth.login(); return }
-        busy = true; defer { busy = false }
+        busy = true; transferAction = .set
+        defer { busy = false; transferAction = nil }
         do {
             try await manager.download(wallpaper: wallpaper); downloaded = true
             try await manager.setAsWallpaper(wallpaper); await auth.refreshProfile()
         } catch {}
     }
+}
+
+private enum FramedTransferAction {
+    case download
+    case set
 }
 
 // Relative-time formatter for the collection byline — mirrors the web's
