@@ -229,7 +229,12 @@ final class WallpaperManager {
     /// per-screen result. `System Events` is used as a best-effort second
     /// pass on multi-display setups because macOS can otherwise update
     /// only the primary display for the active Space.
-    private func applyToAllScreens(url: URL, source: String) {
+    private func applyToAllScreens(
+        url: URL,
+        source: String,
+        expectedWallpaperID: Int? = nil,
+        scheduleDeferredSync: Bool = true
+    ) {
         let screens = Self.connectedScreens()
         logger.info("applying wallpaper from \(source, privacy: .public): \(screens.count, privacy: .public) screen(s)")
         for (idx, screen) in screens.enumerated() {
@@ -246,6 +251,12 @@ final class WallpaperManager {
             }
         }
         applyToEveryDesktopIfNeeded(url: url, screenCount: screens.count, source: source)
+        scheduleDeferredScreenSyncIfNeeded(
+            url: url,
+            source: source,
+            expectedWallpaperID: expectedWallpaperID,
+            enabled: scheduleDeferredSync
+        )
     }
 
     private static func connectedScreens() -> [NSScreen] {
@@ -259,7 +270,9 @@ final class WallpaperManager {
         guard screenCount > 1 else { return }
         let script = """
         tell application "System Events"
-            set picture of every desktop to "\(Self.appleScriptString(url.path))"
+            repeat with currentDesktop in desktops
+                set picture of currentDesktop to "\(Self.appleScriptString(url.path))"
+            end repeat
         end tell
         """
 
@@ -284,6 +297,29 @@ final class WallpaperManager {
         }
     }
 
+    private func scheduleDeferredScreenSyncIfNeeded(
+        url: URL,
+        source: String,
+        expectedWallpaperID: Int?,
+        enabled: Bool
+    ) {
+        guard enabled, Self.connectedScreens().count > 1 else { return }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            guard let self else { return }
+            if let expectedWallpaperID, self.currentWallpaperID != expectedWallpaperID {
+                return
+            }
+            guard FileManager.default.fileExists(atPath: url.path) else { return }
+            self.applyToAllScreens(
+                url: url,
+                source: "\(source)-settle",
+                expectedWallpaperID: expectedWallpaperID,
+                scheduleDeferredSync: false
+            )
+        }
+    }
+
     private static func appleScriptString(_ value: String) -> String {
         value
             .replacingOccurrences(of: "\\", with: "\\\\")
@@ -299,7 +335,7 @@ final class WallpaperManager {
         }
 
         VideoWallpaperController.shared.stop()
-        applyToAllScreens(url: url, source: source)
+        applyToAllScreens(url: url, source: source, expectedWallpaperID: id)
         markCurrent(id)
     }
 
@@ -465,7 +501,7 @@ final class WallpaperManager {
         if Self.isVideo(wallpaper) {
             let videoURL = try await ensureLocalVideo(wallpaper)
             if let poster = try? await ensureVideoPoster(wallpaper) {
-                applyToAllScreens(url: poster, source: "video-poster id=\(wallpaper.id)")
+                applyToAllScreens(url: poster, source: "video-poster id=\(wallpaper.id)", expectedWallpaperID: wallpaper.id)
             }
             VideoWallpaperController.shared.start(videoURL: videoURL, wallpaperID: wallpaper.id)
             markCurrent(wallpaper.id)
