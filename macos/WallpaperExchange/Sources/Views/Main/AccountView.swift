@@ -29,7 +29,7 @@ struct AccountView: View {
 
     private var tabs: [AccountTab] {
         if isOwner {
-            return [.settings, .uploads, .collections, .favorites, .likes, .downloads, .ledger]
+            return [.settings, .downloads, .uploads, .collections, .favorites, .likes, .ledger]
         }
         return [.uploads, .collections, .favorites, .likes]
     }
@@ -185,14 +185,42 @@ struct AccountView: View {
                           fetch: { c, l in try await APIClient.shared.fetchUserLikes(username: username, cursor: c, limit: l) },
                           toggle: { v in Task { try? await APIClient.shared.updatePrivacy(likesPublic: v); await auth.refreshProfile() } })
         case .downloads:
-            wallpaperList(.downloads, head: "DOWNLOADS", empty: "No downloads yet.",
-                          isPublic: auth.user?.downloadsPublic ?? false, noun: "downloads",
-                          fetch: { c, l in try await APIClient.shared.fetchUserDownloads(username: username, cursor: c, limit: l) },
-                          toggle: { v in Task { try? await APIClient.shared.updatePrivacy(downloadsPublic: v); await auth.refreshProfile() } },
-                          flagIfNotLocal: true)
+            VStack(alignment: .leading, spacing: 22) {
+                if isOwner {
+                    downloadsAutoShufflePanel
+                }
+                wallpaperList(.downloads, head: "DOWNLOADS", empty: "No downloads yet.",
+                              isPublic: auth.user?.downloadsPublic ?? false, noun: "downloads",
+                              fetch: { c, l in try await APIClient.shared.fetchUserDownloads(username: username, cursor: c, limit: l) },
+                              toggle: { v in Task { try? await APIClient.shared.updatePrivacy(downloadsPublic: v); await auth.refreshProfile() } },
+                              flagIfNotLocal: true)
+            }
         case .ledger:
             LedgerTab(onCount: { counts[.ledger] = $0 }, onPalette: applyMesh)
         }
+    }
+
+    private var downloadsAutoShufflePanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("AUTO-SHUFFLE")
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .tracking(1.5)
+                .foregroundStyle(Color.muted)
+                .padding(.bottom, 8)
+
+            AutoShuffleSettings()
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.paper.opacity(0.5))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.hair, lineWidth: 1)
+                )
+        }
+        .frame(maxWidth: 720, alignment: .leading)
     }
 
     @ViewBuilder

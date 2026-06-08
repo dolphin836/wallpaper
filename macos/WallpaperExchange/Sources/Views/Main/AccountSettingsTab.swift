@@ -22,7 +22,6 @@ struct AccountSettingsTab: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             appearanceSection
-            wallpaperSection
             storageSection
             aboutSection
             sessionSection
@@ -47,12 +46,6 @@ struct AccountSettingsTab: View {
                     }.buttonStyle(.plain).pointerCursor()
                 }
             }
-        }
-    }
-
-    private var wallpaperSection: some View {
-        sectionCard(title: "Wallpaper") {
-            AutoShuffleSettings()
         }
     }
 

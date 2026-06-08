@@ -59,7 +59,7 @@ struct MainSidebar: View {
                                 items: [.home, .discover, .weekly, .collections])
                 if auth.isLoggedIn {
                     expandedSection("MY LIBRARY", topPad: 16,
-                                    items: [.myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins])
+                                    items: [.myDownloads, .myUploads, .myCollections, .myFavorites, .myLikes, .myCoins])
                 }
             }
             .padding(.horizontal, 8)
@@ -95,7 +95,7 @@ struct MainSidebar: View {
                 collapsedGroup([.home, .discover, .weekly, .collections])
                 if auth.isLoggedIn {
                     Color.clear.frame(height: 10)
-                    collapsedGroup([.myUploads, .myCollections, .myDownloads, .myFavorites, .myLikes, .myCoins])
+                    collapsedGroup([.myDownloads, .myUploads, .myCollections, .myFavorites, .myLikes, .myCoins])
                 }
             }
             // No horizontal padding: rows fill the full rail width so the
