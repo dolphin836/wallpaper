@@ -226,14 +226,11 @@ final class WallpaperManager {
     }
 
     /// Set the same image URL on every connected NSScreen and log the
-    /// per-screen result. The old code looped with `try?`, which made
-    /// silent failures on secondary monitors impossible to diagnose
-    /// (a user-reported issue: only the main display got the new
-    /// wallpaper). We now log each screen's localized name + frame
-    /// alongside the success / error and surface failures so the next
-    /// rotation tick has something concrete to work from.
+    /// per-screen result. `System Events` is used as a best-effort second
+    /// pass on multi-display setups because macOS can otherwise update
+    /// only the primary display for the active Space.
     private func applyToAllScreens(url: URL, source: String) {
-        let screens = NSScreen.screens
+        let screens = Self.connectedScreens()
         logger.info("applying wallpaper from \(source, privacy: .public): \(screens.count, privacy: .public) screen(s)")
         for (idx, screen) in screens.enumerated() {
             let name = screen.localizedName
@@ -248,6 +245,49 @@ final class WallpaperManager {
                 logger.error("screen[\(idx, privacy: .public)] \(name, privacy: .public) \(Int(frame.width), privacy: .public)x\(Int(frame.height), privacy: .public): FAILED — \(error.localizedDescription, privacy: .public)")
             }
         }
+        applyToEveryDesktopIfNeeded(url: url, screenCount: screens.count, source: source)
+    }
+
+    private static func connectedScreens() -> [NSScreen] {
+        let screens = NSScreen.screens
+        if !screens.isEmpty { return screens }
+        if let main = NSScreen.main { return [main] }
+        return []
+    }
+
+    private func applyToEveryDesktopIfNeeded(url: URL, screenCount: Int, source: String) {
+        guard screenCount > 1 else { return }
+        let script = """
+        tell application "System Events"
+            set picture of every desktop to "\(Self.appleScriptString(url.path))"
+        end tell
+        """
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+        let errorPipe = Pipe()
+        process.standardError = errorPipe
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            if process.terminationStatus == 0 {
+                logger.info("system-events desktop sync from \(source, privacy: .public): OK")
+            } else {
+                let data = errorPipe.fileHandleForReading.readDataToEndOfFile()
+                let message = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown error"
+                logger.error("system-events desktop sync from \(source, privacy: .public): FAILED — \(message, privacy: .public)")
+            }
+        } catch {
+            logger.error("system-events desktop sync from \(source, privacy: .public): FAILED — \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private static func appleScriptString(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
     }
 
     private func applyLocalWallpaper(id: Int, url: URL, source: String) {
