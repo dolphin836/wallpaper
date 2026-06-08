@@ -1,8 +1,20 @@
 {
-  "current_version": "2.0",
-  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-2.0.dmg",
+  "current_version": "2.0.1",
+  "current_dmg_url": "https://wallpaper.haibing.site/storage/wallpapers/releases/mac/WallpaperExchange-2.0.1.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.1",
+      "released_at": "2026-06-08",
+      "notes": [
+        "New: auto-shuffle timing can now be customized from My Downloads with common presets and a custom interval.",
+        "New: wallpaper card download and set-wallpaper buttons show an orange progress border while downloads are in progress.",
+        "Changed: auto-shuffle settings now live on My Downloads, next to the local wallpaper library they control.",
+        "Changed: clicking the menu-bar icon now opens the main app window directly, and the status icon uses a white template treatment.",
+        "Changed: Mac wallpaper feeds no longer apply local screen-size filtering by default. Explicit My Device filters still request device matching from the backend.",
+        "Fixed: auto-shuffle now applies the selected wallpaper to every connected display instead of only the primary screen."
+      ]
+    },
     {
       "version": "2.0",
       "released_at": "2026-06-07",

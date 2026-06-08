@@ -10,6 +10,33 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-06-08
+
+### Added
+
+- **Custom auto-shuffle cadence.** The Downloads page now lets you choose
+  common intervals or set your own timing for automatic wallpaper rotation.
+- **Card-level download feedback.** Wallpaper card download and
+  set-wallpaper buttons now show an orange progress border while downloads
+  are in progress.
+
+### Changed
+
+- **Auto-shuffle settings moved to My Downloads.** The rotation controls now
+  live next to the local wallpaper library they operate on.
+- **Status-bar click behavior is simpler.** Clicking the menu-bar icon now
+  opens the main app window directly, and the icon uses a white template
+  treatment that matches other macOS menu extras.
+- **Mac wallpaper feeds no longer apply local screen-size filtering by
+  default.** The client now shows the server's wallpaper lists directly;
+  explicit My Device filters still request device matching from the backend.
+
+### Fixed
+
+- **Auto-shuffle now syncs across multiple displays.** Rotation applies the
+  selected wallpaper to every connected display instead of only the primary
+  screen.
+
 ## [2.0] - 2026-06-07
 
 ### Added
