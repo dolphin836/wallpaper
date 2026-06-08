@@ -138,25 +138,27 @@ if [ "$MAKE_DMG" -eq 1 ]; then
     sleep 2 # let Finder notice the new volume before we script it
 
     osascript <<APPLESCRIPT
-tell application "Finder"
-    tell disk "$APP_NAME"
-        open
-        set current view of container window to icon view
-        set toolbar visible of container window to false
-        set statusbar visible of container window to false
-        set the bounds of container window to {320, 200, 920, 500}
-        set theViewOptions to the icon view options of container window
-        set arrangement of theViewOptions to not arranged
-        set icon size of theViewOptions to 128
-        set text size of theViewOptions to 13
-        set position of item "${APP_NAME}.app" of container window to {160, 150}
-        set position of item "Applications" of container window to {440, 150}
-        close
-        open
-        update without registering applications
-        delay 1
+with timeout of 300 seconds
+    tell application "Finder"
+        tell disk "$APP_NAME"
+            open
+            set current view of container window to icon view
+            set toolbar visible of container window to false
+            set statusbar visible of container window to false
+            set the bounds of container window to {320, 200, 920, 500}
+            set theViewOptions to the icon view options of container window
+            set arrangement of theViewOptions to not arranged
+            set icon size of theViewOptions to 128
+            set text size of theViewOptions to 13
+            set position of item "${APP_NAME}.app" of container window to {160, 150}
+            set position of item "Applications" of container window to {440, 150}
+            close
+            open
+            update without registering applications
+            delay 1
+        end tell
     end tell
-end tell
+end timeout
 APPLESCRIPT
 
     sync
