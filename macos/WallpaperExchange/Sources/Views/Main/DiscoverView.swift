@@ -377,9 +377,11 @@ struct DiscoverView: View {
                 categoryID: selectedCategoryID,
                 sort: filter == .trending ? "trending" : nil,
                 deviceMatch: filter == .myDevice,
-                // Live = Mac dynamic ∪ video (dynamic_only spans both
-                // server-side); opt video back in for this filter.
-                includeVideo: filter == .live
+                // Discover mirrors the web: Latest / Trending / Search /
+                // Category should include video wallpapers too. Live still
+                // narrows the feed with dynamic_only, which server-side
+                // means Mac dynamic wallpapers ∪ video wallpapers.
+                includeVideo: true
             )
             items.append(contentsOf: data.items)
             cursor = data.nextCursor
