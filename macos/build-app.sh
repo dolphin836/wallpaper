@@ -184,11 +184,18 @@ if [ "$DO_UPLOAD" -eq 1 ]; then
     # Caddy strips the prefix before forwarding. The reliable path is to
     # ssh in and run mc inside the minio container where the API is plain
     # http://localhost:9000.
-    : "${SSH_HOST:=root@139.224.49.94}"
-    : "${SITE_DOMAIN:=wallpaper.haibing.site}"
     SSH_DEPLOY_PATH="${SSH_DEPLOY_PATH:-/opt/app/wallpaper}"
+    : "${SSH_HOST:=root@139.224.49.94}"
     DOCKER_NETWORK="${DOCKER_NETWORK:-wallpaper_default}"
-    BUCKET="${MINIO_BUCKET:-wallpapers}"
+
+    # The public storage domain is owned by the production reverse proxy.
+    # Read it from the deploy host, because a local development .env can use a
+    # different SITE_DOMAIN and would otherwise publish a URL that resolves to
+    # the frontend fallback instead of MinIO.
+    REMOTE_RELEASE_ENV=$(ssh "$SSH_HOST" "cd '$SSH_DEPLOY_PATH' && sh -lc 'set -a; [ -f .env ] && . ./.env; printf \"%s %s\" \"\${SITE_DOMAIN:-wallpaper.haibing.site}\" \"\${MINIO_BUCKET:-wallpapers}\"'")
+    read -r REMOTE_SITE_DOMAIN REMOTE_BUCKET <<< "$REMOTE_RELEASE_ENV"
+    SITE_DOMAIN="${RELEASE_SITE_DOMAIN:-$REMOTE_SITE_DOMAIN}"
+    BUCKET="${RELEASE_MINIO_BUCKET:-$REMOTE_BUCKET}"
 
     # Pull version from Info.plist so the uploaded filename always matches what
     # the running app reports. Single source of truth.
@@ -232,10 +239,12 @@ rm -f "$REMOTE_TMP"
 REMOTE_EOF
 
     echo "==> Verifying public URL..."
-    if curl -fsSI -o /dev/null "$REMOTE_URL"; then
+    HEADERS="$(curl -fsSI "$REMOTE_URL" || true)"
+    if printf '%s\n' "$HEADERS" | grep -Eiq '^content-type: *(application/x-apple-diskimage|application/octet-stream)'; then
         echo "    OK: $REMOTE_URL"
     else
-        echo "    WARNING: HEAD request to $REMOTE_URL failed."
+        echo "    WARNING: $REMOTE_URL does not look like a DMG."
+        printf '%s\n' "$HEADERS" | sed -n '1,12p'
         echo "    File was uploaded but may not be publicly reachable yet — check Caddy / bucket policy."
     fi
 

@@ -10,9 +10,11 @@ cd macos
 ./build-app.sh --release  # implies --dmg, also uploads to MinIO
 ```
 
-`--release` requires `mc` (`brew install minio/stable/mc`) and
-`MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`/`SITE_DOMAIN` in env (sourced from
-`../.env` if present). The DMG ends up at
+`--release` uploads through the deploy host. It reads the public storage domain
+and bucket from the deploy host's `.env` so a local development `SITE_DOMAIN`
+cannot publish a broken download URL. Override with `RELEASE_SITE_DOMAIN` or
+`RELEASE_MINIO_BUCKET` only when intentionally targeting another environment.
+The DMG ends up at
 `https://${SITE_DOMAIN}/storage/${MINIO_BUCKET}/releases/mac/WallpaperExchange-<version>.dmg`,
 which is what `backend/internal/handler/mac_release.json` should point
 `current_dmg_url` at.
