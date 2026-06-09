@@ -1,14 +1,20 @@
 import Foundation
-import AuthenticationServices
-import AppKit
+
+enum AuthFlow: String, Identifiable {
+    case login
+    case register
+
+    var id: String { rawValue }
+}
 
 @MainActor
 @Observable
-final class AuthService: NSObject {
+final class AuthService {
     static let shared = AuthService()
 
     private(set) var token: String?
     private(set) var user: User?
+    var authFlow: AuthFlow?
     var isLoggedIn: Bool { token != nil }
 
     // JWT lives in UserDefaults rather than Keychain on purpose: Keychain access
@@ -19,36 +25,37 @@ final class AuthService: NSObject {
     // sandboxed defaults plist is an acceptable trade for UX.
     private let tokenDefaultsKey = "auth.jwt_token"
 
-    private let loginURL = "https://wallpaperexchange.com/login?desktop=1"
-
-    private override init() {
-        super.init()
+    private init() {
         token = UserDefaults.standard.string(forKey: tokenDefaultsKey)
     }
 
     func login() {
-        guard let url = URL(string: loginURL) else { return }
-
-        let session = ASWebAuthenticationSession(
-            url: url,
-            callbackURLScheme: "wallxch"
-        ) { [weak self] callbackURL, error in
-            guard let self, let callbackURL, error == nil else { return }
-            let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)
-            if let t = components?.queryItems?.first(where: { $0.name == "token" })?.value {
-                Task { @MainActor in
-                    self.handleAuthCallback(token: t)
-                }
-            }
-        }
-        session.presentationContextProvider = self
-        session.prefersEphemeralWebBrowserSession = false
-        session.start()
+        authFlow = .login
     }
 
-    func handleAuthCallback(token: String) {
-        self.token = token
-        UserDefaults.standard.set(token, forKey: tokenDefaultsKey)
+    func register() {
+        authFlow = .register
+    }
+
+    func dismissAuth() {
+        authFlow = nil
+    }
+
+    func signIn(email: String, password: String) async throws {
+        let response = try await APIClient.shared.login(email: email, password: password)
+        applyAuth(response)
+    }
+
+    func signUp(username: String, email: String, password: String) async throws {
+        let response = try await APIClient.shared.register(username: username, email: email, password: password)
+        applyAuth(response)
+    }
+
+    private func applyAuth(_ response: AuthResponse) {
+        token = response.token
+        user = response.user
+        authFlow = nil
+        UserDefaults.standard.set(response.token, forKey: tokenDefaultsKey)
         Task {
             await refreshProfile()
         }
@@ -57,6 +64,7 @@ final class AuthService: NSObject {
     func logout() {
         token = nil
         user = nil
+        authFlow = nil
         UserDefaults.standard.removeObject(forKey: tokenDefaultsKey)
     }
 
@@ -110,11 +118,4 @@ final class AuthService: NSObject {
         }
     }
 
-}
-
-extension AuthService: ASWebAuthenticationPresentationContextProviding {
-    @MainActor
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        NSApp.windows.first ?? NSWindow()
-    }
 }

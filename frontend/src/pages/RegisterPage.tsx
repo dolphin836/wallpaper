@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { AiOutlineMail, AiOutlineLock, AiOutlineUser } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import { register } from '../api';
-import { resolveBaseURL } from '../api/client';
 import { useAuthStore } from '../store/auth';
 import usePageTitle from '../hooks/usePageTitle';
 import { track } from '../lib/track';
@@ -18,32 +17,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ username?: string; email?: string; password?: string }>({});
   const setAuth = useAuthStore((s) => s.setAuth);
-  const existingToken = useAuthStore((s) => s.token);
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const isDesktop = searchParams.get('desktop') === '1';
-
-  // Same shortcut as LoginPage — see comment there for the full reasoning.
-  useEffect(() => {
-    if (!isDesktop || !existingToken) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const resp = await fetch(`${resolveBaseURL()}/users/me`, {
-          headers: { Authorization: `Bearer ${existingToken}` },
-        });
-        if (cancelled) return;
-        if (resp.ok) {
-          window.location.href = `wallxch://auth?token=${encodeURIComponent(existingToken)}`;
-        } else {
-          useAuthStore.getState().logout();
-        }
-      } catch {
-        if (!cancelled) useAuthStore.getState().logout();
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [isDesktop, existingToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,11 +31,7 @@ export default function RegisterPage() {
       const res = await register({ username, email, password });
       const { token, user } = res.data.data;
       setAuth(token, user);
-      track('register_success', { desktop: isDesktop });
-      if (isDesktop) {
-        window.location.href = `wallxch://auth?token=${encodeURIComponent(token)}`;
-        return;
-      }
+      track('register_success');
       toast.success('Account created!');
       navigate('/');
     } catch (err: unknown) {
@@ -165,10 +135,7 @@ export default function RegisterPage() {
 
         <p className="auth-footnote">
           Already have an account?{' '}
-          <Link
-            to={isDesktop ? '/login?desktop=1' : '/login'}
-            className="auth-footnote-link"
-          >Sign in →</Link>
+          <Link to="/login" className="auth-footnote-link">Sign in →</Link>
         </p>
       </form>
     </div>

@@ -26,17 +26,6 @@
          Collections / Upload. The status-bar item still attaches in
          AppDelegate for quick actions. -->
 
-    <key>CFBundleURLTypes</key>
-    <array>
-        <dict>
-            <key>CFBundleURLName</key>
-            <string>com.wallpaperexchange.auth</string>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <string>wallxch</string>
-            </array>
-        </dict>
-    </array>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsArbitraryLoads</key>

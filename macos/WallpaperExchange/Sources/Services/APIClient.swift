@@ -238,6 +238,43 @@ actor APIClient {
         return data
     }
 
+    private func sendAuthJSON<B: Encodable>(_ path: String, body: B) async throws -> AuthResponse {
+        guard let url = URL(string: baseURL + path) else { throw APIError.invalidURL }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONEncoder().encode(body)
+
+        let (data, response): (Data, URLResponse)
+        do { (data, response) = try await session.data(for: req) }
+        catch { throw APIError.networkError(error) }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.networkError(URLError(.badServerResponse))
+        }
+        if http.statusCode >= 400 {
+            let envelope = try? decoder.decode(MessageEnvelope.self, from: data)
+            throw APIError.serverError(envelope?.code ?? http.statusCode,
+                                       envelope?.message ?? "Authentication failed")
+        }
+
+        do {
+            return try decoder.decode(APIResponse<AuthResponse>.self, from: data).data
+        } catch {
+            throw APIError.decodingError(error)
+        }
+    }
+
+    func login(email: String, password: String) async throws -> AuthResponse {
+        struct Body: Encodable { let email: String; let password: String }
+        return try await sendAuthJSON("/auth/login", body: Body(email: email, password: password))
+    }
+
+    func register(username: String, email: String, password: String) async throws -> AuthResponse {
+        struct Body: Encodable { let username: String; let email: String; let password: String }
+        return try await sendAuthJSON("/auth/register", body: Body(username: username, email: email, password: password))
+    }
+
     // Edit a collection's title / description / visibility (owner only;
     // the server rejects editor/weekly themes). PUT /collections/:id.
     func updateCollection(id: Int, title: String, description: String, isPublic: Bool) async throws {
@@ -584,7 +621,10 @@ actor APIClient {
 }
 
 // Minimal envelope used to surface a server error message on 4xx.
-private struct MessageEnvelope: Decodable { let message: String? }
+private struct MessageEnvelope: Decodable {
+    let code: Int?
+    let message: String?
+}
 
 private final class NoRedirectDelegate: NSObject, URLSessionTaskDelegate, Sendable {
     static let shared = NoRedirectDelegate()

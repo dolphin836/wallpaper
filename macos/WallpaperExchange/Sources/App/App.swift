@@ -4,8 +4,8 @@ import SwiftUI
 // v2 bootstrap. Hands top-level lifecycle to SwiftUI's App protocol so
 // the redesigned main window mounts as a Dock-visible app, while
 // reusing the existing AppDelegate (via @NSApplicationDelegateAdaptor)
-// to attach the status-bar quick action, register the wallxch:// URL
-// handler, and run the launch-time UpdateService check.
+// to attach the status-bar quick action and run the launch-time
+// UpdateService check.
 //
 // LSUIElement was removed from Info.plist in the same pass so closing
 // the window doesn't quit the process — the menu-bar item stays live.

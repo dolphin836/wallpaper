@@ -153,6 +153,13 @@ struct MainWindow: View {
                 .transition(.opacity)
                 .zIndex(10)
             }
+
+            if let flow = auth.authFlow {
+                AuthModalOverlay(mode: flow)
+                    .id(flow.id)
+                    .transition(.opacity)
+                    .zIndex(20)
+            }
         }
         .ignoresSafeArea(.all)
         .background(Color.clear)

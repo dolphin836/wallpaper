@@ -22,7 +22,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.applicationIconImage = icon
         }
         setupStatusItem()
-        registerURLScheme()
         configureMainWindow()
         UpdateService.shared.checkAtLaunch()
     }
@@ -254,29 +253,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.alertStyle = .warning
             alert.addButton(withTitle: "OK")
             alert.runModal()
-        }
-    }
-
-    private func registerURLScheme() {
-        NSAppleEventManager.shared().setEventHandler(
-            self,
-            andSelector: #selector(handleURL(_:withReply:)),
-            forEventClass: AEEventClass(kInternetEventClass),
-            andEventID: AEEventID(kAEGetURL)
-        )
-    }
-
-    @objc private func handleURL(_ event: NSAppleEventDescriptor, withReply reply: NSAppleEventDescriptor) {
-        guard let urlString = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue,
-              let url = URL(string: urlString) else { return }
-
-        if url.scheme == "wallxch", url.host == "auth" {
-            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            if let token = components?.queryItems?.first(where: { $0.name == "token" })?.value {
-                Task { @MainActor in
-                    AuthService.shared.handleAuthCallback(token: token)
-                }
-            }
         }
     }
 

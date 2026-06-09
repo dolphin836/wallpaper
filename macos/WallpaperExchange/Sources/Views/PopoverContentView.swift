@@ -114,6 +114,13 @@ struct PopoverContentView: View {
         .onChange(of: auth.isLoggedIn) { _, _ in Task { await loadAll() } }
         .onChange(of: latestMacOnly) { _, _ in Task { await loadLatest(reset: true) } }
         .onChange(of: downloadedMacOnly) { _, _ in Task { await loadDownloaded(reset: true) } }
+        .overlay {
+            if let flow = auth.authFlow {
+                AuthModalOverlay(mode: flow)
+                    .id(flow.id)
+                    .transition(.opacity)
+            }
+        }
     }
 
     // ─── Sub-views ─────────────────────────────────────────────────

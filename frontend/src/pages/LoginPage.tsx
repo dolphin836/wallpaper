@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { AiOutlineMail, AiOutlineLock } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import { login } from '../api';
-import { resolveBaseURL } from '../api/client';
 import { useAuthStore } from '../store/auth';
 import usePageTitle from '../hooks/usePageTitle';
 import { track } from '../lib/track';
@@ -16,36 +15,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const setAuth = useAuthStore((s) => s.setAuth);
-  const existingToken = useAuthStore((s) => s.token);
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const isDesktop = searchParams.get('desktop') === '1';
-
-  // Desktop client opens /login?desktop=1 in ASWebAuthenticationSession. If
-  // the user is already signed in to the web (token in localStorage), don't
-  // make them re-enter credentials — hand the existing token to the Mac app
-  // via the wallxch:// callback. Validate first so we don't pass an expired
-  // token (would log the Mac client right back out).
-  useEffect(() => {
-    if (!isDesktop || !existingToken) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const resp = await fetch(`${resolveBaseURL()}/users/me`, {
-          headers: { Authorization: `Bearer ${existingToken}` },
-        });
-        if (cancelled) return;
-        if (resp.ok) {
-          window.location.href = `wallxch://auth?token=${encodeURIComponent(existingToken)}`;
-        } else {
-          useAuthStore.getState().logout();
-        }
-      } catch {
-        if (!cancelled) useAuthStore.getState().logout();
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [isDesktop, existingToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,11 +25,7 @@ export default function LoginPage() {
       const res = await login({ email, password });
       const { token, user } = res.data.data;
       setAuth(token, user);
-      track('login_success', { desktop: isDesktop });
-      if (isDesktop) {
-        window.location.href = `wallxch://auth?token=${encodeURIComponent(token)}`;
-        return;
-      }
+      track('login_success');
       toast.success('Welcome back!');
       navigate('/');
     } catch (err: unknown) {
@@ -129,10 +95,7 @@ export default function LoginPage() {
 
         <p className="auth-footnote">
           New here?{' '}
-          <Link
-            to={isDesktop ? '/register?desktop=1' : '/register'}
-            className="auth-footnote-link"
-          >Register →</Link>
+          <Link to="/register" className="auth-footnote-link">Register →</Link>
         </p>
       </form>
     </div>
