@@ -639,7 +639,14 @@ struct FramedTile: View {
 
     private var isLiked: Bool { liked ?? (wallpaper.isLiked ?? false) }
     private var isFavorited: Bool { favorited ?? (wallpaper.isFavorited ?? false) }
-    private var isDownloaded: Bool { downloaded ?? (wallpaper.isDownloaded ?? false) }
+    private var localFileExists: Bool { manager.isDownloaded(wallpaper.id) }
+    private var isOwnWallpaper: Bool { auth.user?.id == wallpaper.userID }
+    private var isDownloaded: Bool { downloaded ?? (wallpaper.isDownloaded ?? localFileExists) }
+    private var downloadHelp: String {
+        if isDownloaded { return "Got it" }
+        if isOwnWallpaper { return "Download" }
+        return "Trade for 1"
+    }
     private var isTransferring: Bool { manager.downloading.contains(wallpaper.id) }
     private var downloadProgress: Double? { manager.downloadProgress[wallpaper.id] }
     private var downloadButtonLoading: Bool { isTransferring && (transferAction == .download || transferAction == nil) }
@@ -734,7 +741,7 @@ struct FramedTile: View {
                       busy: busy, size: 26, action: { Task { await toggleLike() } })
             ActionDot(icon: isDownloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
                       kind: .download, active: isDownloaded,
-                      help: isDownloaded ? "Downloaded" : "Download (1 coin)",
+                      help: downloadHelp,
                       busy: busy,
                       loading: downloadButtonLoading,
                       progress: downloadProgress,
@@ -773,6 +780,7 @@ struct FramedTile: View {
     }
     private func doDownload() async {
         guard auth.isLoggedIn else { auth.login(); return }
+        if localFileExists { return }
         busy = true; transferAction = .download
         defer { busy = false; transferAction = nil }
         do { try await manager.download(wallpaper: wallpaper); downloaded = true; await auth.refreshProfile() } catch {}
@@ -782,7 +790,10 @@ struct FramedTile: View {
         busy = true; transferAction = .set
         defer { busy = false; transferAction = nil }
         do {
-            try await manager.download(wallpaper: wallpaper); downloaded = true
+            if !localFileExists {
+                try await manager.download(wallpaper: wallpaper)
+            }
+            downloaded = true
             try await manager.setAsWallpaper(wallpaper); await auth.refreshProfile()
         } catch {}
     }

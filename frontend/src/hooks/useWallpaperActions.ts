@@ -8,6 +8,7 @@ import {
   favoriteWallpaper,
   unfavoriteWallpaper,
   downloadWallpaper,
+  getMyCoins,
 } from '../api';
 import type { Wallpaper } from '../types';
 
@@ -33,6 +34,7 @@ export function useWallpaperActions(wallpaper: Wallpaper) {
   const [favLoading, setFavLoading] = useState(false);
   const [downloaded, setDownloaded] = useState(wallpaper.is_downloaded ?? false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
   const { isAuthenticated, user, updateCoins } = useAuthStore();
   const navigate = useNavigate();
 
@@ -46,6 +48,8 @@ export function useWallpaperActions(wallpaper: Wallpaper) {
 
   const isOwnWallpaper = !!(user && wallpaper.user_id === user.id);
   const canDownload = !wallpaper.is_dynamic || /Macintosh|Mac OS X/i.test(navigator.userAgent);
+  const downloadCost = isOwnWallpaper || downloaded ? 0 : 1;
+  const downloadTitle = downloaded ? 'Got it' : downloadCost > 0 ? `Trade for ${downloadCost}` : 'Download';
 
   const doLike = async () => {
     if (likeLoading) return;
@@ -76,11 +80,8 @@ export function useWallpaperActions(wallpaper: Wallpaper) {
   };
 
   const doDownload = async () => {
-    if (!isOwnWallpaper && user && user.coins <= 0) {
-      toast.error('Insufficient coins. Upload wallpapers to earn more!');
-      return;
-    }
     setDownloading(true);
+    setDownloadProgress(null);
     try {
       const resp = await fetch(downloadWallpaper(wallpaper.id), {
         headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
@@ -93,7 +94,34 @@ export function useWallpaperActions(wallpaper: Wallpaper) {
         toast.error('Download failed');
         return;
       }
-      const blob = await resp.blob();
+      const totalBytes = Number(resp.headers.get('content-length') || 0);
+      let blob: Blob;
+      if (!resp.body) {
+        blob = await resp.blob();
+        setDownloadProgress(1);
+      } else {
+        const reader = resp.body.getReader();
+        const chunks: BlobPart[] = [];
+        let receivedBytes = 0;
+        setDownloadProgress(totalBytes > 0 ? 0 : null);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            const chunk = new ArrayBuffer(value.byteLength);
+            new Uint8Array(chunk).set(value);
+            chunks.push(chunk);
+            receivedBytes += value.byteLength;
+            if (totalBytes > 0) {
+              setDownloadProgress(Math.min(receivedBytes / totalBytes, 1));
+            }
+          }
+        }
+        blob = new Blob(chunks, {
+          type: resp.headers.get('content-type') || 'application/octet-stream',
+        });
+        setDownloadProgress(1);
+      }
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -104,23 +132,30 @@ export function useWallpaperActions(wallpaper: Wallpaper) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       setDownloaded(true);
-      if (!isOwnWallpaper && user) {
-        const remaining = user.coins - 1;
-        updateCoins(remaining);
-        if (remaining <= 3 && remaining > 0) {
-          toast(`${remaining} coin${remaining === 1 ? '' : 's'} left. Upload wallpapers to earn more!`, { icon: '💡' });
+      if (!isOwnWallpaper && user && !downloaded) {
+        try {
+          const coinsResp = await getMyCoins();
+          const remaining = coinsResp.data.data.coins;
+          updateCoins(remaining);
+          if (remaining <= 3 && remaining > 0) {
+            toast(`${remaining} coin${remaining === 1 ? '' : 's'} left. Upload wallpapers to earn more!`, { icon: '💡' });
+          }
+        } catch {
+          updateCoins(Math.max(user.coins - downloadCost, 0));
         }
       }
     } catch {
       toast.error('Download failed');
     } finally {
       setDownloading(false);
+      setDownloadProgress(null);
     }
   };
 
   return {
     liked, favorited, downloaded,
     likeLoading, favLoading, downloading,
+    downloadProgress, downloadTitle, downloadCost,
     canDownload,
     handleLike: () => requireAuth(doLike),
     handleFavorite: () => requireAuth(doFavorite),

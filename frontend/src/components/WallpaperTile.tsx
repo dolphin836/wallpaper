@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import type { CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   AiOutlineHeart, AiFillHeart,
@@ -142,8 +143,9 @@ export default function WallpaperTile({ w, variant, onHover }: Props) {
             type="button"
             onClick={(e) => stop(e, acts.handleDownload)}
             disabled={acts.downloading}
-            className={`t-act ${acts.downloaded ? 'is-downloaded' : ''}`}
-            title={acts.downloaded ? 'Downloaded' : 'Download (1 coin)'}
+            className={`t-act ${acts.downloaded ? 'is-downloaded' : ''} ${acts.downloading ? 'is-downloading' : ''}`}
+            title={acts.downloadTitle}
+            style={{ ['--download-progress' as string]: acts.downloadProgress ?? 0.08 } as CSSProperties}
           >
             {acts.downloading
               ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />

@@ -39,6 +39,7 @@ import {
   deleteWallpaper,
   downloadWallpaper,
   downloadVariant,
+  getMyCoins,
   getWallpaperVariants,
   getWallpaperEngagements,
   getCategories,
@@ -248,11 +249,10 @@ export default function WallpaperDetailPage() {
   // sweeps the bottom of the viewport (rendered via createPortal below). The
   // key={tradeFlashTick} forces a fresh DOM node so the CSS animation re-runs.
   const [tradeFlashTick, setTradeFlashTick] = useState(0);
-  // Coin CTA state machine: default → confirm → (success | insufficient)
-  // 'insufficient' is computed from balance + cost rather than tracked
-  // separately so a fresh page-load with balance < cost lands directly
-  // on the warning state.
-  const [ctaMode, setCtaMode] = useState<'default' | 'confirm' | 'success'>('default');
+  // Coin CTA state machine: default → confirm → success / insufficient.
+  // Insufficient coins is only entered after the server rejects the trade,
+  // so a stale local balance cannot block a valid download.
+  const [ctaMode, setCtaMode] = useState<'default' | 'confirm' | 'success' | 'insufficient'>('default');
   const [confirmDontAsk, setConfirmDontAsk] = useState(false);
   const [frameIdx, setFrameIdx] = useState(0);
   const [framePlaying, setFramePlaying] = useState(true);
@@ -411,10 +411,6 @@ export default function WallpaperDetailPage() {
     if (!isAuthenticated) { navigate('/login'); return; }
     if (!wallpaper) return;
     const isOwnerDl = user?.id === wallpaper.user_id;
-    if (!isOwnerDl && user && user.coins <= 0) {
-      toast.error('Insufficient coins. Upload wallpapers to earn more!');
-      return;
-    }
     // The top "Download" button is meant to deliver the original upload —
     // designers, editors, and people archiving the file expect the source,
     // not a re-encoded screen-sized JPEG. Variant downloads happen *only*
@@ -443,6 +439,7 @@ export default function WallpaperDetailPage() {
           headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
         });
         if (resp.status === 402) {
+          setCtaMode('insufficient');
           toast.error('Insufficient coins. Upload wallpapers to earn more!');
           return;
         }
@@ -468,8 +465,12 @@ export default function WallpaperDetailPage() {
       setDlDone(true);
       setTradeFlashTick((n) => n + 1);
       if (!isOwnerDl && user) {
-        const remaining = user.coins - 1;
-        updateCoins(remaining);
+        try {
+          const coinsResp = await getMyCoins();
+          updateCoins(coinsResp.data.data.coins);
+        } catch {
+          updateCoins(Math.max(user.coins - downloadCost, 0));
+        }
       }
       // Promote the CTA to the success state. Replaces the old SetWallpaperGuide
       // popup — the "now what?" message ("Show in Downloads", "Browse more",
@@ -479,6 +480,7 @@ export default function WallpaperDetailPage() {
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 402) {
+        setCtaMode('insufficient');
         toast.error('Insufficient coins. Upload wallpapers to earn more!');
       } else {
         toast.error('Download failed');
@@ -537,19 +539,9 @@ export default function WallpaperDetailPage() {
   const fileSize = wallpaper.file_size > 0 ? formatFileSize(wallpaper.file_size) : '—';
   const downloadCost = isOwner ? 0 : 1;
   const userBalance = user?.coins ?? 0;
-  const insufficient = !isOwner && isAuthenticated && userBalance < downloadCost;
   const isMacUA = /Macintosh|Mac OS X/i.test(navigator.userAgent);
 
-  // Resolve the visible CTA state. Order matters: success comes first because
-  // it should stick after a successful download even if we re-render with a
-  // newly-zero balance; insufficient is computed from the balance and forces
-  // the warning surface regardless of any explicit transition the user kicked
-  // off; confirm/default come from the explicit ctaMode state.
-  const ctaState: 'default' | 'confirm' | 'success' | 'insufficient' =
-    ctaMode === 'success' ? 'success'
-    : insufficient ? 'insufficient'
-    : ctaMode === 'confirm' ? 'confirm'
-    : 'default';
+  const ctaState = ctaMode;
 
   const handleDownloadClick = () => {
     if (!isAuthenticated) { navigate('/login'); return; }

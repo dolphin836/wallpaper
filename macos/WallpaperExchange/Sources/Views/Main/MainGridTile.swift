@@ -27,14 +27,16 @@ struct MainGridTile: View {
     private var isLiked: Bool { liked ?? (wallpaper.isLiked ?? false) }
     private var isFavorited: Bool { favorited ?? (wallpaper.isFavorited ?? false) }
     private var localFileExists: Bool { manager.isDownloaded(wallpaper.id) }
+    private var isOwnWallpaper: Bool { auth.user?.id == wallpaper.userID }
     private var isDownloaded: Bool {
         if let downloaded { return downloaded }
         if flagIfNotLocal { return localFileExists }
         return wallpaper.isDownloaded ?? localFileExists
     }
     private var downloadHelp: String {
-        if isDownloaded { return "Downloaded" }
-        return flagIfNotLocal ? "Download" : "Download (1 coin)"
+        if isDownloaded { return "Got it" }
+        if flagIfNotLocal || isOwnWallpaper { return "Download" }
+        return "Trade for 1"
     }
     private var isTransferring: Bool { manager.downloading.contains(wallpaper.id) }
     private var downloadProgress: Double? { manager.downloadProgress[wallpaper.id] }
@@ -236,6 +238,7 @@ struct MainGridTile: View {
     }
     private func doDownload() async {
         guard auth.isLoggedIn else { auth.login(); return }
+        if localFileExists { return }
         busy = true; transferAction = .download
         defer { busy = false; transferAction = nil }
         do {
@@ -249,7 +252,9 @@ struct MainGridTile: View {
         busy = true; transferAction = .set
         defer { busy = false; transferAction = nil }
         do {
-            try await manager.download(wallpaper: wallpaper)
+            if !localFileExists {
+                try await manager.download(wallpaper: wallpaper)
+            }
             downloaded = true
             try await manager.setAsWallpaper(wallpaper)
             await auth.refreshProfile()

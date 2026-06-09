@@ -29,6 +29,7 @@ struct WallpaperTileView: View {
 
     @State private var isHovering = false
     @State private var previewLoaded = false
+    @State private var auth = AuthService.shared
 
     // Constants for tile chrome. 12px on every side per user spec.
     private let cornerRadius: CGFloat = 8
@@ -39,6 +40,8 @@ struct WallpaperTileView: View {
     private var previewURL: URL? { wallpaper.previewURL.isEmpty ? nil : URL(string: wallpaper.previewURL) }
     private var showActions: Bool { isHovering || isDownloading }
     private var showLocalMissing: Bool { kind == .downloaded && !localFileExists }
+    private var isOwnWallpaper: Bool { auth.user?.id == wallpaper.userID }
+    private var downloadLabel: String { isOwnWallpaper ? "Download" : "Trade for 1" }
 
     var body: some View {
         // Color.clear + aspectRatio is the canonical SwiftUI scaffold for
@@ -111,7 +114,7 @@ struct WallpaperTileView: View {
                     PillButton(icon: "display", label: "Set as wallpaper", primary: true, action: onSetWallpaper)
                 } else {
                     PillButton(icon: "arrow.down",
-                               label: "Download",
+                               label: downloadLabel,
                                primary: false,
                                loading: isDownloading,
                                progress: downloadProgress,

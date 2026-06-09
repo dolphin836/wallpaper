@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   AiOutlineHeart,
   AiFillHeart,
@@ -11,10 +11,8 @@ import {
   AiOutlineLoading3Quarters,
   AiOutlineWarning,
 } from 'react-icons/ai';
-import toast from 'react-hot-toast';
 import type { Wallpaper } from '../types';
-import { useAuthStore } from '../store/auth';
-import { likeWallpaper, unlikeWallpaper, favoriteWallpaper, unfavoriteWallpaper, downloadWallpaper } from '../api';
+import { useWallpaperActions } from '../hooks/useWallpaperActions';
 
 const STATUS_PROCESSING = 0;
 const STATUS_PUBLISHED = 1;
@@ -51,20 +49,12 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   const lowResSrc = wallpaper.thumb_url;
   const highResSrc = wallpaper.preview_url || wallpaper.thumb_url;
   const [highLoaded, setHighLoaded] = useState(false);
-  const [liked, setLiked] = useState(wallpaper.is_liked ?? false);
-  const [likeLoading, setLikeLoading] = useState(false);
-  const [favorited, setFavorited] = useState(wallpaper.is_favorited ?? false);
-  const [favLoading, setFavLoading] = useState(false);
-  const [downloaded, setDownloaded] = useState(wallpaper.is_downloaded ?? false);
-  const [downloading, setDownloading] = useState(false);
-  const { isAuthenticated, user, updateCoins } = useAuthStore();
-  const navigate = useNavigate();
   const location = useLocation();
+  const acts = useWallpaperActions(wallpaper);
 
   const hasImage = lowResSrc.length > 0 || highResSrc.length > 0;
   const isProcessing = wallpaper.status === STATUS_PROCESSING;
   const isFailed = wallpaper.status === STATUS_FAILED;
-  const canDownload = !wallpaper.is_dynamic || /Macintosh|Mac OS X/i.test(navigator.userAgent);
   // Video wallpapers carry file_type starting with "video/" after the
   // transcode worker normalizes to mp4. thumb_url / preview_url point
   // at the poster.webp the worker also generated; original_url is the
@@ -98,93 +88,6 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
     e.preventDefault();
     e.stopPropagation();
     action();
-  };
-
-  const requireAuth = (action: () => void) => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-    action();
-  };
-
-  const isOwnWallpaper = user && wallpaper.user_id === user.id;
-
-  const handleDownload = async () => {
-    if (!isOwnWallpaper && user && user.coins <= 0) {
-      toast.error('Insufficient coins. Upload wallpapers to earn more!');
-      return;
-    }
-    setDownloading(true);
-    try {
-      const resp = await fetch(downloadWallpaper(wallpaper.id), {
-        headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
-      });
-      if (resp.status === 402) {
-        toast.error('Insufficient coins. Upload wallpapers to earn more!');
-        return;
-      }
-      if (!resp.ok) {
-        toast.error('Download failed');
-        return;
-      }
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const ext = wallpaper.original_url.split('.').pop()?.split('?')[0] || 'jpg';
-      a.download = `wallpaper_${wallpaper.id}.${ext}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      setDownloaded(true);
-      if (!isOwnWallpaper && user) {
-        const remaining = user.coins - 1;
-        updateCoins(remaining);
-        if (remaining <= 3 && remaining > 0) {
-          toast(`${remaining} coin${remaining === 1 ? '' : 's'} left. Upload wallpapers to earn more!`, { icon: '💡' });
-        }
-      }
-    } catch {
-      toast.error('Download failed');
-    } finally {
-      setDownloading(false);
-    }
-  };
-
-  const handleLike = async () => {
-    if (likeLoading) return;
-    setLikeLoading(true);
-    try {
-      if (liked) {
-        await unlikeWallpaper(wallpaper.id);
-      } else {
-        await likeWallpaper(wallpaper.id);
-      }
-      setLiked(!liked);
-    } catch {
-      toast.error('Action failed');
-    } finally {
-      setLikeLoading(false);
-    }
-  };
-
-  const handleFavorite = async () => {
-    if (favLoading) return;
-    setFavLoading(true);
-    try {
-      if (favorited) {
-        await unfavoriteWallpaper(wallpaper.id);
-      } else {
-        await favoriteWallpaper(wallpaper.id);
-      }
-      setFavorited(!favorited);
-    } catch {
-      toast.error('Action failed');
-    } finally {
-      setFavLoading(false);
-    }
   };
 
   const isPublished = wallpaper.status === STATUS_PUBLISHED;
@@ -317,29 +220,30 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         {isPublished && !hideActions && (
           <div className="tile-actions">
             <button
-              onClick={(e) => handleAction(e, () => requireAuth(handleFavorite))}
-              disabled={favLoading}
-              className={`t-act ${favorited ? 'is-favorited' : ''}`}
-              title={favorited ? 'Unfavorite' : 'Favorite'}
+              onClick={(e) => handleAction(e, acts.handleFavorite)}
+              disabled={acts.favLoading}
+              className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
+              title={acts.favorited ? 'Unfavorite' : 'Favorite'}
             >
-              {favLoading ? <AiOutlineLoading3Quarters size={15} className="animate-spin" /> : favorited ? <AiFillStar size={15} /> : <AiOutlineStar size={15} />}
+              {acts.favLoading ? <AiOutlineLoading3Quarters size={15} className="animate-spin" /> : acts.favorited ? <AiFillStar size={15} /> : <AiOutlineStar size={15} />}
             </button>
             <button
-              onClick={(e) => handleAction(e, () => requireAuth(handleLike))}
-              disabled={likeLoading}
-              className={`t-act ${liked ? 'is-liked' : ''}`}
-              title={liked ? 'Unlike' : 'Like'}
+              onClick={(e) => handleAction(e, acts.handleLike)}
+              disabled={acts.likeLoading}
+              className={`t-act ${acts.liked ? 'is-liked' : ''}`}
+              title={acts.liked ? 'Unlike' : 'Like'}
             >
-              {likeLoading ? <AiOutlineLoading3Quarters size={15} className="animate-spin" /> : liked ? <AiFillHeart size={15} /> : <AiOutlineHeart size={15} />}
+              {acts.likeLoading ? <AiOutlineLoading3Quarters size={15} className="animate-spin" /> : acts.liked ? <AiFillHeart size={15} /> : <AiOutlineHeart size={15} />}
             </button>
-            {canDownload && (
+            {acts.canDownload && (
               <button
-                onClick={(e) => handleAction(e, () => requireAuth(handleDownload))}
-                disabled={downloading}
-                className={`t-act ${downloaded ? 'is-downloaded' : ''}`}
-                title={downloaded ? 'Downloaded' : 'Download (1 coin)'}
+                onClick={(e) => handleAction(e, acts.handleDownload)}
+                disabled={acts.downloading}
+                className={`t-act ${acts.downloaded ? 'is-downloaded' : ''} ${acts.downloading ? 'is-downloading' : ''}`}
+                title={acts.downloadTitle}
+                style={{ ['--download-progress' as string]: acts.downloadProgress ?? 0.08 } as CSSProperties}
               >
-                {downloading ? <AiOutlineLoading3Quarters size={15} className="animate-spin" /> : downloaded ? <AiOutlineCheckCircle size={15} /> : <AiOutlineDownload size={15} />}
+                {acts.downloading ? <AiOutlineLoading3Quarters size={15} className="animate-spin" /> : acts.downloaded ? <AiOutlineCheckCircle size={15} /> : <AiOutlineDownload size={15} />}
               </button>
             )}
           </div>
@@ -449,31 +353,32 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         {/* Action buttons — appear on hover, only for published wallpapers */}
         {isPublished && !hideActions && <div className="tile-actions">
             <button
-              onClick={(e) => handleAction(e, () => requireAuth(handleFavorite))}
-              disabled={favLoading}
-              className={`t-act ${favorited ? 'is-favorited' : ''}`}
-              title={favorited ? 'Unfavorite' : 'Favorite'}
+              onClick={(e) => handleAction(e, acts.handleFavorite)}
+              disabled={acts.favLoading}
+              className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
+              title={acts.favorited ? 'Unfavorite' : 'Favorite'}
             >
-              {favLoading ? <AiOutlineLoading3Quarters size={16} className="animate-spin" /> : favorited ? <AiFillStar size={16} /> : <AiOutlineStar size={16} />}
+              {acts.favLoading ? <AiOutlineLoading3Quarters size={16} className="animate-spin" /> : acts.favorited ? <AiFillStar size={16} /> : <AiOutlineStar size={16} />}
             </button>
             <button
-              onClick={(e) => handleAction(e, () => requireAuth(handleLike))}
-              disabled={likeLoading}
-              className={`t-act ${liked ? 'is-liked' : ''}`}
-              title={liked ? 'Unlike' : 'Like'}
+              onClick={(e) => handleAction(e, acts.handleLike)}
+              disabled={acts.likeLoading}
+              className={`t-act ${acts.liked ? 'is-liked' : ''}`}
+              title={acts.liked ? 'Unlike' : 'Like'}
             >
-              {likeLoading ? <AiOutlineLoading3Quarters size={16} className="animate-spin" /> : liked ? <AiFillHeart size={16} /> : <AiOutlineHeart size={16} />}
+              {acts.likeLoading ? <AiOutlineLoading3Quarters size={16} className="animate-spin" /> : acts.liked ? <AiFillHeart size={16} /> : <AiOutlineHeart size={16} />}
             </button>
-            {canDownload && (
+            {acts.canDownload && (
               <button
-                onClick={(e) => handleAction(e, () => requireAuth(handleDownload))}
-                disabled={downloading}
-                className={`t-act ${downloaded ? 'is-downloaded' : ''}`}
-                title={downloaded ? 'Downloaded' : 'Download (1 coin)'}
+                onClick={(e) => handleAction(e, acts.handleDownload)}
+                disabled={acts.downloading}
+                className={`t-act ${acts.downloaded ? 'is-downloaded' : ''} ${acts.downloading ? 'is-downloading' : ''}`}
+                title={acts.downloadTitle}
+                style={{ ['--download-progress' as string]: acts.downloadProgress ?? 0.08 } as CSSProperties}
               >
-                {downloading ? (
+                {acts.downloading ? (
                   <AiOutlineLoading3Quarters size={16} className="animate-spin" />
-                ) : downloaded ? (
+                ) : acts.downloaded ? (
                   <AiOutlineCheckCircle size={16} />
                 ) : (
                   <AiOutlineDownload size={16} />

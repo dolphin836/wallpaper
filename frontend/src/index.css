@@ -681,6 +681,7 @@
 }
 
 .t-act {
+  position: relative;
   width: 34px; height: 34px; border-radius: 9999px;
   display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid rgba(255,255,255,0.22);
@@ -693,6 +694,22 @@
 .t-act:hover  { background: rgba(15,12,8,0.65); }
 .t-act:active { transform: scale(0.94); }
 .t-act:disabled { opacity: 0.55; cursor: not-allowed; }
+.t-act.is-downloading:disabled { opacity: 1; }
+.t-act.is-downloading::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background:
+    conic-gradient(
+      from -90deg,
+      var(--color-accent) calc(var(--download-progress, 0.08) * 1turn),
+      rgba(255,255,255,0.24) 0
+    );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  pointer-events: none;
+}
 .t-act.is-liked      { background: var(--color-like);       border-color: transparent; }
 .t-act.is-favorited  { background: var(--color-favorite);   border-color: transparent; }
 .t-act.is-downloaded { background: var(--color-downloaded); border-color: transparent; }

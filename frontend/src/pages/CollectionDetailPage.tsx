@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import type { CSSProperties } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
 import InAppConfirm from '../components/InAppConfirm';
@@ -135,8 +136,9 @@ function FramedTile({
               type="button"
               onClick={(e) => stop(e, acts.handleDownload)}
               disabled={acts.downloading}
-              className={`t-act ${acts.downloaded ? 'is-downloaded' : ''}`}
-              title={acts.downloaded ? 'Downloaded' : 'Download (1 coin)'}
+              className={`t-act ${acts.downloaded ? 'is-downloaded' : ''} ${acts.downloading ? 'is-downloading' : ''}`}
+              title={acts.downloadTitle}
+              style={{ ['--download-progress' as string]: acts.downloadProgress ?? 0.08 } as CSSProperties}
             >
               {acts.downloading
                 ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
