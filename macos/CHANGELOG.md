@@ -10,6 +10,28 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-06-09
+
+### Added
+
+- **Native login and registration.** The Mac client now signs in and
+  creates accounts inside the app instead of sending users to the web flow.
+- **Live wallpaper video preview.** Live wallpaper details now expose a
+  compact play control that loads the preview video with progress feedback.
+
+### Changed
+
+- **Image loading is lighter at startup.** Wallpaper previews are decoded
+  at UI-appropriate sizes, duplicate image requests are coalesced, and the
+  in-memory image cache is capped more conservatively.
+
+### Fixed
+
+- **Dark mode polish.** Coin surfaces and the Home hero trade button now
+  better match the Mac client's dark appearance.
+- **Startup chrome overhead is lower.** Window background cleanup now runs
+  once per window instead of repeatedly walking the AppKit view tree.
+
 ## [2.0.2] - 2026-06-08
 
 ### Fixed

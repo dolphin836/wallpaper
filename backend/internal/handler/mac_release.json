@@ -1,8 +1,19 @@
 {
-  "current_version": "2.0.2",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.2.dmg",
+  "current_version": "2.0.3",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.3.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.3",
+      "released_at": "2026-06-09",
+      "notes": [
+        "New: native login and registration are now handled inside the Mac client instead of redirecting to the web flow.",
+        "New: Live wallpaper details now include a compact video preview control with loading progress.",
+        "Changed: startup image loading is lighter. Wallpaper previews are decoded at UI-appropriate sizes, duplicate image requests are coalesced, and the in-memory cache is capped more conservatively.",
+        "Fixed: dark mode coin surfaces and the Home hero trade button now better match the Mac client's dark appearance.",
+        "Fixed: startup window chrome cleanup now runs once per window instead of repeatedly walking the AppKit view tree."
+      ]
+    },
     {
       "version": "2.0.2",
       "released_at": "2026-06-08",
