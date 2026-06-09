@@ -1,28 +1,20 @@
 #!/usr/bin/env bash
 # Package the SwiftPM executable into a redistributable .app (and optionally .dmg),
-# and optionally upload the .dmg to MinIO so the web /download/mac page can link to it.
+# and optionally copy the .dmg into the frontend's static public directory so
+# the web /download/mac page can link to it.
 #
 # Usage:
 #   ./build-app.sh                # builds Wallpaper Exchange.app, ad-hoc signed
 #   ./build-app.sh --dmg          # additionally wraps the .app in a .dmg
-#   ./build-app.sh --release      # implies --dmg, also uploads to MinIO
+#   ./build-app.sh --release      # implies --dmg, also copies to frontend/public
 #   ./build-app.sh --sign "Developer ID Application: Your Name (TEAMID)"
 #                                 # signs with a real Developer ID cert
-#
-# `--release` uploads via SSH to the deploy host (the public MinIO endpoint
-# is path-prefixed behind Caddy, so direct mc/AWS-CLI uploads from your Mac
-# don't work). Required env vars:
-#   SSH_HOST              deploy host, e.g. root@1.2.3.4 (or ~/.ssh/config alias)
-#   SITE_DOMAIN           public domain for HEAD check, e.g. wallpaper.haibing.site
-# Optional (with defaults):
-#   SSH_DEPLOY_PATH       compose project dir on server (default /opt/app/wallpaper)
-#   DOCKER_NETWORK        wallpaper docker network (default wallpaper_default)
-#   MINIO_BUCKET          bucket name (default "wallpapers")
-# MINIO_ROOT_USER/PASSWORD are read from the deploy host's .env, not yours.
 #
 # Output:
 #   ./Wallpaper Exchange.app/      .app bundle, ready to run / drag to /Applications
 #   ./Wallpaper Exchange.dmg       (if --dmg or --release)
+#   ../frontend/public/downloads/mac/WallpaperExchange-<version>.dmg
+#                                  (if --release)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -173,31 +165,7 @@ APPLESCRIPT
 fi
 
 if [ "$DO_UPLOAD" -eq 1 ]; then
-    if [ -f "$SCRIPT_DIR/../.env" ]; then
-        # shellcheck disable=SC1091
-        set -a; source "$SCRIPT_DIR/../.env"; set +a
-    fi
-
-    # Need SSH access to the deploy host because the public MinIO endpoint is
-    # served behind a path-prefix Caddy proxy (`/storage`). mc rejects path
-    # components in its alias URL, and AWS CLI's SigV4 signature breaks when
-    # Caddy strips the prefix before forwarding. The reliable path is to
-    # ssh in and run mc inside the minio container where the API is plain
-    # http://localhost:9000.
-    SSH_DEPLOY_PATH="${SSH_DEPLOY_PATH:-/opt/app/wallpaper}"
-    : "${SSH_HOST:=root@139.224.49.94}"
-    DOCKER_NETWORK="${DOCKER_NETWORK:-wallpaper_default}"
-
-    # The public storage domain is owned by the production reverse proxy.
-    # Read it from the deploy host, because a local development .env can use a
-    # different SITE_DOMAIN and would otherwise publish a URL that resolves to
-    # the frontend fallback instead of MinIO.
-    REMOTE_RELEASE_ENV=$(ssh "$SSH_HOST" "cd '$SSH_DEPLOY_PATH' && sh -lc 'set -a; [ -f .env ] && . ./.env; printf \"%s %s\" \"\${SITE_DOMAIN:-wallpaper.haibing.site}\" \"\${MINIO_BUCKET:-wallpapers}\"'")
-    read -r REMOTE_SITE_DOMAIN REMOTE_BUCKET <<< "$REMOTE_RELEASE_ENV"
-    SITE_DOMAIN="${RELEASE_SITE_DOMAIN:-$REMOTE_SITE_DOMAIN}"
-    BUCKET="${RELEASE_MINIO_BUCKET:-$REMOTE_BUCKET}"
-
-    # Pull version from Info.plist so the uploaded filename always matches what
+    # Pull version from Info.plist so the published filename always matches what
     # the running app reports. Single source of truth.
     VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST")
     if [ -z "$VERSION" ]; then
@@ -205,60 +173,26 @@ if [ "$DO_UPLOAD" -eq 1 ]; then
         exit 1
     fi
 
-    OBJECT_KEY="releases/mac/WallpaperExchange-${VERSION}.dmg"
-    REMOTE_TMP="/tmp/wpe-release-${VERSION}.dmg"
-    REMOTE_URL="https://${SITE_DOMAIN}/storage/${BUCKET}/${OBJECT_KEY}"
+    STATIC_DIR="$SCRIPT_DIR/../frontend/public/downloads/mac"
+    STATIC_NAME="WallpaperExchange-${VERSION}.dmg"
+    STATIC_PATH="$STATIC_DIR/$STATIC_NAME"
+    RELATIVE_URL="/downloads/mac/$STATIC_NAME"
 
-    echo "==> SCP $DMG_PATH → ${SSH_HOST}:${REMOTE_TMP}"
-    scp "$DMG_PATH" "${SSH_HOST}:${REMOTE_TMP}"
-
-    echo "==> Uploading into MinIO via minio/mc sidecar on $DOCKER_NETWORK"
-    # We don't `docker compose exec` the minio container because newer
-    # minio/minio images no longer ship the mc binary. Instead spin up a
-    # one-shot minio/mc on the same docker network, mounting the DMG so
-    # we don't need a second host→container copy.
-    ssh "$SSH_HOST" \
-        "DEPLOY_PATH='$SSH_DEPLOY_PATH' REMOTE_TMP='$REMOTE_TMP' BUCKET='$BUCKET' OBJECT_KEY='$OBJECT_KEY' NETWORK='$DOCKER_NETWORK' bash -s" <<'REMOTE_EOF'
-set -e
-cd "$DEPLOY_PATH"
-# shellcheck disable=SC1091
-set -a; source .env; set +a
-docker run --rm \
-    --network "$NETWORK" \
-    -v "$REMOTE_TMP:/upload.dmg:ro" \
-    -e MC_USER="$MINIO_ROOT_USER" \
-    -e MC_PASS="$MINIO_ROOT_PASSWORD" \
-    -e BUCKET="$BUCKET" \
-    -e OBJECT_KEY="$OBJECT_KEY" \
-    --entrypoint sh \
-    minio/mc -c '
-        mc alias set local http://minio:9000 "$MC_USER" "$MC_PASS" >/dev/null
-        mc cp /upload.dmg "local/$BUCKET/$OBJECT_KEY"
-    '
-rm -f "$REMOTE_TMP"
-REMOTE_EOF
-
-    echo "==> Verifying public URL..."
-    HEADERS="$(curl -fsSI "$REMOTE_URL" || true)"
-    if printf '%s\n' "$HEADERS" | grep -Eiq '^content-type: *(application/x-apple-diskimage|application/octet-stream)'; then
-        echo "    OK: $REMOTE_URL"
-    else
-        echo "    WARNING: $REMOTE_URL does not look like a DMG."
-        printf '%s\n' "$HEADERS" | sed -n '1,12p'
-        echo "    File was uploaded but may not be publicly reachable yet — check Caddy / bucket policy."
-    fi
+    mkdir -p "$STATIC_DIR"
+    cp "$DMG_PATH" "$STATIC_PATH"
+    echo "==> Release copied to frontend static asset: $STATIC_PATH"
+    echo "    URL: $RELATIVE_URL"
 
     cat <<HINT
 
-==> Release uploaded. To make it visible on /download/mac:
+==> Release packaged. To make it visible on /download/mac:
 
   1. Edit backend/internal/handler/mac_release.json
      - bump current_version to: $VERSION
-     - set current_dmg_url to: $REMOTE_URL
+     - set current_dmg_url to: $RELATIVE_URL
      - prepend a new entry to "releases" with this version + notes
   2. Mirror the same notes into macos/CHANGELOG.md (Keep a Changelog format).
-  3. git commit -am "release(mac): v$VERSION" && git push
-     The deploy.yml workflow rebuilds the api container with the new manifest.
+  3. Commit the version files and $STATIC_PATH, then deploy frontend + backend.
 HINT
 fi
 

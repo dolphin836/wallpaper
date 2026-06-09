@@ -155,7 +155,7 @@ worker 在 publish 阶段会**自动 autotag**（写 category / tags / title）�
 
 ## 4. 发版（macOS 客户端）
 
-每次发版你要改 3 个文件，跑 2 个脚本。
+每次发版你要改 3 个文本文件，跑 1 个构建脚本，并提交生成的 DMG 静态资源。
 
 ### 3.1 改 3 个文件
 
@@ -163,23 +163,23 @@ worker 在 publish 阶段会**自动 autotag**（写 category / tags / title）�
 |---|---|
 | `macos/WallpaperExchange/Info.plist` | `CFBundleShortVersionString`（e.g. `1.3.2`）+ `CFBundleVersion`（数字 +1，e.g. `9`）|
 | `macos/CHANGELOG.md` | 顶部加一个新版本块，跟之前格式一致 |
-| `backend/internal/handler/mac_release.json` | `current_version` + `current_dmg_url` + 在 `releases` 数组顶端加新条目 |
+| `backend/internal/handler/mac_release.json` | `current_version` + `current_dmg_url`（相对路径 `/downloads/mac/WallpaperExchange-X.Y.Z.dmg`）+ 在 `releases` 数组顶端加新条目 |
 
 三处版本号必须**完全一致**。
 
-### 3.2 跑两个脚本
+### 3.2 构建、提交、部署
 
 ```bash
-# 1. 提交版本号 + changelog
-git add macos/WallpaperExchange/Info.plist macos/CHANGELOG.md backend/internal/handler/mac_release.json
+# 1. 构建 .dmg，并复制到 frontend/public/downloads/mac/
+./release-mac.sh
+
+# 2. 提交版本号 + changelog + release manifest + DMG 静态资源
+git add macos/WallpaperExchange/Info.plist macos/CHANGELOG.md backend/internal/handler/mac_release.json frontend/public/downloads/mac/
 git commit -m "release(mac): vX.Y.Z — <一句话改动摘要>"
 git push origin main
 
-# 2. 构建 .dmg + 上传到 MinIO
-./release-mac.sh
-
-# 3. 让 prod 的 /mac/release 接口返回新版本号
-./deploy.sh backend
+# 3. 让 prod 同时拿到静态 DMG 和 /mac/release manifest
+./deploy.sh
 ```
 
 ### 3.3 自动升级会怎么走
@@ -190,7 +190,8 @@ git push origin main
 ### 3.4 验证
 
 ```bash
-curl -fsS "https://wallpaper.haibing.site/api/v1/mac/release" | python3 -m json.tool | head -5
+curl -fsS "https://wallpaperexchange.com/api/v1/mac/release" | python3 -m json.tool | head -5
+curl -fsSI "https://wallpaperexchange.com/downloads/mac/WallpaperExchange-X.Y.Z.dmg" | head
 ```
 
 应该看到新的 `current_version`。

@@ -24,6 +24,7 @@ final class UpdateService {
     static let shared = UpdateService()
     private init() {}
 
+    private static let downloadBaseURL = URL(string: "https://wallpaperexchange.com/")!
     private let lastNotifiedKey = "WPE.LastNotifiedUpdateVersion"
 
     /// Quiet check fired 5s after launch. No UI unless there's a new
@@ -124,7 +125,7 @@ final class UpdateService {
     }
 
     private func downloadAndInstall(release: MacRelease, panel: UpdateProgressPanel) async {
-        guard let url = URL(string: release.currentDmgURL) else {
+        guard let url = Self.downloadURL(from: release.currentDmgURL) else {
             panel.close()
             showAlert(title: "Update failed", message: "Bad download URL.", style: .warning)
             return
@@ -185,6 +186,13 @@ final class UpdateService {
         try? await Task.sleep(nanoseconds: 600_000_000)
         panel.close()
         NSApp.terminate(nil)
+    }
+
+    private static func downloadURL(from value: String) -> URL? {
+        if let absolute = URL(string: value), absolute.scheme != nil {
+            return absolute
+        }
+        return URL(string: value, relativeTo: downloadBaseURL)?.absoluteURL
     }
 
     /// Streams a URLSessionDownloadTask through a delegate so the panel

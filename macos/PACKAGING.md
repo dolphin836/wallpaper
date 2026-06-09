@@ -7,17 +7,15 @@ to wrap it into a redistributable bundle.
 cd macos
 ./build-app.sh            # produces ./Wallpaper Exchange.app
 ./build-app.sh --dmg      # also produces ./Wallpaper Exchange.dmg
-./build-app.sh --release  # implies --dmg, also uploads to MinIO
+./build-app.sh --release  # implies --dmg, also copies to frontend/public
 ```
 
-`--release` uploads through the deploy host. It reads the public storage domain
-and bucket from the deploy host's `.env` so a local development `SITE_DOMAIN`
-cannot publish a broken download URL. Override with `RELEASE_SITE_DOMAIN` or
-`RELEASE_MINIO_BUCKET` only when intentionally targeting another environment.
-The DMG ends up at
-`https://${SITE_DOMAIN}/storage/${MINIO_BUCKET}/releases/mac/WallpaperExchange-<version>.dmg`,
-which is what `backend/internal/handler/mac_release.json` should point
-`current_dmg_url` at.
+`--release` copies the DMG into
+`frontend/public/downloads/mac/WallpaperExchange-<version>.dmg`. The release
+manifest should use the matching relative URL:
+`/downloads/mac/WallpaperExchange-<version>.dmg`. Keeping it relative lets both
+web domains serve the same download page, while the Mac updater resolves it
+against `https://wallpaperexchange.com`.
 
 What the script does, in order:
 
