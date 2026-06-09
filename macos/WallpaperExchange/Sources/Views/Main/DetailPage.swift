@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import AVFoundation
 
 // Full-page wallpaper detail. Pushed onto the navigation stack from
 // any wallpaper tile. Loads /wallpapers/:slug on appear to hydrate the
@@ -251,7 +252,9 @@ struct DetailPage: View {
 
     private func hero(detail: WallpaperDetail, layout: DetailLayout) -> some View {
         Group {
-            if mode == .off {
+            if let videoURL = livePreviewVideoURL(detail: detail) {
+                liveVideoHero(detail: detail, layout: layout, sourceURL: videoURL)
+            } else if mode == .off {
                 rawHeroImage(detail: detail, layout: layout)
             } else {
                 // Plain / Home / Lock → draw the actual device (monitor
@@ -266,6 +269,13 @@ struct DetailPage: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func livePreviewVideoURL(detail d: WallpaperDetail) -> URL? {
+        guard isLive(detail: d),
+              let value = d.previewVideoURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty else { return nil }
+        return URL(string: value)
     }
 
     @ViewBuilder
@@ -427,6 +437,29 @@ struct DetailPage: View {
             } placeholder: {
                 Color(hex: detail.dominantColor ?? "#bbb")
             }
+            .frame(width: size.width, height: size.height)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(alignment: .topLeading) {
+                previewChips(detail: detail)
+                    .padding(10)
+            }
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.white.opacity(0.18), lineWidth: 1))
+            .shadow(color: .black.opacity(0.3), radius: 24, y: 14)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: size.height)
+    }
+
+    private func liveVideoHero(detail: WallpaperDetail, layout: DetailLayout, sourceURL: URL) -> some View {
+        let size = rawHeroSize(detail: detail, layout: layout)
+        return HStack {
+            Spacer(minLength: 0)
+            LiveVideoPreview(
+                sourceURL: sourceURL,
+                posterURL: URL(string: detail.displayURL),
+                dominantColor: detail.dominantColor
+            )
             .frame(width: size.width, height: size.height)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(alignment: .topLeading) {
@@ -1065,6 +1098,293 @@ struct DetailPage: View {
             isLiked: d.isLiked, isFavorited: d.isFavorited, isDownloaded: d.isDownloaded,
             createdAt: d.createdAt
         )
+    }
+}
+
+private struct LiveVideoPreview: View {
+    let sourceURL: URL
+    let posterURL: URL?
+    let dominantColor: String?
+
+    @State private var player: AVPlayer?
+    @State private var localURL: URL?
+    @State private var loadTask: Task<Void, Never>?
+    @State private var endObserver: NSObjectProtocol?
+    @State private var buffering = false
+    @State private var playing = false
+    @State private var progress: Double = 0
+    @State private var hover = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        ZStack {
+            Color.black
+            CachedAsyncImage(url: posterURL) { img in
+                img.resizable().aspectRatio(contentMode: .fit)
+            } placeholder: {
+                Color(hex: dominantColor ?? "#111")
+            }
+            .opacity(player == nil ? 1 : 0)
+
+            InlineAVPlayerView(player: player)
+                .opacity(player == nil ? 0 : 1)
+
+            LinearGradient(
+                colors: [.clear, Color.black.opacity(0.26)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+            .allowsHitTesting(false)
+
+            Button(action: togglePlayback) {
+                ZStack {
+                    if buffering {
+                        bufferingHUD
+                    } else {
+                        playButton
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .buttonStyle(.plain)
+            .disabled(buffering)
+            .help(playing ? "Pause preview" : "Play preview")
+            .onHover { hover = $0 }
+
+            if let errorMessage {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(errorMessage)
+                            .font(.mono10)
+                            .tracking(0.5)
+                    }
+                    .foregroundStyle(Color.white.opacity(0.92))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(Color.black.opacity(0.58)))
+                    .padding(.bottom, 14)
+                }
+                .allowsHitTesting(false)
+            }
+        }
+        .contentShape(Rectangle())
+        .onDisappear { cleanup() }
+        .onChange(of: sourceURL) { _, _ in cleanup() }
+    }
+
+    private var playButton: some View {
+        Circle()
+            .fill(Color.black.opacity(0.58))
+            .frame(width: 76, height: 76)
+            .overlay(
+                Image(systemName: playing ? "pause.fill" : "play.fill")
+                    .font(.system(size: 29, weight: .bold))
+                    .foregroundStyle(Color.white)
+                    .offset(x: playing ? 0 : 2)
+            )
+            .overlay(Circle().strokeBorder(Color.white.opacity(0.20), lineWidth: 1))
+            .shadow(color: Color.black.opacity(0.34), radius: 18, x: 0, y: 8)
+            .scaleEffect(hover ? 1.08 : 1.0)
+            .opacity(playing && !hover ? 0 : 1)
+            .animation(.easeOut(duration: 0.18), value: hover)
+            .animation(.easeOut(duration: 0.18), value: playing)
+    }
+
+    private var bufferingHUD: some View {
+        VStack(spacing: 10) {
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.22))
+                    Capsule()
+                        .fill(Color.white)
+                        .frame(width: max(8, proxy.size.width * CGFloat(max(0, min(progress, 1)))))
+                }
+            }
+            .frame(width: 150, height: 6)
+
+            Text("\(Int(max(0, min(progress, 1)) * 100))%")
+                .font(.mono11)
+                .tracking(1.0)
+                .foregroundStyle(Color.white.opacity(0.92))
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 18)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.black.opacity(0.58))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+        )
+    }
+
+    private func togglePlayback() {
+        errorMessage = nil
+        if localURL == nil {
+            startBuffering()
+            return
+        }
+        guard let player else { return }
+        if playing {
+            player.pause()
+            playing = false
+        } else {
+            player.play()
+            playing = true
+        }
+    }
+
+    private func startBuffering() {
+        guard !buffering else { return }
+        buffering = true
+        progress = 0
+        loadTask?.cancel()
+        loadTask = Task { @MainActor in
+            do {
+                let downloaded = try await Self.downloadPreview(from: sourceURL) { value in
+                    progress = value
+                }
+                if Task.isCancelled {
+                    try? FileManager.default.removeItem(at: downloaded)
+                    return
+                }
+                preparePlayer(localURL: downloaded)
+            } catch {
+                if !Task.isCancelled {
+                    errorMessage = "Preview failed"
+                    buffering = false
+                    progress = 0
+                }
+            }
+        }
+    }
+
+    private func preparePlayer(localURL url: URL) {
+        removeObserver()
+        if let localURL {
+            try? FileManager.default.removeItem(at: localURL)
+        }
+        let nextPlayer = AVPlayer(url: url)
+        nextPlayer.isMuted = true
+        nextPlayer.actionAtItemEnd = .none
+        if let item = nextPlayer.currentItem {
+            endObserver = NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemDidPlayToEndTime,
+                object: item,
+                queue: .main
+            ) { [weak nextPlayer] _ in
+                nextPlayer?.seek(to: .zero)
+                nextPlayer?.play()
+            }
+        }
+        localURL = url
+        player = nextPlayer
+        buffering = false
+        progress = 1
+        playing = true
+        nextPlayer.play()
+    }
+
+    private func cleanup() {
+        loadTask?.cancel()
+        loadTask = nil
+        player?.pause()
+        player = nil
+        playing = false
+        buffering = false
+        progress = 0
+        errorMessage = nil
+        removeObserver()
+        if let localURL {
+            try? FileManager.default.removeItem(at: localURL)
+            self.localURL = nil
+        }
+    }
+
+    private func removeObserver() {
+        if let endObserver {
+            NotificationCenter.default.removeObserver(endObserver)
+            self.endObserver = nil
+        }
+    }
+
+    private static func downloadPreview(
+        from url: URL,
+        onProgress: @escaping @MainActor (Double) -> Void
+    ) async throws -> URL {
+        final class Holder: @unchecked Sendable { var observation: NSKeyValueObservation? }
+        let holder = Holder()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            let task = URLSession.shared.downloadTask(with: url) { tempURL, _, error in
+                holder.observation?.invalidate()
+                holder.observation = nil
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let tempURL else {
+                    continuation.resume(throwing: URLError(.unknown))
+                    return
+                }
+                let destination = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("wallxch-live-preview-\(UUID().uuidString).mp4")
+                do {
+                    try? FileManager.default.removeItem(at: destination)
+                    try FileManager.default.moveItem(at: tempURL, to: destination)
+                    continuation.resume(returning: destination)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+            holder.observation = task.progress.observe(\.fractionCompleted) { progress, _ in
+                let fraction = progress.fractionCompleted
+                guard fraction.isFinite else { return }
+                Task { @MainActor in
+                    onProgress(max(0, min(fraction, 1)))
+                }
+            }
+            task.resume()
+        }
+    }
+}
+
+private struct InlineAVPlayerView: NSViewRepresentable {
+    let player: AVPlayer?
+
+    func makeNSView(context: Context) -> InlineAVPlayerNSView {
+        InlineAVPlayerNSView()
+    }
+
+    func updateNSView(_ nsView: InlineAVPlayerNSView, context: Context) {
+        nsView.playerLayer.player = player
+    }
+}
+
+private final class InlineAVPlayerNSView: NSView {
+    let playerLayer = AVPlayerLayer()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer = CALayer()
+        layer?.backgroundColor = NSColor.black.cgColor
+        playerLayer.videoGravity = .resizeAspect
+        layer?.addSublayer(playerLayer)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layout() {
+        super.layout()
+        playerLayer.frame = bounds
     }
 }
 
