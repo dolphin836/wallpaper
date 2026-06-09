@@ -205,6 +205,7 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Delete("/weekly-picks/{year}/{week}/picks/{wallpaperId}", deps.AdminHandler.RemoveWeeklyPick)
 
 			r.Get("/users", deps.AdminHandler.ListUsers)
+			r.Post("/users/{id}/coins/grant", deps.AdminHandler.GrantUserCoins)
 			r.Put("/users/{id}/admin", deps.AdminHandler.SetUserAdmin)
 			r.Put("/users/{id}/status", deps.AdminHandler.SetUserStatus)
 

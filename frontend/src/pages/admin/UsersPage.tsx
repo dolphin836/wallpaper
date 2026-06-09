@@ -34,6 +34,7 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<number | -1>(-1);
   const [loading, setLoading] = useState(false);
+  const [granting, setGranting] = useState<Row | null>(null);
   const me = useAuthStore((s) => s.user);
 
   const fetchList = useCallback(() => {
@@ -76,6 +77,11 @@ export default function UsersPage() {
       toast.success('已更新');
       fetchList();
     }).catch((e) => toast.error(e?.response?.data?.message || '操作失败'));
+  };
+
+  const applyGrantedBalance = (userID: number, balance: number) => {
+    setItems((rows) => rows.map((row) => (row.id === userID ? { ...row, coins: balance } : row)));
+    setGranting(null);
   };
 
   return (
@@ -138,6 +144,7 @@ export default function UsersPage() {
                       </td>
                       <td className="px-4 py-2 text-xs text-slate-500 whitespace-nowrap">{fmtDate(u.created_at)}</td>
                       <td className="px-4 py-2 text-right whitespace-nowrap">
+                        <button onClick={() => setGranting(u)} className="text-xs text-amber-600 hover:underline mr-3">赠送金币</button>
                         <button onClick={() => toggleAdmin(u)} className="text-xs text-purple-600 hover:underline mr-3">{u.is_admin ? '撤销管理员' : '设为管理员'}</button>
                         {u.status === 1
                           ? <button onClick={() => setActive(u, 0)} className="text-xs text-rose-500 hover:underline">禁用</button>
@@ -152,6 +159,106 @@ export default function UsersPage() {
           <Pagination page={page} limit={limit} total={total} onChange={setPage} />
         </Card>
       </div>
+      {granting && (
+        <GrantCoinsModal
+          user={granting}
+          onClose={() => setGranting(null)}
+          onGranted={applyGrantedBalance}
+        />
+      )}
     </>
+  );
+}
+
+function GrantCoinsModal({
+  user,
+  onClose,
+  onGranted,
+}: {
+  user: Row;
+  onClose: () => void;
+  onGranted: (userID: number, balance: number) => void;
+}) {
+  const [amount, setAmount] = useState('100');
+  const [description, setDescription] = useState('系统赠送');
+  const [saving, setSaving] = useState(false);
+  const parsedAmount = Number(amount);
+  const validAmount = Number.isInteger(parsedAmount) && parsedAmount > 0 && parsedAmount <= 1_000_000;
+  const nextBalance = validAmount ? user.coins + parsedAmount : user.coins;
+
+  const submit = () => {
+    if (!validAmount) {
+      toast.error('请输入 1 到 1000000 之间的整数');
+      return;
+    }
+    setSaving(true);
+    admin
+      .grantAdminUserCoins(user.id, {
+        amount: parsedAmount,
+        description: description.trim() || '系统赠送',
+      })
+      .then((r) => {
+        toast.success(`已赠送 ${r.data.data.amount} 金币`);
+        onGranted(user.id, r.data.data.balance);
+      })
+      .catch((e) => toast.error(e?.response?.data?.message || '赠送失败'))
+      .finally(() => setSaving(false));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-xl w-full max-w-md overflow-hidden shadow-2xl">
+        <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+          <div>
+            <h3 className="font-semibold">赠送金币</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              @{user.username} · 当前 {user.coins} 金币
+            </p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">×</button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <label className="block text-sm">
+            <div className="text-slate-500 mb-1">赠送数量</div>
+            <input
+              type="number"
+              min={1}
+              max={1_000_000}
+              step={1}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full px-3 py-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950"
+            />
+          </label>
+
+          <label className="block text-sm">
+            <div className="text-slate-500 mb-1">流水备注</div>
+            <input
+              value={description}
+              maxLength={256}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full px-3 py-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950"
+              placeholder="系统赠送"
+            />
+          </label>
+
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200">
+            <div className="flex justify-between">
+              <span>赠送后余额</span>
+              <strong>{nextBalance} 金币</strong>
+            </div>
+            <p className="mt-1 text-xs opacity-80">会写入用户金币流水，类型为 admin_grant。</p>
+          </div>
+        </div>
+
+        <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-1.5 rounded text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">取消</button>
+          <button onClick={submit} disabled={saving || !validAmount} className="px-4 py-1.5 rounded text-sm bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-60">
+            {saving ? '赠送中...' : '确认赠送'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

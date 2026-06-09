@@ -27,6 +27,7 @@ import (
 type AdminHandler struct {
 	adminRepo      *repo.AdminRepo
 	userRepo       *repo.UserRepo
+	coinRepo       *repo.CoinRepo
 	wallpaperRepo  *repo.WallpaperRepo
 	collectionRepo *repo.CollectionRepo
 	reportRepo     *repo.ReportRepo
@@ -46,6 +47,7 @@ type AdminHandler struct {
 func NewAdminHandler(
 	adminRepo *repo.AdminRepo,
 	userRepo *repo.UserRepo,
+	coinRepo *repo.CoinRepo,
 	wallpaperRepo *repo.WallpaperRepo,
 	collectionRepo *repo.CollectionRepo,
 	reportRepo *repo.ReportRepo,
@@ -60,6 +62,7 @@ func NewAdminHandler(
 	return &AdminHandler{
 		adminRepo:      adminRepo,
 		userRepo:       userRepo,
+		coinRepo:       coinRepo,
 		wallpaperRepo:  wallpaperRepo,
 		collectionRepo: collectionRepo,
 		reportRepo:     reportRepo,
@@ -534,6 +537,73 @@ func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type adminGrantCoinsReq struct {
+	Amount      int64  `json:"amount"`
+	Description string `json:"description"`
+}
+
+func (h *AdminHandler) GrantUserCoins(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+
+	var req adminGrantCoinsReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	if req.Amount <= 0 || req.Amount > 1_000_000 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+
+	desc := strings.TrimSpace(req.Description)
+	if desc == "" {
+		desc = "系统赠送"
+	}
+	if len([]rune(desc)) > 256 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+
+	user, err := h.userRepo.GetByID(r.Context(), id)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "admin grant coins lookup failed", "id", id, "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	if user == nil || user.ID <= 0 {
+		response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+		return
+	}
+
+	adminID := middleware.GetUserID(r.Context())
+	balance, err := h.coinRepo.Transfer(
+		r.Context(),
+		repo.SystemUserID,
+		id,
+		req.Amount,
+		model.CoinTxAdminGrant,
+		model.CoinTxAdminGrant,
+		adminID,
+		desc,
+		desc,
+	)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "admin grant coins failed",
+			"user_id", id, "admin_id", adminID, "amount", req.Amount, "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, map[string]any{
+		"user_id": id,
+		"amount":  req.Amount,
+		"balance": balance,
+	})
+}
+
 type adminSetAdminReq struct {
 	IsAdmin bool `json:"is_admin"`
 }
@@ -612,8 +682,8 @@ func (h *AdminHandler) ListReports(w http.ResponseWriter, r *http.Request) {
 }
 
 type adminResolveReportReq struct {
-	Status              int16 `json:"status"`                // 1=resolved, 2=rejected
-	RemoveWallpaper     bool  `json:"remove_wallpaper"`      // also soft-delete the wallpaper
+	Status              int16 `json:"status"`                 // 1=resolved, 2=rejected
+	RemoveWallpaper     bool  `json:"remove_wallpaper"`       // also soft-delete the wallpaper
 	ResolveAllForTarget bool  `json:"resolve_all_for_target"` // close every report on this wallpaper
 }
 
@@ -752,7 +822,6 @@ func (h *AdminHandler) WorkerJobs(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, map[string]any{"items": jobs})
 }
 
-
 // extMIME mirrors the upload handler's table — needed because the admin
 // AI-upload path does its own multipart parsing.
 var aiUploadExtMIME = map[string]string{
@@ -820,7 +889,6 @@ func (h *AdminHandler) UploadAIWallpaper(w http.ResponseWriter, r *http.Request)
 	response.JSON(w, http.StatusCreated, errcode.Success, wp)
 }
 
-
 // ─── Weekly picks ─────────────────────────────────────────────────────
 
 // ListWeeklyPickWeeks returns every (year, week) that has a slate, newest
@@ -872,7 +940,9 @@ func (h *AdminHandler) SetWeeklyPickHero(w http.ResponseWriter, r *http.Request)
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
-	var body struct{ WallpaperID int64 `json:"wallpaper_id"` }
+	var body struct {
+		WallpaperID int64 `json:"wallpaper_id"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.WallpaperID == 0 {
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
@@ -904,7 +974,9 @@ func (h *AdminHandler) AddWeeklyPick(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
-	var body struct{ WallpaperID int64 `json:"wallpaper_id"` }
+	var body struct {
+		WallpaperID int64 `json:"wallpaper_id"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.WallpaperID == 0 {
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return

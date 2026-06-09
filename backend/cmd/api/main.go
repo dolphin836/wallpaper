@@ -110,7 +110,7 @@ func main() {
 	weeklyPickHandler := handler.NewWeeklyPickHandler(weeklyPickRepo, collectionRepo)
 	statsHandler := handler.NewStatsHandler(wallpaperRepo, collectionRepo)
 	llmUsageRepo := repo.NewLLMUsageRepo(db)
-	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo, analyticsRepo, llmUsageRepo, weeklyPickRepo, store, wallpaperSvc)
+	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, coinRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo, analyticsRepo, llmUsageRepo, weeklyPickRepo, store, wallpaperSvc)
 
 	// Resumable video uploads. Failure to set up the tus handler is
 	// non-fatal — the rest of the API stays up and the upload endpoint

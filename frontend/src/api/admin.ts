@@ -167,6 +167,12 @@ export const setAdminUserAdmin = (id: number, isAdmin: boolean) =>
 export const setAdminUserStatus = (id: number, status: number) =>
   client.put<ApiResponse<null>>(`/admin/users/${id}/status`, { status });
 
+export const grantAdminUserCoins = (id: number, data: { amount: number; description?: string }) =>
+  client.post<ApiResponse<{ user_id: number; amount: number; balance: number }>>(
+    `/admin/users/${id}/coins/grant`,
+    data,
+  );
+
 export const listAdminReports = (params: {
   page?: number; limit?: number; status?: number;
 }) => client.get<ApiResponse<PaginatedAdmin<AdminReportRow>>>('/admin/reports', { params });

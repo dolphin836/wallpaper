@@ -3,23 +3,23 @@ package model
 import "time"
 
 type User struct {
-	ID           int64     `gorm:"primaryKey" json:"id"`
-	Username     string    `gorm:"uniqueIndex;size:32;not null" json:"username"`
-	Email        string    `gorm:"uniqueIndex;size:255;not null" json:"email"`
-	PasswordHash string    `gorm:"size:255;not null" json:"-"`
-	Nickname     string    `gorm:"size:64;not null;default:''" json:"nickname"`
-	AvatarURL    string    `gorm:"size:512;not null;default:''" json:"avatar_url"`
-	Bio          string    `gorm:"size:500;not null;default:''" json:"bio"`
-	Coins        int64     `gorm:"not null;default:0" json:"coins"`
-	Status       int16     `gorm:"not null;default:1" json:"status"`
-	IsAdmin      bool      `gorm:"not null;default:false" json:"is_admin"`
+	ID           int64  `gorm:"primaryKey" json:"id"`
+	Username     string `gorm:"uniqueIndex;size:32;not null" json:"username"`
+	Email        string `gorm:"uniqueIndex;size:255;not null" json:"email"`
+	PasswordHash string `gorm:"size:255;not null" json:"-"`
+	Nickname     string `gorm:"size:64;not null;default:''" json:"nickname"`
+	AvatarURL    string `gorm:"size:512;not null;default:''" json:"avatar_url"`
+	Bio          string `gorm:"size:500;not null;default:''" json:"bio"`
+	Coins        int64  `gorm:"not null;default:0" json:"coins"`
+	Status       int16  `gorm:"not null;default:1" json:"status"`
+	IsAdmin      bool   `gorm:"not null;default:false" json:"is_admin"`
 	// Per-list privacy flags. Default false → list is private to the
 	// owner. Each one is toggled independently from the Profile page.
-	LikesPublic     bool `gorm:"not null;default:false" json:"likes_public"`
-	FavoritesPublic bool `gorm:"not null;default:false" json:"favorites_public"`
-	DownloadsPublic bool `gorm:"not null;default:false" json:"downloads_public"`
-	CreatedAt    time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
-	UpdatedAt    time.Time `gorm:"not null;autoUpdateTime" json:"updated_at"`
+	LikesPublic     bool      `gorm:"not null;default:false" json:"likes_public"`
+	FavoritesPublic bool      `gorm:"not null;default:false" json:"favorites_public"`
+	DownloadsPublic bool      `gorm:"not null;default:false" json:"downloads_public"`
+	CreatedAt       time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
+	UpdatedAt       time.Time `gorm:"not null;autoUpdateTime" json:"updated_at"`
 }
 
 const (
@@ -27,6 +27,7 @@ const (
 	CoinTxUploadReward   = "upload_reward"
 	CoinTxDownloadCost   = "download_cost"
 	CoinTxDownloadEarned = "download_earned"
+	CoinTxAdminGrant     = "admin_grant"
 )
 
 type CoinTransaction struct {

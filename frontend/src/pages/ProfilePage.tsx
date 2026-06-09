@@ -101,6 +101,7 @@ const LEDGER_LABELS: Record<string, string> = {
   upload_reward:    'Uploaded a wallpaper',
   download_cost:    'Downloaded a wallpaper',
   download_earned:  'Someone downloaded yours',
+  admin_grant:      'System gift',
 };
 
 export default function ProfilePage() {
@@ -1152,6 +1153,7 @@ const LEDGER_GLYPH: Record<string, string> = {
   upload_reward:   '↑',
   download_cost:   '↓',
   download_earned: '★',
+  admin_grant:     '+',
 };
 
 function LedgerPanel({ txs, page, total, loading, balance, maxReachable, onPage }: LedgerPanelProps) {
