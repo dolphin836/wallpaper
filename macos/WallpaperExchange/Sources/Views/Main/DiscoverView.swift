@@ -34,6 +34,7 @@ struct DiscoverView: View {
     @State private var featuredHover: Wallpaper?
     @State private var categories: [Category] = []
     @State private var selectedCategoryID: Int? = nil
+    @State private var palette = PaletteEnv.shared
 
     // Category strip overflow tracking — drives the trailing fade that
     // only shows when the chips are wider than the visible strip (so
@@ -90,6 +91,7 @@ struct DiscoverView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Color.clear)
+            .zIndex(0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color.clear)
@@ -122,6 +124,7 @@ struct DiscoverView: View {
         .padding(.horizontal, 40)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+        .zIndex(2)
     }
 
     // ── Feed: the scrolling grid + loading / empty / error states.
@@ -248,8 +251,8 @@ struct DiscoverView: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(active ? Color.paper : Color.ink2)
                 .padding(.horizontal, 16).padding(.vertical, 6)
-                .background(Capsule().fill(active ? Color.ink : Color.paper))
-                .overlay(Capsule().stroke(active ? Color.ink : Color.hair, lineWidth: 1))
+                .background(Capsule().fill(active ? Color.ink : Color.chromeControl))
+                .overlay(Capsule().stroke(active ? Color.ink : ChromeLine.softBorder(for: palette), lineWidth: 1))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -280,8 +283,8 @@ struct DiscoverView: View {
             }
             .padding(.horizontal, 12)
             .frame(height: 32)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.paper2))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.hair, lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.chromeControl))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(ChromeLine.softBorder(for: palette), lineWidth: 1))
         }
         .menuStyle(.button)
         .menuIndicator(.hidden)
@@ -309,8 +312,8 @@ struct DiscoverView: View {
             }
         }
         .padding(3)
-        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.paper2))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.hair, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.chromeControl))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(ChromeLine.softBorder(for: palette), lineWidth: 1))
         .fixedSize()
     }
 

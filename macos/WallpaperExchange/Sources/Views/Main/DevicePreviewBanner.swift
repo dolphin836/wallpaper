@@ -10,6 +10,8 @@ struct DevicePreviewBanner<Header: View>: View {
     var onPick: () -> Void
     @ViewBuilder var header: () -> Header
     @State private var mode: DeviceMockup.Mode = .plain
+    @State private var palette = PaletteEnv.shared
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 18) {
@@ -28,13 +30,16 @@ struct DevicePreviewBanner<Header: View>: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity)
-        .background(glassBackground)
+        .background(previewPanelBackground)
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.25), lineWidth: 1)
+                .strokeBorder(ChromeLine.softBorder(for: palette), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: .black.opacity(0.10), radius: 18, y: 8)
+        .compositingGroup()
+        .shadow(color: .black.opacity(colorScheme == .dark ? 0.34 : 0.10),
+                radius: colorScheme == .dark ? 24 : 18,
+                y: 8)
     }
 
     private var modeToggles: some View {
@@ -56,11 +61,11 @@ struct DevicePreviewBanner<Header: View>: View {
             }
         }
         .padding(4)
-        .background(Capsule().fill(.thinMaterial))
-        .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
+        .background(Capsule().fill(Color.chromeControl))
+        .overlay(Capsule().strokeBorder(ChromeLine.softBorder(for: palette), lineWidth: 1))
     }
 
-    private var glassBackground: some View {
+    private var previewPanelBackground: some View {
         ZStack {
             if let featured {
                 CachedAsyncImage(url: URL(string: featured.displayURL)) { image in
@@ -69,11 +74,10 @@ struct DevicePreviewBanner<Header: View>: View {
                     Color.clear
                 }
                 .blur(radius: 70)
-                .opacity(0.34)
+                .opacity(colorScheme == .dark ? 0.20 : 0.30)
             }
 
-            Rectangle().fill(.ultraThinMaterial)
-            Rectangle().fill(Color.paper.opacity(0.30))
+            Rectangle().fill(Color.chromePanel)
         }
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
