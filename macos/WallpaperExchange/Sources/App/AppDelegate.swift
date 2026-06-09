@@ -4,6 +4,7 @@ import ServiceManagement
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var openMainWindowHandler: (() -> Void)?
+    private var configuredWindowIDs = Set<ObjectIdentifier>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Force Dock-visible regular app. LSUIElement was removed from
@@ -64,8 +65,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // can align exactly (same row, same size).
 
     private func applyWindowChrome(_ window: NSWindow) {
+        let windowID = ObjectIdentifier(window)
+        let firstConfiguration = configuredWindowIDs.insert(windowID).inserted
+
         window.collectionBehavior.remove(.fullScreenNone)
         window.collectionBehavior.insert(.fullScreenPrimary)
+
+        guard firstConfiguration else { return }
+
         window.styleMask.insert([.resizable, .miniaturizable, .closable, .fullSizeContentView])
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true

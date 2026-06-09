@@ -360,7 +360,7 @@ struct HeroCard: View {
                 // here didn't constrain the ZStack — image's natural
                 // aspect leaked through, making the hero too tall and
                 // pushing the bottom overlay off-screen.
-                CachedAsyncImage(url: URL(string: pick.previewURL)) { img in
+                CachedAsyncImage(url: URL(string: pick.previewURL), maxPixelDimension: 2200) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Color(hex: pick.dominantColor ?? "#bbb").opacity(0.5)
@@ -503,7 +503,7 @@ struct MacDynamicTile: View {
             let h = proxy.size.width * 10.0 / 16.0
             ZStack(alignment: .topLeading) {
                 Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.55)
-                CachedAsyncImage(url: URL(string: wallpaper.displayURL)) { img in
+                CachedAsyncImage(url: URL(string: wallpaper.displayURL), maxPixelDimension: 1100) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Color.clear

@@ -387,18 +387,27 @@ struct MainWindow: View {
 }
 
 private struct TransparentAppKitBackground: NSViewRepresentable {
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView(frame: .zero)
-        clearAround(view)
+        clearAround(view, coordinator: context.coordinator)
         return view
     }
 
     func updateNSView(_ view: NSView, context: Context) {
-        clearAround(view)
+        clearAround(view, coordinator: context.coordinator)
     }
 
-    private func clearAround(_ view: NSView) {
+    private func clearAround(_ view: NSView, coordinator: Coordinator) {
+        guard coordinator.shouldSchedule else { return }
+        coordinator.shouldSchedule = false
         DispatchQueue.main.async {
+            defer { coordinator.shouldSchedule = coordinator.didClear == false }
+            guard view.window != nil else { return }
+
             var current: NSView? = view
             var depth = 0
             while let node = current, depth < 12 {
@@ -416,7 +425,13 @@ private struct TransparentAppKitBackground: NSViewRepresentable {
                 current = node.superview
                 depth += 1
             }
+            coordinator.didClear = true
         }
+    }
+
+    final class Coordinator {
+        var didClear = false
+        var shouldSchedule = true
     }
 }
 
@@ -653,65 +668,81 @@ private struct WindowFullScreenReader: NSViewRepresentable {
 }
 
 private struct WindowBackdropClearer: NSViewRepresentable {
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView(frame: .zero)
-        clear(from: view)
+        clear(from: view, coordinator: context.coordinator)
         return view
     }
 
     func updateNSView(_ view: NSView, context: Context) {
-        clear(from: view)
+        clear(from: view, coordinator: context.coordinator)
     }
 
-    private func clear(from view: NSView) {
+    private func clear(from view: NSView, coordinator: Coordinator) {
         DispatchQueue.main.async {
-            apply(to: view.window)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                apply(to: view.window)
-            }
+            coordinator.applyIfNeeded(to: view.window)
         }
     }
 
-    private func apply(to window: NSWindow?) {
-        guard let window else { return }
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.contentView?.wantsLayer = true
-        window.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
+    final class Coordinator {
+        private var clearedWindowIDs = Set<ObjectIdentifier>()
 
-        guard let root = window.contentView?.superview else { return }
+        func applyIfNeeded(to window: NSWindow?) {
+            guard let window else { return }
+            let windowID = ObjectIdentifier(window)
+            guard clearedWindowIDs.insert(windowID).inserted else { return }
 
-        func scrub(_ node: NSView) {
-            let className = String(describing: type(of: node))
-            let isChrome =
-                className.contains("NSThemeFrame") ||
-                className.contains("NSTitlebar") ||
-                className.contains("AppKitWindowHostingView")
-            let isTitlebarDecoration =
-                className.contains("TitlebarBackground") ||
-                className.contains("TitlebarDecoration")
-
-            if isChrome || isTitlebarDecoration {
-                node.wantsLayer = true
-                node.layer?.backgroundColor = NSColor.clear.cgColor
-            }
-
-            if isTitlebarDecoration {
-                node.isHidden = true
-            }
-
-            if let effect = node as? NSVisualEffectView, isChrome {
-                effect.material = .windowBackground
-                effect.blendingMode = .behindWindow
-                effect.state = .inactive
-            }
-
-            for child in node.subviews {
-                scrub(child)
+            apply(to: window)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self, weak window] in
+                guard self != nil, let window else { return }
+                self?.apply(to: window)
             }
         }
 
-        scrub(root)
+        private func apply(to window: NSWindow) {
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            window.contentView?.wantsLayer = true
+            window.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
+
+            guard let root = window.contentView?.superview else { return }
+
+            func scrub(_ node: NSView) {
+                let className = String(describing: type(of: node))
+                let isChrome =
+                    className.contains("NSThemeFrame") ||
+                    className.contains("NSTitlebar") ||
+                    className.contains("AppKitWindowHostingView")
+                let isTitlebarDecoration =
+                    className.contains("TitlebarBackground") ||
+                    className.contains("TitlebarDecoration")
+
+                if isChrome || isTitlebarDecoration {
+                    node.wantsLayer = true
+                    node.layer?.backgroundColor = NSColor.clear.cgColor
+                }
+
+                if isTitlebarDecoration {
+                    node.isHidden = true
+                }
+
+                if let effect = node as? NSVisualEffectView, isChrome {
+                    effect.material = .windowBackground
+                    effect.blendingMode = .behindWindow
+                    effect.state = .inactive
+                }
+
+                for child in node.subviews {
+                    scrub(child)
+                }
+            }
+
+            scrub(root)
+        }
     }
 }
 

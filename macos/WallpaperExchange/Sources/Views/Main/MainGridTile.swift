@@ -64,7 +64,7 @@ struct MainGridTile: View {
             ZStack {
                 Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.55)
 
-                CachedAsyncImage(url: URL(string: wallpaper.displayURL)) { img in
+                CachedAsyncImage(url: URL(string: wallpaper.displayURL), maxPixelDimension: 1100) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Color.clear

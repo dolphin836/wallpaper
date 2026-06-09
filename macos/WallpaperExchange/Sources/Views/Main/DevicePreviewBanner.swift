@@ -68,7 +68,7 @@ struct DevicePreviewBanner<Header: View>: View {
     private var previewPanelBackground: some View {
         ZStack {
             if let featured {
-                CachedAsyncImage(url: URL(string: featured.displayURL)) { image in
+                CachedAsyncImage(url: URL(string: featured.displayURL), maxPixelDimension: 700) { image in
                     image.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Color.clear
@@ -168,7 +168,7 @@ struct DeviceMockup: View {
                 ZStack {
                     Color.black
                     if let wp = wallpaper {
-                        CachedAsyncImage(url: URL(string: wp.displayURL)) { img in
+                        CachedAsyncImage(url: URL(string: wp.displayURL), maxPixelDimension: showChrome ? 1200 : 1800) { img in
                             img.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: {
                             Color(hex: wp.dominantColor ?? "#bbb").opacity(0.55)
@@ -219,7 +219,7 @@ struct DeviceMockup: View {
     private var glassBackground: some View {
         ZStack {
             if let wp = wallpaper {
-                CachedAsyncImage(url: URL(string: wp.displayURL)) { img in
+                CachedAsyncImage(url: URL(string: wp.displayURL), maxPixelDimension: 700) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: { Color.clear }
                 .blur(radius: 70)

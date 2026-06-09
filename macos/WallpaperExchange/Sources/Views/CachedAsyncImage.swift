@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ImageIO
 
 // In-memory cache of *decoded* NSImage instances keyed by URL. SwiftUI's
 // AsyncImage relies on URLCache, which still re-decodes on each appearance —
@@ -10,19 +11,63 @@ import AppKit
 final class ImageCacheStore {
     static let shared = ImageCacheStore()
 
-    private let cache = NSCache<NSURL, NSImage>()
+    private let cache = NSCache<NSString, NSImage>()
+    private let dataLoader = ImageDataLoader()
 
     private init() {
-        cache.countLimit = 300 // ~300 distinct URLs, generous for a menubar feed
-        cache.totalCostLimit = 180 * 1024 * 1024
+        cache.countLimit = 140
+        cache.totalCostLimit = 96 * 1024 * 1024
     }
 
-    func get(_ url: URL) -> NSImage? {
-        cache.object(forKey: url as NSURL)
+    func get(_ url: URL, maxPixelDimension: Int) -> NSImage? {
+        cache.object(forKey: cacheKey(for: url, maxPixelDimension: maxPixelDimension))
     }
 
-    func set(_ image: NSImage, for url: URL) {
-        cache.setObject(image, forKey: url as NSURL, cost: estimatedCost(of: image))
+    func load(_ url: URL, maxPixelDimension: Int) async -> NSImage? {
+        if let cached = get(url, maxPixelDimension: maxPixelDimension) {
+            return cached
+        }
+
+        do {
+            let data = try await dataLoader.data(for: url)
+            let image = await Task.detached(priority: .utility) {
+                Self.downsample(data: data, maxPixelDimension: maxPixelDimension)
+            }.value
+            guard let image else {
+                return nil
+            }
+            cache.setObject(
+                image,
+                forKey: cacheKey(for: url, maxPixelDimension: maxPixelDimension),
+                cost: estimatedCost(of: image)
+            )
+            return image
+        } catch {
+            return nil
+        }
+    }
+
+    private func cacheKey(for url: URL, maxPixelDimension: Int) -> NSString {
+        "\(url.absoluteString)#px=\(maxPixelDimension)" as NSString
+    }
+
+    nonisolated private static func downsample(data: Data, maxPixelDimension: Int) -> NSImage? {
+        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, options) else {
+            return NSImage(data: data)
+        }
+
+        let thumbnailOptions = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelDimension,
+        ] as CFDictionary
+
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions) else {
+            return NSImage(data: data)
+        }
+        return NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
     }
 
     private func estimatedCost(of image: NSImage) -> Int {
@@ -38,11 +83,30 @@ final class ImageCacheStore {
     }
 }
 
+private actor ImageDataLoader {
+    private var inFlight: [URL: Task<Data, Error>] = [:]
+
+    func data(for url: URL) async throws -> Data {
+        if let task = inFlight[url] {
+            return try await task.value
+        }
+
+        let task = Task<Data, Error> {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            return data
+        }
+        inFlight[url] = task
+        defer { inFlight[url] = nil }
+        return try await task.value
+    }
+}
+
 /// Drop-in replacement for AsyncImage that consults ImageCacheStore before
 /// hitting the network. `onLoad` fires once the image is available (cache hit
 /// or network), useful for triggering progressive-load fade transitions.
 struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     let url: URL?
+    let maxPixelDimension: Int
     let onLoad: (() -> Void)?
     let content: (Image) -> Content
     let placeholder: () -> Placeholder
@@ -52,11 +116,13 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
 
     init(
         url: URL?,
+        maxPixelDimension: Int = 1800,
         onLoad: (() -> Void)? = nil,
         @ViewBuilder content: @escaping (Image) -> Content,
         @ViewBuilder placeholder: @escaping () -> Placeholder
     ) {
         self.url = url
+        self.maxPixelDimension = maxPixelDimension
         self.onLoad = onLoad
         self.content = content
         self.placeholder = placeholder
@@ -88,7 +154,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         }
 
         // Cache hit — instant, no flash.
-        if let cached = ImageCacheStore.shared.get(url) {
+        if let cached = ImageCacheStore.shared.get(url, maxPixelDimension: maxPixelDimension) {
             if self.nsImage !== cached {
                 self.nsImage = cached
             }
@@ -97,18 +163,12 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
             return
         }
 
-        do {
-            let requestURL = url
-            let (data, _) = try await URLSession.shared.data(from: url)
+        let requestURL = url
+        if let img = await ImageCacheStore.shared.load(requestURL, maxPixelDimension: maxPixelDimension) {
             guard !Task.isCancelled, self.url == requestURL else { return }
-            if let img = NSImage(data: data) {
-                ImageCacheStore.shared.set(img, for: requestURL)
-                self.nsImage = img
-                loadedURL = requestURL
-                onLoad?()
-            }
-        } catch {
-            // Silent — the placeholder stays visible on failure.
+            self.nsImage = img
+            loadedURL = requestURL
+            onLoad?()
         }
     }
 }
