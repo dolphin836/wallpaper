@@ -76,6 +76,40 @@ final class AuthService: NSObject {
         } catch {}
     }
 
+    @discardableResult
+    func refreshCoins() async -> Int? {
+        guard token != nil else { return nil }
+        do {
+            let coins = try await APIClient.shared.fetchCoins()
+            if let u = user {
+                user = User(
+                    id: u.id,
+                    username: u.username,
+                    email: u.email,
+                    nickname: u.nickname,
+                    avatarURL: u.avatarURL,
+                    bio: u.bio,
+                    coins: coins,
+                    status: u.status,
+                    createdAt: u.createdAt,
+                    likesPublic: u.likesPublic,
+                    favoritesPublic: u.favoritesPublic,
+                    downloadsPublic: u.downloadsPublic
+                )
+            } else {
+                await refreshProfile()
+            }
+            return user?.coins ?? coins
+        } catch let error as APIError {
+            if case .unauthorized = error {
+                logout()
+            }
+            return nil
+        } catch {
+            return nil
+        }
+    }
+
 }
 
 extension AuthService: ASWebAuthenticationPresentationContextProviding {

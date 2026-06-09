@@ -877,13 +877,14 @@ struct DetailPage: View {
         return requiresTrade(detail) ? "Download & set · 1 coin" : "Download & set"
     }
 
-    private func canSpendForDownload(_ detail: WallpaperDetail) -> Bool {
-        if isOwner(detail) || detail.isDownloaded == true { return true }
-        return (auth.user?.coins ?? 0) > 0
-    }
-
     private func isLocalDownloaded(_ detail: WallpaperDetail) -> Bool {
         manager.localURL(for: detail.id) != nil
+    }
+
+    private func refreshCoinsIfTradeRequired(_ detail: WallpaperDetail) async {
+        if requiresTrade(detail) {
+            await auth.refreshCoins()
+        }
     }
 
     private func downloadOriginal(_ detail: WallpaperDetail) async {
@@ -896,10 +897,7 @@ struct DetailPage: View {
             auth.login()
             return
         }
-        guard canSpendForDownload(detail) else {
-            downloadNotice = .insufficientCoins
-            return
-        }
+        await refreshCoinsIfTradeRequired(detail)
         downloadNotice = nil
         do {
             try await manager.downloadOriginal(wallpaper: lightWallpaper(detail))
@@ -927,10 +925,7 @@ struct DetailPage: View {
             auth.login()
             return
         }
-        guard canSpendForDownload(detail) else {
-            downloadNotice = .insufficientCoins
-            return
-        }
+        await refreshCoinsIfTradeRequired(detail)
         downloadNotice = nil
         do {
             try await manager.downloadOriginal(wallpaper: wallpaper)
