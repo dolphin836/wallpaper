@@ -1,239 +1,473 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AiOutlineApple,
+  AiOutlineDownload,
   AiOutlineMenu,
+  AiOutlineSync,
   AiOutlineThunderbolt,
-} from 'react-icons/ai';
-import { BiCollection } from 'react-icons/bi';
-import { Link } from 'react-router-dom';
-import { getMacRelease } from '../api';
-import type { MacRelease, MacReleaseEntry } from '../types';
-import PageMeta from '../components/PageMeta';
-import Spinner from '../components/Spinner';
-import EmptyState from '../components/EmptyState';
+} from "react-icons/ai";
+import { BiCollection } from "react-icons/bi";
+import { Link } from "react-router-dom";
+import { getMacRelease } from "../api";
+import type { MacRelease, MacReleaseEntry } from "../types";
+import PageMeta from "../components/PageMeta";
 
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  } catch {
-    return iso;
-  }
+const DEFAULT_MACOS_VERSION = "14.0";
+
+function formatReleaseDate(value?: string) {
+  if (!value) return "Latest";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
+function latestNotes(release: MacRelease) {
+  return release.releases?.[0]?.notes?.filter(Boolean).slice(0, 4) ?? [];
 }
 
 export default function DownloadMacPage() {
   const [release, setRelease] = useState<MacRelease | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
     getMacRelease()
-      .then((res) => setRelease(res.data.data))
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+      .then((res) => {
+        if (!cancelled) {
+          setRelease(res.data.data);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Unable to load the latest Mac release.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  if (loading) return <Spinner />;
-  if (error || !release) return <EmptyState message="Release info unavailable. Try again later." />;
-
-  const latest: MacReleaseEntry | undefined = release.releases[0];
+  const currentVersion = release?.current_version ?? "2.0";
+  const minimumMacOS = release?.min_macos_version ?? DEFAULT_MACOS_VERSION;
+  const currentRelease = release?.releases?.[0];
+  const notes = useMemo(() => (release ? latestNotes(release) : []), [release]);
 
   return (
-    <div className="bg-paper text-ink min-h-full">
+    <main className="min-h-full bg-paper text-ink">
       <PageMeta
-        title="Wallpaper Exchange for macOS"
-        description="Free menu-bar companion app for macOS — browse, preview, and apply wallpapers in one click. Apple dynamic wallpaper support."
+        title="Download Mac App"
+        description="Download the Wallpaper Exchange app for macOS and keep the wallpaper archive close to your desktop."
       />
 
-      {/* Hero — 2 columns */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 px-6 sm:px-10 lg:px-14 pt-10 lg:pt-12 pb-10 border-b border-hair">
-        <div>
-          <div className="kicker text-muted inline-flex items-center gap-2">
-            <AiOutlineApple size={11} />
-            FOR MACOS {release.min_macos_version}+ · UNIVERSAL · v{release.current_version}
-          </div>
-          <h1 className="display text-[44px] sm:text-[64px] lg:text-[80px] leading-[0.92] tracking-[-0.03em] mt-4 text-ink">
-            The archive,<br />
-            <span className="italic-d">in your menu bar.</span>
-          </h1>
-          <p className="text-[14px] sm:text-[15px] text-ink-2 leading-[1.55] mt-5 max-w-[520px]">
-            A small companion app that lives in the macOS menu bar. Browse, preview, and apply
-            wallpapers in one click — including <strong className="text-ink">Apple dynamic</strong> wallpapers
-            that shift with the sun.
-          </p>
+      <section className="relative isolate overflow-hidden border-b border-hair">
+        <div
+          className="pointer-events-none absolute inset-0 -z-10 opacity-80"
+          style={{
+            background:
+              "radial-gradient(circle at 18% 14%, rgba(238, 122, 74, 0.2), transparent 34%), radial-gradient(circle at 82% 10%, rgba(79, 129, 190, 0.14), transparent 28%), linear-gradient(180deg, var(--color-paper), var(--color-paper-2))",
+          }}
+        />
 
-          <div className="flex items-center gap-4 flex-wrap mt-7">
-            <a
-              href={release.current_dmg_url}
-              className="inline-flex items-center gap-3 px-6 py-4 rounded-full bg-ink text-paper text-[15px] font-semibold no-underline hover:bg-ink-2 transition-colors"
-            >
-              <AiOutlineApple size={16} /> Download for macOS
-              <span
-                className="pl-3 ml-1 mono text-[11px] font-medium tracking-[0.1em]"
-                style={{ borderLeft: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.6)' }}
-              >
-                DMG
-              </span>
-            </a>
-            <div className="mono text-[11px] tracking-[0.06em] text-muted">
-              Free · auto-updates · signed and notarized
-            </div>
-          </div>
+        <div className="mx-auto grid max-w-[1500px] gap-10 px-5 py-8 sm:px-8 lg:grid-cols-[minmax(340px,0.78fr)_minmax(560px,1.22fr)] lg:px-12 lg:py-12">
+          {loading ? (
+            <DownloadMacSkeleton />
+          ) : error || !release ? (
+            <DownloadMacError message={error ?? "Unable to load the latest Mac release."} />
+          ) : (
+            <>
+              <div className="flex min-h-[620px] flex-col justify-between">
+                <div>
+                  <div className="label-rule">
+                    <span>Mac App</span>
+                    <span>v{currentVersion}</span>
+                  </div>
 
-          {/* System requirements table */}
-          <div
-            className="mt-9 grid grid-cols-1 sm:grid-cols-3"
-            style={{ border: '1px solid var(--color-hair)', borderRight: 'none' }}
-          >
-            {[
-              ['MACOS', `${release.min_macos_version} or later`],
-              ['ARCHITECTURE', 'Apple Silicon · Intel'],
-              ['SIGN-IN', 'Same archive account'],
-            ].map(([k, v]) => (
-              <div key={k} className="px-4 py-3.5" style={{ borderRight: '1px solid var(--color-hair)' }}>
-                <div className="kicker text-muted">{k}</div>
-                <div className="text-[12px] text-ink mt-1">{v}</div>
+                  <div className="mt-10 max-w-[640px]">
+                    <p className="kicker">Wallpaper Exchange desktop client</p>
+                    <h1 className="display mt-4 text-[3.4rem] leading-[0.96] sm:text-[5.6rem] lg:text-[6.6rem]">
+                      Keep the archive close to the desktop.
+                    </h1>
+                    <p className="mt-6 max-w-xl text-base leading-8 text-muted sm:text-lg">
+                      Browse fresh wallpapers, download originals, and rotate local collections from a quiet macOS menu-bar app.
+                    </p>
+                  </div>
+
+                  <div className="mt-8 flex flex-wrap items-center gap-3">
+                    <a
+                      href={release.current_dmg_url}
+                      download
+                      className="inline-flex h-12 items-center gap-3 rounded-full bg-accent px-6 text-sm font-semibold text-white shadow-[0_16px_38px_rgba(238,122,74,0.26)] transition hover:-translate-y-0.5 hover:bg-accent-strong focus:outline-none focus:ring-2 focus:ring-accent/45"
+                    >
+                      <AiOutlineApple className="text-xl" />
+                      Download DMG
+                    </a>
+                    <a
+                      href="#release-notes"
+                      className="inline-flex h-12 items-center gap-2 rounded-full border border-hair bg-paper/75 px-5 text-sm font-semibold text-ink transition hover:border-accent/45 hover:text-accent"
+                    >
+                      <AiOutlineMenu className="text-lg" />
+                      Release notes
+                    </a>
+                  </div>
+
+                  <dl className="mt-8 grid max-w-2xl grid-cols-1 gap-px overflow-hidden rounded-[14px] border border-hair bg-hair sm:grid-cols-3">
+                    <DownloadStat label="Version" value={`v${currentVersion}`} />
+                    <DownloadStat label="Requires" value={`macOS ${minimumMacOS}+`} />
+                    <DownloadStat label="Updated" value={formatReleaseDate(currentRelease?.released_at)} />
+                  </dl>
+                </div>
+
+                <div className="mt-10 grid gap-4 border-t border-hair pt-6 sm:grid-cols-3">
+                  <QuickPoint icon={<AiOutlineDownload />} label="Original files" text="Downloads keep the full wallpaper asset when available." />
+                  <QuickPoint icon={<AiOutlineSync />} label="Auto rotation" text="Use your own interval for local wallpaper changes." />
+                  <QuickPoint icon={<BiCollection />} label="Library first" text="Keep downloads, likes, favorites, and uploads in reach." />
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Stylized device mockup (static) */}
-        <DeviceMockup />
-      </section>
-
-      {/* Features — 4 columns */}
-      <section className="px-6 sm:px-10 lg:px-14 py-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-0 border-b border-hair">
-        {([
-          { title: 'One-click apply',     body: 'Right-click any wallpaper in the menu-bar grid to set it as your desktop.' },
-          { title: 'Apple Dynamic',       body: 'Full support for solar / 24-hour / appearance-linked wallpapers.' },
-          { title: 'Live sync',           body: 'Your favorites and likes sync with the web archive. No setup required.' },
-          { title: 'Collections offline', body: 'Subscribe a collection — every wallpaper is cached locally.' },
-        ] as const).map((f, i) => (
-          <div key={f.title} className={`lg:px-6 ${i > 0 ? 'lg:border-l border-hair' : ''}`}>
-            <div className="kicker text-muted">{String(i + 1).padStart(2, '0')}</div>
-            <div className="display text-[22px] leading-tight mt-1.5">{f.title}</div>
-            <p className="text-[13px] text-ink-2 leading-[1.5] mt-2">{f.body}</p>
-          </div>
-        ))}
-      </section>
-
-      {/* Changelog stub */}
-      <section className="px-6 sm:px-10 lg:px-14 py-6 bg-paper-2 flex justify-between items-center gap-6 flex-wrap">
-        <div>
-          <div className="kicker text-muted">
-            v{release.current_version}{latest ? ` · ${formatDate(latest.released_at)}` : ''}
-          </div>
-          {latest && latest.notes.length > 0 && (
-            <div className="text-[13px] text-ink-2 mt-1">{latest.notes[0]}</div>
+              <div className="relative flex min-h-[620px] items-center">
+                <MacAppPreview version={currentVersion} />
+              </div>
+            </>
           )}
         </div>
-        <a
-          href="#changelog"
-          className="mono text-[11px] tracking-[0.12em] uppercase text-ink no-underline hover:opacity-80"
-          style={{ textDecoration: 'underline', textDecorationColor: 'var(--color-hair)', textUnderlineOffset: 4 }}
-        >
-          FULL CHANGELOG →
-        </a>
       </section>
 
-      {/* Full changelog */}
-      {release.releases.length > 0 && (
-        <section id="changelog" className="px-6 sm:px-10 lg:px-14 py-10">
-          <div className="label-rule mb-5">Changelog · {release.releases.length}</div>
-          <ul className="list-none p-0 m-0 space-y-6">
-            {release.releases.map((r) => (
-              <li key={r.version} className="border-b border-hair pb-5 last:border-b-0">
-                <div className="flex items-baseline justify-between gap-4 flex-wrap">
-                  <div className="display text-[22px] leading-tight">v{r.version}</div>
-                  <div className="mono text-[10px] tracking-[0.12em] uppercase text-muted">
-                    {formatDate(r.released_at)}
+      {release ? (
+        <>
+          <section className="mx-auto grid max-w-[1500px] gap-8 px-5 py-12 sm:px-8 lg:grid-cols-[0.95fr_1.05fr] lg:px-12">
+            <div className="border-t border-hair pt-6">
+              <p className="kicker">Why install it</p>
+              <h2 className="display mt-4 max-w-2xl text-[2.7rem] leading-none sm:text-[4.5rem]">
+                A desktop layer for the same wallpaper archive.
+              </h2>
+            </div>
+
+            <div className="grid gap-px overflow-hidden rounded-[18px] border border-hair bg-hair sm:grid-cols-2">
+              <FeatureTile
+                icon={<AiOutlineApple />}
+                title="Built for macOS"
+                text="Runs from the menu bar with a compact app window, local downloads, and desktop wallpaper actions."
+              />
+              <FeatureTile
+                icon={<AiOutlineThunderbolt />}
+                title="Fast daily browsing"
+                text="Open the newest archive drops, inspect details, and jump between collections without leaving your desktop."
+              />
+              <FeatureTile
+                icon={<AiOutlineSync />}
+                title="Multi-display aware"
+                text="Set wallpapers across connected displays and keep rotation behavior consistent with your setup."
+              />
+              <FeatureTile
+                icon={<BiCollection />}
+                title="Same account library"
+                text="Your uploads, downloads, favorites, likes, and coins stay connected to the web archive."
+              />
+            </div>
+          </section>
+
+          <section
+            id="release-notes"
+            className="mx-auto grid max-w-[1500px] gap-8 border-t border-hair px-5 py-12 sm:px-8 lg:grid-cols-[0.76fr_1.24fr] lg:px-12"
+          >
+            <div>
+              <p className="kicker">Current build</p>
+              <h2 className="display mt-4 text-[2.7rem] leading-none sm:text-[4.1rem]">v{currentVersion}</h2>
+              <p className="mt-5 max-w-md text-sm leading-7 text-muted">
+                The download button always points to the latest Mac release reported by the Wallpaper Exchange API.
+              </p>
+              <a
+                href={release.current_dmg_url}
+                download
+                className="mt-7 inline-flex h-11 items-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-accent"
+              >
+                <AiOutlineDownload className="text-lg" />
+                Download latest
+              </a>
+            </div>
+
+            <div className="grid gap-6">
+              <div className="rounded-[18px] border border-hair bg-paper-2/80 p-6">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hair pb-4">
+                  <div>
+                    <p className="kicker">Latest notes</p>
+                    <p className="mt-2 text-sm text-muted">{formatReleaseDate(currentRelease?.released_at)}</p>
                   </div>
+                  <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
+                    v{currentVersion}
+                  </span>
                 </div>
-                {r.notes.length > 0 && (
-                  <ul className="mt-3 ml-5 list-disc text-[13px] text-ink-2 leading-[1.5] space-y-1">
-                    {r.notes.map((n, i) => <li key={i}>{n}</li>)}
+
+                {notes.length ? (
+                  <ul className="mt-5 grid gap-3">
+                    {notes.map((note, index) => (
+                      <li key={`${note}-${index}`} className="flex gap-3 text-sm leading-7 text-ink">
+                        <span className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-accent" />
+                        <span>{note}</span>
+                      </li>
+                    ))}
                   </ul>
+                ) : (
+                  <p className="mt-5 text-sm leading-7 text-muted">No release notes were provided for this build.</p>
                 )}
-              </li>
-            ))}
-          </ul>
-          {/* Tiny "back to top" affordance using a real Link wouldn't make
-              sense — drop a passive note instead. */}
-          <Link to="/" className="hidden" aria-hidden />
-        </section>
-      )}
+              </div>
+
+              <ReleaseHistory releases={release.releases ?? []} />
+            </div>
+          </section>
+
+          <section className="mx-auto max-w-[1500px] border-t border-hair px-5 py-10 sm:px-8 lg:px-12">
+            <div className="flex flex-col gap-5 rounded-[18px] bg-ink px-6 py-6 text-paper sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="kicker text-paper/55">Install path</p>
+                <p className="mt-2 text-lg font-semibold">Download the DMG, move the app to Applications, then sign in with your Wallpaper Exchange account.</p>
+              </div>
+              <Link
+                to="/discover"
+                className="inline-flex h-11 items-center justify-center rounded-full bg-paper px-5 text-sm font-semibold text-ink transition hover:bg-accent hover:text-white"
+              >
+                Browse wallpapers
+              </Link>
+            </div>
+          </section>
+        </>
+      ) : null}
+    </main>
+  );
+}
+
+function DownloadStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-paper-2 px-5 py-4">
+      <dt className="kicker text-[0.65rem]">{label}</dt>
+      <dd className="mt-2 text-sm font-semibold text-ink">{value}</dd>
     </div>
   );
 }
 
-/**
- * Static visual mock of the macOS menu-bar popover. Pure CSS so we don't
- * need to ship a screenshot. Tinted gradient background + a blurred
- * paper-colored popover sitting in the top-right corner.
- */
-function DeviceMockup() {
+function QuickPoint({ icon, label, text }: { icon: ReactNode; label: string; text: string }) {
   return (
-    <div className="relative aspect-[5/4] rounded-md overflow-hidden bg-paper-3" style={{ border: '1px solid var(--color-hair)' }}>
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            'linear-gradient(135deg, oklch(58% 0.1 270) 0%, oklch(72% 0.08 80) 50%, oklch(48% 0.12 145) 100%)',
-        }}
-      />
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.35))' }} />
+    <div className="flex gap-3">
+      <span className="mt-1 flex h-9 w-9 flex-none items-center justify-center rounded-full border border-hair bg-paper-2 text-lg text-accent">
+        {icon}
+      </span>
+      <div>
+        <h3 className="text-sm font-semibold text-ink">{label}</h3>
+        <p className="mt-1 text-xs leading-6 text-muted">{text}</p>
+      </div>
+    </div>
+  );
+}
 
-      <div
-        className="absolute right-6 top-6 sm:right-8 sm:top-8 w-[280px]"
-        style={{
-          background: 'rgba(245,243,238,0.94)',
-          border: '1px solid rgba(0,0,0,0.08)',
-          backdropFilter: 'blur(20px) saturate(1.2)',
-          WebkitBackdropFilter: 'blur(20px) saturate(1.2)',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-        }}
-      >
-        <div
-          className="flex justify-between items-center px-3.5 py-2.5 mono text-[9px] uppercase text-muted"
-          style={{ borderBottom: '1px solid rgba(0,0,0,0.06)', letterSpacing: '0.14em' }}
-        >
-          <span>WALLPAPER EXCHANGE</span>
-          <AiOutlineApple size={11} />
+function FeatureTile({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
+  return (
+    <article className="min-h-[210px] bg-paper px-6 py-6">
+      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-accent/10 text-xl text-accent">
+        {icon}
+      </div>
+      <h3 className="mt-8 text-lg font-semibold text-ink">{title}</h3>
+      <p className="mt-3 text-sm leading-7 text-muted">{text}</p>
+    </article>
+  );
+}
+
+function ReleaseHistory({ releases }: { releases: MacReleaseEntry[] }) {
+  if (!releases.length) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-[18px] border border-hair bg-paper p-6">
+      <div className="label-rule">
+        <span>Changelog</span>
+        <span>{releases.length} builds</span>
+      </div>
+      <ol className="mt-5 divide-y divide-hair">
+        {releases.slice(0, 5).map((entry) => (
+          <li key={entry.version} className="grid gap-3 py-4 sm:grid-cols-[140px_1fr]">
+            <div>
+              <p className="text-sm font-semibold text-ink">v{entry.version}</p>
+              <p className="mt-1 text-xs text-muted">{formatReleaseDate(entry.released_at)}</p>
+            </div>
+            <ul className="grid gap-2">
+              {(entry.notes ?? []).slice(0, 3).map((note, index) => (
+                <li key={`${entry.version}-${index}`} className="text-sm leading-6 text-muted">
+                  {note}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function MacAppPreview({ version }: { version: string }) {
+  const swatches = ["#ee7a4a", "#202020", "#5374a3", "#e9b15d", "#8b2740"];
+
+  return (
+    <div className="w-full">
+      <div className="relative overflow-hidden rounded-[24px] border border-hair bg-paper shadow-[0_28px_90px_rgba(32,32,32,0.16)]">
+        <div className="flex h-12 items-center justify-between border-b border-hair bg-paper-2 px-5">
+          <div className="flex items-center gap-2">
+            <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
+            <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
+            <span className="h-3 w-3 rounded-full bg-[#28c840]" />
+          </div>
+          <span className="rounded-full border border-hair bg-paper px-3 py-1 text-xs font-semibold text-muted">
+            v{version}
+          </span>
         </div>
-        <div className="grid grid-cols-2 gap-1.5 p-2.5">
-          {[
-            'oklch(64% 0.21 42)',
-            'oklch(56% 0.18 270)',
-            'oklch(72% 0.12 145)',
-            'oklch(48% 0.20 30)',
-          ].map((c, i) => (
+
+        <div className="grid min-h-[560px] grid-cols-[180px_1fr] bg-paper">
+          <aside className="border-r border-hair bg-paper-2/72 p-5">
+            <div className="flex items-center gap-3">
+              <div className="grid h-9 w-9 place-items-center rounded-[10px] bg-accent/14 text-accent">
+                <AiOutlineApple />
+              </div>
+              <div>
+                <p className="font-serif text-lg font-semibold leading-none">Wallpaper</p>
+                <p className="mt-1 text-[0.62rem] font-bold uppercase text-muted">Exchange</p>
+              </div>
+            </div>
+
+            <nav className="mt-9 grid gap-2 text-sm">
+              {["Home", "Discover", "Weekly", "Collections"].map((item, index) => (
+                <span
+                  key={item}
+                  className={[
+                    "rounded-[8px] px-3 py-2 font-semibold",
+                    index === 1 ? "bg-accent/12 text-accent" : "text-muted",
+                  ].join(" ")}
+                >
+                  {item}
+                </span>
+              ))}
+            </nav>
+
+            <div className="absolute bottom-5 left-5 right-[calc(100%-180px+20px)] rounded-full border border-hair bg-paper px-4 py-3 text-center text-xs font-bold text-ink shadow-sm">
+              740 coins
+            </div>
+          </aside>
+
+          <div className="relative overflow-hidden p-6">
             <div
-              key={i}
-              className="aspect-[16/10] rounded-sm"
+              className="absolute inset-0 opacity-90"
               style={{
-                background: c,
-                border: i === 0 ? '2px solid var(--color-accent)' : '1px solid rgba(0,0,0,0.06)',
+                background:
+                  "radial-gradient(circle at 30% 20%, rgba(238,122,74,0.28), transparent 36%), radial-gradient(circle at 78% 72%, rgba(80,115,160,0.24), transparent 32%), linear-gradient(135deg, rgba(250,244,235,0.95), rgba(230,236,238,0.95))",
               }}
             />
-          ))}
-        </div>
-        <div className="px-3.5 py-2.5 text-[11px] flex justify-between" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-          <span className="text-ink">Latest from the wall</span>
-          <span className="text-accent font-semibold">Applied</span>
-        </div>
-        <button className="w-full py-2.5 bg-ink text-paper text-[12px] font-medium border-0 cursor-pointer">
-          Open in archive →
-        </button>
-      </div>
+            <div className="relative flex items-center justify-between gap-4">
+              <div className="flex gap-2">
+                {["All", "Nature", "City", "Space"].map((item, index) => (
+                  <span
+                    key={item}
+                    className={[
+                      "rounded-full px-4 py-2 text-xs font-semibold",
+                      index === 0 ? "bg-ink text-paper" : "bg-paper/88 text-ink",
+                    ].join(" ")}
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+              <span className="rounded-full bg-paper/88 px-4 py-2 text-xs font-semibold text-muted">Latest</span>
+            </div>
 
-      {/* Feature trio icons floating below the popover for visual rhythm */}
-      <div
-        className="absolute left-6 sm:left-8 bottom-6 sm:bottom-8 flex items-center gap-2.5 px-3 py-2 rounded-full"
-        style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
-      >
-        <AiOutlineMenu size={14} className="text-white/85" />
-        <AiOutlineThunderbolt size={14} className="text-white/85" />
-        <BiCollection size={14} className="text-white/85" />
+            <div className="relative mx-auto mt-8 max-w-[650px] rounded-[28px] border border-white/35 bg-paper/30 px-10 py-9 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
+              <div className="mx-auto aspect-[16/9] max-w-[500px] overflow-hidden rounded-[18px] border-[8px] border-ink bg-ink shadow-[0_26px_60px_rgba(32,32,32,0.22)]">
+                <div
+                  className="h-full w-full"
+                  style={{
+                    background:
+                      "radial-gradient(circle at 74% 24%, rgba(255,220,132,0.92), transparent 18%), linear-gradient(140deg, #090909 0%, #182f48 42%, #f47a29 43%, #f7c477 62%, #16110d 100%)",
+                  }}
+                />
+              </div>
+              <div className="mx-auto h-12 w-28 bg-gradient-to-b from-ink/55 to-ink/35" />
+              <div className="mx-auto h-2 w-56 rounded-full bg-ink/42" />
+              <div className="mx-auto mt-6 grid w-[280px] grid-cols-3 rounded-full border border-white/60 bg-paper/70 p-1 text-center text-xs font-bold uppercase text-muted">
+                <span className="rounded-full bg-ink px-3 py-2 text-paper">Plain</span>
+                <span className="px-3 py-2">Home</span>
+                <span className="px-3 py-2">Lock</span>
+              </div>
+            </div>
+
+            <div className="relative mt-6 grid grid-cols-3 gap-4">
+              {swatches.map((color, index) => (
+                <div
+                  key={color}
+                  className="aspect-[16/10] overflow-hidden rounded-[10px] border border-white/55 bg-ink shadow-sm"
+                  style={{
+                    background:
+                      index % 2 === 0
+                        ? `linear-gradient(135deg, ${color}, #101010 72%)`
+                        : `radial-gradient(circle at 70% 30%, ${color}, #101010 65%)`,
+                  }}
+                >
+                  <span className="m-2 inline-flex rounded-full bg-paper/78 px-2 py-0.5 text-[0.65rem] font-bold text-ink">
+                    {index === 2 ? "8K" : "4K"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DownloadMacSkeleton() {
+  return (
+    <>
+      <div className="min-h-[620px] animate-pulse">
+        <div className="h-4 w-full rounded-full bg-hair/70" />
+        <div className="mt-12 h-3 w-44 rounded-full bg-hair/70" />
+        <div className="mt-5 h-20 w-11/12 rounded-[18px] bg-hair/70" />
+        <div className="mt-3 h-20 w-3/4 rounded-[18px] bg-hair/60" />
+        <div className="mt-7 h-5 w-3/4 rounded-full bg-hair/60" />
+        <div className="mt-10 flex gap-3">
+          <div className="h-12 w-40 rounded-full bg-hair/70" />
+          <div className="h-12 w-36 rounded-full bg-hair/60" />
+        </div>
+        <div className="mt-9 grid grid-cols-3 gap-px overflow-hidden rounded-[14px] border border-hair bg-hair">
+          <div className="h-24 bg-paper-2" />
+          <div className="h-24 bg-paper-2" />
+          <div className="h-24 bg-paper-2" />
+        </div>
+      </div>
+      <div className="min-h-[620px] animate-pulse rounded-[24px] border border-hair bg-paper-2" />
+    </>
+  );
+}
+
+function DownloadMacError({ message }: { message: string }) {
+  return (
+    <div className="lg:col-span-2">
+      <div className="mx-auto max-w-2xl rounded-[20px] border border-hair bg-paper px-6 py-10 text-center shadow-sm">
+        <p className="kicker">Mac release</p>
+        <h1 className="display mt-3 text-[3rem] leading-none sm:text-[4.5rem]">Download temporarily unavailable.</h1>
+        <p className="mt-5 text-sm leading-7 text-muted">{message}</p>
+        <Link
+          to="/"
+          className="mt-7 inline-flex h-11 items-center justify-center rounded-full bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-accent"
+        >
+          Back home
+        </Link>
       </div>
     </div>
   );
