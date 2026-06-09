@@ -197,25 +197,25 @@ struct MyCoinsView: View {
     private var balanceCard: some View {
         HStack(alignment: .center, spacing: 18) {
             VStack(alignment: .leading, spacing: 4) {
-                Kicker(text: "Your balance", tint: Color.paper.opacity(0.6))
+                Kicker(text: "Your balance", tint: Color.coinLabel)
                 Text("\(auth.user?.coins ?? 0)")
                     .font(.system(size: 44, weight: .semibold, design: .serif))
-                    .foregroundStyle(Color.paper)
+                    .foregroundStyle(Color.coinValue)
                     .monospacedDigit()
                 Text("Earn +1 for each upload and +1 each time someone downloads yours.")
-                    .font(.sans12).foregroundStyle(Color.paper.opacity(0.7))
+                    .font(.sans12).foregroundStyle(Color.coinLabel)
                     .frame(maxWidth: 420, alignment: .leading)
             }
             Spacer()
-            ZStack {
-                Circle().fill(Color.accent)
-                Circle().stroke(Color.white.opacity(0.4), lineWidth: 1)
-                Text("⊙").font(.system(size: 36, weight: .bold)).foregroundStyle(.white)
-            }
-            .frame(width: 80, height: 80)
+            CoinDisc(size: 80, showSymbol: true)
         }
         .padding(22)
-        .background(RoundedRectangle(cornerRadius: 18).fill(Color.ink))
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(LinearGradient(colors: [.coinSurfaceStart, .coinSurfaceEnd], startPoint: .topLeading, endPoint: .bottomTrailing))
+        )
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.coinBorder, lineWidth: 1))
+        .shadow(color: Color.black.opacity(0.18), radius: 14, x: 0, y: 10)
     }
 
     private var ledgerCard: some View {

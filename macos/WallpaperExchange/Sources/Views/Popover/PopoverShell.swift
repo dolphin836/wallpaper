@@ -96,27 +96,7 @@ struct PopoverHeaderView: View {
     // that this is the value/currency moment. Ink pill background with a
     // minted-coin glyph to the left and a mono digit count.
     private func coinPill(coins: Int) -> some View {
-        HStack(spacing: 6) {
-            ZStack {
-                Circle().fill(Color.accent)
-                // inset highlight + shadow approximate the minted-coin look
-                // described in the design ("inset 0 -2px ... 0 1px ...").
-                Circle()
-                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
-                    .padding(0.5)
-                    .blendMode(.plusLighter)
-            }
-            .frame(width: 18, height: 18)
-            Text("\(coins)")
-                .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                .tracking(0.3)
-                .foregroundStyle(Color.paper)
-                .monospacedDigit()
-        }
-        .padding(.leading, 5)
-        .padding(.trailing, 11)
-        .padding(.vertical, 5)
-        .background(Capsule().fill(Color.ink))
+        MiniCoinPill(coins: coins)
     }
 }
 

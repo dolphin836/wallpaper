@@ -58,14 +58,7 @@ struct SettingsView: View {
                         Text("@\(u.username)")
                             .font(.system(size: 11, weight: .regular, design: .monospaced))
                             .foregroundStyle(Color.muted)
-                        HStack(spacing: 6) {
-                            Image(systemName: "circle.hexagongrid.fill")
-                                .font(.system(size: 10))
-                                .foregroundStyle(Color.accent)
-                            Text("\(u.coins) coins")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(Color.ink2)
-                        }
+                        MiniCoinPill(coins: u.coins)
                         .padding(.top, 2)
                     }
                     Spacer()

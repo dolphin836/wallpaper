@@ -382,19 +382,18 @@ struct AccountHeader: View {
 
     private var balanceCard: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("BALANCE").font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(2.0).foregroundStyle(Color.muted)
+            Text("BALANCE").font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(2.0).foregroundStyle(Color.coinLabel)
             HStack(spacing: 10) {
-                Circle().fill(RadialGradient(colors: [Color(hex: "#f6d68a"), Color(hex: "#d8a23a")], center: .topLeading, startRadius: 1, endRadius: 30))
-                    .frame(width: 32, height: 32)
-                    .overlay(Image(systemName: "circle.hexagongrid.fill").font(.system(size: 13)).foregroundStyle(.white.opacity(0.9)))
-                Text("\(auth.user?.coins ?? 0)").font(.system(size: 38, weight: .semibold, design: .monospaced)).foregroundStyle(Color.ink)
-                Text("COINS").font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(2.0).foregroundStyle(Color.muted)
+                CoinDisc(size: 32, showSymbol: true)
+                Text("\(auth.user?.coins ?? 0)").font(.system(size: 38, weight: .semibold, design: .monospaced)).foregroundStyle(Color.coinValue)
+                Text("COINS").font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(2.0).foregroundStyle(Color.coinLabel)
             }
         }
         .padding(.horizontal, 22).padding(.vertical, 16)
         .background(RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(LinearGradient(colors: [Color(hex: "#fbf2dd").opacity(0.92), Color(hex: "#f3e2c2").opacity(0.92)], startPoint: .topLeading, endPoint: .bottomTrailing)))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color(hex: "#e6c48a"), lineWidth: 1))
+            .fill(LinearGradient(colors: [.coinSurfaceStart, .coinSurfaceEnd], startPoint: .topLeading, endPoint: .bottomTrailing)))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.coinBorder, lineWidth: 1))
+        .shadow(color: Color.black.opacity(0.16), radius: 12, x: 0, y: 8)
     }
 
     private func pill(_ label: String, primary: Bool = false, icon: String? = nil, action: @escaping () -> Void) -> some View {
@@ -706,7 +705,7 @@ struct LedgerTab: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
-                summary("BALANCE", "\(auth.user?.coins ?? 0)", "Lifetime balance", tint: Color(hex: "#d8a23a"))
+                coinSummary("BALANCE", "\(auth.user?.coins ?? 0)", "Lifetime balance")
                 summary("EARNED", "+\(earned)", "This page", tint: Color(hex: "#3e9e5e"))
                 summary("SPENT", "−\(spent)", "This page", tint: Color.ink2)
                 summary("NEXT EARN", "+1", "Per upload", tint: Color.ink2)
@@ -751,6 +750,29 @@ struct LedgerTab: View {
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.paper.opacity(0.5)))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.hair, lineWidth: 1))
+    }
+
+    private func coinSummary(_ kicker: String, _ value: String, _ sub: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 7) {
+                CoinDisc(size: 18)
+                Text(kicker)
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .tracking(1.6)
+                    .foregroundStyle(Color.coinLabel)
+            }
+            Text(value)
+                .font(.system(size: 30, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Color.coinValue)
+                .monospacedDigit()
+            Text(sub).font(.system(size: 10, design: .monospaced)).foregroundStyle(Color.coinLabel)
+        }
+        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(LinearGradient(colors: [.coinSurfaceStart, .coinSurfaceEnd], startPoint: .topLeading, endPoint: .bottomTrailing))
+        )
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.coinBorder, lineWidth: 1))
     }
 
     private func ledgerRow(_ tx: CoinTransaction) -> some View {
