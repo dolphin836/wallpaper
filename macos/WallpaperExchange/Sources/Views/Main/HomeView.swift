@@ -323,7 +323,7 @@ struct HomeView: View {
 //   • 16:9 aspect, 24pt rounded
 //   • Bottom-gradient overlay
 //   • Left: Curation · Week N · YEAR kicker + WxH · file-size meta
-//   • Right: white "○ Trade for 1" CTA pill with coin glyph
+//   • Right: adaptive "Trade for 1" CTA pill with coin glyph
 //   • Top-right: small resolution chip
 // No serif title in the overlay — web hero leads with the image and
 // metadata, not text. Hover lifts the card and deepens the shadow.
@@ -417,25 +417,30 @@ struct HeroCard: View {
                             .foregroundStyle(Color.white.opacity(0.78))
                     }
                     Spacer(minLength: 0)
-                    // .h3-cta — padding 13px 22px, font 13.5/600
-                    //   background white, color oklch(20% 0.014 240)
-                    //   border-radius 999px
-                    //   box-shadow 0 6px 22px -6px rgba(0,0,0,0.4)
+                    // .h3-cta — padding 13px 22px, font 13.5/600.
+                    // Uses the shared coin surface tokens so the CTA stays
+                    // warm and legible in both light and dark mode.
                     HStack(spacing: 10) {
-                        // .h3-coin — 11×11, linear-gradient(135deg,#f4ae66,#d57130)
-                        Circle()
-                            .fill(LinearGradient(
-                                colors: [Color(hex: "#f4ae66"), Color(hex: "#d57130")],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            ))
-                            .frame(width: 11, height: 11)
+                        CoinDisc(size: 12)
                         Text("Trade for 1")
                             .font(.system(size: 13.5, weight: .semibold))
+                            .foregroundStyle(Color.coinValue)
                     }
-                    .foregroundStyle(Color(hex: "#202229"))
                     .padding(.horizontal, 22).padding(.vertical, 13)
-                    .background(Capsule().fill(.white))
-                    .shadow(color: Color.black.opacity(0.40), radius: 22, x: 0, y: 6)
+                    .background(
+                        Capsule().fill(
+                            LinearGradient(
+                                colors: [.coinSurfaceStart, .coinSurfaceEnd],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    )
+                    .overlay(Capsule().strokeBorder(Color.coinBorder, lineWidth: 1))
+                    .shadow(color: hover ? Color.coinGlow : Color.black.opacity(0.22),
+                            radius: hover ? 14 : 10,
+                            x: 0,
+                            y: hover ? 8 : 4)
                 }
                 .padding(.top, 26)
                 .padding(.horizontal, 30)
