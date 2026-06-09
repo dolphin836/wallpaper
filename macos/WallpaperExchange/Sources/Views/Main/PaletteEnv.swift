@@ -62,9 +62,9 @@ final class PaletteEnv {
 extension Color {
     // Warm peach / sand / terracotta — matches the web's d3-c1/2/3
     // defaults so the mesh reads as the same product surface.
-    static let brandPaletteC1 = Color.adaptive(light: (0.94, 0.78, 0.55), dark: (0.257, 0.112, 0.076))
-    static let brandPaletteC2 = Color.adaptive(light: (0.95, 0.74, 0.62), dark: (0.011, 0.117, 0.163))
-    static let brandPaletteC3 = Color.adaptive(light: (0.96, 0.84, 0.66), dark: (0.308, 0.151, 0.052))
+    static let brandPaletteC1 = Color.adaptive(light: (0.94, 0.78, 0.55), dark: (0.168, 0.074, 0.052))
+    static let brandPaletteC2 = Color.adaptive(light: (0.95, 0.74, 0.62), dark: (0.016, 0.084, 0.116))
+    static let brandPaletteC3 = Color.adaptive(light: (0.96, 0.84, 0.66), dark: (0.198, 0.096, 0.042))
 }
 
 // Fixed-position blurred mesh, mirrors .d3-discover-mesh in
@@ -81,9 +81,9 @@ struct PageMesh: View {
             ZStack {
                 LinearGradient(
                     colors: [
-                        Color.paper.blended(with: env.c1, fraction: 0.20),
-                        Color.paper.blended(with: env.c2, fraction: 0.14),
-                        Color.paper.blended(with: env.c3, fraction: 0.18),
+                        Color.paper.blended(with: env.c1, fraction: dark ? 0.10 : 0.20),
+                        Color.paper.blended(with: env.c2, fraction: dark ? 0.07 : 0.14),
+                        Color.paper.blended(with: env.c3, fraction: dark ? 0.09 : 0.18),
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -101,8 +101,16 @@ struct PageMesh: View {
                                    startRadius: 0, endRadius: r * 0.55)
                 }
                 .blur(radius: 80)
-                .saturation(dark ? 2.0 : 1.4)
-                .opacity(dark ? 0.72 : 0.58)
+                .saturation(dark ? 1.35 : 1.4)
+                .opacity(dark ? 0.42 : 0.58)
+
+                if dark {
+                    LinearGradient(
+                        colors: [.black.opacity(0.22), .black.opacity(0.08), .black.opacity(0.18)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
             }
             .animation(.easeOut(duration: 0.42), value: env.c1)
             .animation(.easeOut(duration: 0.42), value: env.c2)

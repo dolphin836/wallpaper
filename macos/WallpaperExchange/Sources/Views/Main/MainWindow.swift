@@ -425,9 +425,9 @@ private enum ToolbarGroupStyle {
 
     var fill: Color {
         switch self {
-        case .navigation: Color.paper2.opacity(0.70)
+        case .navigation: Color.chromeControl
         case .primary: .clear
-        case .utility: Color.paper2.opacity(0.76)
+        case .utility: Color.chromeControl
         }
     }
 
@@ -442,7 +442,7 @@ private enum ToolbarGroupStyle {
 
     var shadow: Color {
         switch self {
-        case .utility: Color.black.opacity(0.035)
+        case .navigation, .utility: Color.chromeShadow
         default: .clear
         }
     }

@@ -7,9 +7,9 @@ import AppKit
 // tokens in one extension makes it obvious which sizes are 'new for
 // the main window' vs. 'existing popover'.
 extension Color {
-    static let paper3   = Color.adaptive(light: (0.922, 0.912, 0.892), dark: (0.098, 0.128, 0.142))
-    static let hairSoft = Color.adaptive(light: (0.902, 0.892, 0.876), dark: (0.100, 0.127, 0.141))
-    static let muted2   = Color.adaptive(light: (0.700, 0.692, 0.680), dark: (0.341, 0.373, 0.389))
+    static let paper3   = Color.adaptive(light: (0.922, 0.912, 0.892), dark: (0.074, 0.086, 0.094))
+    static let hairSoft = Color.adaptive(light: (0.902, 0.892, 0.876), dark: (0.132, 0.154, 0.166))
+    static let muted2   = Color.adaptive(light: (0.700, 0.692, 0.680), dark: (0.382, 0.414, 0.430))
 }
 
 extension Font {
@@ -100,31 +100,35 @@ enum WindowChrome {
 
 @MainActor
 enum ChromeLine {
+    private static var isDark: Bool {
+        NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
+
     static func border(for palette: PaletteEnv) -> Color {
         if palette.isDefault {
-            return Color.hair.opacity(0.92)
+            return isDark ? Color.chromeBorder : Color.hair.opacity(0.92)
         }
-        return Color.hair
-            .blended(with: palette.c2, fraction: 0.58)
-            .opacity(0.56)
+        let mix = isDark ? 0.18 : 0.58
+        let opacity = isDark ? 0.42 : 0.56
+        return Color.hair.blended(with: palette.c2, fraction: mix).opacity(opacity)
     }
 
     static func softBorder(for palette: PaletteEnv) -> Color {
         if palette.isDefault {
-            return Color.hair.opacity(0.62)
+            return isDark ? Color.chromeBorder.opacity(0.72) : Color.hair.opacity(0.62)
         }
-        return Color.hair
-            .blended(with: palette.c2, fraction: 0.64)
-            .opacity(0.42)
+        let mix = isDark ? 0.14 : 0.64
+        let opacity = isDark ? 0.32 : 0.42
+        return Color.hair.blended(with: palette.c2, fraction: mix).opacity(opacity)
     }
 
     static func divider(for palette: PaletteEnv) -> Color {
         if palette.isDefault {
-            return Color.hair.opacity(0.38)
+            return isDark ? Color.chromeDivider : Color.hair.opacity(0.38)
         }
-        return Color.hair
-            .blended(with: palette.c2, fraction: 0.68)
-            .opacity(0.30)
+        let mix = isDark ? 0.12 : 0.68
+        let opacity = isDark ? 0.22 : 0.30
+        return Color.hair.blended(with: palette.c2, fraction: mix).opacity(opacity)
     }
 }
 
