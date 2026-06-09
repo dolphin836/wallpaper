@@ -26,6 +26,8 @@ export default function AvatarStack({ users, total, size = 28 }: Props) {
               <img
                 src={u.avatar_url}
                 alt=""
+                loading="lazy"
+                decoding="async"
                 className="rounded-full object-cover"
                 style={{ width: size, height: size }}
               />

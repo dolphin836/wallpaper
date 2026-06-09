@@ -324,7 +324,7 @@ export default function DeviceFloatingWall({
             >
               <div className="dev-mockup-screen">
                 {featuredCover ? (
-                  <img src={featuredCover} alt="" draggable={false} />
+                  <img src={featuredCover} alt="" decoding="async" draggable={false} />
                 ) : (
                   <div className="dev-frame-empty" />
                 )}
@@ -555,6 +555,7 @@ function DevTile({
           src={w.preview_url || w.thumb_url}
           alt={w.title || `Wallpaper ${w.id}`}
           loading="lazy"
+          decoding="async"
           className="dev-spec-card-img"
           style={{ backgroundColor: w.dominant_color || undefined }}
         />

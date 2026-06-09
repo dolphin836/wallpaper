@@ -171,6 +171,9 @@ export default function WeeklyArchivePage() {
                         }}
                         src={selected.cover_url}
                         alt=""
+                        loading="eager"
+                        decoding="async"
+                        fetchPriority="high"
                         className={coverLoaded ? 'is-loaded' : ''}
                         onLoad={() => setCoverLoaded(true)}
                         onError={() => setCoverLoaded(true)}

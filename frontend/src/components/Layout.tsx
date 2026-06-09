@@ -228,6 +228,7 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
           <img
             src="/logo-192.png"
             alt=""
+            decoding="async"
             className="w-9 h-9 shrink-0 transition-transform duration-300 group-hover:rotate-[8deg]"
           />
           <div className="hidden sm:block leading-none">
@@ -305,7 +306,7 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
                   className="avatar-btn"
                 >
                   {user.avatar_url ? (
-                    <img src={user.avatar_url} alt="" className="avatar-img" />
+                    <img src={user.avatar_url} alt="" decoding="async" className="avatar-img" />
                   ) : (
                     <div className="avatar-img avatar-img--fallback">{initial}</div>
                   )}

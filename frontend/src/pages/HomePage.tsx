@@ -259,6 +259,9 @@ function HeroCard({ hero, week, year }: { hero: Wallpaper; week: number; year: n
       <img
         src={src}
         alt={hero.title || `Wallpaper ${hero.id}`}
+        loading="eager"
+        decoding="async"
+        fetchPriority="high"
         className={loaded ? 'h3-loaded' : ''}
         onLoad={() => setLoaded(true)}
         onError={() => setLoaded(true)}
@@ -307,6 +310,7 @@ function CollectionTile({
           src={c.cover_url || ''}
           alt={c.title}
           loading="lazy"
+          decoding="async"
           className={loaded ? 'h3-loaded' : ''}
           onLoad={() => setLoaded(true)}
           onError={() => setLoaded(true)}

@@ -146,6 +146,8 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
                 src={lowResSrc}
                 alt=""
                 aria-hidden
+                loading="lazy"
+                decoding="async"
                 onContextMenu={(e) => e.preventDefault()}
                 draggable={false}
                 className="absolute inset-0 w-full h-full object-cover select-none"
@@ -161,6 +163,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               src={highResSrc}
               alt=""
               loading="lazy"
+              decoding="async"
               onLoad={() => setHighLoaded(true)}
               onContextMenu={(e) => e.preventDefault()}
               draggable={false}
@@ -284,6 +287,8 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
                 src={lowResSrc}
                 alt=""
                 aria-hidden
+                loading="lazy"
+                decoding="async"
                 onContextMenu={(e) => e.preventDefault()}
                 draggable={false}
                 className="absolute inset-0 w-full h-full object-cover select-none"
@@ -303,6 +308,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               src={highResSrc}
               alt=""
               loading="lazy"
+              decoding="async"
               onLoad={() => setHighLoaded(true)}
               onContextMenu={(e) => e.preventDefault()}
               draggable={false}

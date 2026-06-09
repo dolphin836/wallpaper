@@ -659,6 +659,9 @@ export default function WallpaperDetailPage() {
           <img
             src={matchedVariant?.url || wallpaper.preview_url || wallpaper.original_url}
             alt=""
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
             onContextMenu={(e) => e.preventDefault()}
             draggable={false}
             className="max-w-full max-h-full object-contain select-none"
@@ -815,7 +818,7 @@ export default function WallpaperDetailPage() {
             the content stays legible regardless of source brightness. */}
         {heroImg && (
           <div className="wd-backdrop" aria-hidden>
-            <img src={heroImg} alt="" />
+            <img src={heroImg} alt="" decoding="async" />
           </div>
         )}
         <div className="wd-backdrop-scrim" aria-hidden />
@@ -864,6 +867,9 @@ export default function WallpaperDetailPage() {
                         key={i}
                         src={url}
                         alt=""
+                        loading={i === 0 ? 'eager' : 'lazy'}
+                        decoding="async"
+                        fetchPriority={i === 0 ? 'high' : 'auto'}
                         onContextMenu={(e) => e.preventDefault()}
                         draggable={false}
                         className={`absolute inset-0 w-full h-full object-contain select-none transition-opacity duration-500 ${frameIdx === i ? 'opacity-100' : 'opacity-0'}`}
@@ -904,6 +910,9 @@ export default function WallpaperDetailPage() {
                       <img
                         src={heroImg}
                         alt=""
+                        loading="eager"
+                        decoding="async"
+                        fetchPriority="high"
                         onContextMenu={(e) => e.preventDefault()}
                         draggable={false}
                         onClick={() => setFullscreen(true)}
@@ -1678,6 +1687,7 @@ function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
         <img
           src={poster}
           alt=""
+          decoding="async"
           draggable={false}
           className={`absolute inset-0 w-full h-full object-contain pointer-events-none transition-opacity duration-300 ${playing ? 'opacity-0' : 'opacity-100'}`}
           style={{ transitionTimingFunction: 'var(--ease-out-quart)' }}

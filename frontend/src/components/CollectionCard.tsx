@@ -97,6 +97,8 @@ function Tile({ tile }: { tile?: CollectionTile }) {
         src={tile.thumb_url}
         alt=""
         aria-hidden
+        loading="lazy"
+        decoding="async"
         className="absolute inset-0 w-full h-full object-cover"
         style={{
           filter: highLoaded ? 'none' : 'blur(12px)',
@@ -109,6 +111,7 @@ function Tile({ tile }: { tile?: CollectionTile }) {
           src={tile.preview_url}
           alt=""
           loading="lazy"
+          decoding="async"
           onLoad={() => setHighLoaded(true)}
           className="absolute inset-0 w-full h-full object-cover"
           style={{

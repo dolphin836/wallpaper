@@ -14,6 +14,7 @@ final class ImageCacheStore {
 
     private init() {
         cache.countLimit = 300 // ~300 distinct URLs, generous for a menubar feed
+        cache.totalCostLimit = 180 * 1024 * 1024
     }
 
     func get(_ url: URL) -> NSImage? {
@@ -21,7 +22,19 @@ final class ImageCacheStore {
     }
 
     func set(_ image: NSImage, for url: URL) {
-        cache.setObject(image, forKey: url as NSURL)
+        cache.setObject(image, forKey: url as NSURL, cost: estimatedCost(of: image))
+    }
+
+    private func estimatedCost(of image: NSImage) -> Int {
+        if let pixels = image.representations
+            .map({ max($0.pixelsWide, 0) * max($0.pixelsHigh, 0) })
+            .max(), pixels > 0 {
+            return max(1, pixels * 4)
+        }
+
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let pixels = max(1, Int(image.size.width * scale) * Int(image.size.height * scale))
+        return pixels * 4
     }
 }
 
@@ -35,6 +48,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     let placeholder: () -> Placeholder
 
     @State private var nsImage: NSImage?
+    @State private var loadedURL: URL?
 
     init(
         url: URL?,
@@ -62,23 +76,35 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     }
 
     private func load() async {
-        guard let url else { return }
+        guard let url else {
+            nsImage = nil
+            loadedURL = nil
+            return
+        }
+
+        if loadedURL != url {
+            nsImage = nil
+            loadedURL = nil
+        }
 
         // Cache hit — instant, no flash.
         if let cached = ImageCacheStore.shared.get(url) {
             if self.nsImage !== cached {
                 self.nsImage = cached
             }
+            loadedURL = url
             onLoad?()
             return
         }
 
         do {
+            let requestURL = url
             let (data, _) = try await URLSession.shared.data(from: url)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, self.url == requestURL else { return }
             if let img = NSImage(data: data) {
-                ImageCacheStore.shared.set(img, for: url)
+                ImageCacheStore.shared.set(img, for: requestURL)
                 self.nsImage = img
+                loadedURL = requestURL
                 onLoad?()
             }
         } catch {

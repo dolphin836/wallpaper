@@ -84,6 +84,7 @@ export default function WallpaperTile({ w, variant, onHover }: Props) {
         src={w.preview_url || w.thumb_url}
         alt={w.title || `Wallpaper ${w.id}`}
         loading="lazy"
+        decoding="async"
         className={loaded ? 'h3-loaded' : ''}
         onLoad={() => setLoaded(true)}
         onError={() => setLoaded(true)}

@@ -287,7 +287,7 @@ export function PhoneFrame({ imageUrl, width, height, scene }: { imageUrl: strin
 
         {/* Screen with inner radius */}
         <div className="relative overflow-hidden" style={{ width, height, borderRadius: innerR }}>
-          <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <img src={imageUrl} alt="" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
           {scene === 'lock' && <LockOverlay width={width} height={height} />}
           {scene === 'home' && <HomeOverlay width={width} height={height} />}
           {scene === 'aod' && <AODOverlay width={width} height={height} />}
@@ -313,7 +313,7 @@ export function TabletFrame({ imageUrl, width, height, scene }: { imageUrl: stri
         }}
       >
         <div className="relative overflow-hidden" style={{ width, height, borderRadius: 10 }}>
-          <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <img src={imageUrl} alt="" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
           {scene === 'lock' && <LockOverlay width={width} height={height} />}
           {scene === 'home' && <HomeOverlay width={width} height={height} />}
           {scene === 'aod' && <AODOverlay width={width} height={height} />}
@@ -349,7 +349,7 @@ export function LaptopFrame({ imageUrl, width, height, scene }: { imageUrl: stri
             style={{ top: -(bezel * 0.3 + 3), width: 5, height: 5, background: '#1f2937', border: '1px solid #4b5563' }}
           />
           <div className="relative overflow-hidden" style={{ width, height, borderRadius: 2 }}>
-            <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <img src={imageUrl} alt="" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
             {scene === 'desktop' && <DesktopOverlay width={width} height={height} />}
             {scene === 'lock' && <LockOverlay width={width} height={height} />}
           </div>
@@ -392,7 +392,7 @@ export function DesktopFrame({ imageUrl, width, height, scene }: { imageUrl: str
           }}
         >
           <div className="relative overflow-hidden" style={{ width, height, borderRadius: 2 }}>
-            <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <img src={imageUrl} alt="" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
             {scene === 'desktop' && <DesktopOverlay width={width} height={height} />}
             {scene === 'lock' && <LockOverlay width={width} height={height} />}
           </div>
@@ -522,6 +522,7 @@ export default function DeviceMockup({ imageUrl, platform, deviceWidth, deviceHe
         <img
           src={imageUrl}
           alt=""
+          decoding="async"
           className="w-full h-full object-cover"
           style={{ filter: 'blur(50px) saturate(1.4)', transform: 'scale(1.15)' }}
           draggable={false}

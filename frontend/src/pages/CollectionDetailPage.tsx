@@ -387,7 +387,14 @@ export default function CollectionDetailPage() {
           <div className="c-detail-hero-frame">
             <div className="c-detail-hero-mat">
               {cover ? (
-                <img src={cover} alt={collection?.title || ''} className="c-detail-hero-img" />
+                <img
+                  src={cover}
+                  alt={collection?.title || ''}
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
+                  className="c-detail-hero-img"
+                />
               ) : loading ? (
                 <div className="c-detail-hero-img skeleton-card" />
               ) : (
@@ -481,7 +488,7 @@ export default function CollectionDetailPage() {
               >
                 <span className="c-detail-byline-avatar">
                   {curator?.avatar_url
-                    ? <img src={curator.avatar_url} alt="" />
+                    ? <img src={curator.avatar_url} alt="" decoding="async" />
                     : curatorInitial}
                 </span>
                 <span className="c-detail-byline-meta">
