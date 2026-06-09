@@ -251,6 +251,54 @@ struct RemoteLoadErrorView: View {
     }
 }
 
+struct RemoteEmptyStateView: View {
+    var title: String
+    var message: String
+    var symbol: String = "photo.on.rectangle"
+    var actionTitle: String? = nil
+    var action: (() -> Void)? = nil
+
+    var body: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle().fill(Color.paper2.opacity(0.78))
+                Circle().stroke(Color.hair, lineWidth: 1)
+                Image(systemName: symbol)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(Color.muted)
+            }
+            .frame(width: 44, height: 44)
+
+            Text(title)
+                .font(.system(size: 18, weight: .regular, design: .serif))
+                .foregroundStyle(Color.ink)
+                .multilineTextAlignment(.center)
+
+            Text(message)
+                .font(.system(size: 12))
+                .lineSpacing(3)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Color.muted)
+                .frame(maxWidth: 420)
+
+            if let actionTitle, let action {
+                Button(action: action) {
+                    Text(actionTitle)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.paper)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(Color.ink))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 48)
+    }
+}
+
 struct SkeletonTile: View {
     let variant: SkeletonVariant
 

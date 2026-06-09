@@ -39,8 +39,11 @@ struct SearchResultsView: View {
                         Task { await reload() }
                     }
                 } else if items.isEmpty {
-                    Text("No wallpapers match.")
-                        .font(.sans13).foregroundStyle(Color.muted).padding(.top, 24)
+                    RemoteEmptyStateView(
+                        title: "No wallpapers match.",
+                        message: "Try a broader search term or browse Discover for nearby styles.",
+                        symbol: "magnifyingglass"
+                    )
                 } else {
                     LazyVGrid(columns: gridColumns, spacing: 14) {
                         ForEach(items) { wp in

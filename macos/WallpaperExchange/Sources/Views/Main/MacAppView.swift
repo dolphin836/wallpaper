@@ -95,8 +95,11 @@ struct MacAppView: View {
                     }
                 }
             } else {
-                Text("No release notes available offline.")
-                    .font(.sans12).foregroundStyle(Color.muted)
+                RemoteEmptyStateView(
+                    title: "No release notes available.",
+                    message: "Version history will appear here when the release feed is available.",
+                    symbol: "doc.text"
+                )
             }
         }
         .padding(20)

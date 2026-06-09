@@ -234,9 +234,12 @@ struct MyCoinsView: View {
                     Task { await reload() }
                 }
             } else if tx.isEmpty {
-                Text("No transactions yet.")
-                    .font(.sans12).foregroundStyle(Color.muted)
-                    .padding(20)
+                RemoteEmptyStateView(
+                    title: "No transactions yet.",
+                    message: "Coin activity will show here after uploads, trades, and system grants.",
+                    symbol: "creditcard"
+                )
+                .padding(.horizontal, 18)
             } else {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(tx) { t in

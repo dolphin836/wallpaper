@@ -907,11 +907,14 @@ function UploadsPanel({ isOwner, inProgress, pub, pageSize, onPubPage, onInProgr
         <div className="label-rule mb-3">
           Published · {pub.items.length === 0 && !pub.loaded ? '…' : `${pub.items.length} of ${pubTotal}`}
         </div>
-        {!pub.loaded ? (
-          <ProfileWallpapersSkeleton />
-        ) : pub.items.length === 0 ? (
-          <div className="text-center py-20 text-muted text-sm">No published wallpapers yet.</div>
-        ) : (
+      {!pub.loaded ? (
+        <ProfileWallpapersSkeleton />
+      ) : pub.items.length === 0 ? (
+        <EmptyState
+          title="No published wallpapers yet."
+          message="Approved uploads will appear here once they are live in the archive."
+        />
+      ) : (
           <>
             <Grid items={pub.items} />
             <Pagination
@@ -957,7 +960,12 @@ function CollectionsPanel({ isOwner, collections, loaded, page, total, pageSize,
       {!loaded ? (
         <ProfileCollectionsSkeleton count={pageSize} />
       ) : collections.length === 0 ? (
-        <div className="text-center py-20 text-muted text-sm">No collections yet.</div>
+        <EmptyState
+          title="No collections yet."
+          message="Collections will appear here when this user starts grouping wallpapers into sets."
+          actionLabel={isOwner ? 'New collection' : undefined}
+          actionHref={isOwner ? '/collections' : undefined}
+        />
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
@@ -1213,7 +1221,10 @@ function LedgerPanel({ txs, page, total, loading, balance, maxReachable, onPage 
       {loading && txs.length === 0 ? (
         <LedgerSkeleton />
       ) : txs.length === 0 ? (
-        <div className="text-center py-20 text-muted text-sm">No transactions yet.</div>
+        <EmptyState
+          title="No transactions yet."
+          message="Coin activity will show here after uploads, trades, and system grants."
+        />
       ) : (
         <>
           <div className="ledger-list">

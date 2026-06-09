@@ -42,9 +42,15 @@ struct CollectionsListView: View {
                         Task { await reload() }
                     }
                 } else if visible.isEmpty {
-                    Text(filter == .yours ? "You haven't created any collections yet." : "No collections yet.")
-                        .font(.sans13).foregroundStyle(Color.muted)
-                        .padding(.top, 50).frame(maxWidth: .infinity)
+                    RemoteEmptyStateView(
+                        title: filter == .yours ? "No collections from you yet." : "No collections yet.",
+                        message: filter == .yours
+                            ? "Create a set when you want to group wallpapers by mood, device, or project."
+                            : "Curated sets will appear here once the library has something to group.",
+                        symbol: "square.grid.2x2",
+                        actionTitle: filter == .yours && auth.isLoggedIn ? "New collection" : nil,
+                        action: filter == .yours && auth.isLoggedIn ? { showCreate = true } : nil
+                    )
                 } else {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)], spacing: 28) {
                         ForEach(visible) { c in
@@ -383,6 +389,12 @@ struct CollectionDetailView: View {
                         RemoteLoadErrorView(message: err) {
                             Task { await load() }
                         }
+                    } else if items.isEmpty {
+                        RemoteEmptyStateView(
+                            title: "No wallpapers in this collection yet.",
+                            message: "This set is ready, but it does not have any wallpapers attached right now.",
+                            symbol: "photo.stack"
+                        )
                     } else {
                         // Framed-print grid — 3:4 paper-mat tiles like a gallery
                         // wall (the web's FramedTile / .cd-frame).

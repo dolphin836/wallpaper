@@ -4,6 +4,7 @@ import { AiOutlineArrowRight } from 'react-icons/ai';
 import { getWeeklyArchive, type WeeklyArchiveEntry } from '../api';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
 
 const MONTH_ABBR = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -116,9 +117,10 @@ export default function WeeklyArchivePage() {
         ) : error ? (
           <ErrorState />
         ) : rows.length === 0 ? (
-          <div className="rounded-xl border border-hair bg-paper p-8 text-center text-ink-2 max-w-xl">
-            No weekly drops have been published yet.
-          </div>
+          <EmptyState
+            title="No weekly drops yet."
+            message="The archive will appear once the first weekly curation has been published."
+          />
         ) : (
           <div className="w-archive-grid">
             <ol className="w-timeline">

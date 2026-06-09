@@ -4,6 +4,7 @@ import type { DeviceProfile, Wallpaper } from '../types';
 import { getDeviceBySlug, getWallpapersForDevice } from '../api';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
 import FeedFooter, { type FooterState } from '../components/FeedFooter';
 import DeviceFloatingWall from '../components/DeviceFloatingWall';
 
@@ -333,20 +334,16 @@ export default function DeviceWallpapersPage() {
 
 function EmptyForDevice({ device }: { device: DeviceProfile | null }) {
   return (
-    <div className="border border-dashed border-hair px-6 sm:px-10 py-12 text-center max-w-[640px] mx-auto">
-      <div className="display italic-d text-[24px] sm:text-[28px] text-ink leading-tight">
-        No wallpapers <span className="italic-d">yet</span>.
-      </div>
-      <p className="text-[13.5px] leading-[1.6] text-ink-2 mt-3 max-w-[460px] mx-auto">
-        {device ? `Nobody has uploaded a wallpaper sized for the ${device.name} yet — but the variant pipeline is ready. Be the first.` : 'Be the first to upload one.'}
-      </p>
-      <Link
-        to="/contribute"
-        className="inline-flex items-center mt-5 px-5 py-2.5 rounded-full bg-ink text-paper text-[13px] font-medium no-underline hover:bg-ink-2 transition-colors"
-      >
-        Upload a wallpaper
-      </Link>
-    </div>
+    <EmptyState
+      title="No wallpapers yet."
+      message={
+        device
+          ? `Nobody has uploaded a wallpaper sized for the ${device.name} yet, but the variant pipeline is ready. Be the first.`
+          : 'Be the first to upload one.'
+      }
+      actionLabel="Upload a wallpaper"
+      actionHref="/contribute"
+    />
   );
 }
 

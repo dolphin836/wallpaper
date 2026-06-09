@@ -2214,6 +2214,65 @@
 .error-state__retry:hover { background: var(--color-ink-2); border-color: var(--color-ink-2); }
 .error-state__retry:active { transform: scale(0.97); }
 
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 88px 24px;
+  gap: 13px;
+  max-width: 540px;
+  margin: 0 auto;
+  color: var(--color-ink-2);
+}
+.empty-state__icon {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: color-mix(in oklch, var(--color-paper-2), var(--color-accent-soft) 28%);
+  border: 1px solid var(--color-hair);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-muted);
+  margin-bottom: 5px;
+  box-shadow: inset 0 1px 0 oklch(100% / 0.38);
+}
+.dark .empty-state__icon {
+  background: color-mix(in oklch, var(--color-paper-2), var(--color-accent-soft) 16%);
+  box-shadow: inset 0 1px 0 oklch(100% / 0.08);
+}
+.empty-state__title {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2.1vw, 28px);
+  font-weight: 400;
+  line-height: 1.16;
+  color: var(--color-ink);
+  margin: 0;
+}
+.empty-state__message {
+  font-size: 14px;
+  line-height: 1.58;
+  color: var(--color-ink-2);
+  max-width: 460px;
+  margin: 0;
+}
+.empty-state__action {
+  margin-top: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 100ms ease, background 200ms ease, border-color 200ms ease;
+}
+.empty-state__action:hover { background: var(--color-ink-2); border-color: var(--color-ink-2); }
+.empty-state__action:active { transform: scale(0.97); }
+
 /* ── Feed footer (loading / retry / end states) ──────────────────
    Vertical column layout; the message sits above its affordance
    (spinner for loading, button for retry, count for end). No flex

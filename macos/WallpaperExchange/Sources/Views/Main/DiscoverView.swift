@@ -140,8 +140,13 @@ struct DiscoverView: View {
         } else if let err = loadError, items.isEmpty {
             errorBanner(err)
         } else if items.isEmpty {
-            Text(search.isEmpty ? "No wallpapers." : "No wallpapers match.")
-                .font(.sans13).foregroundStyle(Color.muted).padding(.top, 20)
+            RemoteEmptyStateView(
+                title: search.isEmpty ? "No wallpapers yet." : "No wallpapers match.",
+                message: search.isEmpty
+                    ? "New uploads will appear here as soon as the archive has something for this filter."
+                    : "Try a broader search or switch filters to keep browsing.",
+                symbol: search.isEmpty ? "photo.on.rectangle" : "magnifyingglass"
+            )
         } else {
             LazyVGrid(columns: gridColumns, spacing: sizeMode == .lg ? 14 : 12) {
                 ForEach(items) { wp in

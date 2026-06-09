@@ -548,7 +548,11 @@ struct PagedWallpaperGrid: View {
                             Task { await loadPage(page) }
                         }
                     } else if items.isEmpty {
-                        Text(emptyText).font(.sans13).foregroundStyle(Color.muted).padding(.vertical, 24)
+                        RemoteEmptyStateView(
+                            title: emptyText.isEmpty ? "Nothing here yet." : emptyText,
+                            message: "This section will fill in once matching activity appears.",
+                            symbol: showProcessing ? "hourglass" : "photo.on.rectangle"
+                        )
                     } else {
                         LazyVGrid(columns: gridColumns, spacing: gridSpacing) {
                             ForEach(items) { wp in
@@ -633,7 +637,11 @@ struct PagedCollectionGrid: View {
                     Task { await loadPage(page) }
                 }
             } else if items.isEmpty {
-                Text("No collections yet.").font(.sans13).foregroundStyle(Color.muted).padding(.vertical, 24)
+                RemoteEmptyStateView(
+                    title: "No collections yet.",
+                    message: "Collections will appear here when this user starts grouping wallpapers into sets.",
+                    symbol: "square.grid.2x2"
+                )
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)], spacing: 28) {
                     ForEach(items) { c in
@@ -711,7 +719,11 @@ struct LedgerTab: View {
                     Task { await loadPage(page) }
                 }
             } else if txs.isEmpty {
-                Text("No transactions yet.").font(.sans13).foregroundStyle(Color.muted).padding(.vertical, 24)
+                RemoteEmptyStateView(
+                    title: "No transactions yet.",
+                    message: "Coin activity will show here after uploads, trades, and system grants.",
+                    symbol: "creditcard"
+                )
             } else {
                 VStack(spacing: 8) { ForEach(txs) { tx in ledgerRow(tx) } }
                 PageBar(current: page, totalPages: totalPages, maxReachable: cursors.count) { p in Task { await loadPage(p) } }

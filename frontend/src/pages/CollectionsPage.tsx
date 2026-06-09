@@ -8,6 +8,7 @@ import { getCollections, createCollection } from '../api';
 import { useAuthStore } from '../store/auth';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
 import Pagination from '../components/Pagination';
 
 type Filter = 'all' | 'yours';
@@ -166,9 +167,16 @@ export default function CollectionsPage() {
         ) : error && visible.length === 0 ? (
           <ErrorState />
         ) : visible.length === 0 ? (
-          <div className="text-center py-20 text-muted text-sm">
-            {filter === 'yours' ? "You haven't created any collections yet." : 'No collections yet.'}
-          </div>
+          <EmptyState
+            title={filter === 'yours' ? "No collections from you yet." : 'No collections yet.'}
+            message={
+              filter === 'yours'
+                ? 'Create a set when you want to group wallpapers by mood, device, or project.'
+                : 'Curated sets will appear here once the library has something to group.'
+            }
+            actionLabel={isAuthenticated ? 'New collection' : undefined}
+            onAction={isAuthenticated ? () => setShowCreate(true) : undefined}
+          />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
             {visible.map((c) => (

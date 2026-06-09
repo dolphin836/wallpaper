@@ -147,8 +147,11 @@ struct DeviceDetailView: View {
                         Task { await reload() }
                     }
                 } else if items.isEmpty {
-                    Text("No wallpapers for this device yet.")
-                        .font(.sans13).foregroundStyle(Color.muted).padding(.top, 24)
+                    RemoteEmptyStateView(
+                        title: "No wallpapers for this device yet.",
+                        message: "When matching wallpapers are published, they will appear here automatically.",
+                        symbol: "display"
+                    )
                 } else {
                     LazyVGrid(columns: gridColumns, spacing: 14) {
                         ForEach(items) { wp in

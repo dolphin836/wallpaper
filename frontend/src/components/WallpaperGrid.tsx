@@ -215,7 +215,12 @@ function SalonLayout({ wallpapers, sizeMode, staggerFrom = 0, disableModal }: { 
 
 export default function WallpaperGrid({ wallpapers, showStatus, viewMode = 'justified', sizeMode = 'md', staggerFrom = 0, disableModal }: Props) {
   if (wallpapers.length === 0) {
-    return <EmptyState message="No wallpapers found." />;
+    return (
+      <EmptyState
+        title="No wallpapers found."
+        message="Try another filter or check back after new uploads land."
+      />
+    );
   }
 
   const height = SIZE_HEIGHTS[sizeMode];

@@ -568,7 +568,10 @@ export default function CollectionDetailPage() {
               ))}
             </div>
           ) : visible.length === 0 ? (
-            <div className="text-center py-20 text-muted text-sm">No wallpapers in this collection yet.</div>
+            <EmptyState
+              title="No wallpapers in this collection yet."
+              message="This set is ready, but it does not have any wallpapers attached right now."
+            />
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
               {visible.map((w, i) => (

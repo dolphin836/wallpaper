@@ -28,8 +28,11 @@ struct WeeklyArchiveView: View {
                         Task { await load() }
                     }
                 } else if entries.isEmpty {
-                    Text("No weekly drops have been published yet.")
-                        .font(.sans13).foregroundStyle(Color.muted).padding(.top, 20)
+                    RemoteEmptyStateView(
+                        title: "No weekly drops yet.",
+                        message: "The archive will appear once the first weekly curation has been published.",
+                        symbol: "calendar"
+                    )
                 } else {
                     HStack(alignment: .top, spacing: 36) {
                         timeline.frame(width: 240)
