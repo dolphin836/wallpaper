@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import ImageIO
+import CryptoKit
 
 // In-memory cache of *decoded* NSImage instances keyed by URL. SwiftUI's
 // AsyncImage relies on URLCache, which still re-decodes on each appearance —
@@ -92,12 +93,89 @@ private actor ImageDataLoader {
         }
 
         let task = Task<Data, Error> {
+            if let cached = await ImageDiskCache.shared.data(for: url) {
+                return cached
+            }
             let (data, _) = try await URLSession.shared.data(from: url)
+            await ImageDiskCache.shared.store(data, for: url)
             return data
         }
         inFlight[url] = task
         defer { inFlight[url] = nil }
         return try await task.value
+    }
+}
+
+// Disk layer under the in-memory cache: raw downloaded bytes keyed by a
+// SHA-256 of the URL, in ~/Library/Caches so the system may purge it.
+// Without it every launch re-downloads the full grid (50+ tiles). Disk
+// hits still pay the decode, but skip the network entirely.
+private actor ImageDiskCache {
+    static let shared = ImageDiskCache()
+
+    private let dir: URL
+    private let maxAge: TimeInterval = 7 * 24 * 3600
+    private let maxBytes = 256 * 1024 * 1024
+    private var didCleanup = false
+
+    init() {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        dir = base.appendingPathComponent("WallpaperExchange/ImageCache", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    }
+
+    func data(for url: URL) -> Data? {
+        cleanupIfNeeded()
+        let file = fileURL(for: url)
+        guard let data = try? Data(contentsOf: file) else { return nil }
+        // Touch so the size-cap eviction below behaves as LRU.
+        try? FileManager.default.setAttributes(
+            [.modificationDate: Date()], ofItemAtPath: file.path)
+        return data
+    }
+
+    func store(_ data: Data, for url: URL) {
+        try? data.write(to: fileURL(for: url), options: .atomic)
+    }
+
+    private func fileURL(for url: URL) -> URL {
+        let digest = SHA256.hash(data: Data(url.absoluteString.utf8))
+        let name = digest.map { String(format: "%02x", $0) }.joined()
+        return dir.appendingPathComponent(name)
+    }
+
+    private func cleanupIfNeeded() {
+        guard !didCleanup else { return }
+        didCleanup = true
+
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey]
+        ) else { return }
+
+        var entries: [(url: URL, date: Date, size: Int)] = []
+        let cutoff = Date().addingTimeInterval(-maxAge)
+        for file in files {
+            guard let values = try? file.resourceValues(
+                forKeys: [.contentModificationDateKey, .fileSizeKey]),
+                let date = values.contentModificationDate
+            else { continue }
+            if date < cutoff {
+                try? fm.removeItem(at: file)
+                continue
+            }
+            entries.append((file, date, values.fileSize ?? 0))
+        }
+
+        var total = entries.reduce(0) { $0 + $1.size }
+        guard total > maxBytes else { return }
+        for entry in entries.sorted(by: { $0.date < $1.date }) {
+            try? fm.removeItem(at: entry.url)
+            total -= entry.size
+            if total <= maxBytes { break }
+        }
     }
 }
 
