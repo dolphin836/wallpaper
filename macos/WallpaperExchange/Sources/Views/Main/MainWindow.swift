@@ -522,6 +522,14 @@ private struct ChromeToolbarButton: View {
         role == .primary ? 14 : 7
     }
 
+    private var usesCircularActiveHighlight: Bool {
+        active && role == .utility && label == nil
+    }
+
+    private var activeHighlightDiameter: CGFloat {
+        min(size.width, size.height)
+    }
+
     private var iconColor: Color {
         if disabled { return Color.muted.opacity(0.55) }
         switch role {
@@ -582,8 +590,26 @@ private struct ChromeToolbarButton: View {
             }
             .foregroundStyle(iconColor)
             .frame(width: size.width, height: size.height)
-            .background(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).fill(fill))
-            .overlay(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).stroke(stroke, lineWidth: 1))
+            .background {
+                if usesCircularActiveHighlight {
+                    Circle()
+                        .fill(fill)
+                        .frame(width: activeHighlightDiameter, height: activeHighlightDiameter)
+                } else {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(fill)
+                }
+            }
+            .overlay {
+                if usesCircularActiveHighlight {
+                    Circle()
+                        .stroke(stroke, lineWidth: 1)
+                        .frame(width: activeHighlightDiameter, height: activeHighlightDiameter)
+                } else {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(stroke, lineWidth: 1)
+                }
+            }
             .shadow(color: shadowColor, radius: role == .primary ? 10 : 0, y: role == .primary ? 4 : 0)
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
