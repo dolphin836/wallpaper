@@ -672,6 +672,36 @@ func (s *WallpaperService) IngestVideoUpload(ctx context.Context, userID int64, 
 	return w, nil
 }
 
+// publishCriticalEvent writes msg with retries spanning broker outages.
+// kafka-go already retries transient errors inside one WriteMessages call,
+// but a Kafka restart (e.g. mid-deploy) outlasts a single WriteTimeout —
+// and a dropped uploaded/transcode event strands the wallpaper in
+// processing forever. Detached from the request context so a client
+// disconnect can't abort delivery once the DB row exists.
+func (s *WallpaperService) publishCriticalEvent(ctx context.Context, msg kafka.Message) error {
+	writeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer cancel()
+
+	backoff := time.Second
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-writeCtx.Done():
+				return err
+			case <-time.After(backoff):
+				backoff *= 2
+			}
+		}
+		if err = s.kafkaWriter.WriteMessages(writeCtx, msg); err == nil {
+			return nil
+		}
+		slog.WarnContext(ctx, "kafka publish attempt failed",
+			"topic", msg.Topic, "attempt", attempt+1, "error", err)
+	}
+	return err
+}
+
 // publishTranscodeEvent fires the new wallpaper.transcode topic that
 // the ffmpeg worker consumes. Reuses the WallpaperUploadedEvent shape
 // so the worker can share a decoder with the existing image worker.
@@ -687,7 +717,7 @@ func (s *WallpaperService) publishTranscodeEvent(ctx context.Context, w *model.W
 		slog.ErrorContext(ctx, "failed to marshal transcode event", "error", err)
 		return
 	}
-	if err := s.kafkaWriter.WriteMessages(ctx, kafka.Message{
+	if err := s.publishCriticalEvent(ctx, kafka.Message{
 		Topic: "wallpaper.transcode",
 		Key:   []byte(strconv.FormatInt(w.ID, 10)),
 		Value: data,
@@ -712,7 +742,7 @@ func (s *WallpaperService) publishUploadedEvent(ctx context.Context, w *model.Wa
 		slog.ErrorContext(ctx, "failed to marshal wallpaper uploaded event", "error", err)
 		return
 	}
-	if err := s.kafkaWriter.WriteMessages(ctx, kafka.Message{
+	if err := s.publishCriticalEvent(ctx, kafka.Message{
 		Topic: "wallpaper.uploaded",
 		Key:   []byte(strconv.FormatInt(w.ID, 10)),
 		Value: data,
