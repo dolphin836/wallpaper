@@ -17,16 +17,20 @@ final class AuthService {
     var authFlow: AuthFlow?
     var isLoggedIn: Bool { token != nil }
 
-    // JWT lives in UserDefaults rather than Keychain on purpose: Keychain access
-    // triggers a system authorization prompt for every binary that isn't covered
-    // by a stable code-signing ACL (i.e. every dev/local build), which was noisy.
-    // The token's authority is limited to the wallpaper app (download/upload/coin
-    // flows) and auto-expires in 24h, so plain-text persistence in this app's
-    // sandboxed defaults plist is an acceptable trade for UX.
-    private let tokenDefaultsKey = "auth.jwt_token"
+    // JWT lives in the Keychain (see KeychainTokenStore for the prompt
+    // trade-off). This key only remains for the one-time migration of
+    // tokens persisted by pre-Keychain builds.
+    private let legacyTokenDefaultsKey = "auth.jwt_token"
 
     private init() {
-        token = UserDefaults.standard.string(forKey: tokenDefaultsKey)
+        if let legacy = UserDefaults.standard.string(forKey: legacyTokenDefaultsKey) {
+            // One-time migration off the old plain-text defaults storage.
+            KeychainTokenStore.save(legacy)
+            UserDefaults.standard.removeObject(forKey: legacyTokenDefaultsKey)
+            token = legacy
+        } else {
+            token = KeychainTokenStore.load()
+        }
     }
 
     func login() {
@@ -55,7 +59,7 @@ final class AuthService {
         token = response.token
         user = response.user
         authFlow = nil
-        UserDefaults.standard.set(response.token, forKey: tokenDefaultsKey)
+        KeychainTokenStore.save(response.token)
         Task {
             await refreshProfile()
         }
@@ -65,7 +69,7 @@ final class AuthService {
         token = nil
         user = nil
         authFlow = nil
-        UserDefaults.standard.removeObject(forKey: tokenDefaultsKey)
+        KeychainTokenStore.delete()
     }
 
     func refreshProfile() async {
