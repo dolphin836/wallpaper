@@ -32,6 +32,8 @@ export default function WallpapersPage() {
   const [loading, setLoading] = useState(false);
   const { categories } = useCategories();
   const [editing, setEditing] = useState<AdminWallpaperRow | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [batchBusy, setBatchBusy] = useState(false);
 
   const fetchList = useCallback(() => {
     setLoading(true);
@@ -48,12 +50,69 @@ export default function WallpapersPage() {
       .then((r) => {
         setItems(r.data.data.items);
         setTotal(r.data.data.total);
+        setSelected(new Set());
       })
       .catch((e) => toast.error(e?.response?.data?.message || '加载失败'))
       .finally(() => setLoading(false));
   }, [page, limit, search, statusFilter, categoryFilter, qualityFilter, sort]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
+
+  // ── batch selection ──────────────────────────────────────────────
+  const toggleSelect = (id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const allSelected = items.length > 0 && items.every((w) => selected.has(w.id));
+  const toggleSelectAll = () => {
+    setSelected(allSelected ? new Set() : new Set(items.map((w) => w.id)));
+  };
+
+  // Each batch action only applies to rows whose status allows it; the
+  // toolbar sends just the eligible subset so the backend never has to
+  // reject ids that were merely caught by select-all.
+  const selectedRows = items.filter((w) => selected.has(w.id));
+  const eligible = {
+    delete: selectedRows.filter((w) => w.status === 1),
+    hard_delete: selectedRows.filter((w) => w.status === 3 || w.status === 4 || w.status === 6),
+    approve_review: selectedRows.filter((w) => w.status === 5),
+    reject_review: selectedRows.filter((w) => w.status === 5),
+  };
+
+  const doBatch = (action: admin.AdminBatchAction, rows: AdminWallpaperRow[], reason?: string) => {
+    setBatchBusy(true);
+    admin.batchAdminWallpapers(rows.map((w) => w.id), action, reason)
+      .then((r) => {
+        const { succeeded, failed } = r.data.data;
+        if (failed.length === 0) {
+          toast.success(`已完成 ${succeeded.length} 张`);
+        } else {
+          toast.error(`完成 ${succeeded.length} 张，失败 ${failed.length} 张（详见控制台）`);
+          console.warn('batch failures:', failed);
+        }
+        fetchList();
+      })
+      .catch((e) => toast.error(e?.response?.data?.message || '批量操作失败'))
+      .finally(() => setBatchBusy(false));
+  };
+
+  const runBatch = (action: admin.AdminBatchAction, rows: AdminWallpaperRow[], confirmMsg: string) => {
+    if (rows.length === 0 || batchBusy) return;
+    if (!confirm(confirmMsg)) return;
+    doBatch(action, rows);
+  };
+
+  // prompt doubles as the confirmation here — cancelling it aborts.
+  const onBatchReject = () => {
+    const rows = eligible.reject_review;
+    if (rows.length === 0 || batchBusy) return;
+    const reason = window.prompt(`拒绝原因（会显示给上传者，应用到全部 ${rows.length} 张）：`, '');
+    if (reason === null) return;
+    doBatch('reject_review', rows, reason);
+  };
 
   const onDelete = (id: number) => {
     if (!confirm('确认下架这张壁纸吗？（status -> 已下架，软删）')) return;
@@ -137,6 +196,8 @@ export default function WallpapersPage() {
               <option value={2}>处理失败</option>
               <option value={3}>已下架</option>
               <option value={4}>重复</option>
+              <option value={5}>待审核</option>
+              <option value={6}>已拒绝</option>
             </select>
             <select value={categoryFilter} onChange={(e) => { setCategoryFilter(Number(e.target.value)); setPage(1); }} className="px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
               <option value={0}>全部分类</option>
@@ -161,11 +222,50 @@ export default function WallpapersPage() {
             </select>
           </div>
 
+          {selected.size > 0 && (
+            <div className="px-5 py-2.5 flex flex-wrap items-center gap-3 text-sm border-t border-slate-100 dark:border-slate-800 bg-purple-50/60 dark:bg-purple-950/20">
+              <span className="text-slate-600 dark:text-slate-300 font-medium">已选 {selected.size} 张</span>
+              <button
+                disabled={batchBusy || eligible.delete.length === 0}
+                onClick={() => runBatch('delete', eligible.delete, `确认批量下架 ${eligible.delete.length} 张已发布壁纸？（软删，可恢复）`)}
+                className="px-2.5 py-1 rounded text-xs border border-rose-200 dark:border-rose-900 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 disabled:opacity-40 disabled:cursor-not-allowed"
+              >批量下架（{eligible.delete.length}）</button>
+              <button
+                disabled={batchBusy || eligible.hard_delete.length === 0}
+                onClick={() => runBatch('hard_delete', eligible.hard_delete, `永久删除 ${eligible.hard_delete.length} 张壁纸？此操作不可恢复，会同时删除数据库记录和 MinIO 文件。`)}
+                className="px-2.5 py-1 rounded text-xs border border-rose-300 dark:border-rose-800 bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >批量永久删除（{eligible.hard_delete.length}）</button>
+              <button
+                disabled={batchBusy || eligible.approve_review.length === 0}
+                onClick={() => runBatch('approve_review', eligible.approve_review, `确认批量通过 ${eligible.approve_review.length} 张待审核壁纸并公开发布？`)}
+                className="px-2.5 py-1 rounded text-xs border border-emerald-200 dark:border-emerald-900 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950 disabled:opacity-40 disabled:cursor-not-allowed"
+              >批量通过（{eligible.approve_review.length}）</button>
+              <button
+                disabled={batchBusy || eligible.reject_review.length === 0}
+                onClick={onBatchReject}
+                className="px-2.5 py-1 rounded text-xs border border-amber-200 dark:border-amber-900 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950 disabled:opacity-40 disabled:cursor-not-allowed"
+              >批量拒绝（{eligible.reject_review.length}）</button>
+              <button
+                onClick={() => setSelected(new Set())}
+                className="ml-auto px-2.5 py-1 rounded text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >清除选择</button>
+            </div>
+          )}
+
           {loading ? <Spinner /> : items.length === 0 ? <Empty>无符合条件的壁纸</Empty> : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 text-xs uppercase tracking-wide">
                   <tr>
+                    <th className="px-4 py-2 w-8">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={toggleSelectAll}
+                        className="accent-purple-600 cursor-pointer"
+                        title="全选当前页"
+                      />
+                    </th>
                     <th className="text-left px-4 py-2 font-medium">封面</th>
                     <th className="text-left px-4 py-2 font-medium">标题 / 上传者</th>
                     <th className="text-left px-4 py-2 font-medium">分类</th>
@@ -179,7 +279,15 @@ export default function WallpapersPage() {
                   {items.map((w) => {
                     const st = WALLPAPER_STATUS[w.status] ?? { label: String(w.status), tone: 'mute' as const };
                     return (
-                      <tr key={w.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                      <tr key={w.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 ${selected.has(w.id) ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}>
+                        <td className="px-4 py-2 w-8">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(w.id)}
+                            onChange={() => toggleSelect(w.id)}
+                            className="accent-purple-600 cursor-pointer"
+                          />
+                        </td>
                         <td className="px-4 py-2 w-20">
                           <div className="w-16 h-12 rounded bg-slate-100 dark:bg-slate-800 overflow-hidden">
                             {w.thumb_url && <img src={w.thumb_url} alt="" className="w-full h-full object-cover" />}
@@ -234,6 +342,9 @@ export default function WallpapersPage() {
                               <button onClick={() => onApproveReview(w.id)} className="text-xs font-medium text-emerald-600 hover:underline mr-3">通过</button>
                               <button onClick={() => onRejectReview(w.id)} className="text-xs font-medium text-rose-600 hover:underline">拒绝</button>
                             </>
+                          )}
+                          {w.status === 6 && (
+                            <button onClick={() => onHardDelete(w.id, w.status)} className="text-xs font-medium text-rose-600 hover:underline">永久删除</button>
                           )}
                         </td>
                       </tr>

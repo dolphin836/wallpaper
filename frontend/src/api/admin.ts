@@ -124,9 +124,20 @@ export const deleteAdminWallpaper = (id: number) =>
   client.delete<ApiResponse<null>>(`/admin/wallpapers/${id}`);
 
 // Physically removes the wallpaper row, all its children, and the MinIO
-// objects. Backend rejects this unless the row is in status=duplicate (4).
+// objects. Backend rejects this unless the row is in status=removed (3),
+// duplicate (4) or rejected (6).
 export const hardDeleteAdminWallpaper = (id: number) =>
   client.delete<ApiResponse<null>>(`/admin/wallpapers/${id}/hard`);
+
+// One moderation action applied to up to 100 ids; each id succeeds or
+// fails independently and the response reports both buckets.
+export type AdminBatchAction = 'delete' | 'hard_delete' | 'approve_review' | 'reject_review';
+export interface AdminBatchResult {
+  succeeded: number[];
+  failed: { id: number; error: string }[];
+}
+export const batchAdminWallpapers = (ids: number[], action: AdminBatchAction, reason?: string) =>
+  client.post<ApiResponse<AdminBatchResult>>('/admin/wallpapers/batch', { ids, action, reason });
 
 export const reprocessAdminWallpaper = (id: number) =>
   client.post<ApiResponse<null>>(`/admin/wallpapers/${id}/reprocess`);
