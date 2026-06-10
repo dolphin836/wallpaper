@@ -443,3 +443,11 @@ CREATE TABLE IF NOT EXISTS worker_jobs (
 CREATE INDEX IF NOT EXISTS idx_worker_jobs_worker_started ON worker_jobs(worker, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_worker_jobs_status_started ON worker_jobs(status, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_worker_jobs_ref ON worker_jobs(ref_id) WHERE ref_id <> 0;
+
+-- [skill: go-team-standards · 数据库设计] popular-sort partial index
+-- The public "popular" list sort (repo/wallpaper.go List, sort=popular)
+-- orders by like_count DESC, id DESC over status=1 rows only. A partial
+-- index keeps that sort cheap as the catalog grows past the point where
+-- a full scan + sort of all published rows stops being free.
+CREATE INDEX IF NOT EXISTS idx_wallpapers_popular
+    ON wallpapers(like_count DESC, id DESC) WHERE status = 1;
