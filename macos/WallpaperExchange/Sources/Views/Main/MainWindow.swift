@@ -522,8 +522,8 @@ private struct ChromeToolbarButton: View {
         role == .primary ? 14 : 7
     }
 
-    private var usesCircularActiveHighlight: Bool {
-        active && role == .utility && label == nil
+    private var usesCircularUtilityHighlight: Bool {
+        !disabled && (active || hover) && role == .utility && label == nil
     }
 
     private var activeHighlightDiameter: CGFloat {
@@ -591,7 +591,7 @@ private struct ChromeToolbarButton: View {
             .foregroundStyle(iconColor)
             .frame(width: size.width, height: size.height)
             .background {
-                if usesCircularActiveHighlight {
+                if usesCircularUtilityHighlight {
                     Circle()
                         .fill(fill)
                         .frame(width: activeHighlightDiameter, height: activeHighlightDiameter)
@@ -601,7 +601,7 @@ private struct ChromeToolbarButton: View {
                 }
             }
             .overlay {
-                if usesCircularActiveHighlight {
+                if usesCircularUtilityHighlight {
                     Circle()
                         .stroke(stroke, lineWidth: 1)
                         .frame(width: activeHighlightDiameter, height: activeHighlightDiameter)
