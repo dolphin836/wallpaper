@@ -1,8 +1,16 @@
 {
-  "current_version": "2.0.4",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.4.dmg",
+  "current_version": "2.0.5",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.5.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.5",
+      "released_at": "2026-06-10",
+      "notes": [
+        "Changed: the session token now lives in the macOS Keychain instead of app preferences, so it is no longer stored as plain text. After updating, macOS may ask once to allow Keychain access — click Always Allow.",
+        "Changed: wallpaper previews are now cached on disk, so the grid loads instantly on relaunch instead of re-downloading every image."
+      ]
+    },
     {
       "version": "2.0.4",
       "released_at": "2026-06-10",

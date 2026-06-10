@@ -10,6 +10,17 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.5] - 2026-06-10
+
+### Changed
+
+- **Session token now lives in the macOS Keychain** instead of app
+  preferences, so it is no longer persisted as plain text on disk. After
+  updating, macOS may ask once to allow Keychain access — click
+  "Always Allow".
+- **Wallpaper previews are cached on disk** (7-day, 256MB cap), so the
+  grid loads instantly on relaunch instead of re-downloading every image.
+
 ## [2.0.4] - 2026-06-10
 
 ### Fixed
