@@ -1,6 +1,22 @@
+# Prod host is a 2-core / 7.4G VPS shared with other apps; every service
+# gets a hard memory cap so one runaway container (ffmpeg transcode, Kafka
+# heap, query spike) cannot OOM the whole box, and json-file log rotation
+# so container logs can't fill the 40G root disk again.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-wallpaper}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wallpaper}
@@ -23,6 +39,12 @@ services:
 
   redis:
     image: redis:7-alpine
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
     command: >
       sh -c '
         if [ -n "$REDIS_PASSWORD" ]; then
@@ -45,6 +67,12 @@ services:
   minio:
     image: minio/minio:latest
     container_name: wallpaper_minio
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+          cpus: "1.0"
     command: server /data --console-address ":9001"
     networks:
       - default
@@ -63,7 +91,16 @@ services:
 
   kafka:
     image: apache/kafka:3.7.0
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
     environment:
+      # Default Kafka heap is 1G which would blow straight through the
+      # container cap; a single-broker dev-scale install runs fine on 512m.
+      KAFKA_HEAP_OPTS: "-Xmx512m -Xms256m"
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
@@ -89,6 +126,12 @@ services:
       dockerfile: Dockerfile
       target: api
     container_name: wallpaper_api
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+          cpus: "1.5"
     networks:
       - default
       - caddy_shared
@@ -136,6 +179,13 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: worker
+    logging: *default-logging
+    deploy:
+      resources:
+        # ffmpeg transcode + image decode are the heaviest jobs on the box.
+        limits:
+          memory: 2g
+          cpus: "1.5"
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -169,6 +219,12 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: wallpaper_frontend
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.5"
     networks:
       - default
       - caddy_shared
