@@ -59,8 +59,6 @@ func main() {
 		}
 	}()
 
-	_ = cacheClient
-
 	kafkaWriter := &kafka.Writer{
 		Addr:                   kafka.TCP(cfg.Kafka.Brokers...),
 		Balancer:               &kafka.LeastBytes{},
@@ -96,8 +94,8 @@ func main() {
 
 	authHandler := handler.NewAuthHandler(authSvc)
 	wallpaperHandler := handler.NewWallpaperHandler(wallpaperSvc)
-	categoryHandler := handler.NewCategoryHandler(categoryRepo)
-	tagHandler := handler.NewTagHandler(tagRepo)
+	categoryHandler := handler.NewCategoryHandler(categoryRepo, cacheClient)
+	tagHandler := handler.NewTagHandler(tagRepo, cacheClient)
 	userHandler := handler.NewUserHandler(userRepo, wallpaperRepo, interactionRepo, coinRepo, store)
 	deviceHandler := handler.NewDeviceHandler(deviceRepo, eventRepo, wallpaperRepo, coinRepo, interactionRepo)
 	collectionHandler := handler.NewCollectionHandler(collectionSvc, interactionRepo, userRepo)
