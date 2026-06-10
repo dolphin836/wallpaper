@@ -2,9 +2,9 @@ import { useEffect, useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import * as admin from '../../api/admin';
-import * as api from '../../api';
 import type { AdminWallpaperRow } from '../../api/admin';
 import type { Category } from '../../types';
+import { useCategories } from '../../hooks/useCategories';
 import {
   Card,
   PageHeader,
@@ -30,12 +30,8 @@ export default function WallpapersPage() {
   const [qualityFilter, setQualityFilter] = useState<string>('');
   const [sort, setSort] = useState<string>('newest');
   const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const { categories } = useCategories();
   const [editing, setEditing] = useState<AdminWallpaperRow | null>(null);
-
-  useEffect(() => {
-    api.getCategories().then((r) => setCategories(r.data.data));
-  }, []);
 
   const fetchList = useCallback(() => {
     setLoading(true);

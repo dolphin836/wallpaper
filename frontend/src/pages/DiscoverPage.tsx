@@ -3,8 +3,9 @@ import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import FeedFooter, { type FooterState } from '../components/FeedFooter';
 import toast from 'react-hot-toast';
-import type { Wallpaper, Category } from '../types';
-import { getWallpapers, getForYouWallpapers, getCategories } from '../api';
+import type { Wallpaper } from '../types';
+import { getWallpapers, getForYouWallpapers } from '../api';
+import { useCategories } from '../hooks/useCategories';
 import { useAuthStore } from '../store/auth';
 import type { SizeMode } from '../components/WallpaperGrid';
 import DeviceFloatingWall from '../components/DeviceFloatingWall';
@@ -336,17 +337,10 @@ export default function DiscoverPage() {
   // loaded category list.
   const { slug: categorySlug } = useParams<{ slug?: string }>();
   const navigate = useNavigate();
-  const [categories, setCategories] = useState<Category[]>([]);
-  // Tracks the initial categories fetch so the chip strip can show
-  // skeleton placeholders after "All" instead of starting collapsed
-  // (it used to be "All" alone for ~300ms, then the rest popped in).
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
-  useEffect(() => {
-    getCategories()
-      .then((r) => setCategories(r.data.data || []))
-      .catch(() => setCategories([]))
-      .finally(() => setCategoriesLoading(false));
-  }, []);
+  // Categories come from the shared TanStack Query cache; loading still
+  // drives the chip-strip skeleton placeholders after "All" so the strip
+  // doesn't start collapsed on a cold cache.
+  const { categories, loading: categoriesLoading } = useCategories();
   const currentCategory = useMemo(
     () => (categorySlug ? categories.find((c) => c.slug === categorySlug) : undefined),
     [categories, categorySlug],

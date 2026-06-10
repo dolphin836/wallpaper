@@ -22,14 +22,16 @@ import {
 } from 'react-icons/ai';
 import { MdPlaylistAdd, MdDesktopMac, MdLaptopMac, MdTabletMac, MdPhoneIphone, MdOutlineRemoveRedEye, MdDevices } from 'react-icons/md';
 import toast from 'react-hot-toast';
-import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User, Category } from '../types';
+import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User } from '../types';
 import DeviceMockup, {
   canShowMockup,
   PhoneFrame, TabletFrame, LaptopFrame, DesktopFrame,
 } from '../components/DeviceMockup';
 import ReportModal from '../components/ReportModal';
 import WallpaperGrid from '../components/WallpaperGrid';
+import { useQuery } from '@tanstack/react-query';
 import { getSimilarWallpapers } from '../api';
+import { useCategories } from '../hooks/useCategories';
 import {
   getWallpaper,
   likeWallpaper,
@@ -42,7 +44,6 @@ import {
   getMyCoins,
   getWallpaperVariants,
   getWallpaperEngagements,
-  getCategories,
 } from '../api';
 import { useAuthStore } from '../store/auth';
 import Spinner from '../components/Spinner';
@@ -226,16 +227,10 @@ export default function WallpaperDetailPage() {
   // rendered inside the matched-device frame with the corresponding
   // scene (clean / home or desktop / lock).
   const [previewOverlay, setPreviewOverlay] = useState<'off' | 'plain' | 'home' | 'lock'>('off');
-  const [similar, setSimilar] = useState<Wallpaper[]>([]);
-  // Cache the full category list so we can map wallpaper.category_id (a
-  // number) to a display name without a per-detail fetch. List is tiny
-  // (10 rows) and stable across pages, so one fetch per mount is fine.
-  const [categories, setCategories] = useState<Category[]>([]);
-  useEffect(() => {
-    getCategories()
-      .then((r) => setCategories(r.data.data || []))
-      .catch(() => setCategories([]));
-  }, []);
+  // Categories map wallpaper.category_id (a number) to a display name.
+  // Served from the shared TanStack Query cache, so opening detail modals
+  // back-to-back doesn't refetch the list per mount.
+  const { categories } = useCategories();
   const currentCategory = useMemo(() => {
     if (!wallpaper?.category_id) return undefined;
     return categories.find((c) => c.id === wallpaper.category_id);
@@ -340,23 +335,13 @@ export default function WallpaperDetailPage() {
     };
   }, [fullscreen, mockupVariant, drawerOpen, previewOverlay]);
 
-  useEffect(() => {
-    if (!wallpaper?.id) {
-      setSimilar([]);
-      return;
-    }
-    let cancelled = false;
-    getSimilarWallpapers(wallpaper.id, 12)
-      .then((res) => {
-        if (!cancelled) setSimilar(res.data.data || []);
-      })
-      .catch(() => {
-        if (!cancelled) setSimilar([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [wallpaper?.id]);
+  const { data: similar = [] } = useQuery({
+    queryKey: ['wallpaper', wallpaper?.id, 'similar'],
+    queryFn: async (): Promise<Wallpaper[]> =>
+      (await getSimilarWallpapers(wallpaper!.id, 12)).data.data ?? [],
+    enabled: !!wallpaper?.id,
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Reset the download CTA back to its default whenever the user navigates
   // to a different wallpaper, so a stale "Downloaded" success state doesn't
