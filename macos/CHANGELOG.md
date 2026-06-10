@@ -10,6 +10,14 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.4] - 2026-06-10
+
+### Fixed
+
+- **Discover now shows video wallpapers in the normal feeds.** Latest,
+  Trending, Search, and Category views now include video wallpapers instead
+  of hiding them unless the Live filter was selected.
+
 ## [2.0.3] - 2026-06-09
 
 ### Added

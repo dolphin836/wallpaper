@@ -1,8 +1,15 @@
 {
-  "current_version": "2.0.3",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.3.dmg",
+  "current_version": "2.0.4",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.4.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.4",
+      "released_at": "2026-06-10",
+      "notes": [
+        "Fixed: Discover Latest, Trending, Search, and Category feeds now include video wallpapers instead of hiding them unless the Live filter was selected."
+      ]
+    },
     {
       "version": "2.0.3",
       "released_at": "2026-06-09",
