@@ -183,6 +183,20 @@ if [ "$DO_UPLOAD" -eq 1 ]; then
     echo "==> Release copied to frontend static asset: $STATIC_PATH"
     echo "    URL: $RELATIVE_URL"
 
+    # Keep only the current release in the repo. Each DMG adds ~4MB to git
+    # forever, and the update flow only ever downloads current_dmg_url, so
+    # superseded DMGs are dead weight. git rm stages the deletion for the
+    # release commit; rm -f catches untracked leftovers.
+    REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+    for old in "$STATIC_DIR"/WallpaperExchange-*.dmg; do
+        [ -e "$old" ] || continue
+        [ "$(basename "$old")" = "$STATIC_NAME" ] && continue
+        echo "==> Removing superseded DMG: $(basename "$old")"
+        git -C "$REPO_ROOT" rm -q --ignore-unmatch \
+            "frontend/public/downloads/mac/$(basename "$old")" || true
+        rm -f "$old"
+    done
+
     cat <<HINT
 
 ==> Release packaged. To make it visible on /download/mac:
@@ -192,7 +206,8 @@ if [ "$DO_UPLOAD" -eq 1 ]; then
      - set current_dmg_url to: $RELATIVE_URL
      - prepend a new entry to "releases" with this version + notes
   2. Mirror the same notes into macos/CHANGELOG.md (Keep a Changelog format).
-  3. Commit the version files and $STATIC_PATH, then deploy frontend + backend.
+  3. Commit the version files, $STATIC_PATH, and the staged removal of
+     superseded DMGs, then deploy frontend + backend.
 HINT
 fi
 
