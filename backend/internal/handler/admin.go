@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"mime"
 	"net/http"
@@ -371,18 +373,21 @@ func (h *AdminHandler) DeleteWallpaper(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, nil)
 }
 
+// Sentinel errors from hardDeleteOne so the single-id endpoint can keep
+// returning 404/400 while the batch endpoint reports them per id.
+var (
+	errHardDeleteNotFound = errors.New("wallpaper not found")
+	errHardDeleteStatus   = errors.New("status not eligible for hard delete (soft-delete first)")
+)
+
 // HardDeleteWallpaper physically removes a wallpaper row, its children and
 // its MinIO objects. Restricted to rows that are already off the public
-// surface — status=removed (soft-deleted) or status=duplicate. Trying to
-// hard-delete a live (published / processing / failed) row is rejected,
-// so an admin has to soft-delete first if they really mean to nuke it.
-// The two-step path keeps an accidental click from atomically destroying
-// a live wallpaper plus every like/favorite/download attached to it.
-//
-// MinIO deletions are best-effort: if a key is missing or the storage
-// layer hiccups, we log and continue. The DB cleanup already committed,
-// so the row + children are gone either way; an orphaned object will
-// just sit in MinIO until the next cleanup sweep.
+// surface — status=removed (soft-deleted), status=duplicate or
+// status=rejected. Trying to hard-delete a live (published / processing /
+// failed) row is rejected, so an admin has to soft-delete first if they
+// really mean to nuke it. The two-step path keeps an accidental click from
+// atomically destroying a live wallpaper plus every like/favorite/download
+// attached to it.
 func (h *AdminHandler) HardDeleteWallpaper(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id <= 0 {
@@ -390,29 +395,46 @@ func (h *AdminHandler) HardDeleteWallpaper(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	switch err := h.hardDeleteOne(r.Context(), id); {
+	case errors.Is(err, errHardDeleteNotFound):
+		response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+	case errors.Is(err, errHardDeleteStatus):
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+	case err != nil:
+		slog.ErrorContext(r.Context(), "admin hard-delete failed", "id", id, "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+	default:
+		response.OK(w, nil)
+	}
+}
+
+// hardDeleteOne enforces the status gate and removes one wallpaper row, its
+// children and its MinIO objects. Shared by the single and batch endpoints.
+//
+// MinIO deletions are best-effort: if a key is missing or the storage
+// layer hiccups, we log and continue. The DB cleanup already committed,
+// so the row + children are gone either way; an orphaned object will
+// just sit in MinIO until the next cleanup sweep.
+func (h *AdminHandler) hardDeleteOne(ctx context.Context, id int64) error {
 	// GetByID filters out status=removed, so we need a raw lookup that sees
 	// every status — hard-delete operates on rows the public API has already
 	// hidden.
-	existing, err := h.wallpaperRepo.GetByIDAnyStatus(r.Context(), id)
+	existing, err := h.wallpaperRepo.GetByIDAnyStatus(ctx, id)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "admin hard-delete lookup failed", "id", id, "error", err)
-		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
-		return
+		return fmt.Errorf("lookup: %w", err)
 	}
 	if existing == nil {
-		response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
-		return
+		return errHardDeleteNotFound
 	}
-	if existing.Status != model.WallpaperStatusRemoved && existing.Status != model.WallpaperStatusDuplicate {
-		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
-		return
+	if existing.Status != model.WallpaperStatusRemoved &&
+		existing.Status != model.WallpaperStatusDuplicate &&
+		existing.Status != model.WallpaperStatusRejected {
+		return errHardDeleteStatus
 	}
 
-	deleted, err := h.wallpaperRepo.AdminHardDelete(r.Context(), id)
+	deleted, err := h.wallpaperRepo.AdminHardDelete(ctx, id)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "admin hard-delete failed", "id", id, "error", err)
-		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
-		return
+		return fmt.Errorf("hard delete: %w", err)
 	}
 	wp := deleted.Wallpaper
 
@@ -436,16 +458,89 @@ func (h *AdminHandler) HardDeleteWallpaper(w http.ResponseWriter, r *http.Reques
 		if key == "" {
 			continue
 		}
-		if err := h.storage.Delete(r.Context(), key); err != nil {
-			slog.WarnContext(r.Context(), "minio delete failed (continuing)", "key", key, "error", err)
+		if err := h.storage.Delete(ctx, key); err != nil {
+			slog.WarnContext(ctx, "minio delete failed (continuing)", "key", key, "error", err)
 		}
 	}
 
-	slog.InfoContext(r.Context(), "wallpaper hard-deleted",
+	slog.InfoContext(ctx, "wallpaper hard-deleted",
 		"id", id, "slug", wp.Slug,
 		"variant_count", len(deleted.VariantURLs),
 		"object_count", len(objectURLs))
-	response.OK(w, nil)
+	return nil
+}
+
+// BatchWallpapers applies one moderation action to up to 100 wallpapers in
+// a single call, powering the admin list's multi-select toolbar. Each id is
+// processed independently — one failure doesn't abort the rest — and the
+// response reports both buckets so the UI can say "12 done, 2 failed".
+func (h *AdminHandler) BatchWallpapers(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		IDs    []int64 `json:"ids"`
+		Action string  `json:"action"` // delete | hard_delete | approve_review | reject_review
+		Reason string  `json:"reason"` // reject_review only
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	if len(req.IDs) == 0 || len(req.IDs) > 100 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+
+	reason := strings.TrimSpace(req.Reason)
+	if reason == "" {
+		reason = "Rejected by admin"
+	}
+	if len(reason) > 280 {
+		reason = reason[:280]
+	}
+
+	var apply func(ctx context.Context, id int64) error
+	switch req.Action {
+	case "delete":
+		apply = h.wallpaperRepo.Delete
+	case "hard_delete":
+		apply = h.hardDeleteOne
+	case "approve_review":
+		apply = h.wallpaperRepo.AdminApprove
+	case "reject_review":
+		apply = func(ctx context.Context, id int64) error {
+			return h.wallpaperRepo.AdminReject(ctx, id, reason)
+		}
+	default:
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+
+	type batchFailure struct {
+		ID    int64  `json:"id"`
+		Error string `json:"error"`
+	}
+	succeeded := make([]int64, 0, len(req.IDs))
+	failed := make([]batchFailure, 0)
+	seen := make(map[int64]bool, len(req.IDs))
+	for _, id := range req.IDs {
+		if id <= 0 || seen[id] {
+			continue
+		}
+		seen[id] = true
+		if err := apply(r.Context(), id); err != nil {
+			slog.WarnContext(r.Context(), "admin batch action failed",
+				"action", req.Action, "id", id, "error", err)
+			failed = append(failed, batchFailure{ID: id, Error: err.Error()})
+			continue
+		}
+		succeeded = append(succeeded, id)
+	}
+
+	slog.InfoContext(r.Context(), "admin batch action done",
+		"action", req.Action, "succeeded", len(succeeded), "failed", len(failed))
+	response.OK(w, map[string]any{
+		"succeeded": succeeded,
+		"failed":    failed,
+	})
 }
 
 // ─── collections ─────────────────────────────────────────────────────────
