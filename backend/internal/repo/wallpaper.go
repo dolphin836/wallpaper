@@ -424,21 +424,6 @@ type PhashEntry struct {
 	Phash int64
 }
 
-type ColorEntry struct {
-	ID            int64
-	DominantColor string
-}
-
-func (r *WallpaperRepo) ListPublishedColors(ctx context.Context, excludeID int64) ([]ColorEntry, error) {
-	var entries []ColorEntry
-	err := r.db.WithContext(ctx).
-		Model(&model.Wallpaper{}).
-		Select("id, dominant_color").
-		Where("status = ? AND id <> ? AND dominant_color <> ''", model.WallpaperStatusPublished, excludeID).
-		Find(&entries).Error
-	return entries, err
-}
-
 // SimilarCandidate is the lightweight projection of a published wallpaper
 // used to score "similar" rankings on the detail page. Includes all four
 // signals the ranker reads: dominant color, category, pHash, and (joined
@@ -450,16 +435,24 @@ type SimilarCandidate struct {
 	Phash         int64
 }
 
-// ListSimilarCandidates returns every published wallpaper except the
-// target as a SimilarCandidate. The ranker walks this slice in memory —
-// it's small enough (~1k rows at current scale) that a join-free pass is
-// simpler and faster than building the score in SQL.
+// similarCandidatePoolCap bounds the in-memory ranking pool on the detail
+// page. The ranker walks the slice per request, so the pool must not grow
+// with the catalog; the newest N published rows are a good-enough candidate
+// universe long before N is reached.
+const similarCandidatePoolCap = 5000
+
+// ListSimilarCandidates returns up to similarCandidatePoolCap of the newest
+// published wallpapers except the target as SimilarCandidates. The ranker
+// walks this slice in memory — a join-free pass is simpler and faster than
+// building the score in SQL.
 func (r *WallpaperRepo) ListSimilarCandidates(ctx context.Context, excludeID int64) ([]SimilarCandidate, error) {
 	var entries []SimilarCandidate
 	err := r.db.WithContext(ctx).
 		Model(&model.Wallpaper{}).
 		Select("id, dominant_color, category_id, phash").
 		Where("status = ? AND id <> ?", model.WallpaperStatusPublished, excludeID).
+		Order("id DESC").
+		Limit(similarCandidatePoolCap).
 		Find(&entries).Error
 	return entries, err
 }
@@ -570,12 +563,21 @@ func (r *WallpaperRepo) TagOverlapWith(ctx context.Context, wallpaperID int64) (
 	return m, nil
 }
 
+// phashPoolCap bounds the duplicate-detection comparison set loaded per
+// upload. Dedup against the newest N published phashes (16 bytes/row, so
+// the cap is ~320KB) — once the catalog outgrows the cap, uploads stop
+// being compared against the oldest rows, which is an acceptable trade
+// for a hard memory bound on the worker.
+const phashPoolCap = 20000
+
 func (r *WallpaperRepo) ListPublishedPhashes(ctx context.Context, excludeID int64) ([]PhashEntry, error) {
 	var entries []PhashEntry
 	err := r.db.WithContext(ctx).
 		Model(&model.Wallpaper{}).
 		Select("id, phash").
 		Where("status = ? AND phash <> 0 AND id <> ?", model.WallpaperStatusPublished, excludeID).
+		Order("id DESC").
+		Limit(phashPoolCap).
 		Find(&entries).Error
 	return entries, err
 }
