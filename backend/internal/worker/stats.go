@@ -20,6 +20,11 @@ type StatsWorker struct {
 	jobRepo       *repo.WorkerJobRepo
 	mu            sync.Mutex
 	counters      map[counterKey]int64
+	// pending holds the highest fetched-but-uncommitted message per
+	// partition. Offsets are committed only after the counters they
+	// contributed to are flushed to the DB, so a worker crash replays
+	// the window instead of silently dropping it.
+	pending map[int]kafka.Message
 }
 
 type counterKey struct {
@@ -48,6 +53,7 @@ func NewStatsWorker(brokers []string, wallpaperRepo *repo.WallpaperRepo, eventRe
 		eventRepo:     eventRepo,
 		jobRepo:       jobRepo,
 		counters:      make(map[counterKey]int64),
+		pending:       make(map[int]kafka.Message),
 	}
 }
 
@@ -82,18 +88,17 @@ func (w *StatsWorker) Run(ctx context.Context) error {
 		var event WallpaperStatsEvent
 		if err := json.Unmarshal(msg.Value, &event); err != nil {
 			slog.Error("unmarshal stats event failed", "error", err)
-			if commitErr := w.reader.CommitMessages(ctx, msg); commitErr != nil {
-				slog.Error("commit message failed", "error", commitErr)
-			}
+			// Committing a bad message directly would also commit every
+			// earlier offset in its partition, including unflushed counter
+			// messages — park it in pending instead.
+			w.markPending(msg)
 			continue
 		}
 
 		field := eventTypeToField(event.EventType)
 		if field == "" {
 			slog.Warn("unknown event type", "event_type", event.EventType)
-			if commitErr := w.reader.CommitMessages(ctx, msg); commitErr != nil {
-				slog.Error("commit message failed", "error", commitErr)
-			}
+			w.markPending(msg)
 			continue
 		}
 
@@ -109,17 +114,26 @@ func (w *StatsWorker) Run(ctx context.Context) error {
 
 		w.mu.Lock()
 		w.counters[counterKey{WallpaperID: event.WallpaperID, Field: field}]++
+		if cur, ok := w.pending[msg.Partition]; !ok || msg.Offset > cur.Offset {
+			w.pending[msg.Partition] = msg
+		}
 		shouldFlush := len(w.counters) >= 1000
 		w.mu.Unlock()
 
 		if shouldFlush {
 			w.flush(ctx)
 		}
-
-		if err := w.reader.CommitMessages(ctx, msg); err != nil {
-			slog.Error("commit message failed", "error", err)
-		}
 	}
+}
+
+// markPending records msg as consumed-but-uncommitted; flush commits it
+// after the DB write succeeds.
+func (w *StatsWorker) markPending(msg kafka.Message) {
+	w.mu.Lock()
+	if cur, ok := w.pending[msg.Partition]; !ok || msg.Offset > cur.Offset {
+		w.pending[msg.Partition] = msg
+	}
+	w.mu.Unlock()
 }
 
 func eventTypeToField(eventType string) string {
@@ -135,13 +149,21 @@ func eventTypeToField(eventType string) string {
 
 func (w *StatsWorker) flush(ctx context.Context) {
 	w.mu.Lock()
-	if len(w.counters) == 0 {
+	if len(w.counters) == 0 && len(w.pending) == 0 {
 		w.mu.Unlock()
 		return
 	}
 	snapshot := w.counters
 	w.counters = make(map[counterKey]int64)
+	pending := w.pending
+	w.pending = make(map[int]kafka.Message)
 	w.mu.Unlock()
+
+	if len(snapshot) == 0 {
+		// Only parked bad messages this window — just advance the offsets.
+		w.commitPending(ctx, pending)
+		return
+	}
 
 	// Track the flush as one job so the admin dashboard can show batch size
 	// and timing instead of being silent during quiet periods.
@@ -150,7 +172,7 @@ func (w *StatsWorker) flush(ctx context.Context) {
 		slog.WarnContext(ctx, "worker_jobs start failed (non-fatal)", "worker", "stats", "error", jobErr)
 	}
 
-	var failed int
+	failedCounts := make(map[counterKey]int64)
 	for key, count := range snapshot {
 		if err := w.wallpaperRepo.IncrementCounter(ctx, key.WallpaperID, key.Field, count); err != nil {
 			slog.Error("increment counter failed",
@@ -158,21 +180,55 @@ func (w *StatsWorker) flush(ctx context.Context) {
 				"field", key.Field,
 				"error", err,
 			)
-			failed++
+			failedCounts[key] += count
 		}
+	}
+
+	if len(failedCounts) == 0 {
+		// Everything is durable in the DB — only now is it safe to move
+		// the consumer group past this window.
+		w.commitPending(ctx, pending)
+	} else {
+		// Requeue the failed counts and hold the offsets back so the next
+		// flush retries; a crash in between replays instead of dropping.
+		w.mu.Lock()
+		for key, count := range failedCounts {
+			w.counters[key] += count
+		}
+		for partition, m := range pending {
+			if cur, ok := w.pending[partition]; !ok || m.Offset > cur.Offset {
+				w.pending[partition] = m
+			}
+		}
+		w.mu.Unlock()
 	}
 
 	status := "done"
 	msg := fmt.Sprintf("flushed %d counters", len(snapshot))
-	if failed > 0 {
+	if len(failedCounts) > 0 {
 		status = "failed"
-		msg = fmt.Sprintf("flushed %d counters, %d failed", len(snapshot), failed)
+		msg = fmt.Sprintf("flushed %d counters, %d failed (requeued)", len(snapshot), len(failedCounts))
 	}
 	if finErr := w.jobRepo.Finish(ctx, jobID, status, msg); finErr != nil {
 		slog.WarnContext(ctx, "worker_jobs finish failed", "worker", "stats", "error", finErr)
 	}
 
-	slog.Info("stats flushed", "counter_count", len(snapshot))
+	slog.Info("stats flushed", "counter_count", len(snapshot), "failed_count", len(failedCounts))
+}
+
+func (w *StatsWorker) commitPending(ctx context.Context, pending map[int]kafka.Message) {
+	if len(pending) == 0 {
+		return
+	}
+	msgs := make([]kafka.Message, 0, len(pending))
+	for _, m := range pending {
+		msgs = append(msgs, m)
+	}
+	if err := w.reader.CommitMessages(ctx, msgs...); err != nil {
+		// Worst case the window replays after a restart (at-least-once);
+		// counters may then double-count once, which beats losing them.
+		slog.Error("commit stats offsets failed", "error", err)
+	}
 }
 
 func (w *StatsWorker) Close() error {
