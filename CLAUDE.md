@@ -25,6 +25,7 @@ This is a 3-surface monorepo for the WallShare / Wallpaper Exchange product:
 - `backend/` — Go API server + Kafka workers + slug-regen CLI (Go 1.22+, single `go.mod`).
 - `frontend/` — React 19 + TypeScript + Vite + TailwindCSS v4 SPA.
 - `macos/WallpaperExchange/` — SwiftPM menu-bar app for macOS 14+ (status-bar `NSPopover`, no main window; `LSUIElement=true`).
+- `ios/WallpaperExchange/` — SwiftUI iOS app (iOS 17+, XcodeGen project). Models/Keychain/endpoint extension are verbatim copies of the macOS sources; `APIClient.swift` is the UIKit-adapted variant. **Requires full Xcode to build** (CommandLineTools can only `swiftc -parse`); see `ios/README.md`. Keep both clients in sync when an endpoint changes.
 - `deployments/` — `init.sql` (canonical DB schema), `Caddyfile`, `nginx.conf` for the frontend container.
 - `docs/` — Product spec (`product.md`) and technical architecture (`architecture.md`) in Chinese.
 - `wallctl.sh` — Operational CLI wrapping `docker compose` (project name `wallpaper`).
@@ -62,6 +63,9 @@ cd frontend && npm run build          # tsc -b && vite build
 # macOS app
 cd macos/WallpaperExchange && swift build
 # (Info.plist is linked into the binary via Package.swift's -sectcreate flag)
+
+# iOS app (needs full Xcode + xcodegen; not buildable with CLT alone)
+cd ios && xcodegen generate && open WallpaperExchange.xcodeproj
 ```
 
 There is no test suite in this repo. `backend/migrations/` exists but is **empty** — the authoritative schema is `deployments/init.sql`, applied via `./wallctl.sh db-migrate`.

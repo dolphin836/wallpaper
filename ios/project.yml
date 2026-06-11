@@ -1,0 +1,50 @@
+# XcodeGen project definition for the iOS client.
+#
+#   brew install xcodegen          # once
+#   cd ios && xcodegen generate    # produces WallpaperExchange.xcodeproj
+#   open WallpaperExchange.xcodeproj
+#
+# Building requires full Xcode (iOS SDK + simulators) — the repo's CI/dev
+# machines that only carry CommandLineTools can edit but not compile this
+# target. See ios/README.md.
+name: WallpaperExchange
+options:
+  bundleIdPrefix: com.wallpaperexchange
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""        # fill in for device builds; simulator runs don't need it
+    CODE_SIGN_STYLE: Automatic
+targets:
+  WallpaperExchange:
+    type: application
+    platform: iOS
+    sources:
+      - path: WallpaperExchange/Sources
+    info:
+      path: WallpaperExchange/Info.plist
+      properties:
+        CFBundleDisplayName: Wallpaper Exchange
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # Save-to-Photos on download uses the add-only API, which needs
+        # only the "add" usage description.
+        NSPhotoLibraryAddUsageDescription: Save downloaded wallpapers to your photo library.
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wallpaperexchange.ios
+        TARGETED_DEVICE_FAMILY: "1,2"
