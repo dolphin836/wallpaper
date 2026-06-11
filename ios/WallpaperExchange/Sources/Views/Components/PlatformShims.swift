@@ -82,4 +82,31 @@ extension View {
         self.frame(minWidth: 420, minHeight: 480)
         #endif
     }
+
+    // ToolbarPlacement.navigationBar is iOS-only; macOS keeps its window
+    // toolbar untouched.
+    @ViewBuilder
+    func hideNavBarCompat() -> some View {
+        #if os(iOS)
+        self.toolbar(.hidden, for: .navigationBar)
+        #else
+        self
+        #endif
+    }
+
+    // fullScreenCover is iOS-only; the macOS dev-preview falls back to a
+    // large sheet.
+    @ViewBuilder
+    func fullScreenCoverCompat<Content: View>(
+        isPresented: Binding<Bool>,
+        @ViewBuilder content: @escaping () -> Content
+    ) -> some View {
+        #if os(iOS)
+        self.fullScreenCover(isPresented: isPresented, content: content)
+        #else
+        self.sheet(isPresented: isPresented) {
+            content().frame(minWidth: 440, minHeight: 720)
+        }
+        #endif
+    }
 }

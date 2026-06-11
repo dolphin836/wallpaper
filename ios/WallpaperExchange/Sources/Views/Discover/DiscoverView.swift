@@ -32,9 +32,11 @@ struct DiscoverView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
+            VStack(spacing: 0) {
+                ArchiveTopBar(title: "Discover")
+                ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    header
+                    searchField
                     feedPicker
                     categoryChips
                     if let loadError, wallpapers.isEmpty {
@@ -52,17 +54,15 @@ struct DiscoverView: View {
                     }
                 }
                 .padding(.top, 4)
+                }
+                .background(Color.paper)
             }
             .background(Color.paper)
             .navigationTitle("")
             .inlineNavTitle()
+            .hideNavBarCompat()
             .navigationDestination(for: WallpaperRoute.self) { route in
                 WallpaperDetailView(slug: route.slug)
-            }
-            .searchable(text: $searchText, prompt: "Search wallpapers")
-            .onSubmit(of: .search) {
-                submittedSearch = searchText
-                reload()
             }
             .onChange(of: searchText) { _, newValue in
                 if newValue.isEmpty && !submittedSearch.isEmpty {
@@ -80,15 +80,38 @@ struct DiscoverView: View {
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Kicker(text: "The wallpaper archive")
-            Text("Discover")
-                .font(.display28)
+    // In-page search (the system .searchable bar needs the navigation
+    // bar, which the custom top toolbar replaces).
+    private var searchField: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 13))
+                .foregroundStyle(Color.muted)
+            TextField("Search wallpapers", text: $searchText)
+                .textFieldStyle(.plain)
+                .font(.subheadline)
                 .foregroundStyle(Color.ink)
+                .onSubmit {
+                    submittedSearch = searchText
+                    reload()
+                }
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.muted)
+                }
+                .buttonStyle(.plain)
+            }
         }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 8)
+        .background(Color.paper2, in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
         .padding(.horizontal, 12)
-        .padding(.top, 6)
+        .padding(.top, 4)
     }
 
     private var feedPicker: some View {

@@ -23,6 +23,7 @@ struct WallpaperExchangeApp: App {
         WindowGroup {
             RootTabView()
                 .environment(auth)
+                .environment(UIPrefs.shared)
                 .task {
                     // Hydrate the profile behind a persisted token so the
                     // Account tab doesn't show "Not signed in" while a
@@ -40,16 +41,14 @@ struct WallpaperExchangeApp: App {
 struct RootTabView: View {
     var body: some View {
         TabView {
+            HomeView()
+                .tabItem { Label("Home", systemImage: "house") }
             DiscoverView()
                 .tabItem { Label("Discover", systemImage: "sparkles.rectangle.stack") }
-            WeeklyView()
-                .tabItem { Label("Weekly", systemImage: "calendar") }
-            CollectionsView()
-                .tabItem { Label("Collections", systemImage: "rectangle.stack") }
-            UploadView()
-                .tabItem { Label("Upload", systemImage: "plus.circle") }
+            MakeView()
+                .tabItem { Label("Make", systemImage: "wand.and.stars") }
             AccountView()
-                .tabItem { Label("Account", systemImage: "person.crop.circle") }
+                .tabItem { Label("Me", systemImage: "person.crop.circle") }
         }
         // Warm exchange accent drives every interactive tint, replacing
         // the stock blue/purple; paper behind everything.

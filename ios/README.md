@@ -6,10 +6,21 @@ API surface and conventions with the macOS client in `macos/`.
 
 ## Features
 
-- **Discover** — Latest / Popular / For You / Live / AI feeds, category
-  chips, search, infinite-scroll two-column grid.
-- **Weekly** — current weekly picks + past-week archive.
-- **Collections** — public community collections and their wallpapers.
+Bottom tabs: **Home / Discover / Make / Me**, plus a shared top toolbar
+(collections full-screen drawer on the left, serif page title in the
+middle, global lock-screen-preview toggle on the right — when on, every
+tile renders the iOS lock mock: clock, date, flashlight/camera pills).
+
+- **Home** — curated shelf mirroring web/Mac: weekly picks rail (with
+  past-weeks archive behind "See all"), collections rail, AI rail, Live
+  rail.
+- **Discover** — the full archive: in-page search, Latest / Popular /
+  For You / Live / AI feed pills, category chips, infinite two-column grid.
+- **Make** — mobile-only wallpaper workshop: pick a local photo, apply
+  one of the archive looks (Mono / Film / Dusk / Ink Wash / Vivid /
+  Frost, CoreImage pipelines), judge it behind the lock-screen mock,
+  save the full-resolution render to Photos.
+- **Collections** — full-screen drawer with paged public collections.
 - **Detail** — hero image, stats, palette, tags, uploader card, like /
   favorite (optimistic with rollback), add-to-collection, similar grid,
   and the 1-coin download flow which saves the full-resolution file to

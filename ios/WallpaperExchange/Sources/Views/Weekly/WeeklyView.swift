@@ -1,51 +1,30 @@
 import SwiftUI
 
-// Weekly Picks: the current slate up top, then the archive of past
-// weeks. Mirrors the web's /weekly page at phone scale.
-struct WeeklyView: View {
-    @State private var current: WeeklyCurrent?
+// Weekly archive — pushed from Home's "See all". The current slate
+// lives on Home; this page is the back catalogue of past weeks.
+struct WeeklyArchiveView: View {
     @State private var archive: [WeeklyArchiveEntry] = []
     @State private var loading = false
     @State private var loadError: String?
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    if let loadError, current == nil {
-                        ErrorRetryView(message: loadError) { Task { await load() } }
-                    } else if let current {
-                        currentSection(current)
-                        if !archive.isEmpty {
-                            archiveSection
-                        }
-                    } else if loading {
-                        LoadingFooter()
-                    }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if let loadError, archive.isEmpty {
+                    ErrorRetryView(message: loadError) { Task { await load() } }
+                } else if !archive.isEmpty {
+                    archiveSection
+                } else if loading {
+                    LoadingFooter()
                 }
-                .padding(.top, 8)
             }
-            .background(Color.paper)
-            .navigationTitle("")
-            .inlineNavTitle()
-            .navigationDestination(for: WallpaperRoute.self) { route in
-                WallpaperDetailView(slug: route.slug)
-            }
-            .navigationDestination(for: WeeklyArchiveEntry.self) { entry in
-                WeeklyWeekView(year: entry.year, week: entry.week)
-            }
-            .refreshable { await load() }
-            .task { if current == nil { await load() } }
+            .padding(.top, 8)
         }
-    }
-
-    private func currentSection(_ slate: WeeklyCurrent) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionHeader(kicker: "Week \(slate.week) · \(String(slate.year))", title: "Weekly Picks")
-                .padding(.horizontal, 12)
-                .padding(.top, 6)
-            WallpaperGrid(wallpapers: slate.picks.map(\.asWallpaper))
-        }
+        .background(Color.paper)
+        .navigationTitle("Weekly Picks")
+        .inlineNavTitle()
+        .refreshable { await load() }
+        .task { if archive.isEmpty { await load() } }
     }
 
     private var archiveSection: some View {
@@ -95,7 +74,6 @@ struct WeeklyView: View {
         loading = true
         defer { loading = false }
         do {
-            current = try await APIClient.shared.fetchWeeklyCurrent()
             archive = try await APIClient.shared.fetchWeeklyArchive(limit: 30)
             loadError = nil
         } catch {

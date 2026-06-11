@@ -1,8 +1,11 @@
 import SwiftUI
 
-// Public community collections, paged. Tapping opens the collection's
-// wallpapers as a paged grid.
-struct CollectionsView: View {
+// Public community collections, paged — presented as the full-screen
+// drawer behind the top toolbar's left button. Tapping a collection
+// pushes its wallpapers as a paged grid.
+struct CollectionsBrowser: View {
+    @Environment(\.dismiss) private var dismiss
+
     @State private var collections: [CollectionItem] = []
     @State private var cursor: Int?
     @State private var hasMore = true
@@ -13,9 +16,23 @@ struct CollectionsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    SectionHeader(kicker: "Curated by the community", title: "Collections")
-                        .padding(.horizontal, 12)
-                        .padding(.top, 6)
+                    HStack(alignment: .top) {
+                        SectionHeader(kicker: "Curated by the community", title: "Collections")
+                        Spacer()
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color.ink2)
+                                .frame(width: 32, height: 32)
+                                .background(Color.paper2, in: Circle())
+                                .overlay(Circle().strokeBorder(Color.hair, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 6)
                     if let loadError, collections.isEmpty {
                         ErrorRetryView(message: loadError) { loadNextPage() }
                     } else {

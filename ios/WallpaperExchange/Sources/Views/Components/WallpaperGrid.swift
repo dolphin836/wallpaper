@@ -42,6 +42,8 @@ struct WallpaperRoute: Hashable {
 struct WallpaperTile: View {
     let wallpaper: Wallpaper
 
+    @Environment(UIPrefs.self) private var prefs
+
     private var aspectRatio: CGFloat {
         guard wallpaper.width > 0, wallpaper.height > 0 else { return 0.7 }
         let ratio = CGFloat(wallpaper.width) / CGFloat(wallpaper.height)
@@ -65,17 +67,27 @@ struct WallpaperTile: View {
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(Color.hair.opacity(0.6), lineWidth: 1)
         )
-        .overlay(alignment: .topLeading) {
-            HStack(spacing: 4) {
-                MediaChip(text: wallpaper.resolutionLabel)
-                if wallpaper.isAIGenerated == true {
-                    MediaChip(text: "AI", tint: Color.accent.opacity(0.78))
-                }
-                if wallpaper.isDynamic {
-                    MediaChip(text: "LIVE", tint: Color.accent.opacity(0.78))
-                }
+        .overlay {
+            if prefs.lockPreview {
+                LockScreenOverlay(compact: true)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
             }
-            .padding(6)
+        }
+        .overlay(alignment: .topLeading) {
+            // Chips yield to the lock mock — the clock occupies the same
+            // band, and the point of the mode is judging the image.
+            if !prefs.lockPreview {
+                HStack(spacing: 4) {
+                    MediaChip(text: wallpaper.resolutionLabel)
+                    if wallpaper.isAIGenerated == true {
+                        MediaChip(text: "AI", tint: Color.accent.opacity(0.78))
+                    }
+                    if wallpaper.isDynamic {
+                        MediaChip(text: "LIVE", tint: Color.accent.opacity(0.78))
+                    }
+                }
+                .padding(6)
+            }
         }
     }
 }

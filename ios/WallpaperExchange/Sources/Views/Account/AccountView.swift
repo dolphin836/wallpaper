@@ -12,19 +12,24 @@ struct AccountView: View {
     @State private var showEditProfile = false
     @State private var showChangePassword = false
     @State private var showCoinLedger = false
+    @State private var showUpload = false
 
     var body: some View {
         NavigationStack {
-            Group {
-                if auth.isLoggedIn {
-                    signedIn
-                } else {
-                    signedOut
+            VStack(spacing: 0) {
+                ArchiveTopBar(title: "Me")
+                Group {
+                    if auth.isLoggedIn {
+                        signedIn
+                    } else {
+                        signedOut
+                    }
                 }
             }
             .background(Color.paper)
-            .navigationTitle("Account")
+            .navigationTitle("")
             .inlineNavTitle()
+            .hideNavBarCompat()
             .navigationDestination(for: WallpaperRoute.self) { route in
                 WallpaperDetailView(slug: route.slug)
             }
@@ -32,6 +37,7 @@ struct AccountView: View {
             .sheet(isPresented: $showEditProfile) { EditProfileSheet() }
             .sheet(isPresented: $showChangePassword) { ChangePasswordSheet() }
             .sheet(isPresented: $showCoinLedger) { CoinLedgerSheet() }
+            .sheet(isPresented: $showUpload) { UploadView() }
         }
     }
 
@@ -103,20 +109,30 @@ struct AccountView: View {
                     .padding(.horizontal, 28)
             }
 
-            HStack(spacing: 10) {
-                Button("Edit Profile") { showEditProfile = true }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                Button("Password") { showChangePassword = true }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                Button("Sign Out", role: .destructive) { auth.logout() }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+            HStack(spacing: 8) {
+                profileAction("Upload", accent: true) { showUpload = true }
+                profileAction("Edit Profile") { showEditProfile = true }
+                profileAction("Password") { showChangePassword = true }
+                profileAction("Sign Out") { auth.logout() }
             }
             .padding(.top, 2)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func profileAction(_ title: String, accent: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(accent ? Color.lightText : Color.ink2)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(accent ? Color.accent : Color.paper2, in: Capsule())
+                .overlay(
+                    Capsule().strokeBorder(accent ? Color.clear : Color.hair, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
     }
 
     private func coinCard(_ user: User) -> some View {
