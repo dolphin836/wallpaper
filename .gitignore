@@ -54,3 +54,5 @@ macos/AppIcon.iconset/
 scripts/.qcheck.env
 ai-wallpapers/
 ios/.build/
+ios/.swiftpm/
+ios/WallpaperExchange.xcodeproj/xcuserdata/
