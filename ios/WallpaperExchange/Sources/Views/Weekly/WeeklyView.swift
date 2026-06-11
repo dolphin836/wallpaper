@@ -67,7 +67,7 @@ struct WeeklyView: View {
         CachedAsyncImage(url: URL(string: entry.coverURL), maxPixelDimension: 700) { image in
             image.resizable().aspectRatio(contentMode: .fill)
         } placeholder: {
-            Rectangle().fill(Color(hex: entry.accentColor ?? entry.dominantColor) ?? Color(.systemGray5))
+            Rectangle().fill(Color(hex: entry.accentColor ?? entry.dominantColor) ?? Color.shimGray5)
         }
         .aspectRatio(1.4, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -120,7 +120,7 @@ struct WeeklyWeekView: View {
             }
         }
         .navigationTitle("Week \(week) · \(String(year))")
-        .navigationBarTitleDisplayMode(.inline)
+        .inlineNavTitle()
         .task { if picks.isEmpty { await load() } }
     }
 

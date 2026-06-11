@@ -29,14 +29,11 @@ struct AuthView: View {
                     if mode == .register {
                         TextField("Username", text: $username)
                             .textContentType(.username)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
+                            .usernameFieldTraits()
                     }
                     TextField("Email", text: $email)
                         .textContentType(.emailAddress)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                        .emailFieldTraits()
                     SecureField("Password", text: $password)
                         .textContentType(mode == .register ? .newPassword : .password)
                 }
@@ -76,7 +73,7 @@ struct AuthView: View {
                 }
             }
             .navigationTitle(mode == .login ? "Sign In" : "Register")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

@@ -52,7 +52,7 @@ struct WallpaperDetailView: View {
         }
         .background(backdropColor.opacity(0.08))
         .navigationTitle(detail?.title ?? "")
-        .navigationBarTitleDisplayMode(.inline)
+        .inlineNavTitle()
         .task(id: slug) { await load() }
         .sheet(isPresented: $showAddToCollection) {
             if let detail {
@@ -75,7 +75,7 @@ struct WallpaperDetailView: View {
             image.resizable().aspectRatio(contentMode: .fit)
         } placeholder: {
             Rectangle()
-                .fill(backdropColor == .clear ? Color(.systemGray5) : backdropColor)
+                .fill(backdropColor == .clear ? Color.shimGray5 : backdropColor)
                 .aspectRatio(CGFloat(max(detail.width, 1)) / CGFloat(max(detail.height, 1)), contentMode: .fit)
         }
         .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -211,7 +211,7 @@ struct WallpaperDetailView: View {
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(Color(.systemGray6), in: Capsule())
+                    .background(Color.shimGray6, in: Capsule())
                 Text(byteString(detail.fileSize))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -237,7 +237,7 @@ struct WallpaperDetailView: View {
                     CachedAsyncImage(url: URL(string: uploader.avatarURL ?? ""), maxPixelDimension: 80) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
-                        Circle().fill(Color(.systemGray5))
+                        Circle().fill(Color.shimGray5)
                     }
                     .frame(width: 36, height: 36)
                     .clipShape(Circle())
@@ -357,7 +357,7 @@ struct FlowChips: View {
                         .font(.caption)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
-                        .background(Color(.systemGray6), in: Capsule())
+                        .background(Color.shimGray6, in: Capsule())
                         .foregroundStyle(.secondary)
                 }
             }
@@ -416,7 +416,7 @@ struct AddToCollectionSheet: View {
                 }
             }
             .navigationTitle("Add to Collection")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
@@ -426,7 +426,7 @@ struct AddToCollectionSheet: View {
                 collections = (try? await APIClient.shared.fetchMyCollections(wallpaperID: wallpaperID)) ?? []
             }
         }
-        .presentationDetents([.medium, .large])
+        .mediumSheetDetents()
     }
 
     private func add(to collectionID: Int) {

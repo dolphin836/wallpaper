@@ -98,7 +98,7 @@ struct CollectionCard: View {
             }
             .padding(10)
         }
-        .background(Color(.secondarySystemGroupedBackground))
+        .background(Color.shimGroupedCard)
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
@@ -109,13 +109,13 @@ struct CollectionCard: View {
             let tiles = collection.recentTiles ?? []
             if tiles.isEmpty {
                 Rectangle()
-                    .fill(Color(hex: collection.accentColor) ?? Color(.systemGray5))
+                    .fill(Color(hex: collection.accentColor) ?? Color.shimGray5)
             } else {
                 ForEach(Array(tiles.prefix(3).enumerated()), id: \.offset) { _, tile in
                     CachedAsyncImage(url: URL(string: tile.thumbURL), maxPixelDimension: 500) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
-                        Rectangle().fill(Color(hex: tile.dominantColor) ?? Color(.systemGray5))
+                        Rectangle().fill(Color(hex: tile.dominantColor) ?? Color.shimGray5)
                     }
                     .clipped()
                 }
@@ -154,7 +154,7 @@ struct CollectionDetailView: View {
             .padding(.top, 8)
         }
         .navigationTitle(collection.title)
-        .navigationBarTitleDisplayMode(.inline)
+        .inlineNavTitle()
         .task { if wallpapers.isEmpty { loadNextPage() } }
     }
 

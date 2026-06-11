@@ -55,7 +55,7 @@ struct WallpaperTile: View {
                 .aspectRatio(contentMode: .fill)
         } placeholder: {
             Rectangle()
-                .fill(Color(hex: wallpaper.dominantColor) ?? Color(.systemGray5))
+                .fill(Color(hex: wallpaper.dominantColor) ?? Color.shimGray5)
         }
         .aspectRatio(aspectRatio, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 12))

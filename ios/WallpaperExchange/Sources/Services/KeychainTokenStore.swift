@@ -11,7 +11,10 @@ import Security
 // persisting the token as plain text on disk. Shipping a Developer ID
 // signed build would make the prompt disappear for good.
 enum KeychainTokenStore {
-    private static let service = "com.wallpaperexchange.mac"
+    // iOS bundle id, NOT the Mac client's — sharing the Mac service name
+    // makes the macOS dev-preview build trip a cross-app Keychain
+    // authorization prompt against the real Mac client's token item.
+    private static let service = "com.wallpaperexchange.ios"
     private static let account = "auth.jwt_token"
 
     private static var baseQuery: [String: Any] {

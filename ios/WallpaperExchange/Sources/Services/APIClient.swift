@@ -1,6 +1,10 @@
 import Foundation
-import UIKit
 import UniformTypeIdentifiers
+#if canImport(UIKit)
+import UIKit
+#else
+import AppKit
+#endif
 
 enum APIError: LocalizedError {
     case invalidURL
@@ -23,19 +27,28 @@ enum APIError: LocalizedError {
 }
 
 // This device's native pixel size, used for the "fits my screen" filter.
-// UIScreen.main is fine here: wallpapers target the device the app runs
-// on, and iPhone/iPad have exactly one built-in screen.
+// On iOS, UIScreen.main is fine: wallpapers target the device the app
+// runs on, and iPhone/iPad have exactly one built-in screen. The AppKit
+// branch only serves the macOS dev-preview build.
 struct DeviceScreenRequirement: Sendable {
     let width: Int
     let height: Int
 
     @MainActor
     static var current: DeviceScreenRequirement {
+        #if canImport(UIKit)
         let bounds = UIScreen.main.nativeBounds
         return DeviceScreenRequirement(
             width: Int(bounds.width.rounded()),
             height: Int(bounds.height.rounded())
         )
+        #else
+        let frame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1920, height: 1080)
+        return DeviceScreenRequirement(
+            width: Int(frame.width.rounded()),
+            height: Int(frame.height.rounded())
+        )
+        #endif
     }
 }
 

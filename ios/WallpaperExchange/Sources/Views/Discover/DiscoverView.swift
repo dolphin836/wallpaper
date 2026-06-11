@@ -55,7 +55,7 @@ struct DiscoverView: View {
                 .padding(.top, 4)
             }
             .navigationTitle("Wallpaper Exchange")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavTitle()
             .navigationDestination(for: WallpaperRoute.self) { route in
                 WallpaperDetailView(slug: route.slug)
             }
@@ -94,10 +94,10 @@ struct DiscoverView: View {
                             .padding(.horizontal, 14)
                             .padding(.vertical, 7)
                             .background(
-                                feed == f ? Color.primary : Color(.systemGray6),
+                                feed == f ? Color.primary : Color.shimGray6,
                                 in: Capsule()
                             )
-                            .foregroundStyle(feed == f ? Color(.systemBackground) : .primary)
+                            .foregroundStyle(feed == f ? Color.shimBackground : .primary)
                     }
                     .buttonStyle(.plain)
                 }
@@ -137,7 +137,7 @@ struct DiscoverView: View {
                 .font(.caption)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 6)
-                .background(isOn ? Color.accentColor.opacity(0.18) : Color(.systemGray6), in: Capsule())
+                .background(isOn ? Color.accentColor.opacity(0.18) : Color.shimGray6, in: Capsule())
                 .foregroundStyle(isOn ? Color.accentColor : .secondary)
         }
         .buttonStyle(.plain)

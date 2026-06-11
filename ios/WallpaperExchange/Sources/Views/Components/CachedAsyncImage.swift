@@ -1,17 +1,19 @@
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#endif
 import ImageIO
 import CryptoKit
 
 // UIKit port of the Mac client's CachedAsyncImage: in-memory cache of
-// *decoded* UIImage instances over a shared on-disk byte cache. Decoded
+// *decoded* PlatformImage instances over a shared on-disk byte cache. Decoded
 // caching avoids the re-decode flash when grid rows recycle; the disk
 // layer keeps relaunches off the network entirely.
 @MainActor
 final class ImageCacheStore {
     static let shared = ImageCacheStore()
 
-    private let cache = NSCache<NSString, UIImage>()
+    private let cache = NSCache<NSString, PlatformImage>()
     private let dataLoader = ImageDataLoader()
 
     private init() {
@@ -21,11 +23,11 @@ final class ImageCacheStore {
         cache.totalCostLimit = 64 * 1024 * 1024
     }
 
-    func get(_ url: URL, maxPixelDimension: Int) -> UIImage? {
+    func get(_ url: URL, maxPixelDimension: Int) -> PlatformImage? {
         cache.object(forKey: cacheKey(for: url, maxPixelDimension: maxPixelDimension))
     }
 
-    func load(_ url: URL, maxPixelDimension: Int) async -> UIImage? {
+    func load(_ url: URL, maxPixelDimension: Int) async -> PlatformImage? {
         if let cached = get(url, maxPixelDimension: maxPixelDimension) {
             return cached
         }
@@ -50,10 +52,10 @@ final class ImageCacheStore {
         "\(url.absoluteString)#px=\(maxPixelDimension)" as NSString
     }
 
-    nonisolated private static func downsample(data: Data, maxPixelDimension: Int) -> UIImage? {
+    nonisolated private static func downsample(data: Data, maxPixelDimension: Int) -> PlatformImage? {
         let options = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let source = CGImageSourceCreateWithData(data as CFData, options) else {
-            return UIImage(data: data)
+            return PlatformImage(data: data)
         }
         let thumbnailOptions = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -62,16 +64,18 @@ final class ImageCacheStore {
             kCGImageSourceThumbnailMaxPixelSize: maxPixelDimension,
         ] as CFDictionary
         guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions) else {
-            return UIImage(data: data)
+            return PlatformImage(data: data)
         }
-        return UIImage(cgImage: cgImage)
+        #if canImport(UIKit)
+        return PlatformImage(cgImage: cgImage)
+        #else
+        return PlatformImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
+        #endif
     }
 
-    private func estimatedCost(of image: UIImage) -> Int {
-        guard let cg = image.cgImage else {
-            return Int(image.size.width * image.size.height * 4)
-        }
-        return max(1, cg.width * cg.height * 4)
+    private func estimatedCost(of image: PlatformImage) -> Int {
+        let pixels = image.pixelSize
+        return max(1, Int(pixels.width) * Int(pixels.height) * 4)
     }
 }
 
@@ -175,7 +179,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     let content: (Image) -> Content
     let placeholder: () -> Placeholder
 
-    @State private var uiImage: UIImage?
+    @State private var uiImage: PlatformImage?
     @State private var loadedURL: URL?
 
     init(
@@ -195,7 +199,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     var body: some View {
         Group {
             if let uiImage {
-                content(Image(uiImage: uiImage))
+                content(Image(platformImage: uiImage))
             } else {
                 placeholder()
             }

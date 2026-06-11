@@ -10,7 +10,7 @@ struct UploadView: View {
 
     @State private var pickerItem: PhotosPickerItem?
     @State private var imageData: Data?
-    @State private var previewImage: UIImage?
+    @State private var previewImage: PlatformImage?
 
     enum UploadState: Equatable {
         case idle
@@ -46,7 +46,7 @@ struct UploadView: View {
                 Task {
                     if let data = try? await newItem.loadTransferable(type: Data.self) {
                         imageData = data
-                        previewImage = UIImage(data: data)
+                        previewImage = PlatformImage(data: data)
                     }
                 }
             }
@@ -90,13 +90,13 @@ struct UploadView: View {
     private var previewSection: some View {
         if let previewImage {
             VStack(alignment: .leading, spacing: 6) {
-                Image(uiImage: previewImage)
+                Image(platformImage: previewImage)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(maxHeight: 360)
                     .frame(maxWidth: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
-                Text("\(Int(previewImage.size.width * previewImage.scale))×\(Int(previewImage.size.height * previewImage.scale)) px · \(ByteCountFormatter.string(fromByteCount: Int64(imageData?.count ?? 0), countStyle: .file))")
+                Text("\(Int(previewImage.pixelSize.width))×\(Int(previewImage.pixelSize.height)) px · \(ByteCountFormatter.string(fromByteCount: Int64(imageData?.count ?? 0), countStyle: .file))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -166,7 +166,7 @@ struct UploadView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.shimGroupedCard, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func submit() {

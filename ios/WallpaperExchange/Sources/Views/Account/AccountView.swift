@@ -78,7 +78,7 @@ struct AccountView: View {
             CachedAsyncImage(url: URL(string: user.avatarURL), maxPixelDimension: 200) { image in
                 image.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
-                Circle().fill(Color(.systemGray5))
+                Circle().fill(Color.shimGray5)
                     .overlay(
                         Text(String((user.nickname.isEmpty ? user.username : user.nickname).prefix(1)).uppercased())
                             .font(.title.weight(.semibold))
@@ -138,7 +138,7 @@ struct AccountView: View {
                     .foregroundStyle(.tertiary)
             }
             .padding(12)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+            .background(Color.shimGroupedCard, in: RoundedRectangle(cornerRadius: 12))
             .padding(.horizontal, 12)
         }
         .buttonStyle(.plain)
@@ -261,7 +261,7 @@ struct EditProfileSheet: View {
                 }
             }
             .navigationTitle("Edit Profile")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -321,7 +321,7 @@ struct ChangePasswordSheet: View {
                 }
             }
             .navigationTitle("Change Password")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -386,7 +386,7 @@ struct CoinLedgerSheet: View {
                 }
             }
             .navigationTitle("Coin History")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }

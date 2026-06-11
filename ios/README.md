@@ -23,11 +23,24 @@ API surface and conventions with the macOS client in `macos/`.
   client). Image loading uses the shared decoded-memory + SHA-256 disk
   cache design ported from the Mac client.
 
-## Building
+## Running on a Mac without Xcode (dev preview)
+
+`Package.swift` compiles the same sources against the macOS SDK — full
+type checking plus a runnable desktop window, CommandLineTools only:
+
+```bash
+cd ios && swift run
+```
+
+Platform divergence (UIKit/AppKit colors, iOS-only modifiers, UIImage vs
+NSImage, UIScreen vs NSScreen) is bridged in
+`Views/Components/PlatformShims.swift`; everything else is shared.
+
+## Building the real iOS app
 
 This needs **full Xcode** (iOS SDK + simulators) — CommandLineTools
-alone, as installed on the repo's dev box, can parse but not compile
-this target.
+alone, as installed on the repo's dev box, can parse and macOS-build but
+not compile the iOS target.
 
 ```bash
 brew install xcodegen            # once
@@ -64,9 +77,11 @@ ios/
 
 ## Relationship to the macOS client
 
-`Models/*.swift`, `KeychainTokenStore.swift` and
-`APIClient+Endpoints.swift` are byte-identical copies of the Mac
-sources; `APIClient.swift` drops the Mac-only surface (NSScreen
+`Models/*.swift` and `APIClient+Endpoints.swift` are byte-identical
+copies of the Mac sources; `KeychainTokenStore.swift` differs only in
+its service name (`com.wallpaperexchange.ios` — sharing the Mac service
+triggers a cross-app Keychain prompt when the dev-preview runs on the
+same Mac as the real client); `APIClient.swift` drops the Mac-only surface (NSScreen
 enumeration, DMG release manifest, file-URL uploads, tus video upload)
 and adds a `Data`-based upload for PhotosPicker. If an endpoint changes,
 update both clients — there is intentionally no shared SwiftPM package
