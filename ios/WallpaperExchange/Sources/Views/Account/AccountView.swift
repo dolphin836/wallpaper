@@ -199,18 +199,25 @@ struct LibrarySection: View {
             .padding(.horizontal, 12)
             .onChange(of: tab) { _, _ in reload() }
 
-            if wallpapers.isEmpty && !loading {
-                Text("Nothing here yet")
-                    .font(.footnote)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 28)
+            if wallpapers.isEmpty && loading {
+                WallpaperGridSkeleton(count: 4)
+            } else if wallpapers.isEmpty {
+                EmptyStateView(kicker: "Nothing here yet", message: emptyMessage)
             } else {
                 WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore) { loadNextPage() }
                 if loading { LoadingFooter() }
             }
         }
         .task { if wallpapers.isEmpty { reload() } }
+    }
+
+    private var emptyMessage: String {
+        switch tab {
+        case .uploads: return "Wallpapers you upload will appear here."
+        case .likes: return "Wallpapers you like will appear here."
+        case .favorites: return "Wallpapers you favorite will appear here."
+        case .downloads: return "Wallpapers you download will appear here."
+        }
     }
 
     private func reload() {

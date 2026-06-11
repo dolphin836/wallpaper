@@ -36,8 +36,7 @@ struct HomeView: View {
                                     items: livePicks, route: FeedRoute(kind: .live))
                             }
                             if weekly == nil && aiPicks.isEmpty && livePicks.isEmpty {
-                                LoadingFooter()
-                                    .padding(.top, 100)
+                                homeSkeleton
                             }
                         }
                     }
@@ -70,6 +69,22 @@ struct HomeView: View {
     }
 
     // ─── sections ────────────────────────────────────────────────
+
+    // Mirrors the shelf layout so content landing doesn't reflow.
+    private var homeSkeleton: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            ForEach(0..<3, id: \.self) { i in
+                VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        SkeletonBlock(radius: 3).frame(width: 90, height: 9)
+                        SkeletonBlock(radius: 5).frame(width: 160, height: 20)
+                    }
+                    .padding(.horizontal, 12)
+                    RailSkeleton(height: i == 0 ? 240 : 190)
+                }
+            }
+        }
+    }
 
     private func weeklySection(_ slate: WeeklyCurrent) -> some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -196,6 +211,8 @@ struct FilteredFeedView: View {
             VStack(alignment: .leading, spacing: 12) {
                 if let loadError, wallpapers.isEmpty {
                     ErrorRetryView(message: loadError) { loadNextPage() }
+                } else if wallpapers.isEmpty && loading {
+                    WallpaperGridSkeleton(count: 8)
                 } else {
                     WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore) { loadNextPage() }
                     if loading { LoadingFooter() }

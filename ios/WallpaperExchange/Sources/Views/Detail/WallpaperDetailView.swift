@@ -44,8 +44,15 @@ struct WallpaperDetailView: View {
             } else if let loadError {
                 ErrorRetryView(message: loadError) { Task { await load() } }
             } else {
-                LoadingFooter()
-                    .padding(.top, 120)
+                // Skeleton mirrors the stage-panel layout.
+                VStack(alignment: .leading, spacing: 16) {
+                    SkeletonBlock(radius: 22)
+                        .aspectRatio(0.8, contentMode: .fit)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 8)
+                    SkeletonBlock(radius: 5).frame(width: 180, height: 20).padding(.horizontal, 12)
+                    SkeletonBlock(radius: 4).frame(width: 240, height: 12).padding(.horizontal, 12)
+                }
             }
         }
         .background(Color.paper)
@@ -109,7 +116,7 @@ struct WallpaperDetailView: View {
     }
 
     private func actionRow(_ detail: WallpaperDetail) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             engagementButton(
                 icon: isLiked ? "heart.fill" : "heart",
                 count: likeCount,
@@ -222,9 +229,11 @@ struct WallpaperDetailView: View {
                 .font(.system(size: 14))
             Text(text)
                 .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
         }
+        .fixedSize()
         .foregroundStyle(Color.lightText)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 14)
         .padding(.vertical, 9)
         .background(Color.accent, in: Capsule())
     }

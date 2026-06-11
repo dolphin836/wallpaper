@@ -32,9 +32,16 @@ struct CollectionsBrowser: View {
                         .buttonStyle(.plain)
                     }
                     .padding(.horizontal, 12)
-                    .padding(.top, 6)
+                    .padding(.top, 14)
                     if let loadError, collections.isEmpty {
                         ErrorRetryView(message: loadError) { loadNextPage() }
+                    } else if collections.isEmpty && loading {
+                        VStack(spacing: 12) {
+                            ForEach(0..<3, id: \.self) { _ in
+                                SkeletonBlock(radius: 14).frame(height: 160)
+                            }
+                        }
+                        .padding(.horizontal, 12)
                     } else {
                         LazyVStack(spacing: 12) {
                             ForEach(collections) { collection in
@@ -128,7 +135,9 @@ struct CollectionCard: View {
     }
 
     // Up to three recent tiles side by side; accent-color fill when the
-    // collection has no rendered tiles yet.
+    // collection has no rendered tiles yet. Each tile is a Color.clear
+    // slot with the image overlaid — .fill without a frame would expand
+    // the HStack to the images' intrinsic width and blow the card open.
     private var tileStrip: some View {
         HStack(spacing: 2) {
             let tiles = collection.recentTiles ?? []
@@ -137,12 +146,15 @@ struct CollectionCard: View {
                     .fill(Color(hex: collection.accentColor) ?? Color.paper3)
             } else {
                 ForEach(Array(tiles.prefix(3).enumerated()), id: \.offset) { _, tile in
-                    CachedAsyncImage(url: URL(string: tile.thumbURL), maxPixelDimension: 500) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle().fill(Color(hex: tile.dominantColor) ?? Color.paper3)
-                    }
-                    .clipped()
+                    Color.clear
+                        .overlay(
+                            CachedAsyncImage(url: URL(string: tile.thumbURL), maxPixelDimension: 500) { image in
+                                image.resizable().aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Rectangle().fill(Color(hex: tile.dominantColor) ?? Color.paper3)
+                            }
+                        )
+                        .clipped()
                 }
             }
         }
@@ -171,6 +183,10 @@ struct CollectionDetailView: View {
                 }
                 if let loadError, wallpapers.isEmpty {
                     ErrorRetryView(message: loadError) { loadNextPage() }
+                } else if wallpapers.isEmpty && loading {
+                    WallpaperGridSkeleton(count: 8)
+                } else if wallpapers.isEmpty {
+                    EmptyStateView(kicker: "Empty shelf", message: "This collection has no wallpapers yet.")
                 } else {
                     WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore) { loadNextPage() }
                     if loading { LoadingFooter() }

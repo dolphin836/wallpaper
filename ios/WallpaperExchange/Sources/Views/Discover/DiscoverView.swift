@@ -41,12 +41,16 @@ struct DiscoverView: View {
                     categoryChips
                     if let loadError, wallpapers.isEmpty {
                         ErrorRetryView(message: loadError) { reload() }
+                    } else if wallpapers.isEmpty && loading {
+                        WallpaperGridSkeleton(count: 8)
+                    } else if wallpapers.isEmpty {
+                        EmptyStateView(kicker: "No matches", message: "Nothing in the archive fits those filters yet.")
                     } else {
                         WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore) {
                             loadNextPage()
                         }
                         if loading { LoadingFooter() }
-                        if !hasMore && !wallpapers.isEmpty {
+                        if !hasMore {
                             Kicker(text: "End of archive")
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)

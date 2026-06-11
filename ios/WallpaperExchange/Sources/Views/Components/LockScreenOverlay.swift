@@ -13,7 +13,7 @@ struct LockScreenOverlay: View {
                     .font(.system(size: compact ? 7 : 15, weight: .medium))
                     .opacity(0.92)
                 Text(Self.timeString)
-                    .font(.system(size: compact ? 26 : 64, weight: .semibold, design: .rounded))
+                    .font(.system(size: compact ? 21 : 64, weight: .semibold, design: .rounded))
             }
             .padding(.top, compact ? 12 : 48)
 
