@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { requestStarted, requestSettled } from '../lib/pageProgress';
 
 export function resolveBaseURL(): string {
   // Every prod surface — wallpaperexchange.com (CF Pages with _redirects),
@@ -22,6 +23,7 @@ client.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  requestStarted(config.url);
   return config;
 });
 
@@ -36,8 +38,12 @@ export function setAuthExpiredHandler(fn: () => void) {
 }
 
 client.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    requestSettled(response.config.url);
+    return response;
+  },
   (error) => {
+    requestSettled(error.config?.url);
     if (error.response?.status === 401) {
       const wasAuthed = !!localStorage.getItem('token');
       localStorage.removeItem('token');

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from './store/auth';
 import { getMe } from './api';
 import { setAuthExpiredHandler } from './api/client';
+import { routeChanged } from './lib/pageProgress';
 import Layout from './components/Layout';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -58,6 +59,12 @@ function RouteFallback() {
 function AppRoutes() {
   const location = useLocation();
   const background = (location.state as { background?: RouterLocation })?.background;
+
+  // Top-edge load bar: start on every navigation; the axios counter in
+  // lib/pageProgress keeps it alive until the page's data settles.
+  useEffect(() => {
+    routeChanged();
+  }, [location.pathname, location.search]);
 
   // ── Session-validity guard ──
   // The client trusts localStorage on first paint, so a token that expired
