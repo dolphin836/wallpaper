@@ -12,7 +12,10 @@ struct CollectionsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
+                    SectionHeader(kicker: "Curated by the community", title: "Collections")
+                        .padding(.horizontal, 12)
+                        .padding(.top, 6)
                     if let loadError, collections.isEmpty {
                         ErrorRetryView(message: loadError) { loadNextPage() }
                     } else {
@@ -35,7 +38,9 @@ struct CollectionsView: View {
                 }
                 .padding(.top, 8)
             }
-            .navigationTitle("Collections")
+            .background(Color.paper)
+            .navigationTitle("")
+            .inlineNavTitle()
             .navigationDestination(for: CollectionItem.self) { collection in
                 CollectionDetailView(collection: collection)
             }
@@ -83,23 +88,26 @@ struct CollectionCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(collection.title)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.display18)
+                        .foregroundStyle(Color.ink)
                         .lineLimit(1)
-                    Text("\(collection.wallpaperCount) wallpapers")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text("\(collection.wallpaperCount) WALLPAPERS")
+                        .font(.mono10)
+                        .tracking(0.8)
+                        .foregroundStyle(Color.muted)
                 }
                 Spacer()
                 if let likes = collection.likeCount, likes > 0 {
                     Label("\(likes)", systemImage: "heart")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.mono10)
+                        .foregroundStyle(Color.muted)
                 }
             }
-            .padding(10)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
         }
-        .background(Color.shimGroupedCard)
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .paperCard(radius: 14)
     }
 
     // Up to three recent tiles side by side; accent-color fill when the
@@ -109,13 +117,13 @@ struct CollectionCard: View {
             let tiles = collection.recentTiles ?? []
             if tiles.isEmpty {
                 Rectangle()
-                    .fill(Color(hex: collection.accentColor) ?? Color.shimGray5)
+                    .fill(Color(hex: collection.accentColor) ?? Color.paper3)
             } else {
                 ForEach(Array(tiles.prefix(3).enumerated()), id: \.offset) { _, tile in
                     CachedAsyncImage(url: URL(string: tile.thumbURL), maxPixelDimension: 500) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
-                        Rectangle().fill(Color(hex: tile.dominantColor) ?? Color.shimGray5)
+                        Rectangle().fill(Color(hex: tile.dominantColor) ?? Color.paper3)
                     }
                     .clipped()
                 }
@@ -153,6 +161,7 @@ struct CollectionDetailView: View {
             }
             .padding(.top, 8)
         }
+        .background(Color.paper)
         .navigationTitle(collection.title)
         .inlineNavTitle()
         .task { if wallpapers.isEmpty { loadNextPage() } }

@@ -34,6 +34,7 @@ struct DiscoverView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
+                    header
                     feedPicker
                     categoryChips
                     if let loadError, wallpapers.isEmpty {
@@ -44,9 +45,7 @@ struct DiscoverView: View {
                         }
                         if loading { LoadingFooter() }
                         if !hasMore && !wallpapers.isEmpty {
-                            Text("That's everything")
-                                .font(.footnote)
-                                .foregroundStyle(.tertiary)
+                            Kicker(text: "End of archive")
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
                         }
@@ -54,7 +53,8 @@ struct DiscoverView: View {
                 }
                 .padding(.top, 4)
             }
-            .navigationTitle("Wallpaper Exchange")
+            .background(Color.paper)
+            .navigationTitle("")
             .inlineNavTitle()
             .navigationDestination(for: WallpaperRoute.self) { route in
                 WallpaperDetailView(slug: route.slug)
@@ -80,6 +80,17 @@ struct DiscoverView: View {
         }
     }
 
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Kicker(text: "The wallpaper archive")
+            Text("Discover")
+                .font(.display28)
+                .foregroundStyle(Color.ink)
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 6)
+    }
+
     private var feedPicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
@@ -93,11 +104,12 @@ struct DiscoverView: View {
                             .font(.subheadline.weight(feed == f ? .semibold : .regular))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 7)
-                            .background(
-                                feed == f ? Color.primary : Color.shimGray6,
-                                in: Capsule()
+                            .background(feed == f ? Color.ink : Color.paper2, in: Capsule())
+                            .overlay(
+                                Capsule().strokeBorder(
+                                    feed == f ? Color.clear : Color.hair, lineWidth: 1)
                             )
-                            .foregroundStyle(feed == f ? Color.shimBackground : .primary)
+                            .foregroundStyle(feed == f ? Color.paper : Color.ink2)
                     }
                     .buttonStyle(.plain)
                 }
@@ -134,11 +146,15 @@ struct DiscoverView: View {
     private func chipButton(_ title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.caption)
+                .font(.caption.weight(isOn ? .semibold : .regular))
                 .padding(.horizontal, 11)
                 .padding(.vertical, 6)
-                .background(isOn ? Color.accentColor.opacity(0.18) : Color.shimGray6, in: Capsule())
-                .foregroundStyle(isOn ? Color.accentColor : .secondary)
+                .background(isOn ? Color.accentSoft : Color.paper2, in: Capsule())
+                .overlay(
+                    Capsule().strokeBorder(
+                        isOn ? Color.accent.opacity(0.45) : Color.hair, lineWidth: 1)
+                )
+                .foregroundStyle(isOn ? Color.accentInk : Color.muted)
         }
         .buttonStyle(.plain)
     }

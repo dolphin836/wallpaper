@@ -55,31 +55,28 @@ struct WallpaperTile: View {
                 .aspectRatio(contentMode: .fill)
         } placeholder: {
             Rectangle()
-                .fill(Color(hex: wallpaper.dominantColor) ?? Color.shimGray5)
+                .fill(Color(hex: wallpaper.dominantColor) ?? Color.paper3)
         }
         .aspectRatio(aspectRatio, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            // Hairline frame keeps very light/very dark images from
+            // dissolving into the paper background.
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Color.hair.opacity(0.6), lineWidth: 1)
+        )
         .overlay(alignment: .topLeading) {
             HStack(spacing: 4) {
-                chip(wallpaper.resolutionLabel)
+                MediaChip(text: wallpaper.resolutionLabel)
                 if wallpaper.isAIGenerated == true {
-                    chip("AI", tint: .purple)
+                    MediaChip(text: "AI", tint: Color.accent.opacity(0.78))
                 }
                 if wallpaper.isDynamic {
-                    chip("LIVE", tint: .orange)
+                    MediaChip(text: "LIVE", tint: Color.accent.opacity(0.78))
                 }
             }
             .padding(6)
         }
-    }
-
-    private func chip(_ text: String, tint: Color = .black) -> some View {
-        Text(text)
-            .font(.system(size: 9, weight: .semibold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(tint.opacity(0.55), in: Capsule())
     }
 }
 
@@ -115,17 +112,39 @@ struct ErrorRetryView: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            Image(systemName: "wifi.exclamationmark")
-                .font(.title2)
-                .foregroundStyle(.secondary)
+            Kicker(text: "Connection lost", tint: .warn)
             Text(message)
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.muted)
                 .multilineTextAlignment(.center)
-            Button("Retry", action: retry)
-                .buttonStyle(.bordered)
+            Button(action: retry) {
+                Text("Retry")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Color.ink)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 7)
+                    .background(Color.paper2, in: Capsule())
+                    .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
+    }
+}
+
+// Section heading: mono kicker over serif display, the archive's
+// editorial header pairing.
+struct SectionHeader: View {
+    var kicker: String
+    var title: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Kicker(text: kicker)
+            Text(title)
+                .font(.display22)
+                .foregroundStyle(Color.ink)
+        }
     }
 }

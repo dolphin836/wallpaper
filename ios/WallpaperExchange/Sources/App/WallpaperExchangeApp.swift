@@ -51,5 +51,9 @@ struct RootTabView: View {
             AccountView()
                 .tabItem { Label("Account", systemImage: "person.crop.circle") }
         }
+        // Warm exchange accent drives every interactive tint, replacing
+        // the stock blue/purple; paper behind everything.
+        .tint(Color.accent)
+        .background(Color.paper)
     }
 }

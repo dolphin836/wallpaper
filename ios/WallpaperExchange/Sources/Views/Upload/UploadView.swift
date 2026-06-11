@@ -24,7 +24,9 @@ struct UploadView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 16) {
+                    SectionHeader(kicker: "Share & earn a coin", title: "Upload")
+                        .padding(.top, 6)
                     if !auth.isLoggedIn {
                         signedOutPrompt
                     } else {
@@ -38,7 +40,9 @@ struct UploadView: View {
                 }
                 .padding(12)
             }
-            .navigationTitle("Upload")
+            .background(Color.paper)
+            .navigationTitle("")
+            .inlineNavTitle()
             .sheet(isPresented: $showAuth) { AuthView() }
             .onChange(of: pickerItem) { _, newItem in
                 guard let newItem else { return }
@@ -111,11 +115,13 @@ struct UploadView: View {
                 submit()
             } label: {
                 Text("Upload")
-                    .fontWeight(.semibold)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.lightText)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 11)
+                    .background(Color.accent, in: Capsule())
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.plain)
         case .uploading(let progress):
             VStack(spacing: 6) {
                 ProgressView(value: progress)
@@ -153,20 +159,19 @@ struct UploadView: View {
 
     private var rulesCard: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Upload guidelines")
-                .font(.footnote.weight(.semibold))
+            Kicker(text: "House rules")
             Group {
                 Text("• Original or properly licensed images only")
                 Text("• No watermarks, text overlays or people")
-                Text("• Higher resolution ranks better — 4K+ preferred")
+                Text("• Higher resolution ranks better, 4K+ preferred")
                 Text("• Every upload goes through review before publishing")
             }
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.ink2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color.shimGroupedCard, in: RoundedRectangle(cornerRadius: 12))
+        .paperCard()
     }
 
     private func submit() {

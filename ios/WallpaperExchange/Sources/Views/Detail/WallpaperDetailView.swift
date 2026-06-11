@@ -32,12 +32,10 @@ struct WallpaperDetailView: View {
         ScrollView {
             if let detail {
                 VStack(alignment: .leading, spacing: 16) {
-                    hero(detail)
-                    actionRow(detail)
+                    stagePanel(detail)
                     metadata(detail)
                     if !similar.isEmpty {
-                        Text("More like this")
-                            .font(.headline)
+                        SectionHeader(kicker: "From the same shelf", title: "More like this")
                             .padding(.horizontal, 12)
                         WallpaperGrid(wallpapers: similar)
                     }
@@ -50,7 +48,7 @@ struct WallpaperDetailView: View {
                     .padding(.top, 120)
             }
         }
-        .background(backdropColor.opacity(0.08))
+        .background(Color.paper)
         .navigationTitle(detail?.title ?? "")
         .inlineNavTitle()
         .task(id: slug) { await load() }
@@ -70,57 +68,93 @@ struct WallpaperDetailView: View {
         Color(hex: detail?.dominantColor) ?? .clear
     }
 
-    private func hero(_ detail: WallpaperDetail) -> some View {
-        CachedAsyncImage(url: URL(string: detail.displayURL), maxPixelDimension: 1400) { image in
-            image.resizable().aspectRatio(contentMode: .fit)
-        } placeholder: {
-            Rectangle()
-                .fill(backdropColor == .clear ? Color.shimGray5 : backdropColor)
-                .aspectRatio(CGFloat(max(detail.width, 1)) / CGFloat(max(detail.height, 1)), contentMode: .fit)
+    // The web/Mac "stage": hero image on a dominant-color tinted panel
+    // with the action row inside the same card, so the wallpaper's own
+    // palette frames it.
+    private func stagePanel(_ detail: WallpaperDetail) -> some View {
+        VStack(spacing: 12) {
+            CachedAsyncImage(url: URL(string: detail.displayURL), maxPixelDimension: 1400) { image in
+                image.resizable().aspectRatio(contentMode: .fit)
+            } placeholder: {
+                Rectangle()
+                    .fill(backdropColor == .clear ? Color.paper3 : backdropColor)
+                    .aspectRatio(CGFloat(max(detail.width, 1)) / CGFloat(max(detail.height, 1)), contentMode: .fit)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(Color.hair.opacity(0.5), lineWidth: 1)
+            )
+
+            actionRow(detail)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .padding(10)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(Color.paper2)
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(LinearGradient(
+                        colors: [backdropColor.opacity(0.30), backdropColor.opacity(0.08)],
+                        startPoint: .top, endPoint: .bottom
+                    ))
+            }
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .strokeBorder(Color.hair, lineWidth: 1)
+        )
         .padding(.horizontal, 12)
         .padding(.top, 8)
     }
 
     private func actionRow(_ detail: WallpaperDetail) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             engagementButton(
                 icon: isLiked ? "heart.fill" : "heart",
                 count: likeCount,
-                tint: isLiked ? .red : .primary
+                tint: isLiked ? .red : Color.ink2
             ) { toggleLike() }
             engagementButton(
                 icon: isFavorited ? "star.fill" : "star",
                 count: favoriteCount,
-                tint: isFavorited ? .yellow : .primary
+                tint: isFavorited ? .yellow : Color.ink2
             ) { toggleFavorite() }
             Button {
                 guard auth.isLoggedIn else { showLoginPrompt = true; return }
                 showAddToCollection = true
             } label: {
                 Image(systemName: "rectangle.stack.badge.plus")
-                    .font(.system(size: 17))
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color.ink2)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 8)
+                    .background(Color.paper.opacity(0.72), in: Capsule())
+                    .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.plain)
 
             Spacer()
 
             downloadButton(detail)
         }
-        .padding(.horizontal, 12)
     }
 
     private func engagementButton(icon: String, count: Int, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: icon)
+                    .font(.system(size: 13))
                 Text("\(count)")
-                    .font(.subheadline.monospacedDigit())
+                    .font(.mono11)
             }
             .foregroundStyle(tint)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 8)
+            .background(Color.paper.opacity(0.72), in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -135,10 +169,9 @@ struct WallpaperDetailView: View {
                     startDownload(detail)
                 }
             } label: {
-                Label("Download", systemImage: "arrow.down.circle.fill")
-                    .font(.subheadline.weight(.semibold))
+                ctaLabel("Download · 1 coin", icon: "arrow.down.circle.fill")
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.plain)
             .confirmationDialog(
                 "Download costs 1 coin",
                 isPresented: confirmingBinding,
@@ -150,39 +183,50 @@ struct WallpaperDetailView: View {
         case .confirming:
             // confirmationDialog above drives this state; render the same
             // button so layout doesn't jump while it's up.
-            Button {} label: {
-                Label("Download", systemImage: "arrow.down.circle.fill")
-                    .font(.subheadline.weight(.semibold))
-            }
-            .buttonStyle(.borderedProminent)
+            ctaLabel("Download · 1 coin", icon: "arrow.down.circle.fill")
         case .downloading:
-            Button {} label: {
-                HStack(spacing: 6) {
-                    ProgressView().controlSize(.small)
-                    Text("Saving…")
-                }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(true)
-        case .saved:
-            Button {} label: {
-                Label("Saved to Photos", systemImage: "checkmark.circle.fill")
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Saving…")
                     .font(.subheadline.weight(.semibold))
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.green)
-            .disabled(true)
+            .foregroundStyle(Color.lightText)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+            .background(Color.accent.opacity(0.75), in: Capsule())
+        case .saved:
+            ctaLabel("Saved to Photos", icon: "checkmark.circle.fill")
         case .failed(let message):
             Button {
                 downloadState = .idle
             } label: {
-                Label(message, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .lineLimit(1)
+                HStack(spacing: 5) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                    Text(message)
+                        .lineLimit(1)
+                }
+                .font(.caption.weight(.medium))
+                .foregroundStyle(Color.warn)
+                .padding(.horizontal, 13)
+                .padding(.vertical, 9)
+                .background(Color.accentSoft, in: Capsule())
+                .overlay(Capsule().strokeBorder(Color.warn.opacity(0.4), lineWidth: 1))
             }
-            .buttonStyle(.bordered)
-            .tint(.red)
+            .buttonStyle(.plain)
         }
+    }
+
+    private func ctaLabel(_ text: String, icon: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+            Text(text)
+                .font(.subheadline.weight(.semibold))
+        }
+        .foregroundStyle(Color.lightText)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
+        .background(Color.accent, in: Capsule())
     }
 
     private var confirmingBinding: Binding<Bool> {
@@ -196,25 +240,30 @@ struct WallpaperDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             if !detail.title.isEmpty {
                 Text(detail.title)
-                    .font(.title3.weight(.semibold))
+                    .font(.display22)
+                    .foregroundStyle(Color.ink)
             }
             if let description = detail.description, !description.isEmpty {
                 Text(description)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.ink2)
             }
 
-            HStack(spacing: 14) {
+            // Technical file row — mono caps, the archive's metadata voice.
+            HStack(spacing: 12) {
                 stat("eye", detail.viewCount)
                 stat("arrow.down.circle", detail.downloadCount)
-                Text(detail.resolutionLabel)
-                    .font(.caption.weight(.semibold))
+                Text(detail.resolutionLabel.uppercased())
+                    .font(.mono10)
+                    .tracking(0.5)
+                    .foregroundStyle(Color.ink2)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(Color.shimGray6, in: Capsule())
-                Text(byteString(detail.fileSize))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .background(Color.paper2, in: Capsule())
+                    .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
+                Text("\(detail.width)×\(detail.height) · \(byteString(detail.fileSize))")
+                    .font(.mono10)
+                    .foregroundStyle(Color.muted)
             }
 
             if !detail.paletteList.isEmpty {
@@ -237,7 +286,7 @@ struct WallpaperDetailView: View {
                     CachedAsyncImage(url: URL(string: uploader.avatarURL ?? ""), maxPixelDimension: 80) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
-                        Circle().fill(Color.shimGray5)
+                        Circle().fill(Color.paper3)
                     }
                     .frame(width: 36, height: 36)
                     .clipShape(Circle())
@@ -261,10 +310,11 @@ struct WallpaperDetailView: View {
     private func stat(_ icon: String, _ count: Int) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
+                .font(.system(size: 11))
             Text("\(count)")
+                .font(.mono10)
         }
-        .font(.caption)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color.muted)
     }
 
     private func byteString(_ bytes: Int) -> String {
@@ -357,8 +407,9 @@ struct FlowChips: View {
                         .font(.caption)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
-                        .background(Color.shimGray6, in: Capsule())
-                        .foregroundStyle(.secondary)
+                        .background(Color.paper2, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
+                        .foregroundStyle(Color.ink2)
                 }
             }
         }

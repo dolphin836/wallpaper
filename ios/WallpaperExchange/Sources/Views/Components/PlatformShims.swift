@@ -15,13 +15,6 @@ extension Image {
     }
 }
 
-extension Color {
-    static let shimGray5 = Color(.systemGray5)
-    static let shimGray6 = Color(.systemGray6)
-    static let shimBackground = Color(.systemBackground)
-    static let shimGroupedCard = Color(.secondarySystemGroupedBackground)
-}
-
 #else
 import AppKit
 
@@ -33,12 +26,6 @@ extension Image {
     }
 }
 
-extension Color {
-    static let shimGray5 = Color(nsColor: .quaternarySystemFill)
-    static let shimGray6 = Color(nsColor: .quinarySystemFill)
-    static let shimBackground = Color(nsColor: .windowBackgroundColor)
-    static let shimGroupedCard = Color(nsColor: .controlBackgroundColor)
-}
 #endif
 
 extension PlatformImage {

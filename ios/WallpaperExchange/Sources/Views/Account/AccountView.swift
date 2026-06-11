@@ -22,7 +22,9 @@ struct AccountView: View {
                     signedOut
                 }
             }
+            .background(Color.paper)
             .navigationTitle("Account")
+            .inlineNavTitle()
             .navigationDestination(for: WallpaperRoute.self) { route in
                 WallpaperDetailView(slug: route.slug)
             }
@@ -78,7 +80,7 @@ struct AccountView: View {
             CachedAsyncImage(url: URL(string: user.avatarURL), maxPixelDimension: 200) { image in
                 image.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
-                Circle().fill(Color.shimGray5)
+                Circle().fill(Color.paper3)
                     .overlay(
                         Text(String((user.nickname.isEmpty ? user.username : user.nickname).prefix(1)).uppercased())
                             .font(.title.weight(.semibold))
@@ -124,21 +126,27 @@ struct AccountView: View {
             HStack {
                 Image(systemName: "dollarsign.circle.fill")
                     .font(.title2)
-                    .foregroundStyle(.yellow)
-                VStack(alignment: .leading, spacing: 1) {
+                    .foregroundStyle(Color.accent)
+                VStack(alignment: .leading, spacing: 2) {
                     Text("\(user.coins) coins")
-                        .font(.headline)
-                    Text("Earn 1 per upload · downloads cost 1")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(.display18)
+                        .foregroundStyle(Color.ink)
+                    Text("EARN 1 PER UPLOAD · DOWNLOADS COST 1")
+                        .font(.kicker)
+                        .tracking(0.8)
+                        .foregroundStyle(Color.muted)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Color.muted)
             }
             .padding(12)
-            .background(Color.shimGroupedCard, in: RoundedRectangle(cornerRadius: 12))
+            .background(Color.accentSoft.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color.accent.opacity(0.25), lineWidth: 1)
+            )
             .padding(.horizontal, 12)
         }
         .buttonStyle(.plain)

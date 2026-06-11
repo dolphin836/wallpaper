@@ -25,7 +25,9 @@ struct WeeklyView: View {
                 }
                 .padding(.top, 8)
             }
-            .navigationTitle("Weekly Picks")
+            .background(Color.paper)
+            .navigationTitle("")
+            .inlineNavTitle()
             .navigationDestination(for: WallpaperRoute.self) { route in
                 WallpaperDetailView(slug: route.slug)
             }
@@ -39,18 +41,18 @@ struct WeeklyView: View {
 
     private func currentSection(_ slate: WeeklyCurrent) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Week \(slate.week) · \(String(slate.year))")
-                .font(.headline)
+            SectionHeader(kicker: "Week \(slate.week) · \(String(slate.year))", title: "Weekly Picks")
                 .padding(.horizontal, 12)
+                .padding(.top, 6)
             WallpaperGrid(wallpapers: slate.picks.map(\.asWallpaper))
         }
     }
 
     private var archiveSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Past Weeks")
-                .font(.headline)
+            SectionHeader(kicker: "The back catalogue", title: "Past Weeks")
                 .padding(.horizontal, 12)
+                .padding(.top, 8)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(archive) { entry in
                     NavigationLink(value: entry) {
@@ -67,7 +69,7 @@ struct WeeklyView: View {
         CachedAsyncImage(url: URL(string: entry.coverURL), maxPixelDimension: 700) { image in
             image.resizable().aspectRatio(contentMode: .fill)
         } placeholder: {
-            Rectangle().fill(Color(hex: entry.accentColor ?? entry.dominantColor) ?? Color.shimGray5)
+            Rectangle().fill(Color(hex: entry.accentColor ?? entry.dominantColor) ?? Color.paper3)
         }
         .aspectRatio(1.4, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -119,6 +121,7 @@ struct WeeklyWeekView: View {
                     .padding(.top, 8)
             }
         }
+        .background(Color.paper)
         .navigationTitle("Week \(week) · \(String(year))")
         .inlineNavTitle()
         .task { if picks.isEmpty { await load() } }
