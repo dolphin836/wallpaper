@@ -27,6 +27,7 @@ struct WallpaperDetailView: View {
     @State private var downloadState: DownloadState = .idle
     @State private var showAddToCollection = false
     @State private var showLoginPrompt = false
+    @State private var descriptionExpanded = false
 
     var body: some View {
         ScrollView {
@@ -56,7 +57,9 @@ struct WallpaperDetailView: View {
             }
         }
         .background(Color.paper)
-        .navigationTitle(detail?.title ?? "")
+        // Title renders once, in the content column — a nav-bar copy
+        // duplicated it right above the stage panel.
+        .navigationTitle("")
         .inlineNavTitle()
         .task(id: slug) { await load() }
         .sheet(isPresented: $showAddToCollection) {
@@ -253,9 +256,23 @@ struct WallpaperDetailView: View {
                     .foregroundStyle(Color.ink)
             }
             if let description = detail.description, !description.isEmpty {
+                // AI uploads carry their full generation prompt here —
+                // collapsed by default so a paragraph of prompt text
+                // doesn't push the page apart.
                 Text(description)
                     .font(.subheadline)
                     .foregroundStyle(Color.ink2)
+                    .lineLimit(descriptionExpanded ? nil : 3)
+                if description.count > 140 {
+                    Button(descriptionExpanded ? "Show less" : "Read more") {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            descriptionExpanded.toggle()
+                        }
+                    }
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(Color.accentInk)
+                    .buttonStyle(.plain)
+                }
             }
 
             // Technical file row — mono caps, the archive's metadata voice.
@@ -270,6 +287,16 @@ struct WallpaperDetailView: View {
                     .padding(.vertical, 3)
                     .background(Color.paper2, in: Capsule())
                     .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
+                if detail.isAIGenerated == true {
+                    Text("AI")
+                        .font(.mono10)
+                        .tracking(0.5)
+                        .foregroundStyle(Color.accentInk)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Color.accentSoft, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Color.accent.opacity(0.4), lineWidth: 1))
+                }
                 Text("\(detail.width)×\(detail.height) · \(byteString(detail.fileSize))")
                     .font(.mono10)
                     .foregroundStyle(Color.muted)
@@ -404,23 +431,52 @@ struct WallpaperDetailView: View {
     }
 }
 
-// Simple wrapping chip row for tags.
+// Wrapping chip rows for tags — multi-line flow, no hidden horizontal
+// scroll. Same Layout algorithm as the Mac client's ChipFlow.
 struct FlowChips: View {
     let items: [String]
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(items, id: \.self) { item in
-                    Text("#\(item)")
-                        .font(.caption)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background(Color.paper2, in: Capsule())
-                        .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
-                        .foregroundStyle(Color.ink2)
-                }
+        ChipFlow(spacing: 6) {
+            ForEach(items, id: \.self) { item in
+                Text("#\(item)")
+                    .font(.caption)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(Color.paper2, in: Capsule())
+                    .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
+                    .foregroundStyle(Color.ink2)
             }
+        }
+    }
+}
+
+struct ChipFlow: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxW = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, rowH: CGFloat = 0, widest: CGFloat = 0
+        for s in subviews {
+            let sz = s.sizeThatFits(.unspecified)
+            if x + sz.width > maxW && x > 0 {
+                widest = max(widest, x - spacing); x = 0; y += rowH + spacing; rowH = 0
+            }
+            x += sz.width + spacing; rowH = max(rowH, sz.height)
+        }
+        widest = max(widest, x - spacing)
+        return CGSize(width: widest, height: y + rowH)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, rowH: CGFloat = 0
+        for s in subviews {
+            let sz = s.sizeThatFits(.unspecified)
+            if x + sz.width > bounds.maxX && x > bounds.minX {
+                x = bounds.minX; y += rowH + spacing; rowH = 0
+            }
+            s.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(sz))
+            x += sz.width + spacing; rowH = max(rowH, sz.height)
         }
     }
 }
