@@ -314,7 +314,7 @@ export default function UploadPage() {
     <div className="upload-page min-h-full">
       <div className="upload-mesh" aria-hidden />
 
-      <div className="relative z-10 max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 py-10 pb-20">
+      <div className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-10 pb-20">
         {/* Editorial header */}
         <header className="mb-10">
           <div className="kicker text-muted">{t('header.kicker')}</div>

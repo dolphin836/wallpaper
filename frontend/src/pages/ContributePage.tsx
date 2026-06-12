@@ -20,7 +20,7 @@ export default function ContributePage() {
         description={t('contribute.metaDescription')}
       />
 
-      <div className="relative z-10 px-6 sm:px-10 lg:px-14 py-12 max-w-[1280px] mx-auto">
+      <div className="relative z-10 px-6 sm:px-10 lg:px-14 py-12 max-w-[1600px] mx-auto">
 
         {/* ─── Hero ─── */}
         <header className="mb-10">

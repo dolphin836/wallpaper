@@ -49,7 +49,7 @@ export default function LegalDocument({ doc, currentPath }: Props) {
   return (
     <div className="legal-page min-h-full">
       <div className="legal-mesh" aria-hidden />
-      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8 lg:gap-14 max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 py-12">
+      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8 lg:gap-14 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-12">
         {/* TOC sidebar */}
         <aside className="hidden lg:block">
           <div className="kicker text-muted">{t('legal.articles', { num: doc.toc.length })}</div>

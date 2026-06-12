@@ -83,7 +83,7 @@ export default function DownloadMacPage() {
           }}
         />
 
-        <div className="mx-auto grid max-w-[1500px] gap-10 px-5 py-8 sm:px-8 lg:grid-cols-[minmax(340px,0.78fr)_minmax(560px,1.22fr)] lg:px-12 lg:py-12">
+        <div className="mx-auto grid max-w-[1600px] gap-10 px-6 py-8 sm:px-10 lg:grid-cols-[minmax(340px,0.78fr)_minmax(560px,1.22fr)] lg:px-14 lg:py-12">
           {loading ? (
             <DownloadMacSkeleton />
           ) : error || !release ? (
@@ -149,7 +149,7 @@ export default function DownloadMacPage() {
 
       {release ? (
         <>
-          <section className="mx-auto grid max-w-[1500px] gap-8 px-5 py-12 sm:px-8 lg:grid-cols-[0.95fr_1.05fr] lg:px-12">
+          <section className="mx-auto grid max-w-[1600px] gap-8 px-6 py-12 sm:px-10 lg:grid-cols-[0.95fr_1.05fr] lg:px-14">
             <div className="border-t border-hair pt-6">
               <p className="kicker">{t("why.kicker")}</p>
               <h2 className="display mt-4 max-w-2xl text-[2.7rem] leading-none sm:text-[4.5rem]">
@@ -183,7 +183,7 @@ export default function DownloadMacPage() {
 
           <section
             id="release-notes"
-            className="mx-auto grid max-w-[1500px] gap-8 border-t border-hair px-5 py-12 sm:px-8 lg:grid-cols-[0.76fr_1.24fr] lg:px-12"
+            className="mx-auto grid max-w-[1600px] gap-8 border-t border-hair px-6 py-12 sm:px-10 lg:grid-cols-[0.76fr_1.24fr] lg:px-14"
           >
             <div>
               <p className="kicker">{t("release.currentBuild")}</p>
@@ -231,7 +231,7 @@ export default function DownloadMacPage() {
             </div>
           </section>
 
-          <section className="mx-auto max-w-[1500px] border-t border-hair px-5 py-10 sm:px-8 lg:px-12">
+          <section className="mx-auto max-w-[1600px] border-t border-hair px-6 py-10 sm:px-10 lg:px-14">
             <div className="flex flex-col gap-5 rounded-[18px] bg-ink px-6 py-6 text-paper sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="kicker text-paper/55">{t("install.kicker")}</p>

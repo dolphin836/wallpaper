@@ -474,7 +474,7 @@ export default function ProfilePage() {
     return (
       <div className="profile-page min-h-full">
         <div className="profile-mesh" aria-hidden />
-        <main className="relative z-10 max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 pt-10 pb-16">
+        <main className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 pt-10 pb-16">
           {/* Hero placeholder — matches profile-hero's 3-col layout */}
           <div className="profile-hero">
             <div className="profile-hero-avatar">
@@ -541,7 +541,7 @@ export default function ProfilePage() {
         type="profile"
       />
 
-      <main className="relative z-10 max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 pt-10 pb-16">
+      <main className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 pt-10 pb-16">
 
       <ProfileHeader
         user={user}
