@@ -61,11 +61,12 @@ func NewTranscodeWorker(
 		return nil, fmt.Errorf("mkdir transcode dir: %w", err)
 	}
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  brokers,
-		Topic:    "wallpaper.transcode",
-		GroupID:  "transcode-worker",
-		MinBytes: 1,
-		MaxBytes: 10e6,
+		Brokers:     brokers,
+		Topic:       "wallpaper.transcode",
+		GroupID:     "transcode-worker",
+		MinBytes:    1,
+		MaxBytes:    10e6,
+		ErrorLogger: readerErrorLogger("transcode-worker"),
 	})
 	return &TranscodeWorker{
 		reader:       reader,

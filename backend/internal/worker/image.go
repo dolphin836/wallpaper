@@ -51,11 +51,12 @@ func NewImageWorker(
 	siteURL string,
 ) *ImageWorker {
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  brokers,
-		Topic:    "wallpaper.uploaded",
-		GroupID:  "image-worker",
-		MinBytes: 1,
-		MaxBytes: 10e6,
+		Brokers:     brokers,
+		Topic:       "wallpaper.uploaded",
+		GroupID:     "image-worker",
+		MinBytes:    1,
+		MaxBytes:    10e6,
+		ErrorLogger: readerErrorLogger("image-worker"),
 	})
 	return &ImageWorker{
 		reader:     reader,

@@ -97,6 +97,15 @@ services:
         limits:
           memory: 1g
           cpus: "1.0"
+    # Persist the KRaft log dir. Without a volume every container
+    # recreate boots a blank broker: queued events and consumer offsets
+    # vanish, and workers that join during the cold-start window can
+    # stall in kafka-go silently (2026-06-12: five videos stuck in
+    # processing for 37h after the 06-10 deploy recreated kafka).
+    # /var/lib/kafka/data exists appuser-owned in the image, so the
+    # named volume inherits writable ownership on first use.
+    volumes:
+      - kafka_data:/var/lib/kafka/data
     environment:
       # Default Kafka heap is 1G which would blow straight through the
       # container cap; a single-broker dev-scale install runs fine on 512m.
@@ -111,7 +120,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
@@ -238,6 +247,7 @@ volumes:
   minio_data:
   tus_data:
   transcode_data:
+  kafka_data:
 
 networks:
   caddy_shared:

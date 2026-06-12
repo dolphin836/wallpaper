@@ -41,11 +41,12 @@ type WallpaperStatsEvent struct {
 
 func NewStatsWorker(brokers []string, wallpaperRepo *repo.WallpaperRepo, eventRepo *repo.EventRepo, jobRepo *repo.WorkerJobRepo) *StatsWorker {
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  brokers,
-		Topic:    "wallpaper.stats",
-		GroupID:  "stats-worker",
-		MinBytes: 1,
-		MaxBytes: 10e6,
+		Brokers:     brokers,
+		Topic:       "wallpaper.stats",
+		GroupID:     "stats-worker",
+		MinBytes:    1,
+		MaxBytes:    10e6,
+		ErrorLogger: readerErrorLogger("stats-worker"),
 	})
 	return &StatsWorker{
 		reader:        reader,
