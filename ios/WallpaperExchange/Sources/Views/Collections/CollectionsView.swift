@@ -103,63 +103,101 @@ struct CollectionsBrowser: View {
     }
 }
 
+// Collection card: editorial mosaic cover (one dominant tile, two
+// supporting) over a paper info row — serif title, accent-color dot
+// echoing the collection's palette, mono-caps meta.
 struct CollectionCard: View {
     let collection: CollectionItem
 
+    private var tiles: [CollectionTile] {
+        Array((collection.recentTiles ?? []).prefix(3))
+    }
+
+    private var accent: Color {
+        Color(hex: collection.accentColor) ?? Color.paper3
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            tileStrip
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(collection.title)
-                        .font(.display18)
-                        .foregroundStyle(Color.ink)
-                        .lineLimit(1)
-                    Text("\(collection.wallpaperCount) WALLPAPERS")
+            mosaic
+                .frame(height: 150)
+                .clipped()
+            VStack(alignment: .leading, spacing: 4) {
+                Text(collection.title)
+                    .font(.display18)
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(accent)
+                        .frame(width: 6, height: 6)
+                    Text(metaLine)
                         .font(.mono10)
                         .tracking(0.8)
                         .foregroundStyle(Color.muted)
                 }
-                Spacer()
-                if let likes = collection.likeCount, likes > 0 {
-                    Label("\(likes)", systemImage: "heart")
-                        .font(.mono10)
-                        .foregroundStyle(Color.muted)
-                }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .paperCard(radius: 14)
     }
 
-    // Up to three recent tiles side by side; accent-color fill when the
-    // collection has no rendered tiles yet. Each tile is a Color.clear
-    // slot with the image overlaid — .fill without a frame would expand
-    // the HStack to the images' intrinsic width and blow the card open.
-    private var tileStrip: some View {
-        HStack(spacing: 2) {
-            let tiles = collection.recentTiles ?? []
-            if tiles.isEmpty {
-                Rectangle()
-                    .fill(Color(hex: collection.accentColor) ?? Color.paper3)
-            } else {
-                ForEach(Array(tiles.prefix(3).enumerated()), id: \.offset) { _, tile in
-                    Color.clear
-                        .overlay(
-                            CachedAsyncImage(url: URL(string: tile.thumbURL), maxPixelDimension: 500) { image in
-                                image.resizable().aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Rectangle().fill(Color(hex: tile.dominantColor) ?? Color.paper3)
-                            }
-                        )
-                        .clipped()
+    private var metaLine: String {
+        var line = "\(collection.wallpaperCount) WALLPAPERS"
+        if let likes = collection.likeCount, likes > 0 {
+            line += " · \(likes) ♥"
+        }
+        return line
+    }
+
+    // 2/3 cover + two stacked tiles; degrades gracefully when the
+    // collection has fewer rendered tiles.
+    @ViewBuilder
+    private var mosaic: some View {
+        switch tiles.count {
+        case 0:
+            ZStack {
+                accent.opacity(0.85)
+                Text(String(collection.title.prefix(1)).uppercased())
+                    .font(.system(size: 56, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.lightText.opacity(0.85))
+            }
+        case 1:
+            mosaicTile(tiles[0], dimension: 900)
+        default:
+            GeometryReader { geo in
+                HStack(spacing: 2) {
+                    mosaicTile(tiles[0], dimension: 900)
+                        .frame(width: geo.size.width * 0.62)
+                    if tiles.count >= 3 {
+                        VStack(spacing: 2) {
+                            mosaicTile(tiles[1], dimension: 500)
+                            mosaicTile(tiles[2], dimension: 500)
+                        }
+                    } else {
+                        mosaicTile(tiles[1], dimension: 500)
+                    }
                 }
             }
         }
-        .frame(height: 110)
-        .clipped()
+    }
+
+    private func mosaicTile(_ tile: CollectionTile, dimension: Int) -> some View {
+        Color.clear
+            .overlay(
+                CachedAsyncImage(
+                    url: URL(string: dimension > 600 ? tile.previewURL : tile.thumbURL),
+                    maxPixelDimension: dimension
+                ) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle().fill(Color(hex: tile.dominantColor) ?? Color.paper3)
+                }
+            )
+            .clipped()
     }
 }
 
