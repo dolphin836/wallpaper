@@ -26,12 +26,19 @@ function formatReleaseDate(value: string | undefined, latestLabel: string) {
   }).format(date);
 }
 
-function latestNotes(release: MacRelease) {
-  return release.releases?.[0]?.notes?.filter(Boolean).slice(0, 4) ?? [];
+// Pick the notes in the active UI language, falling back to the English
+// `notes` array (always present; old Mac clients hard-decode it).
+function localizedNotes(entry: MacReleaseEntry | undefined, lang: string): string[] {
+  if (!entry) return [];
+  return entry.notes_i18n?.[lang] ?? entry.notes ?? [];
+}
+
+function latestNotes(release: MacRelease, lang: string) {
+  return localizedNotes(release.releases?.[0], lang).filter(Boolean).slice(0, 4);
 }
 
 export default function DownloadMacPage() {
-  const { t } = useTranslation("mac");
+  const { t, i18n } = useTranslation("mac");
   const [release, setRelease] = useState<MacRelease | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +72,10 @@ export default function DownloadMacPage() {
   const currentVersion = release?.current_version ?? "2.0";
   const minimumMacOS = release?.min_macos_version ?? DEFAULT_MACOS_VERSION;
   const currentRelease = release?.releases?.[0];
-  const notes = useMemo(() => (release ? latestNotes(release) : []), [release]);
+  const notes = useMemo(
+    () => (release ? latestNotes(release, i18n.language) : []),
+    [release, i18n.language],
+  );
 
   return (
     <main className="min-h-full bg-paper text-ink">
@@ -287,7 +297,7 @@ function FeatureTile({ icon, title, text }: { icon: ReactNode; title: string; te
 }
 
 function ReleaseHistory({ releases }: { releases: MacReleaseEntry[] }) {
-  const { t } = useTranslation("mac");
+  const { t, i18n } = useTranslation("mac");
   if (!releases.length) {
     return null;
   }
@@ -306,7 +316,7 @@ function ReleaseHistory({ releases }: { releases: MacReleaseEntry[] }) {
               <p className="mt-1 text-xs text-muted">{formatReleaseDate(entry.released_at, t("release.latest"))}</p>
             </div>
             <ul className="grid gap-2">
-              {(entry.notes ?? []).slice(0, 3).map((note, index) => (
+              {localizedNotes(entry, i18n.language).slice(0, 3).map((note, index) => (
                 <li key={`${entry.version}-${index}`} className="text-sm leading-6 text-muted">
                   {note}
                 </li>

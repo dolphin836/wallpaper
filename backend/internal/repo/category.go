@@ -19,7 +19,7 @@ func NewCategoryRepo(db *gorm.DB) *CategoryRepo {
 func (r *CategoryRepo) List(ctx context.Context) ([]model.Category, error) {
 	var categories []model.Category
 	err := r.db.WithContext(ctx).
-		Select("id, name, slug, sort_order").
+		Select("id, name, name_i18n, slug, sort_order").
 		Order("sort_order ASC").
 		Find(&categories).Error
 	return categories, err
@@ -31,7 +31,7 @@ func (r *CategoryRepo) List(ctx context.Context) ([]model.Category, error) {
 func (r *CategoryRepo) GetByID(ctx context.Context, id int64) (*model.Category, error) {
 	var c model.Category
 	err := r.db.WithContext(ctx).
-		Select("id, name, slug, sort_order").
+		Select("id, name, name_i18n, slug, sort_order").
 		Where("id = ?", id).
 		First(&c).Error
 	if err != nil {

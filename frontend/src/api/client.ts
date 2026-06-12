@@ -1,4 +1,5 @@
 import axios from 'axios';
+import i18n from '../i18n';
 import { requestStarted, requestSettled } from '../lib/pageProgress';
 
 export function resolveBaseURL(): string {
@@ -23,6 +24,10 @@ client.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // The backend localizes content fields (category/tag names, collection
+  // titles) from this header; react-query caches are invalidated on
+  // language change (see main.tsx) so responses refetch in the new language.
+  config.headers['Accept-Language'] = i18n.language;
   requestStarted(config.url);
   return config;
 });
@@ -44,6 +49,17 @@ client.interceptors.response.use(
   },
   (error) => {
     requestSettled(error.config?.url);
+    // Localize known business error codes in place so every existing
+    // `err.response.data.message` / toast call site shows the user's
+    // language without per-page wiring. Unknown codes keep the server text.
+    const biz = error.response?.data;
+    if (biz && typeof biz.code === 'number') {
+      const localized = i18n.t(`apiErrors.${biz.code}`, { defaultValue: '' });
+      if (localized) {
+        biz.message = localized;
+        error.message = localized;
+      }
+    }
     if (error.response?.status === 401) {
       const wasAuthed = !!localStorage.getItem('token');
       localStorage.removeItem('token');

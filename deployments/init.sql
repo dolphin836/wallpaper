@@ -451,3 +451,31 @@ CREATE INDEX IF NOT EXISTS idx_worker_jobs_ref ON worker_jobs(ref_id) WHERE ref_
 -- a full scan + sort of all published rows stops being free.
 CREATE INDEX IF NOT EXISTS idx_wallpapers_popular
     ON wallpapers(like_count DESC, id DESC) WHERE status = 1;
+
+-- ── Content i18n ─────────────────────────────────────────────────────
+-- Per-language overrides for user-visible text, keyed by UI language tag
+-- ("en" / "zh-CN" / "zh-TW" / "ja"). The base column keeps the original
+-- text; API handlers substitute the override matching Accept-Language and
+-- fall back to the original. Categories are hand-translated below (fixed
+-- seed data); tags and collections are backfilled offline by cmd/i18nfill.
+ALTER TABLE categories  ADD COLUMN IF NOT EXISTS name_i18n        JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE tags        ADD COLUMN IF NOT EXISTS name_i18n        JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS title_i18n       JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS description_i18n JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+-- Seed translations for the 10 fixed categories. Idempotent overwrite —
+-- categories have no mutation endpoint, this block is their source of truth.
+UPDATE categories c SET name_i18n = v.i18n::jsonb
+FROM (VALUES
+    ('nature',   '{"en":"Nature","zh-CN":"自然","zh-TW":"自然","ja":"自然"}'),
+    ('city',     '{"en":"City","zh-CN":"城市","zh-TW":"城市","ja":"都市"}'),
+    ('anime',    '{"en":"Anime","zh-CN":"动漫","zh-TW":"動漫","ja":"アニメ"}'),
+    ('abstract', '{"en":"Abstract","zh-CN":"抽象","zh-TW":"抽象","ja":"抽象"}'),
+    ('minimal',  '{"en":"Minimal","zh-CN":"极简","zh-TW":"極簡","ja":"ミニマル"}'),
+    ('tech',     '{"en":"Tech","zh-CN":"科技","zh-TW":"科技","ja":"テック"}'),
+    ('animal',   '{"en":"Animal","zh-CN":"动物","zh-TW":"動物","ja":"動物"}'),
+    ('space',    '{"en":"Space","zh-CN":"太空","zh-TW":"太空","ja":"宇宙"}'),
+    ('game',     '{"en":"Game","zh-CN":"游戏","zh-TW":"遊戲","ja":"ゲーム"}'),
+    ('other',    '{"en":"Other","zh-CN":"其他","zh-TW":"其他","ja":"その他"}')
+) AS v(slug, i18n)
+WHERE c.slug = v.slug;

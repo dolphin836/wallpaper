@@ -62,12 +62,15 @@ func WallpaperDetailKey(id int64) string {
 	return fmt.Sprintf("wallpaper:detail:%d", id)
 }
 
-// CategoriesKey returns the cache key for the full category list.
-func CategoriesKey() string {
-	return "categories:all"
+// CategoriesKey returns the cache key for the full category list. Keyed
+// per response language because the cached rows are stored post-
+// localization (the i18n maps themselves don't survive JSON caching).
+func CategoriesKey(lang string) string {
+	return "categories:all:" + lang
 }
 
-// PopularTagsKey returns the cache key for the popular tags list.
-func PopularTagsKey() string {
-	return "tags:popular"
+// PopularTagsKey returns the cache key for the popular tags list, keyed
+// per response language like CategoriesKey.
+func PopularTagsKey(lang string) string {
+	return "tags:popular:" + lang
 }

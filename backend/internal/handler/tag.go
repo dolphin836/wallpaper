@@ -26,9 +26,10 @@ func NewTagHandler(tagRepo *repo.TagRepo, c *cache.Cache) *TagHandler {
 }
 
 func (h *TagHandler) Popular(w http.ResponseWriter, r *http.Request) {
+	lang := requestLang(r)
 	if h.cache != nil {
 		var cached []model.Tag
-		if err := h.cache.Get(r.Context(), cache.PopularTagsKey(), &cached); err == nil {
+		if err := h.cache.Get(r.Context(), cache.PopularTagsKey(lang), &cached); err == nil {
 			response.OK(w, cached)
 			return
 		}
@@ -40,9 +41,10 @@ func (h *TagHandler) Popular(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
+	localizeTags(lang, tags)
 
 	if h.cache != nil {
-		if err := h.cache.Set(r.Context(), cache.PopularTagsKey(), tags, popularTagsTTL); err != nil {
+		if err := h.cache.Set(r.Context(), cache.PopularTagsKey(lang), tags, popularTagsTTL); err != nil {
 			slog.WarnContext(r.Context(), "cache popular tags failed (non-fatal)", "error", err)
 		}
 	}

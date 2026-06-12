@@ -196,6 +196,7 @@ func (h *WallpaperHandler) Get(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, status, ec)
 		return
 	}
+	localizeTags(requestLang(r), detail.Tags)
 	response.OK(w, detail)
 }
 

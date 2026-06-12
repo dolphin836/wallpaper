@@ -69,6 +69,23 @@ const en = {
     kickerDelete: 'CONFIRM DELETION',
     kickerAction: 'CONFIRM ACTION',
   },
+  // Business error codes from backend/internal/pkg/errcode — the axios
+  // response interceptor swaps the server's English message for these.
+  apiErrors: {
+    '40000': 'Bad request',
+    '40001': 'Invalid parameter',
+    '40100': 'Please log in first',
+    '40101': 'Your session has expired — please log in again',
+    '40102': 'Invalid session — please log in again',
+    '40103': 'Wrong password',
+    '40201': 'Not enough coins',
+    '40300': "You don't have permission to do that",
+    '40400': 'Not found',
+    '40901': 'Username or email already exists',
+    '42900': 'Too many requests — slow down a little',
+    '50000': 'Server error — please try again later',
+    '50001': 'File upload failed',
+  },
 };
 
 const zhCN: typeof en = {
@@ -137,6 +154,21 @@ const zhCN: typeof en = {
     cancel: '取消',
     kickerDelete: '确认删除',
     kickerAction: '确认操作',
+  },
+  apiErrors: {
+    '40000': '请求有误',
+    '40001': '参数无效',
+    '40100': '请先登录',
+    '40101': '登录已过期,请重新登录',
+    '40102': '登录状态无效,请重新登录',
+    '40103': '密码错误',
+    '40201': '金币不足',
+    '40300': '没有权限执行此操作',
+    '40400': '内容不存在',
+    '40901': '用户名或邮箱已被注册',
+    '42900': '请求太频繁,稍后再试',
+    '50000': '服务器开小差了,请稍后再试',
+    '50001': '文件上传失败',
   },
 };
 
@@ -207,6 +239,21 @@ const zhTW: typeof en = {
     kickerDelete: '確認刪除',
     kickerAction: '確認操作',
   },
+  apiErrors: {
+    '40000': '請求有誤',
+    '40001': '參數無效',
+    '40100': '請先登入',
+    '40101': '登入已過期,請重新登入',
+    '40102': '登入狀態無效,請重新登入',
+    '40103': '密碼錯誤',
+    '40201': '金幣不足',
+    '40300': '沒有權限執行此操作',
+    '40400': '內容不存在',
+    '40901': '使用者名稱或信箱已被註冊',
+    '42900': '請求太頻繁,請稍後再試',
+    '50000': '伺服器暫時開小差了,請稍後再試',
+    '50001': '檔案上傳失敗',
+  },
 };
 
 const ja: typeof en = {
@@ -275,6 +322,21 @@ const ja: typeof en = {
     cancel: 'キャンセル',
     kickerDelete: '削除の確認',
     kickerAction: '操作の確認',
+  },
+  apiErrors: {
+    '40000': '不正なリクエストです',
+    '40001': 'パラメータが無効です',
+    '40100': 'ログインしてください',
+    '40101': 'セッションの有効期限が切れました。再度ログインしてください',
+    '40102': 'セッションが無効です。再度ログインしてください',
+    '40103': 'パスワードが違います',
+    '40201': 'コインが足りません',
+    '40300': 'この操作を行う権限がありません',
+    '40400': 'コンテンツが見つかりません',
+    '40901': 'ユーザー名またはメールアドレスは既に登録されています',
+    '42900': 'リクエストが多すぎます。少し待ってからお試しください',
+    '50000': 'サーバーエラーが発生しました。しばらくしてからお試しください',
+    '50001': 'ファイルのアップロードに失敗しました',
   },
 };
 

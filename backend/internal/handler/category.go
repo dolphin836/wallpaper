@@ -26,9 +26,10 @@ func NewCategoryHandler(categoryRepo *repo.CategoryRepo, c *cache.Cache) *Catego
 }
 
 func (h *CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
+	lang := requestLang(r)
 	if h.cache != nil {
 		var cached []model.Category
-		if err := h.cache.Get(r.Context(), cache.CategoriesKey(), &cached); err == nil {
+		if err := h.cache.Get(r.Context(), cache.CategoriesKey(lang), &cached); err == nil {
 			response.OK(w, cached)
 			return
 		}
@@ -40,9 +41,10 @@ func (h *CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
+	localizeCategories(lang, categories)
 
 	if h.cache != nil {
-		if err := h.cache.Set(r.Context(), cache.CategoriesKey(), categories, categoriesTTL); err != nil {
+		if err := h.cache.Set(r.Context(), cache.CategoriesKey(lang), categories, categoriesTTL); err != nil {
 			slog.WarnContext(r.Context(), "cache categories failed (non-fatal)", "error", err)
 		}
 	}

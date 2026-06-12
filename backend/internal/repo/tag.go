@@ -49,7 +49,7 @@ func (r *TagRepo) GetOrCreate(ctx context.Context, name string) (*model.Tag, err
 func (r *TagRepo) GetByWallpaperID(ctx context.Context, wallpaperID int64) ([]model.Tag, error) {
 	var tags []model.Tag
 	err := r.db.WithContext(ctx).
-		Select("tags.id, tags.name").
+		Select("tags.id, tags.name, tags.name_i18n").
 		Joins("JOIN wallpaper_tags ON tags.id = wallpaper_tags.tag_id").
 		Where("wallpaper_tags.wallpaper_id = ?", wallpaperID).
 		Find(&tags).Error
@@ -79,9 +79,9 @@ func (r *TagRepo) SetWallpaperTags(ctx context.Context, wallpaperID int64, tagID
 func (r *TagRepo) Popular(ctx context.Context, limit int) ([]model.Tag, error) {
 	var tags []model.Tag
 	err := r.db.WithContext(ctx).
-		Select("tags.id, tags.name").
+		Select("tags.id, tags.name, tags.name_i18n").
 		Joins("JOIN wallpaper_tags ON tags.id = wallpaper_tags.tag_id").
-		Group("tags.id, tags.name").
+		Group("tags.id, tags.name, tags.name_i18n").
 		Order("COUNT(wallpaper_tags.tag_id) DESC").
 		Limit(limit).
 		Find(&tags).Error

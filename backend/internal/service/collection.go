@@ -148,6 +148,10 @@ func (s *CollectionService) Update(ctx context.Context, id, userID int64, title,
 	c.Title = title
 	c.Description = description
 	c.IsPublic = isPublic
+	// The text changed — drop the stale machine translations; the next
+	// cmd/i18nfill run re-translates from the new source text.
+	c.TitleI18n = model.I18n{}
+	c.DescriptionI18n = model.I18n{}
 	if err := s.collectionRepo.Update(ctx, c); err != nil {
 		slog.ErrorContext(ctx, "failed to update collection", "error", err)
 		return errcode.ErrInternal

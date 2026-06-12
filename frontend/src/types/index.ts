@@ -191,6 +191,9 @@ export interface MacReleaseEntry {
   version: string;
   released_at: string;
   notes: string[];
+  // Translated notes keyed by UI language ("zh-CN" / "zh-TW" / "ja");
+  // English lives in `notes` (old Mac clients hard-decode that shape).
+  notes_i18n?: Record<string, string[]>;
 }
 
 export interface MacRelease {

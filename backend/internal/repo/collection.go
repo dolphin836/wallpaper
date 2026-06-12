@@ -46,7 +46,7 @@ func (r *CollectionRepo) Create(ctx context.Context, c *model.Collection) error 
 func (r *CollectionRepo) GetByID(ctx context.Context, id int64) (*model.Collection, error) {
 	var c model.Collection
 	err := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, created_at, updated_at").
+		Select("id, slug, user_id, title, description, title_i18n, description_i18n, cover_url, is_public, wallpaper_count, view_count, like_count, created_at, updated_at").
 		Where("id = ?", id).
 		First(&c).Error
 	if err != nil {
@@ -61,7 +61,7 @@ func (r *CollectionRepo) GetByID(ctx context.Context, id int64) (*model.Collecti
 func (r *CollectionRepo) GetBySlug(ctx context.Context, slug string) (*model.Collection, error) {
 	var c model.Collection
 	err := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, created_at, updated_at").
+		Select("id, slug, user_id, title, description, title_i18n, description_i18n, cover_url, is_public, wallpaper_count, view_count, like_count, created_at, updated_at").
 		Where("slug = ?", slug).
 		First(&c).Error
 	if err != nil {
@@ -74,9 +74,12 @@ func (r *CollectionRepo) GetBySlug(ctx context.Context, slug string) (*model.Col
 }
 
 func (r *CollectionRepo) Update(ctx context.Context, c *model.Collection) error {
+	// title_i18n / description_i18n ride along so an owner edit clears the
+	// now-stale machine translations (the service zeroes the maps); the
+	// next cmd/i18nfill run re-translates from the new text.
 	return r.db.WithContext(ctx).
 		Model(c).
-		Select("title", "description", "cover_url", "is_public").
+		Select("title", "description", "title_i18n", "description_i18n", "cover_url", "is_public").
 		Updates(c).Error
 }
 
@@ -105,7 +108,7 @@ func (r *CollectionRepo) Count(ctx context.Context, userID int64, kind int) (int
 
 func (r *CollectionRepo) List(ctx context.Context, cursor int64, limit int, userID int64, kind int) ([]model.Collection, error) {
 	query := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, kind, year, week, created_at, updated_at")
+		Select("id, slug, user_id, title, description, title_i18n, description_i18n, cover_url, is_public, wallpaper_count, view_count, like_count, kind, year, week, created_at, updated_at")
 
 	if cursor > 0 {
 		query = query.Where("id < ?", cursor)
@@ -133,7 +136,7 @@ func (r *CollectionRepo) List(ctx context.Context, cursor int64, limit int, user
 // public ones.
 func (r *CollectionRepo) ListByUser(ctx context.Context, ownerID int64, cursor int64, limit int, includePrivate bool) ([]model.Collection, error) {
 	query := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, cover_url, is_public, wallpaper_count, view_count, like_count, kind, accent_color, created_at, updated_at").
+		Select("id, slug, user_id, title, description, title_i18n, description_i18n, cover_url, is_public, wallpaper_count, view_count, like_count, kind, accent_color, created_at, updated_at").
 		// kind = 0 keeps this to the user's own hand-made collections,
 		// excluding editor-curated / weekly-generated themes (kind = 1).
 		Where("user_id = ? AND kind = ?", ownerID, 0)

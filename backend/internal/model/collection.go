@@ -8,6 +8,10 @@ type Collection struct {
 	UserID         int64     `gorm:"not null;index" json:"user_id"`
 	Title          string    `gorm:"size:100;not null" json:"title"`
 	Description    string    `gorm:"type:text;not null;default:''" json:"description"`
+	// Backfilled offline by cmd/i18nfill; empty until then. Cleared on
+	// owner edits so stale translations never outlive the source text.
+	TitleI18n       I18n `gorm:"column:title_i18n;type:jsonb" json:"-"`
+	DescriptionI18n I18n `gorm:"column:description_i18n;type:jsonb" json:"-"`
 	CoverURL       string    `gorm:"size:512;not null;default:''" json:"cover_url"`
 	IsPublic       bool      `gorm:"not null;default:true" json:"is_public"`
 	WallpaperCount int       `gorm:"not null;default:0" json:"wallpaper_count"`

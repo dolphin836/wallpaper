@@ -51,6 +51,7 @@ func (h *WeeklyPickHandler) Current(w http.ResponseWriter, r *http.Request) {
 		slog.WarnContext(ctx, "weekly: list themes failed", "error", err)
 		themes = nil
 	}
+	localizeCollections(requestLang(r), themes)
 
 	response.OK(w, map[string]any{
 		"year":   year,

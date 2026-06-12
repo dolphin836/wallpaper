@@ -128,6 +128,7 @@ func (h *CollectionHandler) List(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	localizeCollections(requestLang(r), resp.Items)
 	response.OK(w, resp)
 }
 
@@ -148,6 +149,7 @@ func (h *CollectionHandler) Get(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, status, ec)
 		return
 	}
+	localizeCollection(requestLang(r), &detail.Collection)
 	response.OK(w, detail)
 }
 
@@ -469,5 +471,6 @@ func (h *CollectionHandler) ListUserCollections(w http.ResponseWriter, r *http.R
 			}
 		}
 	}
+	localizeCollections(requestLang(r), resp.Items)
 	response.OK(w, resp)
 }
