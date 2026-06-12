@@ -9,14 +9,39 @@
       "notes": [
         "Changed: the session token now lives in the macOS Keychain instead of app preferences, so it is no longer stored as plain text. After updating, macOS may ask once to allow Keychain access — click Always Allow.",
         "Changed: wallpaper previews are now cached on disk, so the grid loads instantly on relaunch instead of re-downloading every image."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "变更：会话令牌现在保存在 macOS Keychain 中，而不再以明文形式存放在应用偏好设置里。更新后 macOS 可能会弹出一次 Keychain 访问授权请求，点击「始终允许」即可。",
+          "变更：壁纸预览图现在会缓存到磁盘，重新启动后列表即刻加载，无需重新下载每张图片。"
+        ],
+        "zh-TW": [
+          "變更：工作階段權杖現在保存在 macOS Keychain 中，不再以明文形式存放在應用程式偏好設定裡。更新後 macOS 可能會跳出一次 Keychain 存取授權請求，點選「永遠允許」即可。",
+          "變更：桌布預覽圖現在會快取到磁碟，重新啟動後清單立即載入，無需重新下載每張圖片。"
+        ],
+        "ja": [
+          "変更：セッショントークンの保存先がアプリ設定から macOS の Keychain に変わり、平文で保存されなくなりました。アップデート後、macOS が Keychain へのアクセス許可を一度求めることがあります。「常に許可」をクリックしてください。",
+          "変更：壁紙のプレビューをディスクにキャッシュするようになり、再起動後もグリッドが即座に表示され、画像を再ダウンロードする必要がなくなりました。"
+        ]
+      }
     },
     {
       "version": "2.0.4",
       "released_at": "2026-06-10",
       "notes": [
         "Fixed: Discover Latest, Trending, Search, and Category feeds now include video wallpapers instead of hiding them unless the Live filter was selected."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "修复：发现页的最新、热门、搜索和分类列表现在会包含视频壁纸，不再只有选中 Live 筛选时才显示。"
+        ],
+        "zh-TW": [
+          "修復：探索頁的最新、熱門、搜尋和分類清單現在會包含影片桌布，不再只有選取 Live 篩選時才顯示。"
+        ],
+        "ja": [
+          "修正：「発見」の最新・人気・検索・カテゴリの各フィードにビデオ壁紙が含まれるようになりました。これまでは Live フィルターを選択しないと表示されませんでした。"
+        ]
+      }
     },
     {
       "version": "2.0.3",
@@ -27,7 +52,30 @@
         "Changed: startup image loading is lighter. Wallpaper previews are decoded at UI-appropriate sizes, duplicate image requests are coalesced, and the in-memory cache is capped more conservatively.",
         "Fixed: dark mode coin surfaces and the Home hero trade button now better match the Mac client's dark appearance.",
         "Fixed: startup window chrome cleanup now runs once per window instead of repeatedly walking the AppKit view tree."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "新增：登录和注册现在直接在 Mac 客户端内完成，不再跳转到网页流程。",
+          "新增：Live 壁纸详情页新增带加载进度的小巧视频预览控件。",
+          "变更：启动时的图片加载更轻量。壁纸预览图按界面所需尺寸解码，重复的图片请求会被合并，内存缓存上限也更加保守。",
+          "修复：深色模式下的金币界面和首页主视觉的交易按钮，现在与 Mac 客户端的深色外观更加协调。",
+          "修复：启动时的窗口外观清理现在每个窗口只执行一次，不再反复遍历 AppKit 视图树。"
+        ],
+        "zh-TW": [
+          "新增：登入和註冊現在直接在 Mac 用戶端內完成，不再跳轉到網頁流程。",
+          "新增：Live 桌布詳細頁新增帶載入進度的精巧影片預覽控制項。",
+          "變更：啟動時的圖片載入更輕量。桌布預覽圖按介面所需尺寸解碼，重複的圖片請求會被合併，記憶體快取上限也更加保守。",
+          "修復：深色模式下的金幣介面和首頁主視覺的交易按鈕，現在與 Mac 用戶端的深色外觀更加協調。",
+          "修復：啟動時的視窗外觀清理現在每個視窗只執行一次，不再反覆走訪 AppKit 檢視樹。"
+        ],
+        "ja": [
+          "新機能：ログインと登録を Web へリダイレクトせず、Mac クライアント内でネイティブに行えるようになりました。",
+          "新機能：Live 壁紙の詳細画面に、読み込み進捗付きのコンパクトなビデオプレビューを追加しました。",
+          "変更：起動時の画像読み込みを軽量化しました。壁紙プレビューを UI に適したサイズでデコードし、重複する画像リクエストをまとめ、メモリキャッシュの上限をより控えめに設定しました。",
+          "修正：ダークモードのコイン画面とホームのヒーロー部分の交換ボタンが、Mac クライアントのダーク外観により馴染むようになりました。",
+          "修正：起動時のウインドウクローム調整がウインドウごとに一度だけ実行されるようになり、AppKit のビューツリーを繰り返し走査しなくなりました。"
+        ]
+      }
     },
     {
       "version": "2.0.2",
@@ -35,7 +83,21 @@
       "notes": [
         "Fix: My Downloads now checks whether the local file actually exists. If the file was cleared from this Mac, the card returns to the normal Download action instead of showing as already downloaded.",
         "Fix: multi-display auto-shuffle now re-syncs the selected wallpaper after the first apply pass, making secondary displays and Spaces less likely to remain on a previous wallpaper."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "修复：「我的下载」现在会检查本地文件是否真实存在。如果文件已从这台 Mac 上清除，卡片会恢复为普通的下载按钮，而不是仍显示为已下载。",
+          "修复：多显示器自动轮换现在会在首次应用后重新同步所选壁纸，副显示器和 Spaces 更不容易停留在上一张壁纸上。"
+        ],
+        "zh-TW": [
+          "修復：「我的下載」現在會檢查本機檔案是否真實存在。如果檔案已從這台 Mac 上清除，卡片會恢復為一般的下載按鈕，而不是仍顯示為已下載。",
+          "修復：多顯示器自動輪換現在會在首次套用後重新同步所選桌布，副顯示器和 Spaces 較不容易停留在上一張桌布上。"
+        ],
+        "ja": [
+          "修正：「マイダウンロード」がローカルファイルの実在を確認するようになりました。この Mac からファイルが削除されている場合、カードはダウンロード済み表示のままにならず、通常のダウンロードボタンに戻ります。",
+          "修正：マルチディスプレイの自動シャッフルが最初の適用後に選択中の壁紙を再同期するようになり、サブディスプレイや Spaces が以前の壁紙のまま残りにくくなりました。"
+        ]
+      }
     },
     {
       "version": "2.0.1",
@@ -47,7 +109,33 @@
         "Changed: clicking the menu-bar icon now opens the main app window directly, and the status icon uses a white template treatment.",
         "Changed: Mac wallpaper feeds no longer apply local screen-size filtering by default. Explicit My Device filters still request device matching from the backend.",
         "Fixed: auto-shuffle now applies the selected wallpaper to every connected display instead of only the primary screen."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "新增：自动轮换的时间间隔现在可以在「我的下载」中自定义，提供常用预设和自定义间隔。",
+          "新增：下载进行中时，壁纸卡片上的下载和设为壁纸按钮会显示橙色进度边框。",
+          "变更：自动轮换设置现在移到了「我的下载」，紧挨着它所管理的本地壁纸库。",
+          "变更：点击菜单栏图标现在会直接打开应用主窗口，状态图标改用白色模板样式。",
+          "变更：Mac 壁纸列表默认不再按本机屏幕尺寸过滤。显式选择「我的设备」筛选时仍会向后端请求设备匹配。",
+          "修复：自动轮换现在会把所选壁纸应用到所有已连接的显示器，而不只是主屏幕。"
+        ],
+        "zh-TW": [
+          "新增：自動輪換的時間間隔現在可以在「我的下載」中自訂，提供常用預設和自訂間隔。",
+          "新增：下載進行中時，桌布卡片上的下載和設為桌布按鈕會顯示橙色進度邊框。",
+          "變更：自動輪換設定現在移到了「我的下載」，緊鄰它所管理的本機桌布庫。",
+          "變更：點選選單列圖示現在會直接開啟應用程式主視窗，狀態圖示改用白色範本樣式。",
+          "變更：Mac 桌布清單預設不再按本機螢幕尺寸過濾。明確選擇「我的裝置」篩選時仍會向後端請求裝置比對。",
+          "修復：自動輪換現在會把所選桌布套用到所有已連接的顯示器，而不只是主螢幕。"
+        ],
+        "ja": [
+          "新機能：自動シャッフルの間隔を「マイダウンロード」からカスタマイズできるようになりました。よく使うプリセットと任意の間隔を選べます。",
+          "新機能：ダウンロード中、壁紙カードのダウンロードボタンと壁紙設定ボタンにオレンジ色の進捗ボーダーが表示されるようになりました。",
+          "変更：自動シャッフルの設定を「マイダウンロード」に移動し、対象となるローカルの壁紙ライブラリのすぐそばに配置しました。",
+          "変更：メニューバーのアイコンをクリックするとアプリのメインウインドウが直接開くようになり、ステータスアイコンは白のテンプレートスタイルになりました。",
+          "変更：Mac の壁紙フィードでは、ローカル画面サイズによるフィルタリングをデフォルトで行わなくなりました。「マイデバイス」フィルターを明示的に選んだ場合は、引き続きバックエンドにデバイスマッチングをリクエストします。",
+          "修正：自動シャッフルが、メイン画面だけでなく接続中のすべてのディスプレイに選択した壁紙を適用するようになりました。"
+        ]
+      }
     },
     {
       "version": "2.0",
@@ -61,7 +149,39 @@
         "Changed: wallpaper lists are resolution-aware across the Mac client, hiding wallpapers that cannot satisfy the smallest connected display while keeping higher-resolution wallpapers visible.",
         "Changed: download and set-wallpaper behavior is unified for already-downloaded wallpapers, normal images, macOS dynamic wallpapers, and video wallpapers.",
         "Fixed: detail modal layout, similar-wallpaper row sizing, bottom clipping, full-screen card interaction, and several palette/background/chrome polish issues."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "新增：完整的 Dock 可见 macOS 应用，包含首页、发现、每周精选、合集、上传、设置和个人库页面，同时保留状态栏快捷操作。",
+          "新增：与网页版一致的壁纸详情弹窗，包含预览、统计数据、配色、相似壁纸、交易/下载操作、进度显示和设为壁纸流程。",
+          "新增：独立的上传页面，提供队列进度、待审/审核中壁纸展示，处理状态与网页版界面一致。",
+          "新增：动态配色网格窗口背景、按页面定制的骨架占位、统一的重试界面，以及与网页版一致的深色外观。",
+          "变更：发现和首页布局现在更贴近网页版，包括设备预览、分类筛选、卡片操作和窗口外观。",
+          "变更：Mac 客户端的壁纸列表全面支持分辨率感知，会隐藏无法满足最小已连接显示器的壁纸，同时保留更高分辨率的壁纸。",
+          "变更：已下载壁纸、普通图片、macOS 动态壁纸和视频壁纸的下载与设为壁纸行为现已统一。",
+          "修复：详情弹窗布局、相似壁纸行尺寸、底部裁切、全屏卡片交互，以及多处配色/背景/窗口外观的细节问题。"
+        ],
+        "zh-TW": [
+          "新增：完整的 Dock 可見 macOS 應用程式，包含首頁、探索、每週精選、合輯、上傳、設定和個人庫頁面，同時保留狀態列快速操作。",
+          "新增：與網頁版一致的桌布詳細彈窗，包含預覽、統計資料、配色、相似桌布、交易/下載操作、進度顯示和設為桌布流程。",
+          "新增：獨立的上傳頁面，提供佇列進度、待審/審核中桌布展示，處理狀態與網頁版介面一致。",
+          "新增：動態配色網格視窗背景、按頁面客製的骨架佔位、統一的重試介面，以及與網頁版一致的深色外觀。",
+          "變更：探索和首頁版面現在更貼近網頁版，包括裝置預覽、分類篩選、卡片操作和視窗外觀。",
+          "變更：Mac 用戶端的桌布清單全面支援解析度感知，會隱藏無法滿足最小已連接顯示器的桌布，同時保留更高解析度的桌布。",
+          "變更：已下載桌布、一般圖片、macOS 動態桌布和影片桌布的下載與設為桌布行為現已統一。",
+          "修復：詳細彈窗版面、相似桌布列尺寸、底部裁切、全螢幕卡片互動，以及多處配色/背景/視窗外觀的細節問題。"
+        ],
+        "ja": [
+          "新機能：Dock に表示されるフル機能の macOS アプリになりました。ホーム、発見、ウィークリー、コレクション、アップロード、設定、パーソナルライブラリの各ページを備え、ステータスバーのクイック操作もそのまま使えます。",
+          "新機能：Web 版に合わせた壁紙詳細モーダルを追加しました。プレビュー、統計、パレット、類似の壁紙、交換/ダウンロード操作、進捗表示、壁紙設定フローを備えています。",
+          "新機能：独立したアップロードページを追加しました。キューの進捗、審査待ち/審査中の壁紙、処理状態の表示が Web の UI と揃っています。",
+          "新機能：パレットに連動する動的なメッシュ背景、ページごとのスケルトンプレースホルダー、共通のリトライ UI、Web 版に合わせたダーク外観を追加しました。",
+          "変更：「発見」とホームのレイアウトが Web 版により近くなりました。デバイスプレビュー、カテゴリフィルター、カード操作、ウインドウクロームが揃っています。",
+          "変更：Mac クライアント全体で壁紙リストが解像度を考慮するようになりました。接続中の最小ディスプレイを満たせない壁紙は非表示にし、より高解像度の壁紙は表示したままにします。",
+          "変更：ダウンロード済みの壁紙、通常の画像、macOS のダイナミック壁紙、ビデオ壁紙で、ダウンロードと壁紙設定の挙動を統一しました。",
+          "修正：詳細モーダルのレイアウト、類似壁紙の行サイズ、下端の見切れ、フルスクリーンカードの操作のほか、パレット/背景/ウインドウクロームの細かな問題を複数修正しました。"
+        ]
+      }
     },
     {
       "version": "1.3.6",
@@ -69,28 +189,75 @@
       "notes": [
         "Fix: in the Latest column, the Set as wallpaper button on a wallpaper you'd already downloaded did nothing — it now applies it to your desktop.",
         "Video wallpapers no longer appear in the Downloaded column (the mac client can't play them); they're hidden the same way the Latest list already did."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "修复：在「最新」栏中，对已下载的壁纸点击「设为壁纸」按钮没有反应——现在会正常应用到桌面。",
+          "视频壁纸不再出现在「已下载」栏中（Mac 客户端无法播放），隐藏方式与「最新」列表保持一致。"
+        ],
+        "zh-TW": [
+          "修復：在「最新」欄中，對已下載的桌布點選「設為桌布」按鈕沒有反應——現在會正常套用到桌面。",
+          "影片桌布不再出現在「已下載」欄中（Mac 用戶端無法播放），隱藏方式與「最新」清單保持一致。"
+        ],
+        "ja": [
+          "修正：「最新」列で、ダウンロード済みの壁紙の「壁紙に設定」ボタンを押しても何も起きない問題を修正しました。今はデスクトップに正しく適用されます。",
+          "ビデオ壁紙は「ダウンロード済み」列に表示されなくなりました（Mac クライアントでは再生できないため）。「最新」リストと同じ方法で非表示になります。"
+        ]
+      }
     },
     {
       "version": "1.3.5",
       "released_at": "2026-05-23",
       "notes": [
         "Fix: auto-rotate now reaches every display, including ones that were asleep at the rotation tick. The app listens for screen-wake / system-wake events and re-applies the current wallpaper so secondary monitors no longer get stuck on the previous image."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "修复：自动轮换现在覆盖所有显示器，包括轮换触发时正处于休眠状态的显示器。应用会监听屏幕唤醒/系统唤醒事件并重新应用当前壁纸，副显示器不会再卡在上一张图片上。"
+        ],
+        "zh-TW": [
+          "修復：自動輪換現在涵蓋所有顯示器，包括輪換觸發時正處於睡眠狀態的顯示器。應用程式會監聽螢幕喚醒/系統喚醒事件並重新套用目前桌布，副顯示器不會再卡在上一張圖片上。"
+        ],
+        "ja": [
+          "修正：自動ローテーションが、切り替え時にスリープしていたディスプレイも含め、すべてのディスプレイに反映されるようになりました。画面復帰/システム復帰イベントを監視して現在の壁紙を再適用するため、サブモニターが前の画像のまま固まることがなくなりました。"
+        ]
+      }
     },
     {
       "version": "1.3.4",
       "released_at": "2026-05-23",
       "notes": [
         "Diagnostics: wallpaper-apply now logs per-screen results to Console.app (subsystem com.wallpaperexchange.mac). Helps investigate reports of secondary monitors not picking up the new wallpaper."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "诊断：设置壁纸时现在会将每块屏幕的结果记录到 Console.app（subsystem 为 com.wallpaperexchange.mac），便于排查副显示器未应用新壁纸的反馈。"
+        ],
+        "zh-TW": [
+          "診斷：設定桌布時現在會將每塊螢幕的結果記錄到 Console.app（subsystem 為 com.wallpaperexchange.mac），便於排查副顯示器未套用新桌布的回報。"
+        ],
+        "ja": [
+          "診断：壁紙適用時に画面ごとの結果を Console.app に記録するようになりました（サブシステム com.wallpaperexchange.mac）。サブモニターに新しい壁紙が反映されないという報告の調査に役立ちます。"
+        ]
+      }
     },
     {
       "version": "1.3.3",
       "released_at": "2026-05-23",
       "notes": [
         "AI-generated wallpapers now carry a violet AI chip in the top-left corner alongside the resolution / Mac chips, matching the web badge."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "AI 生成的壁纸现在会在左上角显示紫色 AI 标签，与分辨率/Mac 标签并列，样式与网页版徽章一致。"
+        ],
+        "zh-TW": [
+          "AI 生成的桌布現在會在左上角顯示紫色 AI 標籤，與解析度/Mac 標籤並列，樣式與網頁版徽章一致。"
+        ],
+        "ja": [
+          "AI 生成の壁紙には、左上に解像度/Mac チップと並んで紫色の AI チップが表示されるようになりました。Web 版のバッジと揃ったデザインです。"
+        ]
+      }
     },
     {
       "version": "1.3.2",
@@ -98,7 +265,21 @@
       "notes": [
         "Self-update now shows real download progress — a floating panel with bytes / percentage / a working Cancel button, plus an 'Installing…' stage while the new bundle is being moved into place.",
         "Fix: updater no longer feels frozen on slow networks. The previous build ran the download inside a modal alert with no visible feedback."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "自动更新现在会显示真实的下载进度——浮动面板包含字节数/百分比/可用的取消按钮，新版本就位过程中还会显示「正在安装…」阶段。",
+          "修复：在慢速网络下更新程序不再像卡死一样。之前的版本把下载放在没有任何可见反馈的模态弹窗里执行。"
+        ],
+        "zh-TW": [
+          "自動更新現在會顯示真實的下載進度——浮動面板包含位元組數/百分比/可用的取消按鈕，新版本就位過程中還會顯示「正在安裝…」階段。",
+          "修復：在慢速網路下更新程式不再像當掉一樣。之前的版本把下載放在沒有任何可見回饋的強制回應視窗裡執行。"
+        ],
+        "ja": [
+          "セルフアップデートが実際のダウンロード進捗を表示するようになりました。バイト数/パーセンテージ/機能するキャンセルボタンを備えたフローティングパネルに加え、新しいバンドルの配置中は「インストール中…」と表示されます。",
+          "修正：低速ネットワークでアップデーターがフリーズしたように見える問題を解消しました。以前のビルドは、視覚的なフィードバックのないモーダルアラート内でダウンロードを実行していました。"
+        ]
+      }
     },
     {
       "version": "1.3.1",
@@ -106,7 +287,21 @@
       "notes": [
         "New: Launch at Login toggle in the status-bar right-click menu. Wallpaper Exchange can now start with your Mac so the wallpaper rotation never falls behind a reboot.",
         "If you've moved the app outside /Applications the toggle will explain why macOS refused to register it."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "新增：状态栏右键菜单新增「登录时启动」开关。Wallpaper Exchange 现在可以随 Mac 一起启动，壁纸轮换不会因重启而中断。",
+          "如果应用被移出了 /Applications，该开关会说明 macOS 拒绝注册的原因。"
+        ],
+        "zh-TW": [
+          "新增：狀態列右鍵選單新增「登入時啟動」開關。Wallpaper Exchange 現在可以隨 Mac 一起啟動，桌布輪換不會因重新開機而中斷。",
+          "如果應用程式被移出了 /Applications，該開關會說明 macOS 拒絕註冊的原因。"
+        ],
+        "ja": [
+          "新機能：ステータスバーの右クリックメニューに「ログイン時に起動」の切り替えを追加しました。Wallpaper Exchange を Mac と一緒に起動できるので、再起動しても壁紙のローテーションが止まりません。",
+          "アプリを /Applications の外に移動している場合は、macOS が登録を拒否した理由をトグルが説明します。"
+        ]
+      }
     },
     {
       "version": "1.3.0",
@@ -115,21 +310,60 @@
         "New: the app now checks for new releases on every launch and offers a one-click upgrade — no more dragging a .dmg into /Applications by hand.",
         "New: right-click the status-bar icon for a menu with Check for Updates… and Quit.",
         "Update prompts appear at most once per new version. Clicking Later silences the alert until the next release ships."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "新增：应用现在每次启动都会检查新版本，并提供一键升级——不用再手动把 .dmg 拖进 /Applications 了。",
+          "新增：右键点击状态栏图标可打开菜单，包含「检查更新…」和「退出」。",
+          "每个新版本的更新提示最多只出现一次。点击「稍后」后，提示会静默到下一个版本发布。"
+        ],
+        "zh-TW": [
+          "新增：應用程式現在每次啟動都會檢查新版本，並提供一鍵升級——不用再手動把 .dmg 拖進 /Applications 了。",
+          "新增：右鍵點選狀態列圖示可開啟選單，包含「檢查更新…」和「結束」。",
+          "每個新版本的更新提示最多只出現一次。點選「稍後」後，提示會靜默到下一個版本發布。"
+        ],
+        "ja": [
+          "新機能：起動のたびに新しいリリースを確認し、ワンクリックでアップグレードできるようになりました。.dmg を手動で /Applications にドラッグする必要はもうありません。",
+          "新機能：ステータスバーのアイコンを右クリックすると、「アップデートを確認…」と「終了」を含むメニューが開きます。",
+          "アップデートの通知は新しいバージョンごとに最大一度だけ表示されます。「あとで」をクリックすると、次のリリースが出るまで通知は表示されません。"
+        ]
+      }
     },
     {
       "version": "1.2.2",
       "released_at": "2026-05-18",
       "notes": [
         "Fix: app failed to launch on any Mac other than the build machine — the SwiftPM resource bundle was packaged at the wrong path inside the .app, so Bundle.module trapped at startup. The 1.2.1 build was effectively broken on every fresh install; please re-download."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "修复：应用在构建机以外的任何 Mac 上都无法启动——SwiftPM 资源包被打包到了 .app 内的错误路径，导致 Bundle.module 在启动时崩溃。1.2.1 版在所有全新安装上实际都无法使用，请重新下载。"
+        ],
+        "zh-TW": [
+          "修復：應用程式在建置機以外的任何 Mac 上都無法啟動——SwiftPM 資源包被打包到了 .app 內的錯誤路徑，導致 Bundle.module 在啟動時當掉。1.2.1 版在所有全新安裝上實際都無法使用，請重新下載。"
+        ],
+        "ja": [
+          "修正：ビルドマシン以外の Mac でアプリが起動しない問題を修正しました。SwiftPM のリソースバンドルが .app 内の誤ったパスにパッケージされており、起動時に Bundle.module がクラッシュしていました。1.2.1 のビルドは新規インストールでは事実上動作しなかったため、再ダウンロードをお願いします。"
+        ]
+      }
     },
     {
       "version": "1.2.1",
       "released_at": "2026-05-18",
       "notes": [
         "Installer DMG now opens as the standard drag-to-install window — app icon on the left, Applications shortcut on the right. No more wondering where to put the .app."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "安装用的 DMG 现在以标准的拖拽安装窗口打开——左侧是应用图标，右侧是 Applications 快捷方式，再也不用纠结 .app 该放哪了。"
+        ],
+        "zh-TW": [
+          "安裝用的 DMG 現在以標準的拖放安裝視窗開啟——左側是應用程式圖示，右側是 Applications 捷徑，再也不用煩惱 .app 該放哪了。"
+        ],
+        "ja": [
+          "インストール用の DMG が標準的なドラッグ＆ドロップ式のインストールウインドウで開くようになりました。左にアプリアイコン、右に Applications へのショートカットが並び、.app の置き場所に迷うことはもうありません。"
+        ]
+      }
     },
     {
       "version": "1.2.0",
@@ -146,7 +380,48 @@
         "Local disk usage indicator in the footer next to the version.",
         "Fix: Latest list now returns the full wallpaper catalogue (was silently filtering by device resolution).",
         "Fix: Downloaded list shows wallpapers immediately after download (same filter was hiding new entries)."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "弹出面板以 Editorial Archive 风格重新设计——磨砂玻璃纸感背景、720×700 的界面，以及以细线分隔的双栏主体。",
+          "「最新」和「已下载」两栏并排显示，各自带有筛选标签（动态、轮换）。",
+          "壁纸卡片重新设计为 16:10，悬停时在自下而上的渐变上显示操作按钮。",
+          "当前应用到桌面的已下载壁纸上会显示「使用中」标签。",
+          "本地文件缺失的已下载条目上提供重新下载操作。",
+          "「已下载」栏新增「在 Finder 中显示」按钮——可打开本地下载文件夹。",
+          "实时轮换状态横幅，带下次轮换的倒计时。",
+          "两栏均支持无限滚动——在到达底部前预取下一页，并提供「加载更多」备选按钮和到底标记。",
+          "底栏版本号旁新增本地磁盘占用指示。",
+          "修复：「最新」列表现在返回完整的壁纸目录（之前会按设备分辨率静默过滤）。",
+          "修复：「已下载」列表在下载完成后会立即显示壁纸（同一过滤逻辑此前会隐藏新条目）。"
+        ],
+        "zh-TW": [
+          "彈出面板以 Editorial Archive 風格重新設計——磨砂玻璃紙感背景、720×700 的介面，以及以細線分隔的雙欄主體。",
+          "「最新」和「已下載」兩欄並排顯示，各自帶有篩選標籤（動態、輪換）。",
+          "桌布卡片重新設計為 16:10，游標懸停時在由下而上的漸層上顯示操作按鈕。",
+          "目前套用到桌面的已下載桌布上會顯示「使用中」標籤。",
+          "本機檔案遺失的已下載項目上提供重新下載操作。",
+          "「已下載」欄新增「在 Finder 中顯示」按鈕——可開啟本機下載資料夾。",
+          "即時輪換狀態橫幅，帶下次輪換的倒數計時。",
+          "兩欄均支援無限捲動——在到達底部前預先擷取下一頁，並提供「載入更多」備用按鈕和到底標記。",
+          "底欄版本號旁新增本機磁碟用量指示。",
+          "修復：「最新」清單現在回傳完整的桌布目錄（之前會按裝置解析度靜默過濾）。",
+          "修復：「已下載」清單在下載完成後會立即顯示桌布（同一過濾邏輯先前會隱藏新項目）。"
+        ],
+        "ja": [
+          "ポップオーバーを Editorial Archive スタイルで再設計しました。すりガラス調のペーパー背景、720×700 のサーフェス、ヘアラインで区切られた 2 カラム構成です。",
+          "「最新」と「ダウンロード済み」の列が並んで表示され、それぞれにフィルターピル（ダイナミック、シャッフル）が付きました。",
+          "壁紙タイルを 16:10 に再設計しました。ホバーすると、下から上へのグラデーションの上に操作ピルが表示されます。",
+          "現在デスクトップに適用中の壁紙には、「ダウンロード済み」列で「適用中」チップが表示されます。",
+          "ローカルファイルが見つからない「ダウンロード済み」の項目に、再ダウンロード操作を追加しました。",
+          "「ダウンロード済み」に Finder で表示ボタンを追加しました。ローカルのダウンロードフォルダが開きます。",
+          "次のローテーションまでのカウントダウン付きで、シャッフルの状態をリアルタイム表示するバナーを追加しました。",
+          "両方の列で無限スクロールに対応しました。最下部に到達する前に次のページを先読みし、「もっと読み込む」のフォールバックと終端マーカーも用意しています。",
+          "フッターのバージョン表示の隣に、ローカルディスク使用量のインジケーターを追加しました。",
+          "修正：「最新」リストが壁紙カタログ全体を返すようになりました（以前はデバイスの解像度で暗黙的にフィルタリングされていました）。",
+          "修正：「ダウンロード済み」リストにダウンロード直後の壁紙が即座に表示されるようになりました（同じフィルターが新しい項目を隠していました）。"
+        ]
+      }
     },
     {
       "version": "1.1.1",
@@ -154,7 +429,21 @@
       "notes": [
         "Now ships as a universal binary — runs on both Apple Silicon and Intel Macs. Previous builds were arm64-only and silently failed to launch on Intel.",
         "Bundle now carries a proper app icon in Finder, Launchpad and the DMG window."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "现在以通用二进制发布——可在 Apple Silicon 和 Intel Mac 上运行。此前的版本仅支持 arm64，在 Intel 机型上会静默启动失败。",
+          "应用包现在在 Finder、Launchpad 和 DMG 窗口中都带有正式的应用图标。"
+        ],
+        "zh-TW": [
+          "現在以通用二進位發布——可在 Apple Silicon 和 Intel Mac 上執行。先前的版本僅支援 arm64，在 Intel 機型上會靜默啟動失敗。",
+          "應用程式套件現在在 Finder、Launchpad 和 DMG 視窗中都帶有正式的應用程式圖示。"
+        ],
+        "ja": [
+          "ユニバーサルバイナリとして提供されるようになり、Apple Silicon と Intel の両方の Mac で動作します。以前のビルドは arm64 専用で、Intel では何も表示されずに起動に失敗していました。",
+          "バンドルに正式なアプリアイコンが付き、Finder、Launchpad、DMG ウインドウで表示されるようになりました。"
+        ]
+      }
     },
     {
       "version": "1.1.0",
@@ -170,7 +459,45 @@
         "Set Wallpaper auto-downloads on demand for wallpapers downloaded on another device.",
         "Auth token moved out of Keychain — no more system permission prompt at launch.",
         "Many UI fixes: hover button stability, post-login user info, stale state after sign out."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "每 4 小时从你的下载中自动轮换桌面壁纸，重启应用后设置依然保留。",
+          "在发现列表中一键完成「下载并设为壁纸」。",
+          "大体积动态 HEIC 文件下载时显示真实进度条。",
+          "「最新」和「已下载」两栏各自提供仅显示 macOS 动态壁纸的筛选。",
+          "「已下载」列表会筛选出与本机分辨率匹配的壁纸。",
+          "菜单栏状态图标现在使用品牌 logo。",
+          "渐进式图片加载和内存缓存——向上回滚时列表不会再闪现加载状态。",
+          "对在其他设备上下载过的壁纸，「设为壁纸」会按需自动下载。",
+          "认证令牌已移出 Keychain——启动时不会再弹出系统权限提示。",
+          "多处界面修复：悬停按钮稳定性、登录后的用户信息显示、退出登录后的残留状态。"
+        ],
+        "zh-TW": [
+          "每 4 小時從你的下載中自動輪換桌面桌布，重新啟動應用程式後設定依然保留。",
+          "在探索清單中一鍵完成「下載並設為桌布」。",
+          "大型動態 HEIC 檔案下載時顯示真實進度列。",
+          "「最新」和「已下載」兩欄各自提供僅顯示 macOS 動態桌布的篩選。",
+          "「已下載」清單會篩選出與本機解析度相符的桌布。",
+          "選單列狀態圖示現在使用品牌 logo。",
+          "漸進式圖片載入和記憶體快取——向上回捲時清單不會再閃現載入狀態。",
+          "對在其他裝置上下載過的桌布，「設為桌布」會按需自動下載。",
+          "認證權杖已移出 Keychain——啟動時不會再跳出系統權限提示。",
+          "多處介面修復：懸停按鈕穩定性、登入後的使用者資訊顯示、登出後的殘留狀態。"
+        ],
+        "ja": [
+          "ダウンロード済みの壁紙からデスクトップの壁紙を 4 時間ごとに自動でローテーションします。設定はアプリを再起動しても保持されます。",
+          "発見フィードからワンタップで「ダウンロードして壁紙に設定」できます。",
+          "サイズの大きいダイナミック HEIC ファイルのダウンロードに、実際の進捗バーを表示します。",
+          "「最新」と「ダウンロード済み」の各列に、macOS ダイナミック壁紙のみを表示するフィルターを追加しました。",
+          "「ダウンロード済み」リストは、この Mac の解像度に合う壁紙に絞り込まれます。",
+          "メニューバーのステータスアイコンがブランドロゴになりました。",
+          "プログレッシブな画像読み込みとメモリキャッシュを導入しました。上にスクロールで戻っても、行が読み込み中表示にちらつくことはありません。",
+          "他のデバイスでダウンロードした壁紙も、「壁紙に設定」時に必要に応じて自動ダウンロードします。",
+          "認証トークンを Keychain の外に移しました。起動時にシステムの許可ダイアログが表示されることはもうありません。",
+          "多数の UI 修正：ホバーボタンの安定性、ログイン後のユーザー情報表示、サインアウト後に古い状態が残る問題。"
+        ]
+      }
     },
     {
       "version": "1.0.0",
@@ -182,7 +509,33 @@
         "In-row progress indicator while a download is in flight.",
         "Open Web shortcut in the footer for jumping back to the full site.",
         "Brand logo as the menubar status item icon."
-      ]
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "用于浏览 Wallpaper Exchange 信息流的菜单栏应用。",
+          "通过 wallxch:// URL scheme 与网页会话单点登录。",
+          "逐行悬停操作：发现列表提供「下载」和「下载并设为壁纸」，本地下载列表提供「设为壁纸」。",
+          "下载进行中时在行内显示进度指示。",
+          "底栏提供「打开网页版」快捷入口，可跳回完整网站。",
+          "菜单栏状态项图标采用品牌 logo。"
+        ],
+        "zh-TW": [
+          "用於瀏覽 Wallpaper Exchange 訊息流的選單列應用程式。",
+          "透過 wallxch:// URL scheme 與網頁工作階段單一登入。",
+          "逐列懸停操作：探索清單提供「下載」和「下載並設為桌布」，本機下載清單提供「設為桌布」。",
+          "下載進行中時在列內顯示進度指示。",
+          "底欄提供「開啟網頁版」快速入口，可跳回完整網站。",
+          "選單列狀態項目圖示採用品牌 logo。"
+        ],
+        "ja": [
+          "Wallpaper Exchange のフィードを閲覧できるメニューバーアプリです。",
+          "wallxch:// URL スキームを使って Web セッションとシングルサインオンできます。",
+          "行ごとのホバー操作：発見リストでは「ダウンロード」と「ダウンロードして壁紙に設定」、ローカルのダウンロードリストでは「壁紙に設定」が使えます。",
+          "ダウンロード中は行内に進捗インジケーターを表示します。",
+          "フッターの「Web を開く」ショートカットから、フルサイトにすぐ戻れます。",
+          "メニューバーのステータスアイテムのアイコンにブランドロゴを採用しました。"
+        ]
+      }
     }
   ]
 }
