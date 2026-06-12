@@ -10,56 +10,52 @@ struct ArchiveTopBar: View {
     @State private var showCollections = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Button {
-                    showCollections = true
-                } label: {
-                    Image(systemName: "square.stack")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color.ink2)
-                        .frame(width: 34, height: 34)
-                        .background(Color.paper2, in: Circle())
-                        .overlay(Circle().strokeBorder(Color.hair, lineWidth: 1))
-                }
-                .buttonStyle(.pressable)
-
-                Spacer()
-
-                Text(title)
-                    .font(.display22)
-                    .foregroundStyle(Color.ink)
-
-                Spacer()
-
-                Button {
-                    withAnimation(.easeOut(duration: 0.25)) {
-                        prefs.lockPreview.toggle()
-                    }
-                } label: {
-                    Image(systemName: prefs.lockPreview ? "lock.iphone" : "iphone")
-                        .font(.system(size: 15, weight: .medium))
-                        .contentTransition(.symbolEffect(.replace))
-                        .foregroundStyle(prefs.lockPreview ? Color.accentInk : Color.ink2)
-                        .frame(width: 34, height: 34)
-                        .background(prefs.lockPreview ? Color.accentSoft : Color.paper2, in: Circle())
-                        .overlay(
-                            Circle().strokeBorder(
-                                prefs.lockPreview ? Color.accent.opacity(0.45) : Color.hair,
-                                lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.pressable)
+        HStack(spacing: 12) {
+            Button {
+                showCollections = true
+            } label: {
+                Image(systemName: "square.stack")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .frame(width: 40, height: 40)
+                    .background(.white.opacity(0.08), in: Circle())
+                    .background(.ultraThinMaterial, in: Circle())
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .buttonStyle(.pressable)
 
-            // Hairline under the bar separates chrome from the scroll
-            // surface without adding weight.
-            Rectangle()
-                .fill(Color.hair.opacity(0.55))
-                .frame(height: 1)
+            Spacer()
+
+            // Script brand voice for the page title.
+            Text(title)
+                .font(.script(25))
+                .foregroundStyle(Color.ink)
+                .baselineOffset(-2)
+
+            Spacer()
+
+            Button {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    prefs.lockPreview.toggle()
+                }
+            } label: {
+                Image(systemName: prefs.lockPreview ? "lock.iphone" : "iphone")
+                    .font(.system(size: 15, weight: .medium))
+                    .contentTransition(.symbolEffect(.replace))
+                    .foregroundStyle(prefs.lockPreview ? Color.black.opacity(0.82) : .white.opacity(0.9))
+                    .frame(width: 40, height: 40)
+                    .background {
+                        if prefs.lockPreview {
+                            Circle().fill(Color.accent)
+                        } else {
+                            Circle().fill(.white.opacity(0.08))
+                        }
+                    }
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .buttonStyle(.pressable)
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
         .background(Color.paper)
         .fullScreenCoverCompat(isPresented: $showCollections) {
             CollectionsBrowser()

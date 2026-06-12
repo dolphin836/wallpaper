@@ -40,9 +40,8 @@ extension Color {
     static let lightText  = Color(red: 0.972, green: 0.964, blue: 0.945)
 }
 
-// Editorial type ramp: serif display for page/section titles only,
-// mono caps for metadata (resolution, kickers, technical labels),
-// system sans for everything interactive.
+// Type ramp: script brand voice for page titles, bold sans for content
+// headings, mono caps for technical metadata.
 extension Font {
     static let display28 = Font.system(size: 28, weight: .semibold, design: .serif)
     static let display22 = Font.system(size: 22, weight: .semibold, design: .serif)
@@ -50,6 +49,11 @@ extension Font {
     static let kicker    = Font.system(size: 10, weight: .semibold, design: .monospaced)
     static let mono10    = Font.system(size: 10, weight: .medium, design: .monospaced)
     static let mono11    = Font.system(size: 11, weight: .medium, design: .monospaced)
+
+    // Brand script for page titles (ships on both iOS and macOS).
+    static func script(_ size: CGFloat) -> Font {
+        .custom("SnellRoundhand-Black", size: size)
+    }
 }
 
 // Uppercase letter-spaced mono label — mirrors the web's .kicker class

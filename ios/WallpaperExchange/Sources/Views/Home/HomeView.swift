@@ -43,6 +43,8 @@ struct HomeView: View {
             .navigationTitle("")
             .inlineNavTitle()
             .hideNavBarCompat()
+            .hideTabBarCompat()
+            .safeAreaInset(edge: .bottom) { FloatingTabBar() }
             .navigationDestination(for: WallpaperRoute.self) { route in
                 WallpaperDetailView(slug: route.slug)
             }
@@ -112,8 +114,8 @@ struct HomeView: View {
                 HStack(spacing: 10) {
                     ForEach(collections) { collection in
                         NavigationLink(value: collection) {
-                            CollectionCard(collection: collection)
-                                .frame(width: 250)
+                            CollectionCard(collection: collection, height: 150)
+                                .frame(width: 280)
                         }
                         .buttonStyle(.pressable)
                     }

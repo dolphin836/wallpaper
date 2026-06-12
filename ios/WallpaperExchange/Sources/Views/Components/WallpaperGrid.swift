@@ -175,24 +175,20 @@ struct ErrorRetryView: View {
     }
 }
 
-// Section heading: mono kicker with a hairline rule running to the
-// trailing edge (the archive's column-rule motif), serif display below.
+// Section heading: bold title with a quiet supporting line below —
+// the reference's shelf-header pairing.
 struct SectionHeader: View {
     var kicker: String
     var title: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 10) {
-                Kicker(text: kicker)
-                    .fixedSize()
-                Rectangle()
-                    .fill(Color.hair)
-                    .frame(height: 1)
-            }
+        VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.display22)
+                .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(Color.ink)
+            Text(kicker)
+                .font(.footnote)
+                .foregroundStyle(Color.muted)
         }
     }
 }

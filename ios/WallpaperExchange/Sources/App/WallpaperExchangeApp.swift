@@ -42,27 +42,25 @@ struct WallpaperExchangeApp: App {
 }
 
 struct RootTabView: View {
-    @State private var selection = LaunchOptions.tab
+    @State private var router = TabRouter.shared
     @State private var debugDetailSlug = LaunchOptions.detailSlug
     @State private var debugDetailPath = NavigationPath()
     @State private var debugCollections = LaunchOptions.showCollections
     @State private var debugWeekly = LaunchOptions.showWeekly
 
     var body: some View {
-        TabView(selection: $selection) {
+        @Bindable var router = router
+        TabView(selection: $router.selection) {
             HomeView()
-                .tabItem { Label("Home", systemImage: "house") }
                 .tag(0)
             DiscoverView()
-                .tabItem { Label("Discover", systemImage: "sparkles.rectangle.stack") }
                 .tag(1)
             MakeView()
-                .tabItem { Label("Make", systemImage: "wand.and.stars") }
                 .tag(2)
             AccountView()
-                .tabItem { Label("Me", systemImage: "person.crop.circle") }
                 .tag(3)
         }
+        .environment(router)
         // Screenshot-automation overlays (LaunchOptions args only). The
         // detail route is pushed (not shown as a root) so the screenshots
         // exercise the same back-button context users navigate in.
@@ -92,9 +90,11 @@ struct RootTabView: View {
                 WeeklyArchiveView()
             }
         }
-        // Warm exchange accent drives every interactive tint, replacing
-        // the stock blue/purple; paper behind everything.
+        // Warm exchange accent drives every interactive tint; the system
+        // tab bar is replaced by the floating capsule bar each root page
+        // hosts in its bottom safe-area inset. Dark-only, per the brand.
         .tint(Color.accent)
         .background(Color.paper)
+        .preferredColorScheme(.dark)
     }
 }

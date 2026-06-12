@@ -30,6 +30,8 @@ struct AccountView: View {
             .navigationTitle("")
             .inlineNavTitle()
             .hideNavBarCompat()
+            .hideTabBarCompat()
+            .safeAreaInset(edge: .bottom) { FloatingTabBar() }
             .navigationDestination(for: WallpaperRoute.self) { route in
                 WallpaperDetailView(slug: route.slug)
             }
@@ -140,29 +142,34 @@ struct AccountView: View {
             showCoinLedger = true
         } label: {
             HStack {
-                Image(systemName: "dollarsign.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(Color.accent)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("\(user.coins) coins")
-                        .font(.display18)
-                        .foregroundStyle(Color.ink)
-                    Text("EARN 1 PER UPLOAD · DOWNLOADS COST 1")
-                        .font(.kicker)
-                        .tracking(0.8)
-                        .foregroundStyle(Color.muted)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Coins")
+                        .font(.script(19))
+                        .foregroundStyle(.white)
+                    Text("Earn 1 per upload · downloads cost 1")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.78))
                 }
                 Spacer()
+                Text("\(user.coins)")
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .contentTransition(.numericText())
                 Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(Color.muted)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.7))
             }
-            .padding(12)
-            .background(Color.accentSoft.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(Color.accent.opacity(0.25), lineWidth: 1)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(
+                // The reference's gradient banner moment, in our warm hues.
+                LinearGradient(
+                    colors: [Color.accent, Color.accentInk],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 16)
             )
+            .shadow(color: Color.accent.opacity(0.35), radius: 14, y: 7)
             .padding(.horizontal, 12)
         }
         .buttonStyle(.pressable)

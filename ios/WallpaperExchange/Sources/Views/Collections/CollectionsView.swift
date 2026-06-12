@@ -103,102 +103,60 @@ struct CollectionsBrowser: View {
     }
 }
 
-// Collection card: editorial mosaic cover (one dominant tile, two
-// supporting) over a paper info row — serif title, accent-color dot
-// echoing the collection's palette, mono-caps meta.
+// Collection card, reference topic style: one full-bleed cover, bottom
+// gradient scrim, bold title with a quiet count beneath.
 struct CollectionCard: View {
     let collection: CollectionItem
+    var height: CGFloat = 190
 
-    private var tiles: [CollectionTile] {
-        Array((collection.recentTiles ?? []).prefix(3))
-    }
+    private var cover: CollectionTile? { collection.recentTiles?.first }
 
     private var accent: Color {
         Color(hex: collection.accentColor) ?? Color.paper3
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            mosaic
-                .frame(height: 150)
+        ZStack(alignment: .bottomLeading) {
+            Color.clear
+                .overlay(
+                    CachedAsyncImage(
+                        url: URL(string: cover?.previewURL ?? ""),
+                        maxPixelDimension: 1100
+                    ) { image in
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle().fill(Color(hex: cover?.dominantColor) ?? accent)
+                    }
+                )
                 .clipped()
-            VStack(alignment: .leading, spacing: 4) {
+
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.05), .black.opacity(0.62)],
+                startPoint: .top, endPoint: .bottom
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
                 Text(collection.title)
-                    .font(.display18)
-                    .foregroundStyle(Color.ink)
+                    .font(.system(size: 21, weight: .bold))
+                    .foregroundStyle(.white)
                     .lineLimit(1)
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(accent)
-                        .frame(width: 6, height: 6)
-                    Text(metaLine)
-                        .font(.mono10)
-                        .tracking(0.8)
-                        .foregroundStyle(Color.muted)
-                }
+                Text(metaLine)
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.75))
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 11)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .paperCard(radius: 14)
-        .shadow(color: .black.opacity(0.07), radius: 12, y: 6)
+        .frame(height: height)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .shadow(color: .black.opacity(0.35), radius: 14, y: 7)
     }
 
     private var metaLine: String {
-        var line = "\(collection.wallpaperCount) WALLPAPERS"
+        var line = "\(collection.wallpaperCount) wallpapers"
         if let likes = collection.likeCount, likes > 0 {
-            line += " · \(likes) ♥"
+            line += " · \(likes) likes"
         }
         return line
-    }
-
-    // 2/3 cover + two stacked tiles; degrades gracefully when the
-    // collection has fewer rendered tiles.
-    @ViewBuilder
-    private var mosaic: some View {
-        switch tiles.count {
-        case 0:
-            ZStack {
-                accent.opacity(0.85)
-                Text(String(collection.title.prefix(1)).uppercased())
-                    .font(.system(size: 56, weight: .semibold, design: .serif))
-                    .foregroundStyle(Color.lightText.opacity(0.85))
-            }
-        case 1:
-            mosaicTile(tiles[0], dimension: 900)
-        default:
-            GeometryReader { geo in
-                HStack(spacing: 2) {
-                    mosaicTile(tiles[0], dimension: 900)
-                        .frame(width: geo.size.width * 0.62)
-                    if tiles.count >= 3 {
-                        VStack(spacing: 2) {
-                            mosaicTile(tiles[1], dimension: 500)
-                            mosaicTile(tiles[2], dimension: 500)
-                        }
-                    } else {
-                        mosaicTile(tiles[1], dimension: 500)
-                    }
-                }
-            }
-        }
-    }
-
-    private func mosaicTile(_ tile: CollectionTile, dimension: Int) -> some View {
-        Color.clear
-            .overlay(
-                CachedAsyncImage(
-                    url: URL(string: dimension > 600 ? tile.previewURL : tile.thumbURL),
-                    maxPixelDimension: dimension
-                ) { image in
-                    image.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle().fill(Color(hex: tile.dominantColor) ?? Color.paper3)
-                }
-            )
-            .clipped()
     }
 }
 

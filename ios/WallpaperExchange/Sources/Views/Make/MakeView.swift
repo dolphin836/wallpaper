@@ -45,6 +45,8 @@ struct MakeView: View {
             .navigationTitle("")
             .inlineNavTitle()
             .hideNavBarCompat()
+            .hideTabBarCompat()
+            .safeAreaInset(edge: .bottom) { FloatingTabBar() }
             .onChange(of: pickerItem) { _, newItem in
                 guard let newItem else { return }
                 Task {

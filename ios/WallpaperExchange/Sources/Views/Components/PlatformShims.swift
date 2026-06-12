@@ -110,6 +110,16 @@ extension View {
         #endif
     }
 
+    // The floating capsule tab bar replaces the system one.
+    @ViewBuilder
+    func hideTabBarCompat() -> some View {
+        #if os(iOS)
+        self.toolbar(.hidden, for: .tabBar)
+        #else
+        self
+        #endif
+    }
+
     // Pushed pages must opt back IN: the root tabs hide the nav bar for
     // the custom ArchiveTopBar, and that hidden state otherwise carries
     // into pushed children — leaving them with no back button and no

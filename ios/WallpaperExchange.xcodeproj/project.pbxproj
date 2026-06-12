@@ -23,6 +23,7 @@
 		75EBAB4AD8805069A67BD323 /* ArchiveTopBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C4768A5919EC84C546C6B7E /* ArchiveTopBar.swift */; };
 		77054B7BE2871BC40A838C90 /* UploadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9081D6FED3FA6C2971ACD00C /* UploadView.swift */; };
 		7C70C218FD718CE8136BD894 /* KeychainTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E084E1F363660F8442A1600 /* KeychainTokenStore.swift */; };
+		7EA061A11A4AE3CBA1E5B383 /* FloatingTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6DEE52AA567E03A5FB93787 /* FloatingTabBar.swift */; };
 		833F1DBFB5476BE6B3D3C22B /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE0BD07F16DB06ABE38BB509 /* AuthView.swift */; };
 		84B0CDC079F1E9E2A8DE9434 /* PhotoSaver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08F1D00C13F74108963DFF94 /* PhotoSaver.swift */; };
 		8BFB631A1575E35F55AE71DC /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C83E572431E6FD7591BDCFD /* HomeView.swift */; };
@@ -52,6 +53,7 @@
 		891676FD3AC5342B5F3BC922 /* Skeleton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Skeleton.swift; sourceTree = "<group>"; };
 		9081D6FED3FA6C2971ACD00C /* UploadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadView.swift; sourceTree = "<group>"; };
 		9CBF63EB635C6A6C25F7134C /* WallpaperExchange.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WallpaperExchange.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A6DEE52AA567E03A5FB93787 /* FloatingTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingTabBar.swift; sourceTree = "<group>"; };
 		A7E5D5624E1AA771F14B85B5 /* MainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainModels.swift; sourceTree = "<group>"; };
 		B38DCF4BC7380AF2AA04B022 /* MakeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MakeView.swift; sourceTree = "<group>"; };
 		B468C9C1CE8BA3DDAC39FCAA /* PlatformShims.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformShims.swift; sourceTree = "<group>"; };
@@ -120,6 +122,7 @@
 			children = (
 				0C4768A5919EC84C546C6B7E /* ArchiveTopBar.swift */,
 				5A96C5BD49882CF05E2DB1B3 /* CachedAsyncImage.swift */,
+				A6DEE52AA567E03A5FB93787 /* FloatingTabBar.swift */,
 				D446903C2B4979FD014C7C30 /* LockScreenOverlay.swift */,
 				B468C9C1CE8BA3DDAC39FCAA /* PlatformShims.swift */,
 				891676FD3AC5342B5F3BC922 /* Skeleton.swift */,
@@ -303,6 +306,7 @@
 				6CF39DA7A5831E156770A66F /* CachedAsyncImage.swift in Sources */,
 				3BA0C27793912FD93063A556 /* CollectionsView.swift in Sources */,
 				4AF29DC2175D1BBB2A422DBE /* DiscoverView.swift in Sources */,
+				7EA061A11A4AE3CBA1E5B383 /* FloatingTabBar.swift in Sources */,
 				8BFB631A1575E35F55AE71DC /* HomeView.swift in Sources */,
 				7C70C218FD718CE8136BD894 /* KeychainTokenStore.swift in Sources */,
 				4B15D7A1F98260ECD8D1B23C /* LaunchOptions.swift in Sources */,

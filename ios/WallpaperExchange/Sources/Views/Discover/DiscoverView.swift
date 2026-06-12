@@ -66,6 +66,8 @@ struct DiscoverView: View {
             .navigationTitle("")
             .inlineNavTitle()
             .hideNavBarCompat()
+            .hideTabBarCompat()
+            .safeAreaInset(edge: .bottom) { FloatingTabBar() }
             .navigationDestination(for: WallpaperRoute.self) { route in
                 WallpaperDetailView(slug: route.slug)
             }
