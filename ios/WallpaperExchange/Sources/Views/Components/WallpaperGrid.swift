@@ -26,7 +26,7 @@ struct WallpaperGrid: View {
 
     var body: some View {
         let split = columns
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: 12) {
             column(split.left)
             column(split.right)
         }
@@ -41,12 +41,12 @@ struct WallpaperGrid: View {
     }
 
     private func column(_ items: [Wallpaper]) -> some View {
-        LazyVStack(spacing: 10) {
+        LazyVStack(spacing: 12) {
             ForEach(items) { wallpaper in
                 NavigationLink(value: WallpaperRoute(slug: wallpaper.slug)) {
                     WallpaperTile(wallpaper: wallpaper)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
         }
     }
@@ -96,6 +96,7 @@ struct WallpaperTile: View {
             if prefs.lockPreview {
                 LockScreenOverlay(compact: true)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .transition(.opacity)
             }
         }
         .overlay(alignment: .topLeading) {
@@ -111,6 +112,13 @@ struct WallpaperTile: View {
                 .padding(6)
             }
         }
+        // Tinted lift: each tile throws a soft shadow in its own
+        // dominant color, so the grid reads as prints on paper rather
+        // than rectangles on a flat fill.
+        .shadow(
+            color: (Color(hex: wallpaper.dominantColor) ?? .black).opacity(0.22),
+            radius: 9, y: 5
+        )
     }
 }
 
@@ -167,15 +175,21 @@ struct ErrorRetryView: View {
     }
 }
 
-// Section heading: mono kicker over serif display, the archive's
-// editorial header pairing.
+// Section heading: mono kicker with a hairline rule running to the
+// trailing edge (the archive's column-rule motif), serif display below.
 struct SectionHeader: View {
     var kicker: String
     var title: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Kicker(text: kicker)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 10) {
+                Kicker(text: kicker)
+                    .fixedSize()
+                Rectangle()
+                    .fill(Color.hair)
+                    .frame(height: 1)
+            }
             Text(title)
                 .font(.display22)
                 .foregroundStyle(Color.ink)

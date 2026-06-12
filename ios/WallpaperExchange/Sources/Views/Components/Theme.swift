@@ -66,10 +66,12 @@ struct Kicker: View {
     }
 }
 
-// Mono-caps chip drawn over imagery (resolution / LIVE / AI badges).
+// Mono-caps chip drawn over imagery (resolution / AI badges). Frosted
+// material under a dark tint so the chip reads on any wallpaper without
+// the dead flatness of a plain black pill.
 struct MediaChip: View {
     var text: String
-    var tint: Color = Color.black.opacity(0.55)
+    var tint: Color = Color.black.opacity(0.25)
 
     var body: some View {
         Text(text.uppercased())
@@ -79,6 +81,8 @@ struct MediaChip: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 2.5)
             .background(tint, in: Capsule())
+            .background(.ultraThinMaterial, in: Capsule())
+            .environment(\.colorScheme, .dark)
     }
 }
 
@@ -101,4 +105,21 @@ extension View {
     func paperCard(radius: CGFloat = 12) -> some View {
         modifier(PaperCard(radius: radius))
     }
+}
+
+// Press feedback for every tappable surface: a quick settle-down scale
+// with a soft spring back. The single biggest "feels native" win.
+struct PressableStyle: ButtonStyle {
+    var scale: CGFloat = 0.96
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scale : 1)
+            .opacity(configuration.isPressed ? 0.92 : 1)
+            .animation(.spring(response: 0.28, dampingFraction: 0.75), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == PressableStyle {
+    static var pressable: PressableStyle { PressableStyle() }
 }

@@ -96,7 +96,7 @@ struct HomeView: View {
                             WallpaperTile(wallpaper: pick)
                                 .frame(height: 240)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                 }
                 .padding(.horizontal, 12)
@@ -115,7 +115,7 @@ struct HomeView: View {
                             CollectionCard(collection: collection)
                                 .frame(width: 250)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                 }
                 .padding(.horizontal, 12)
@@ -133,7 +133,7 @@ struct HomeView: View {
                             WallpaperTile(wallpaper: wallpaper)
                                 .frame(height: 190)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                 }
                 .padding(.horizontal, 12)
@@ -154,7 +154,7 @@ struct HomeView: View {
                 }
                 .foregroundStyle(Color.accentInk)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
         }
         .padding(.horizontal, 12)
     }

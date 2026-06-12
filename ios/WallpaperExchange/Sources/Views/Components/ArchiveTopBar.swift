@@ -10,45 +10,56 @@ struct ArchiveTopBar: View {
     @State private var showCollections = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            Button {
-                showCollections = true
-            } label: {
-                Image(systemName: "square.stack")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Color.ink2)
-                    .frame(width: 34, height: 34)
-                    .background(Color.paper2, in: Circle())
-                    .overlay(Circle().strokeBorder(Color.hair, lineWidth: 1))
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Button {
+                    showCollections = true
+                } label: {
+                    Image(systemName: "square.stack")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Color.ink2)
+                        .frame(width: 34, height: 34)
+                        .background(Color.paper2, in: Circle())
+                        .overlay(Circle().strokeBorder(Color.hair, lineWidth: 1))
+                }
+                .buttonStyle(.pressable)
+
+                Spacer()
+
+                Text(title)
+                    .font(.display22)
+                    .foregroundStyle(Color.ink)
+
+                Spacer()
+
+                Button {
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        prefs.lockPreview.toggle()
+                    }
+                } label: {
+                    Image(systemName: prefs.lockPreview ? "lock.iphone" : "iphone")
+                        .font(.system(size: 15, weight: .medium))
+                        .contentTransition(.symbolEffect(.replace))
+                        .foregroundStyle(prefs.lockPreview ? Color.accentInk : Color.ink2)
+                        .frame(width: 34, height: 34)
+                        .background(prefs.lockPreview ? Color.accentSoft : Color.paper2, in: Circle())
+                        .overlay(
+                            Circle().strokeBorder(
+                                prefs.lockPreview ? Color.accent.opacity(0.45) : Color.hair,
+                                lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.pressable)
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
 
-            Spacer()
-
-            Text(title)
-                .font(.display22)
-                .foregroundStyle(Color.ink)
-
-            Spacer()
-
-            Button {
-                prefs.lockPreview.toggle()
-            } label: {
-                Image(systemName: prefs.lockPreview ? "lock.iphone" : "iphone")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(prefs.lockPreview ? Color.accentInk : Color.ink2)
-                    .frame(width: 34, height: 34)
-                    .background(prefs.lockPreview ? Color.accentSoft : Color.paper2, in: Circle())
-                    .overlay(
-                        Circle().strokeBorder(
-                            prefs.lockPreview ? Color.accent.opacity(0.45) : Color.hair,
-                            lineWidth: 1)
-                    )
-            }
-            .buttonStyle(.plain)
+            // Hairline under the bar separates chrome from the scroll
+            // surface without adding weight.
+            Rectangle()
+                .fill(Color.hair.opacity(0.55))
+                .frame(height: 1)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
         .background(Color.paper)
         .fullScreenCoverCompat(isPresented: $showCollections) {
             CollectionsBrowser()

@@ -95,6 +95,9 @@ struct WallpaperDetailView: View {
                 RoundedRectangle(cornerRadius: 14)
                     .strokeBorder(Color.hair.opacity(0.5), lineWidth: 1)
             )
+            // The hero floats above its stage on a shadow tinted with
+            // its own dominant color.
+            .shadow(color: backdropColor.opacity(0.35), radius: 16, y: 8)
 
             actionRow(detail)
         }
@@ -147,6 +150,7 @@ struct WallpaperDetailView: View {
             Spacer()
 
             downloadButton(detail)
+                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: downloadState)
         }
     }
 
@@ -155,8 +159,10 @@ struct WallpaperDetailView: View {
             HStack(spacing: 5) {
                 Image(systemName: icon)
                     .font(.system(size: 13))
+                    .contentTransition(.symbolEffect(.replace))
                 Text("\(count)")
                     .font(.mono11)
+                    .contentTransition(.numericText())
             }
             .foregroundStyle(tint)
             .padding(.horizontal, 11)
@@ -164,7 +170,7 @@ struct WallpaperDetailView: View {
             .background(Color.paper.opacity(0.72), in: Capsule())
             .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 
     @ViewBuilder
@@ -362,8 +368,10 @@ struct WallpaperDetailView: View {
         guard auth.isLoggedIn else { showLoginPrompt = true; return }
         guard let detail else { return }
         let wasLiked = isLiked
-        isLiked.toggle()
-        likeCount += isLiked ? 1 : -1
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            isLiked.toggle()
+            likeCount += isLiked ? 1 : -1
+        }
         Task {
             do {
                 if wasLiked {
@@ -383,8 +391,10 @@ struct WallpaperDetailView: View {
         guard auth.isLoggedIn else { showLoginPrompt = true; return }
         guard let detail else { return }
         let wasFavorited = isFavorited
-        isFavorited.toggle()
-        favoriteCount += isFavorited ? 1 : -1
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            isFavorited.toggle()
+            favoriteCount += isFavorited ? 1 : -1
+        }
         Task {
             do {
                 if wasFavorited {

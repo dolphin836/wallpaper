@@ -113,11 +113,14 @@ struct DiscoverView: View {
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 8)
+        // Borderless fill: search recedes behind the pill rows instead
+        // of stacking a third outlined row of chrome.
         .background(Color.paper2, in: Capsule())
-        .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
         .padding(.horizontal, 12)
         .padding(.top, 4)
     }
+
+    @Namespace private var feedPillNS
 
     private var feedPicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -125,21 +128,30 @@ struct DiscoverView: View {
                 ForEach(visibleFeeds) { f in
                     Button {
                         guard feed != f else { return }
-                        feed = f
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                            feed = f
+                        }
                         reload()
                     } label: {
                         Text(f.rawValue)
                             .font(.subheadline.weight(feed == f ? .semibold : .regular))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 7)
-                            .background(feed == f ? Color.ink : Color.paper2, in: Capsule())
-                            .overlay(
-                                Capsule().strokeBorder(
-                                    feed == f ? Color.clear : Color.hair, lineWidth: 1)
-                            )
+                            .background {
+                                // The ink fill slides between pills.
+                                if feed == f {
+                                    Capsule()
+                                        .fill(Color.ink)
+                                        .matchedGeometryEffect(id: "feed-pill", in: feedPillNS)
+                                } else {
+                                    Capsule()
+                                        .fill(Color.paper2)
+                                        .overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
+                                }
+                            }
                             .foregroundStyle(feed == f ? Color.paper : Color.ink2)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                 }
             }
             .padding(.horizontal, 12)
@@ -172,7 +184,9 @@ struct DiscoverView: View {
     }
 
     private func chipButton(_ title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            withAnimation(.easeOut(duration: 0.18)) { action() }
+        } label: {
             Text(title)
                 .font(.caption.weight(isOn ? .semibold : .regular))
                 .padding(.horizontal, 11)

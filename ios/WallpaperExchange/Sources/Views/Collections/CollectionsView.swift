@@ -29,7 +29,7 @@ struct CollectionsBrowser: View {
                                 .background(Color.paper2, in: Circle())
                                 .overlay(Circle().strokeBorder(Color.hair, lineWidth: 1))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                     .padding(.horizontal, 12)
                     .padding(.top, 14)
@@ -48,7 +48,7 @@ struct CollectionsBrowser: View {
                                 NavigationLink(value: collection) {
                                     CollectionCard(collection: collection)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(.pressable)
                             }
                             if hasMore {
                                 Color.clear
@@ -143,6 +143,7 @@ struct CollectionCard: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .paperCard(radius: 14)
+        .shadow(color: .black.opacity(0.07), radius: 12, y: 6)
     }
 
     private var metaLine: String {

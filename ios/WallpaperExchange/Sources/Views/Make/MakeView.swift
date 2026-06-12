@@ -148,7 +148,7 @@ struct MakeView: View {
                                 )
                                 .foregroundStyle(style == s ? Color.paper : Color.ink2)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                 }
             }
@@ -176,7 +176,7 @@ struct MakeView: View {
                 .padding(.vertical, 11)
                 .background(savedTick ? Color.accent.opacity(0.6) : Color.accent, in: Capsule())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .disabled(saving || rendering || savedTick)
 
             if let errorMessage {

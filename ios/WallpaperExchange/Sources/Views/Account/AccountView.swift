@@ -132,7 +132,7 @@ struct AccountView: View {
                     Capsule().strokeBorder(accent ? Color.clear : Color.hair, lineWidth: 1)
                 )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 
     private func coinCard(_ user: User) -> some View {
@@ -165,7 +165,7 @@ struct AccountView: View {
             )
             .padding(.horizontal, 12)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 }
 

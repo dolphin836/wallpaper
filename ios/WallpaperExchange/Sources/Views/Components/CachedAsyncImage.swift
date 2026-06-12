@@ -201,8 +201,10 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         Group {
             if let uiImage {
                 content(Image(platformImage: uiImage))
+                    .transition(.opacity)
             } else {
                 placeholder()
+                    .transition(.opacity)
             }
         }
         .task(id: url) {
@@ -231,7 +233,11 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         let requestURL = url
         if let img = await ImageCacheStore.shared.load(requestURL, maxPixelDimension: maxPixelDimension) {
             guard !Task.isCancelled, self.url == requestURL else { return }
-            self.uiImage = img
+            // Network/disk loads cross-fade in; memory-cache hits above
+            // stay instant so scroll-back doesn't flicker.
+            withAnimation(.easeOut(duration: 0.22)) {
+                self.uiImage = img
+            }
             loadedURL = requestURL
             onLoad?()
         }
