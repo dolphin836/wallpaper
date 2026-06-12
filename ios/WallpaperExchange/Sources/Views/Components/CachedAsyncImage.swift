@@ -17,10 +17,11 @@ final class ImageCacheStore {
     private let dataLoader = ImageDataLoader()
 
     private init() {
-        cache.countLimit = 160
-        // Phone tiles are decoded much smaller than the Mac's 1800px
-        // ceiling, so the same budget holds many more entries.
-        cache.totalCostLimit = 64 * 1024 * 1024
+        cache.countLimit = 140
+        // Tiles decode at up to 1400px long side (device-ratio cells are
+        // ~1200px tall on 3x phones), so give the decoded cache enough
+        // room that scrolling back doesn't re-decode every screen.
+        cache.totalCostLimit = 128 * 1024 * 1024
     }
 
     func get(_ url: URL, maxPixelDimension: Int) -> PlatformImage? {

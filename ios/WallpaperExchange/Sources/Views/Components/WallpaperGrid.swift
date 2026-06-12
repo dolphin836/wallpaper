@@ -72,7 +72,11 @@ struct WallpaperTile: View {
         Color.clear
             .aspectRatio(DeviceScreenRatio.value, contentMode: .fit)
             .overlay(
-                CachedAsyncImage(url: URL(string: wallpaper.displayURL), maxPixelDimension: 700) { image in
+                // 1400px decode budget: a half-width tile at the device
+                // ratio is ~1206 physical px tall on a 3x phone, so the
+                // old 700px budget upscaled every tile ~2x — the source
+                // preview (1600w) usually has the pixels, use them.
+                CachedAsyncImage(url: URL(string: wallpaper.displayURL), maxPixelDimension: 1400) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
