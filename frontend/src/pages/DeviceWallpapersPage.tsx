@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import type { DeviceProfile, Wallpaper } from '../types';
 import { getDeviceBySlug, getWallpapersForDevice } from '../api';
 import PageMeta from '../components/PageMeta';
@@ -13,6 +14,7 @@ import DeviceFloatingWall from '../components/DeviceFloatingWall';
 // — the device spec box + invite-to-upload stays so the URL keeps SEO value
 // even before any contributor uploads work that fits this resolution.
 export default function DeviceWallpapersPage() {
+  const { t } = useTranslation('devices');
   const { slug = '' } = useParams<{ slug: string }>();
 
   const [device, setDevice] = useState<DeviceProfile | null>(null);
@@ -138,7 +140,7 @@ export default function DeviceWallpapersPage() {
   if (error && !device) {
     return (
       <div className="bg-paper text-ink min-h-full">
-        <PageMeta title="Couldn't load device" description="Server error" />
+        <PageMeta title={t('page.errorMetaTitle')} description={t('page.errorMetaDescription')} />
         <ErrorState />
       </div>
     );
@@ -148,24 +150,24 @@ export default function DeviceWallpapersPage() {
   if (notFound) {
     return (
       <div className="bg-paper text-ink min-h-full">
-        <PageMeta title="Device not found" description="We don't have a wallpaper variant set up for that device yet." />
+        <PageMeta title={t('page.notFoundMetaTitle')} description={t('page.notFoundMetaDescription')} />
         <div className="px-6 sm:px-10 pt-10 pb-12 max-w-[820px] mx-auto text-center">
-          <div className="kicker text-muted">404 · Device not found</div>
+          <div className="kicker text-muted">{t('page.notFoundKicker')}</div>
           <h1 className="display text-[40px] sm:text-[52px] leading-[0.96] mt-3 tracking-[-0.02em] text-ink">
-            We don't have <span className="italic-d">that device</span> yet.
+            <Trans i18nKey="page.notFoundTitle" ns="devices" components={[<span key="0" className="italic-d" />]} />
           </h1>
           <p className="text-[14.5px] leading-[1.6] text-ink-2 mt-5 max-w-[520px] mx-auto">
-            The device library is curated — if you'd like to see your hardware
-            covered, drop us a line at{' '}
-            <a className="text-ink underline" href="mailto:hello@wallpaperexchange.com">
-              hello@wallpaperexchange.com
-            </a>.
+            <Trans
+              i18nKey="page.notFoundBody"
+              ns="devices"
+              components={[<a key="0" className="text-ink underline" href="mailto:hello@wallpaperexchange.com" />]}
+            />
           </p>
           <Link
             to="/"
             className="inline-flex items-center mt-6 px-5 py-2.5 rounded-full bg-ink text-paper text-[13px] font-medium no-underline hover:bg-ink-2 transition-colors"
           >
-            Browse the archive
+            {t('page.notFoundCta')}
           </Link>
         </div>
       </div>
@@ -206,11 +208,13 @@ export default function DeviceWallpapersPage() {
     <div ref={rootRef} className="devices-page min-h-full">
       <div className="devices-mesh" aria-hidden />
       <PageMeta
-        title={device ? `${device.name} Wallpapers — ${device.width} × ${device.height} pixel-perfect downloads` : 'Wallpapers'}
+        title={device
+          ? t('page.metaTitle', { name: device.name, width: device.width, height: device.height })
+          : t('page.metaTitleFallback')}
         description={
           device
-            ? `Browse ${wallpaperCount} wallpapers cropped for the ${device.name}'s ${device.width} × ${device.height} display. Free, pixel-perfect, no signup required to view.`
-            : 'Wallpapers for your device.'
+            ? t('page.metaDescription', { num: wallpaperCount, name: device.name, width: device.width, height: device.height })
+            : t('page.metaDescriptionFallback')
         }
         image={wallpapers[0]?.preview_url || wallpapers[0]?.thumb_url}
       />
@@ -219,7 +223,7 @@ export default function DeviceWallpapersPage() {
 
         <header className="mb-8">
           <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
-            Wallpapers for · {device?.brand || '—'}
+            {t('page.kicker', { brand: device?.brand || '—' })}
           </div>
           {loadingDevice ? (
             <div className="c-detail-skel-bar h-[44px] w-2/3 mt-3" />
@@ -233,7 +237,7 @@ export default function DeviceWallpapersPage() {
               <span>{device.width.toLocaleString()} × {device.height.toLocaleString()}</span>
               {device.ppi > 0 && <span>· {device.ppi} ppi</span>}
               <span>· {deviceAspect.toFixed(2)}:1</span>
-              <span>· {wallpaperCount.toLocaleString()} wallpapers</span>
+              <span>· {t('page.specWallpapers', { num: wallpaperCount.toLocaleString() })}</span>
             </div>
           )}
         </header>
@@ -312,14 +316,14 @@ export default function DeviceWallpapersPage() {
         {device && (
           <section className="mt-14 border-t border-hair pt-7">
             <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted mb-3">
-              About the {device.name}
+              {t('page.aboutKicker', { name: device.name })}
             </div>
             <p className="text-[13px] leading-[1.65] text-ink-2 max-w-[640px]">
-              Every wallpaper on this page has a variant cropped exactly for
-              the {device.name}'s {device.width.toLocaleString()} × {device.height.toLocaleString()} display. Click into
-              any wallpaper to see the per-device download list — or use the
-              Download button on the detail page, which automatically picks
-              the right variant for your current screen.
+              {t('page.aboutBody', {
+                name: device.name,
+                width: device.width.toLocaleString(),
+                height: device.height.toLocaleString(),
+              })}
             </p>
           </section>
         )}
@@ -333,15 +337,16 @@ export default function DeviceWallpapersPage() {
 // ─── Sub-components ─────────────────────────────────────────────────
 
 function EmptyForDevice({ device }: { device: DeviceProfile | null }) {
+  const { t } = useTranslation('devices');
   return (
     <EmptyState
-      title="No wallpapers yet."
+      title={t('page.emptyTitle')}
       message={
         device
-          ? `Nobody has uploaded a wallpaper sized for the ${device.name} yet, but the variant pipeline is ready. Be the first.`
-          : 'Be the first to upload one.'
+          ? t('page.emptyMessage', { name: device.name })
+          : t('page.emptyMessageGeneric')
       }
-      actionLabel="Upload a wallpaper"
+      actionLabel={t('page.emptyAction')}
       actionHref="/contribute"
     />
   );

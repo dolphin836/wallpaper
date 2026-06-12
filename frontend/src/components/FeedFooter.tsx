@@ -1,4 +1,5 @@
 import { AiOutlineReload } from 'react-icons/ai';
+import { Trans, useTranslation } from 'react-i18next';
 
 export type FooterState = 'idle' | 'loading' | 'retry' | 'end';
 
@@ -22,12 +23,13 @@ interface Props {
  * .feed-end-mark, …) is owned by index.css and shared across both.
  */
 export default function FeedFooter({ state, count, onRetry }: Props) {
+  const { t } = useTranslation();
   if (state === 'idle') return null;
   if (state === 'loading') {
     return (
       <div className="feed-foot">
         <span className="feed-spinner" aria-hidden />
-        <span className="feed-foot__label">Loading more wallpapers</span>
+        <span className="feed-foot__label">{t('feedFooter.loading')}</span>
       </div>
     );
   }
@@ -35,11 +37,11 @@ export default function FeedFooter({ state, count, onRetry }: Props) {
     return (
       <div className="feed-foot">
         <span className="feed-foot__label feed-foot__label--warn">
-          Couldn't auto-load · network hiccup
+          {t('feedFooter.retryWarn')}
         </span>
         <button type="button" className="feed-foot__btn" onClick={onRetry}>
           <AiOutlineReload size={13} />
-          Try again
+          {t('feedFooter.tryAgain')}
         </button>
       </div>
     );
@@ -47,10 +49,10 @@ export default function FeedFooter({ state, count, onRetry }: Props) {
   return (
     <div className="feed-foot feed-foot--end">
       <div className="feed-end-mark">
-        <em>end</em> of the archive.
+        <Trans i18nKey="feedFooter.endMark" components={[<em key="0" />]} />
       </div>
       <div className="feed-end-count">
-        {count.toLocaleString()} wallpapers
+        {t('feedFooter.count', { num: count.toLocaleString() })}
       </div>
     </div>
   );

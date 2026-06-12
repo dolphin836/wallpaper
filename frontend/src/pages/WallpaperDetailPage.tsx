@@ -22,6 +22,7 @@ import {
 } from 'react-icons/ai';
 import { MdPlaylistAdd, MdDesktopMac, MdLaptopMac, MdTabletMac, MdPhoneIphone, MdOutlineRemoveRedEye, MdDevices } from 'react-icons/md';
 import toast from 'react-hot-toast';
+import { useTranslation, Trans } from 'react-i18next';
 import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User } from '../types';
 import DeviceMockup, {
   canShowMockup,
@@ -139,6 +140,7 @@ function findBestMatch(variants: WallpaperVariant[]): WallpaperVariant | null {
 }
 
 export default function WallpaperDetailPage() {
+  const { t } = useTranslation('detail');
   const { slug: id } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -150,9 +152,9 @@ export default function WallpaperDetailPage() {
       ? ({ ...initialWallpaper, tags: [], uploader: undefined as unknown as User } as WallpaperDetail)
       : null
   );
-  const metaTitle = wallpaper ? `${wallpaper.width}×${wallpaper.height} Wallpaper` : 'Wallpaper';
+  const metaTitle = wallpaper ? t('meta.title', { res: `${wallpaper.width}×${wallpaper.height}` }) : t('meta.titleFallback');
   const metaDescription = wallpaper
-    ? `Download this ${wallpaper.width}×${wallpaper.height}${wallpaper.is_dynamic ? ' dynamic' : ''} wallpaper for free on Wallpaper Exchange. HD and 4K wallpapers across multiple categories.`
+    ? t(wallpaper.is_dynamic ? 'meta.descriptionDynamic' : 'meta.description', { res: `${wallpaper.width}×${wallpaper.height}` })
     : undefined;
   const metaImage = wallpaper?.preview_url || wallpaper?.original_url;
   const jsonLd = wallpaper
@@ -366,7 +368,7 @@ export default function WallpaperDetailPage() {
         setWallpaper({ ...wallpaper, is_liked: true, like_count: wallpaper.like_count + 1 });
       }
     } catch {
-      toast.error('Action failed');
+      toast.error(t('toast.actionFailed'));
     } finally {
       setLikeLoading(false);
     }
@@ -385,7 +387,7 @@ export default function WallpaperDetailPage() {
         setWallpaper({ ...wallpaper, is_favorited: true, favorite_count: wallpaper.favorite_count + 1 });
       }
     } catch {
-      toast.error('Action failed');
+      toast.error(t('toast.actionFailed'));
     } finally {
       setFavLoading(false);
     }
@@ -413,7 +415,7 @@ export default function WallpaperDetailPage() {
         // before answering, so keep the bar indeterminate until then.
         const apiResp = await downloadVariant(wallpaper.id, useVariant.id);
         const dlUrl = apiResp.data.data?.url;
-        if (!dlUrl) { toast.error('Download failed'); return; }
+        if (!dlUrl) { toast.error(t('toast.downloadFailed')); return; }
         const resp = await fetch(dlUrl);
         const blob = await fetchBlobWithProgress(resp, setDlProgress);
         blobUrl = URL.createObjectURL(blob);
@@ -425,11 +427,11 @@ export default function WallpaperDetailPage() {
         });
         if (resp.status === 402) {
           setCtaMode('insufficient');
-          toast.error('Insufficient coins. Upload wallpapers to earn more!');
+          toast.error(t('toast.insufficientCoins'));
           return;
         }
         if (!resp.ok) {
-          toast.error('Download failed');
+          toast.error(t('toast.downloadFailed'));
           return;
         }
         const finalUrl = resp.url;
@@ -466,9 +468,9 @@ export default function WallpaperDetailPage() {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 402) {
         setCtaMode('insufficient');
-        toast.error('Insufficient coins. Upload wallpapers to earn more!');
+        toast.error(t('toast.insufficientCoins'));
       } else {
-        toast.error('Download failed');
+        toast.error(t('toast.downloadFailed'));
       }
     } finally {
       setDlLoading(false);
@@ -486,16 +488,16 @@ export default function WallpaperDetailPage() {
     setShowDeleteConfirm(false);
     try {
       await deleteWallpaper(wallpaper.id);
-      toast.success('Wallpaper deleted');
+      toast.success(t('toast.deleted'));
       navigate('/');
     } catch {
-      toast.error('Delete failed');
+      toast.error(t('toast.deleteFailed'));
     }
   };
 
   if (loading) return <Spinner />;
   if (!wallpaper && error) return <ErrorState />;
-  if (!wallpaper) return <EmptyState message="Wallpaper not found." />;
+  if (!wallpaper) return <EmptyState message={t('notFound')} />;
 
   const isOwner = user?.id === wallpaper.user_id;
 
@@ -513,9 +515,9 @@ export default function WallpaperDetailPage() {
   const copyHex = async (hex: string) => {
     try {
       await navigator.clipboard.writeText(hex);
-      toast.success(`Copied ${hex.toUpperCase()}`);
+      toast.success(t('toast.copiedHex', { hex: hex.toUpperCase() }));
     } catch {
-      toast.error('Copy failed');
+      toast.error(t('toast.copyFailed'));
     }
   };
 
@@ -581,9 +583,9 @@ export default function WallpaperDetailPage() {
 
       <InAppConfirm
         open={showDeleteConfirm}
-        title="Delete this wallpaper?"
-        message="This removes the wallpaper and all its generated variants permanently. This action cannot be undone."
-        confirmLabel="Delete"
+        title={t('delete.title')}
+        message={t('delete.message')}
+        confirmLabel={t('delete.confirm')}
         destructive
         onConfirm={doDelete}
         onCancel={() => setShowDeleteConfirm(false)}
@@ -660,7 +662,7 @@ export default function WallpaperDetailPage() {
           <button
             onClick={(e) => { e.stopPropagation(); setFullscreen(false); }}
             className="fixed top-4 right-4 z-[80] p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
-            aria-label="Close"
+            aria-label={t('fullscreen.close')}
           >
             <AiOutlineClose size={24} />
           </button>
@@ -676,18 +678,18 @@ export default function WallpaperDetailPage() {
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <ToolbarBtn label="Zoom out" onClick={() => setFsScale((s) => Math.max(0.5, s / 1.25))}>
+            <ToolbarBtn label={t('fullscreen.zoomOut')} onClick={() => setFsScale((s) => Math.max(0.5, s / 1.25))}>
               <AiOutlineZoomOut size={18} />
             </ToolbarBtn>
-            <ToolbarBtn label="Zoom in" onClick={() => setFsScale((s) => Math.min(5, s * 1.25))}>
+            <ToolbarBtn label={t('fullscreen.zoomIn')} onClick={() => setFsScale((s) => Math.min(5, s * 1.25))}>
               <AiOutlineZoomIn size={18} />
             </ToolbarBtn>
             <span className="w-px h-5 bg-white/20 mx-1" aria-hidden />
-            <ToolbarBtn label="Rotate 90°" onClick={() => setFsRotation((r) => (r + 90) % 360)}>
+            <ToolbarBtn label={t('fullscreen.rotate')} onClick={() => setFsRotation((r) => (r + 90) % 360)}>
               <AiOutlineRedo size={18} />
             </ToolbarBtn>
             <span className="w-px h-5 bg-white/20 mx-1" aria-hidden />
-            <ToolbarBtn label="Reset" onClick={() => { setFsScale(1); setFsRotation(0); setFsPan({ x: 0, y: 0 }); }}>
+            <ToolbarBtn label={t('fullscreen.reset')} onClick={() => { setFsScale(1); setFsRotation(0); setFsPan({ x: 0, y: 0 }); }}>
               <AiOutlineReload size={18} />
             </ToolbarBtn>
           </div>
@@ -703,10 +705,10 @@ export default function WallpaperDetailPage() {
           <div className="wd-drawer" onClick={(e) => e.stopPropagation()}>
             <div className="wd-drawer-head">
               <div>
-                <div className="kicker text-muted">All devices · {variants.length}</div>
-                <h3 className="display text-[20px] leading-tight mt-1">Pick the right size</h3>
+                <div className="kicker text-muted">{t('drawer.kicker', { n: variants.length })}</div>
+                <h3 className="display text-[20px] leading-tight mt-1">{t('drawer.title')}</h3>
               </div>
-              <button onClick={() => setDrawerOpen(false)} className="p-1.5 rounded-full hover:bg-paper-2" aria-label="Close drawer">
+              <button onClick={() => setDrawerOpen(false)} className="p-1.5 rounded-full hover:bg-paper-2" aria-label={t('drawer.close')}>
                 <AiOutlineClose size={18} />
               </button>
             </div>
@@ -714,7 +716,7 @@ export default function WallpaperDetailPage() {
               {(['desktop', 'laptop', 'tablet', 'phone', 'other'] as const).map((platform) => {
                 const list = groupedVariants[platform];
                 if (!list || list.length === 0) return null;
-                const label = { desktop: 'Desktop', laptop: 'Laptop', tablet: 'Tablet', phone: 'Phone', other: 'Other' }[platform];
+                const label = t(`drawer.platform.${platform}`);
                 return (
                   <div key={platform} className="wd-drawer-group">
                     <div className="wd-drawer-grouphead">
@@ -724,7 +726,7 @@ export default function WallpaperDetailPage() {
                     {list.map((v) => {
                       const isMatched = matchedVariant?.id === v.id;
                       const mockable = canShowMockup(v);
-                      const deviceName = [v.brand, v.device_name].filter(Boolean).join(' ').trim() || 'Device';
+                      const deviceName = [v.brand, v.device_name].filter(Boolean).join(' ').trim() || t('drawer.device');
                       const Icon =
                         v.platform === 'phone' ? MdPhoneIphone
                         : v.platform === 'tablet' ? MdTabletMac
@@ -738,7 +740,7 @@ export default function WallpaperDetailPage() {
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-[14px] font-medium text-ink truncate">{deviceName}</span>
                                 {isMatched && (
-                                  <span className="mono text-[9px] tracking-[0.14em] px-1.5 py-[1px] bg-ink text-paper rounded">YOUR DEVICE</span>
+                                  <span className="mono text-[9px] tracking-[0.14em] px-1.5 py-[1px] bg-ink text-paper rounded">{t('drawer.yourDevice')}</span>
                                 )}
                               </div>
                               <div className="mono text-[10px] text-muted mt-0.5">
@@ -755,31 +757,31 @@ export default function WallpaperDetailPage() {
                             <button
                               onClick={() => mockable && setMockupVariant(v)}
                               disabled={!mockable}
-                              title={mockable ? 'Preview in this device' : 'Mockup not available for this device'}
+                              title={mockable ? t('drawer.previewTitle') : t('drawer.noMockup')}
                               className="wd-drawer-action"
                             >
-                              <MdOutlineRemoveRedEye size={14} /> Preview
+                              <MdOutlineRemoveRedEye size={14} /> {t('drawer.preview')}
                             </button>
                             {v.device_slug ? (
                               <Link
                                 to={`/wallpapers-for/${v.device_slug}`}
                                 className="wd-drawer-action no-underline"
-                                title={`Browse all wallpapers for the ${deviceName}`}
+                                title={t('drawer.browseTitle', { device: deviceName })}
                               >
-                                <MdDevices size={14} /> Browse
+                                <MdDevices size={14} /> {t('drawer.browse')}
                               </Link>
                             ) : (
-                              <span className="wd-drawer-action is-disabled" title="No device page available">
-                                <MdDevices size={14} /> Browse
+                              <span className="wd-drawer-action is-disabled" title={t('drawer.noDevicePage')}>
+                                <MdDevices size={14} /> {t('drawer.browse')}
                               </span>
                             )}
                             <button
                               onClick={() => handleDownload(v)}
                               disabled={dlLoading}
-                              title="Download this variant"
+                              title={t('drawer.getTitle')}
                               className={`wd-drawer-action wd-drawer-action-cta ${isMatched ? 'is-matched' : ''}`}
                             >
-                              <AiOutlineDownload size={14} /> Get
+                              <AiOutlineDownload size={14} /> {t('drawer.get')}
                             </button>
                           </div>
                         </div>
@@ -790,7 +792,7 @@ export default function WallpaperDetailPage() {
               })}
             </div>
             <div className="wd-drawer-foot mono text-[10px] tracking-[0.14em] uppercase text-muted">
-              ESC OR CLICK OUTSIDE TO CLOSE{isOwner ? '' : ` · ${downloadCost || 1} COIN PER DOWNLOAD`}
+              {t('drawer.footClose')}{isOwner ? '' : ` · ${t('drawer.footCost', { count: downloadCost || 1 })}`}
             </div>
           </div>
         </div>,
@@ -864,7 +866,7 @@ export default function WallpaperDetailPage() {
                     <button
                       onClick={(e) => { e.stopPropagation(); setFramePlaying((p) => !p); }}
                       className="absolute bottom-3 right-3 px-3 py-1 bg-black/60 text-white text-[11px] mono rounded backdrop-blur-sm"
-                    >{framePlaying ? 'PAUSE' : 'PLAY'} · {frameIdx + 1}/{frames.length}</button>
+                    >{framePlaying ? t('hero.pause') : t('hero.play')} · {frameIdx + 1}/{frames.length}</button>
                   </div>
                 ) : (wallpaper.file_type || '').startsWith('video/') && wallpaper.original_url ? (
                   <div className="wd-hero-canvas" style={{ aspectRatio: wallpaper.width > 0 && wallpaper.height > 0 ? `${wallpaper.width} / ${wallpaper.height}` : '16 / 9', backgroundColor: wallpaper.dominant_color || undefined }}>
@@ -921,7 +923,7 @@ export default function WallpaperDetailPage() {
                   <span className="mono text-[11px] tracking-[0.06em] text-muted">
                     {resLabel || '—'} · {(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}
                   </span>
-                  {(wallpaper.is_dynamic || (wallpaper.file_type || '').startsWith('video/')) && <span className="wd-actionbar-pill">● LIVE</span>}
+                  {(wallpaper.is_dynamic || (wallpaper.file_type || '').startsWith('video/')) && <span className="wd-actionbar-pill">{t('pill.live')}</span>}
                   {wallpaper.is_ai_generated && <span className="wd-actionbar-pill is-ai">✦ AI</span>}
                 </div>
 
@@ -934,32 +936,32 @@ export default function WallpaperDetailPage() {
                       onClick={handleLike}
                       disabled={likeLoading}
                       className={`wd-btn ${wallpaper.is_liked ? 'is-liked' : ''}`}
-                      title={wallpaper.is_liked ? 'Unlike' : 'Like'}
+                      title={wallpaper.is_liked ? t('actions.unlike') : t('actions.like')}
                     >
                       {likeLoading
                         ? <AiOutlineLoading3Quarters size={14} className="animate-spin" />
                         : wallpaper.is_liked ? <AiFillHeart size={14} /> : <AiOutlineHeart size={14} />}
-                      <span>{wallpaper.is_liked ? 'Liked' : 'Like'}</span>
+                      <span>{wallpaper.is_liked ? t('actions.liked') : t('actions.like')}</span>
                       <span className="wd-btn-count">{formatNumber(wallpaper.like_count)}</span>
                     </button>
                     <button
                       onClick={handleFavorite}
                       disabled={favLoading}
                       className={`wd-btn ${wallpaper.is_favorited ? 'is-favorited' : ''}`}
-                      title={wallpaper.is_favorited ? 'Unfavorite' : 'Favorite'}
+                      title={wallpaper.is_favorited ? t('actions.unfavorite') : t('actions.favorite')}
                     >
                       {favLoading
                         ? <AiOutlineLoading3Quarters size={14} className="animate-spin" />
                         : wallpaper.is_favorited ? <AiFillStar size={14} /> : <AiOutlineStar size={14} />}
-                      <span>{wallpaper.is_favorited ? 'Saved' : 'Favorite'}</span>
+                      <span>{wallpaper.is_favorited ? t('actions.saved') : t('actions.favorite')}</span>
                     </button>
                     <button
                       onClick={() => { if (!isAuthenticated) { navigate('/login'); return; } setShowAddToCollection(true); }}
                       className="wd-btn"
-                      title="Add to a collection"
+                      title={t('actions.addToCollectionTitle')}
                     >
                       <MdPlaylistAdd size={16} />
-                      <span>Add to list</span>
+                      <span>{t('actions.addToList')}</span>
                     </button>
                   </div>
 
@@ -971,10 +973,10 @@ export default function WallpaperDetailPage() {
                       Fullscreen is a sibling action. */}
                   <div className="wd-actionbar-group wd-actionbar-toggle">
                     {([
-                      ['off',   'Wallpaper', 'Wallpaper only (no device chrome)'],
-                      ['plain', 'Plain',     'Wallpaper inside the device — no overlay'],
-                      ['home',  'Home',      'Device with dock + menu bar / app icons'],
-                      ['lock',  'Lock',      'Device with clock + date'],
+                      ['off',   t('preview.off'),   t('preview.offDesc')],
+                      ['plain', t('preview.plain'), t('preview.plainDesc')],
+                      ['home',  t('preview.home'),  t('preview.homeDesc')],
+                      ['lock',  t('preview.lock'),  t('preview.lockDesc')],
                     ] as const).map(([m, label, desc]) => (
                       <button
                         key={m}
@@ -990,16 +992,16 @@ export default function WallpaperDetailPage() {
                     <button
                       onClick={() => {
                         if (frames.length > 1 || (wallpaper.file_type || '').startsWith('video/')) {
-                          toast('Use the hero controls for video / dynamic previews', { icon: 'ℹ️' });
+                          toast(t('toast.useHeroControls'), { icon: 'ℹ️' });
                           return;
                         }
                         setFullscreen(true);
                       }}
                       className="wd-btn wd-btn-icon"
-                      title="Open fullscreen viewer"
+                      title={t('preview.fullscreenTitle')}
                     >
                       <AiOutlineFullscreen size={15} />
-                      <span className="hidden sm:inline">Fullscreen</span>
+                      <span className="hidden sm:inline">{t('preview.fullscreen')}</span>
                     </button>
                   </div>
 
@@ -1011,10 +1013,10 @@ export default function WallpaperDetailPage() {
                       <button
                         onClick={() => setDrawerOpen(true)}
                         className="wd-btn"
-                        title="Browse all device sizes"
+                        title={t('actions.devicesTitle')}
                       >
                         <MdDevices size={16} />
-                        <span>Devices</span>
+                        <span>{t('actions.devices')}</span>
                         <span className="wd-btn-count">{variants.length}</span>
                       </button>
                     )}
@@ -1022,18 +1024,18 @@ export default function WallpaperDetailPage() {
                       onClick={handleDownloadClick}
                       disabled={dlLoading}
                       className="wd-btn-cta"
-                      title={isOwner ? 'Download original' : 'Trade coins for download'}
+                      title={isOwner ? t('cta.downloadOriginalTitle') : t('cta.tradeTitle')}
                     >
                       {dlLoading ? (
                         <AiOutlineLoading3Quarters size={15} className="animate-spin" />
                       ) : dlDone ? (
-                        <><AiOutlineCheckCircle size={15} /> {isOwner ? 'Got it' : 'Traded'}</>
+                        <><AiOutlineCheckCircle size={15} /> {isOwner ? t('cta.gotIt') : t('cta.traded')}</>
                       ) : isOwner ? (
-                        <><AiOutlineDownload size={15} /> Download</>
+                        <><AiOutlineDownload size={15} /> {t('cta.download')}</>
                       ) : (
                         <>
                           <span className="w-2 h-2 rounded-full bg-white shadow-[inset_0_-2px_0_oklch(80%_0.18_60),inset_0_1px_0_oklch(98%_0.04_60)]" aria-hidden />
-                          Trade for {downloadCost || 1}
+                          {t('cta.tradeFor', { n: downloadCost || 1 })}
                         </>
                       )}
                     </button>
@@ -1050,32 +1052,32 @@ export default function WallpaperDetailPage() {
                     <div className="flex justify-between items-center gap-4 flex-wrap">
                       <div className="min-w-0">
                         <div className="wd-notice-kicker inline-flex items-center gap-1.5">
-                          <AiOutlineCheckCircle size={11} /> DOWNLOADED
+                          <AiOutlineCheckCircle size={11} /> {t('cta.downloadedKicker')}
                         </div>
                         <div className="wd-notice-title">
                           wallpaper_<span className="mono text-[20px] sm:text-[24px]">{String(wallpaper.id).padStart(3, '0')}</span>.jpg
                         </div>
                         <div className="wd-notice-meta">
-                          {fileSize}  ·  {userBalance} COINS REMAINING
+                          {fileSize}  ·  {t('cta.coinsRemaining', { n: userBalance })}
                         </div>
                       </div>
                       <div className="flex flex-col gap-2 flex-shrink-0">
                         <button
                           onClick={handleSuccessDismiss}
                           className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-ink text-paper font-medium text-[12px] whitespace-nowrap hover:bg-ink-2 transition-colors"
-                        >Done</button>
+                        >{t('cta.done')}</button>
                         <Link
                           to="/"
                           className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full border border-hair text-ink text-[12px] no-underline whitespace-nowrap hover:bg-paper-2 transition-colors"
-                        >Browse more →</Link>
+                        >{t('cta.browseMore')}</Link>
                       </div>
                     </div>
                     {!isMacUA && (
                       <>
                         <hr className="wd-notice-rule" />
                         <div className="wd-notice-foot">
-                          <span>On macOS? Use the menu-bar app to set this as your wallpaper in one click.</span>
-                          <Link to="/download/mac" className="underline">Get it →</Link>
+                          <span>{t('cta.macPromo')}</span>
+                          <Link to="/download/mac" className="underline">{t('cta.getIt')}</Link>
                         </div>
                       </>
                     )}
@@ -1084,40 +1086,45 @@ export default function WallpaperDetailPage() {
                   <div className="wd-notice is-warning">
                     <div className="flex justify-between items-center gap-4 flex-wrap">
                       <div className="min-w-0">
-                        <div className="wd-notice-kicker">INSUFFICIENT COINS</div>
+                        <div className="wd-notice-kicker">{t('cta.insufficientKicker')}</div>
                         <div className="wd-notice-title is-large">
-                          Need <span>{downloadCost - userBalance}</span> more
+                          <Trans i18nKey="cta.needMore" ns="detail" values={{ need: downloadCost - userBalance }} components={[<span key="0" />]} />
                         </div>
                         <div className="wd-notice-meta">
-                          YOUR BALANCE · {userBalance} COINS · COST · {downloadCost}
+                          {t('cta.balanceLine', { balance: userBalance, cost: downloadCost })}
                         </div>
                       </div>
                       <Link to="/upload" className="wd-notice-primary">
-                        Upload to earn
+                        {t('cta.uploadToEarn')}
                       </Link>
                     </div>
                     <hr className="wd-notice-rule" />
                     <div className="wd-notice-foot gap-x-5">
-                      <span><strong className="mono mr-1.5">+1</strong>each upload</span>
-                      <span><strong className="mono mr-1.5">+1</strong>others download yours</span>
+                      <span><Trans i18nKey="cta.earnUpload" ns="detail" components={[<strong className="mono mr-1.5" key="0" />]} /></span>
+                      <span><Trans i18nKey="cta.earnDownload" ns="detail" components={[<strong className="mono mr-1.5" key="0" />]} /></span>
                     </div>
                   </div>
                 ) : ctaState === 'confirm' ? (
                   <div className="wd-notice is-confirm">
                     <div className="flex justify-between items-center gap-4 flex-wrap">
                       <div className="min-w-0">
-                        <div className="wd-notice-kicker">CONFIRM EXCHANGE</div>
+                        <div className="wd-notice-kicker">{t('cta.confirmKicker')}</div>
                         <div className="wd-notice-title is-xl">
-                          −{downloadCost} <span className="text-accent">coin{downloadCost > 1 ? 's' : ''}</span>
+                          −{downloadCost} <span className="text-accent">{t('cta.coinWord', { count: downloadCost })}</span>
                         </div>
                         <div className="wd-notice-meta">
-                          {userBalance} <span className="text-accent">→</span> {userBalance - downloadCost} COINS REMAINING
+                          <Trans
+                            i18nKey="cta.confirmBalance"
+                            ns="detail"
+                            values={{ from: userBalance, to: userBalance - downloadCost }}
+                            components={[<span className="text-accent" key="0" />]}
+                          />
                         </div>
                         <Link
                           to="/upload"
                           className="wd-notice-refill"
                         >
-                          UPLOAD ONE TO REFILL <span aria-hidden>→</span>
+                          {t('cta.refill')} <span aria-hidden>→</span>
                         </Link>
                       </div>
                       <div className="flex flex-col gap-2 flex-shrink-0">
@@ -1129,7 +1136,7 @@ export default function WallpaperDetailPage() {
                           {dlLoading ? <AiOutlineLoading3Quarters size={14} className="animate-spin" /> : (
                             <>
                               <span className="w-2.5 h-2.5 rounded-full bg-white shadow-[inset_0_-2px_0_oklch(80%_0.18_60),inset_0_1px_0_oklch(98%_0.04_60)]" aria-hidden />
-                              Yes, trade
+                              {t('cta.yesTrade')}
                             </>
                           )}
                         </button>
@@ -1137,7 +1144,7 @@ export default function WallpaperDetailPage() {
                           onClick={handleConfirmCancel}
                           disabled={dlLoading}
                           className="wd-notice-secondary"
-                        >Cancel</button>
+                        >{t('cta.cancel')}</button>
                       </div>
                     </div>
                     <hr className="wd-notice-rule" />
@@ -1148,7 +1155,7 @@ export default function WallpaperDetailPage() {
                         onChange={(e) => setConfirmDontAsk(e.target.checked)}
                         className="appearance-none w-[13px] h-[13px] rounded-sm cursor-pointer checked:bg-accent transition-colors border border-current"
                       />
-                      Skip confirm next time
+                      {t('cta.skipConfirm')}
                     </label>
                   </div>
                 ) : null}
@@ -1160,10 +1167,10 @@ export default function WallpaperDetailPage() {
               {/* Stats strip */}
               <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-hair">
                 {([
-                  ['DOWNLOADS', wallpaper.download_count, engagements?.downloaders ?? []],
-                  ['LIKES',     wallpaper.like_count,     engagements?.likers      ?? []],
-                  ['FAVORITED', wallpaper.favorite_count, engagements?.favoriters  ?? []],
-                  ['VIEWS',     wallpaper.view_count,     []                            ],
+                  [t('stats.downloads'), wallpaper.download_count, engagements?.downloaders ?? []],
+                  [t('stats.likes'),     wallpaper.like_count,     engagements?.likers      ?? []],
+                  [t('stats.favorited'), wallpaper.favorite_count, engagements?.favoriters  ?? []],
+                  [t('stats.views'),     wallpaper.view_count,     []                            ],
                 ] as const).map(([k, v, users]) => (
                   <div key={k} className="px-4 py-3.5">
                     <div className="mono text-[9px] tracking-[0.14em] uppercase text-muted">{k}</div>
@@ -1187,7 +1194,7 @@ export default function WallpaperDetailPage() {
                 {/* Uploader column */}
                 {wallpaper.uploader ? (
                   <section className="min-w-0">
-                    <div className="kicker text-muted mb-3">Uploaded by</div>
+                    <div className="kicker text-muted mb-3">{t('info.uploadedBy')}</div>
                     <Link
                       to={`/user/${wallpaper.uploader.username}`}
                       className="inline-flex items-center gap-3 no-underline text-ink group"
@@ -1203,7 +1210,7 @@ export default function WallpaperDetailPage() {
                           <div className="mono text-[10px] tracking-[0.04em] text-muted truncate mt-1">{wallpaper.uploader.bio}</div>
                         )}
                         <div className="mono text-[10px] tracking-[0.14em] text-muted mt-1.5 inline-flex items-center gap-1">
-                          VIEW PROFILE <span aria-hidden>→</span>
+                          {t('info.viewProfile')} <span aria-hidden>→</span>
                         </div>
                       </div>
                     </Link>
@@ -1217,7 +1224,7 @@ export default function WallpaperDetailPage() {
                     chips have visual differentiation and reinforce the
                     wallpaper's palette without being noisy. */}
                 <section className="min-w-0">
-                  <div className="kicker text-muted mb-3">About</div>
+                  <div className="kicker text-muted mb-3">{t('info.about')}</div>
                   {currentCategory ? (
                     <Link to={`/category/${currentCategory.slug}`} className="no-underline">
                       <h3 className="display text-[clamp(24px,2.4vw,30px)] leading-none tracking-[-0.01em] text-ink hover:text-accent transition-colors">
@@ -1225,7 +1232,7 @@ export default function WallpaperDetailPage() {
                       </h3>
                     </Link>
                   ) : (
-                    <h3 className="display text-[clamp(22px,2vw,28px)] leading-none text-muted italic">Uncategorised</h3>
+                    <h3 className="display text-[clamp(22px,2vw,28px)] leading-none text-muted italic">{t('info.uncategorised')}</h3>
                   )}
                   {wallpaper.tags && wallpaper.tags.length > 0 && (
                     <div className="mt-4 flex flex-wrap gap-1.5">
@@ -1255,7 +1262,7 @@ export default function WallpaperDetailPage() {
                 {/* Palette column */}
                 {palette.length > 0 ? (
                   <section className="min-w-0">
-                    <div className="kicker text-muted mb-3">Palette · click to copy</div>
+                    <div className="kicker text-muted mb-3">{t('info.paletteKicker')}</div>
                     <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(palette.length, 5)}, 1fr)` }}>
                       {palette.map((c, i) => (
                         <button
@@ -1266,7 +1273,7 @@ export default function WallpaperDetailPage() {
                           <span
                             className="block h-[60px] rounded-lg border border-hair transition-transform group-hover:scale-[1.04] group-hover:shadow-md"
                             style={{ background: c }}
-                            title={`${c.toUpperCase()} — click to copy`}
+                            title={t('info.copyTitle', { hex: c.toUpperCase() })}
                           />
                           <span className="mono text-[10px] tracking-[0.06em] text-muted">{c.toUpperCase()}</span>
                         </button>
@@ -1275,7 +1282,7 @@ export default function WallpaperDetailPage() {
                     {wallpaper.dominant_color && (
                       <div className="mt-3 inline-flex items-center gap-2 mono text-[10px] tracking-[0.12em] uppercase text-muted">
                         <span className="inline-block w-3 h-3 rounded-sm border border-hair" style={{ background: wallpaper.dominant_color }} />
-                        Dominant · {wallpaper.dominant_color.toUpperCase()}
+                        {t('info.dominant', { hex: wallpaper.dominant_color.toUpperCase() })}
                       </div>
                     )}
                   </section>
@@ -1296,10 +1303,10 @@ export default function WallpaperDetailPage() {
                     <>
                       <div className="wd-similar-head">
                         <div>
-                          <div className="kicker text-muted">Related archive</div>
-                          <h2 className="display">More like this</h2>
+                          <div className="kicker text-muted">{t('similar.kicker')}</div>
+                          <h2 className="display">{t('similar.title')}</h2>
                         </div>
-                        <span className="mono">{shown.length} PICKS</span>
+                        <span className="mono">{t('similar.picks', { n: shown.length })}</span>
                       </div>
                       <WallpaperGrid wallpapers={shown} viewMode="grid" sizeMode="md" />
                     </>
@@ -1312,11 +1319,11 @@ export default function WallpaperDetailPage() {
             <div className="flex justify-between items-center pt-5 mt-6 border-t border-hair/60 text-[12px] text-muted">
               {isOwner ? (
                 <button onClick={handleDelete} className="inline-flex items-center gap-1.5 hover:text-rose-500 transition-colors">
-                  <AiOutlineDelete size={14} /> Delete wallpaper
+                  <AiOutlineDelete size={14} /> {t('actions.deleteWallpaper')}
                 </button>
               ) : isAuthenticated ? (
                 <button onClick={() => setShowReport(true)} className="inline-flex items-center gap-1.5 hover:text-ink transition-colors">
-                  <AiOutlineFlag size={14} /> Report
+                  <AiOutlineFlag size={14} /> {t('actions.report')}
                 </button>
               ) : <span />}
               <span className="mono text-[10px] tracking-[0.14em] uppercase">
@@ -1428,6 +1435,7 @@ function InlineDeviceMockup({
 }
 
 function DownloadProgressBar({ progress }: { progress: number | null }) {
+  const { t } = useTranslation('detail');
   const value = progress === null ? 0 : Math.max(0, Math.min(100, progress));
   return (
     <div
@@ -1436,10 +1444,10 @@ function DownloadProgressBar({ progress }: { progress: number | null }) {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={progress === null ? undefined : value}
-      aria-label={progress === null ? 'Preparing original download' : 'Downloading original'}
+      aria-label={progress === null ? t('progress.preparingAria') : t('progress.downloadingAria')}
     >
       <div className="wd-download-progress__head">
-        <span>{progress === null ? 'PREPARING ORIGINAL' : 'DOWNLOADING ORIGINAL'}</span>
+        <span>{progress === null ? t('progress.preparing') : t('progress.downloading')}</span>
         <span className="tabular-nums">{progress === null ? '…' : `${value}%`}</span>
       </div>
       <div className="wd-download-progress__track" aria-hidden>
@@ -1626,6 +1634,7 @@ function SpotlightStyles() {
 //               click pauses (pause button shows on hover when playing)
 // No bytes are fetched until the user actively chooses to play.
 function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
+  const { t } = useTranslation('detail');
   const vidRef = useRef<HTMLVideoElement | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState<number | null>(null); // null = not buffering
@@ -1691,7 +1700,7 @@ function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
       <button
         type="button"
         onClick={toggle}
-        aria-label={playing ? 'Pause video' : buffering ? 'Loading' : 'Play video'}
+        aria-label={playing ? t('video.pause') : buffering ? t('video.loading') : t('video.play')}
         className="absolute inset-0 z-[2] flex items-center justify-center group"
         disabled={buffering}
       >

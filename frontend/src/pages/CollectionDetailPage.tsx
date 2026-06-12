@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import PageMeta from '../components/PageMeta';
 import InAppConfirm from '../components/InAppConfirm';
 import {
@@ -48,6 +50,7 @@ function FramedTile({
   index: number;
   onHover?: (palette: string | undefined, dominant?: string) => void;
 }) {
+  const { t } = useTranslation('collections');
   const location = useLocation();
   const acts = useWallpaperActions(w);
   const [loaded, setLoaded] = useState(false);
@@ -78,7 +81,7 @@ function FramedTile({
       <div className="cd-mat">
         <img
           src={w.preview_url || w.thumb_url}
-          alt={w.title || `Wallpaper ${w.id}`}
+          alt={w.title || t('frame.wallpaperAlt', { id: w.id })}
           loading="lazy"
           className={`cd-frame-img${loaded ? ' is-loaded' : ''}`}
           onLoad={() => setLoaded(true)}
@@ -94,7 +97,7 @@ function FramedTile({
           {(isVideo || w.is_dynamic) && (
             <span className="tile-chip">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
-              Live
+              {t('frame.chipLive')}
             </span>
           )}
           {w.is_ai_generated && (
@@ -110,7 +113,7 @@ function FramedTile({
             onClick={(e) => stop(e, acts.handleFavorite)}
             disabled={acts.favLoading}
             className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
-            title={acts.favorited ? 'Unfavorite' : 'Favorite'}
+            title={acts.favorited ? t('frame.unfavorite') : t('frame.favorite')}
           >
             {acts.favLoading
               ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
@@ -123,7 +126,7 @@ function FramedTile({
             onClick={(e) => stop(e, acts.handleLike)}
             disabled={acts.likeLoading}
             className={`t-act ${acts.liked ? 'is-liked' : ''}`}
-            title={acts.liked ? 'Unlike' : 'Like'}
+            title={acts.liked ? t('frame.unlike') : t('frame.like')}
           >
             {acts.likeLoading
               ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
@@ -153,22 +156,23 @@ function FramedTile({
   );
 }
 
-function relativeTime(iso: string): string {
+function relativeTime(iso: string, t: TFunction<'collections'>): string {
   const dt = new Date(iso).getTime();
   if (!dt) return '';
   const diff = (Date.now() - dt) / 1000;
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+  if (diff < 60) return t('time.justNow');
+  if (diff < 3600) return t('time.minAgo', { num: Math.floor(diff / 60) });
+  if (diff < 86400) return t('time.hrAgo', { num: Math.floor(diff / 3600) });
   const days = Math.floor(diff / 86400);
-  if (days < 30) return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+  if (days < 30) return days === 1 ? t('time.dayAgoOne') : t('time.dayAgo', { num: days });
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months} ${months === 1 ? 'month' : 'months'} ago`;
+  if (months < 12) return months === 1 ? t('time.monthAgoOne') : t('time.monthAgo', { num: months });
   const years = Math.floor(months / 12);
-  return `${years} ${years === 1 ? 'year' : 'years'} ago`;
+  return years === 1 ? t('time.yearAgoOne') : t('time.yearAgo', { num: years });
 }
 
 export default function CollectionDetailPage() {
+  const { t } = useTranslation('collections');
   const { slug: id } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -240,11 +244,11 @@ export default function CollectionDetailPage() {
         setKnownTotalPages(page);
       }
     } catch {
-      toast.error('Failed to load wallpapers');
+      toast.error(t('detail.toastLoadFailed'));
     } finally {
       setLoadingPage(false);
     }
-  }, [collection, pages, cursors]);
+  }, [collection, pages, cursors, t]);
 
   useEffect(() => { fetchPage(currentPage); }, [currentPage, fetchPage]);
 
@@ -260,7 +264,7 @@ export default function CollectionDetailPage() {
         setCollection({ ...collection, is_liked: true, like_count: collection.like_count + 1 });
       }
     } catch {
-      toast.error('Failed to update like');
+      toast.error(t('detail.toastLikeFailed'));
     } finally {
       setLiking(false);
     }
@@ -271,10 +275,10 @@ export default function CollectionDetailPage() {
     setShowDeleteConfirm(false);
     try {
       await deleteCollection(collection.id);
-      toast.success('Collection deleted');
+      toast.success(t('detail.toastDeleted'));
       navigate('/collections');
     } catch {
-      toast.error('Failed to delete collection');
+      toast.error(t('detail.toastDeleteFailed'));
     }
   };
 
@@ -288,7 +292,7 @@ export default function CollectionDetailPage() {
 
   const handleSave = async () => {
     if (!collection || saving) return;
-    if (!editTitle.trim()) { toast.error('Title is required'); return; }
+    if (!editTitle.trim()) { toast.error(t('detail.toastTitleRequired')); return; }
     setSaving(true);
     try {
       await updateCollection(collection.id, {
@@ -298,9 +302,9 @@ export default function CollectionDetailPage() {
       });
       setCollection({ ...collection, title: editTitle.trim(), description: editDesc.trim(), is_public: editIsPublic });
       setEditing(false);
-      toast.success('Collection updated');
+      toast.success(t('detail.toastUpdated'));
     } catch {
-      toast.error('Failed to update');
+      toast.error(t('detail.toastUpdateFailed'));
     } finally {
       setSaving(false);
     }
@@ -344,7 +348,7 @@ export default function CollectionDetailPage() {
   // (initial load) renders the full structure with skeletons so the
   // page doesn't reflow once data lands.
   if (!loading && !collection && error) return <ErrorState />;
-  if (!loading && !collection) return <EmptyState message="Collection not found." />;
+  if (!loading && !collection) return <EmptyState message={t('detail.notFound')} />;
 
   // Only the owner can edit, and only their own hand-made collections —
   // editor/weekly themes (kind !== 0) are managed by admins.
@@ -358,15 +362,15 @@ export default function CollectionDetailPage() {
     <div ref={rootRef} className="c-detail min-h-full" style={accentStyle}>
       <div className="c-detail-mesh" aria-hidden />
       <PageMeta
-        title={collection?.title || 'Collection'}
-        description={collection?.description || (collection ? `Collection of ${collection.wallpaper_count} wallpapers` : '')}
+        title={collection?.title || t('meta.detailFallbackTitle')}
+        description={collection?.description || (collection ? t('meta.detailDescription', { num: collection.wallpaper_count }) : '')}
         image={cover}
       />
       <InAppConfirm
         open={showDeleteConfirm}
-        title="Delete this collection?"
-        message="This removes the collection. Wallpapers inside are not deleted."
-        confirmLabel="Delete"
+        title={t('detail.confirmDeleteTitle')}
+        message={t('detail.confirmDeleteMessage')}
+        confirmLabel={t('detail.confirmDeleteLabel')}
         destructive
         onConfirm={doDelete}
         onCancel={() => setShowDeleteConfirm(false)}
@@ -375,7 +379,7 @@ export default function CollectionDetailPage() {
       <main className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-8">
         <Link to="/collections" className="c-backlink">
           <AiOutlineArrowLeft size={11} />
-          <span>All collections</span>
+          <span>{t('detail.backLink')}</span>
         </Link>
 
         {/* Hero — framed cover (same recipe as the tiles below, just
@@ -398,7 +402,7 @@ export default function CollectionDetailPage() {
               ) : loading ? (
                 <div className="c-detail-hero-img skeleton-card" />
               ) : (
-                <div className="c-detail-cover-empty">No cover yet</div>
+                <div className="c-detail-cover-empty">{t('tile.noCover')}</div>
               )}
             </div>
           </div>
@@ -418,8 +422,8 @@ export default function CollectionDetailPage() {
           ) : (
           <div className="c-detail-meta">
             <div className="c-detail-kicker">
-              {collection.kind === 1 ? 'Editor Theme' : 'Collection'}
-              {!collection.is_public && ' · Private'}
+              {collection.kind === 1 ? t('tile.kickerTheme') : t('tile.kickerCollection')}
+              {!collection.is_public && ` · ${t('tile.private')}`}
             </div>
 
             {editing ? (
@@ -435,7 +439,7 @@ export default function CollectionDetailPage() {
                   onChange={(e) => setEditDesc(e.target.value)}
                   rows={3}
                   maxLength={500}
-                  placeholder="Optional description"
+                  placeholder={t('detail.descPlaceholder')}
                   className="w-full px-4 py-3 text-[15px] border border-hair bg-paper text-ink-2 focus:outline-none focus:border-ink resize-none rounded-lg"
                 />
                 <label className="flex items-center gap-2.5 cursor-pointer select-none">
@@ -445,9 +449,9 @@ export default function CollectionDetailPage() {
                     onChange={(e) => setEditIsPublic(e.target.checked)}
                     className="accent-ink w-4 h-4"
                   />
-                  <span className="text-[13px] text-ink">Public</span>
+                  <span className="text-[13px] text-ink">{t('detail.publicLabel')}</span>
                   <span className="mono text-[11px] text-muted">
-                    {editIsPublic ? 'Anyone can find this set in the library' : 'Only you can see this set'}
+                    {editIsPublic ? t('detail.publicHint') : t('detail.privateHint')}
                   </span>
                 </label>
                 <div className="flex gap-2">
@@ -456,13 +460,13 @@ export default function CollectionDetailPage() {
                     disabled={saving || !editTitle.trim()}
                     className="c-detail-btn-primary"
                   >
-                    <AiOutlineCheck size={13} /> {saving ? 'Saving…' : 'Save'}
+                    <AiOutlineCheck size={13} /> {saving ? t('detail.saving') : t('detail.save')}
                   </button>
                   <button
                     onClick={() => setEditing(false)}
                     className="c-detail-btn-ghost"
                   >
-                    <AiOutlineClose size={13} /> Cancel
+                    <AiOutlineClose size={13} /> {t('detail.cancel')}
                   </button>
                 </div>
               </div>
@@ -493,11 +497,13 @@ export default function CollectionDetailPage() {
                 </span>
                 <span className="c-detail-byline-meta">
                   <span className="c-detail-byline-handle">
-                    A set by @{curator?.username || `user-${collection.user_id}`}
+                    {t('detail.bylineHandle', { handle: curator?.username || `user-${collection.user_id}` })}
                   </span>
                   <span className="c-detail-byline-sub">
-                    {collection.wallpaper_count} {collection.wallpaper_count === 1 ? 'wallpaper' : 'wallpapers'}
-                    {collection.updated_at ? ` · updated ${relativeTime(collection.updated_at)}` : ''}
+                    {collection.wallpaper_count === 1
+                      ? t('tile.wallpaperCountOne')
+                      : t('tile.wallpaperCount', { num: collection.wallpaper_count })}
+                    {collection.updated_at ? ` · ${t('detail.updated', { time: relativeTime(collection.updated_at, t) })}` : ''}
                   </span>
                 </span>
               </Link>
@@ -516,12 +522,12 @@ export default function CollectionDetailPage() {
                 {isOwner && (
                   <>
                     <button onClick={startEdit} className="c-detail-btn-ghost">
-                      <AiOutlineEdit size={13} /> Edit
+                      <AiOutlineEdit size={13} /> {t('detail.edit')}
                     </button>
                     <button
                       onClick={() => setShowDeleteConfirm(true)}
                       className="c-detail-btn-delete"
-                      title="Delete collection"
+                      title={t('detail.deleteTitle')}
                     >
                       <AiOutlineDelete size={14} />
                     </button>
@@ -540,13 +546,15 @@ export default function CollectionDetailPage() {
         <section className="c-detail-grid-section">
           <div className="c-detail-grid-head">
             <span className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
-              The set
+              {t('detail.gridKicker')}
             </span>
             <span className="mono text-[10px] tracking-[0.18em] uppercase text-muted">
               {collection && visible.length > 0
-                ? `${visible.length} of ${collection.wallpaper_count}`
+                ? t('detail.gridCount', { shown: visible.length, total: collection.wallpaper_count })
                 : collection
-                  ? `${collection.wallpaper_count} ${collection.wallpaper_count === 1 ? 'piece' : 'pieces'}`
+                  ? (collection.wallpaper_count === 1
+                      ? t('detail.pieceCountOne')
+                      : t('detail.pieceCount', { num: collection.wallpaper_count }))
                   : ''}
             </span>
           </div>
@@ -576,8 +584,8 @@ export default function CollectionDetailPage() {
             </div>
           ) : visible.length === 0 ? (
             <EmptyState
-              title="No wallpapers in this collection yet."
-              message="This set is ready, but it does not have any wallpapers attached right now."
+              title={t('detail.emptyTitle')}
+              message={t('detail.emptyMessage')}
             />
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">

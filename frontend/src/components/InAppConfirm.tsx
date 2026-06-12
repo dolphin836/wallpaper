@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 
 /**
  * In-app confirm dialog that replaces window.confirm() for destructive
@@ -25,8 +26,8 @@ export default function InAppConfirm({
   open,
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   destructive = false,
   onConfirm,
   onCancel,
@@ -40,6 +41,7 @@ export default function InAppConfirm({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation();
   // ESC to cancel — only while the dialog is open.
   useEffect(() => {
     if (!open) return;
@@ -64,7 +66,7 @@ export default function InAppConfirm({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="kicker tracking-[0.14em] text-accent-ink">
-          {destructive ? 'CONFIRM DELETION' : 'CONFIRM ACTION'}
+          {destructive ? t('confirm.kickerDelete') : t('confirm.kickerAction')}
         </div>
         <h2 id="iac-title" className="display text-[24px] sm:text-[28px] leading-tight mt-1.5">
           {title}
@@ -79,7 +81,7 @@ export default function InAppConfirm({
             onClick={onCancel}
             className="px-4 py-2 rounded-full font-medium text-[12px] border border-hair text-ink-2 hover:text-ink hover:bg-paper-2 transition-colors"
           >
-            {cancelLabel}
+            {cancelLabel ?? t('confirm.cancel')}
           </button>
           <button
             onClick={onConfirm}
@@ -87,7 +89,7 @@ export default function InAppConfirm({
             className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full text-paper font-semibold text-[12px] transition-transform hover:translate-y-[-1px]"
             style={{ background: destructive ? 'oklch(54% 0.22 28)' : 'var(--color-ink)' }}
           >
-            {confirmLabel}
+            {confirmLabel ?? t('confirm.confirm')}
           </button>
         </div>
       </div>

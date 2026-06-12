@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import {
   MdPhoneIphone, MdPhoneAndroid,
   MdTabletMac, MdTabletAndroid,
@@ -62,6 +63,7 @@ interface DeviceWithCount extends DeviceProfile {
 // gives Google a single page where all 42 device URLs are internally
 // linked, which helps surface the per-device pages during indexing.
 export default function DeviceIndexPage() {
+  const { t } = useTranslation('devices');
   const [devices, setDevices] = useState<DeviceWithCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -128,8 +130,8 @@ export default function DeviceIndexPage() {
     <div className="devices-page min-h-full">
       <div className="devices-mesh" aria-hidden />
       <PageMeta
-        title="Wallpapers by Device — Pixel-Perfect Downloads for Every Screen"
-        description="Browse wallpapers cropped for forty-plus device profiles, from the iMac 27″ Retina to the iPhone 16 Pro Max. Pick your device, find the right wallpaper at the exact pixel size."
+        title={t('index.metaTitle')}
+        description={t('index.metaDescription')}
       />
 
       <div className="relative z-10 px-6 sm:px-10 lg:px-14 py-12 max-w-[1600px] mx-auto">
@@ -137,15 +139,13 @@ export default function DeviceIndexPage() {
         {/* ─── Hero ─── */}
         <header className="mb-12">
           <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
-            Devices · {totalDevices || '—'} profiles
+            {t('index.kicker', { num: totalDevices || '—' })}
           </div>
           <h1 className="display text-[clamp(36px,4vw,56px)] leading-[1.05] mt-2 tracking-[-0.012em] text-ink">
-            Pick a screen. <em className="devices-title-tail">Pixel-perfect, always.</em>
+            <Trans i18nKey="index.title" ns="devices" components={[<em key="0" className="devices-title-tail" />]} />
           </h1>
           <p className="text-[15px] leading-[1.55] text-ink-2 mt-4 max-w-[640px]">
-            Every wallpaper in the archive is automatically resized for the
-            device profiles below. Click yours to see all wallpapers cropped
-            exactly for that screen.
+            {t('index.subtitle')}
           </p>
         </header>
 
@@ -156,10 +156,15 @@ export default function DeviceIndexPage() {
           <Link to={`/wallpapers-for/${currentDevice.slug}`} className="device-current-callout">
             <span className="device-current-dot" aria-hidden />
             <span className="device-current-text">
-              You're on the <strong>{currentDevice.name}</strong>
+              <Trans
+                i18nKey="index.currentCallout"
+                ns="devices"
+                values={{ name: currentDevice.name }}
+                components={[<strong key="0" />]}
+              />
               <span className="device-current-meta"> · {currentDevice.width}×{currentDevice.height}</span>
             </span>
-            <span className="device-current-cta">See its wallpapers →</span>
+            <span className="device-current-cta">{t('index.currentCta')}</span>
           </Link>
         )}
 
@@ -188,10 +193,10 @@ export default function DeviceIndexPage() {
             <div className="flex items-baseline justify-between mb-4 pb-2 border-b border-hair">
               <h2 className="display text-[24px] leading-tight tracking-[-0.005em] text-ink">
                 <span className="mono tabular-nums tracking-[0.02em] text-[20px]">{g.label}</span>
-                <span className="text-muted text-[16px] mono tracking-[0.18em] uppercase ml-3"> · aspect</span>
+                <span className="text-muted text-[16px] mono tracking-[0.18em] uppercase ml-3"> · {t('index.aspect')}</span>
               </h2>
               <span className="mono text-[10px] tracking-[0.16em] uppercase text-muted">
-                {g.items.length} {g.items.length === 1 ? 'device' : 'devices'}
+                {g.items.length === 1 ? t('index.deviceOne') : t('index.deviceMany', { num: g.items.length })}
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -208,6 +213,7 @@ export default function DeviceIndexPage() {
 }
 
 function DeviceCard({ device, isCurrent }: { device: DeviceWithCount; isCurrent: boolean }) {
+  const { t } = useTranslation('devices');
   const count = device.wallpaper_count;
   const Icon = iconFor(device);
   return (
@@ -215,7 +221,7 @@ function DeviceCard({ device, isCurrent }: { device: DeviceWithCount; isCurrent:
       to={`/wallpapers-for/${device.slug}`}
       className={`device-card group${isCurrent ? ' is-current' : ''}`}
     >
-      {isCurrent && <span className="device-card-badge">Your device</span>}
+      {isCurrent && <span className="device-card-badge">{t('index.yourDevice')}</span>}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3.5 min-w-0">
           <span className="device-icon" aria-hidden>
@@ -235,7 +241,7 @@ function DeviceCard({ device, isCurrent }: { device: DeviceWithCount; isCurrent:
             {count.toLocaleString()}
           </div>
           <div className="mono text-[9px] tracking-[0.14em] uppercase text-muted mt-1">
-            {count === 1 ? 'wallpaper' : 'wallpapers'}
+            {count === 1 ? t('index.wallpaperUnitOne') : t('index.wallpaperUnitMany')}
           </div>
         </div>
       </div>

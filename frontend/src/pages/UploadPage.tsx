@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import { useDropzone } from 'react-dropzone';
 import * as tus from 'tus-js-client';
 import { resolveBaseURL } from '../api/client';
@@ -33,7 +34,8 @@ const isVideoFile = (f: File) =>
   /\.(mp4|mov|webm|mkv)$/i.test(f.name);
 
 export default function UploadPage() {
-  usePageTitle('Upload');
+  const { t } = useTranslation('upload');
+  usePageTitle(t('meta.pageTitle'));
   const { isAuthenticated, user } = useAuthStore();
   const navigate = useNavigate();
   const [files, setFiles] = useState<UploadFile[]>([]);
@@ -48,13 +50,13 @@ export default function UploadPage() {
   const onDrop = useCallback((accepted: File[]) => {
     const remaining = MAX_FILES - files.length;
     if (remaining <= 0) {
-      toast.error(`Maximum ${MAX_FILES} files allowed`);
+      toast.error(t('toast.maxFiles', { max: MAX_FILES }));
       return;
     }
     const toAdd = accepted.slice(0, remaining);
     const oversized = toAdd.filter((f) => f.size > MAX_SIZE);
     if (oversized.length > 0) {
-      toast.error(`${oversized.length} file(s) exceed 200MB and were skipped`);
+      toast.error(t('toast.oversized', { num: oversized.length }));
     }
     const sizeOK = toAdd.filter((f) => f.size <= MAX_SIZE);
     if (sizeOK.length === 0) return;
@@ -66,19 +68,19 @@ export default function UploadPage() {
     const existingHasImage = files.some((f) => !isVideoFile(f.file));
     if (incomingHasVideo) {
       if (sizeOK.length > 1) {
-        toast.error('Drop one video at a time — combining files in a single batch isn\'t supported');
+        toast.error(t('toast.oneVideoAtATime'));
         return;
       }
       if (existingHasImage) {
-        toast.error('Clear the image batch before adding a video');
+        toast.error(t('toast.clearImagesFirst'));
         return;
       }
       if (existingHasVideo) {
-        toast.error('Only one video per upload — remove the current one first');
+        toast.error(t('toast.onlyOneVideo'));
         return;
       }
     } else if (existingHasVideo) {
-      toast.error('Clear the queued video before adding images');
+      toast.error(t('toast.clearVideoFirst'));
       return;
     }
 
@@ -92,7 +94,7 @@ export default function UploadPage() {
       };
     });
     setFiles((prev) => [...prev, ...newFiles]);
-  }, [files]);
+  }, [files, t]);
 
   const removeFile = (index: number) => {
     if (uploading) return;
@@ -134,7 +136,7 @@ export default function UploadPage() {
 
   const handleUpload = async () => {
     if (files.length === 0) {
-      toast.error('Please select at least one image');
+      toast.error(t('toast.selectAtLeastOne'));
       return;
     }
 
@@ -157,7 +159,7 @@ export default function UploadPage() {
         updateFile(i, { status: 'success', progress: 100 });
         success++;
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Upload failed';
+        const msg = err instanceof Error ? err.message : t('errors.uploadFailed');
         updateFile(i, { status: 'error', progress: 0, error: msg });
         failed++;
       }
@@ -168,8 +170,8 @@ export default function UploadPage() {
     if (failed === 0) {
       toast.success(
         success === 1
-          ? 'Upload received — pending admin review. You\'ll see it in your profile once approved.'
-          : `${success} uploads received — pending admin review.`,
+          ? t('toast.successOne')
+          : t('toast.successMany', { num: success }),
       );
       setTimeout(() => {
         if (user?.username) {
@@ -177,7 +179,7 @@ export default function UploadPage() {
         }
       }, 1500);
     } else {
-      toast.error(`${success} succeeded, ${failed} failed — retry the failed rows below.`);
+      toast.error(t('toast.partialFail', { success, failed }));
     }
   };
 
@@ -203,15 +205,15 @@ export default function UploadPage() {
         } catch { /* keep default */ }
         reject(new Error(msg));
       };
-      xhr.onerror = () => reject(new Error('Network error'));
-      xhr.ontimeout = () => reject(new Error('Upload timeout'));
+      xhr.onerror = () => reject(new Error(t('errors.network')));
+      xhr.ontimeout = () => reject(new Error(t('errors.timeout')));
       xhr.send(formData);
     });
 
   const uploadVideoTus = (i: number, f: File) =>
     new Promise<void>((resolve, reject) => {
       const token = localStorage.getItem('token');
-      if (!token) return reject(new Error('Please sign in first'));
+      if (!token) return reject(new Error(t('errors.signInFirst')));
       const base = resolveBaseURL().startsWith('http')
         ? resolveBaseURL()
         : `${window.location.origin}${resolveBaseURL()}`;
@@ -223,7 +225,7 @@ export default function UploadPage() {
         headers: { Authorization: `Bearer ${token}` },
         storeFingerprintForResuming: true,
         removeFingerprintOnSuccess: true,
-        onError: (err) => reject(new Error(err.message || 'Upload failed')),
+        onError: (err) => reject(new Error(err.message || t('errors.uploadFailed'))),
         onProgress: (sent, total) => {
           updateFile(i, { progress: Math.round((sent / total) * 100) });
         },
@@ -261,13 +263,13 @@ export default function UploadPage() {
           ) : allDone ? (
             <div className="flex items-center gap-2 text-ink">
               <AiOutlineCheck size={16} className="text-accent" />
-              <span className="text-[13px]">All set, redirecting to your profile…</span>
+              <span className="text-[13px]">{t('bar.allDone')}</span>
             </div>
           ) : (
             <div className="text-[13px] text-ink-2">
-              {totalPending} {totalPending === 1 ? 'file' : 'files'} ready to upload
+              {totalPending === 1 ? t('bar.readyOne') : t('bar.ready', { num: totalPending })}
               {totalError > 0 && (
-                <span className="text-red-500"> · {totalError} need a retry</span>
+                <span className="text-red-500"> · {t('bar.needRetry', { num: totalError })}</span>
               )}
             </div>
           )}
@@ -278,7 +280,7 @@ export default function UploadPage() {
             to={user?.username ? `/user/${user.username}` : '/'}
             className="upload-bar-link"
           >
-            Cancel
+            {t('bar.cancel')}
           </Link>
         )}
 
@@ -290,14 +292,16 @@ export default function UploadPage() {
           {uploading ? (
             <>
               <AiOutlineLoading3Quarters size={14} className="animate-spin" />
-              Uploading
+              {t('bar.uploading')}
             </>
           ) : totalError > 0 ? (
-            'Retry failed'
+            t('bar.retryFailed')
           ) : allDone ? (
-            'Done'
+            t('bar.done')
+          ) : files.length === 1 ? (
+            t('bar.uploadOne')
           ) : (
-            <>Upload {files.length} {files.length === 1 ? 'file' : 'files'} →</>
+            t('bar.uploadMany', { num: files.length })
           )}
         </button>
       </div>
@@ -313,14 +317,12 @@ export default function UploadPage() {
       <div className="relative z-10 max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 py-10 pb-20">
         {/* Editorial header */}
         <header className="mb-10">
-          <div className="kicker text-muted">Contribute · Wallpaper Exchange</div>
+          <div className="kicker text-muted">{t('header.kicker')}</div>
           <h1 className="display text-[clamp(36px,5vw,64px)] leading-[1.02] mt-3 tracking-[-0.015em] text-ink">
-            Share <span className="upload-title-tail">what's on your screen.</span>
+            <Trans i18nKey="header.heading" ns="upload" components={[<span className="upload-title-tail" key="0" />]} />
           </h1>
           <p className="text-ink-2 mt-4 max-w-[640px] text-[14.5px] leading-relaxed">
-            Drop images (JPG / PNG / HEIC, up to {MAX_FILES} at a time) or a single video
-            (MP4 / MOV / WebM / MKV). Each file capped at 200 MB. Every upload earns one coin
-            once it clears review.
+            {t('header.intro', { maxFiles: MAX_FILES })}
           </p>
         </header>
 
@@ -328,10 +330,9 @@ export default function UploadPage() {
         <div className="upload-notice mb-8">
           <div className="upload-notice-dot" aria-hidden />
           <div>
-            <div className="mono text-[10px] tracking-[0.18em] uppercase text-ink-2 mb-1">Admin review</div>
+            <div className="mono text-[10px] tracking-[0.18em] uppercase text-ink-2 mb-1">{t('notice.kicker')}</div>
             <p className="text-[13px] leading-[1.55] text-ink-2">
-              Everything goes through review before showing up publicly. You can see status on your profile —
-              videos may take a minute longer because we transcode them.
+              {t('notice.body')}
             </p>
           </div>
         </div>
@@ -350,10 +351,16 @@ export default function UploadPage() {
           {files.length === 0 ? (
             <>
               <p className="display text-[24px] sm:text-[28px] text-ink leading-tight mt-3">
-                Drop {isDragActive ? 'them' : 'images'} here
+                {isDragActive ? t('dropzone.dropActive') : t('dropzone.dropIdle')}
               </p>
               <p className="text-ink-2 text-[13px] mt-2 max-w-md">
-                or <button type="button" onClick={open} className="text-ink underline underline-offset-2 decoration-1 hover:text-accent">click to pick from your computer</button>
+                <Trans
+                  i18nKey="dropzone.orPick"
+                  ns="upload"
+                  components={[
+                    <button type="button" onClick={open} className="text-ink underline underline-offset-2 decoration-1 hover:text-accent" key="0" />,
+                  ]}
+                />
               </p>
               <div className="upload-drop-meta">
                 <span>JPG · PNG · HEIC</span>
@@ -362,7 +369,7 @@ export default function UploadPage() {
                 <span>·</span>
                 <span>≤ 200 MB</span>
                 <span>·</span>
-                <span>Up to {MAX_FILES} files</span>
+                <span>{t('dropzone.upToFiles', { max: MAX_FILES })}</span>
               </div>
             </>
           ) : (
@@ -372,7 +379,7 @@ export default function UploadPage() {
               disabled={uploading || files.length >= MAX_FILES}
               className="upload-drop-add"
             >
-              Add more · {files.length} / {MAX_FILES}
+              {t('dropzone.addMore', { current: files.length, max: MAX_FILES })}
             </button>
           )}
         </div>
@@ -380,8 +387,8 @@ export default function UploadPage() {
         {files.length > 0 && (
           <section className="mt-10">
             <div className="label-rule mb-4">
-              Queue · {files.length} {totalDone > 0 && <span className="text-accent">· {totalDone} done</span>}
-              {totalError > 0 && <span className="text-red-500"> · {totalError} failed</span>}
+              {t('queue.label', { num: files.length })} {totalDone > 0 && <span className="text-accent">· {t('queue.done', { num: totalDone })}</span>}
+              {totalError > 0 && <span className="text-red-500"> · {t('queue.failed', { num: totalError })}</span>}
             </div>
 
             <div className="upload-grid">
@@ -417,6 +424,7 @@ function UploadTile({
   uploading: boolean;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation('upload');
   const isVideo = isVideoFile(f.file);
   return (
     <div className={`upload-tile${f.status === 'error' ? ' is-error' : ''}${f.status === 'success' ? ' is-success' : ''}`}>
@@ -479,7 +487,7 @@ function UploadTile({
         {!uploading && f.status !== 'success' && (
           <button
             onClick={onRemove}
-            title="Remove"
+            title={t('queue.remove')}
             className="upload-tile-x"
           >
             <AiOutlineClose size={13} />

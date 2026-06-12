@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import { AiOutlineMail, AiOutlineLock } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import { login } from '../api';
@@ -9,7 +10,8 @@ import { track } from '../lib/track';
 import Field from '../components/Field';
 
 export default function LoginPage() {
-  usePageTitle('Login');
+  const { t } = useTranslation('auth');
+  usePageTitle(t('login.pageTitle'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,16 +28,16 @@ export default function LoginPage() {
       const { token, user } = res.data.data;
       setAuth(token, user);
       track('login_success');
-      toast.success('Welcome back!');
+      toast.success(t('login.toastWelcome'));
       navigate('/');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string; code?: number } } };
-      const msg = e?.response?.data?.message || 'Login failed';
+      const msg = e?.response?.data?.message || t('login.errFailed');
       // 40103 = wrong password (mostly hits the password field). 40400 =
       // user not found. Both signal "email/password mismatch" to the user.
       const code = e?.response?.data?.code;
       if (code === 40103 || code === 40400) {
-        setErrors({ password: 'Email or password is incorrect' });
+        setErrors({ password: t('login.errCredentials') });
       } else {
         toast.error(msg);
       }
@@ -56,28 +58,28 @@ export default function LoginPage() {
           </span>
         </Link>
 
-        <div className="auth-kicker">Sign in</div>
+        <div className="auth-kicker">{t('login.kicker')}</div>
         <h1 className="auth-title">
-          Welcome back, <em>archivist</em>.
+          <Trans i18nKey="login.title" ns="auth" components={[<em key="0" />]} />
         </h1>
         <p className="auth-desc">
-          Sign in to spend coins, save favourites, and upload your own work.
+          {t('login.desc')}
         </p>
 
         <div className="auth-fields">
           <Field
-            label="Email"
+            label={t('form.email')}
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
+            placeholder={t('form.emailPlaceholder')}
             autoComplete="email"
             icon={<AiOutlineMail size={15} />}
             error={errors.email}
           />
           <Field
-            label="Password"
+            label={t('form.password')}
             type="password"
             required
             value={password}
@@ -90,12 +92,12 @@ export default function LoginPage() {
         </div>
 
         <button type="submit" disabled={loading} className="auth-submit">
-          {loading ? 'Signing in…' : <>Sign in <span aria-hidden>→</span></>}
+          {loading ? t('login.submitting') : <>{t('login.submit')} <span aria-hidden>→</span></>}
         </button>
 
         <p className="auth-footnote">
-          New here?{' '}
-          <Link to="/register" className="auth-footnote-link">Register →</Link>
+          {t('login.footnote')}{' '}
+          <Link to="/register" className="auth-footnote-link">{t('login.footnoteLink')}</Link>
         </p>
       </form>
     </div>

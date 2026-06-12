@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AiOutlineClose, AiOutlinePlus, AiOutlineCheck, AiOutlineSearch } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import type { CollectionBrief } from '../types';
@@ -26,6 +27,7 @@ const SEARCH_LIMIT = 50;
  *     the same wallpaper twice.
  */
 export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
+  const { t } = useTranslation('collections');
   const [collections, setCollections] = useState<CollectionBrief[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTitle, setNewTitle] = useState('');
@@ -54,9 +56,9 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
       limit: trimmed ? SEARCH_LIMIT : DEFAULT_LIMIT,
     })
       .then((res) => setCollections(res.data.data || []))
-      .catch(() => toast.error('Failed to load collections'))
+      .catch(() => toast.error(t('modal.toastLoadFailed')))
       .finally(() => setLoading(false));
-  }, [wallpaperId, debouncedSearch]);
+  }, [wallpaperId, debouncedSearch, t]);
 
   useEffect(() => {
     if (composing) newInputRef.current?.focus();
@@ -82,9 +84,9 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
     try {
       await addToCollection(collectionId, wallpaperId);
       setAddedIds((prev) => new Set(prev).add(collectionId));
-      toast.success('Added to collection');
+      toast.success(t('modal.toastAdded'));
     } catch {
-      toast.error('Failed to add');
+      toast.error(t('modal.toastAddFailed'));
     }
   };
 
@@ -100,9 +102,9 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
       setAddedIds((prev) => new Set(prev).add(newCol.id));
       setNewTitle('');
       setComposing(false);
-      toast.success('Collection created');
+      toast.success(t('create.success'));
     } catch {
-      toast.error('Failed to create collection');
+      toast.error(t('create.error'));
     } finally {
       setCreating(false);
     }
@@ -111,9 +113,11 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
   const isSearching = search.trim().length > 0;
   const headerCount = useMemo(() => {
     if (loading) return '';
-    if (isSearching) return ` · ${collections.length} match${collections.length === 1 ? '' : 'es'}`;
-    return collections.length > 0 ? ` · latest ${collections.length}` : '';
-  }, [loading, isSearching, collections.length]);
+    if (isSearching) {
+      return ` · ${collections.length === 1 ? t('modal.matchOne') : t('modal.matches', { num: collections.length })}`;
+    }
+    return collections.length > 0 ? ` · ${t('modal.latest', { num: collections.length })}` : '';
+  }, [loading, isSearching, collections.length, t]);
 
   return (
     <div
@@ -132,13 +136,13 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-3">
           <div className="min-w-0">
-            <h2 id="add-to-collection-title" className="kicker text-muted">Add to a list{headerCount}</h2>
+            <h2 id="add-to-collection-title" className="kicker text-muted">{t('modal.title')}{headerCount}</h2>
           </div>
           <button
             onClick={onClose}
             disabled={creating}
             className="w-7 h-7 rounded-full border border-hair text-ink-2 hover:bg-paper-2 inline-flex items-center justify-center transition-colors flex-shrink-0 disabled:opacity-50"
-            aria-label="Close"
+            aria-label={t('modal.close')}
           >
             <AiOutlineClose size={12} />
           </button>
@@ -152,15 +156,15 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
               ref={searchInputRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search your lists…"
-              aria-label="Search your lists"
+              placeholder={t('modal.searchPlaceholder')}
+              aria-label={t('modal.searchAria')}
               className="w-full pl-9 pr-8 py-2 text-[13px] border border-hair rounded-full bg-paper-2 text-ink placeholder:text-muted focus:outline-none focus:border-ink-2 focus:bg-paper transition-colors"
             />
             {search && (
               <button
                 onClick={() => setSearch('')}
                 className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full text-muted hover:text-ink hover:bg-paper inline-flex items-center justify-center"
-                aria-label="Clear search"
+                aria-label={t('modal.clearSearch')}
               >
                 <AiOutlineClose size={10} />
               </button>
@@ -172,11 +176,11 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
         <ul className="list-none m-0 p-0 mx-4 border-t border-hair overflow-y-auto flex-1">
           {loading ? (
             <li className="py-6 flex justify-center">
-              <div className="w-5 h-5 border-2 border-hair border-t-ink rounded-full animate-spin" role="status" aria-label="Loading lists" />
+              <div className="w-5 h-5 border-2 border-hair border-t-ink rounded-full animate-spin" role="status" aria-label={t('modal.loadingLists')} />
             </li>
           ) : collections.length === 0 ? (
             <li className="py-6 text-center text-[12px] text-muted" aria-live="polite">
-              {isSearching ? `No lists match “${search}”` : 'No lists yet. Create one below.'}
+              {isSearching ? t('modal.noMatch', { query: search }) : t('modal.emptyHint')}
             </li>
           ) : (
             collections.map((c) => {
@@ -189,7 +193,7 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
                   <button
                     onClick={() => handleAdd(c.id, serverHas)}
                     disabled={disabled}
-                    title={inList ? 'Already in this list' : 'Add to this list'}
+                    title={inList ? t('modal.alreadyInTitle') : t('modal.addToTitle')}
                     className={`w-full flex items-center gap-2.5 py-2.5 text-left transition-opacity ${disabled ? 'cursor-default opacity-70' : 'hover:opacity-100'}`}
                   >
                     <span
@@ -206,7 +210,7 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
                     </span>
                     {inList ? (
                       <span className="mono text-[9px] tracking-[0.14em] uppercase text-accent flex-shrink-0">
-                        {serverHas && !sessionAdded ? 'Already in' : 'Added'}
+                        {serverHas && !sessionAdded ? t('modal.alreadyIn') : t('modal.added')}
                       </span>
                     ) : (
                       <span className="mono text-[10px] tracking-[0.06em] text-muted flex-shrink-0">{c.wallpaper_count}</span>
@@ -230,8 +234,8 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
                   if (e.key === 'Enter') handleCreate();
                   if (e.key === 'Escape') { setComposing(false); setNewTitle(''); }
                 }}
-                placeholder="New list name"
-                aria-label="New list name"
+                placeholder={t('modal.newListPlaceholder')}
+                aria-label={t('modal.newListPlaceholder')}
                 maxLength={100}
                 className="flex-1 px-3 py-2 text-[13px] border border-dashed border-hair rounded-full bg-paper text-ink placeholder:text-muted focus:outline-none focus:border-ink"
               />
@@ -240,7 +244,7 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
                 disabled={!newTitle.trim() || creating}
                 className="px-4 py-2 bg-ink text-paper text-[12px] font-medium rounded-full disabled:opacity-50 transition-colors"
               >
-                {creating ? '…' : 'Add'}
+                {creating ? '…' : t('modal.add')}
               </button>
             </div>
           ) : (
@@ -248,7 +252,7 @@ export default function AddToCollectionModal({ wallpaperId, onClose }: Props) {
               onClick={() => setComposing(true)}
               className="w-full py-2 px-3 border border-dashed border-hair rounded-full bg-transparent text-ink-2 text-[12px] font-medium inline-flex items-center justify-center gap-1.5 hover:border-ink-2 hover:text-ink transition-colors"
             >
-              <AiOutlinePlus size={13} /> New list
+              <AiOutlinePlus size={13} /> {t('modal.newList')}
             </button>
           )}
         </div>

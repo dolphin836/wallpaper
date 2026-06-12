@@ -1,8 +1,13 @@
+import { useTranslation } from 'react-i18next';
 import usePageTitle from '../hooks/usePageTitle';
 import PageMeta from '../components/PageMeta';
 import LegalDocument, { type LegalDoc } from '../components/LegalDocument';
 
 const CONTACT_EMAIL = 'copyright@wallpaperexchange.com';
+
+// NOTE: the legal body text below intentionally stays in English — legal
+// text is only authoritative in its original language. Only the page
+// chrome (page title / meta + heading) is localized.
 
 const DMCA_DOC: LegalDoc = {
   title: 'Copyright',
@@ -64,14 +69,16 @@ const DMCA_DOC: LegalDoc = {
 };
 
 export default function LegalDmcaPage() {
-  usePageTitle('Copyright / DMCA');
+  const { t } = useTranslation('about');
+  usePageTitle(t('dmca.pageTitle'));
+  const doc = { ...DMCA_DOC, title: t('dmca.title'), italicTail: t('dmca.italicTail') };
   return (
     <>
       <PageMeta
-        title="Copyright / DMCA"
-        description="How to report copyright infringement on Wallpaper Exchange and how we handle takedown notices."
+        title={t('dmca.pageTitle')}
+        description={t('dmca.metaDescription')}
       />
-      <LegalDocument doc={DMCA_DOC} currentPath="/legal/dmca" />
+      <LegalDocument doc={doc} currentPath="/legal/dmca" />
     </>
   );
 }

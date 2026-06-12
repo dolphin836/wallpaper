@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import { AiOutlineArrowRight } from 'react-icons/ai';
 import { getWeeklyArchive, type WeeklyArchiveEntry } from '../api';
 import PageMeta from '../components/PageMeta';
@@ -24,6 +25,7 @@ function fmtDate(d: Date) {
 }
 
 export default function WeeklyArchivePage() {
+  const { t } = useTranslation('browse');
   const [rows, setRows] = useState<WeeklyArchiveEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -90,18 +92,17 @@ export default function WeeklyArchivePage() {
     <div ref={rootRef} className="w-weekly-archive min-h-full">
       <div className="w-weekly-mesh" aria-hidden />
       <PageMeta
-        title="Past Weekly Drops"
-        description="Every past Weekly Drop on Wallpaper Exchange — 10 hand-picked wallpapers per ISO week, archived for browsing."
+        title={t('weekly.archiveMetaTitle')}
+        description={t('weekly.archiveMetaDescription')}
       />
       <main className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-10">
         <header className="mb-12">
-          <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">The Archive</div>
+          <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">{t('weekly.archiveKicker')}</div>
           <h1 className="display text-[clamp(34px,4vw,52px)] leading-[1.05] mt-2 text-ink">
-            <em>Every</em> Friday, a new ten.
+            <Trans i18nKey="weekly.archiveHeading" ns="browse" components={[<em key="0" />]} />
           </h1>
           <p className="text-ink-2 mt-3 max-w-2xl text-[14px] leading-relaxed">
-            We publish ten wallpapers each ISO week. Once a piece lands in a drop, it never
-            returns. Pick an issue from the timeline.
+            {t('weekly.archiveIntro')}
           </p>
         </header>
 
@@ -118,8 +119,8 @@ export default function WeeklyArchivePage() {
           <ErrorState />
         ) : rows.length === 0 ? (
           <EmptyState
-            title="No weekly drops yet."
-            message="The archive will appear once the first weekly curation has been published."
+            title={t('weekly.emptyTitle')}
+            message={t('weekly.emptyMessage')}
           />
         ) : (
           <div className="w-archive-grid">
@@ -181,15 +182,19 @@ export default function WeeklyArchivePage() {
                     )}
                     <div className="w-archive-cover-shade" aria-hidden />
                     <figcaption className="w-archive-cover-stamp">
-                      <span className="w-stamp-kicker">ISSUE</span>
+                      <span className="w-stamp-kicker">{t('weekly.stampKicker')}</span>
                       <span className="w-stamp-issue">№ {String(selected.week).padStart(2, '0')}</span>
                       <span className="w-stamp-meta">
-                        {fmtDate(isoWeekFriday(selected.year, selected.week))} {selected.year} · {selected.count} PICKS
+                        {t('weekly.stampMeta', {
+                          date: fmtDate(isoWeekFriday(selected.year, selected.week)),
+                          year: selected.year,
+                          num: selected.count,
+                        })}
                       </span>
                     </figcaption>
                   </figure>
                   <div className="w-archive-cta">
-                    <span>View all {selected.count} picks</span>
+                    <span>{t('weekly.viewAllPicks', { num: selected.count })}</span>
                     <AiOutlineArrowRight size={14} />
                   </div>
                 </Link>

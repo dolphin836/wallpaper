@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import justifiedLayout from 'justified-layout';
 import type { Wallpaper } from '../types';
 import WallpaperCard from './WallpaperCard';
@@ -214,11 +215,12 @@ function SalonLayout({ wallpapers, sizeMode, staggerFrom = 0, disableModal }: { 
 }
 
 export default function WallpaperGrid({ wallpapers, showStatus, viewMode = 'justified', sizeMode = 'md', staggerFrom = 0, disableModal }: Props) {
+  const { t } = useTranslation('browse');
   if (wallpapers.length === 0) {
     return (
       <EmptyState
-        title="No wallpapers found."
-        message="Try another filter or check back after new uploads land."
+        title={t('grid.emptyTitle')}
+        message={t('grid.emptyMessage')}
       />
     );
   }

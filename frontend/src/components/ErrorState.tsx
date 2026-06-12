@@ -1,4 +1,5 @@
 import { AiOutlineReload } from 'react-icons/ai';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   /** Headline. Defaults to the editorial 'Something's off' line. */
@@ -25,11 +26,8 @@ interface Props {
  * Don't use on pure-static pages (legal, about, etc.) — they have no
  * fetch to fail.
  */
-export default function ErrorState({
-  title = "Couldn't load this page",
-  message = "Something went wrong on our end. The server might be catching its breath — give it a moment and try again.",
-  onRetry,
-}: Props) {
+export default function ErrorState({ title, message, onRetry }: Props) {
+  const { t } = useTranslation();
   const handleRetry = onRetry || (() => window.location.reload());
   return (
     <div className="error-state">
@@ -41,11 +39,11 @@ export default function ErrorState({
           <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
       </div>
-      <h2 className="error-state__title">{title}</h2>
-      <p className="error-state__message">{message}</p>
+      <h2 className="error-state__title">{title ?? t('errorState.title')}</h2>
+      <p className="error-state__message">{message ?? t('errorState.message')}</p>
       <button type="button" onClick={handleRetry} className="error-state__retry">
         <AiOutlineReload size={13} />
-        <span>Try again</span>
+        <span>{t('errorState.tryAgain')}</span>
       </button>
     </div>
   );

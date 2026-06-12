@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AiOutlineArrowLeft } from 'react-icons/ai';
 import { getWeeklyByWeek, type WeeklyPicked } from '../api';
 import type { Wallpaper } from '../types';
@@ -30,6 +31,7 @@ function fmtMB(b?: number) { return ((b || 0) / 1024 / 1024).toFixed(1) + ' MB';
 // arrives. Click opens the wallpaper detail as a modal overlay (same
 // pattern as the tiles below) instead of a hard navigate.
 function WeeklyHero({ hero, week, year }: { hero: WeeklyPicked; week: number; year: number }) {
+  const { t } = useTranslation('browse');
   const location = useLocation();
   const [src, setSrc] = useState(hero.preview_url || hero.thumb_url);
   const [loaded, setLoaded] = useState(false);
@@ -50,7 +52,7 @@ function WeeklyHero({ hero, week, year }: { hero: WeeklyPicked; week: number; ye
     >
       <img
         src={src}
-        alt={hero.title || `Week ${week} hero`}
+        alt={hero.title || t('hero.weekHeroAlt', { week })}
         className={loaded ? 'h3-loaded' : ''}
         onLoad={() => setLoaded(true)}
         onError={() => setLoaded(true)}
@@ -58,14 +60,14 @@ function WeeklyHero({ hero, week, year }: { hero: WeeklyPicked; week: number; ye
       <ResChip wallpaper={hero} />
       <div className="h3-hero-overlay">
         <div className="flex-1 min-w-0">
-          <div className="h3-kicker">Curation · Week {week} · {year}</div>
+          <div className="h3-kicker">{t('hero.kicker', { week, year })}</div>
           <div className="h3-meta">{hero.width}×{hero.height} · {fmtMB(hero.file_size)}</div>
         </div>
         <button
           className="h3-cta"
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); /* navigation handles trade flow */ }}
         >
-          <span className="h3-coin" /> Trade for 1
+          <span className="h3-coin" /> {t('hero.tradeForOne')}
         </button>
       </div>
     </Link>
@@ -73,6 +75,7 @@ function WeeklyHero({ hero, week, year }: { hero: WeeklyPicked; week: number; ye
 }
 
 export default function WeeklyWeekPage() {
+  const { t } = useTranslation('browse');
   const { year, week } = useParams<{ year: string; week: string }>();
   const [rows, setRows] = useState<WeeklyPicked[]>([]);
   const [loading, setLoading] = useState(true);
@@ -158,20 +161,20 @@ export default function WeeklyWeekPage() {
     <div ref={rootRef} className="w-weekly-detail min-h-full">
       <div className="w-weekly-mesh" aria-hidden />
       <PageMeta
-        title={`Week ${week} · ${year}`}
-        description={`The ${year} week ${week} Weekly Drop on Wallpaper Exchange — 10 hand-picked wallpapers from that week.`}
+        title={t('weekly.weekMetaTitle', { week, year })}
+        description={t('weekly.weekMetaDescription', { week, year })}
       />
       <main className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-8">
         <Link to="/weekly-picks" className="w-backlink">
           <AiOutlineArrowLeft size={11} />
-          <span>All weekly issues</span>
+          <span>{t('weekly.allIssues')}</span>
         </Link>
 
         {/* Simplified header — just 'Week N' with the date as a small
             mono caption. No ISSUE pill, no № masthead — the hero
             overlay below already carries 'Curation · Week N · YYYY'. */}
         <header className="w-detail-head-simple">
-          <h1 className="w-detail-week">Week {weekNum}</h1>
+          <h1 className="w-detail-week">{t('weekly.weekHeading', { week: weekNum })}</h1>
           {dateStr && <div className="w-detail-week-meta">{dateStr}</div>}
         </header>
 
@@ -192,7 +195,7 @@ export default function WeeklyWeekPage() {
           <ErrorState />
         ) : notFound ? (
           <div className="rounded-xl border border-hair bg-paper p-8 text-center text-ink-2 max-w-xl">
-            No weekly drop for that week.
+            {t('weekly.noDropForWeek')}
           </div>
         ) : (
           <>

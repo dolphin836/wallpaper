@@ -3,6 +3,7 @@ import {
 } from 'react';
 import type { CSSProperties } from 'react';
 import { useLocation, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   motion, useMotionValue, useTransform, useSpring, animate,
   type MotionValue,
@@ -70,6 +71,7 @@ export default function DeviceFloatingWall({
   onFeatureChange,
   pendingCount = 0,
 }: DeviceFloatingWallProps) {
+  const { t } = useTranslation('devices');
   const deviceAspect = (device.width || 16) / (device.height || 9);
   const mockupClass = `dev-mockup is-${device.platform}`;
   const isAppleDesktop = device.platform === 'desktop' && (device.brand || '').toLowerCase() === 'apple';
@@ -350,7 +352,7 @@ export default function DeviceFloatingWall({
               )}
             </div>
 
-            <div className="dev-mode-toggles" role="radiogroup" aria-label="Preview mode">
+            <div className="dev-mode-toggles" role="radiogroup" aria-label={t('wall.previewMode')}>
               {(['plain', 'home', 'lock'] as const).map((m) => (
                 <button
                   key={m}
@@ -361,7 +363,7 @@ export default function DeviceFloatingWall({
                   onPointerDown={(e) => e.stopPropagation()}
                   className={`dev-mode-pill${previewMode === m ? ' is-on' : ''}`}
                 >
-                  {m === 'plain' ? 'Plain' : m === 'home' ? 'Home' : 'Lock'}
+                  {m === 'plain' ? t('wall.plain') : m === 'home' ? t('wall.home') : t('wall.lock')}
                 </button>
               ))}
             </div>
@@ -518,6 +520,7 @@ function DevTile({
   isFeatured: boolean;
   onHover: (idx: number) => void;
 }) {
+  const { t } = useTranslation('devices');
   const location = useLocation();
   const acts = useWallpaperActions(w);
   const aspect = `${device.width} / ${device.height}`;
@@ -553,7 +556,7 @@ function DevTile({
       <div className="dev-spec-card-screen" style={{ aspectRatio: aspect }}>
         <img
           src={w.preview_url || w.thumb_url}
-          alt={w.title || `Wallpaper ${w.id}`}
+          alt={w.title || t('wall.wallpaperAlt', { id: w.id })}
           loading="lazy"
           decoding="async"
           className="dev-spec-card-img"
@@ -569,7 +572,7 @@ function DevTile({
             {(isVideo || w.is_dynamic) && (
               <span className="tile-chip">
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
-                Live
+                {t('wall.live')}
               </span>
             )}
             {w.is_ai_generated && (
@@ -586,7 +589,7 @@ function DevTile({
             onClick={(e) => stop(e, acts.handleFavorite)}
             disabled={acts.favLoading}
             className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
-            title={acts.favorited ? 'Unfavorite' : 'Favorite'}
+            title={acts.favorited ? t('wall.unfavorite') : t('wall.favorite')}
           >
             {acts.favLoading
               ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
@@ -599,7 +602,7 @@ function DevTile({
             onClick={(e) => stop(e, acts.handleLike)}
             disabled={acts.likeLoading}
             className={`t-act ${acts.liked ? 'is-liked' : ''}`}
-            title={acts.liked ? 'Unlike' : 'Like'}
+            title={acts.liked ? t('wall.unlike') : t('wall.like')}
           >
             {acts.likeLoading
               ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />

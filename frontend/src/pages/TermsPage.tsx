@@ -1,6 +1,10 @@
+import { useTranslation } from 'react-i18next';
 import usePageTitle from '../hooks/usePageTitle';
 import LegalDocument, { type LegalDoc } from '../components/LegalDocument';
 
+// NOTE: the legal body text below intentionally stays in English — legal
+// text is only authoritative in its original language. Only the page
+// chrome (page title + heading) is localized.
 const TERMS_DOC: LegalDoc = {
   title: 'Terms',
   italicTail: 'of service',
@@ -126,6 +130,8 @@ const TERMS_DOC: LegalDoc = {
 };
 
 export default function TermsPage() {
-  usePageTitle('Terms of Service');
-  return <LegalDocument doc={TERMS_DOC} currentPath="/terms" />;
+  const { t } = useTranslation('about');
+  usePageTitle(t('terms.pageTitle'));
+  const doc = { ...TERMS_DOC, title: t('terms.title'), italicTail: t('terms.italicTail') };
+  return <LegalDocument doc={doc} currentPath="/terms" />;
 }

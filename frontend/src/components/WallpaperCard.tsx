@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   AiOutlineHeart,
   AiFillHeart,
@@ -40,6 +41,7 @@ interface Props {
 }
 
 export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0, disableModal = false, layout, hideActions = false }: Props) {
+  const { t } = useTranslation('browse');
   // Two-stage progressive load: thumb (~30 KB, displayed immediately with a
   // small blur) → preview_url (~250 KB watermarked 1600px, fades in once
   // loaded). Loading the 1600px preview on the home feed means the browser
@@ -77,11 +79,11 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
 
   const statusChip = (() => {
     if (!showStatus || wallpaper.status === STATUS_PUBLISHED) return null;
-    if (isProcessing) return { label: 'Processing', tone: 'is-processing' };
-    if (isFailed) return { label: 'Failed', tone: 'is-failed' };
-    if (wallpaper.status === STATUS_PENDING_REVIEW) return { label: 'Review', tone: 'is-review' };
-    if (wallpaper.status === STATUS_REJECTED) return { label: 'Rejected', tone: 'is-failed' };
-    return { label: `Status ${wallpaper.status}`, tone: 'is-muted' };
+    if (isProcessing) return { label: t('chip.processing'), tone: 'is-processing' };
+    if (isFailed) return { label: t('chip.failed'), tone: 'is-failed' };
+    if (wallpaper.status === STATUS_PENDING_REVIEW) return { label: t('chip.review'), tone: 'is-review' };
+    if (wallpaper.status === STATUS_REJECTED) return { label: t('chip.rejected'), tone: 'is-failed' };
+    return { label: t('chip.statusN', { num: wallpaper.status }), tone: 'is-muted' };
   })();
 
   const handleAction = (e: React.MouseEvent, action: () => void) => {
@@ -199,13 +201,13 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           {(isVideo || wallpaper.is_dynamic) && (
             <span className="tile-chip">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
-              Live
+              {t('chip.live')}
             </span>
           )}
           {wallpaper.is_ai_generated && (
             <span className="tile-chip is-ai">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.6 4.6L18 8.2l-4.4 1.6L12 14.4l-1.6-4.6L6 8.2l4.4-1.6L12 2zm7 10l1 2.8 2.8 1-2.8 1L19 19.6l-1-2.8-2.8-1 2.8-1L19 12zM5 14l.9 2.6L8.4 17.6l-2.5 1L5 21.2 4.1 18.6 1.6 17.6 4.1 16.6 5 14z"/></svg>
-              AI
+              {t('chip.ai')}
             </span>
           )}
           {statusChip && (
@@ -226,7 +228,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               onClick={(e) => handleAction(e, acts.handleFavorite)}
               disabled={acts.favLoading}
               className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
-              title={acts.favorited ? 'Unfavorite' : 'Favorite'}
+              title={acts.favorited ? t('actions.unfavorite') : t('actions.favorite')}
             >
               {acts.favLoading ? <AiOutlineLoading3Quarters size={15} className="animate-spin" /> : acts.favorited ? <AiFillStar size={15} /> : <AiOutlineStar size={15} />}
             </button>
@@ -234,7 +236,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               onClick={(e) => handleAction(e, acts.handleLike)}
               disabled={acts.likeLoading}
               className={`t-act ${acts.liked ? 'is-liked' : ''}`}
-              title={acts.liked ? 'Unlike' : 'Like'}
+              title={acts.liked ? t('actions.unlike') : t('actions.like')}
             >
               {acts.likeLoading ? <AiOutlineLoading3Quarters size={15} className="animate-spin" /> : acts.liked ? <AiFillHeart size={15} /> : <AiOutlineHeart size={15} />}
             </button>
@@ -337,13 +339,13 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           {(isVideo || wallpaper.is_dynamic) && (
             <span className="tile-chip">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
-              Live
+              {t('chip.live')}
             </span>
           )}
           {wallpaper.is_ai_generated && (
             <span className="tile-chip is-ai">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.6 4.6L18 8.2l-4.4 1.6L12 14.4l-1.6-4.6L6 8.2l4.4-1.6L12 2zm7 10l1 2.8 2.8 1-2.8 1L19 19.6l-1-2.8-2.8-1 2.8-1L19 12zM5 14l.9 2.6L8.4 17.6l-2.5 1L5 21.2 4.1 18.6 1.6 17.6 4.1 16.6 5 14z"/></svg>
-              AI
+              {t('chip.ai')}
             </span>
           )}
           {statusChip && (
@@ -362,7 +364,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               onClick={(e) => handleAction(e, acts.handleFavorite)}
               disabled={acts.favLoading}
               className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
-              title={acts.favorited ? 'Unfavorite' : 'Favorite'}
+              title={acts.favorited ? t('actions.unfavorite') : t('actions.favorite')}
             >
               {acts.favLoading ? <AiOutlineLoading3Quarters size={16} className="animate-spin" /> : acts.favorited ? <AiFillStar size={16} /> : <AiOutlineStar size={16} />}
             </button>
@@ -370,7 +372,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               onClick={(e) => handleAction(e, acts.handleLike)}
               disabled={acts.likeLoading}
               className={`t-act ${acts.liked ? 'is-liked' : ''}`}
-              title={acts.liked ? 'Unlike' : 'Like'}
+              title={acts.liked ? t('actions.unlike') : t('actions.like')}
             >
               {acts.likeLoading ? <AiOutlineLoading3Quarters size={16} className="animate-spin" /> : acts.liked ? <AiFillHeart size={16} /> : <AiOutlineHeart size={16} />}
             </button>

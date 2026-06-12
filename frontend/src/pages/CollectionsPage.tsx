@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { AiOutlinePlus } from 'react-icons/ai';
 import { Link } from 'react-router-dom';
@@ -16,6 +17,7 @@ type Filter = 'all' | 'yours';
 const PAGE_SIZE = 12;
 
 export default function CollectionsPage() {
+  const { t } = useTranslation('collections');
   const { isAuthenticated, user } = useAuthStore();
   const [searchParams] = useSearchParams();
   // ?kind=1 limits to editor themes. Anything non-numeric falls through
@@ -107,41 +109,37 @@ export default function CollectionsPage() {
     <div ref={rootRef} className="c-list min-h-full">
       <div className="c-list-mesh" aria-hidden />
       <PageMeta
-        title={isThemes ? 'Editor Themes' : 'Collections'}
-        description={isThemes
-          ? 'Every editor-curated weekly theme collection on Wallpaper Exchange.'
-          : 'Curated wallpaper selections from the community on Wallpaper Exchange.'}
+        title={isThemes ? t('meta.titleThemes') : t('meta.title')}
+        description={isThemes ? t('meta.descriptionThemes') : t('meta.description')}
       />
 
       <main className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-10">
         <header className="c-list-head">
           <div>
             <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
-              {isThemes ? 'Editor themes' : 'The Library'}
+              {isThemes ? t('list.kickerThemes') : t('list.kicker')}
             </div>
             <h1 className="display text-[clamp(34px,4.2vw,56px)] leading-[1.02] mt-2 tracking-[-0.01em] text-ink">
               {isThemes
-                ? <>One theme, <em>every week.</em></>
-                : <>Crates, <em>curated.</em></>}
+                ? <Trans i18nKey="list.headingThemes" ns="collections" components={[<em key="0" />]} />
+                : <Trans i18nKey="list.heading" ns="collections" components={[<em key="0" />]} />}
             </h1>
             <p className="text-ink-2 mt-3 max-w-2xl text-[14px] leading-relaxed">
-              {isThemes
-                ? 'Weekly editor-picked themes. Each one bundles wallpapers around a mood, a place, or a moment.'
-                : 'Themed sets put together by the community and the editors. Each collection has its own colour, voice, and pace — like a small record.'}
+              {isThemes ? t('list.introThemes') : t('list.intro')}
             </p>
           </div>
 
           <div className="c-list-toolbar">
-            <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>All</FilterChip>
+            <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>{t('list.filterAll')}</FilterChip>
             {isAuthenticated && (
-              <FilterChip active={filter === 'yours'} onClick={() => setFilter('yours')}>Yours</FilterChip>
+              <FilterChip active={filter === 'yours'} onClick={() => setFilter('yours')}>{t('list.filterYours')}</FilterChip>
             )}
             {isAuthenticated && (
               <button
                 onClick={() => setShowCreate(true)}
                 className="c-list-new"
               >
-                <AiOutlinePlus size={13} /> New
+                <AiOutlinePlus size={13} /> {t('list.newButton')}
               </button>
             )}
           </div>
@@ -168,13 +166,9 @@ export default function CollectionsPage() {
           <ErrorState />
         ) : visible.length === 0 ? (
           <EmptyState
-            title={filter === 'yours' ? "No collections from you yet." : 'No collections yet.'}
-            message={
-              filter === 'yours'
-                ? 'Create a set when you want to group wallpapers by mood, device, or project.'
-                : 'Curated sets will appear here once the library has something to group.'
-            }
-            actionLabel={isAuthenticated ? 'New collection' : undefined}
+            title={filter === 'yours' ? t('list.emptyYoursTitle') : t('list.emptyTitle')}
+            message={filter === 'yours' ? t('list.emptyYoursMessage') : t('list.emptyMessage')}
+            actionLabel={isAuthenticated ? t('list.emptyAction') : undefined}
             onAction={isAuthenticated ? () => setShowCreate(true) : undefined}
           />
         ) : (
@@ -224,6 +218,7 @@ function CollectionTile({
   collection: Collection;
   onTintsChange?: (tints: string[] | null) => void;
 }) {
+  const { t } = useTranslation('collections');
   const accent = c.accent_color || 'var(--color-accent)';
   // Cover source priority:
   //   1. first recent_tile's preview_url (1600px wide, sharpest)
@@ -270,17 +265,19 @@ function CollectionTile({
             }}
           />
         ) : (
-          <div className="c-tile-empty">No cover yet</div>
+          <div className="c-tile-empty">{t('tile.noCover')}</div>
         )}
       </div>
       <div className="c-tile-caption">
         <div className="c-tile-kicker">
-          {c.kind === 1 ? 'Editor Theme' : 'Collection'}
-          {!c.is_public && ' · Private'}
+          {c.kind === 1 ? t('tile.kickerTheme') : t('tile.kickerCollection')}
+          {!c.is_public && ` · ${t('tile.private')}`}
         </div>
         <div className="c-tile-title">{c.title}</div>
         <div className="c-tile-meta">
-          {c.wallpaper_count} {c.wallpaper_count === 1 ? 'wallpaper' : 'wallpapers'}
+          {c.wallpaper_count === 1
+            ? t('tile.wallpaperCountOne')
+            : t('tile.wallpaperCount', { num: c.wallpaper_count })}
         </div>
       </div>
     </Link>
@@ -303,19 +300,20 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
 }
 
 function NewCollectionModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const { t } = useTranslation('collections');
   const [title, setTitle] = useState('');
   const [creating, setCreating] = useState(false);
 
   const submit = async () => {
-    const t = title.trim();
-    if (!t || creating) return;
+    const trimmed = title.trim();
+    if (!trimmed || creating) return;
     setCreating(true);
     try {
-      await createCollection({ title: t });
-      toast.success('Collection created');
+      await createCollection({ title: trimmed });
+      toast.success(t('create.success'));
       onCreated();
     } catch {
-      toast.error('Failed to create collection');
+      toast.error(t('create.error'));
     } finally {
       setCreating(false);
     }
@@ -332,13 +330,13 @@ function NewCollectionModal({ onClose, onCreated }: { onClose: () => void; onCre
         className="bg-paper border border-ink w-full max-w-[360px] p-5 rounded-xl"
         style={{ boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
       >
-        <div className="mono text-[10px] tracking-[0.16em] uppercase text-muted mb-3">New collection</div>
+        <div className="mono text-[10px] tracking-[0.16em] uppercase text-muted mb-3">{t('create.kicker')}</div>
         <input
           autoFocus
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onClose(); }}
-          placeholder="Name your collection"
+          placeholder={t('create.placeholder')}
           maxLength={100}
           className="w-full px-3.5 py-3 bg-paper text-[14px] text-ink placeholder:text-muted outline-none rounded-lg"
           style={{ border: '1px solid var(--color-hair)' }}
@@ -347,12 +345,12 @@ function NewCollectionModal({ onClose, onCreated }: { onClose: () => void; onCre
           <button
             onClick={onClose}
             className="px-3.5 py-1.5 rounded-full border border-hair text-ink-2 text-[12px] font-medium hover:bg-paper-2 transition-colors"
-          >Cancel</button>
+          >{t('create.cancel')}</button>
           <button
             onClick={submit}
             disabled={!title.trim() || creating}
             className="px-3.5 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium disabled:opacity-50 transition-colors"
-          >{creating ? 'Creating…' : 'Create'}</button>
+          >{creating ? t('create.creating') : t('create.create')}</button>
         </div>
       </div>
     </div>

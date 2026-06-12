@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { CSSProperties } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import {
   AiOutlineHeart,
   AiFillHeart,
@@ -79,15 +81,15 @@ function formatJoined(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
 }
 
-function relativeTime(iso: string): string {
+function relativeTime(iso: string, t: TFunction): string {
   const ms = Date.now() - new Date(iso).getTime();
-  if (ms < 60_000) return 'Just now';
-  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)} min ago`;
-  if (ms < 86_400_000) return `Today, ${new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+  if (ms < 60_000) return t('time.justNow');
+  if (ms < 3_600_000) return t('time.minAgo', { num: Math.floor(ms / 60_000) });
+  if (ms < 86_400_000) return t('time.todayAt', { time: new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) });
   const days = Math.floor(ms / 86_400_000);
-  if (days < 30) return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+  if (days < 30) return days === 1 ? t('time.dayAgo') : t('time.daysAgo', { num: days });
   const months = Math.floor(days / 30);
-  return `${months} ${months === 1 ? 'month' : 'months'} ago`;
+  return months === 1 ? t('time.monthAgo') : t('time.monthsAgo', { num: months });
 }
 
 function dayLabel(iso: string): string {
@@ -95,17 +97,19 @@ function dayLabel(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
 }
 
-// Friendly ledger label per transaction type. Falls back to the raw type
-// when it's not in the table so new types still render without code change.
-const LEDGER_LABELS: Record<string, string> = {
-  register_bonus:   'Signup bonus',
-  upload_reward:    'Uploaded a wallpaper',
-  download_cost:    'Downloaded a wallpaper',
-  download_earned:  'Someone downloaded yours',
-  admin_grant:      'System gift',
+// Friendly ledger label per transaction type — i18n key lookup. Falls back
+// to the raw type when it's not in the table so new types still render
+// without code change.
+const LEDGER_LABEL_KEYS: Record<string, string> = {
+  register_bonus:   'ledger.types.registerBonus',
+  upload_reward:    'ledger.types.uploadReward',
+  download_cost:    'ledger.types.downloadCost',
+  download_earned:  'ledger.types.downloadEarned',
+  admin_grant:      'ledger.types.adminGrant',
 };
 
 export default function ProfilePage() {
+  const { t } = useTranslation('profile');
   const { username, tab: tabParam } = useParams<{ username: string; tab?: string }>();
   const navigate = useNavigate();
   const { user: currentUser, updateCoins, updateUser } = useAuthStore();
@@ -267,11 +271,11 @@ export default function ProfilePage() {
         };
       });
     } catch {
-      toast.error('Failed to load');
+      toast.error(t('errors.loadFailed'));
       setListFor(target, (p) => ({ ...p, loading: false, loaded: true }));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, currentUser?.id, gridPageSize]);
+  }, [user, currentUser?.id, gridPageSize, t]);
 
   // Collections grid uses its own page-size + cursor table. The
   // grid is 4 cols at lg (one fewer than the wallpaper grid) so
@@ -313,11 +317,11 @@ export default function ProfilePage() {
       }
       setCollectionsMaxReached((prev) => Math.max(prev, collectionsCursorsRef.current.length));
     } catch {
-      toast.error('Failed to load collections');
+      toast.error(t('errors.loadCollectionsFailed'));
     } finally {
       setCollectionsLoaded(true);
     }
-  }, [user, collectionsPageSize]);
+  }, [user, collectionsPageSize, t]);
 
   const fetchLedger = useCallback(async (page: number) => {
     setTxLoading(true);
@@ -335,11 +339,11 @@ export default function ProfilePage() {
       });
       setTxLoaded(true);
     } catch {
-      toast.error('Failed to load ledger');
+      toast.error(t('errors.loadLedgerFailed'));
     } finally {
       setTxLoading(false);
     }
-  }, [txCursors]);
+  }, [txCursors, t]);
 
   // ─── Initial load ───
   useEffect(() => {
@@ -398,7 +402,7 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { toast.error('图片需小于 10MB'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error(t('avatar.tooLarge')); return; }
     setCropFile(file);
   };
   const uploadCroppedAvatar = async (blob: Blob) => {
@@ -410,8 +414,8 @@ export default function ProfilePage() {
       setUser((prev) => prev ? { ...prev, avatar_url: url } : prev);
       updateUser({ avatar_url: url });
       setCropFile(null);
-      toast.success('Avatar updated');
-    } catch { toast.error('Avatar upload failed'); }
+      toast.success(t('avatar.updated'));
+    } catch { toast.error(t('avatar.uploadFailed')); }
   };
   const startEdit = () => {
     setEditNickname(user?.nickname || '');
@@ -420,10 +424,10 @@ export default function ProfilePage() {
   };
   const saveProfile = async () => {
     const nickname = editNickname.trim();
-    if (!nickname) { toast.error('Nickname is required'); return; }
-    if (nickname.length > 64) { toast.error('Nickname too long (max 64)'); return; }
+    if (!nickname) { toast.error(t('edit.nicknameRequired')); return; }
+    if (nickname.length > 64) { toast.error(t('edit.nicknameTooLong')); return; }
     const bio = editBio.trim();
-    if (bio.length > 500) { toast.error('Bio too long (max 500)'); return; }
+    if (bio.length > 500) { toast.error(t('edit.bioTooLong')); return; }
     if (nickname === (user?.nickname || '') && bio === (user?.bio || '')) {
       setEditingProfile(false); return;
     }
@@ -434,20 +438,20 @@ export default function ProfilePage() {
       setUser((prev) => prev ? { ...prev, nickname: updated.nickname, bio: updated.bio } : prev);
       updateUser({ nickname: updated.nickname });
       setEditingProfile(false);
-      toast.success('Profile updated');
-    } catch { toast.error('Failed to save profile'); } finally { setSavingProfile(false); }
+      toast.success(t('edit.updated'));
+    } catch { toast.error(t('edit.saveFailed')); } finally { setSavingProfile(false); }
   };
   const handleChangePassword = async () => {
-    if (newPw.length < 8) { toast.error('Password must be at least 8 characters'); return; }
+    if (newPw.length < 8) { toast.error(t('password.tooShort')); return; }
     setSavingPw(true);
     try {
       await changePassword({ old_password: oldPw, new_password: newPw });
-      toast.success('Password changed');
+      toast.success(t('password.changed'));
       setShowPasswordModal(false); setOldPw(''); setNewPw('');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       const msg = e?.response?.data?.message;
-      toast.error(msg === 'wrong password' ? 'Current password is incorrect' : 'Failed to change password');
+      toast.error(msg === 'wrong password' ? t('password.wrongCurrent') : t('password.changeFailed'));
     } finally { setSavingPw(false); }
   };
 
@@ -460,8 +464,10 @@ export default function ProfilePage() {
       const res = await updatePrivacy({ [key]: next });
       setUser(res.data.data);
       updateUser({ [key]: next });
-      toast.success(next ? `Your ${list} list is now public.` : `Your ${list} list is now private.`);
-    } catch { toast.error('Failed to update privacy'); }
+      toast.success(next
+        ? t('privacy.nowPublic', { list: t(`listsLower.${list}`) })
+        : t('privacy.nowPrivate', { list: t(`listsLower.${list}`) }));
+    } catch { toast.error(t('errors.privacyFailed')); }
   };
 
   if (loading) {
@@ -500,7 +506,7 @@ export default function ProfilePage() {
     );
   }
   if (!user && error) return <ErrorState />;
-  if (!user) return <EmptyState message="User not found." />;
+  if (!user) return <EmptyState message={t('notFound')} />;
 
   const display = user.nickname || user.username;
   const balance = isOwner ? (currentUser?.coins ?? 0) : (user.coins ?? 0);
@@ -516,12 +522,12 @@ export default function ProfilePage() {
   };
 
   const allTabs: { key: TabKey; label: string; ownerOnly?: boolean }[] = [
-    { key: 'uploads',     label: 'Uploads' },
-    { key: 'collections', label: 'Collections' },
-    { key: 'favorites',   label: 'Favorites' },
-    { key: 'likes',       label: 'Likes' },
-    { key: 'downloads',   label: 'Downloads',   ownerOnly: true },
-    { key: 'ledger',      label: 'Coin ledger', ownerOnly: true },
+    { key: 'uploads',     label: t('tabs.uploads') },
+    { key: 'collections', label: t('tabs.collections') },
+    { key: 'favorites',   label: t('tabs.favorites') },
+    { key: 'likes',       label: t('tabs.likes') },
+    { key: 'downloads',   label: t('tabs.downloads'), ownerOnly: true },
+    { key: 'ledger',      label: t('tabs.ledger'),    ownerOnly: true },
   ];
   const tabs = isOwner ? allTabs : allTabs.filter((t) => !t.ownerOnly);
 
@@ -529,8 +535,8 @@ export default function ProfilePage() {
     <div className="profile-page min-h-full">
       <div className="profile-mesh" aria-hidden />
       <PageMeta
-        title={`${display}'s profile`}
-        description={`Wallpapers, collections, and uploads from ${display} on Wallpaper Exchange.`}
+        title={t('meta.pageTitle', { name: display })}
+        description={t('meta.pageDesc', { name: display })}
         image={user.avatar_url}
         type="profile"
       />
@@ -647,15 +653,15 @@ export default function ProfilePage() {
             className="bg-paper border border-ink w-full max-w-[360px] p-5"
             style={{ boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
           >
-            <div className="kicker text-muted mb-3">Change password</div>
+            <div className="kicker text-muted mb-3">{t('password.kicker')}</div>
             <input
-              type="password" placeholder="Current password"
+              type="password" placeholder={t('password.currentPlaceholder')}
               value={oldPw} onChange={(e) => setOldPw(e.target.value)}
               className="w-full px-3.5 py-3 bg-paper text-[14px] mb-2"
               style={{ border: '1px solid var(--color-hair)' }}
             />
             <input
-              type="password" placeholder="New password (min 8 chars)"
+              type="password" placeholder={t('password.newPlaceholder')}
               value={newPw} onChange={(e) => setNewPw(e.target.value)}
               className="w-full px-3.5 py-3 bg-paper text-[14px]"
               style={{ border: '1px solid var(--color-hair)' }}
@@ -664,12 +670,12 @@ export default function ProfilePage() {
               <button
                 onClick={() => setShowPasswordModal(false)}
                 className="px-3.5 py-1.5 rounded-full border border-hair text-ink-2 text-[12px] font-medium hover:bg-paper-2"
-              >Cancel</button>
+              >{t('password.cancel')}</button>
               <button
                 onClick={handleChangePassword}
                 disabled={savingPw}
                 className="px-3.5 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium disabled:opacity-50"
-              >{savingPw ? 'Saving…' : 'Confirm'}</button>
+              >{savingPw ? t('password.saving') : t('password.confirm')}</button>
             </div>
           </div>
         </div>
@@ -701,6 +707,7 @@ interface ProfileHeaderProps {
 }
 
 function ProfileHeader(p: ProfileHeaderProps) {
+  const { t } = useTranslation('profile');
   const display = p.user.nickname || p.user.username;
   const initial = display.charAt(0).toUpperCase();
 
@@ -717,7 +724,7 @@ function ProfileHeader(p: ProfileHeaderProps) {
           <>
             <button
               onClick={p.onAvatarPick}
-              title="Change avatar"
+              title={t('avatar.change')}
               className="profile-hero-avatar-edit"
             >
               <AiOutlineCamera size={14} />
@@ -736,7 +743,7 @@ function ProfileHeader(p: ProfileHeaderProps) {
       {/* Identity column */}
       <div className="profile-hero-id">
         <div className="kicker text-muted">
-          Contributor · Member since {formatJoined(p.user.created_at)}
+          {t('hero.kicker', { date: formatJoined(p.user.created_at) })}
         </div>
 
         {p.editing ? (
@@ -746,7 +753,7 @@ function ProfileHeader(p: ProfileHeaderProps) {
               value={p.editNickname}
               onChange={(e) => p.onEditNicknameChange(e.target.value)}
               maxLength={64}
-              placeholder="Nickname"
+              placeholder={t('edit.nicknamePlaceholder')}
               className="profile-hero-edit-name display"
             />
             <textarea
@@ -754,20 +761,20 @@ function ProfileHeader(p: ProfileHeaderProps) {
               onChange={(e) => p.onEditBioChange(e.target.value)}
               maxLength={500}
               rows={3}
-              placeholder="Signature, motto, anything you want here"
+              placeholder={t('edit.bioPlaceholder')}
               className="profile-hero-edit-bio"
             />
             <div className="flex gap-2 items-center flex-wrap">
               <button onClick={p.onSaveProfile} disabled={p.savingProfile || !p.editNickname.trim()}
                 className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium disabled:opacity-50 hover:bg-ink-2 transition-colors">
-                <AiOutlineCheck size={13} /> {p.savingProfile ? 'Saving…' : 'Save'}
+                <AiOutlineCheck size={13} /> {p.savingProfile ? t('edit.saving') : t('edit.save')}
               </button>
               <button onClick={p.onCancelEdit}
                 className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-hair text-ink-2 text-[12px] font-medium hover:bg-paper-2 transition-colors">
-                <AiOutlineClose size={13} /> Cancel
+                <AiOutlineClose size={13} /> {t('edit.cancel')}
               </button>
               <span className="text-[11px] text-muted">
-                Username @{p.user.username} can't be changed
+                {t('edit.usernameImmutable', { username: p.user.username })}
               </span>
             </div>
           </div>
@@ -797,14 +804,14 @@ function ProfileHeader(p: ProfileHeaderProps) {
         {p.isOwner && !p.editing && (
           <Link
             to={`/user/${p.user.username}/ledger`}
-            title="Coin ledger"
+            title={t('hero.coinLedger')}
             className="profile-hero-balance no-underline"
           >
-            <div className="profile-hero-balance-kicker">Balance</div>
+            <div className="profile-hero-balance-kicker">{t('hero.balance')}</div>
             <div className="profile-hero-balance-row">
               <span className="profile-hero-balance-coin" aria-hidden />
               <span className="profile-hero-balance-num">{p.balance}</span>
-              <span className="profile-hero-balance-unit">COINS</span>
+              <span className="profile-hero-balance-unit">{t('hero.coins')}</span>
             </div>
           </Link>
         )}
@@ -814,19 +821,19 @@ function ProfileHeader(p: ProfileHeaderProps) {
               onClick={p.onStartEdit}
               className="profile-hero-pill"
             >
-              <AiOutlineEdit size={13} /> Edit profile
+              <AiOutlineEdit size={13} /> {t('hero.editProfile')}
             </button>
             <button
               onClick={p.onChangePassword}
               className="profile-hero-pill"
             >
-              Password
+              {t('hero.password')}
             </button>
             <Link
               to="/upload"
               className="profile-hero-pill is-primary no-underline"
             >
-              <AiOutlinePlus size={13} /> Upload
+              <AiOutlinePlus size={13} /> {t('hero.upload')}
             </Link>
           </div>
         )}
@@ -880,6 +887,7 @@ interface UploadsPanelProps {
   onInProgressPage: (p: number) => void;
 }
 function UploadsPanel({ isOwner, inProgress, pub, pageSize, onPubPage, onInProgressPage }: UploadsPanelProps) {
+  const { t } = useTranslation('profile');
   const showInProgress = isOwner && inProgress.loaded && inProgress.items.length > 0;
   const inTotal = inProgress.total;
   const pubTotal = pub.total;
@@ -888,10 +896,9 @@ function UploadsPanel({ isOwner, inProgress, pub, pageSize, onPubPage, onInProgr
     <div>
       {showInProgress && (
         <section className="mb-8">
-          <div className="label-rule mb-3">Pending · {inTotal}</div>
+          <div className="label-rule mb-3">{t('uploads.pending', { num: inTotal })}</div>
           <p className="text-[12px] text-muted mb-4">
-            Wallpapers still being processed or waiting on admin review. Each tile
-            shows its exact stage; they enter the public archive once approved.
+            {t('uploads.pendingDesc')}
           </p>
           <Grid items={inProgress.items} showProcessing />
           <Pagination
@@ -905,14 +912,14 @@ function UploadsPanel({ isOwner, inProgress, pub, pageSize, onPubPage, onInProgr
 
       <section>
         <div className="label-rule mb-3">
-          Published · {pub.items.length === 0 && !pub.loaded ? '…' : `${pub.items.length} of ${pubTotal}`}
+          {t('uploads.published')} · {pub.items.length === 0 && !pub.loaded ? '…' : t('uploads.countOf', { shown: pub.items.length, total: pubTotal })}
         </div>
       {!pub.loaded ? (
         <ProfileWallpapersSkeleton />
       ) : pub.items.length === 0 ? (
         <EmptyState
-          title="No published wallpapers yet."
-          message="Approved uploads will appear here once they are live in the archive."
+          title={t('uploads.emptyTitle')}
+          message={t('uploads.emptyMessage')}
         />
       ) : (
           <>
@@ -942,18 +949,19 @@ interface CollectionsPanelProps {
   onPage: (p: number) => void;
 }
 function CollectionsPanel({ isOwner, collections, loaded, page, total, pageSize, maxReachable, onPage }: CollectionsPanelProps) {
+  const { t } = useTranslation('profile');
   return (
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div className="label-rule flex-1">
-          Created · {loaded ? total : '…'}
+          {t('collections.created')} · {loaded ? total : '…'}
         </div>
         {isOwner && (
           <Link
             to="/collections"
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium no-underline hover:bg-ink-2"
           >
-            <AiOutlinePlus size={13} /> New collection
+            <AiOutlinePlus size={13} /> {t('collections.new')}
           </Link>
         )}
       </div>
@@ -961,9 +969,9 @@ function CollectionsPanel({ isOwner, collections, loaded, page, total, pageSize,
         <ProfileCollectionsSkeleton count={pageSize} />
       ) : collections.length === 0 ? (
         <EmptyState
-          title="No collections yet."
-          message="Collections will appear here when this user starts grouping wallpapers into sets."
-          actionLabel={isOwner ? 'New collection' : undefined}
+          title={t('collections.emptyTitle')}
+          message={t('collections.emptyMessage')}
+          actionLabel={isOwner ? t('collections.new') : undefined}
           actionHref={isOwner ? '/collections' : undefined}
         />
       ) : (
@@ -991,6 +999,7 @@ function CollectionsPanel({ isOwner, collections, loaded, page, total, pageSize,
    recent_tiles[0].preview_url → recent_tiles[0].thumb_url →
    empty card. */
 function ProfileCollectionTile({ c }: { c: Collection }) {
+  const { t } = useTranslation('profile');
   const accent = c.accent_color || 'var(--color-accent)';
   const firstTile = c.recent_tiles?.[0];
   const preferred = firstTile?.preview_url || c.cover_url || firstTile?.thumb_url || '';
@@ -1014,17 +1023,19 @@ function ProfileCollectionTile({ c }: { c: Collection }) {
             }}
           />
         ) : (
-          <div className="c-tile-empty">No cover yet</div>
+          <div className="c-tile-empty">{t('collections.noCover')}</div>
         )}
       </div>
       <div className="c-tile-caption">
         <div className="c-tile-kicker">
-          {c.kind === 1 ? 'Editor Theme' : 'Collection'}
-          {!c.is_public && ' · Private'}
+          {c.kind === 1 ? t('collections.editorTheme') : t('collections.collection')}
+          {!c.is_public && ` · ${t('collections.private')}`}
         </div>
         <div className="c-tile-title">{c.title}</div>
         <div className="c-tile-meta">
-          {c.wallpaper_count} {c.wallpaper_count === 1 ? 'wallpaper' : 'wallpapers'}
+          {c.wallpaper_count === 1
+            ? t('collections.wallpaperOne', { num: c.wallpaper_count })
+            : t('collections.wallpaperMany', { num: c.wallpaper_count })}
         </div>
       </div>
     </Link>
@@ -1072,7 +1083,8 @@ interface ListPanelProps {
   onTogglePrivacy: () => void;
 }
 function ListPanel({ listKey, state, isOwner, isPublic, pageSize, onPage, onTogglePrivacy }: ListPanelProps) {
-  const heading = useMemo(() => `${listKey.charAt(0).toUpperCase() + listKey.slice(1)} · ${state.total}`, [listKey, state.total]);
+  const { t } = useTranslation('profile');
+  const heading = useMemo(() => `${t(`lists.${listKey}`)} · ${state.total}`, [listKey, state.total, t]);
 
   if (state.hidden) {
     return (
@@ -1081,9 +1093,9 @@ function ListPanel({ listKey, state, isOwner, isPublic, pageSize, onPage, onTogg
         style={{ background: 'var(--color-paper-2)', border: '1px dashed var(--color-hair)' }}
       >
         <AiOutlineLock size={28} className="mx-auto text-ink-2 mb-3" />
-        <div className="display text-[24px] leading-tight">Hidden from view</div>
+        <div className="display text-[24px] leading-tight">{t('lists.hiddenTitle')}</div>
         <p className="text-[13px] text-muted mt-2 max-w-[420px] mx-auto">
-          The owner has set their {listKey} list to private.
+          {t('lists.hiddenMessage', { list: t(`listsLower.${listKey}`) })}
         </p>
       </div>
     );
@@ -1092,7 +1104,7 @@ function ListPanel({ listKey, state, isOwner, isPublic, pageSize, onPage, onTogg
   return (
     <div>
       {isOwner && (
-        <PrivacyNotice listName={`${listKey} list`} isPublic={isPublic} onToggle={onTogglePrivacy} />
+        <PrivacyNotice listKey={listKey} isPublic={isPublic} onToggle={onTogglePrivacy} />
       )}
 
       <div className="label-rule mt-5 mb-3">{heading}</div>
@@ -1100,7 +1112,7 @@ function ListPanel({ listKey, state, isOwner, isPublic, pageSize, onPage, onTogg
       {!state.loaded ? (
         <ProfileWallpapersSkeleton />
       ) : state.items.length === 0 ? (
-        <div className="text-center py-20 text-muted text-sm">Nothing here yet.</div>
+        <div className="text-center py-20 text-muted text-sm">{t('lists.empty')}</div>
       ) : (
         <>
           <Grid items={state.items} />
@@ -1116,23 +1128,25 @@ function ListPanel({ listKey, state, isOwner, isPublic, pageSize, onPage, onTogg
   );
 }
 
-function PrivacyNotice({ listName, isPublic, onToggle }: { listName: string; isPublic: boolean; onToggle: () => void }) {
+function PrivacyNotice({ listKey, isPublic, onToggle }: { listKey: ListKey; isPublic: boolean; onToggle: () => void }) {
+  const { t } = useTranslation('profile');
+  const list = t(`listsLower.${listKey}`);
   return (
     <div className="priv-notice">
       <div className="priv-icon"><AiOutlineLock size={16} /></div>
       <div>
-        <div className="priv-title">Your {listName} is {isPublic ? 'public' : 'private'}</div>
+        <div className="priv-title">{isPublic ? t('privacy.titlePublic', { list }) : t('privacy.titlePrivate', { list })}</div>
         <div className="priv-sub">
           {isPublic
-            ? 'Anyone visiting your profile can see this list.'
-            : 'Only you can see this list. Make it public to share what you collect.'}
+            ? t('privacy.subPublic')
+            : t('privacy.subPrivate')}
         </div>
       </div>
       <button
         onClick={onToggle}
         className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-paper border border-ink text-ink text-[12px] font-medium hover:bg-paper-2 transition-colors whitespace-nowrap"
       >
-        {isPublic ? 'Make private' : 'Make public'}
+        {isPublic ? t('privacy.makePrivate') : t('privacy.makePublic')}
       </button>
     </div>
   );
@@ -1166,6 +1180,7 @@ const LEDGER_GLYPH: Record<string, string> = {
 };
 
 function LedgerPanel({ txs, page, total, loading, balance, maxReachable, onPage }: LedgerPanelProps) {
+  const { t } = useTranslation('profile');
   // Aggregate stats over the visible transactions.
   const earned = txs.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
   const spent = txs.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
@@ -1192,38 +1207,38 @@ function LedgerPanel({ txs, page, total, loading, balance, maxReachable, onPage 
           rest are paper-faced stats. */}
       <div className="ledger-summary">
         <div className="ledger-stat is-balance">
-          <div className="ledger-stat-kicker">Balance</div>
+          <div className="ledger-stat-kicker">{t('ledger.balance')}</div>
           <div className="ledger-stat-row">
             <span className="ledger-stat-coin" aria-hidden />
             <span className="ledger-stat-num">{balance}</span>
           </div>
-          <div className="ledger-stat-sub">Lifetime balance</div>
+          <div className="ledger-stat-sub">{t('ledger.lifetime')}</div>
         </div>
         <div className="ledger-stat">
-          <div className="ledger-stat-kicker">Earned</div>
+          <div className="ledger-stat-kicker">{t('ledger.earned')}</div>
           <div className="ledger-stat-num is-earn">+{earned}</div>
-          <div className="ledger-stat-sub">This page</div>
+          <div className="ledger-stat-sub">{t('ledger.thisPage')}</div>
         </div>
         <div className="ledger-stat">
-          <div className="ledger-stat-kicker">Spent</div>
+          <div className="ledger-stat-kicker">{t('ledger.spent')}</div>
           <div className="ledger-stat-num is-spend">−{spent}</div>
-          <div className="ledger-stat-sub">This page</div>
+          <div className="ledger-stat-sub">{t('ledger.thisPage')}</div>
         </div>
         <div className="ledger-stat">
-          <div className="ledger-stat-kicker">Next earn</div>
+          <div className="ledger-stat-kicker">{t('ledger.nextEarn')}</div>
           <div className="ledger-stat-num">+1</div>
-          <div className="ledger-stat-sub">Per upload</div>
+          <div className="ledger-stat-sub">{t('ledger.perUpload')}</div>
         </div>
       </div>
 
-      <div className="label-rule mt-9 mb-4">Recent entries</div>
+      <div className="label-rule mt-9 mb-4">{t('ledger.recent')}</div>
 
       {loading && txs.length === 0 ? (
         <LedgerSkeleton />
       ) : txs.length === 0 ? (
         <EmptyState
-          title="No transactions yet."
-          message="Coin activity will show here after uploads, trades, and system grants."
+          title={t('ledger.emptyTitle')}
+          message={t('ledger.emptyMessage')}
         />
       ) : (
         <>
@@ -1233,7 +1248,8 @@ function LedgerPanel({ txs, page, total, loading, balance, maxReachable, onPage 
                 <div className="ledger-day-label">{g.day}</div>
                 <div className="ledger-day-rows">
                   {g.rows.map((tx) => {
-                    const label = LEDGER_LABELS[tx.tx_type] || tx.description || tx.tx_type;
+                    const labelKey = LEDGER_LABEL_KEYS[tx.tx_type];
+                    const label = labelKey ? t(labelKey) : (tx.description || tx.tx_type);
                     const glyph = LEDGER_GLYPH[tx.tx_type] || '·';
                     const isEarn = tx.amount > 0;
                     return (
@@ -1255,7 +1271,7 @@ function LedgerPanel({ txs, page, total, loading, balance, maxReachable, onPage 
                           {isEarn ? '+' : ''}{tx.amount}
                         </span>
                         <span className="ledger-row-time">
-                          {relativeTime(tx.created_at)}
+                          {relativeTime(tx.created_at, t)}
                         </span>
                       </div>
                     );
@@ -1305,6 +1321,7 @@ function ProfileWallpaperTile({
   index: number;
   showProcessing: boolean;
 }) {
+  const { t } = useTranslation('profile');
   const location = useLocation();
   const acts = useWallpaperActions(w);
   const isVideo = (w.file_type || '').startsWith('video/');
@@ -1331,7 +1348,7 @@ function ProfileWallpaperTile({
       <div className="dev-spec-card-screen" style={{ aspectRatio: '3 / 2' }}>
         <img
           src={w.preview_url || w.thumb_url}
-          alt={w.title || `Wallpaper ${w.id}`}
+          alt={w.title || t('tile.altFallback', { id: w.id })}
           loading="lazy"
           className="dev-spec-card-img"
           style={{ backgroundColor: w.dominant_color || undefined }}
@@ -1342,7 +1359,7 @@ function ProfileWallpaperTile({
             {(isVideo || w.is_dynamic) && (
               <span className="tile-chip">
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
-                Live
+                {t('tile.live')}
               </span>
             )}
             {w.is_ai_generated && (
@@ -1363,7 +1380,7 @@ function ProfileWallpaperTile({
               onClick={(e) => stop(e, acts.handleFavorite)}
               disabled={acts.favLoading}
               className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
-              title={acts.favorited ? 'Unfavorite' : 'Favorite'}
+              title={acts.favorited ? t('tile.unfavorite') : t('tile.favorite')}
             >
               {acts.favLoading
                 ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
@@ -1376,7 +1393,7 @@ function ProfileWallpaperTile({
               onClick={(e) => stop(e, acts.handleLike)}
               disabled={acts.likeLoading}
               className={`t-act ${acts.liked ? 'is-liked' : ''}`}
-              title={acts.liked ? 'Unlike' : 'Like'}
+              title={acts.liked ? t('tile.unlike') : t('tile.like')}
             >
               {acts.likeLoading
                 ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
@@ -1406,21 +1423,21 @@ function ProfileWallpaperTile({
             opt-in via showProcessing for the In Progress panel. */}
         {showProcessing && w.status === 0 && (
           <div className="proc-overlay pointer-events-none">
-            <div className="proc-label">Processing</div>
-            <div className="proc-sub">Generating device variants</div>
+            <div className="proc-label">{t('tile.processing')}</div>
+            <div className="proc-sub">{t('tile.processingSub')}</div>
           </div>
         )}
         {showProcessing && w.status === 5 && (
           <div className="proc-overlay pointer-events-none">
-            <div className="proc-label">Pending admin review</div>
-            <div className="proc-sub">Usually within a few hours</div>
+            <div className="proc-label">{t('tile.pendingReview')}</div>
+            <div className="proc-sub">{t('tile.pendingReviewSub')}</div>
           </div>
         )}
         {showProcessing && w.status === 6 && (
           <div className="proc-overlay pointer-events-none" style={{ background: 'rgba(176,49,31,0.86)' }}>
-            <div className="proc-label">Rejected</div>
+            <div className="proc-label">{t('tile.rejected')}</div>
             <div className="proc-sub">
-              {w.rejection_reason ? w.rejection_reason : 'No reason provided.'}
+              {w.rejection_reason ? w.rejection_reason : t('tile.noReason')}
             </div>
           </div>
         )}

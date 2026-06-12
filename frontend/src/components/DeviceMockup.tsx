@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { AiOutlineWifi, AiOutlineClose } from 'react-icons/ai';
 import {
   MdBatteryFull,
@@ -59,6 +60,7 @@ function StatusBar({ width, height }: { width: number; height: number }) {
 }
 
 function LockOverlay({ width, height }: { width: number; height: number }) {
+  const { t } = useTranslation('devices');
   const { time, weekday, date } = getNow();
   return (
     <>
@@ -72,7 +74,7 @@ function LockOverlay({ width, height }: { width: number; height: number }) {
         </div>
         <div className="mt-auto flex items-center justify-center gap-1 opacity-50" style={{ marginBottom: height * 0.06, fontSize: width * 0.028 }}>
           <MdLockOutline style={{ width: width * 0.025, height: width * 0.025 }} />
-          <span>Swipe up to unlock</span>
+          <span>{t('mockup.swipeToUnlock')}</span>
         </div>
       </div>
       <div className="absolute left-1/2 -translate-x-1/2 z-10 bg-white/60 rounded-full"
@@ -180,13 +182,14 @@ function AODOverlay({ width, height }: { width: number; height: number }) {
 }
 
 function DesktopOverlay({ width, height }: { width: number; height: number }) {
+  const { t } = useTranslation('devices');
   const iconSz = Math.min(width * 0.04, 48);
   const labelFs = Math.max(iconSz * 0.28, 8);
 
   const desktopIcons = [
-    { label: 'Documents', color: '#3b82f6' },
-    { label: 'Photos', color: '#10b981' },
-    { label: 'Music', color: '#f59e0b' },
+    { label: t('mockup.documents'), color: '#3b82f6' },
+    { label: t('mockup.photos'), color: '#10b981' },
+    { label: t('mockup.music'), color: '#f59e0b' },
   ];
 
   const dockH = height * 0.055;
@@ -239,6 +242,7 @@ function DesktopOverlay({ width, height }: { width: number; height: number }) {
 const BEZEL = 12;
 
 export function PhoneFrame({ imageUrl, width, height, scene }: { imageUrl: string; width: number; height: number; scene: MobileScene }) {
+  const { t } = useTranslation('devices');
   const outerW = width + BEZEL * 2;
   const outerR = outerW * 0.1;
   const innerR = outerR - BEZEL;
@@ -250,19 +254,19 @@ export function PhoneFrame({ imageUrl, width, height, scene }: { imageUrl: strin
       {/* Side buttons */}
       <div className="absolute bg-gradient-to-r from-gray-600 to-gray-500 rounded-r-sm"
         style={{ left: -sideKeyW, top: outerW * 0.28, width: sideKeyW, height: outerW * 0.06 }}
-        title="Silent switch"
+        title={t('mockup.silentSwitch')}
       />
       <div className="absolute bg-gradient-to-r from-gray-600 to-gray-500 rounded-r-sm"
         style={{ left: -sideKeyW, top: outerW * 0.4, width: sideKeyW, height: outerW * 0.1 }}
-        title="Volume up"
+        title={t('mockup.volumeUp')}
       />
       <div className="absolute bg-gradient-to-r from-gray-600 to-gray-500 rounded-r-sm"
         style={{ left: -sideKeyW, top: outerW * 0.54, width: sideKeyW, height: outerW * 0.1 }}
-        title="Volume down"
+        title={t('mockup.volumeDown')}
       />
       <div className="absolute bg-gradient-to-l from-gray-600 to-gray-500 rounded-l-sm"
         style={{ right: -sideKeyW, top: outerW * 0.45, width: sideKeyW, height: outerW * 0.14 }}
-        title="Power"
+        title={t('mockup.power')}
       />
 
       {/* Frame */}
@@ -419,16 +423,18 @@ export function DesktopFrame({ imageUrl, width, height, scene }: { imageUrl: str
 // Three-button parity with the detail-page action bar (Plain / Home /
 // Lock). The AOD scene was dropped — it's a niche always-on-display
 // view and was diluting the choices for the more common preview modes.
+// `label` holds an i18n key in the `devices` namespace, resolved at
+// render time inside SceneSwitcher.
 const mobileScenes: { key: MobileScene; label: string; icon: typeof MdLockOutline }[] = [
-  { key: 'clean', label: 'Plain', icon: MdWallpaper },
-  { key: 'home',  label: 'Home',  icon: MdHome },
-  { key: 'lock',  label: 'Lock',  icon: MdLockOutline },
+  { key: 'clean', label: 'wall.plain', icon: MdWallpaper },
+  { key: 'home',  label: 'wall.home',  icon: MdHome },
+  { key: 'lock',  label: 'wall.lock',  icon: MdLockOutline },
 ];
 
 const desktopScenes: { key: DesktopScene; label: string; icon: typeof MdLockOutline }[] = [
-  { key: 'clean',   label: 'Plain', icon: MdWallpaper },
-  { key: 'desktop', label: 'Home',  icon: MdHome },
-  { key: 'lock',    label: 'Lock',  icon: MdLockOutline },
+  { key: 'clean',   label: 'wall.plain', icon: MdWallpaper },
+  { key: 'desktop', label: 'wall.home',  icon: MdHome },
+  { key: 'lock',    label: 'wall.lock',  icon: MdLockOutline },
 ];
 
 // Button-row at the bottom of the mockup modal. Sized for fingertips on mobile —
@@ -443,6 +449,7 @@ function SceneSwitcher<T extends string>({
   active: T;
   onChange: (k: T) => void;
 }) {
+  const { t } = useTranslation('devices');
   return (
     <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md rounded-full p-1.5">
       {scenes.map((s) => {
@@ -459,7 +466,7 @@ function SceneSwitcher<T extends string>({
             }`}
           >
             <Icon size={16} />
-            <span>{s.label}</span>
+            <span>{t(s.label)}</span>
           </button>
         );
       })}
@@ -470,6 +477,7 @@ function SceneSwitcher<T extends string>({
 // --------------- Main component ---------------
 
 export default function DeviceMockup({ imageUrl, platform, deviceWidth, deviceHeight, onClose }: Props) {
+  const { t } = useTranslation('devices');
   const isMobile = platform === 'phone' || platform === 'tablet';
   // Default to 'clean' (=Plain) so the user first sees the wallpaper
   // inside the device chrome with no overlay distraction — they can
@@ -564,7 +572,7 @@ export default function DeviceMockup({ imageUrl, platform, deviceWidth, deviceHe
       <button
         onClick={onClose}
         className="fixed top-4 right-4 z-[80] p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors duration-200"
-        aria-label="Close"
+        aria-label={t('mockup.close')}
       >
         <AiOutlineClose size={22} />
       </button>

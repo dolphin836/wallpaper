@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 interface Props {
   current: number;
   total: number;
@@ -26,6 +28,7 @@ interface Props {
  *   - always show last page
  */
 export default function Pagination({ current, total, onChange, maxReachable }: Props) {
+  const { t } = useTranslation();
   if (total <= 1) return null;
   const reachable = maxReachable ?? total;
 
@@ -50,7 +53,7 @@ export default function Pagination({ current, total, onChange, maxReachable }: P
           disabled={current === 1}
           onClick={() => onChange(current - 1)}
         >
-          ← Prev
+          {t('pager.prev')}
         </button>
         <div className="pager-pages">
           {pages.map((p, i) =>
@@ -62,7 +65,7 @@ export default function Pagination({ current, total, onChange, maxReachable }: P
                 className={p === current ? 'is-current' : ''}
                 onClick={() => p !== current && p <= reachable && onChange(p)}
                 disabled={p === current || p > reachable}
-                title={p > reachable ? `Use Next to walk forward to page ${p}` : undefined}
+                title={p > reachable ? t('pager.walkForward', { page: p }) : undefined}
               >
                 {p}
               </button>
@@ -74,10 +77,10 @@ export default function Pagination({ current, total, onChange, maxReachable }: P
           disabled={current >= total || current >= reachable}
           onClick={() => onChange(current + 1)}
         >
-          Next →
+          {t('pager.next')}
         </button>
       </div>
-      <div className="pager-status">PAGE {current} OF {total}</div>
+      <div className="pager-status">{t('pager.status', { current, total })}</div>
     </>
   );
 }

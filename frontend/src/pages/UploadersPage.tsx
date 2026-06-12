@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { MdEmojiEvents } from 'react-icons/md';
 import type { UserListItem } from '../types';
 import { getUsers } from '../api';
@@ -12,10 +13,12 @@ import EmptyState from '../components/EmptyState';
 type Sort = 'recent' | 'uploads' | 'coins';
 const PAGE_SIZE = 12;
 
-const SORT_TO_LABEL: Record<Sort, string> = {
-  recent: 'Recently joined',
-  uploads: 'Most uploaded',
-  coins: 'Top this month',
+// Visible labels live in the `browse` namespace; the Sort values
+// themselves are API params and stay untranslated.
+const SORT_LABEL_KEYS: Record<Sort, string> = {
+  recent: 'uploaders.sortRecent',
+  uploads: 'uploaders.sortUploads',
+  coins: 'uploaders.sortCoins',
 };
 
 function formatNumber(n: number): string {
@@ -28,6 +31,7 @@ function formatNumber(n: number): string {
 // "joined …" line. Bring back if a future variant needs it.
 
 export default function UploadersPage() {
+  const { t } = useTranslation('browse');
   const [items, setItems] = useState<UserListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -61,8 +65,8 @@ export default function UploadersPage() {
     <div className="uploaders-page min-h-full">
       <div className="uploaders-mesh" aria-hidden />
       <PageMeta
-        title="Uploaders"
-        description="The people behind Wallpaper Exchange — top contributors and recent arrivals."
+        title={t('uploaders.metaTitle')}
+        description={t('uploaders.metaDescription')}
       />
 
       <div className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-12">
@@ -70,7 +74,7 @@ export default function UploadersPage() {
         <div className="flex items-end justify-between gap-6 flex-wrap mb-8">
           <div>
             <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
-              Contributors · {total}
+              {t('uploaders.contributorsKicker', { num: total })}
             </div>
           </div>
 
@@ -85,7 +89,7 @@ export default function UploadersPage() {
                     : 'bg-paper text-ink-2 border border-hair hover:bg-paper-2 hover:border-ink-2'
                 }`}
               >
-                {SORT_TO_LABEL[key]}
+                {t(SORT_LABEL_KEYS[key])}
               </button>
             ))}
           </div>
@@ -97,10 +101,10 @@ export default function UploadersPage() {
             signed-in → straight to /upload). */}
         <Link to="/upload" className="uploaders-cta">
           <div className="uploaders-cta-text">
-            <span className="uploaders-cta-eyebrow">Want on this wall?</span>
-            <span className="uploaders-cta-headline">Upload a wallpaper — earn a coin for every one.</span>
+            <span className="uploaders-cta-eyebrow">{t('uploaders.ctaEyebrow')}</span>
+            <span className="uploaders-cta-headline">{t('uploaders.ctaHeadline')}</span>
           </div>
-          <span className="uploaders-cta-arrow">Upload →</span>
+          <span className="uploaders-cta-arrow">{t('uploaders.ctaArrow')}</span>
         </Link>
 
         {/* Identity-first card grid — the user is the subject,
@@ -117,9 +121,9 @@ export default function UploadersPage() {
           <ErrorState />
         ) : items.length === 0 ? (
           <EmptyState
-            title="No uploaders yet."
-            message="The contributor board will fill in as people publish wallpapers."
-            actionLabel="Upload a wallpaper"
+            title={t('uploaders.emptyTitle')}
+            message={t('uploaders.emptyMessage')}
+            actionLabel={t('uploaders.emptyAction')}
             actionHref="/contribute"
           />
         ) : (
@@ -180,6 +184,7 @@ function resolveTints(u: UserListItem): [string, string, string] {
 // non-contributors instead of awkward placeholders. Click → user
 // profile.
 function UploaderWallCard({ u, rank }: { u: UserListItem; rank: number }) {
+  const { t } = useTranslation('browse');
   const display = u.nickname || u.username;
   const thumbs = (u.recent_thumbs ?? []).slice(0, 3);
   const isTop = rank <= 3 && u.wallpaper_count > 0;
@@ -202,10 +207,10 @@ function UploaderWallCard({ u, rank }: { u: UserListItem; rank: number }) {
       {isTop && (
         <span
           className={`uploader-card-badge is-rank-${rank}`}
-          title={`Top ${rank} contributor`}
+          title={t('uploaders.topContributor', { rank })}
         >
           <MdEmojiEvents size={12} />
-          <span>TOP {rank}</span>
+          <span>{t('uploaders.topBadge', { rank })}</span>
         </span>
       )}
 
@@ -232,9 +237,9 @@ function UploaderWallCard({ u, rank }: { u: UserListItem; rank: number }) {
         : <div className="uploader-card-bio-empty" aria-hidden />}
 
       <div className="uploader-card-stats">
-        <Stat label="uploads"   value={formatNumber(u.wallpaper_count)} />
-        <Stat label="downloads" value={formatNumber(u.total_downloads ?? 0)} />
-        <Stat label="coins"     value={formatNumber(u.coins ?? 0)} />
+        <Stat label={t('uploaders.statUploads')}   value={formatNumber(u.wallpaper_count)} />
+        <Stat label={t('uploaders.statDownloads')} value={formatNumber(u.total_downloads ?? 0)} />
+        <Stat label={t('uploaders.statCoins')}     value={formatNumber(u.coins ?? 0)} />
       </div>
 
       {thumbs.length > 0 && (
@@ -252,7 +257,7 @@ function UploaderWallCard({ u, rank }: { u: UserListItem; rank: number }) {
         </div>
       )}
 
-      <div className="uploader-card-cta">View profile →</div>
+      <div className="uploader-card-cta">{t('uploaders.viewProfile')}</div>
     </Link>
   );
 }

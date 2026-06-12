@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import FeedFooter, { type FooterState } from '../components/FeedFooter';
 import toast from 'react-hot-toast';
 import type { Wallpaper } from '../types';
@@ -62,13 +63,15 @@ const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent);
 // and *how* it's sorted — there is no separate sort toggle.
 type FilterMode = 'latest' | 'trending' | 'for_you' | 'my_device' | 'live' | 'ai';
 
-const FILTER_LABELS: Record<FilterMode, string> = {
-  latest:    'Latest',
-  trending:  'Trending',
-  for_you:   'For You',
-  my_device: 'My Device',
-  live:      'Live',
-  ai:        'AI Generated',
+// Visible labels live in the `browse` namespace; this maps each mode
+// (the API-facing value, untranslated) onto its translation key.
+const FILTER_LABEL_KEYS: Record<FilterMode, string> = {
+  latest:    'discover.filterLatest',
+  trending:  'discover.filterTrending',
+  for_you:   'discover.filterForYou',
+  my_device: 'discover.filterMyDevice',
+  live:      'discover.filterLive',
+  ai:        'discover.filterAi',
 };
 
 function SkeletonRows({
@@ -139,6 +142,7 @@ function SkeletonRows({
 // from the route-in div (which scrolls with the page), not from the
 // viewport, and the button would scroll off-screen with the content.
 function BackToTop() {
+  const { t } = useTranslation('browse');
   const [show, setShow] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -160,7 +164,7 @@ function BackToTop() {
   return createPortal(
     <button
       type="button"
-      aria-label="Back to top"
+      aria-label={t('discover.backToTop')}
       onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
       className={`back-to-top${show ? ' is-visible' : ''}`}
     >
@@ -211,6 +215,7 @@ interface FilterDropdownProps {
 }
 
 function FilterDropdown(p: FilterDropdownProps) {
+  const { t } = useTranslation('browse');
   // For-you is only meaningful for signed-in users — hide it for guests
   // so the dropdown doesn't surface an option that immediately falls
   // back to Latest.
@@ -224,8 +229,8 @@ function FilterDropdown(p: FilterDropdownProps) {
         onClick={() => p.setOpen(!p.open)}
         className="inline-flex items-center gap-3 h-8 px-3.5 rounded-lg bg-paper-2 border border-hair text-[12px] text-ink-2"
       >
-        <span className="mono text-[10px] tracking-[0.1em] text-muted">FILTER</span>
-        {FILTER_LABELS[p.mode]}
+        <span className="mono text-[10px] tracking-[0.1em] text-muted">{t('discover.filterKicker')}</span>
+        {t(FILTER_LABEL_KEYS[p.mode])}
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 9l7 7 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
       {p.open && (
@@ -235,7 +240,7 @@ function FilterDropdown(p: FilterDropdownProps) {
               key={opt}
               onClick={() => { p.setMode(opt); p.setOpen(false); }}
               className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${p.mode === opt ? 'text-accent-ink bg-accent-soft font-medium' : 'text-ink-2 hover:bg-paper-2'}`}
-            >{FILTER_LABELS[opt]}</button>
+            >{t(FILTER_LABEL_KEYS[opt])}</button>
           ))}
         </div>
       )}
@@ -249,6 +254,7 @@ interface SizeControlsProps {
 }
 
 function SizeControls(p: SizeControlsProps) {
+  const { t } = useTranslation('browse');
   return (
     <>
       <div className="inline-flex items-center p-[3px] gap-0.5 bg-paper-2 border border-hair rounded-lg">
@@ -258,7 +264,7 @@ function SizeControls(p: SizeControlsProps) {
             <button
               key={k}
               onClick={() => p.onSize(k)}
-              title={`Size · ${k.toUpperCase()}`}
+              title={t('discover.sizeTitle', { size: k.toUpperCase() })}
               className={`min-w-[30px] h-[26px] px-[9px] rounded-[5px] mono text-[11px] tracking-[0.04em] transition-colors ${on ? 'bg-ink text-paper font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.18)]' : 'text-muted font-medium'}`}
             >{k.toUpperCase()}</button>
           );
@@ -269,6 +275,7 @@ function SizeControls(p: SizeControlsProps) {
 }
 
 export default function DiscoverPage() {
+  const { t } = useTranslation('browse');
   const { isAuthenticated, user } = useAuthStore();
 
   // Discover liquid mesh — brand-warm/deep defaults that switch to a
@@ -459,14 +466,14 @@ export default function DiscoverPage() {
       // Reset-time failures still surface a toast (they're catastrophic — no
       // content at all on the page). Pagination failures are handled by the
       // FeedFooter retry CTA instead of a transient toast.
-      if (reset) toast.error('Failed to load wallpapers');
+      if (reset) toast.error(t('discover.loadFailed'));
       setLoadError(true);
     } finally {
       if (reset) setLoading(false);
       else setLoadingMore(false);
       busyRef.current = false;
     }
-  }, [screen, filterMode, categoryFilter]);
+  }, [screen, filterMode, categoryFilter, t]);
 
   // Holds latest fetchWallpapers so the (stable) sentinel ref-callback always calls the latest closure.
   const fetchWallpapersRef = useRef(fetchWallpapers);
@@ -543,11 +550,11 @@ export default function DiscoverPage() {
       onMouseOut={onTileLeave}
     >
       <PageMeta
-        title={currentCategory ? `${currentCategory.name} wallpapers` : 'Discover'}
+        title={currentCategory ? t('discover.categoryMetaTitle', { name: currentCategory.name }) : t('discover.metaTitle')}
         description={
           currentCategory
-            ? `${currentCategory.name} wallpapers — community-curated HD, 4K, and macOS dynamic wallpapers in the ${currentCategory.name.toLowerCase()} category. Browse and download for free on Wallpaper Exchange.`
-            : 'Browse and download community-uploaded HD and 4K wallpapers — phone, desktop, and macOS dynamic wallpapers, sorted by latest and popular.'
+            ? t('discover.categoryMetaDescription', { name: currentCategory.name, nameLower: currentCategory.name.toLowerCase() })
+            : t('discover.metaDescription')
         }
       />
       <div className="d3-discover-mesh" aria-hidden />
@@ -563,7 +570,7 @@ export default function DiscoverPage() {
           <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar">
             <div className="flex items-center gap-2">
               <CategoryChip
-                label="All"
+                label={t('discover.allCategories')}
                 active={categoryFilter === null}
                 onClick={() => navigate('/discover')}
               />
@@ -606,10 +613,10 @@ export default function DiscoverPage() {
           >
             <span className="text-lg">✨</span>
             <span className="text-sm text-accent-ink">
-              You're out of coins. Share your wallpapers with the community to earn more and keep downloading.
+              {t('discover.outOfCoins')}
             </span>
             <span className="ml-auto mono text-[10px] tracking-[0.12em] uppercase font-semibold text-accent group-hover:text-accent-ink whitespace-nowrap">
-              Upload now &rarr;
+              {t('discover.uploadNow')}
             </span>
           </Link>
         )}

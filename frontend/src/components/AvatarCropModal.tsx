@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 // Square output edge written to the upload. 512 is plenty for the largest
 // avatar slot in the UI (96px @3x) without ballooning the JPEG over 80 KB.
@@ -18,6 +19,7 @@ interface Props {
 const fin = (n: number) => Number.isFinite(n) && !Number.isNaN(n);
 
 export default function AvatarCropModal({ file, onSave, onCancel }: Props) {
+  const { t } = useTranslation('profile');
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [imageURL, setImageURL] = useState('');
   const [scale, setScale] = useState(1);
@@ -197,9 +199,9 @@ export default function AvatarCropModal({ file, onSave, onCancel }: Props) {
         aria-labelledby="avatar-crop-title"
         aria-describedby="avatar-crop-desc"
       >
-        <div className="kicker text-muted">Profile image</div>
-        <h3 id="avatar-crop-title" className="display text-[22px] leading-none mt-2">裁剪头像</h3>
-        <p id="avatar-crop-desc" className="text-[12px] text-muted mt-2 mb-4">拖拽调整位置，滚轮或滑块缩放</p>
+        <div className="kicker text-muted">{t('crop.kicker')}</div>
+        <h3 id="avatar-crop-title" className="display text-[22px] leading-none mt-2">{t('crop.title')}</h3>
+        <p id="avatar-crop-desc" className="text-[12px] text-muted mt-2 mb-4">{t('crop.desc')}</p>
 
         <div className="relative mx-auto" style={{ width: VIEWPORT, height: VIEWPORT }}>
           {image ? (
@@ -207,7 +209,7 @@ export default function AvatarCropModal({ file, onSave, onCancel }: Props) {
               ref={canvasRef}
               style={{ width: VIEWPORT, height: VIEWPORT, touchAction: 'none', cursor: draggingRef.current ? 'grabbing' : 'grab' }}
               className="rounded-xl bg-paper-2 border border-hair"
-              aria-label="Avatar crop canvas"
+              aria-label={t('crop.canvasAria')}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
@@ -215,7 +217,7 @@ export default function AvatarCropModal({ file, onSave, onCancel }: Props) {
               onWheel={onWheel}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-sm text-muted bg-paper-2 border border-hair rounded-xl">加载图片中…</div>
+            <div className="w-full h-full flex items-center justify-center text-sm text-muted bg-paper-2 border border-hair rounded-xl">{t('crop.loading')}</div>
           )}
           {/* Tiny round preview in the corner so the user sees the final result
               independent of the dim mask. */}
@@ -231,7 +233,7 @@ export default function AvatarCropModal({ file, onSave, onCancel }: Props) {
         </div>
 
         <div className="flex items-center gap-3 mt-5">
-          <span className="mono text-[10px] tracking-[0.14em] uppercase text-muted select-none">缩放</span>
+          <span className="mono text-[10px] tracking-[0.14em] uppercase text-muted select-none">{t('crop.zoom')}</span>
           <input
             type="range"
             min={minScale}
@@ -248,12 +250,12 @@ export default function AvatarCropModal({ file, onSave, onCancel }: Props) {
             onClick={onCancel}
             disabled={saving}
             className="flex-1 py-2.5 text-[13px] font-medium rounded-full border border-hair text-ink-2 hover:text-ink hover:bg-paper-2 transition-colors disabled:opacity-50"
-          >取消</button>
+          >{t('crop.cancel')}</button>
           <button
             onClick={save}
             disabled={saving || !image}
             className="flex-1 py-2.5 text-[13px] font-semibold text-paper bg-ink hover:bg-ink-2 rounded-full transition-colors disabled:opacity-50"
-          >{saving ? '上传中…' : '确定上传'}</button>
+          >{saving ? t('crop.uploading') : t('crop.confirm')}</button>
         </div>
       </div>
     </div>

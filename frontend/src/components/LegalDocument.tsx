@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AiOutlineArrowRight } from 'react-icons/ai';
 
 export interface LegalSection {
@@ -26,10 +27,11 @@ interface Props {
   currentPath: '/terms' | '/privacy' | '/legal/dmca';
 }
 
-const RELATED: Array<{ name: string; path: '/terms' | '/privacy' | '/legal/dmca' }> = [
-  { name: 'Terms of Service', path: '/terms' },
-  { name: 'Privacy Policy',   path: '/privacy' },
-  { name: 'Copyright / DMCA', path: '/legal/dmca' },
+// `nameKey` is an i18n key in the `about` namespace, resolved at render time.
+const RELATED: Array<{ nameKey: string; path: '/terms' | '/privacy' | '/legal/dmca' }> = [
+  { nameKey: 'legal.termsName',   path: '/terms' },
+  { nameKey: 'legal.privacyName', path: '/privacy' },
+  { nameKey: 'legal.dmcaName',    path: '/legal/dmca' },
 ];
 
 /**
@@ -39,6 +41,7 @@ const RELATED: Array<{ name: string; path: '/terms' | '/privacy' | '/legal/dmca'
  * document-specific.
  */
 export default function LegalDocument({ doc, currentPath }: Props) {
+  const { t } = useTranslation('about');
   // Map TOC labels to anchor targets by stripping " · …" / lowering. Used
   // when the TOC links jump to the matching <section id=...>.
   const slugFor = (label: string) => label.toLowerCase().replace(/^\d+\s*·\s*/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -49,7 +52,7 @@ export default function LegalDocument({ doc, currentPath }: Props) {
       <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8 lg:gap-14 max-w-[1280px] mx-auto px-6 sm:px-10 lg:px-14 py-12">
         {/* TOC sidebar */}
         <aside className="hidden lg:block">
-          <div className="kicker text-muted">Articles · {doc.toc.length}</div>
+          <div className="kicker text-muted">{t('legal.articles', { num: doc.toc.length })}</div>
           <ul className="list-none p-0 mt-3 mono text-[11px] tracking-[0.04em] border-t border-hair">
             {doc.toc.map((label, i) => {
               const num = label.match(/^\d+/)?.[0] ?? null;
@@ -76,7 +79,7 @@ export default function LegalDocument({ doc, currentPath }: Props) {
           </ul>
 
           <div className="mt-7">
-            <div className="kicker text-muted">See also</div>
+            <div className="kicker text-muted">{t('legal.seeAlso')}</div>
             <ul className="list-none p-0 mt-2.5 text-[13px]">
               {RELATED.map((r) => {
                 const isCurrent = r.path === currentPath;
@@ -88,12 +91,12 @@ export default function LegalDocument({ doc, currentPath }: Props) {
                   >
                     {isCurrent ? (
                       <>
-                        <span>{r.name}</span>
-                        <span className="mono text-[10px] text-accent tracking-[0.1em]">CURRENT</span>
+                        <span>{t(r.nameKey)}</span>
+                        <span className="mono text-[10px] text-accent tracking-[0.1em]">{t('legal.current')}</span>
                       </>
                     ) : (
                       <Link to={r.path} className="flex w-full items-center justify-between text-inherit no-underline hover:text-ink">
-                        <span>{r.name}</span>
+                        <span>{t(r.nameKey)}</span>
                         <AiOutlineArrowRight size={11} />
                       </Link>
                     )}
@@ -108,13 +111,13 @@ export default function LegalDocument({ doc, currentPath }: Props) {
         <article className="min-w-0">
           <div className="flex justify-between items-baseline border-b border-hair pb-4 gap-4 flex-wrap">
             <div>
-              <div className="kicker text-muted">Legal · {doc.version}</div>
+              <div className="kicker text-muted">{t('legal.kicker', { version: doc.version })}</div>
               <h1 className="display text-[44px] sm:text-[60px] lg:text-[76px] leading-[0.95] tracking-[-0.015em] mt-2 text-ink">
                 {doc.title} <span className="legal-title-tail">{doc.italicTail}.</span>
               </h1>
             </div>
             <div className="text-right mono text-[11px] text-muted tracking-[0.06em]">
-              <div>LAST UPDATED</div>
+              <div>{t('legal.lastUpdated')}</div>
               <div className="text-ink mt-1">{doc.updated.toUpperCase()}</div>
             </div>
           </div>

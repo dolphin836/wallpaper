@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useTranslation, Trans } from 'react-i18next';
 import { AiOutlineClose } from 'react-icons/ai';
 import { reportWallpaper } from '../api';
 
@@ -8,15 +9,18 @@ interface ReportModalProps {
   onClose: () => void;
 }
 
+// `value` is the API param (do not localise); `labelKey` resolves in the
+// `detail` namespace.
 const REASONS = [
-  { value: 'nsfw', label: 'NSFW / explicit content' },
-  { value: 'copyright', label: 'Copyright infringement / not the original author' },
-  { value: 'spam', label: 'Spam or low-effort upload' },
-  { value: 'low_quality', label: 'Low quality or broken image' },
-  { value: 'other', label: 'Other' },
+  { value: 'nsfw', labelKey: 'report.reasons.nsfw' },
+  { value: 'copyright', labelKey: 'report.reasons.copyright' },
+  { value: 'spam', labelKey: 'report.reasons.spam' },
+  { value: 'low_quality', labelKey: 'report.reasons.lowQuality' },
+  { value: 'other', labelKey: 'report.reasons.other' },
 ];
 
 export default function ReportModal({ wallpaperId, onClose }: ReportModalProps) {
+  const { t } = useTranslation('detail');
   const [reason, setReason] = useState('nsfw');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -33,10 +37,10 @@ export default function ReportModal({ wallpaperId, onClose }: ReportModalProps) 
     setSubmitting(true);
     try {
       await reportWallpaper(wallpaperId, reason, note.trim());
-      toast.success('Report submitted. Thanks for helping keep the catalog clean.');
+      toast.success(t('report.submitted'));
       onClose();
     } catch {
-      toast.error('Could not submit report. Try again.');
+      toast.error(t('report.submitFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -57,13 +61,13 @@ export default function ReportModal({ wallpaperId, onClose }: ReportModalProps) 
       >
         <div className="flex items-start justify-between gap-4 mb-5">
           <div>
-            <div className="kicker text-muted">Catalog moderation</div>
-            <h3 id="report-modal-title" className="display text-[22px] leading-none mt-2">Report this wallpaper</h3>
+            <div className="kicker text-muted">{t('report.kicker')}</div>
+            <h3 id="report-modal-title" className="display text-[22px] leading-none mt-2">{t('report.title')}</h3>
           </div>
           <button
             onClick={onClose}
             disabled={submitting}
-            aria-label="Close"
+            aria-label={t('report.close')}
             className="w-8 h-8 rounded-full border border-hair text-ink-2 hover:text-ink hover:bg-paper-2 inline-flex items-center justify-center transition-colors disabled:opacity-50"
           >
             <AiOutlineClose size={13} />
@@ -72,31 +76,34 @@ export default function ReportModal({ wallpaperId, onClose }: ReportModalProps) 
 
         <div className="space-y-4">
           <div>
-            <label className="block mono text-[10px] tracking-[0.14em] uppercase text-muted mb-1.5">Reason</label>
+            <label className="block mono text-[10px] tracking-[0.14em] uppercase text-muted mb-1.5">{t('report.reason')}</label>
             <select
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               className="w-full bg-paper-2 border border-hair rounded-lg py-2.5 px-3.5 text-[13px] text-ink outline-none focus:border-ink-2 transition-colors"
             >
               {REASONS.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
+                <option key={r.value} value={r.value}>{t(r.labelKey)}</option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="block mono text-[10px] tracking-[0.14em] uppercase text-muted mb-1.5">Additional details</label>
+            <label className="block mono text-[10px] tracking-[0.14em] uppercase text-muted mb-1.5">{t('report.details')}</label>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               maxLength={2000}
               rows={4}
-              placeholder="Source URL, copyright owner, or anything else useful for moderators…"
+              placeholder={t('report.placeholder')}
               className="w-full bg-paper-2 border border-hair rounded-lg py-2.5 px-3.5 text-[13px] text-ink placeholder:text-muted outline-none focus:border-ink-2 transition-colors resize-none"
             />
             <p className="text-[11px] text-muted mt-1.5 leading-relaxed">
-              For formal DMCA notices please use the dedicated channel on the{' '}
-              <a href="/legal/dmca" className="text-accent-ink hover:underline">Copyright page</a>.
+              <Trans
+                i18nKey="report.dmcaNote"
+                ns="detail"
+                components={[<a href="/legal/dmca" className="text-accent-ink hover:underline" key="0" />]}
+              />
             </p>
           </div>
 
@@ -106,14 +113,14 @@ export default function ReportModal({ wallpaperId, onClose }: ReportModalProps) 
               disabled={submitting}
               className="px-4 py-2 text-[13px] rounded-full border border-hair text-ink-2 hover:text-ink hover:bg-paper-2 transition-colors disabled:opacity-50"
             >
-              Cancel
+              {t('report.cancel')}
             </button>
             <button
               onClick={submit}
               disabled={submitting}
               className="px-5 py-2 text-[13px] font-semibold rounded-full bg-ink text-paper hover:bg-ink-2 transition-colors disabled:opacity-50"
             >
-              {submitting ? 'Submitting…' : 'Submit'}
+              {submitting ? t('report.submitting') : t('report.submit')}
             </button>
           </div>
         </div>

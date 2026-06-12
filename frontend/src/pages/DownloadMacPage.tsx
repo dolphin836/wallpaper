@@ -8,14 +8,15 @@ import {
 } from "react-icons/ai";
 import { BiCollection } from "react-icons/bi";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { getMacRelease } from "../api";
 import type { MacRelease, MacReleaseEntry } from "../types";
 import PageMeta from "../components/PageMeta";
 
 const DEFAULT_MACOS_VERSION = "14.0";
 
-function formatReleaseDate(value?: string) {
-  if (!value) return "Latest";
+function formatReleaseDate(value: string | undefined, latestLabel: string) {
+  if (!value) return latestLabel;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("en", {
@@ -30,6 +31,7 @@ function latestNotes(release: MacRelease) {
 }
 
 export default function DownloadMacPage() {
+  const { t } = useTranslation("mac");
   const [release, setRelease] = useState<MacRelease | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +47,10 @@ export default function DownloadMacPage() {
         }
       })
       .catch((err) => {
+        // Empty string = generic failure; the render path falls back to the
+        // localized error.loadFailed copy.
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unable to load the latest Mac release.");
+          setError(err instanceof Error ? err.message : "");
         }
       })
       .finally(() => {
@@ -66,8 +70,8 @@ export default function DownloadMacPage() {
   return (
     <main className="min-h-full bg-paper text-ink">
       <PageMeta
-        title="Download Mac App"
-        description="Download the Wallpaper Exchange app for macOS and keep the wallpaper archive close to your desktop."
+        title={t("meta.title")}
+        description={t("meta.description")}
       />
 
       <section className="relative isolate overflow-hidden border-b border-hair">
@@ -83,23 +87,23 @@ export default function DownloadMacPage() {
           {loading ? (
             <DownloadMacSkeleton />
           ) : error || !release ? (
-            <DownloadMacError message={error ?? "Unable to load the latest Mac release."} />
+            <DownloadMacError message={error || t("error.loadFailed")} />
           ) : (
             <>
               <div className="flex min-h-[620px] flex-col justify-between">
                 <div>
                   <div className="label-rule">
-                    <span>Mac App</span>
+                    <span>{t("hero.label")}</span>
                     <span>v{currentVersion}</span>
                   </div>
 
                   <div className="mt-10 max-w-[640px]">
-                    <p className="kicker">Wallpaper Exchange desktop client</p>
+                    <p className="kicker">{t("hero.kicker")}</p>
                     <h1 className="display mt-4 text-[3.4rem] leading-[0.96] sm:text-[5.6rem] lg:text-[6.6rem]">
-                      Keep the archive close to the desktop.
+                      {t("hero.title")}
                     </h1>
                     <p className="mt-6 max-w-xl text-base leading-8 text-muted sm:text-lg">
-                      Browse fresh wallpapers, download originals, and rotate local collections from a quiet macOS menu-bar app.
+                      {t("hero.subtitle")}
                     </p>
                   </div>
 
@@ -110,28 +114,28 @@ export default function DownloadMacPage() {
                       className="inline-flex h-12 items-center gap-3 rounded-full bg-accent px-6 text-sm font-semibold text-white shadow-[0_16px_38px_rgba(238,122,74,0.26)] transition hover:-translate-y-0.5 hover:bg-accent-strong focus:outline-none focus:ring-2 focus:ring-accent/45"
                     >
                       <AiOutlineApple className="text-xl" />
-                      Download DMG
+                      {t("hero.downloadDmg")}
                     </a>
                     <a
                       href="#release-notes"
                       className="inline-flex h-12 items-center gap-2 rounded-full border border-hair bg-paper/75 px-5 text-sm font-semibold text-ink transition hover:border-accent/45 hover:text-accent"
                     >
                       <AiOutlineMenu className="text-lg" />
-                      Release notes
+                      {t("hero.releaseNotes")}
                     </a>
                   </div>
 
                   <dl className="mt-8 grid max-w-2xl grid-cols-1 gap-px overflow-hidden rounded-[14px] border border-hair bg-hair sm:grid-cols-3">
-                    <DownloadStat label="Version" value={`v${currentVersion}`} />
-                    <DownloadStat label="Requires" value={`macOS ${minimumMacOS}+`} />
-                    <DownloadStat label="Updated" value={formatReleaseDate(currentRelease?.released_at)} />
+                    <DownloadStat label={t("hero.statVersion")} value={`v${currentVersion}`} />
+                    <DownloadStat label={t("hero.statRequires")} value={`macOS ${minimumMacOS}+`} />
+                    <DownloadStat label={t("hero.statUpdated")} value={formatReleaseDate(currentRelease?.released_at, t("release.latest"))} />
                   </dl>
                 </div>
 
                 <div className="mt-10 grid gap-4 border-t border-hair pt-6 sm:grid-cols-3">
-                  <QuickPoint icon={<AiOutlineDownload />} label="Original files" text="Downloads keep the full wallpaper asset when available." />
-                  <QuickPoint icon={<AiOutlineSync />} label="Auto rotation" text="Use your own interval for local wallpaper changes." />
-                  <QuickPoint icon={<BiCollection />} label="Library first" text="Keep downloads, likes, favorites, and uploads in reach." />
+                  <QuickPoint icon={<AiOutlineDownload />} label={t("quick.originalsLabel")} text={t("quick.originalsText")} />
+                  <QuickPoint icon={<AiOutlineSync />} label={t("quick.rotationLabel")} text={t("quick.rotationText")} />
+                  <QuickPoint icon={<BiCollection />} label={t("quick.libraryLabel")} text={t("quick.libraryText")} />
                 </div>
               </div>
 
@@ -147,32 +151,32 @@ export default function DownloadMacPage() {
         <>
           <section className="mx-auto grid max-w-[1500px] gap-8 px-5 py-12 sm:px-8 lg:grid-cols-[0.95fr_1.05fr] lg:px-12">
             <div className="border-t border-hair pt-6">
-              <p className="kicker">Why install it</p>
+              <p className="kicker">{t("why.kicker")}</p>
               <h2 className="display mt-4 max-w-2xl text-[2.7rem] leading-none sm:text-[4.5rem]">
-                A desktop layer for the same wallpaper archive.
+                {t("why.title")}
               </h2>
             </div>
 
             <div className="grid gap-px overflow-hidden rounded-[18px] border border-hair bg-hair sm:grid-cols-2">
               <FeatureTile
                 icon={<AiOutlineApple />}
-                title="Built for macOS"
-                text="Runs from the menu bar with a compact app window, local downloads, and desktop wallpaper actions."
+                title={t("why.macosTitle")}
+                text={t("why.macosText")}
               />
               <FeatureTile
                 icon={<AiOutlineThunderbolt />}
-                title="Fast daily browsing"
-                text="Open the newest archive drops, inspect details, and jump between collections without leaving your desktop."
+                title={t("why.browsingTitle")}
+                text={t("why.browsingText")}
               />
               <FeatureTile
                 icon={<AiOutlineSync />}
-                title="Multi-display aware"
-                text="Set wallpapers across connected displays and keep rotation behavior consistent with your setup."
+                title={t("why.displaysTitle")}
+                text={t("why.displaysText")}
               />
               <FeatureTile
                 icon={<BiCollection />}
-                title="Same account library"
-                text="Your uploads, downloads, favorites, likes, and coins stay connected to the web archive."
+                title={t("why.libraryTitle")}
+                text={t("why.libraryText")}
               />
             </div>
           </section>
@@ -182,10 +186,10 @@ export default function DownloadMacPage() {
             className="mx-auto grid max-w-[1500px] gap-8 border-t border-hair px-5 py-12 sm:px-8 lg:grid-cols-[0.76fr_1.24fr] lg:px-12"
           >
             <div>
-              <p className="kicker">Current build</p>
+              <p className="kicker">{t("release.currentBuild")}</p>
               <h2 className="display mt-4 text-[2.7rem] leading-none sm:text-[4.1rem]">v{currentVersion}</h2>
               <p className="mt-5 max-w-md text-sm leading-7 text-muted">
-                The download button always points to the latest Mac release reported by the Wallpaper Exchange API.
+                {t("release.pointsToLatest")}
               </p>
               <a
                 href={release.current_dmg_url}
@@ -193,7 +197,7 @@ export default function DownloadMacPage() {
                 className="mt-7 inline-flex h-11 items-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-accent"
               >
                 <AiOutlineDownload className="text-lg" />
-                Download latest
+                {t("release.downloadLatest")}
               </a>
             </div>
 
@@ -201,8 +205,8 @@ export default function DownloadMacPage() {
               <div className="rounded-[18px] border border-hair bg-paper-2/80 p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hair pb-4">
                   <div>
-                    <p className="kicker">Latest notes</p>
-                    <p className="mt-2 text-sm text-muted">{formatReleaseDate(currentRelease?.released_at)}</p>
+                    <p className="kicker">{t("release.latestNotes")}</p>
+                    <p className="mt-2 text-sm text-muted">{formatReleaseDate(currentRelease?.released_at, t("release.latest"))}</p>
                   </div>
                   <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
                     v{currentVersion}
@@ -219,7 +223,7 @@ export default function DownloadMacPage() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-5 text-sm leading-7 text-muted">No release notes were provided for this build.</p>
+                  <p className="mt-5 text-sm leading-7 text-muted">{t("release.noNotes")}</p>
                 )}
               </div>
 
@@ -230,14 +234,14 @@ export default function DownloadMacPage() {
           <section className="mx-auto max-w-[1500px] border-t border-hair px-5 py-10 sm:px-8 lg:px-12">
             <div className="flex flex-col gap-5 rounded-[18px] bg-ink px-6 py-6 text-paper sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="kicker text-paper/55">Install path</p>
-                <p className="mt-2 text-lg font-semibold">Download the DMG, move the app to Applications, then sign in with your Wallpaper Exchange account.</p>
+                <p className="kicker text-paper/55">{t("install.kicker")}</p>
+                <p className="mt-2 text-lg font-semibold">{t("install.text")}</p>
               </div>
               <Link
                 to="/discover"
                 className="inline-flex h-11 items-center justify-center rounded-full bg-paper px-5 text-sm font-semibold text-ink transition hover:bg-accent hover:text-white"
               >
-                Browse wallpapers
+                {t("install.browse")}
               </Link>
             </div>
           </section>
@@ -283,6 +287,7 @@ function FeatureTile({ icon, title, text }: { icon: ReactNode; title: string; te
 }
 
 function ReleaseHistory({ releases }: { releases: MacReleaseEntry[] }) {
+  const { t } = useTranslation("mac");
   if (!releases.length) {
     return null;
   }
@@ -290,15 +295,15 @@ function ReleaseHistory({ releases }: { releases: MacReleaseEntry[] }) {
   return (
     <div className="rounded-[18px] border border-hair bg-paper p-6">
       <div className="label-rule">
-        <span>Changelog</span>
-        <span>{releases.length} builds</span>
+        <span>{t("release.changelog")}</span>
+        <span>{t("release.buildCount", { num: releases.length })}</span>
       </div>
       <ol className="mt-5 divide-y divide-hair">
         {releases.slice(0, 5).map((entry) => (
           <li key={entry.version} className="grid gap-3 py-4 sm:grid-cols-[140px_1fr]">
             <div>
               <p className="text-sm font-semibold text-ink">v{entry.version}</p>
-              <p className="mt-1 text-xs text-muted">{formatReleaseDate(entry.released_at)}</p>
+              <p className="mt-1 text-xs text-muted">{formatReleaseDate(entry.released_at, t("release.latest"))}</p>
             </div>
             <ul className="grid gap-2">
               {(entry.notes ?? []).slice(0, 3).map((note, index) => (
@@ -456,17 +461,18 @@ function DownloadMacSkeleton() {
 }
 
 function DownloadMacError({ message }: { message: string }) {
+  const { t } = useTranslation("mac");
   return (
     <div className="lg:col-span-2">
       <div className="mx-auto max-w-2xl rounded-[20px] border border-hair bg-paper px-6 py-10 text-center shadow-sm">
-        <p className="kicker">Mac release</p>
-        <h1 className="display mt-3 text-[3rem] leading-none sm:text-[4.5rem]">Download temporarily unavailable.</h1>
+        <p className="kicker">{t("error.kicker")}</p>
+        <h1 className="display mt-3 text-[3rem] leading-none sm:text-[4.5rem]">{t("error.title")}</h1>
         <p className="mt-5 text-sm leading-7 text-muted">{message}</p>
         <Link
           to="/"
           className="mt-7 inline-flex h-11 items-center justify-center rounded-full bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-accent"
         >
-          Back home
+          {t("error.backHome")}
         </Link>
       </div>
     </div>

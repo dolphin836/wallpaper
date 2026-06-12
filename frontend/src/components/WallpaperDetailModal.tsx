@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AiOutlineClose } from 'react-icons/ai';
 import WallpaperDetailPage from '../pages/WallpaperDetailPage';
 
@@ -14,6 +15,7 @@ import WallpaperDetailPage from '../pages/WallpaperDetailPage';
  * it took vertical space without earning it.
  */
 export default function WallpaperDetailModal() {
+  const { t } = useTranslation('detail');
   const navigate = useNavigate();
   const close = useCallback(() => navigate(-1), [navigate]);
 
@@ -56,8 +58,8 @@ export default function WallpaperDetailModal() {
         <button
           onClick={close}
           className="wd-modal-close"
-          aria-label="Close"
-          title="Close (Esc)"
+          aria-label={t('modal.close')}
+          title={t('modal.closeEsc')}
         >
           <AiOutlineClose size={16} />
         </button>

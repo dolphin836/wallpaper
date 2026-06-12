@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../store/auth';
 import {
@@ -28,6 +29,7 @@ import type { Wallpaper } from '../types';
  * Link / modal-nav context varies per surface.
  */
 export function useWallpaperActions(wallpaper: Wallpaper) {
+  const { t } = useTranslation('detail');
   const [liked, setLiked] = useState(wallpaper.is_liked ?? false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [favorited, setFavorited] = useState(wallpaper.is_favorited ?? false);
@@ -49,7 +51,7 @@ export function useWallpaperActions(wallpaper: Wallpaper) {
   const isOwnWallpaper = !!(user && wallpaper.user_id === user.id);
   const canDownload = !wallpaper.is_dynamic || /Macintosh|Mac OS X/i.test(navigator.userAgent);
   const downloadCost = isOwnWallpaper || downloaded ? 0 : 1;
-  const downloadTitle = downloaded ? 'Got it' : downloadCost > 0 ? `Trade for ${downloadCost}` : 'Download';
+  const downloadTitle = downloaded ? t('cta.gotIt') : downloadCost > 0 ? t('cta.tradeFor', { n: downloadCost }) : t('cta.download');
 
   const doLike = async () => {
     if (likeLoading) return;
@@ -59,7 +61,7 @@ export function useWallpaperActions(wallpaper: Wallpaper) {
       else await likeWallpaper(wallpaper.id);
       setLiked(!liked);
     } catch {
-      toast.error('Action failed');
+      toast.error(t('toast.actionFailed'));
     } finally {
       setLikeLoading(false);
     }
@@ -73,7 +75,7 @@ export function useWallpaperActions(wallpaper: Wallpaper) {
       else await favoriteWallpaper(wallpaper.id);
       setFavorited(!favorited);
     } catch {
-      toast.error('Action failed');
+      toast.error(t('toast.actionFailed'));
     } finally {
       setFavLoading(false);
     }
@@ -87,11 +89,11 @@ export function useWallpaperActions(wallpaper: Wallpaper) {
         headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
       });
       if (resp.status === 402) {
-        toast.error('Insufficient coins. Upload wallpapers to earn more!');
+        toast.error(t('toast.insufficientCoins'));
         return;
       }
       if (!resp.ok) {
-        toast.error('Download failed');
+        toast.error(t('toast.downloadFailed'));
         return;
       }
       const totalBytes = Number(resp.headers.get('content-length') || 0);
@@ -138,14 +140,14 @@ export function useWallpaperActions(wallpaper: Wallpaper) {
           const remaining = coinsResp.data.data.coins;
           updateCoins(remaining);
           if (remaining <= 3 && remaining > 0) {
-            toast(`${remaining} coin${remaining === 1 ? '' : 's'} left. Upload wallpapers to earn more!`, { icon: '💡' });
+            toast(t('toast.coinsLeft', { count: remaining }), { icon: '💡' });
           }
         } catch {
           updateCoins(Math.max(user.coins - downloadCost, 0));
         }
       }
     } catch {
-      toast.error('Download failed');
+      toast.error(t('toast.downloadFailed'));
     } finally {
       setDownloading(false);
       setDownloadProgress(null);

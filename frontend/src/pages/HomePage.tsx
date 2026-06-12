@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import { getWeeklyCurrent, getWallpapers, getCollections, type WeeklyCurrent } from '../api';
 import type { Wallpaper, Collection } from '../types';
 import PageMeta from '../components/PageMeta';
@@ -15,6 +16,7 @@ import WallpaperTile, { ResChip } from '../components/WallpaperTile';
  * but inside the SPA / production Layout shell.
  */
 export default function HomePage() {
+  const { t } = useTranslation('browse');
   const [data, setData] = useState<WeeklyCurrent | null>(null);
   const [loading, setLoading] = useState(true);
   // Top-level error: the weekly fetch is the page's spine; if it
@@ -132,8 +134,8 @@ export default function HomePage() {
   return (
     <div ref={rootRef} className="h3-home">
       <PageMeta
-        title="Home"
-        description="The weekly drop on Wallpaper Exchange — 10 hand-picked wallpapers plus the latest AI, video and themed collections, refreshed every Friday."
+        title={t('home.metaTitle')}
+        description={t('home.metaDescription')}
       />
       <div className="h3-home-mesh" aria-hidden />
 
@@ -157,11 +159,11 @@ export default function HomePage() {
           <section className="h3-row">
             <div className="h3-row-head">
               <div>
-                <div className="h3-sub">Curation{data ? ` · Week ${data.week}` : ''}</div>
-                <h2><em>This week's</em> picks.</h2>
+                <div className="h3-sub">{data ? t('home.curationKickerWeek', { week: data.week }) : t('home.curationKicker')}</div>
+                <h2><Trans i18nKey="home.weeklyHeading" ns="browse" components={[<em key="0" />]} /></h2>
               </div>
               {data && (
-                <Link to="/weekly-picks" className="h3-more">View archive →</Link>
+                <Link to="/weekly-picks" className="h3-more">{t('home.viewArchive')}</Link>
               )}
             </div>
             <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -177,10 +179,10 @@ export default function HomePage() {
           <section className="h3-row">
             <div className="h3-row-head">
               <div>
-                <div className="h3-sub">AI Lab · synthetic samples</div>
-                <h2><em>Generated</em> this week.</h2>
+                <div className="h3-sub">{t('home.aiKicker')}</div>
+                <h2><Trans i18nKey="home.aiHeading" ns="browse" components={[<em key="0" />]} /></h2>
               </div>
-              <Link to="/discover?filter=ai" className="h3-more">All AI wallpapers →</Link>
+              <Link to="/discover?filter=ai" className="h3-more">{t('home.allAi')}</Link>
             </div>
             <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
               {aiLoading && aiItems.length === 0
@@ -195,10 +197,10 @@ export default function HomePage() {
           <section className="h3-row">
             <div className="h3-row-head">
               <div>
-                <div className="h3-sub">Motion · hover to preview</div>
-                <h2><em>Live</em> wallpapers.</h2>
+                <div className="h3-sub">{t('home.liveKicker')}</div>
+                <h2><Trans i18nKey="home.liveHeading" ns="browse" components={[<em key="0" />]} /></h2>
               </div>
-              <Link to="/discover?filter=live" className="h3-more">All live wallpapers →</Link>
+              <Link to="/discover?filter=live" className="h3-more">{t('home.allLive')}</Link>
             </div>
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
               {liveLoading && liveItems.length === 0
@@ -213,10 +215,10 @@ export default function HomePage() {
           <section className="h3-row">
             <div className="h3-row-head">
               <div>
-                <div className="h3-sub">Editorial sets · themed bundles</div>
-                <h2><em>Themed</em> collections.</h2>
+                <div className="h3-sub">{t('home.collectionsKicker')}</div>
+                <h2><Trans i18nKey="home.collectionsHeading" ns="browse" components={[<em key="0" />]} /></h2>
               </div>
-              <Link to="/collections" className="h3-more">All collections →</Link>
+              <Link to="/collections" className="h3-more">{t('home.allCollections')}</Link>
             </div>
             <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
               {collectionsLoading && collections.length === 0
@@ -234,6 +236,7 @@ export default function HomePage() {
 
 /* ─────────── Hero — 16:9 floating card with progressive image upgrade ─────────── */
 function HeroCard({ hero, week, year }: { hero: Wallpaper; week: number; year: number }) {
+  const { t } = useTranslation('browse');
   const location = useLocation();
   // Paint preview_url first (fast first frame), then background-fetch the
   // original_url (only the hero pick gets it from the server). Swap src
@@ -258,7 +261,7 @@ function HeroCard({ hero, week, year }: { hero: Wallpaper; week: number; year: n
     >
       <img
         src={src}
-        alt={hero.title || `Wallpaper ${hero.id}`}
+        alt={hero.title || t('tile.wallpaperAlt', { id: hero.id })}
         loading="eager"
         decoding="async"
         fetchPriority="high"
@@ -269,14 +272,14 @@ function HeroCard({ hero, week, year }: { hero: Wallpaper; week: number; year: n
       <ResChip wallpaper={hero} />
       <div className="h3-hero-overlay">
         <div className="flex-1 min-w-0">
-          <div className="h3-kicker">Curation · Week {week} · {year}</div>
+          <div className="h3-kicker">{t('hero.kicker', { week, year })}</div>
           <div className="h3-meta">{hero.width}×{hero.height} · {fmtMB(hero.file_size)}</div>
         </div>
         <button
           className="h3-cta"
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); /* navigate to detail handles trade */ }}
         >
-          <span className="h3-coin" /> Trade for 1
+          <span className="h3-coin" /> {t('hero.tradeForOne')}
         </button>
       </div>
     </Link>
@@ -295,6 +298,7 @@ function CollectionTile({
   c: Collection;
   onHover?: (palette: string | undefined, dominant?: string) => void;
 }) {
+  const { t } = useTranslation('browse');
   const [loaded, setLoaded] = useState(false);
   // Collections expose an accent_color (curator-chosen). Use it as the
   // mesh tint on hover — palettes aren't extracted for collections.
@@ -318,8 +322,8 @@ function CollectionTile({
         <div className="h3-gradient" />
       </div>
       <div className="h3-copy">
-        <div className="h3-title">{c.title || 'Untitled set'}</div>
-        <div className="h3-count">{c.wallpaper_count ?? 0} wallpapers</div>
+        <div className="h3-title">{c.title || t('home.untitledSet')}</div>
+        <div className="h3-count">{t('home.collectionCount', { num: c.wallpaper_count ?? 0 })}</div>
       </div>
     </Link>
   );

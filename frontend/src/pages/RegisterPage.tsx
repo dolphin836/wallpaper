@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import { AiOutlineMail, AiOutlineLock, AiOutlineUser } from 'react-icons/ai';
 import toast from 'react-hot-toast';
 import { register } from '../api';
@@ -9,7 +10,8 @@ import { track } from '../lib/track';
 import Field from '../components/Field';
 
 export default function RegisterPage() {
-  usePageTitle('Register');
+  const { t } = useTranslation('auth');
+  usePageTitle(t('register.pageTitle'));
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,7 +25,7 @@ export default function RegisterPage() {
     e.preventDefault();
     setErrors({});
     if (!agreed) {
-      toast.error('Please accept the Terms of Service and Privacy Policy.');
+      toast.error(t('register.errAcceptTerms'));
       return;
     }
     setLoading(true);
@@ -32,18 +34,18 @@ export default function RegisterPage() {
       const { token, user } = res.data.data;
       setAuth(token, user);
       track('register_success');
-      toast.success('Account created!');
+      toast.success(t('register.toastCreated'));
       navigate('/');
     } catch (err: unknown) {
       const e = err as { response?: { status?: number; data?: { message?: string; code?: number } } };
-      const msg = e?.response?.data?.message || 'Registration failed';
+      const msg = e?.response?.data?.message || t('register.errFailed');
       // 40901 = username/email already taken. Backend doesn't tell us which,
       // so we hint at both fields with a generic conflict line.
       if (e?.response?.status === 409 || e?.response?.data?.code === 40901) {
         const lower = msg.toLowerCase();
         setErrors({
-          username: lower.includes('username') ? 'Username taken' : (!lower.includes('email') ? 'Username or email is already taken' : undefined),
-          email: lower.includes('email') ? 'Email already registered' : undefined,
+          username: lower.includes('username') ? t('register.errUsernameTaken') : (!lower.includes('email') ? t('register.errConflict') : undefined),
+          email: lower.includes('email') ? t('register.errEmailRegistered') : undefined,
         });
       } else {
         toast.error(msg);
@@ -65,41 +67,47 @@ export default function RegisterPage() {
           </span>
         </Link>
 
-        <div className="auth-kicker">Register</div>
+        <div className="auth-kicker">{t('register.kicker')}</div>
         <h1 className="auth-title">
-          Join <em>the archive</em>.
+          <Trans i18nKey="register.title" ns="auth" components={[<em key="0" />]} />
         </h1>
         <p className="auth-desc">
-          Free. Get <strong className="text-accent">10 coins</strong> on signup; earn{' '}
-          <strong className="text-accent">+1</strong> for every wallpaper you contribute.
+          <Trans
+            i18nKey="register.desc"
+            ns="auth"
+            components={[
+              <strong key="0" className="text-accent" />,
+              <strong key="1" className="text-accent" />,
+            ]}
+          />
         </p>
 
         <div className="auth-fields">
           <Field
-            label="Username"
+            label={t('form.username')}
             type="text"
             required
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="archivist"
+            placeholder={t('form.usernamePlaceholder')}
             autoComplete="username"
             icon={<AiOutlineUser size={15} />}
-            help="3–32 chars · letters, numbers, dot, underscore"
+            help={t('form.usernameHelp')}
             error={errors.username}
           />
           <Field
-            label="Email"
+            label={t('form.email')}
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
+            placeholder={t('form.emailPlaceholder')}
             autoComplete="email"
             icon={<AiOutlineMail size={15} />}
             error={errors.email}
           />
           <Field
-            label="Password"
+            label={t('form.password')}
             type="password"
             required
             value={password}
@@ -107,7 +115,7 @@ export default function RegisterPage() {
             placeholder="••••••••"
             autoComplete="new-password"
             icon={<AiOutlineLock size={15} />}
-            help="At least 8 characters"
+            help={t('form.passwordHelp')}
             error={errors.password}
           />
         </div>
@@ -120,22 +128,27 @@ export default function RegisterPage() {
             className="accent-ink"
           />
           <span>
-            I accept the{' '}
-            <Link to="/terms" target="_blank" className="auth-link">Terms of Service</Link>
-            {', '}
-            <Link to="/privacy" target="_blank" className="auth-link">Privacy Policy</Link>
-            {', and '}
-            <Link to="/legal/dmca" target="_blank" className="auth-link">DMCA policy</Link>.
+            <Trans
+              i18nKey="register.agree"
+              ns="auth"
+              components={[
+                <Link key="0" to="/terms" target="_blank" className="auth-link" />,
+                <Link key="1" to="/privacy" target="_blank" className="auth-link" />,
+                <Link key="2" to="/legal/dmca" target="_blank" className="auth-link" />,
+              ]}
+            />
           </span>
         </label>
 
         <button type="submit" disabled={loading} className="auth-submit">
-          {loading ? 'Creating…' : <>Create account · <span className="text-accent">get 10 coins</span></>}
+          {loading
+            ? t('register.submitting')
+            : <Trans i18nKey="register.submit" ns="auth" components={[<span key="0" className="text-accent" />]} />}
         </button>
 
         <p className="auth-footnote">
-          Already have an account?{' '}
-          <Link to="/login" className="auth-footnote-link">Sign in →</Link>
+          {t('register.footnote')}{' '}
+          <Link to="/login" className="auth-footnote-link">{t('register.footnoteLink')}</Link>
         </p>
       </form>
     </div>

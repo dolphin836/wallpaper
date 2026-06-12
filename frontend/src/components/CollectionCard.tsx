@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AiOutlineLock } from 'react-icons/ai';
 import type { Collection, CollectionTile } from '../types';
 
@@ -21,6 +22,7 @@ interface Props {
  * the visual rhythm is consistent across the site.
  */
 export default function CollectionCard({ collection, curatorHandle }: Props) {
+  const { t } = useTranslation('collections');
   const tiles = collection.recent_tiles ?? [];
   const main = tiles[0];
   const sub1 = tiles[1];
@@ -59,11 +61,13 @@ export default function CollectionCard({ collection, curatorHandle }: Props) {
         <div className="flex items-center justify-between mono text-[10px] tracking-[0.12em] uppercase text-muted">
           <span>
             №{String(collection.id).padStart(3, '0')} ·{' '}
-            {collection.wallpaper_count} {collection.wallpaper_count === 1 ? 'wallpaper' : 'wallpapers'}
+            {collection.wallpaper_count === 1
+              ? t('tile.wallpaperCountOne')
+              : t('tile.wallpaperCount', { num: collection.wallpaper_count })}
           </span>
           {!collection.is_public && (
             <span className="inline-flex items-center gap-1">
-              <AiOutlineLock size={11} /> PRIVATE
+              <AiOutlineLock size={11} /> {t('tile.private')}
             </span>
           )}
         </div>

@@ -1,6 +1,8 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/auth';
+import LanguageSwitcher from './LanguageSwitcher';
 import usePageView from '../hooks/usePageView';
 import {
   AiOutlineMenu,
@@ -51,14 +53,15 @@ function useDarkMode() {
 }
 
 // Primary destinations (top-nav row). Order matches the previous sidebar.
-const NAV_ITEMS: { label: string; to: string }[] = [
-  { label: 'Home',        to: '/' },
-  { label: 'Discover',    to: '/discover' },
-  { label: 'Weekly',      to: '/weekly-picks' },
-  { label: 'Collections', to: '/collections' },
-  { label: 'Uploaders',   to: '/uploaders' },
-  { label: 'Devices',     to: '/wallpapers-for' },
-  { label: 'Mac App',     to: '/download/mac' },
+// Labels are i18n keys under common:nav.
+const NAV_ITEMS: { labelKey: string; to: string }[] = [
+  { labelKey: 'nav.home',        to: '/' },
+  { labelKey: 'nav.discover',    to: '/discover' },
+  { labelKey: 'nav.weekly',      to: '/weekly-picks' },
+  { labelKey: 'nav.collections', to: '/collections' },
+  { labelKey: 'nav.uploaders',   to: '/uploaders' },
+  { labelKey: 'nav.devices',     to: '/wallpapers-for' },
+  { labelKey: 'nav.macApp',      to: '/download/mac' },
 ];
 
 function isItemActive(pathname: string, to: string) {
@@ -82,6 +85,7 @@ function isItemActive(pathname: string, to: string) {
    measures on resize so the position stays accurate if fonts load
    late or the viewport changes. */
 function NavBar({ location }: { location: { pathname: string } }) {
+  const { t, i18n } = useTranslation();
   const navRef = useRef<HTMLElement>(null);
   const itemRefs = useRef<Map<string, HTMLAnchorElement>>(new Map());
   const [indicator, setIndicator] = useState<{ x: number; w: number; visible: boolean }>({
@@ -109,7 +113,8 @@ function NavBar({ location }: { location: { pathname: string } }) {
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [location.pathname]);
+    // i18n.language: label widths change with the language, so re-measure.
+  }, [location.pathname, i18n.language]);
 
   return (
     <nav ref={navRef} className="hidden md:flex items-center gap-7 ml-6 relative">
@@ -127,7 +132,7 @@ function NavBar({ location }: { location: { pathname: string } }) {
               active ? 'text-ink font-medium' : 'text-ink-2 hover:text-ink'
             }`}
           >
-            {item.label}
+            {t(item.labelKey)}
           </Link>
         );
       })}
@@ -145,6 +150,7 @@ function NavBar({ location }: { location: { pathname: string } }) {
 }
 
 function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => void }) {
+  const { t } = useTranslation();
   const { isAuthenticated, user, logout } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -235,12 +241,12 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
             <div className="display text-[20px] leading-none tracking-[-0.01em]">Wallpaper</div>
             <div className="mono text-[9px] tracking-[0.20em] uppercase text-muted mt-1 inline-flex items-center gap-1.5">
               Exchange
-              <span className="live-dot" title="System online" />
+              <span className="live-dot" title={t('header.systemOnline')} />
             </div>
           </div>
           {/* Mobile-only: just the live dot floats next to the icon since
               the wordmark is hidden at < sm. */}
-          <span className="live-dot sm:hidden" title="System online" />
+          <span className="live-dot sm:hidden" title={t('header.systemOnline')} />
         </Link>
 
         {/* Primary nav — desktop only. Sliding underline indicator:
@@ -261,12 +267,14 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
               demo's single-affordance treatment. */}
           <button
             onClick={() => setDark(!dark)}
-            title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-            aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={dark ? t('header.switchToLight') : t('header.switchToDark')}
+            aria-label={dark ? t('header.switchToLight') : t('header.switchToDark')}
             className="w-[34px] h-[34px] rounded-full inline-flex items-center justify-center bg-paper-2 border border-hair text-ink-2 hover:text-ink hover:border-ink-2 transition-colors"
           >
             {dark ? <BsSun size={13} /> : <BsMoon size={13} />}
           </button>
+
+          <LanguageSwitcher />
 
           {isAuthenticated && user ? (
             <>
@@ -279,14 +287,14 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
                   of the right cluster, not blended with chrome. */}
               <Link
                 to={`/user/${user.username}/ledger`}
-                title="Coin ledger"
+                title={t('header.coinLedger')}
                 className="balance-pill hidden sm:inline-flex mx-2"
               >
                 <span className="balance-pill__coin" aria-hidden />
                 <span className="balance-pill__num">
                   <AnimatedNumber value={user.coins ?? 0} />
                 </span>
-                <span className="balance-pill__label">coins</span>
+                <span className="balance-pill__label">{t('header.coins')}</span>
               </Link>
 
               {/* User menu — hover-to-open with an accent-ring avatar.
@@ -301,7 +309,7 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
               >
                 <button
                   onClick={() => setUserMenuOpen((o) => !o)}
-                  aria-label="Open user menu"
+                  aria-label={t('header.openUserMenu')}
                   aria-expanded={userMenuOpen}
                   className="avatar-btn"
                 >
@@ -330,18 +338,18 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
               <Link
                 to="/login"
                 className="hidden sm:inline-flex items-center px-3.5 py-1.5 rounded-full border border-hair text-ink text-[12px] font-medium hover:bg-paper-2 transition-colors no-underline"
-              >Log in</Link>
+              >{t('header.logIn')}</Link>
               <Link
                 to="/register"
                 className="hidden sm:inline-flex items-center px-3.5 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium hover:bg-ink-2 transition-colors no-underline"
-              >Register</Link>
+              >{t('header.register')}</Link>
             </>
           )}
 
           {/* Mobile hamburger */}
           <button
             onClick={() => setMobileOpen((o) => !o)}
-            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-label={mobileOpen ? t('header.closeMenu') : t('header.openMenu')}
             className="md:hidden w-[34px] h-[34px] inline-flex items-center justify-center rounded-full text-ink hover:bg-paper-2 transition-colors"
           >
             {mobileOpen ? <AiOutlineClose size={20} /> : <AiOutlineMenu size={20} />}
@@ -363,7 +371,7 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
                     active ? 'text-ink font-medium' : 'text-ink-2'
                   }`}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               );
             })}
@@ -372,11 +380,11 @@ function TopNav({ dark, setDark }: { dark: boolean; setDark: (d: boolean) => voi
                 <Link
                   to="/login"
                   className="flex-1 inline-flex items-center justify-center px-3.5 py-2 rounded-full border border-hair text-ink text-[13px] font-medium no-underline"
-                >Log in</Link>
+                >{t('header.logIn')}</Link>
                 <Link
                   to="/register"
                   className="flex-1 inline-flex items-center justify-center px-3.5 py-2 rounded-full bg-ink text-paper text-[13px] font-medium no-underline"
-                >Register</Link>
+                >{t('header.register')}</Link>
               </div>
             )}
           </nav>
@@ -399,6 +407,7 @@ function UserMenu({
   onLogout: () => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const item = 'flex items-center gap-2.5 px-3 py-2.5 rounded-md text-[13px] no-underline hover:bg-paper-2 transition-colors';
   return (
     <div
@@ -409,7 +418,7 @@ function UserMenu({
       {/* Upload — accent-colored, the "supply side" CTA. */}
       <Link to="/upload" onClick={onClose} className={`${item} text-accent font-semibold`}>
         <AiOutlineUpload size={16} />
-        Upload a wallpaper
+        {t('userMenu.upload')}
       </Link>
 
       <hr className="my-1.5 border-t border-hair-soft" />
@@ -420,15 +429,15 @@ function UserMenu({
           aren't surfaced anywhere else. */}
       <Link to={`/user/${user.username}`} onClick={onClose} className={`${item} text-ink`}>
         <AiOutlineUser size={16} />
-        My profile
+        {t('userMenu.myProfile')}
       </Link>
       <Link to={`/user/${user.username}/downloads`} onClick={onClose} className={`${item} text-ink`}>
         <AiOutlineDownload size={16} />
-        My downloads
+        {t('userMenu.myDownloads')}
       </Link>
       <Link to={`/user/${user.username}/ledger`} onClick={onClose} className={`${item} text-ink`}>
         <AiOutlineThunderbolt size={16} />
-        Coin ledger
+        {t('userMenu.coinLedger')}
       </Link>
 
       <hr className="my-1.5 border-t border-hair-soft" />
@@ -441,17 +450,17 @@ function UserMenu({
           <span className="font-semibold text-ink mono tabular-nums">
             <AnimatedNumber value={user.coins ?? 0} />
           </span>
-          <span className="mono text-[10px] tracking-[0.16em] uppercase text-muted">coins</span>
+          <span className="mono text-[10px] tracking-[0.16em] uppercase text-muted">{t('header.coins')}</span>
         </div>
         <div className="mt-1 text-[11px] text-muted">
-          Upload to earn <span className="text-accent font-semibold">+1</span>.
+          <Trans i18nKey="userMenu.uploadToEarn" components={[<span key="0" className="text-accent font-semibold" />]} />
         </div>
         {skipDlConfirm && (
           <button
             onClick={onResetSkip}
             className="mt-2 text-[10px] mono tracking-[0.14em] uppercase text-muted hover:text-accent transition-colors block cursor-pointer text-left"
           >
-            Re-enable download confirm →
+            {t('userMenu.reEnableDlConfirm')}
           </button>
         )}
       </div>
@@ -461,7 +470,7 @@ function UserMenu({
           <hr className="my-1.5 border-t border-hair-soft" />
           <Link to="/admin" onClick={onClose} className={`${item} text-ink`}>
             <AiOutlineDashboard size={16} />
-            Admin console
+            {t('userMenu.adminConsole')}
           </Link>
         </>
       )}
@@ -470,7 +479,7 @@ function UserMenu({
 
       <button onClick={onLogout} className={`${item} text-ink w-full text-left`}>
         <AiOutlineLogout size={16} />
-        Sign out
+        {t('userMenu.signOut')}
       </button>
     </div>
   );
@@ -479,6 +488,7 @@ function UserMenu({
 /* ───────────────────────── Footer ───────────────────────── */
 
 function Footer() {
+  const { t } = useTranslation();
   const [stats, setStats] = useState<{ wallpapers: number; collections: number } | null>(null);
   useEffect(() => {
     const cached = sessionStorage.getItem('wpe_stats');
@@ -493,27 +503,27 @@ function Footer() {
     <footer className="border-t border-hair bg-paper/60 backdrop-blur-sm mt-auto relative z-10">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-8 py-8 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 justify-between">
         <div className="display italic-d text-[14px] text-ink-2">
-          Wallpaper Exchange · trade wallpapers, share more.
+          {t('footer.tagline')}
         </div>
         <div className="mono text-[10px] tracking-[0.18em] uppercase text-muted inline-flex gap-3 items-center flex-wrap">
           <span><strong className="text-ink-2 font-semibold tabular-nums">
             {stats ? stats.wallpapers.toLocaleString() : '—'}
-          </strong> Wallpapers</span>
+          </strong> {t('footer.wallpapers')}</span>
           <span className="opacity-40">·</span>
           <span><strong className="text-ink-2 font-semibold tabular-nums">
             {stats ? stats.collections.toLocaleString() : '—'}
-          </strong> Collections</span>
+          </strong> {t('footer.collections')}</span>
         </div>
         <nav className="flex flex-wrap gap-x-4 gap-y-1 mono text-[10px] tracking-[0.14em] uppercase text-muted">
-          <Link to="/about" className="hover:text-ink transition-colors no-underline">About</Link>
+          <Link to="/about" className="hover:text-ink transition-colors no-underline">{t('footer.about')}</Link>
           <span className="text-hair" aria-hidden>·</span>
-          <Link to="/contribute" className="hover:text-ink transition-colors no-underline">Contribute</Link>
+          <Link to="/contribute" className="hover:text-ink transition-colors no-underline">{t('footer.contribute')}</Link>
           <span className="text-hair" aria-hidden>·</span>
-          <Link to="/terms" className="hover:text-ink transition-colors no-underline">Terms</Link>
+          <Link to="/terms" className="hover:text-ink transition-colors no-underline">{t('footer.terms')}</Link>
           <span className="text-hair" aria-hidden>·</span>
-          <Link to="/privacy" className="hover:text-ink transition-colors no-underline">Privacy</Link>
+          <Link to="/privacy" className="hover:text-ink transition-colors no-underline">{t('footer.privacy')}</Link>
           <span className="text-hair" aria-hidden>·</span>
-          <Link to="/legal/dmca" className="hover:text-ink transition-colors no-underline">DMCA</Link>
+          <Link to="/legal/dmca" className="hover:text-ink transition-colors no-underline">{t('footer.dmca')}</Link>
         </nav>
         <div className="text-[11px] text-muted mono tracking-wide">© {new Date().getFullYear()}</div>
       </div>

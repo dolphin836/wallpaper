@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AiOutlineClose } from 'react-icons/ai';
 
 interface Props {
@@ -16,58 +17,14 @@ function detectOS(): OS {
   return 'unknown';
 }
 
-const guides: Record<OS, { title: string; steps: string[] }> = {
-  ios: {
-    title: 'Set as Wallpaper on iPhone / iPad',
-    steps: [
-      'Open the Photos app and find the downloaded image',
-      'Tap the Share button (square with arrow)',
-      'Scroll down and tap "Use as Wallpaper"',
-      'Adjust position and choose "Set"',
-      'Select Lock Screen, Home Screen, or Both',
-    ],
-  },
-  android: {
-    title: 'Set as Wallpaper on Android',
-    steps: [
-      'Open the downloaded image in your Gallery or Files app',
-      'Tap the three-dot menu or "More" button',
-      'Select "Set as wallpaper" or "Use as"',
-      'Choose Home screen, Lock screen, or Both',
-      'Adjust crop area and confirm',
-    ],
-  },
-  macos: {
-    title: 'Set as Wallpaper on macOS',
-    steps: [
-      'Open System Settings (Apple menu > System Settings)',
-      'Click "Wallpaper" in the sidebar',
-      'Click "Add Photo" or drag the downloaded image into the window',
-      'Alternatively: right-click the image in Finder > "Set Desktop Picture"',
-    ],
-  },
-  windows: {
-    title: 'Set as Wallpaper on Windows',
-    steps: [
-      'Find the downloaded image in File Explorer',
-      'Right-click the image file',
-      'Select "Set as desktop background"',
-      'Or go to Settings > Personalization > Background',
-    ],
-  },
-  unknown: {
-    title: 'Set as Wallpaper',
-    steps: [
-      'Open the downloaded image with your system image viewer',
-      'Look for a "Set as wallpaper" or "Set as desktop background" option',
-      'Alternatively, go to your system display/wallpaper settings and browse to the file',
-    ],
-  },
-};
-
 export default function SetWallpaperGuide({ onClose }: Props) {
+  const { t } = useTranslation('detail');
   const os = useMemo(() => detectOS(), []);
-  const guide = guides[os];
+  // Per-OS title + steps live in the `detail` locale namespace (guide.<os>).
+  const guide = {
+    title: t(`guide.${os}.title`),
+    steps: t(`guide.${os}.steps`, { returnObjects: true }) as string[],
+  };
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -92,12 +49,12 @@ export default function SetWallpaperGuide({ onClose }: Props) {
       >
         <div className="flex items-start justify-between gap-4 p-5 border-b border-hair">
           <div>
-            <div className="kicker text-muted">Local setup</div>
+            <div className="kicker text-muted">{t('guide.kicker')}</div>
             <h3 id="set-wallpaper-guide-title" className="display text-[22px] leading-none mt-2">{guide.title}</h3>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('guide.close')}
             className="w-8 h-8 rounded-full border border-hair text-ink-2 hover:text-ink hover:bg-paper-2 inline-flex items-center justify-center transition-colors"
           >
             <AiOutlineClose size={13} />
@@ -120,7 +77,7 @@ export default function SetWallpaperGuide({ onClose }: Props) {
             onClick={onClose}
             className="w-full py-2.5 text-[13px] font-semibold text-paper bg-ink hover:bg-ink-2 rounded-full transition-colors"
           >
-            Got it
+            {t('guide.gotIt')}
           </button>
         </div>
       </div>

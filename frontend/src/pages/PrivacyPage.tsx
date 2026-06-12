@@ -1,6 +1,10 @@
+import { useTranslation } from 'react-i18next';
 import usePageTitle from '../hooks/usePageTitle';
 import LegalDocument, { type LegalDoc } from '../components/LegalDocument';
 
+// NOTE: the legal body text below intentionally stays in English — legal
+// text is only authoritative in its original language. Only the page
+// chrome (page title + heading) is localized.
 const PRIVACY_DOC: LegalDoc = {
   title: 'Privacy',
   italicTail: 'policy',
@@ -93,6 +97,8 @@ const PRIVACY_DOC: LegalDoc = {
 };
 
 export default function PrivacyPage() {
-  usePageTitle('Privacy Policy');
-  return <LegalDocument doc={PRIVACY_DOC} currentPath="/privacy" />;
+  const { t } = useTranslation('about');
+  usePageTitle(t('privacy.pageTitle'));
+  const doc = { ...PRIVACY_DOC, title: t('privacy.title'), italicTail: t('privacy.italicTail') };
+  return <LegalDocument doc={doc} currentPath="/privacy" />;
 }

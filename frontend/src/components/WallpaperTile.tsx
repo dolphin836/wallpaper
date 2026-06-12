@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   AiOutlineHeart, AiFillHeart,
   AiOutlineStar, AiFillStar,
@@ -44,6 +45,7 @@ interface Props {
  * discover salon tiles.
  */
 export default function WallpaperTile({ w, variant, onHover }: Props) {
+  const { t } = useTranslation('browse');
   const location = useLocation();
   const [loaded, setLoaded] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -82,7 +84,7 @@ export default function WallpaperTile({ w, variant, onHover }: Props) {
     >
       <img
         src={w.preview_url || w.thumb_url}
-        alt={w.title || `Wallpaper ${w.id}`}
+        alt={w.title || t('tile.wallpaperAlt', { id: w.id })}
         loading="lazy"
         decoding="async"
         className={loaded ? 'h3-loaded' : ''}
@@ -118,7 +120,7 @@ export default function WallpaperTile({ w, variant, onHover }: Props) {
           onClick={(e) => stop(e, acts.handleFavorite)}
           disabled={acts.favLoading}
           className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
-          title={acts.favorited ? 'Unfavorite' : 'Favorite'}
+          title={acts.favorited ? t('actions.unfavorite') : t('actions.favorite')}
         >
           {acts.favLoading
             ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
@@ -131,7 +133,7 @@ export default function WallpaperTile({ w, variant, onHover }: Props) {
           onClick={(e) => stop(e, acts.handleLike)}
           disabled={acts.likeLoading}
           className={`t-act ${acts.liked ? 'is-liked' : ''}`}
-          title={acts.liked ? 'Unlike' : 'Like'}
+          title={acts.liked ? t('actions.unlike') : t('actions.like')}
         >
           {acts.likeLoading
             ? <AiOutlineLoading3Quarters size={15} className="animate-spin" />
