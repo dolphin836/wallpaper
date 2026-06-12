@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/segmentio/kafka-go"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -84,6 +87,18 @@ func main() {
 		cancel()
 	}()
 
+	// Gate worker startup on the group coordinator actually answering.
+	// kafka-go readers do not survive joining a broker whose coordinator
+	// isn't up yet: the join fails with GroupCoordinatorNotAvailable and
+	// the reader stalls forever without retrying (2026-06-12 incident —
+	// five videos stuck in processing for 37h after a deploy recreated
+	// the broker). Exit non-zero on timeout so the container restart
+	// policy retries the whole boot against a warmer broker.
+	if err := waitKafkaReady(ctx, cfg.Kafka.Brokers); err != nil {
+		slog.Error("kafka group coordinator not ready, exiting for restart", "error", err)
+		os.Exit(1)
+	}
+
 	g, gCtx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
@@ -117,4 +132,41 @@ func main() {
 	}
 
 	slog.Info("workers stopped")
+}
+
+// waitKafkaReady polls FindCoordinator until the broker's consumer-group
+// coordinator responds, or the deadline lapses. Any group key works for
+// the probe; the coordinator is either up for all groups or none.
+func waitKafkaReady(ctx context.Context, brokers []string) error {
+	client := &kafka.Client{Addr: kafka.TCP(brokers...)}
+	deadline := time.Now().Add(2 * time.Minute)
+
+	for {
+		reqCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		resp, err := client.FindCoordinator(reqCtx, &kafka.FindCoordinatorRequest{
+			Addr:    client.Addr,
+			Key:     "stats-worker",
+			KeyType: kafka.CoordinatorKeyTypeConsumer,
+		})
+		cancel()
+
+		probeErr := err
+		if probeErr == nil && resp.Error != nil {
+			probeErr = resp.Error
+		}
+		if probeErr == nil {
+			slog.Info("kafka group coordinator ready")
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("kafka group coordinator not ready: %w", probeErr)
+		}
+
+		slog.Info("waiting for kafka group coordinator", "error", probeErr.Error())
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
+	}
 }
