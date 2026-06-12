@@ -24,4 +24,6 @@ enum LaunchOptions {
     }
 
     static var showCollections: Bool { args.contains("-collections") }
+
+    static var showWeekly: Bool { args.contains("-weekly") }
 }

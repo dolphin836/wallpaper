@@ -45,14 +45,21 @@ struct WeeklyArchiveView: View {
     }
 
     private func archiveCard(_ entry: WeeklyArchiveEntry) -> some View {
-        CachedAsyncImage(url: URL(string: entry.coverURL), maxPixelDimension: 700) { image in
-            image.resizable().aspectRatio(contentMode: .fill)
-        } placeholder: {
-            Rectangle().fill(Color(hex: entry.accentColor ?? entry.dominantColor) ?? Color.paper3)
-        }
-        .aspectRatio(1.4, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(alignment: .bottomLeading) {
+        // Reserve the 1.4 cell first, then overlay the .fill cover and
+        // clip — cover images with extreme ratios otherwise blow the
+        // cell out beyond the grid column (same class of bug as the
+        // collection tile strip).
+        Color.clear
+            .aspectRatio(1.4, contentMode: .fit)
+            .overlay(
+                CachedAsyncImage(url: URL(string: entry.coverURL), maxPixelDimension: 700) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle().fill(Color(hex: entry.accentColor ?? entry.dominantColor) ?? Color.paper3)
+                }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(alignment: .bottomLeading) {
             VStack(alignment: .leading, spacing: 1) {
                 Text("Week \(entry.week)")
                     .font(.subheadline.weight(.semibold))
@@ -60,14 +67,14 @@ struct WeeklyArchiveView: View {
                     .font(.caption2)
                     .opacity(0.85)
             }
-            .foregroundStyle(.white)
-            .padding(8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: .top, endPoint: .bottom)
-            )
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+                .foregroundStyle(.white)
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: .top, endPoint: .bottom)
+                )
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private func load() async {

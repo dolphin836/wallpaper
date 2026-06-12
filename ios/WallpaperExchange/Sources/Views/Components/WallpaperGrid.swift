@@ -1,35 +1,58 @@
 import SwiftUI
 
-// Two-column masonry-ish grid shared by every wallpaper list surface.
-// Tiles keep each wallpaper's aspect ratio (clamped so extreme panoramas
-// don't collapse a row) and navigate to the detail page by slug.
+// Two-column masonry grid shared by every wallpaper list surface.
+// True masonry (each column stacks independently, items assigned to the
+// currently-shorter column) — LazyVGrid aligns rows, so one tall
+// portrait tile next to a panorama left a hole under the short one.
 struct WallpaperGrid: View {
     let wallpapers: [Wallpaper]
     var hasMore: Bool = false
     var onLoadMore: (() -> Void)? = nil
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10),
-    ]
+    private var columns: (left: [Wallpaper], right: [Wallpaper]) {
+        var left: [Wallpaper] = []
+        var right: [Wallpaper] = []
+        var leftH = 0.0
+        var rightH = 0.0
+        for wallpaper in wallpapers {
+            // Height per unit width — enough fidelity to balance columns.
+            let h = 1.0 / wallpaper.displayAspectRatio
+            if leftH <= rightH {
+                left.append(wallpaper)
+                leftH += h
+            } else {
+                right.append(wallpaper)
+                rightH += h
+            }
+        }
+        return (left, right)
+    }
 
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 10) {
-            ForEach(wallpapers) { wallpaper in
+        let split = columns
+        HStack(alignment: .top, spacing: 10) {
+            column(split.left)
+            column(split.right)
+        }
+        .padding(.horizontal, 12)
+        if hasMore, let onLoadMore {
+            // Sentinel below both columns — appearing means the user
+            // reached the grid's tail, so pull the next page.
+            Color.clear
+                .frame(height: 1)
+                .onAppear { onLoadMore() }
+        }
+    }
+
+    private func column(_ items: [Wallpaper]) -> some View {
+        LazyVStack(spacing: 10) {
+            ForEach(items) { wallpaper in
                 NavigationLink(value: WallpaperRoute(slug: wallpaper.slug)) {
                     WallpaperTile(wallpaper: wallpaper)
                 }
                 .buttonStyle(.plain)
             }
-            if hasMore, let onLoadMore {
-                // Sentinel tile — appearing means the user reached the
-                // grid's tail, so pull the next page.
-                Color.clear
-                    .frame(height: 1)
-                    .onAppear { onLoadMore() }
-            }
         }
-        .padding(.horizontal, 12)
     }
 }
 
@@ -39,29 +62,41 @@ struct WallpaperRoute: Hashable {
     let slug: String
 }
 
+extension Wallpaper {
+    // Display ratio for grid tiles: the wallpaper's own ratio, clamped so
+    // extreme panoramas / verticals don't dominate a column.
+    var displayAspectRatio: CGFloat {
+        guard width > 0, height > 0 else { return 0.7 }
+        let ratio = CGFloat(width) / CGFloat(height)
+        return min(max(ratio, 0.55), 1.8)
+    }
+}
+
 struct WallpaperTile: View {
     let wallpaper: Wallpaper
 
     @Environment(UIPrefs.self) private var prefs
 
-    private var aspectRatio: CGFloat {
-        guard wallpaper.width > 0, wallpaper.height > 0 else { return 0.7 }
-        let ratio = CGFloat(wallpaper.width) / CGFloat(wallpaper.height)
-        return min(max(ratio, 0.55), 1.8)
-    }
-
     var body: some View {
-        CachedAsyncImage(url: URL(string: wallpaper.displayURL), maxPixelDimension: 700) { image in
-            image
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-        } placeholder: {
-            Rectangle()
-                .fill(Color(hex: wallpaper.dominantColor) ?? Color.paper3)
-        }
-        .aspectRatio(aspectRatio, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
+        // Reserve the cell at the display ratio first, then overlay the
+        // .fill image and clip. Letting the image itself carry
+        // .aspectRatio(_:.fit) breaks when its intrinsic ratio is far
+        // from the clamped one (ultra-wides blew cells out to full
+        // screen width and overlapped their row neighbours).
+        Color.clear
+            .aspectRatio(wallpaper.displayAspectRatio, contentMode: .fit)
+            .overlay(
+                CachedAsyncImage(url: URL(string: wallpaper.displayURL), maxPixelDimension: 700) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle()
+                        .fill(Color(hex: wallpaper.dominantColor) ?? Color.paper3)
+                }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
             // Hairline frame keeps very light/very dark images from
             // dissolving into the paper background.
             RoundedRectangle(cornerRadius: 12)

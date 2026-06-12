@@ -45,6 +45,7 @@ struct RootTabView: View {
     @State private var selection = LaunchOptions.tab
     @State private var debugDetailSlug = LaunchOptions.detailSlug
     @State private var debugCollections = LaunchOptions.showCollections
+    @State private var debugWeekly = LaunchOptions.showWeekly
 
     var body: some View {
         TabView(selection: $selection) {
@@ -74,6 +75,11 @@ struct RootTabView: View {
         }
         .fullScreenCoverCompat(isPresented: $debugCollections) {
             CollectionsBrowser()
+        }
+        .fullScreenCoverCompat(isPresented: $debugWeekly) {
+            NavigationStack {
+                WeeklyArchiveView()
+            }
         }
         // Warm exchange accent drives every interactive tint, replacing
         // the stock blue/purple; paper behind everything.
