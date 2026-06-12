@@ -10,19 +10,15 @@ struct WallpaperGrid: View {
     var onLoadMore: (() -> Void)? = nil
 
     private var columns: (left: [Wallpaper], right: [Wallpaper]) {
+        // Every tile renders at the device screen ratio, so the columns
+        // stay balanced with a plain alternating split.
         var left: [Wallpaper] = []
         var right: [Wallpaper] = []
-        var leftH = 0.0
-        var rightH = 0.0
-        for wallpaper in wallpapers {
-            // Height per unit width — enough fidelity to balance columns.
-            let h = 1.0 / wallpaper.displayAspectRatio
-            if leftH <= rightH {
+        for (i, wallpaper) in wallpapers.enumerated() {
+            if i.isMultiple(of: 2) {
                 left.append(wallpaper)
-                leftH += h
             } else {
                 right.append(wallpaper)
-                rightH += h
             }
         }
         return (left, right)
@@ -62,29 +58,19 @@ struct WallpaperRoute: Hashable {
     let slug: String
 }
 
-extension Wallpaper {
-    // Display ratio for grid tiles: the wallpaper's own ratio, clamped so
-    // extreme panoramas / verticals don't dominate a column.
-    var displayAspectRatio: CGFloat {
-        guard width > 0, height > 0 else { return 0.7 }
-        let ratio = CGFloat(width) / CGFloat(height)
-        return min(max(ratio, 0.55), 1.8)
-    }
-}
-
 struct WallpaperTile: View {
     let wallpaper: Wallpaper
 
     @Environment(UIPrefs.self) private var prefs
 
     var body: some View {
-        // Reserve the cell at the display ratio first, then overlay the
-        // .fill image and clip. Letting the image itself carry
-        // .aspectRatio(_:.fit) breaks when its intrinsic ratio is far
-        // from the clamped one (ultra-wides blew cells out to full
-        // screen width and overlapped their row neighbours).
+        // Every tile previews at the device's screen ratio with a
+        // centered .fill crop — what the image will actually look like
+        // set as this device's wallpaper. Reserving the cell with
+        // Color.clear keeps extreme intrinsic ratios (32:9 ultra-wides)
+        // from blowing the cell out of its column.
         Color.clear
-            .aspectRatio(wallpaper.displayAspectRatio, contentMode: .fit)
+            .aspectRatio(DeviceScreenRatio.value, contentMode: .fit)
             .overlay(
                 CachedAsyncImage(url: URL(string: wallpaper.displayURL), maxPixelDimension: 700) { image in
                     image

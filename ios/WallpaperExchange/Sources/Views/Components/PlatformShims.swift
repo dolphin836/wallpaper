@@ -28,6 +28,22 @@ extension Image {
 
 #endif
 
+// The aspect ratio every wallpaper tile is previewed at: this device's
+// own screen ratio, i.e. exactly the crop the system applies when the
+// image becomes the wallpaper. Width varies per surface; ratio never.
+enum DeviceScreenRatio {
+    @MainActor static var value: CGFloat {
+        #if canImport(UIKit)
+        let bounds = UIScreen.main.nativeBounds
+        guard bounds.height > 0 else { return 9.0 / 19.5 }
+        return bounds.width / bounds.height
+        #else
+        // iPhone-like canvas for the macOS dev preview.
+        return 9.0 / 19.5
+        #endif
+    }
+}
+
 extension PlatformImage {
     // Pixel dimensions regardless of platform scale semantics.
     var pixelSize: CGSize {

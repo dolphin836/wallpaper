@@ -16,8 +16,8 @@ struct SkeletonBlock: View {
     }
 }
 
-// Mirrors WallpaperGrid's two-column geometry so the page doesn't
-// reflow when real tiles land.
+// Mirrors WallpaperGrid's two-column geometry — uniform device-ratio
+// tiles — so the page doesn't reflow when real tiles land.
 struct WallpaperGridSkeleton: View {
     var count: Int = 6
 
@@ -25,13 +25,12 @@ struct WallpaperGridSkeleton: View {
         GridItem(.flexible(), spacing: 10),
         GridItem(.flexible(), spacing: 10),
     ]
-    private let ratios: [CGFloat] = [0.7, 1.5, 0.8, 0.66, 1.2, 0.75]
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: 10) {
-            ForEach(0..<count, id: \.self) { i in
+            ForEach(0..<count, id: \.self) { _ in
                 SkeletonBlock()
-                    .aspectRatio(ratios[i % ratios.count], contentMode: .fit)
+                    .aspectRatio(DeviceScreenRatio.value, contentMode: .fit)
             }
         }
         .padding(.horizontal, 12)
