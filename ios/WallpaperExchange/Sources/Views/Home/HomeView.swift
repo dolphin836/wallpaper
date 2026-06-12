@@ -1,13 +1,13 @@
 import SwiftUI
 
 // Home — the curated shelf, mirroring the web/Mac home: this week's
-// picks, community collections, then AI and Live rails. Everything
-// links deeper; nothing here paginates.
+// picks, community collections, then the AI rail. (No Live rail on
+// iOS — the platform can't use video wallpapers.) Everything links
+// deeper; nothing here paginates.
 struct HomeView: View {
     @State private var weekly: WeeklyCurrent?
     @State private var collections: [CollectionItem] = []
     @State private var aiPicks: [Wallpaper] = []
-    @State private var livePicks: [Wallpaper] = []
     @State private var loadError: String?
 
     var body: some View {
@@ -16,7 +16,7 @@ struct HomeView: View {
                 ArchiveTopBar(title: "Home")
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        if let loadError, weekly == nil && aiPicks.isEmpty {
+                        if let loadError, weekly == nil, aiPicks.isEmpty {
                             ErrorRetryView(message: loadError) { Task { await load() } }
                         } else {
                             if let weekly, !weekly.picks.isEmpty {
@@ -30,12 +30,7 @@ struct HomeView: View {
                                     kicker: "Machine dreams", title: "AI Wallpapers",
                                     items: aiPicks, route: FeedRoute(kind: .ai))
                             }
-                            if !livePicks.isEmpty {
-                                raitSection(
-                                    kicker: "In motion", title: "Live Wallpapers",
-                                    items: livePicks, route: FeedRoute(kind: .live))
-                            }
-                            if weekly == nil && aiPicks.isEmpty && livePicks.isEmpty {
+                            if weekly == nil && aiPicks.isEmpty {
                                 homeSkeleton
                             }
                         }
@@ -95,9 +90,10 @@ struct HomeView: View {
             )
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    ForEach(slate.picks) { pick in
+                    // Weekly slates can include video picks; drop them on iOS.
+                    ForEach(slate.picks.map(\.asWallpaper).filter(\.isUsableOnIOS)) { pick in
                         NavigationLink(value: WallpaperRoute(slug: pick.slug)) {
-                            WallpaperTile(wallpaper: pick.asWallpaper)
+                            WallpaperTile(wallpaper: pick)
                                 .frame(height: 240)
                         }
                         .buttonStyle(.plain)
@@ -168,13 +164,11 @@ struct HomeView: View {
             async let weeklyReq = APIClient.shared.fetchWeeklyCurrent()
             async let collectionsReq = APIClient.shared.fetchPublicCollections(limit: 10)
             async let aiReq = APIClient.shared.fetchWallpapers(limit: 10, aiOnly: true)
-            async let liveReq = APIClient.shared.fetchWallpapers(limit: 10, dynamicOnly: true)
 
             weekly = try? await weeklyReq
             collections = (try? await collectionsReq.items) ?? []
             aiPicks = (try? await aiReq.items) ?? []
-            livePicks = (try? await liveReq.items) ?? []
-            if weekly == nil && collections.isEmpty && aiPicks.isEmpty && livePicks.isEmpty {
+            if weekly == nil && collections.isEmpty && aiPicks.isEmpty {
                 // Every fetch failed — surface one retryable error instead
                 // of an empty shelf.
                 _ = try await APIClient.shared.fetchWeeklyCurrent()
@@ -186,11 +180,10 @@ struct HomeView: View {
     }
 }
 
-// Pushable filtered grids ("See all" behind the AI / Live rails).
+// Pushable filtered grid ("See all" behind the AI rail).
 struct FeedRoute: Hashable {
     enum Kind: Hashable {
         case ai
-        case live
     }
     let kind: Kind
 }
@@ -221,7 +214,7 @@ struct FilteredFeedView: View {
             .padding(.top, 8)
         }
         .background(Color.paper)
-        .navigationTitle(kind == .ai ? "AI Wallpapers" : "Live Wallpapers")
+        .navigationTitle("AI Wallpapers")
         .inlineNavTitle()
         .task { if wallpapers.isEmpty { loadNextPage() } }
     }
@@ -235,7 +228,6 @@ struct FilteredFeedView: View {
                 let page = try await APIClient.shared.fetchWallpapers(
                     cursor: cursor,
                     limit: 24,
-                    dynamicOnly: kind == .live,
                     aiOnly: kind == .ai
                 )
                 wallpapers.append(contentsOf: page.items)

@@ -95,7 +95,7 @@ struct WeeklyWeekView: View {
             if let loadError, picks.isEmpty {
                 ErrorRetryView(message: loadError) { Task { await load() } }
             } else {
-                WallpaperGrid(wallpapers: picks.map(\.asWallpaper))
+                WallpaperGrid(wallpapers: picks.map(\.asWallpaper).filter(\.isUsableOnIOS))
                     .padding(.top, 8)
             }
         }

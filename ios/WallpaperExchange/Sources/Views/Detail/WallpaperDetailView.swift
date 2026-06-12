@@ -424,7 +424,8 @@ struct WallpaperDetailView: View {
             likeCount = d.likeCount
             favoriteCount = d.favoriteCount
             loadError = nil
-            similar = (try? await APIClient.shared.fetchSimilarWallpapers(wallpaperID: d.id, limit: 12)) ?? []
+            let similarRaw = (try? await APIClient.shared.fetchSimilarWallpapers(wallpaperID: d.id, limit: 12)) ?? []
+            similar = similarRaw.filter(\.isUsableOnIOS)
         } catch {
             loadError = error.localizedDescription
         }

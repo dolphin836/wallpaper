@@ -4,11 +4,12 @@ import SwiftUI
 // (Latest / Popular / For You / Live / AI), category chips, search, and
 // an infinite-scroll grid.
 struct DiscoverView: View {
+    // No Live feed on iOS — the platform can't use video / macOS-dynamic
+    // wallpapers, so the client hides that whole content class.
     enum Feed: String, CaseIterable, Identifiable {
         case latest = "Latest"
         case popular = "Popular"
         case forYou = "For You"
-        case live = "Live"
         case ai = "AI"
         var id: String { rawValue }
     }
@@ -221,7 +222,6 @@ struct DiscoverView: View {
             let page = try await APIClient.shared.fetchWallpapers(
                 cursor: reset ? nil : cursor,
                 limit: 24,
-                dynamicOnly: feed == .live,
                 aiOnly: feed == .ai,
                 search: submittedSearch.isEmpty ? nil : submittedSearch,
                 categoryID: selectedCategory?.id,

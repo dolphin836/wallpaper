@@ -83,7 +83,10 @@ actor APIClient {
             items.append(.init(name: "cursor", value: String(cursor)))
         }
         let resp: APIResponse<PaginatedData<Wallpaper>> = try await request(path, queryItems: items)
-        return resp.data
+        // Central choke point: every list surface (discover, collections,
+        // user libraries) flows through here, so the iOS live-content
+        // exclusion holds everywhere without per-endpoint backend support.
+        return resp.data.droppingLiveContent()
     }
 
     func request<T: Decodable>(_ path: String, method: String = "GET", queryItems: [URLQueryItem]? = nil) async throws -> T {
@@ -127,18 +130,13 @@ actor APIClient {
     func fetchWallpapers(
         cursor: Int? = nil,
         limit: Int = 24,
-        dynamicOnly: Bool = false,
         aiOnly: Bool = false,
         search: String? = nil,
         categoryID: Int? = nil,
         sort: String? = nil,
-        deviceRequirement: DeviceScreenRequirement? = nil,
-        includeVideo: Bool = false
+        deviceRequirement: DeviceScreenRequirement? = nil
     ) async throws -> PaginatedData<Wallpaper> {
         var items: [URLQueryItem] = []
-        if dynamicOnly {
-            items.append(.init(name: "dynamic_only", value: "true"))
-        }
         if aiOnly {
             items.append(.init(name: "ai_only", value: "true"))
         }
@@ -154,14 +152,8 @@ actor APIClient {
         if let req = deviceRequirement {
             items.append(.init(name: "device_width", value: String(req.width)))
             items.append(.init(name: "device_height", value: String(req.height)))
-            items.append(.init(name: "include_dynamic", value: "true"))
         }
-        // iOS can't render video or Mac-dynamic wallpapers as a device
-        // wallpaper, but they're still browsable; hide video by default
-        // exactly like the web grid does.
-        if !includeVideo && !dynamicOnly {
-            items.append(.init(name: "exclude_video", value: "true"))
-        }
+        items.append(.init(name: "exclude_video", value: "true"))
         return try await fetchWallpaperPage("/wallpapers", cursor: cursor, limit: limit, queryItems: items)
     }
 
@@ -171,7 +163,7 @@ actor APIClient {
             .init(name: "exclude_video", value: "true"),
         ]
         let resp: APIResponse<[Wallpaper]> = try await request("/wallpapers/for-you", queryItems: items)
-        return resp.data
+        return resp.data.filter(\.isUsableOnIOS)
     }
 
     func fetchCoins() async throws -> Int {
@@ -405,6 +397,26 @@ actor APIClient {
             }
             return "application/octet-stream"
         }
+    }
+}
+
+// iOS can't apply video wallpapers (no system support, see 2026-06-12
+// product decision) nor macOS-dynamic solar/h24 HEICs, so the iOS
+// client hides live content on every surface.
+extension Wallpaper {
+    var isUsableOnIOS: Bool {
+        !isDynamic && !fileType.hasPrefix("video/")
+    }
+}
+
+extension PaginatedData where T == Wallpaper {
+    func droppingLiveContent() -> PaginatedData<Wallpaper> {
+        PaginatedData(
+            items: items.filter(\.isUsableOnIOS),
+            nextCursor: nextCursor,
+            hasMore: hasMore,
+            total: total
+        )
     }
 }
 

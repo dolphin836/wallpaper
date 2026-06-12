@@ -82,9 +82,6 @@ struct WallpaperTile: View {
                     if wallpaper.isAIGenerated == true {
                         MediaChip(text: "AI", tint: Color.accent.opacity(0.78))
                     }
-                    if wallpaper.isDynamic {
-                        MediaChip(text: "LIVE", tint: Color.accent.opacity(0.78))
-                    }
                 }
                 .padding(6)
             }
