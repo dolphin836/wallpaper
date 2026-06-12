@@ -110,6 +110,19 @@ extension View {
         #endif
     }
 
+    // Pushed pages must opt back IN: the root tabs hide the nav bar for
+    // the custom ArchiveTopBar, and that hidden state otherwise carries
+    // into pushed children — leaving them with no back button and no
+    // edge-swipe.
+    @ViewBuilder
+    func showNavBarCompat() -> some View {
+        #if os(iOS)
+        self.toolbar(.visible, for: .navigationBar)
+        #else
+        self
+        #endif
+    }
+
     // fullScreenCover is iOS-only; the macOS dev-preview falls back to a
     // large sheet.
     @ViewBuilder

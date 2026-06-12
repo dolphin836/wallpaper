@@ -61,6 +61,7 @@ struct WallpaperDetailView: View {
         // duplicated it right above the stage panel.
         .navigationTitle("")
         .inlineNavTitle()
+        .showNavBarCompat()
         .task(id: slug) { await load() }
         .sheet(isPresented: $showAddToCollection) {
             if let detail {

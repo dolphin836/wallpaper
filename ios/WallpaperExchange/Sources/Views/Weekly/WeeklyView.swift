@@ -23,6 +23,7 @@ struct WeeklyArchiveView: View {
         .background(Color.paper)
         .navigationTitle("Weekly Picks")
         .inlineNavTitle()
+        .showNavBarCompat()
         .refreshable { await load() }
         .task { if archive.isEmpty { await load() } }
     }
@@ -109,6 +110,7 @@ struct WeeklyWeekView: View {
         .background(Color.paper)
         .navigationTitle("Week \(week) · \(String(year))")
         .inlineNavTitle()
+        .showNavBarCompat()
         .task { if picks.isEmpty { await load() } }
     }
 

@@ -236,6 +236,7 @@ struct CollectionDetailView: View {
         .background(Color.paper)
         .navigationTitle(collection.title)
         .inlineNavTitle()
+        .showNavBarCompat()
         .task { if wallpapers.isEmpty { loadNextPage() } }
     }
 

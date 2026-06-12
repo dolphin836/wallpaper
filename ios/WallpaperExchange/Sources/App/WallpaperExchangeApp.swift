@@ -44,6 +44,7 @@ struct WallpaperExchangeApp: App {
 struct RootTabView: View {
     @State private var selection = LaunchOptions.tab
     @State private var debugDetailSlug = LaunchOptions.detailSlug
+    @State private var debugDetailPath = NavigationPath()
     @State private var debugCollections = LaunchOptions.showCollections
     @State private var debugWeekly = LaunchOptions.showWeekly
 
@@ -62,14 +63,24 @@ struct RootTabView: View {
                 .tabItem { Label("Me", systemImage: "person.crop.circle") }
                 .tag(3)
         }
-        // Screenshot-automation overlays (LaunchOptions args only).
+        // Screenshot-automation overlays (LaunchOptions args only). The
+        // detail route is pushed (not shown as a root) so the screenshots
+        // exercise the same back-button context users navigate in.
         .fullScreenCoverCompat(isPresented: Binding(
             get: { debugDetailSlug != nil },
             set: { if !$0 { debugDetailSlug = nil } }
         )) {
             if let slug = debugDetailSlug {
-                NavigationStack {
-                    WallpaperDetailView(slug: slug)
+                NavigationStack(path: $debugDetailPath) {
+                    Color.paper
+                        .navigationDestination(for: WallpaperRoute.self) { route in
+                            WallpaperDetailView(slug: route.slug)
+                        }
+                        .onAppear {
+                            if debugDetailPath.isEmpty {
+                                debugDetailPath.append(WallpaperRoute(slug: slug))
+                            }
+                        }
                 }
             }
         }

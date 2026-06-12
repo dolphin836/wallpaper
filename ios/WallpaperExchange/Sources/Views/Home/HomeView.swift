@@ -216,6 +216,7 @@ struct FilteredFeedView: View {
         .background(Color.paper)
         .navigationTitle("AI Wallpapers")
         .inlineNavTitle()
+        .showNavBarCompat()
         .task { if wallpapers.isEmpty { loadNextPage() } }
     }
 
