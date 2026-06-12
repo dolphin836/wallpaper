@@ -123,6 +123,17 @@ extension View {
         #endif
     }
 
+    // Transparent nav-bar chrome for immersive pages: keeps the system
+    // back button + edge swipe, drops the bar background.
+    @ViewBuilder
+    func transparentNavBarCompat() -> some View {
+        #if os(iOS)
+        self.toolbarBackground(.hidden, for: .navigationBar)
+        #else
+        self
+        #endif
+    }
+
     // fullScreenCover is iOS-only; the macOS dev-preview falls back to a
     // large sheet.
     @ViewBuilder
