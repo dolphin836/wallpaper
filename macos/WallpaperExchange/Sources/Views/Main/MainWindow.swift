@@ -36,18 +36,18 @@ struct MainWindow: View {
 
         var label: String {
             switch self {
-            case .home:          "Home"
-            case .discover:      "Discover"
-            case .weekly:        "Weekly"
-            case .collections:   "Collections"
-            case .myUploads:     "My Uploads"
-            case .myCollections: "My Collections"
-            case .myDownloads:   "My Downloads"
-            case .myFavorites:   "My Favorites"
-            case .myLikes:       "My Likes"
-            case .myCoins:       "My Coins"
-            case .upload:        "Upload"
-            case .settings:      "Settings"
+            case .home:          L10n.shell.home
+            case .discover:      L10n.shell.discover
+            case .weekly:        L10n.shell.weekly
+            case .collections:   L10n.shell.collections
+            case .myUploads:     L10n.shell.myUploads
+            case .myCollections: L10n.shell.myCollections
+            case .myDownloads:   L10n.shell.myDownloads
+            case .myFavorites:   L10n.shell.myFavorites
+            case .myLikes:       L10n.shell.myLikes
+            case .myCoins:       L10n.shell.myCoins
+            case .upload:        L10n.shell.upload
+            case .settings:      L10n.shell.settings
             }
         }
         var icon: String {
@@ -191,14 +191,14 @@ struct MainWindow: View {
             ToolbarButtonGroup(style: .navigation) {
                 ChromeToolbarButton(
                     icon: "chevron.left",
-                    help: "Back",
+                    help: L10n.shell.back,
                     role: .navigation,
                     disabled: !canGoBack,
                     action: goBack
                 )
                 ChromeToolbarButton(
                     icon: "chevron.right",
-                    help: "Forward",
+                    help: L10n.shell.forward,
                     role: .navigation,
                     disabled: !canGoForward,
                     action: goForward
@@ -211,8 +211,8 @@ struct MainWindow: View {
                 ToolbarButtonGroup(style: .primary) {
                     ChromeToolbarButton(
                         icon: "square.and.arrow.up",
-                        label: "Upload",
-                        help: "Upload",
+                        label: L10n.shell.upload,
+                        help: L10n.shell.upload,
                         role: .primary,
                         active: sidebar == .upload,
                         action: { selectTopLevel(.upload) }
@@ -222,14 +222,14 @@ struct MainWindow: View {
                 ToolbarButtonGroup(style: .utility) {
                     ChromeToolbarButton(
                         icon: "gearshape",
-                        help: "Settings",
+                        help: L10n.shell.settings,
                         role: .utility,
                         active: sidebar == .settings,
                         action: { selectTopLevel(.settings) }
                     )
                     ChromeToolbarButton(
                         icon: "arrow.clockwise",
-                        help: "Refresh current page",
+                        help: L10n.shell.refreshPage,
                         role: .utility,
                         action: refreshCurrentPage
                     )
@@ -260,7 +260,7 @@ struct MainWindow: View {
     }
 
     private var themeToolbarHelp: String {
-        AppearancePref.fromStorage(appearanceRaw) == .dark ? "Switch to light theme" : "Switch to dark theme"
+        AppearancePref.fromStorage(appearanceRaw) == .dark ? L10n.shell.switchToLight : L10n.shell.switchToDark
     }
 
     private func selectTopLevel(_ item: SidebarItem) {
@@ -818,8 +818,8 @@ struct ContentRouter: View {
             AccountView(username: me, initialTab: tab, onWallpaper: onPick, onCollection: onCollection, onUpload: onUpload)
         } else {
             VStack(spacing: 12) {
-                Text("Sign in to view your account.").font(.sans13).foregroundStyle(Color.muted)
-                Button("Sign in") { AuthService.shared.login() }.buttonStyle(.borderedProminent)
+                Text(L10n.shell.signInToViewAccount).font(.sans13).foregroundStyle(Color.muted)
+                Button(L10n.shell.signIn) { AuthService.shared.login() }.buttonStyle(.borderedProminent)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }

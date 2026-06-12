@@ -16,23 +16,25 @@ struct SettingsView: View {
     @State private var auth = AuthService.shared
     @State private var manager = WallpaperManager.shared
     @AppStorage(AppearancePref.storageKey) private var appearanceRaw: String = AppearancePref.system.rawValue
+    @AppStorage(LanguagePref.storageKey) private var languageRaw: String = LanguagePref.system.rawValue
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 28) {
                 // Page title
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("SETTINGS")
+                    Text(L10n.settings.kicker)
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .tracking(1.5)
                         .foregroundStyle(Color.muted)
-                    Text("Preferences.")
+                    Text(L10n.settings.title)
                         .font(.system(size: 32, weight: .regular, design: .serif))
                         .foregroundStyle(Color.ink)
                 }
 
                 accountSection
                 appearanceSection
+                languageSection
                 storageSection
                 if auth.isLoggedIn { sessionSection }
             }
@@ -44,7 +46,7 @@ struct SettingsView: View {
 
     // ─── Account ─────────────────────────────────────────────────
     private var accountSection: some View {
-        sectionCard(title: "Account") {
+        sectionCard(title: L10n.settings.account) {
             if let u = auth.user {
                 HStack(spacing: 14) {
                     avatarView(user: u)
@@ -62,23 +64,23 @@ struct SettingsView: View {
                         .padding(.top, 2)
                     }
                     Spacer()
-                    Button("Open profile") {
+                    Button(L10n.settings.openProfile) {
                         onOpenProfile(u.username)
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.regular)
                 }
                 Divider().background(Color.hair).padding(.vertical, 4)
-                Text("Profile editing on macOS is coming soon. For now, edit your nickname, avatar, and password on the web site.")
+                Text(L10n.settings.profileEditingNote)
                     .font(.system(size: 11))
                     .foregroundStyle(Color.muted)
             } else {
                 HStack {
-                    Text("Not signed in.")
+                    Text(L10n.settings.notSignedIn)
                         .font(.system(size: 13))
                         .foregroundStyle(Color.muted)
                     Spacer()
-                    Button("Sign in") { auth.login() }
+                    Button(L10n.settings.signIn) { auth.login() }
                         .buttonStyle(.borderedProminent)
                 }
             }
@@ -108,10 +110,10 @@ struct SettingsView: View {
 
     // ─── Appearance ──────────────────────────────────────────────
     private var appearanceSection: some View {
-        sectionCard(title: "Appearance") {
+        sectionCard(title: L10n.settings.appearance) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Theme")
+                    Text(L10n.settings.theme)
                         .font(.system(size: 13))
                         .foregroundStyle(Color.ink)
                     Spacer()
@@ -146,12 +148,51 @@ struct SettingsView: View {
         .buttonStyle(.plain)
     }
 
+    // ─── Language ────────────────────────────────────────────────
+    // Same chip row as Appearance. Language names render in their own
+    // script (never translated); the window root re-mounts via .id() so
+    // the switch takes effect immediately.
+    private var languageSection: some View {
+        sectionCard(title: L10n.common.language) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    ForEach(LanguagePref.allCases, id: \.self) { pref in
+                        languageChip(pref: pref)
+                    }
+                }
+                Text(L10n.common.languageFootnote)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.muted)
+            }
+        }
+    }
+
+    private func languageChip(pref: LanguagePref) -> some View {
+        let isOn = languageRaw == pref.rawValue
+        let label = pref == .system ? L10n.common.languageSystem : pref.resolved.nativeName
+        return Button(action: { languageRaw = pref.rawValue }) {
+            Text(label)
+                .font(.system(size: 12, weight: isOn ? .semibold : .regular))
+                .foregroundStyle(isOn ? Color.accent : Color.ink2)
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(isOn ? Color.accent.opacity(0.12) : Color.paper2)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(isOn ? Color.accent.opacity(0.35) : Color.hair, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
     // ─── Storage ─────────────────────────────────────────────────
     private var storageSection: some View {
-        sectionCard(title: "Storage") {
+        sectionCard(title: L10n.settings.storage) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Downloads folder").font(.system(size: 13)).foregroundStyle(Color.ink)
+                    Text(L10n.settings.downloadsFolder).font(.system(size: 13)).foregroundStyle(Color.ink)
                     Text(manager.storageDir.path)
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(Color.muted)
@@ -159,7 +200,7 @@ struct SettingsView: View {
                         .truncationMode(.middle)
                 }
                 Spacer()
-                Button("Reveal in Finder") {
+                Button(L10n.settings.revealInFinder) {
                     try? FileManager.default.createDirectory(at: manager.storageDir, withIntermediateDirectories: true)
                     NSWorkspace.shared.open(manager.storageDir)
                 }
@@ -169,15 +210,15 @@ struct SettingsView: View {
 
     // ─── Session ─────────────────────────────────────────────────
     private var sessionSection: some View {
-        sectionCard(title: "Session") {
+        sectionCard(title: L10n.settings.session) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Sign out").font(.system(size: 13)).foregroundStyle(Color.ink)
-                    Text("Clear local session and return to the sign-in screen")
+                    Text(L10n.settings.signOut).font(.system(size: 13)).foregroundStyle(Color.ink)
+                    Text(L10n.settings.signOutDesc)
                         .font(.system(size: 11)).foregroundStyle(Color.muted)
                 }
                 Spacer()
-                Button("Sign out", role: .destructive) { auth.logout() }
+                Button(L10n.settings.signOut, role: .destructive) { auth.logout() }
             }
         }
     }
@@ -218,9 +259,9 @@ enum AppearancePref: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .system: "System"
-        case .light:  "Light"
-        case .dark:   "Dark"
+        case .system: L10n.settings.themeSystem
+        case .light:  L10n.settings.themeLight
+        case .dark:   L10n.settings.themeDark
         }
     }
 

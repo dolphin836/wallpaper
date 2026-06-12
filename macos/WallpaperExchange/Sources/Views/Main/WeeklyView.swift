@@ -29,8 +29,8 @@ struct WeeklyArchiveView: View {
                     }
                 } else if entries.isEmpty {
                     RemoteEmptyStateView(
-                        title: "No weekly drops yet.",
-                        message: "The archive will appear once the first weekly curation has been published.",
+                        title: L10n.home.archiveEmptyTitle,
+                        message: L10n.home.archiveEmptyMessage,
                         symbol: "calendar"
                     )
                 } else {
@@ -85,10 +85,10 @@ struct WeeklyArchiveView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Kicker(text: "The Archive")
-            Text("Every Friday, a new ten.")
+            Kicker(text: L10n.home.archiveKicker)
+            Text(L10n.home.archiveTitle)
                 .font(.display32).foregroundStyle(Color.ink)
-            Text("We publish ten wallpapers each ISO week. Once a piece lands in a drop it never returns. Pick an issue from the timeline.")
+            Text(L10n.home.archiveIntro)
                 .font(.sans13).foregroundStyle(Color.ink2)
                 .frame(maxWidth: 560, alignment: .leading)
         }
@@ -148,11 +148,11 @@ struct WeeklyArchiveView: View {
                             }
                             .overlay(alignment: .bottomLeading) {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("ISSUE").font(.kicker).tracking(2.4).foregroundStyle(.white.opacity(0.85))
+                                    Text(L10n.home.issueLabel).font(.kicker).tracking(2.4).foregroundStyle(.white.opacity(0.85))
                                     Text("№ \(String(format: "%02d", s.week))")
                                         .font(.system(size: 30, weight: .semibold, design: .serif))
                                         .foregroundStyle(.white)
-                                    Text("\(Self.fmtDate(s.year, s.week)) \(String(s.year)) · \(s.count) PICKS")
+                                    Text("\(Self.fmtDate(s.year, s.week)) \(String(s.year)) · \(L10n.home.picksCountCaps(s.count))")
                                         .font(.mono11).tracking(0.6).foregroundStyle(.white.opacity(0.85))
                                 }
                                 .padding(20)
@@ -161,7 +161,7 @@ struct WeeklyArchiveView: View {
                             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.hair, lineWidth: 1))
 
                         HStack(spacing: 8) {
-                            Text("View all \(s.count) picks")
+                            Text(L10n.home.viewAllPicks(s.count))
                                 .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.accent)
                             Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.accent)
                         }
@@ -221,7 +221,7 @@ struct WeeklyWeekView: View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Week \(week)").font(.display32).foregroundStyle(Color.ink)
+                    Text(L10n.home.weekTitle(week)).font(.display32).foregroundStyle(Color.ink)
                     Text("\(WeeklyArchiveView.fmtDate(year, week)), \(String(year))")
                         .font(.mono11).tracking(0.6).foregroundStyle(Color.muted)
                 }
@@ -285,7 +285,7 @@ struct WeeklyWeekView: View {
                 .overlay(alignment: .bottom) {
                     HStack(alignment: .bottom) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("CURATION · WEEK \(week) · \(String(year))")
+                            Text(L10n.home.heroKicker(week, year))
                                 .font(.kicker).tracking(2.0).foregroundStyle(.white.opacity(0.9))
                             Text("\(h.width)×\(h.height) · \(mb(h.fileSize))")
                                 .font(.mono11).tracking(0.5).foregroundStyle(.white.opacity(0.85))
@@ -293,7 +293,7 @@ struct WeeklyWeekView: View {
                         Spacer(minLength: 0)
                         HStack(spacing: 6) {
                             Circle().fill(Color.accent).frame(width: 9, height: 9)
-                            Text("Trade for 1").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.ink)
+                            Text(L10n.home.tradeForOne).font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.ink)
                         }
                         .padding(.horizontal, 14).padding(.vertical, 8)
                         .background(Capsule().fill(.white))

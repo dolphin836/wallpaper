@@ -18,11 +18,22 @@ struct MyLibraryGridView: View {
         [GridItem(.adaptive(minimum: 240, maximum: 360), spacing: 12, alignment: .top)]
     }
 
+    // Localized noun for the sign-in prompt — the rawValue stays the
+    // endpoint switch key.
+    private var kindNoun: String {
+        switch kind {
+        case .uploads: L10n.browse.libUploads
+        case .downloads: L10n.browse.libDownloads
+        case .favorites: L10n.browse.libFavorites
+        case .likes: L10n.browse.libLikes
+        }
+    }
+
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
                 if !auth.isLoggedIn {
-                    SignedOutInline(message: "Sign in to view your \(kind.rawValue).")
+                    SignedOutInline(message: L10n.browse.signInPrompt(kindNoun))
                 } else if loading && items.isEmpty {
                     WallpaperGridSkeleton(columns: gridColumns, count: 12, spacing: 12)
                 } else if let err = loadError, items.isEmpty {
@@ -30,7 +41,7 @@ struct MyLibraryGridView: View {
                         Task { await reload() }
                     }
                 } else if items.isEmpty {
-                    Text("Nothing here yet.")
+                    Text(L10n.browse.nothingHere)
                         .font(.sans13).foregroundStyle(Color.muted).padding(.top, 24)
                 } else {
                     LazyVGrid(columns: gridColumns, spacing: 12) {
@@ -45,7 +56,7 @@ struct MyLibraryGridView: View {
                     if let err = loadError {
                         HStack(spacing: 10) {
                             Text(err).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
-                            Button("Retry") { Task { await loadMore() } }.controlSize(.small)
+                            Button(L10n.common.retry) { Task { await loadMore() } }.controlSize(.small)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.top, 18)
@@ -106,7 +117,7 @@ struct MyLibraryCollectionsView: View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
                 if !auth.isLoggedIn {
-                    SignedOutInline(message: "Sign in to view your collections.")
+                    SignedOutInline(message: L10n.browse.signInPrompt(L10n.browse.libCollections))
                 } else if loading && items.isEmpty {
                     WallpaperGridSkeleton(columns: gridColumns, count: 12, spacing: 12, aspectRatio: 3.0 / 2.0, cornerRadius: 12)
                 } else if let err = loadError {
@@ -114,7 +125,7 @@ struct MyLibraryCollectionsView: View {
                         Task { await load() }
                     }
                 } else if items.isEmpty {
-                    Text("You haven't created any collections yet.")
+                    Text(L10n.browse.noCollectionsYet)
                         .font(.sans13).foregroundStyle(Color.muted).padding(.top, 24)
                 } else {
                     LazyVGrid(columns: gridColumns, spacing: 12) {
@@ -157,7 +168,7 @@ struct MyCollectionCard: View {
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.hair, lineWidth: 1))
             VStack(alignment: .leading, spacing: 3) {
                 Text(brief.title).font(.displayMd).foregroundStyle(Color.ink).lineLimit(1)
-                Text("\(brief.wallpaperCount) WALLPAPERS")
+                Text(L10n.browse.collectionCount(brief.wallpaperCount))
                     .font(.kicker).tracking(1.5).foregroundStyle(Color.muted)
             }
         }
@@ -182,7 +193,7 @@ struct MyCoinsView: View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 18) {
                 if !auth.isLoggedIn {
-                    SignedOutInline(message: "Sign in to view your coin balance.")
+                    SignedOutInline(message: L10n.browse.signInPrompt(L10n.browse.libCoinBalance))
                 } else {
                     balanceCard
                     ledgerCard
@@ -197,12 +208,12 @@ struct MyCoinsView: View {
     private var balanceCard: some View {
         HStack(alignment: .center, spacing: 18) {
             VStack(alignment: .leading, spacing: 4) {
-                Kicker(text: "Your balance", tint: Color.coinLabel)
+                Kicker(text: L10n.browse.balanceKicker, tint: Color.coinLabel)
                 Text("\(auth.user?.coins ?? 0)")
                     .font(.system(size: 44, weight: .semibold, design: .serif))
                     .foregroundStyle(Color.coinValue)
                     .monospacedDigit()
-                Text("Earn +1 for each upload and +1 each time someone downloads yours.")
+                Text(L10n.browse.earnHint)
                     .font(.sans12).foregroundStyle(Color.coinLabel)
                     .frame(maxWidth: 420, alignment: .leading)
             }
@@ -221,7 +232,7 @@ struct MyCoinsView: View {
     private var ledgerCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Kicker(text: "Transaction history")
+                Kicker(text: L10n.browse.txHistory)
                 Spacer()
             }
             .padding(.horizontal, 18).padding(.vertical, 14)
@@ -230,13 +241,13 @@ struct MyCoinsView: View {
             if loading && tx.isEmpty {
                 LedgerRowsSkeleton(rows: 4)
             } else if let err = loadError, tx.isEmpty {
-                RemoteLoadErrorView(title: "Could not load transactions", message: err) {
+                RemoteLoadErrorView(title: L10n.browse.txErrorTitle, message: err) {
                     Task { await reload() }
                 }
             } else if tx.isEmpty {
                 RemoteEmptyStateView(
-                    title: "No transactions yet.",
-                    message: "Coin activity will show here after uploads, trades, and system grants.",
+                    title: L10n.browse.txEmptyTitle,
+                    message: L10n.browse.txEmptyMessage,
                     symbol: "creditcard"
                 )
                 .padding(.horizontal, 18)
@@ -249,7 +260,7 @@ struct MyCoinsView: View {
                 if let err = loadError {
                     HStack(spacing: 10) {
                         Text(err).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
-                        Button("Retry") { Task { await loadMore() } }.controlSize(.small)
+                        Button(L10n.common.retry) { Task { await loadMore() } }.controlSize(.small)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
@@ -284,7 +295,7 @@ struct MyCoinsView: View {
                 Text((isCredit ? "+\(t.amount)" : "\(t.amount)"))
                     .font(.system(size: 14, weight: .semibold, design: .monospaced))
                     .foregroundStyle(isCredit ? Color.accent : Color.ink)
-                Text("Bal · \(t.balance)").font(.mono10).tracking(0.4).foregroundStyle(Color.muted)
+                Text(L10n.browse.balanceAfter(t.balance)).font(.mono10).tracking(0.4).foregroundStyle(Color.muted)
             }
         }
         .padding(.horizontal, 18).padding(.vertical, 12)
@@ -295,17 +306,19 @@ struct MyCoinsView: View {
 
     private func humanize(_ tx: String) -> String {
         switch tx {
-        case "upload_reward":       "Reward · upload published"
-        case "download_received":   "Reward · someone downloaded yours"
-        case "download_spent":      "Spent · downloaded a wallpaper"
-        case "admin_grant":         "Admin grant"
+        case "upload_reward":       L10n.browse.txUploadReward
+        case "download_received":   L10n.browse.txDownloadReceived
+        case "download_spent":      L10n.browse.txDownloadSpent
+        case "admin_grant":         L10n.browse.txAdminGrant
         default: tx.replacingOccurrences(of: "_", with: " ").capitalized
         }
     }
 
     private func formatDate(_ iso: String) -> String {
         guard let date = ISO8601DateFormatter().date(from: iso) else { return iso }
-        let f = DateFormatter(); f.dateFormat = "MMM d · HH:mm"
+        let f = DateFormatter()
+        f.locale = Locale(identifier: L10n.browse.dateLocaleID)
+        f.dateFormat = L10n.browse.ledgerDateFormat
         return f.string(from: date)
     }
 
@@ -345,7 +358,7 @@ struct SignedOutInline: View {
                 .font(.system(size: 36, weight: .light))
                 .foregroundStyle(Color.muted)
             Text(message).font(.sans12).foregroundStyle(Color.ink2)
-            Button("Sign in") { auth.login() }.controlSize(.small)
+            Button(L10n.browse.signIn) { auth.login() }.controlSize(.small)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 60)

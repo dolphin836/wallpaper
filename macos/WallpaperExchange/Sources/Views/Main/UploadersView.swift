@@ -16,9 +16,9 @@ struct UploadersView: View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Kicker(text: "Top contributors · this week")
+                    Kicker(text: L10n.browse.uploadersKicker)
                     HStack(alignment: .firstTextBaseline) {
-                        Text("Uploaders").font(.display32).foregroundStyle(Color.ink)
+                        Text(L10n.browse.uploadersTitle).font(.display32).foregroundStyle(Color.ink)
                         Spacer()
                         sortPicker
                     }
@@ -49,12 +49,21 @@ struct UploadersView: View {
         .task(id: sort) { await load() }
     }
 
+    // Localized label for a sort key — the key itself is the API
+    // parameter value and must stay English.
+    private func sortLabel(_ s: String) -> String {
+        switch s {
+        case "newest": L10n.browse.sortNewest
+        case "downloads": L10n.browse.sortDownloads
+        default: L10n.browse.sortTrending
+        }
+    }
+
     private var sortPicker: some View {
         HStack(spacing: 4) {
             ForEach(["trending", "newest", "downloads"], id: \.self) { s in
-                let label = s.capitalized
                 Button(action: { sort = s }) {
-                    Text(label)
+                    Text(sortLabel(s))
                         .font(.sans11)
                         .foregroundStyle(sort == s ? Color.ink : Color.muted)
                         .padding(.horizontal, 10).padding(.vertical, 4)
@@ -115,8 +124,8 @@ struct UploaderCard: View {
                         .lineLimit(2)
                 }
                 HStack(spacing: 14) {
-                    metric(label: "UPLOADS", value: "\(item.wallpaperCount)")
-                    metric(label: "DOWNLOADS", value: "\(item.totalDownloads)")
+                    metric(label: L10n.browse.metricUploads, value: "\(item.wallpaperCount)")
+                    metric(label: L10n.browse.metricDownloads, value: "\(item.totalDownloads)")
                 }
                 .padding(.top, 4)
             }

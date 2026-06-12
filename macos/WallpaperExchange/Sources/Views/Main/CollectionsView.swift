@@ -43,12 +43,12 @@ struct CollectionsListView: View {
                     }
                 } else if visible.isEmpty {
                     RemoteEmptyStateView(
-                        title: filter == .yours ? "No collections from you yet." : "No collections yet.",
+                        title: filter == .yours ? L10n.collections.emptyYoursTitle : L10n.collections.emptyAllTitle,
                         message: filter == .yours
-                            ? "Create a set when you want to group wallpapers by mood, device, or project."
-                            : "Curated sets will appear here once the library has something to group.",
+                            ? L10n.collections.emptyYoursMessage
+                            : L10n.collections.emptyAllMessage,
                         symbol: "square.grid.2x2",
-                        actionTitle: filter == .yours && auth.isLoggedIn ? "New collection" : nil,
+                        actionTitle: filter == .yours && auth.isLoggedIn ? L10n.collections.newCollection : nil,
                         action: filter == .yours && auth.isLoggedIn ? { showCreate = true } : nil
                     )
                 } else {
@@ -80,21 +80,21 @@ struct CollectionsListView: View {
     private var header: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 10) {
-                Kicker(text: "The Library")
-                Text("Crates, curated.").font(.display32).foregroundStyle(Color.ink)
-                Text("Themed sets put together by the community and the editors. Each collection has its own colour, voice, and pace.")
+                Kicker(text: L10n.collections.kicker)
+                Text(L10n.collections.title).font(.display32).foregroundStyle(Color.ink)
+                Text(L10n.collections.subtitle)
                     .font(.sans13).foregroundStyle(Color.ink2)
                     .frame(maxWidth: 560, alignment: .leading)
             }
             Spacer(minLength: 0)
             HStack(spacing: 8) {
-                filterChip("All", on: filter == .all) { filter = .all }
+                filterChip(L10n.collections.filterAll, on: filter == .all) { filter = .all }
                 if auth.isLoggedIn {
-                    filterChip("Yours", on: filter == .yours) { filter = .yours }
+                    filterChip(L10n.collections.filterYours, on: filter == .yours) { filter = .yours }
                     Button { showCreate = true } label: {
                         HStack(spacing: 5) {
                             Image(systemName: "plus").font(.system(size: 11, weight: .bold))
-                            Text("New").font(.system(size: 12, weight: .semibold))
+                            Text(L10n.collections.newButton).font(.system(size: 12, weight: .semibold))
                         }
                         .foregroundStyle(.white)
                         .padding(.horizontal, 12).padding(.vertical, 7)
@@ -111,17 +111,17 @@ struct CollectionsListView: View {
     private var pagination: some View {
         HStack(spacing: 12) {
             Spacer()
-            pageButton("‹ Prev", enabled: page > 0 && !loading) {
+            pageButton(L10n.collections.prevPage, enabled: page > 0 && !loading) {
                 Task { await loadPage(page - 1) }
             }
             if loading {
                 ProgressView().controlSize(.small).frame(width: 60)
             } else {
-                Text("Page \(page + 1)")
+                Text(L10n.collections.pageLabel(page + 1))
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .tracking(0.5).foregroundStyle(Color.ink2).frame(minWidth: 60)
             }
-            pageButton("Next ›", enabled: hasMore && !loading) {
+            pageButton(L10n.collections.nextPage, enabled: hasMore && !loading) {
                 Task { await loadPage(page + 1) }
             }
             Spacer()
@@ -192,8 +192,8 @@ struct CollectionTileCard: View {
         return nil
     }
     private var kickerText: String {
-        var s = item.kind == 1 ? "Editor Theme" : "Collection"
-        if item.isPublic == false { s += " · Private" }
+        var s = item.kind == 1 ? L10n.collections.kickerEditorTheme : L10n.collections.kickerCollection
+        if item.isPublic == false { s += " · " + L10n.collections.privateLabel }
         return s
     }
     // Tint for the stacked-paper layers (web mixes accent into hair).
@@ -207,10 +207,10 @@ struct CollectionTileCard: View {
                 Text(kickerText.uppercased())
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
                     .tracking(2.0).foregroundStyle(Color.muted)
-                Text(item.title.isEmpty ? "Untitled set" : item.title)
+                Text(item.title.isEmpty ? L10n.collections.untitledSet : item.title)
                     .font(.system(size: 21, weight: .regular, design: .serif))
                     .foregroundStyle(Color.ink).lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                Text("\(item.wallpaperCount) \(item.wallpaperCount == 1 ? "WALLPAPER" : "WALLPAPERS")")
+                Text(L10n.collections.wallpaperCountCaps(item.wallpaperCount))
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .tracking(1.4).foregroundStyle(Color.muted)
             }
@@ -249,7 +249,7 @@ struct CollectionTileCard: View {
                             } placeholder: { Color.paper2 }
                         } else {
                             Color.paper2.overlay(
-                                Text("NO COVER YET").font(.system(size: 10, design: .monospaced))
+                                Text(L10n.collections.noCoverYet).font(.system(size: 10, design: .monospaced))
                                     .tracking(1.8).foregroundStyle(Color.muted))
                         }
                     }
@@ -259,7 +259,7 @@ struct CollectionTileCard: View {
                         if item.isPublic == false {
                             HStack(spacing: 3) {
                                 Image(systemName: "lock.fill").font(.system(size: 8, weight: .bold))
-                                Text("PRIVATE").font(.system(size: 9, weight: .semibold, design: .monospaced)).tracking(0.4)
+                                Text(L10n.collections.privateLabel.uppercased()).font(.system(size: 9, weight: .semibold, design: .monospaced)).tracking(0.4)
                             }
                             .foregroundStyle(.white)
                             .padding(.horizontal, 7).padding(.vertical, 3)
@@ -287,14 +287,14 @@ struct NewCollectionSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("New collection").font(.display20).foregroundStyle(Color.ink)
-            TextField("Title", text: $title).textFieldStyle(.roundedBorder)
-            Toggle("Public", isOn: $isPublic).toggleStyle(.switch)
+            Text(L10n.collections.newCollection).font(.display20).foregroundStyle(Color.ink)
+            TextField(L10n.collections.titlePlaceholder, text: $title).textFieldStyle(.roundedBorder)
+            Toggle(L10n.collections.publicToggle, isOn: $isPublic).toggleStyle(.switch)
             if let e = error { Text(e).font(.sans11).foregroundStyle(Color.warn) }
             HStack {
                 Spacer()
-                Button("Cancel") { onClose() }
-                Button(creating ? "Creating…" : "Create") { create() }
+                Button(L10n.common.cancel) { onClose() }
+                Button(creating ? L10n.collections.creating : L10n.collections.create) { create() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || creating)
             }
@@ -312,7 +312,7 @@ struct NewCollectionSheet: View {
                 _ = try await APIClient.shared.createCollection(title: t, isPublic: isPublic)
                 creating = false; onCreated(); onClose()
             } catch {
-                creating = false; self.error = "Couldn't create. Try again."
+                creating = false; self.error = L10n.collections.createFailed
             }
         }
     }
@@ -346,8 +346,8 @@ struct CollectionDetailView: View {
 
     private var setCountLabel: String {
         let total = info?.wallpaperCount ?? items.count
-        if !items.isEmpty && items.count < total { return "\(items.count) OF \(total)" }
-        return "\(total) \(total == 1 ? "PIECE" : "PIECES")"
+        if !items.isEmpty && items.count < total { return L10n.collections.countOfTotalCaps(items.count, total) }
+        return L10n.collections.piecesCaps(total)
     }
 
     private var gridColumns: [GridItem] {
@@ -369,7 +369,7 @@ struct CollectionDetailView: View {
 
                     // "THE SET" head — mirrors the web's c-detail-grid-head.
                     HStack {
-                        Text("THE SET")
+                        Text(L10n.collections.theSet)
                             .font(.system(size: 10, weight: .medium, design: .monospaced))
                             .tracking(2.2).foregroundStyle(Color.muted)
                         Spacer()
@@ -391,8 +391,8 @@ struct CollectionDetailView: View {
                         }
                     } else if items.isEmpty {
                         RemoteEmptyStateView(
-                            title: "No wallpapers in this collection yet.",
-                            message: "This set is ready, but it does not have any wallpapers attached right now.",
+                            title: L10n.collections.emptyDetailTitle,
+                            message: L10n.collections.emptyDetailMessage,
                             symbol: "photo.stack"
                         )
                     } else {
@@ -440,7 +440,7 @@ struct CollectionDetailView: View {
                 }
                 Spacer(minLength: 0)
             }
-            LabelRule(text: "THE SET · …")
+            LabelRule(text: L10n.collections.theSet + " · …")
             WallpaperGridSkeleton(columns: gridColumns, count: 12, spacing: 24, aspectRatio: 3.0 / 4.0, cornerRadius: 6)
         }
     }
@@ -461,7 +461,7 @@ struct CollectionDetailView: View {
                                 img.resizable().aspectRatio(contentMode: .fill)
                             } placeholder: { Color.paper2 }
                         } else {
-                            Text("NO COVER YET").font(.system(size: 10, design: .monospaced))
+                            Text(L10n.collections.noCoverYet).font(.system(size: 10, design: .monospaced))
                                 .tracking(1.8).foregroundStyle(Color.muted)
                         }
                     }
@@ -477,7 +477,7 @@ struct CollectionDetailView: View {
             .shadow(color: .black.opacity(0.16), radius: 14, x: 0, y: 8)
 
             VStack(alignment: .leading, spacing: 14) {
-                Text(((c.kind == 1 ? "Editor Theme" : "Collection") + (c.isPublic == false ? " · Private" : "")).uppercased())
+                Text(((c.kind == 1 ? L10n.collections.kickerEditorTheme : L10n.collections.kickerCollection) + (c.isPublic == false ? " · " + L10n.collections.privateLabel : "")).uppercased())
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
                     .tracking(2.0).foregroundStyle(Color.muted)
 
@@ -496,7 +496,7 @@ struct CollectionDetailView: View {
                         Button(action: { editTitle = c.title; editDesc = c.description ?? ""; editIsPublic = c.isPublic ?? true; editing = true }) {
                             HStack(spacing: 5) {
                                 Image(systemName: "pencil").font(.system(size: 10, weight: .semibold))
-                                Text("Edit").font(.system(size: 12, weight: .medium))
+                                Text(L10n.collections.edit).font(.system(size: 12, weight: .medium))
                             }
                             .foregroundStyle(Color.ink).padding(.horizontal, 12).padding(.vertical, 6)
                             .background(Capsule().fill(Color.paper)).overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
@@ -532,8 +532,8 @@ struct CollectionDetailView: View {
         let handle = curator?.username ?? "user-\(c.userID ?? 0)"
         let initial = String((curator?.nickname ?? curator?.username ?? "U").prefix(1)).uppercased()
         let sub: String = {
-            var s = "\(c.wallpaperCount) \(c.wallpaperCount == 1 ? "wallpaper" : "wallpapers")"
-            if let u = c.updatedAt, !relativeCollTime(u).isEmpty { s += " · updated \(relativeCollTime(u))" }
+            var s = L10n.collections.wallpaperCountLower(c.wallpaperCount)
+            if let u = c.updatedAt, !relativeCollTime(u).isEmpty { s += " · " + L10n.collections.updatedAgo(relativeCollTime(u)) }
             return s
         }()
         return HStack(spacing: 10) {
@@ -552,7 +552,7 @@ struct CollectionDetailView: View {
             }
             .frame(width: 34, height: 34)
             VStack(alignment: .leading, spacing: 2) {
-                Text("A set by @\(handle)")
+                Text(L10n.collections.setBy(handle))
                     .font(.system(size: 13, design: .serif)).foregroundStyle(Color.ink)
                 Text(sub)
                     .font(.system(size: 11, design: .monospaced)).tracking(0.4).foregroundStyle(Color.muted)
@@ -563,24 +563,24 @@ struct CollectionDetailView: View {
 
     @ViewBuilder private func editForm(_ c: CollectionItem) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            TextField("Title", text: $editTitle)
+            TextField(L10n.collections.titlePlaceholder, text: $editTitle)
                 .textFieldStyle(.plain).font(.display32).foregroundStyle(Color.ink)
-            TextField("Optional description", text: $editDesc, axis: .vertical)
+            TextField(L10n.collections.descPlaceholder, text: $editDesc, axis: .vertical)
                 .textFieldStyle(.roundedBorder).font(.system(size: 14)).lineLimit(3, reservesSpace: true)
                 .frame(maxWidth: 420)
             Toggle(isOn: $editIsPublic) {
-                Text(editIsPublic ? "Public · anyone can find this set" : "Private · only you can see it")
+                Text(editIsPublic ? L10n.collections.togglePublicOn : L10n.collections.togglePublicOff)
                     .font(.system(size: 12)).foregroundStyle(Color.ink2)
             }
             .toggleStyle(.switch).tint(Color.accent).frame(maxWidth: 420, alignment: .leading)
             HStack(spacing: 8) {
                 Button(action: { Task { await saveEdit(c) } }) {
-                    Text(saving ? "Saving…" : "Save").font(.system(size: 12, weight: .medium))
+                    Text(saving ? L10n.collections.saving : L10n.collections.save).font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Color.paper).padding(.horizontal, 16).padding(.vertical, 7)
                         .background(Capsule().fill(Color.ink))
                 }.buttonStyle(.plain).disabled(saving || editTitle.trimmingCharacters(in: .whitespaces).isEmpty).pointerCursor()
                 Button(action: { editing = false }) {
-                    Text("Cancel").font(.system(size: 12)).foregroundStyle(Color.ink2)
+                    Text(L10n.common.cancel).font(.system(size: 12)).foregroundStyle(Color.ink2)
                         .padding(.horizontal, 16).padding(.vertical, 7)
                         .background(Capsule().strokeBorder(Color.hair, lineWidth: 1))
                 }.buttonStyle(.plain).pointerCursor()
@@ -655,9 +655,9 @@ struct FramedTile: View {
     private var isOwnWallpaper: Bool { auth.user?.id == wallpaper.userID }
     private var isDownloaded: Bool { downloaded ?? (wallpaper.isDownloaded ?? localFileExists) }
     private var downloadHelp: String {
-        if isDownloaded { return "Got it" }
-        if isOwnWallpaper { return "Download" }
-        return "Trade for 1"
+        if isDownloaded { return L10n.collections.downloadGotIt }
+        if isOwnWallpaper { return L10n.collections.download }
+        return L10n.collections.tradeForOne
     }
     private var isTransferring: Bool { manager.downloading.contains(wallpaper.id) }
     private var downloadProgress: Double? { manager.downloadProgress[wallpaper.id] }
@@ -722,7 +722,7 @@ struct FramedTile: View {
     @ViewBuilder private var chips: some View {
         HStack(spacing: 5) {
             if let r = resLabel { tileChip(r, icon: nil) }
-            if isVideo || wallpaper.isDynamic { tileChip("Live", icon: "play.fill") }
+            if isVideo || wallpaper.isDynamic { tileChip(L10n.collections.liveChip, icon: "play.fill") }
             if wallpaper.isAIGenerated == true { tileChip("AI", icon: "sparkles") }
             Spacer(minLength: 0)
         }
@@ -745,11 +745,11 @@ struct FramedTile: View {
         VStack(spacing: 5) {
             ActionDot(icon: isFavorited ? "star.fill" : "star",
                       kind: .favorite, active: isFavorited,
-                      help: isFavorited ? "Unfavorite" : "Favorite",
+                      help: isFavorited ? L10n.collections.unfavorite : L10n.collections.favorite,
                       busy: busy, size: 26, action: { Task { await toggleFavorite() } })
             ActionDot(icon: isLiked ? "heart.fill" : "heart",
                       kind: .like, active: isLiked,
-                      help: isLiked ? "Unlike" : "Like",
+                      help: isLiked ? L10n.collections.unlike : L10n.collections.like,
                       busy: busy, size: 26, action: { Task { await toggleLike() } })
             ActionDot(icon: isDownloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
                       kind: .download, active: isDownloaded,
@@ -761,7 +761,7 @@ struct FramedTile: View {
                       action: { Task { await doDownload() } })
             ActionDot(icon: "rectangle.on.rectangle.angled",
                       kind: .neutral, active: false,
-                      help: "Set as wallpaper",
+                      help: L10n.collections.setAsWallpaper,
                       busy: busy,
                       loading: setButtonLoading,
                       progress: downloadProgress,
@@ -824,13 +824,13 @@ fileprivate func relativeCollTime(_ iso: String) -> String {
     let plain = ISO8601DateFormatter()
     guard let date = withFrac.date(from: iso) ?? plain.date(from: iso) else { return "" }
     let diff = Date().timeIntervalSince(date)
-    if diff < 60 { return "just now" }
-    if diff < 3600 { return "\(Int(diff / 60)) min ago" }
-    if diff < 86400 { return "\(Int(diff / 3600)) hr ago" }
+    if diff < 60 { return L10n.collections.timeJustNow }
+    if diff < 3600 { return L10n.collections.timeMinAgo(Int(diff / 60)) }
+    if diff < 86400 { return L10n.collections.timeHrAgo(Int(diff / 3600)) }
     let days = Int(diff / 86400)
-    if days < 30 { return "\(days) \(days == 1 ? "day" : "days") ago" }
+    if days < 30 { return L10n.collections.timeDaysAgo(days) }
     let months = days / 30
-    if months < 12 { return "\(months) \(months == 1 ? "month" : "months") ago" }
+    if months < 12 { return L10n.collections.timeMonthsAgo(months) }
     let years = months / 12
-    return "\(years) \(years == 1 ? "year" : "years") ago"
+    return L10n.collections.timeYearsAgo(years)
 }

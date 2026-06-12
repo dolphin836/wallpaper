@@ -25,8 +25,8 @@ struct DevicesIndexView: View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Kicker(text: "Find wallpapers sized for your hardware")
-                    Text("Devices").font(.display32).foregroundStyle(Color.ink)
+                    Kicker(text: L10n.browse.devicesKicker)
+                    Text(L10n.browse.devicesTitle).font(.display32).foregroundStyle(Color.ink)
                 }
 
                 if loading && devices.isEmpty {
@@ -38,7 +38,7 @@ struct DevicesIndexView: View {
                 } else {
                     ForEach(grouped, id: \.platform) { group in
                         VStack(alignment: .leading, spacing: 10) {
-                            Kicker(text: "\(group.platform.uppercased()) · \(group.items.count)")
+                            Kicker(text: "\(L10n.browse.platformLabel(group.platform)) · \(group.items.count)")
                             LazyVGrid(columns: gridColumns, spacing: 12) {
                                 ForEach(group.items) { d in
                                     Button(action: { onPick(d) }) {
@@ -148,8 +148,8 @@ struct DeviceDetailView: View {
                     }
                 } else if items.isEmpty {
                     RemoteEmptyStateView(
-                        title: "No wallpapers for this device yet.",
-                        message: "When matching wallpapers are published, they will appear here automatically.",
+                        title: L10n.browse.deviceEmptyTitle,
+                        message: L10n.browse.deviceEmptyMessage,
                         symbol: "display"
                     )
                 } else {
@@ -165,7 +165,7 @@ struct DeviceDetailView: View {
                     if let err = loadError {
                         HStack(spacing: 10) {
                             Text(err).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
-                            Button("Retry") { Task { await loadMore() } }.controlSize(.small)
+                            Button(L10n.common.retry) { Task { await loadMore() } }.controlSize(.small)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.top, 18)
@@ -184,7 +184,7 @@ struct DeviceDetailView: View {
 
     private func header(_ d: DeviceProfile) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Kicker(text: "\(d.platform.uppercased()) · \(d.brand) · \(info?.wallpaperCount ?? 0) wallpapers")
+            Kicker(text: "\(L10n.browse.platformLabel(d.platform)) · \(d.brand) · \(L10n.browse.wallpapersCount(info?.wallpaperCount ?? 0))")
             Text(d.name).font(.display32).foregroundStyle(Color.ink)
             Text("\(d.width)×\(d.height) · \(d.ppi) ppi")
                 .font(.mono11).tracking(0.5).foregroundStyle(Color.muted)

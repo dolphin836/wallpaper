@@ -34,9 +34,9 @@ struct MainGridTile: View {
         return wallpaper.isDownloaded ?? localFileExists
     }
     private var downloadHelp: String {
-        if isDownloaded { return "Got it" }
-        if flagIfNotLocal || isOwnWallpaper { return "Download" }
-        return "Trade for 1"
+        if isDownloaded { return L10n.browse.tipGotIt }
+        if flagIfNotLocal || isOwnWallpaper { return L10n.browse.tipDownload }
+        return L10n.browse.tipTradeForOne
     }
     private var isTransferring: Bool { manager.downloading.contains(wallpaper.id) }
     private var downloadProgress: Double? { manager.downloadProgress[wallpaper.id] }
@@ -104,14 +104,14 @@ struct MainGridTile: View {
                             ActionDot(icon: isFavorited ? "star.fill" : "star",
                                       kind: .favorite,
                                       active: isFavorited,
-                                      help: isFavorited ? "Unfavorite" : "Favorite",
+                                      help: isFavorited ? L10n.browse.tipUnfavorite : L10n.browse.tipFavorite,
                                       busy: busy,
                                       size: dotSize,
                                       action: { Task { await toggleFavorite() } })
                             ActionDot(icon: isLiked ? "heart.fill" : "heart",
                                       kind: .like,
                                       active: isLiked,
-                                      help: isLiked ? "Unlike" : "Like",
+                                      help: isLiked ? L10n.browse.tipUnlike : L10n.browse.tipLike,
                                       busy: busy,
                                       size: dotSize,
                                       action: { Task { await toggleLike() } })
@@ -127,7 +127,7 @@ struct MainGridTile: View {
                             ActionDot(icon: "rectangle.on.rectangle.angled",
                                       kind: .neutral,
                                       active: false,
-                                      help: "Set as wallpaper",
+                                      help: L10n.browse.tipSetWallpaper,
                                       busy: busy,
                                       loading: setButtonLoading,
                                       progress: downloadProgress,
@@ -184,7 +184,7 @@ struct MainGridTile: View {
     private var liveChip: some View {
         HStack(spacing: 4) {
             Image(systemName: "play.fill").font(.system(size: 8, weight: .semibold))
-            Text("LIVE").font(Self.chipFont).tracking(0.4)
+            Text(L10n.browse.chipLive).font(Self.chipFont).tracking(0.4)
         }
         .foregroundStyle(Self.chipInk)
         .padding(.horizontal, 7).padding(.vertical, 2)
@@ -196,7 +196,7 @@ struct MainGridTile: View {
     private var notLocalChip: some View {
         HStack(spacing: 4) {
             Image(systemName: "externaldrive.badge.xmark").font(.system(size: 8, weight: .semibold))
-            Text("MISS").font(Self.chipFont).tracking(0.4)
+            Text(L10n.browse.chipMissing).font(Self.chipFont).tracking(0.4)
         }
         .foregroundStyle(Self.chipInk)
         .padding(.horizontal, 7).padding(.vertical, 2)

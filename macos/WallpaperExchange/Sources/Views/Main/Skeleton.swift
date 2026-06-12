@@ -209,9 +209,11 @@ struct LedgerRowsSkeleton: View {
 }
 
 struct RemoteLoadErrorView: View {
-    var title: String = "Could not load this page"
+    // Default-argument expressions re-evaluate at each call site, so the
+    // localized defaults track language switches across the .id() remount.
+    var title: String = L10n.browse.errorTitle
     var message: String
-    var retryTitle: String = "Retry"
+    var retryTitle: String = L10n.common.retry
     var retry: (() -> Void)? = nil
 
     var body: some View {

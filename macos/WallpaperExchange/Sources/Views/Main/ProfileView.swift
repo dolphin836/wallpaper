@@ -18,6 +18,15 @@ struct ProfileView: View {
 
     enum Tab: String, CaseIterable {
         case uploaded = "Uploaded", liked = "Liked", favorited = "Favorited", downloads = "Downloads"
+
+        var label: String {
+            switch self {
+            case .uploaded: L10n.account.profileTabUploaded
+            case .liked: L10n.account.profileTabLiked
+            case .favorited: L10n.account.profileTabFavorited
+            case .downloads: L10n.account.tabDownloads
+            }
+        }
     }
 
     private var gridColumns: [GridItem] {
@@ -82,7 +91,7 @@ struct ProfileView: View {
                 .overlay(Circle().stroke(Color.hair, lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 6) {
-                Kicker(text: "Uploader · Member since \(monthYear(p.createdAt))")
+                Kicker(text: L10n.account.uploaderSince(monthYear(p.createdAt)))
                 Text(p.nickname?.isEmpty == false ? p.nickname! : "@\(p.username)")
                     .font(.display32).foregroundStyle(Color.ink)
                 if let bio = p.bio, !bio.isEmpty {
@@ -91,10 +100,10 @@ struct ProfileView: View {
                         .frame(maxWidth: 600, alignment: .leading)
                 }
                 HStack(spacing: 24) {
-                    statBlock("UPLOADS", "\(p.uploadCount ?? 0)")
-                    statBlock("DOWNLOADS", "\(p.downloadCount ?? 0)")
-                    statBlock("LIKES", "\(p.likeCount ?? 0)")
-                    statBlock("COLLECTIONS", "\(p.collectionCount ?? 0)")
+                    statBlock(L10n.account.statUploads, "\(p.uploadCount ?? 0)")
+                    statBlock(L10n.account.statDownloads, "\(p.downloadCount ?? 0)")
+                    statBlock(L10n.account.statLikes, "\(p.likeCount ?? 0)")
+                    statBlock(L10n.account.statCollections, "\(p.collectionCount ?? 0)")
                 }
                 .padding(.top, 6)
             }
@@ -123,7 +132,7 @@ struct ProfileView: View {
         HStack(spacing: 4) {
             ForEach(visibleTabs, id: \.self) { t in
                 Button(action: { tab = t }) {
-                    Text(t.rawValue)
+                    Text(t.label)
                         .font(.sans12)
                         .foregroundStyle(tab == t ? Color.ink : Color.muted)
                         .padding(.horizontal, 14).padding(.vertical, 7)
@@ -148,7 +157,7 @@ struct ProfileView: View {
                     Task { await loadItems() }
                 }
             } else if items.isEmpty {
-                Text("Nothing here yet.")
+                Text(L10n.account.nothingHere)
                     .font(.sans13).foregroundStyle(Color.muted).padding(.top, 24)
             } else {
                 LazyVGrid(columns: gridColumns, spacing: 14) {
@@ -190,7 +199,9 @@ struct ProfileView: View {
 
     private func monthYear(_ iso: String?) -> String {
         guard let iso, let date = ISO8601DateFormatter().date(from: iso) else { return "—" }
-        let f = DateFormatter(); f.dateFormat = "MMM yyyy"
+        let f = DateFormatter()
+        f.locale = Locale(identifier: L10n.account.dateLocaleID)
+        f.dateFormat = L10n.account.memberSinceFormatShort
         return f.string(from: date)
     }
 }

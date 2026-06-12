@@ -49,7 +49,7 @@ struct DevicePreviewBanner<Header: View>: View {
                 Button {
                     mode = item
                 } label: {
-                    Text(item.rawValue.uppercased())
+                    Text(item.label.uppercased())
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
                         .tracking(1.2)
                         .foregroundStyle(on ? Color.paper : Color.ink2)
@@ -96,7 +96,18 @@ struct DeviceMockup: View {
     @State private var mode: Mode = .plain
     @State private var hover = false
 
-    enum Mode: String, CaseIterable { case plain = "Plain", home = "Home", lock = "Lock" }
+    enum Mode: String, CaseIterable {
+        case plain = "Plain", home = "Home", lock = "Lock"
+
+        /// Localized pill label (rendered uppercased; a no-op for CJK).
+        var label: String {
+            switch self {
+            case .plain: L10n.browse.modePlain
+            case .home: L10n.browse.modeHome
+            case .lock: L10n.browse.modeLock
+            }
+        }
+    }
 
     private var activeMode: Mode { controlledMode ?? mode }
 
@@ -200,7 +211,7 @@ struct DeviceMockup: View {
             ForEach(Mode.allCases, id: \.self) { m in
                 let on = mode == m
                 Button { mode = m } label: {
-                    Text(m.rawValue.uppercased())
+                    Text(m.label.uppercased())
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
                         .tracking(1.2)
                         .foregroundStyle(on ? Color.paper : Color.ink2)
@@ -267,7 +278,10 @@ struct DeviceMockup: View {
         let f = DateFormatter(); f.dateFormat = "HH:mm"; return f.string(from: Date())
     }
     private static var day: String {
-        let f = DateFormatter(); f.dateFormat = "EEEE, MMM d"; return f.string(from: Date())
+        let f = DateFormatter()
+        f.locale = Locale(identifier: L10n.browse.dateLocaleID)
+        f.dateFormat = L10n.browse.lockDateFormat
+        return f.string(from: Date())
     }
 }
 

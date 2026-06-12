@@ -41,7 +41,7 @@ struct HomeView: View {
                     SkeletonTile(variant: .hero)
                 }
                 if allFailed {
-                    RemoteLoadErrorView(message: "The home feed could not load. Please try again.") {
+                    RemoteLoadErrorView(message: L10n.home.homeFeedError) {
                         Task { await loadAll() }
                     }
                 } else {
@@ -70,10 +70,10 @@ struct HomeView: View {
         let restPicks = (weekly?.picks ?? []).filter { p in p.id != heroID } .prefix(5)
         return VStack(alignment: .leading, spacing: 14) {
             sectionHeader(
-                kicker: weekly.map { "Curation · Week \($0.week)" } ?? "Curated each Friday",
-                title: "picks.",
-                accent: "This week's",
-                ctaLabel: "View archive →",
+                kicker: weekly.map { L10n.home.weeklyKicker($0.week) } ?? L10n.home.weeklyKickerFallback,
+                title: L10n.home.weeklyTitleRest,
+                accent: L10n.home.weeklyTitleAccent,
+                ctaLabel: L10n.home.viewArchive,
                 ctaEnabled: true,
                 onCTA: { onOpenWeeklyArchive() }
             )
@@ -101,10 +101,10 @@ struct HomeView: View {
     private var liveSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             sectionHeader(
-                kicker: "Motion · hover to preview",
-                title: "wallpapers.",
-                accent: "Live",
-                ctaLabel: "All live wallpapers →",
+                kicker: L10n.home.liveKicker,
+                title: L10n.home.liveTitleRest,
+                accent: L10n.home.liveTitleAccent,
+                ctaLabel: L10n.home.allLive,
                 ctaEnabled: true,
                 onCTA: { onOpenDiscover(.live) }
             )
@@ -132,10 +132,10 @@ struct HomeView: View {
     private var aiSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             sectionHeader(
-                kicker: "AI Lab · synthetic samples",
-                title: "this week.",
-                accent: "Generated",
-                ctaLabel: "All AI wallpapers →",
+                kicker: L10n.home.aiKicker,
+                title: L10n.home.aiTitleRest,
+                accent: L10n.home.aiTitleAccent,
+                ctaLabel: L10n.home.allAI,
                 ctaEnabled: true,
                 onCTA: { onOpenDiscover(.ai) }
             )
@@ -164,10 +164,10 @@ struct HomeView: View {
     private var collectionsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             sectionHeader(
-                kicker: "Editorial sets · themed bundles",
-                title: "collections.",
-                accent: "Themed",
-                ctaLabel: "All collections →",
+                kicker: L10n.home.collectionsKicker,
+                title: L10n.home.collectionsTitleRest,
+                accent: L10n.home.collectionsTitleAccent,
+                ctaLabel: L10n.home.allCollections,
                 ctaEnabled: true,
                 onCTA: { onOpenCollections() }
             )
@@ -240,6 +240,8 @@ struct HomeView: View {
 
     // Render the section title with an inline accent word. Web pattern
     // is `<em>Word</em> rest.`, where em = weight 500 + accent color.
+    // The localized "rest" strings carry their own leading space (EN)
+    // or join directly (CJK), so no separator is inserted here.
     @ViewBuilder
     private func titleText(title: String, accent: String?) -> some View {
         if let a = accent, !a.isEmpty {
@@ -248,7 +250,7 @@ struct HomeView: View {
                     .font(.system(size: 32, weight: .medium, design: .serif))
                     .foregroundColor(Color.accent)
                 +
-                Text(" " + title)
+                Text(title)
                     .font(.system(size: 32, weight: .regular, design: .serif))
                     .foregroundColor(Color.ink)
             )
@@ -407,7 +409,7 @@ struct HeroCard: View {
                     VStack(alignment: .leading, spacing: 6) {
                         // .h3-kicker — mono 10px, letter-spacing 0.16em,
                         // uppercase, color rgba(255,255,255,0.85)
-                        Text("CURATION · WEEK \(week) · \(year)")
+                        Text(L10n.home.heroKicker(week, year))
                             .font(.system(size: 10, weight: .medium, design: .monospaced))
                             .tracking(1.6)
                             .foregroundStyle(Color.white.opacity(0.85))
@@ -422,7 +424,7 @@ struct HeroCard: View {
                     // warm and legible in both light and dark mode.
                     HStack(spacing: 10) {
                         CoinDisc(size: 12)
-                        Text("Trade for 1")
+                        Text(L10n.home.tradeForOne)
                             .font(.system(size: 13.5, weight: .semibold))
                             .foregroundStyle(Color.coinValue)
                     }
@@ -521,7 +523,7 @@ struct MacDynamicTile: View {
                 // .tile-chip family — light translucent pill, dark text
                 HStack(spacing: 4) {
                     Image(systemName: "play.fill").font(.system(size: 8, weight: .semibold))
-                    Text("LIVE")
+                    Text(L10n.home.liveBadge)
                         .font(.system(size: 9, weight: .semibold, design: .monospaced))
                         .tracking(0.4)
                 }

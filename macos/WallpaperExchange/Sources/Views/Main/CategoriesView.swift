@@ -19,8 +19,8 @@ struct CategoriesView: View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Kicker(text: "Browse by topic")
-                    Text("Categories").font(.display32).foregroundStyle(Color.ink)
+                    Kicker(text: L10n.browse.categoriesKicker)
+                    Text(L10n.browse.categoriesTitle).font(.display32).foregroundStyle(Color.ink)
                 }
                 if loading && cats.isEmpty {
                     WallpaperGridSkeleton(columns: gridColumns, count: 12, spacing: 12, aspectRatio: 3.0 / 2.0, cornerRadius: 12)
@@ -117,7 +117,7 @@ struct CategoryFeedView: View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Kicker(text: "Category · \(category.slug)")
+                    Kicker(text: L10n.browse.categoryFeedKicker(category.slug))
                     Text(category.name).font(.display32).foregroundStyle(Color.ink)
                 }
                 .padding(.bottom, 4)
@@ -139,7 +139,7 @@ struct CategoryFeedView: View {
                     if let err = loadError, !items.isEmpty {
                         HStack(spacing: 10) {
                             Text(err).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
-                            Button("Retry") { Task { await loadMore() } }.controlSize(.small)
+                            Button(L10n.common.retry) { Task { await loadMore() } }.controlSize(.small)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.top, 18)

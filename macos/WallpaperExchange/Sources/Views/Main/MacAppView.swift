@@ -28,7 +28,7 @@ struct MacAppView: View {
 
     private var hero: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Kicker(text: "You're running")
+            Kicker(text: L10n.home.runningKicker)
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text("Wallpaper Exchange")
                     .font(.display32).foregroundStyle(Color.ink)
@@ -36,14 +36,14 @@ struct MacAppView: View {
                     .font(.system(size: 18, weight: .medium, design: .monospaced))
                     .foregroundStyle(Color.muted)
             }
-            Text("Native menu-bar quick actions plus a Dock-visible main window. Drag wallpapers straight to your desktop, set per-display in detail, or let auto-shuffle rotate on your own schedule.")
+            Text(L10n.home.appBlurb)
                 .font(.sans13).foregroundStyle(Color.muted)
                 .frame(maxWidth: 600, alignment: .leading)
             HStack(spacing: 10) {
                 Button(action: { Task { @MainActor in UpdateService.shared.checkManually() } }) {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.clockwise").font(.system(size: 11, weight: .medium))
-                        Text("Check for updates").font(.sans12)
+                        Text(L10n.home.checkForUpdates).font(.sans12)
                     }
                     .foregroundStyle(Color.paper)
                     .padding(.horizontal, 14).padding(.vertical, 7)
@@ -54,7 +54,7 @@ struct MacAppView: View {
                 Button(action: openInBrowser) {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.up.right.square").font(.system(size: 11, weight: .medium))
-                        Text("Open the web app").font(.sans12)
+                        Text(L10n.home.openWebApp).font(.sans12)
                     }
                     .foregroundStyle(Color.ink2)
                     .padding(.horizontal, 14).padding(.vertical, 7)
@@ -69,7 +69,7 @@ struct MacAppView: View {
 
     private var changelog: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Kicker(text: "Release notes")
+            Kicker(text: L10n.home.releaseNotesKicker)
             if loading && release == nil {
                 VStack(alignment: .leading, spacing: 18) {
                     ForEach(0..<4, id: \.self) { _ in
@@ -85,7 +85,7 @@ struct MacAppView: View {
                     }
                 }
             } else if let err = loadError {
-                RemoteLoadErrorView(title: "Could not load release notes", message: err) {
+                RemoteLoadErrorView(title: L10n.home.releaseNotesErrorTitle, message: err) {
                     Task { await load() }
                 }
             } else if let r = release, let entries = r.releases, !entries.isEmpty {
@@ -96,8 +96,8 @@ struct MacAppView: View {
                 }
             } else {
                 RemoteEmptyStateView(
-                    title: "No release notes available.",
-                    message: "Version history will appear here when the release feed is available.",
+                    title: L10n.home.releaseNotesEmptyTitle,
+                    message: L10n.home.releaseNotesEmptyMessage,
                     symbol: "doc.text"
                 )
             }
@@ -114,7 +114,7 @@ struct MacAppView: View {
                     .font(.system(size: 16, weight: .semibold, design: .monospaced))
                     .foregroundStyle(Color.ink)
                 if isCurrent {
-                    Text("CURRENT")
+                    Text(L10n.home.currentBadge)
                         .font(.kicker).tracking(1.5)
                         .foregroundStyle(Color.accent)
                 }
@@ -123,7 +123,7 @@ struct MacAppView: View {
                     .font(.mono10).tracking(0.5).foregroundStyle(Color.muted)
             }
             VStack(alignment: .leading, spacing: 4) {
-                ForEach(entry.notes ?? [], id: \.self) { note in
+                ForEach(entry.localizedNotes(for: L10n.lang), id: \.self) { note in
                     HStack(alignment: .top, spacing: 6) {
                         Text("·").foregroundStyle(Color.muted)
                         Text(note).font(.sans12).foregroundStyle(Color.ink2)

@@ -26,7 +26,18 @@ struct DetailPage: View {
     @State private var downloadNotice: DownloadNotice?
     @Environment(\.dismiss) private var dismiss
 
+    // Raw values are stable identifiers (ForEach ids) — display labels are
+    // localized via previewModeLabel(_:).
     enum PreviewMode: String { case off = "Wallpaper", plain = "Plain", home = "Home", lock = "Lock" }
+
+    private func previewModeLabel(_ mode: PreviewMode) -> String {
+        switch mode {
+        case .off: L10n.detail.previewWallpaper
+        case .plain: L10n.detail.previewPlain
+        case .home: L10n.detail.previewHome
+        case .lock: L10n.detail.previewLock
+        }
+    }
     private enum DownloadNotice: Equatable {
         case success
         case set
@@ -220,7 +231,7 @@ struct DetailPage: View {
 
     private func breadcrumb(detail: WallpaperDetail) -> some View {
         HStack(alignment: .center, spacing: 10) {
-            Kicker(text: "Specimen №\(detail.id)")
+            Kicker(text: L10n.detail.specimen(detail.id))
             Spacer()
         }
     }
@@ -284,7 +295,7 @@ struct DetailPage: View {
             let progress = max(0, min(manager.downloadProgress[d.id] ?? 0, 1))
             VStack(alignment: .leading, spacing: 7) {
                 HStack {
-                    Text(progress > 0 ? "DOWNLOADING ORIGINAL" : "PREPARING ORIGINAL")
+                    Text(progress > 0 ? L10n.detail.downloadingOriginal : L10n.detail.preparingOriginal)
                         .font(.mono10)
                         .tracking(1.4)
                         .foregroundStyle(Color.accentInk)
@@ -345,7 +356,7 @@ struct DetailPage: View {
                 Spacer(minLength: 0)
                 if downloadNotice == .insufficientCoins {
                     Button(action: openUploadOnWeb) {
-                        Text("Upload to earn")
+                        Text(L10n.detail.uploadToEarn)
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(Color.white)
                             .padding(.horizontal, 14)
@@ -395,25 +406,24 @@ struct DetailPage: View {
 
     private func noticeTitle(_ notice: DownloadNotice) -> String {
         switch notice {
-        case .success: "Downloaded"
-        case .set: "Wallpaper set"
-        case .insufficientCoins: "Insufficient coins"
-        case .unavailable: "Not ready to download"
-        case .failed: "Download failed"
+        case .success: L10n.detail.noticeDownloadedTitle
+        case .set: L10n.detail.noticeSetTitle
+        case .insufficientCoins: L10n.detail.noticeInsufficientCoinsTitle
+        case .unavailable: L10n.detail.noticeUnavailableTitle
+        case .failed: L10n.detail.noticeFailedTitle
         }
     }
 
     private func noticeMessage(_ notice: DownloadNotice, detail d: WallpaperDetail) -> String {
         switch notice {
         case .success:
-            return "wallpaper_\(String(format: "%03d", d.id)) · \(byteString(d.fileSize)) saved to your Wallpaper Exchange downloads."
+            return L10n.detail.noticeSuccessMessage("wallpaper_\(String(format: "%03d", d.id))", byteString(d.fileSize))
         case .set:
-            return "Applied to every connected display from your local Wallpaper Exchange file."
+            return L10n.detail.noticeSetMessage
         case .insufficientCoins:
-            let balance = auth.user?.coins ?? 0
-            return "Your balance is \(balance) coin\(balance == 1 ? "" : "s"). Upload wallpapers to earn more and keep downloading."
+            return L10n.detail.noticeInsufficientCoinsMessage(auth.user?.coins ?? 0)
         case .unavailable:
-            return "The original file is still being prepared or is temporarily unavailable. Try again in a moment."
+            return L10n.detail.noticeUnavailableMessage
         case .failed(let message):
             return message
         }
@@ -478,7 +488,7 @@ struct DetailPage: View {
         HStack(alignment: .top, spacing: 4) {
             previewChip(d.resolutionLabel, icon: nil, variant: .regular)
             if isLive(detail: d) {
-                previewChip("LIVE", icon: "play.fill", variant: .regular)
+                previewChip(L10n.detail.chipLive, icon: "play.fill", variant: .regular)
             }
             if d.isAIGenerated == true {
                 previewChip("AI", icon: "sparkles", variant: .ai)
@@ -587,10 +597,10 @@ struct DetailPage: View {
 
     private func socialActions(detail: WallpaperDetail) -> some View {
         HStack(spacing: 6) {
-            actionPill(icon: isLiked ? "heart.fill" : "heart", label: isLiked ? "Liked" : "Like", count: "\(detail.likeCount)", on: isLiked) {
+            actionPill(icon: isLiked ? "heart.fill" : "heart", label: isLiked ? L10n.detail.liked : L10n.detail.like, count: "\(detail.likeCount)", on: isLiked) {
                 Task { await toggleLike(detail) }
             }
-            actionPill(icon: isFavorited ? "star.fill" : "star", label: isFavorited ? "Saved" : "Favorite", count: nil, on: isFavorited) {
+            actionPill(icon: isFavorited ? "star.fill" : "star", label: isFavorited ? L10n.detail.saved : L10n.detail.favorite, count: nil, on: isFavorited) {
                 Task { await toggleFavorite(detail) }
             }
             addToListMenu(detail)
@@ -601,7 +611,7 @@ struct DetailPage: View {
         HStack(spacing: 4) {
             ForEach(Self.previewOptions, id: \.rawValue) { opt in
                 Button(action: { mode = opt }) {
-                    Text(opt.rawValue)
+                    Text(previewModeLabel(opt))
                         .font(.sans11)
                         .lineLimit(1)
                         .fixedSize()
@@ -749,22 +759,22 @@ struct DetailPage: View {
     private func statsStrip(detail: WallpaperDetail, layout: DetailLayout) -> some View {
         if layout.isCompact {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 0), GridItem(.flexible(), spacing: 0)], spacing: 0) {
-                statCell(label: "DOWNLOADS", value: "\(detail.downloadCount)")
-                statCell(label: "LIKES", value: "\(detail.likeCount)")
-                statCell(label: "FAVORITED", value: "\(detail.favoriteCount)")
-                statCell(label: "VIEWS", value: "\(detail.viewCount)")
+                statCell(label: L10n.detail.statDownloads, value: "\(detail.downloadCount)")
+                statCell(label: L10n.detail.statLikes, value: "\(detail.likeCount)")
+                statCell(label: L10n.detail.statFavorited, value: "\(detail.favoriteCount)")
+                statCell(label: L10n.detail.statViews, value: "\(detail.viewCount)")
             }
             .padding(.horizontal, 4).padding(.vertical, 12)
             .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
         } else {
             HStack(spacing: 0) {
-                statCell(label: "DOWNLOADS", value: "\(detail.downloadCount)")
+                statCell(label: L10n.detail.statDownloads, value: "\(detail.downloadCount)")
                 divider
-                statCell(label: "LIKES", value: "\(detail.likeCount)")
+                statCell(label: L10n.detail.statLikes, value: "\(detail.likeCount)")
                 divider
-                statCell(label: "FAVORITED", value: "\(detail.favoriteCount)")
+                statCell(label: L10n.detail.statFavorited, value: "\(detail.favoriteCount)")
                 divider
-                statCell(label: "VIEWS", value: "\(detail.viewCount)")
+                statCell(label: L10n.detail.statViews, value: "\(detail.viewCount)")
             }
             .padding(.horizontal, 4).padding(.vertical, 12)
             .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
@@ -781,7 +791,7 @@ struct DetailPage: View {
 
     private func uploaderCell(detail: WallpaperDetail) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Kicker(text: "Uploaded by")
+            Kicker(text: L10n.detail.uploadedBy)
             if let u = detail.uploader {
                 Button(action: { onUploader(u.username) }) {
                     HStack(spacing: 10) {
@@ -790,13 +800,13 @@ struct DetailPage: View {
                             .overlay(Circle().stroke(Color.hair, lineWidth: 1))
                         VStack(alignment: .leading, spacing: 2) {
                             Text("@\(u.username)").font(.sans13).foregroundStyle(Color.ink)
-                            Text("VIEW PROFILE →").font(.kicker).tracking(2).foregroundStyle(Color.muted)
+                            Text(L10n.detail.viewProfile).font(.kicker).tracking(2).foregroundStyle(Color.muted)
                         }
                     }
                 }
                 .buttonStyle(.plain)
             } else {
-                Text("Unknown").font(.sans13).foregroundStyle(Color.muted)
+                Text(L10n.detail.unknownUploader).font(.sans13).foregroundStyle(Color.muted)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -804,8 +814,8 @@ struct DetailPage: View {
 
     private func aboutCell(detail: WallpaperDetail) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Kicker(text: "About")
-            Text("Wallpaper")
+            Kicker(text: L10n.detail.about)
+            Text(L10n.detail.wallpaperTitle)
                 .font(.displayLg).foregroundStyle(Color.ink)
             if let tags = detail.tags, !tags.isEmpty {
                 ChipFlow {
@@ -831,7 +841,7 @@ struct DetailPage: View {
     private func paletteCell(detail: WallpaperDetail) -> some View {
         let pal = detail.paletteList
         return VStack(alignment: .leading, spacing: 10) {
-            Kicker(text: pal.isEmpty ? "Palette" : "Palette · \(pal.count) colors")
+            Kicker(text: pal.isEmpty ? L10n.detail.palette : L10n.detail.paletteColors(pal.count))
             if pal.isEmpty {
                 Rectangle().fill(Color.paper2).frame(height: 44).cornerRadius(6)
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.hair, lineWidth: 0.5))
@@ -847,7 +857,7 @@ struct DetailPage: View {
             if let dc = detail.dominantColor {
                 HStack(spacing: 6) {
                     Rectangle().fill(Color(hex: dc)).frame(width: 12, height: 12).cornerRadius(2)
-                    Text("DOMINANT · \(dc.uppercased())")
+                    Text(L10n.detail.dominant(dc.uppercased()))
                         .font(.kicker).tracking(2).foregroundStyle(Color.muted)
                 }
             }
@@ -859,14 +869,14 @@ struct DetailPage: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .bottom, spacing: 18) {
                 VStack(alignment: .leading, spacing: 7) {
-                    Kicker(text: "Related archive")
-                    Text("More like this")
+                    Kicker(text: L10n.detail.relatedArchive)
+                    Text(L10n.detail.moreLikeThis)
                         .font(.system(size: 32, weight: .regular, design: .serif))
                         .foregroundStyle(Color.ink)
                         .tracking(-0.3)
                 }
                 Spacer()
-                Text("\(similar.count) PICKS")
+                Text(L10n.detail.picksCount(similar.count))
                     .font(.mono10)
                     .tracking(1.4)
                     .foregroundStyle(Color.muted)
@@ -900,14 +910,14 @@ struct DetailPage: View {
     }
 
     private func downloadButtonText(detail: WallpaperDetail, downloaded: Bool, downloading: Bool) -> String {
-        if downloaded { return "Got it" }
-        if downloading { return "Downloading" }
-        return requiresTrade(detail) ? "Trade for 1" : "Download"
+        if downloaded { return L10n.detail.gotIt }
+        if downloading { return L10n.detail.downloading }
+        return requiresTrade(detail) ? L10n.detail.tradeForOne : L10n.detail.download
     }
 
     private func downloadAndSetButtonText(detail: WallpaperDetail, downloaded: Bool) -> String {
-        if downloaded { return "Set as wallpaper" }
-        return requiresTrade(detail) ? "Download & set · 1 coin" : "Download & set"
+        if downloaded { return L10n.detail.setAsWallpaper }
+        return requiresTrade(detail) ? L10n.detail.downloadAndSetCoin : L10n.detail.downloadAndSet
     }
 
     private func isLocalDownloaded(_ detail: WallpaperDetail) -> Bool {
@@ -926,7 +936,7 @@ struct DetailPage: View {
             return
         }
         guard auth.isLoggedIn else {
-            downloadNotice = .failed("Please sign in to download this wallpaper.")
+            downloadNotice = .failed(L10n.detail.signInToDownload)
             auth.login()
             return
         }
@@ -954,7 +964,7 @@ struct DetailPage: View {
             return
         }
         guard auth.isLoggedIn else {
-            downloadNotice = .failed("Please sign in to download and set this wallpaper.")
+            downloadNotice = .failed(L10n.detail.signInToDownloadAndSet)
             auth.login()
             return
         }
@@ -976,19 +986,19 @@ struct DetailPage: View {
             case .insufficientCoins:
                 downloadNotice = .insufficientCoins
             case .unauthorized:
-                downloadNotice = .failed("Please sign in again to download this wallpaper.")
+                downloadNotice = .failed(L10n.detail.signInAgain)
                 auth.login()
             case .serverError(let code, let message):
                 if code == 404 || code == 409 || code == 423 {
                     downloadNotice = .unavailable
                 } else {
-                    downloadNotice = .failed(message.isEmpty ? "The server could not prepare this download." : message)
+                    downloadNotice = .failed(message.isEmpty ? L10n.detail.serverCouldNotPrepare : message)
                 }
             default:
-                downloadNotice = .failed(api.errorDescription ?? "Download failed.")
+                downloadNotice = .failed(api.errorDescription ?? L10n.detail.downloadFailedFallback)
             }
         } else {
-            downloadNotice = .failed(error.localizedDescription.isEmpty ? "Download failed." : error.localizedDescription)
+            downloadNotice = .failed(error.localizedDescription.isEmpty ? L10n.detail.downloadFailedFallback : error.localizedDescription)
         }
     }
 
@@ -1050,7 +1060,7 @@ struct DetailPage: View {
     private func addToListMenu(_ detail: WallpaperDetail) -> some View {
         Menu {
             if myCollections.isEmpty {
-                Text("No collections yet")
+                Text(L10n.detail.noCollections)
             } else {
                 ForEach(myCollections) { c in
                     Button {
@@ -1070,7 +1080,7 @@ struct DetailPage: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "plus").font(.system(size: 11, weight: .medium))
-                Text("Add to list").font(.sans11)
+                Text(L10n.detail.addToList).font(.sans11)
             }
             .foregroundStyle(Color.ink2)
             .padding(.horizontal, 11).padding(.vertical, 6)
@@ -1148,7 +1158,7 @@ private struct LiveVideoPreview: View {
             }
             .buttonStyle(.plain)
             .disabled(buffering)
-            .help(playing ? "Pause preview" : "Play preview")
+            .help(playing ? L10n.detail.pausePreview : L10n.detail.playPreview)
             .onHover { hover = $0 }
 
             if let errorMessage {
@@ -1256,7 +1266,7 @@ private struct LiveVideoPreview: View {
                 preparePlayer(localURL: downloaded)
             } catch {
                 if !Task.isCancelled {
-                    errorMessage = "Preview failed"
+                    errorMessage = L10n.detail.previewFailed
                     buffering = false
                     progress = 0
                 }

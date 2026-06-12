@@ -44,22 +44,20 @@ private struct AuthPanel: View {
     private var isRegistering: Bool { mode == .register }
 
     private var kicker: String {
-        isRegistering ? "Create account" : "Sign in"
+        isRegistering ? L10n.auth.createAccount : L10n.auth.signIn
     }
 
     private var title: String {
-        isRegistering ? "Join the exchange." : "Welcome back."
+        isRegistering ? L10n.auth.registerTitle : L10n.auth.loginTitle
     }
 
     private var subtitle: String {
-        isRegistering
-            ? "Get 10 coins to start collecting, downloading, and sharing wallpapers."
-            : "Use your Wallpaper Exchange account without leaving the Mac app."
+        isRegistering ? L10n.auth.registerSubtitle : L10n.auth.loginSubtitle
     }
 
     private var submitTitle: String {
-        if isSubmitting { return isRegistering ? "Creating account" : "Signing in" }
-        return isRegistering ? "Create account" : "Sign in"
+        if isSubmitting { return isRegistering ? L10n.auth.creatingAccount : L10n.auth.signingIn }
+        return isRegistering ? L10n.auth.createAccount : L10n.auth.signIn
     }
 
     var body: some View {
@@ -76,7 +74,7 @@ private struct AuthPanel: View {
                         .overlay(Circle().strokeBorder(Color.hair, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
-                .help("Close")
+                .help(L10n.auth.close)
                 .pointerCursor()
             }
 
@@ -96,7 +94,7 @@ private struct AuthPanel: View {
                 if isRegistering {
                     AuthInputField(
                         icon: "person",
-                        label: "Username",
+                        label: L10n.auth.usernameLabel,
                         placeholder: "archivist",
                         text: $username
                     )
@@ -105,7 +103,7 @@ private struct AuthPanel: View {
 
                 AuthInputField(
                     icon: "envelope",
-                    label: "Email",
+                    label: L10n.auth.emailLabel,
                     placeholder: "you@example.com",
                     text: $email
                 )
@@ -113,8 +111,8 @@ private struct AuthPanel: View {
 
                 AuthInputField(
                     icon: "lock",
-                    label: "Password",
-                    placeholder: isRegistering ? "At least 8 characters" : "Password",
+                    label: L10n.auth.passwordLabel,
+                    placeholder: isRegistering ? L10n.auth.passwordHintNew : L10n.auth.passwordLabel,
                     text: $password,
                     isSecure: true
                 )
@@ -177,10 +175,10 @@ private struct AuthPanel: View {
                 .pointerCursor()
 
                 HStack(spacing: 6) {
-                    Text(isRegistering ? "Already have an account?" : "New here?")
+                    Text(isRegistering ? L10n.auth.haveAccount : L10n.auth.newHere)
                         .font(.sans12)
                         .foregroundStyle(Color.muted)
-                    Button(isRegistering ? "Sign in" : "Create one") {
+                    Button(isRegistering ? L10n.auth.signIn : L10n.auth.createOne) {
                         switchMode()
                     }
                     .font(.system(size: 12, weight: .semibold))
@@ -252,17 +250,17 @@ private struct AuthPanel: View {
         let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if isRegistering, cleanUsername.count < 3 || cleanUsername.count > 32 {
-            errorMessage = "Username must be 3 to 32 characters."
+            errorMessage = L10n.auth.usernameLength
             focusedField = .username
             return
         }
         if !cleanEmail.contains("@") {
-            errorMessage = "Enter a valid email address."
+            errorMessage = L10n.auth.invalidEmail
             focusedField = .email
             return
         }
         if password.count < 8 {
-            errorMessage = "Password must be at least 8 characters."
+            errorMessage = L10n.auth.passwordTooShort
             focusedField = .password
             return
         }
@@ -289,19 +287,19 @@ private struct AuthPanel: View {
         switch apiError {
         case .serverError(let code, let message):
             if code == 40103 || code == 40400 {
-                return "Email or password is incorrect."
+                return L10n.auth.wrongCredentials
             }
             if code == 40901 {
-                return "Username or email is already taken."
+                return L10n.auth.alreadyTaken
             }
             if code == 40001 {
-                return "Check the fields and try again."
+                return L10n.auth.checkFields
             }
             return message
         case .networkError:
-            return "Network error. Check your connection and try again."
+            return L10n.auth.networkError
         case .decodingError:
-            return "The server response could not be read."
+            return L10n.auth.badResponse
         default:
             return apiError.localizedDescription
         }

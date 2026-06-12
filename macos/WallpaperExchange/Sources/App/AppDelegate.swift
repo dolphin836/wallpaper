@@ -190,7 +190,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        let openItem = NSMenuItem(title: "Open Wallpaper Exchange", action: #selector(menuOpenMainWindow), keyEquivalent: "")
+        let openItem = NSMenuItem(title: L10n.shell.openApp, action: #selector(menuOpenMainWindow), keyEquivalent: "")
         openItem.target = self
         menu.addItem(openItem)
 
@@ -202,8 +202,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let launchStatus = SMAppService.mainApp.status
         let launchItem = NSMenuItem(
             title: launchStatus == .requiresApproval
-                ? "Launch at Login (needs approval in System Settings)"
-                : "Launch at Login",
+                ? L10n.shell.launchAtLoginNeedsApproval
+                : L10n.shell.launchAtLogin,
             action: #selector(toggleLaunchAtLogin),
             keyEquivalent: ""
         )
@@ -211,13 +211,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         launchItem.state = (launchStatus == .enabled || launchStatus == .requiresApproval) ? .on : .off
         menu.addItem(launchItem)
 
-        let checkItem = NSMenuItem(title: "Check for Updates…", action: #selector(menuCheckForUpdates), keyEquivalent: "")
+        let checkItem = NSMenuItem(title: L10n.shell.checkForUpdates, action: #selector(menuCheckForUpdates), keyEquivalent: "")
         checkItem.target = self
         menu.addItem(checkItem)
 
         menu.addItem(NSMenuItem.separator())
 
-        let quitItem = NSMenuItem(title: "Quit Wallpaper Exchange", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: L10n.shell.quitApp, action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quitItem)
 
         return menu
@@ -251,14 +251,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         } catch {
             let alert = NSAlert()
-            alert.messageText = "Couldn't update launch-at-login setting"
+            alert.messageText = L10n.shell.launchErrorTitle
             alert.informativeText = """
                 \(error.localizedDescription)
 
-                Make sure Wallpaper Exchange lives in /Applications and try again.
+                \(L10n.shell.launchErrorHint)
                 """
             alert.alertStyle = .warning
-            alert.addButton(withTitle: "OK")
+            alert.addButton(withTitle: L10n.shell.ok)
             alert.runModal()
         }
     }

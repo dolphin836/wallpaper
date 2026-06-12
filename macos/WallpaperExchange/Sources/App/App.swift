@@ -28,7 +28,7 @@ struct WallpaperExchangeApp: App {
         .commands {
             CommandGroup(replacing: .newItem) { }
             CommandGroup(after: .toolbar) {
-                Button("Open Wallpaper Exchange") {
+                Button(L10n.shell.openApp) {
                     delegate.openMainWindowExternally()
                 }
                 .keyboardShortcut("0", modifiers: [.command, .shift])
@@ -43,9 +43,16 @@ private struct MainWindowRoot: View {
     // Persisted appearance choice from SettingsView. Applied to the
     // window root so light/dark take effect immediately when toggled.
     @AppStorage(AppearancePref.storageKey) private var appearanceRaw: String = AppearancePref.system.rawValue
+    // Persisted UI language. The .id() below re-mounts the entire tree on
+    // change, so every view re-reads L10n strings and refetches server
+    // content (which is localized via Accept-Language) in the new language.
+    @AppStorage(LanguagePref.storageKey) private var languageRaw: String = LanguagePref.system.rawValue
 
     var body: some View {
-        MainWindow()
+        // Publish before the subtree builds — the .id() rebuild reads L10n.lang.
+        LanguagePref.applyToApp(languageRaw)
+        return MainWindow()
+            .id(languageRaw)
             .frame(minWidth: 1080, minHeight: 720)
             .preferredColorScheme(AppearancePref.fromStorage(appearanceRaw).colorScheme)
             .onAppear {

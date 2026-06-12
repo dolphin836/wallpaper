@@ -55,10 +55,10 @@ struct MainSidebar: View {
     private var expandedNav: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                expandedSection("BROWSE", topPad: 4,
+                expandedSection(L10n.shell.browseSection, topPad: 4,
                                 items: [.home, .discover, .weekly, .collections])
                 if auth.isLoggedIn {
-                    expandedSection("MY LIBRARY", topPad: 16,
+                    expandedSection(L10n.shell.myLibrarySection, topPad: 16,
                                     items: [.myDownloads, .myUploads, .myCollections, .myFavorites, .myLikes, .myCoins])
                 }
             }
@@ -179,12 +179,12 @@ struct MainSidebar: View {
                         .overlay(Image(systemName: "person").foregroundStyle(Color.muted))
                         .overlay(Circle().stroke(Color.hair, lineWidth: 1))
                     VStack(alignment: .leading, spacing: 0) {
-                        Text("Not signed in").font(.sans12).foregroundStyle(Color.ink)
-                        Text("Sign in to view My Library")
+                        Text(L10n.shell.notSignedIn).font(.sans12).foregroundStyle(Color.ink)
+                        Text(L10n.shell.signInToViewLibrary)
                             .font(.mono10).tracking(0.4).foregroundStyle(Color.muted).lineLimit(1)
                     }
                     Spacer()
-                    Button("Sign in") { auth.login() }.controlSize(.small)
+                    Button(L10n.shell.signIn) { auth.login() }.controlSize(.small)
                 }
                 .padding(.horizontal, 14).padding(.vertical, 12)
                 .background(Color.clear)
@@ -215,7 +215,7 @@ struct MainSidebar: View {
                     .overlay(Circle().stroke(Color.hair, lineWidth: 1))
             }
             .buttonStyle(.plain)
-            .help("Sign in")
+            .help(L10n.shell.signIn)
             .pointerCursor()
         }
     }
@@ -382,7 +382,7 @@ struct SidebarEdgeToggle: View {
         }
         .buttonStyle(.plain)
         .focusEffectDisabled()
-        .help(collapsed ? "Expand sidebar" : "Collapse sidebar")
+        .help(collapsed ? L10n.shell.expandSidebar : L10n.shell.collapseSidebar)
         .onHover { h in
             hover = h
             if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }

@@ -132,14 +132,14 @@ struct UploadView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Kicker(text: "Contribute · Wallpaper Exchange")
-            Text("Share ")
+            Kicker(text: L10n.upload.headerKicker)
+            Text(L10n.upload.titleLead)
                 .font(.system(size: 48, weight: .regular, design: .serif))
                 .foregroundStyle(Color.ink)
-            + Text("what's on your screen.")
+            + Text(L10n.upload.titleAccent)
                 .font(.system(size: 48, weight: .medium, design: .serif))
                 .foregroundStyle(Color.accent)
-            Text("Drop images (JPG / PNG / HEIC, up to \(uploadMaxFiles) at a time) or a single video (MP4 / MOV / WebM / MKV). Each file capped at 200 MB. Every upload earns one coin once it clears review.")
+            Text(L10n.upload.intro(uploadMaxFiles))
                 .font(.system(size: 14))
                 .lineSpacing(3)
                 .foregroundStyle(Color.ink2)
@@ -155,11 +155,11 @@ struct UploadView: View {
                 .shadow(color: Color.accent.opacity(0.32), radius: 0, x: 0, y: 0)
                 .padding(.top, 6)
             VStack(alignment: .leading, spacing: 4) {
-                Text("ADMIN REVIEW")
+                Text(L10n.upload.reviewKicker)
                     .font(.mono10)
                     .tracking(1.8)
                     .foregroundStyle(Color.ink2)
-                Text("Everything goes through review before showing up publicly. You can see status on your profile; videos may take a minute longer because we transcode them.")
+                Text(L10n.upload.reviewBody)
                     .font(.system(size: 13))
                     .lineSpacing(3)
                     .foregroundStyle(Color.ink2)
@@ -212,15 +212,15 @@ struct UploadView: View {
                     .font(.system(size: 36, weight: .light))
                     .foregroundStyle(Color.accent)
             }
-            Text(isDropTargeting ? "Drop them here" : "Drop images here")
+            Text(isDropTargeting ? L10n.upload.dropActive : L10n.upload.dropIdle)
                 .font(.system(size: 28, weight: .regular, design: .serif))
                 .foregroundStyle(Color.ink)
             HStack(spacing: 4) {
-                Text("or")
+                Text(L10n.upload.orWord)
                     .font(.system(size: 13))
                     .foregroundStyle(Color.ink2)
                 Button(action: pickFiles) {
-                    Text("click to pick from your computer")
+                    Text(L10n.upload.pickFromComputer)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color.ink)
                         .underline()
@@ -234,7 +234,7 @@ struct UploadView: View {
                 Text("·").font(.mono10).foregroundStyle(Color.muted)
                 metaChip("≤ 200 MB")
                 Text("·").font(.mono10).foregroundStyle(Color.muted)
-                metaChip("Up to \(uploadMaxFiles) files")
+                metaChip(L10n.upload.maxFilesChip(uploadMaxFiles))
             }
             .padding(.top, 4)
         }
@@ -251,7 +251,7 @@ struct UploadView: View {
                     .foregroundStyle(Color.accent)
             }
             Button(action: pickFiles) {
-                Text("Add more · \(files.count) / \(uploadMaxFiles)")
+                Text(L10n.upload.addMore(files.count, uploadMaxFiles))
                     .font(.mono11)
                     .tracking(1.2)
                     .foregroundStyle(uploading || files.count >= uploadMaxFiles ? Color.muted : Color.ink)
@@ -269,18 +269,18 @@ struct UploadView: View {
     private var queueSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
-                Text("QUEUE · \(files.count)")
+                Text(L10n.upload.queueLabel(files.count))
                     .font(.mono10)
                     .tracking(1.4)
                     .foregroundStyle(Color.muted)
                 if totalDone > 0 {
-                    Text("· \(totalDone) done")
+                    Text(L10n.upload.doneCount(totalDone))
                         .font(.mono10)
                         .tracking(1.0)
                         .foregroundStyle(Color.accent)
                 }
                 if totalError > 0 {
-                    Text("· \(totalError) failed")
+                    Text(L10n.upload.failedCount(totalError))
                         .font(.mono10)
                         .tracking(1.0)
                         .foregroundStyle(Color.warn)
@@ -305,8 +305,8 @@ struct UploadView: View {
 
     private var pendingUploadsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            LabelRule(text: "PENDING · \(pendingLoaded ? "\(pendingTotal)" : "…")")
-            Text("Wallpapers still being processed or waiting on admin review. Each tile shows its exact stage; they enter the public archive once approved.")
+            LabelRule(text: "\(L10n.upload.pendingLabel) · \(pendingLoaded ? "\(pendingTotal)" : "…")")
+            Text(L10n.upload.pendingBody)
                 .font(.system(size: 12))
                 .lineSpacing(3)
                 .foregroundStyle(Color.muted)
@@ -315,7 +315,7 @@ struct UploadView: View {
             if pendingLoading && pendingUploads.isEmpty {
                 WallpaperGridSkeleton(columns: pendingGridColumns, count: 12, spacing: 14, aspectRatio: 3.0 / 2.0, cornerRadius: 10)
             } else if let pendingError {
-                RemoteLoadErrorView(title: "Could not load pending uploads", message: pendingError) {
+                RemoteLoadErrorView(title: L10n.upload.pendingLoadErrorTitle, message: pendingError) {
                     Task { await loadPendingUploads() }
                 }
             } else {
@@ -349,12 +349,12 @@ struct UploadView: View {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(Color.accent)
-                        Text("All set. Your uploads are pending review.")
+                        Text(L10n.upload.allDoneMessage)
                             .font(.system(size: 13))
                             .foregroundStyle(Color.ink)
                     }
                 } else {
-                    Text("\(totalPending) \(totalPending == 1 ? "file" : "files") ready to upload\(totalError > 0 ? " · \(totalError) need a retry" : "")")
+                    Text(L10n.upload.readySummary(totalPending, totalError))
                         .font(.system(size: 13))
                         .foregroundStyle(totalError > 0 ? Color.warn : Color.ink2)
                 }
@@ -369,7 +369,7 @@ struct UploadView: View {
             Spacer(minLength: 0)
             if !uploading && !allDone {
                 Button(action: onCancel) {
-                    Text("Cancel")
+                    Text(L10n.common.cancel)
                         .font(.mono11)
                         .tracking(1.4)
                         .foregroundStyle(Color.muted)
@@ -405,10 +405,10 @@ struct UploadView: View {
     }
 
     private var uploadButtonTitle: String {
-        if uploading { return "Uploading" }
-        if totalError > 0 { return "Retry failed" }
-        if allDone { return "Done" }
-        return "Upload \(files.count) \(files.count == 1 ? "file" : "files") →"
+        if uploading { return L10n.upload.uploadingTitle }
+        if totalError > 0 { return L10n.upload.retryFailed }
+        if allDone { return L10n.common.done }
+        return L10n.upload.uploadN(files.count)
     }
 
     private var signedOutPrompt: some View {
@@ -417,14 +417,14 @@ struct UploadView: View {
             Image(systemName: "person.crop.circle.badge.exclamationmark")
                 .font(.system(size: 36, weight: .light))
                 .foregroundStyle(Color.muted)
-            Text("Sign in to share")
+            Text(L10n.upload.signedOutTitle)
                 .font(.displayLg)
                 .foregroundStyle(Color.ink)
-            Text("Uploads need a Wallpaper Exchange account.")
+            Text(L10n.upload.signedOutBody)
                 .font(.sans13)
                 .foregroundStyle(Color.muted)
             Button(action: { auth.login() }) {
-                Text("Sign in")
+                Text(L10n.upload.signIn)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 18)
@@ -509,7 +509,7 @@ struct UploadView: View {
         message = nil
         let remaining = uploadMaxFiles - files.count
         guard remaining > 0 else {
-            message = "Maximum \(uploadMaxFiles) files allowed."
+            message = L10n.upload.maxFilesMessage(uploadMaxFiles)
             return
         }
 
@@ -517,7 +517,7 @@ struct UploadView: View {
         let oversized = candidates.filter { $0.byteSize > uploadMaxBytes }
         let accepted = candidates.filter { $0.byteSize <= uploadMaxBytes }
         if !oversized.isEmpty {
-            message = "\(oversized.count) file\(oversized.count == 1 ? "" : "s") exceed 200 MB and were skipped."
+            message = L10n.upload.oversizedSkipped(oversized.count)
         }
         guard !accepted.isEmpty else { return }
 
@@ -527,19 +527,19 @@ struct UploadView: View {
 
         if incomingHasVideo {
             if accepted.count > 1 {
-                message = "Drop one video at a time."
+                message = L10n.upload.oneVideoAtATime
                 return
             }
             if existingHasImage {
-                message = "Clear the image batch before adding a video."
+                message = L10n.upload.clearImagesFirst
                 return
             }
             if existingHasVideo {
-                message = "Only one video per upload."
+                message = L10n.upload.onlyOneVideo
                 return
             }
         } else if existingHasVideo {
-            message = "Clear the queued video before adding images."
+            message = L10n.upload.clearVideoFirst
             return
         }
 
@@ -629,10 +629,10 @@ struct UploadView: View {
         }
         if failed == 0 {
             message = succeeded == 1
-                ? "Upload received. It will appear after review."
-                : "\(succeeded) uploads received. They will appear after review."
+                ? L10n.upload.receivedOne
+                : L10n.upload.receivedMany(succeeded)
         } else {
-            message = "\(succeeded) succeeded, \(failed) failed."
+            message = L10n.upload.resultSummary(succeeded, failed)
         }
     }
 
@@ -736,7 +736,7 @@ private struct UploadTileView: View {
                 Image(systemName: item.kind == .video ? "play.rectangle.fill" : "doc.fill")
                     .font(.system(size: 26, weight: .light))
                     .foregroundStyle(Color.muted)
-                Text(item.kind == .video ? "VIDEO" : "FILE")
+                Text(item.kind == .video ? L10n.upload.videoBadge : L10n.upload.fileBadge)
                     .font(.mono10)
                     .tracking(1.0)
                     .foregroundStyle(Color.muted)
@@ -808,7 +808,7 @@ private struct UploadTileView: View {
     }
 
     private var kindLabel: String {
-        item.kind == .video ? "VID" : "IMG"
+        item.kind == .video ? L10n.upload.vidShort : L10n.upload.imgShort
     }
 
     private func tileProgress(value: Int) -> some View {
@@ -833,22 +833,22 @@ struct PendingUploadTileView: View {
     }
 
     private var title: String {
-        wallpaper.title.isEmpty ? "Wallpaper \(wallpaper.id)" : wallpaper.title
+        wallpaper.title.isEmpty ? L10n.upload.wallpaperFallback("\(wallpaper.id)") : wallpaper.title
     }
 
     private var statusText: String {
         switch wallpaper.status {
-        case 0: "Processing"
-        case 5: "Pending admin review"
-        default: "Pending"
+        case 0: L10n.upload.statusProcessing
+        case 5: L10n.upload.statusPendingReview
+        default: L10n.upload.statusPending
         }
     }
 
     private var statusSubtext: String {
         switch wallpaper.status {
-        case 0: "Generating device variants"
-        case 5: "Usually within a few hours"
-        default: "Waiting for the next step"
+        case 0: L10n.upload.subProcessing
+        case 5: L10n.upload.subPendingReview
+        default: L10n.upload.subPending
         }
     }
 
@@ -926,7 +926,7 @@ struct PendingUploadTileView: View {
             Image(systemName: wallpaper.fileType.hasPrefix("video/") ? "play.rectangle.fill" : "photo")
                 .font(.system(size: 26, weight: .light))
                 .foregroundStyle(Color.lightText.opacity(0.78))
-            Text(wallpaper.fileType.hasPrefix("video/") ? "VIDEO" : "IMAGE")
+            Text(wallpaper.fileType.hasPrefix("video/") ? L10n.upload.videoBadge : L10n.upload.imageBadge)
                 .font(.mono10)
                 .tracking(1.0)
                 .foregroundStyle(Color.lightText.opacity(0.68))
@@ -967,9 +967,9 @@ struct PendingUploadTileView: View {
 
     private var statusBadge: String {
         switch wallpaper.status {
-        case 0: "PROC"
-        case 5: "REV"
-        default: "PEND"
+        case 0: L10n.upload.badgeProcessing
+        case 5: L10n.upload.badgeReview
+        default: L10n.upload.badgePending
         }
     }
 }

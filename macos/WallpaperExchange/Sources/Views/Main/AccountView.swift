@@ -170,18 +170,18 @@ struct AccountView: View {
                               onPalette: applyMesh)
         case .collections:
             PagedCollectionGrid(
-                headLabel: "CREATED",
+                headLabel: L10n.account.headCreated,
                 fetch: { cursor, limit in try await APIClient.shared.fetchUserCollections(idOrUsername: username, cursor: cursor, limit: limit) },
                 onCollection: onCollection, onCount: { counts[.collections] = $0 }, onPalette: applyMesh
             ).id("collections-\(username)")
         case .favorites:
-            wallpaperList(.favorites, head: "FAVORITES", empty: "No favorites yet.",
-                          isPublic: auth.user?.favoritesPublic ?? false, noun: "favorites",
+            wallpaperList(.favorites, head: L10n.account.headFavorites, empty: L10n.account.emptyFavorites,
+                          isPublic: auth.user?.favoritesPublic ?? false, noun: L10n.account.nounFavorites,
                           fetch: { c, l in try await APIClient.shared.fetchUserFavorites(username: username, cursor: c, limit: l) },
                           toggle: { v in Task { try? await APIClient.shared.updatePrivacy(favoritesPublic: v); await auth.refreshProfile() } })
         case .likes:
-            wallpaperList(.likes, head: "LIKES", empty: "No likes yet.",
-                          isPublic: auth.user?.likesPublic ?? false, noun: "likes",
+            wallpaperList(.likes, head: L10n.account.headLikes, empty: L10n.account.emptyLikes,
+                          isPublic: auth.user?.likesPublic ?? false, noun: L10n.account.nounLikes,
                           fetch: { c, l in try await APIClient.shared.fetchUserLikes(username: username, cursor: c, limit: l) },
                           toggle: { v in Task { try? await APIClient.shared.updatePrivacy(likesPublic: v); await auth.refreshProfile() } })
         case .downloads:
@@ -189,8 +189,8 @@ struct AccountView: View {
                 if isOwner {
                     downloadsAutoShufflePanel
                 }
-                wallpaperList(.downloads, head: "DOWNLOADS", empty: "No downloads yet.",
-                              isPublic: auth.user?.downloadsPublic ?? false, noun: "downloads",
+                wallpaperList(.downloads, head: L10n.account.headDownloads, empty: L10n.account.emptyDownloads,
+                              isPublic: auth.user?.downloadsPublic ?? false, noun: L10n.account.nounDownloads,
                               fetch: { c, l in try await APIClient.shared.fetchUserDownloads(username: username, cursor: c, limit: l) },
                               toggle: { v in Task { try? await APIClient.shared.updatePrivacy(downloadsPublic: v); await auth.refreshProfile() } },
                               flagIfNotLocal: true)
@@ -202,7 +202,7 @@ struct AccountView: View {
 
     private var downloadsAutoShufflePanel: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("AUTO-SHUFFLE")
+            Text(L10n.account.autoShuffleKicker)
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
                 .tracking(1.5)
                 .foregroundStyle(Color.muted)
@@ -235,7 +235,7 @@ struct AccountView: View {
             onTogglePrivacy: toggle,
             fetch: fetch, onWallpaper: onWallpaper, onCount: { counts[t] = $0 }, onPalette: applyMesh,
             flagIfNotLocal: flagIfNotLocal
-        ).id("\(noun)-\(username)")
+        ).id("\(t.rawValue)-\(username)")
     }
 }
 
@@ -243,13 +243,13 @@ enum AccountTab: String, Hashable {
     case settings, uploads, collections, favorites, likes, downloads, ledger
     var label: String {
         switch self {
-        case .settings: "Settings"
-        case .uploads: "Uploads"
-        case .collections: "Collections"
-        case .favorites: "Favorites"
-        case .likes: "Likes"
-        case .downloads: "Downloads"
-        case .ledger: "Coin ledger"
+        case .settings: L10n.account.tabSettings
+        case .uploads: L10n.account.tabUploads
+        case .collections: L10n.account.tabCollections
+        case .favorites: L10n.account.tabFavorites
+        case .likes: L10n.account.tabLikes
+        case .downloads: L10n.account.tabDownloads
+        case .ledger: L10n.account.tabLedger
         }
     }
     var icon: String {
@@ -303,19 +303,19 @@ struct AccountHeader: View {
             avatar.frame(width: 128, height: 128)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Contributor · Member since \(memberSince(profile.createdAt))".uppercased())
+                Text(L10n.account.contributorSince(memberSince(profile.createdAt)).uppercased())
                     .font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(1.8).foregroundStyle(Color.muted)
 
                 if editing {
-                    TextField("Nickname", text: $editNickname)
+                    TextField(L10n.account.nicknamePlaceholder, text: $editNickname)
                         .textFieldStyle(.plain).font(.system(size: 34, weight: .regular, design: .serif))
                         .foregroundStyle(Color.ink)
-                    TextField("Bio", text: $editBio, axis: .vertical)
+                    TextField(L10n.account.bioPlaceholder, text: $editBio, axis: .vertical)
                         .textFieldStyle(.roundedBorder).font(.system(size: 13)).lineLimit(3, reservesSpace: true)
                         .frame(maxWidth: 620)
                     HStack(spacing: 8) {
-                        pill("Save", primary: true) { Task { await saveProfile() } }
-                        pill("Cancel") { editing = false }
+                        pill(L10n.account.save, primary: true) { Task { await saveProfile() } }
+                        pill(L10n.common.cancel) { editing = false }
                     }.padding(.top, 4)
                 } else {
                     Text(displayName)
@@ -343,9 +343,9 @@ struct AccountHeader: View {
                 VStack(alignment: .trailing, spacing: 12) {
                     balanceCard
                     HStack(spacing: 8) {
-                        pill("Edit profile") { editNickname = auth.user?.nickname ?? ""; editBio = auth.user?.bio ?? ""; editing = true }
-                        pill("Password") { showPassword = true }
-                        pill("Upload", primary: true, icon: "plus", action: onUpload)
+                        pill(L10n.account.editProfile) { editNickname = auth.user?.nickname ?? ""; editBio = auth.user?.bio ?? ""; editing = true }
+                        pill(L10n.account.password) { showPassword = true }
+                        pill(L10n.account.upload, primary: true, icon: "plus", action: onUpload)
                     }
                 }
             }
@@ -382,11 +382,11 @@ struct AccountHeader: View {
 
     private var balanceCard: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("BALANCE").font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(2.0).foregroundStyle(Color.coinLabel)
+            Text(L10n.account.balanceKicker).font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(2.0).foregroundStyle(Color.coinLabel)
             HStack(spacing: 10) {
                 CoinDisc(size: 32, showSymbol: true)
                 Text("\(auth.user?.coins ?? 0)").font(.system(size: 38, weight: .semibold, design: .monospaced)).foregroundStyle(Color.coinValue)
-                Text("COINS").font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(2.0).foregroundStyle(Color.coinLabel)
+                Text(L10n.account.coinsUnit).font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(2.0).foregroundStyle(Color.coinLabel)
             }
         }
         .padding(.horizontal, 22).padding(.vertical, 16)
@@ -412,14 +412,14 @@ struct AccountHeader: View {
 
     private var passwordSheet: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("CHANGE PASSWORD").font(.system(size: 11, weight: .medium, design: .monospaced)).tracking(1.5).foregroundStyle(Color.muted)
-            SecureField("Current password", text: $oldPw).textFieldStyle(.roundedBorder)
-            SecureField("New password (min 8 chars)", text: $newPw).textFieldStyle(.roundedBorder)
+            Text(L10n.account.changePasswordTitle).font(.system(size: 11, weight: .medium, design: .monospaced)).tracking(1.5).foregroundStyle(Color.muted)
+            SecureField(L10n.account.currentPassword, text: $oldPw).textFieldStyle(.roundedBorder)
+            SecureField(L10n.account.newPasswordPlaceholder, text: $newPw).textFieldStyle(.roundedBorder)
             if let e = pwError { Text(e).font(.system(size: 11)).foregroundStyle(.red) }
             HStack {
                 Spacer()
-                Button("Cancel") { showPassword = false; oldPw = ""; newPw = ""; pwError = nil }
-                Button(savingPw ? "Saving…" : "Confirm") { Task { await changePassword() } }
+                Button(L10n.common.cancel) { showPassword = false; oldPw = ""; newPw = ""; pwError = nil }
+                Button(savingPw ? L10n.account.saving : L10n.common.confirm) { Task { await changePassword() } }
                     .buttonStyle(.borderedProminent).disabled(savingPw || newPw.count < 8)
             }
         }
@@ -436,7 +436,7 @@ struct AccountHeader: View {
         } catch {}
     }
     private func changePassword() async {
-        guard newPw.count >= 8 else { pwError = "New password must be at least 8 characters."; return }
+        guard newPw.count >= 8 else { pwError = L10n.account.newPasswordTooShort; return }
         savingPw = true; defer { savingPw = false }
         do {
             try await APIClient.shared.changePassword(old: oldPw, new: newPw)
@@ -461,7 +461,9 @@ struct AccountHeader: View {
 
     private func memberSince(_ iso: String?) -> String {
         guard let iso, let date = ISO8601DateFormatter().date(from: iso) else { return "—" }
-        let f = DateFormatter(); f.dateFormat = "MMMM yyyy"
+        let f = DateFormatter()
+        f.locale = Locale(identifier: L10n.account.dateLocaleID)
+        f.dateFormat = L10n.account.memberSinceFormatLong
         return f.string(from: date)
     }
 }
@@ -478,14 +480,14 @@ struct AccountUploadsTab: View {
         VStack(alignment: .leading, spacing: 36) {
             if isOwner {
                 PagedWallpaperGrid(
-                    headLabel: "PENDING", emptyText: "", hideWhenEmpty: true,
+                    headLabel: L10n.account.headPending, emptyText: "", hideWhenEmpty: true,
                     fetch: { cursor, limit in try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, limit: limit, status: "0,5") },
                     onWallpaper: onWallpaper,
                     showProcessing: true
                 ).id("pending-\(username)")
             }
             PagedWallpaperGrid(
-                headLabel: "PUBLISHED", emptyText: "No published wallpapers yet.",
+                headLabel: L10n.account.headPublished, emptyText: L10n.account.emptyPublished,
                 fetch: { cursor, limit in try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, limit: limit, status: "1") },
                 onWallpaper: onWallpaper, onCount: onCount, onPalette: onPalette
             ).id("pub-\(username)")
@@ -496,7 +498,7 @@ struct AccountUploadsTab: View {
 // ─── Reusable paged wallpaper grid ───────────────────────────────
 struct PagedWallpaperGrid: View {
     let headLabel: String
-    var emptyText: String = "Nothing here yet."
+    var emptyText: String = L10n.account.nothingHere
     var hideWhenEmpty: Bool = false
     var privacyNoun: String? = nil
     var privacyIsPublic: Bool = false
@@ -548,8 +550,8 @@ struct PagedWallpaperGrid: View {
                         }
                     } else if items.isEmpty {
                         RemoteEmptyStateView(
-                            title: emptyText.isEmpty ? "Nothing here yet." : emptyText,
-                            message: "This section will fill in once matching activity appears.",
+                            title: emptyText.isEmpty ? L10n.account.nothingHere : emptyText,
+                            message: L10n.account.emptySectionMessage,
                             symbol: showProcessing ? "hourglass" : "photo.on.rectangle"
                         )
                     } else {
@@ -566,7 +568,7 @@ struct PagedWallpaperGrid: View {
                         if let err = loadError {
                             HStack(spacing: 10) {
                                 Text(err).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
-                                Button("Retry") { Task { await loadPage(page) } }.controlSize(.small)
+                                Button(L10n.common.retry) { Task { await loadPage(page) } }.controlSize(.small)
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.top, 8)
@@ -637,8 +639,8 @@ struct PagedCollectionGrid: View {
                 }
             } else if items.isEmpty {
                 RemoteEmptyStateView(
-                    title: "No collections yet.",
-                    message: "Collections will appear here when this user starts grouping wallpapers into sets.",
+                    title: L10n.account.emptyCollectionsTitle,
+                    message: L10n.account.emptyCollectionsMessage,
                     symbol: "square.grid.2x2"
                 )
             } else {
@@ -651,7 +653,7 @@ struct PagedCollectionGrid: View {
                 if let err = loadError {
                     HStack(spacing: 10) {
                         Text(err).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
-                        Button("Retry") { Task { await loadPage(page) } }.controlSize(.small)
+                        Button(L10n.common.retry) { Task { await loadPage(page) } }.controlSize(.small)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 8)
@@ -705,22 +707,22 @@ struct LedgerTab: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
-                coinSummary("BALANCE", "\(auth.user?.coins ?? 0)", "Lifetime balance")
-                summary("EARNED", "+\(earned)", "This page", tint: Color(hex: "#3e9e5e"))
-                summary("SPENT", "−\(spent)", "This page", tint: Color.ink2)
-                summary("NEXT EARN", "+1", "Per upload", tint: Color.ink2)
+                coinSummary(L10n.account.balanceKicker, "\(auth.user?.coins ?? 0)", L10n.account.lifetimeBalance)
+                summary(L10n.account.kickerEarned, "+\(earned)", L10n.account.thisPage, tint: Color(hex: "#3e9e5e"))
+                summary(L10n.account.kickerSpent, "−\(spent)", L10n.account.thisPage, tint: Color.ink2)
+                summary(L10n.account.kickerNextEarn, "+1", L10n.account.perUpload, tint: Color.ink2)
             }
-            LabelRule(text: "LEDGER · \(loaded ? "\(total)" : "…")")
+            LabelRule(text: "\(L10n.account.headLedger) · \(loaded ? "\(total)" : "…")")
             if loading && txs.isEmpty {
                 LedgerRowsSkeleton(rows: 4)
             } else if let err = loadError, txs.isEmpty {
-                RemoteLoadErrorView(title: "Could not load transactions", message: err) {
+                RemoteLoadErrorView(title: L10n.account.txErrorTitle, message: err) {
                     Task { await loadPage(page) }
                 }
             } else if txs.isEmpty {
                 RemoteEmptyStateView(
-                    title: "No transactions yet.",
-                    message: "Coin activity will show here after uploads, trades, and system grants.",
+                    title: L10n.account.txEmptyTitle,
+                    message: L10n.account.txEmptyMessage,
                     symbol: "creditcard"
                 )
             } else {
@@ -729,7 +731,7 @@ struct LedgerTab: View {
                 if let err = loadError {
                     HStack(spacing: 10) {
                         Text(err).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
-                        Button("Retry") { Task { await loadPage(page) } }.controlSize(.small)
+                        Button(L10n.common.retry) { Task { await loadPage(page) } }.controlSize(.small)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 8)
@@ -806,10 +808,10 @@ struct LedgerTab: View {
     }
     private func ledgerLabel(_ tx: CoinTransaction) -> String {
         let map: [String: String] = [
-            "register_bonus": "Welcome bonus", "upload_reward": "Upload reward",
-            "download_cost": "Download", "download_spent": "Download",
-            "download_earned": "Download received", "download_received": "Download received",
-            "admin_grant": "Admin grant",
+            "register_bonus": L10n.account.txWelcomeBonus, "upload_reward": L10n.account.txUploadReward,
+            "download_cost": L10n.account.txDownload, "download_spent": L10n.account.txDownload,
+            "download_earned": L10n.account.txDownloadReceived, "download_received": L10n.account.txDownloadReceived,
+            "admin_grant": L10n.account.txAdminGrant,
         ]
         if let l = map[tx.txType] { return l }
         return tx.description.isEmpty ? tx.txType : tx.description
@@ -845,13 +847,13 @@ struct PrivacyBanner: View {
             ZStack { Circle().fill(Color.paper2); Image(systemName: isPublic ? "globe" : "lock").font(.system(size: 13)).foregroundStyle(Color.ink2) }
                 .frame(width: 36, height: 36).overlay(Circle().strokeBorder(Color.hair, lineWidth: 1))
             VStack(alignment: .leading, spacing: 2) {
-                Text("Your \(noun) are \(isPublic ? "public" : "private")").font(.system(size: 13, weight: .medium)).foregroundStyle(Color.ink)
-                Text(isPublic ? "Anyone can see this list on your profile." : "Only you can see this list.")
+                Text(L10n.account.privacyStatus(noun, isPublic)).font(.system(size: 13, weight: .medium)).foregroundStyle(Color.ink)
+                Text(isPublic ? L10n.account.privacyPublicDesc : L10n.account.privacyPrivateDesc)
                     .font(.system(size: 11)).foregroundStyle(Color.muted)
             }
             Spacer()
             Button(action: onToggle) {
-                Text(isPublic ? "Make private" : "Make public").font(.system(size: 12, weight: .medium))
+                Text(isPublic ? L10n.account.makePrivate : L10n.account.makePublic).font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color.ink).padding(.horizontal, 14).padding(.vertical, 7)
                     .background(Capsule().fill(Color.paper)).overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
             }.buttonStyle(.plain).pointerCursor()
@@ -883,16 +885,16 @@ struct PageBar: View {
         if totalPages > 1 {
             VStack(spacing: 10) {
                 HStack(spacing: 18) {
-                    navButton("PREV", enabled: current > 1) { onChange(current - 1) }
+                    navButton(L10n.account.pagePrev, enabled: current > 1) { onChange(current - 1) }
                     HStack(spacing: 4) {
                         ForEach(Array(pages.enumerated()), id: \.offset) { _, p in
                             if let p { pageButton(p) }
                             else { Text("…").font(.system(size: 11, design: .monospaced)).foregroundStyle(Color.muted).frame(minWidth: 24) }
                         }
                     }
-                    navButton("NEXT", enabled: current < totalPages && current < maxReachable) { onChange(current + 1) }
+                    navButton(L10n.account.pageNext, enabled: current < totalPages && current < maxReachable) { onChange(current + 1) }
                 }
-                Text("PAGE \(current) OF \(totalPages)").font(.system(size: 10, design: .monospaced)).tracking(1.2).foregroundStyle(Color.muted)
+                Text(L10n.account.pageOf(current, totalPages)).font(.system(size: 10, design: .monospaced)).tracking(1.2).foregroundStyle(Color.muted)
             }
             .frame(maxWidth: .infinity).padding(.top, 28).padding(.bottom, 8)
         }
@@ -933,12 +935,12 @@ private func relativeCoinTime(_ iso: String) -> String {
     let plain = ISO8601DateFormatter()
     guard let date = f.date(from: iso) ?? plain.date(from: iso) else { return "" }
     let diff = Date().timeIntervalSince(date)
-    if diff < 60 { return "just now" }
-    if diff < 3600 { return "\(Int(diff / 60)) min ago" }
-    if diff < 86400 { return "\(Int(diff / 3600)) hr ago" }
+    if diff < 60 { return L10n.account.justNow }
+    if diff < 3600 { return L10n.account.minAgo(Int(diff / 60)) }
+    if diff < 86400 { return L10n.account.hrAgo(Int(diff / 3600)) }
     let days = Int(diff / 86400)
-    if days < 30 { return "\(days)d ago" }
+    if days < 30 { return L10n.account.daysAgo(days) }
     let months = days / 30
-    if months < 12 { return "\(months)mo ago" }
-    return "\(months / 12)y ago"
+    if months < 12 { return L10n.account.monthsAgo(months) }
+    return L10n.account.yearsAgo(months / 12)
 }

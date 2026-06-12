@@ -159,26 +159,23 @@ final class WallpaperManager {
     static func formatAutoRotateInterval(_ interval: TimeInterval) -> String {
         let minutes = max(1, Int((sanitizedAutoRotateInterval(interval) / 60).rounded()))
         if minutes < 60 {
-            return minutes == 1 ? "1 minute" : "\(minutes) minutes"
+            return L10n.manager.intervalMinutes(minutes)
         }
 
         if minutes % (24 * 60) == 0 {
-            let days = minutes / (24 * 60)
-            return days == 1 ? "1 day" : "\(days) days"
+            return L10n.manager.intervalDays(minutes / (24 * 60))
         }
 
         if minutes % 60 == 0 {
-            let hours = minutes / 60
-            return hours == 1 ? "1 hour" : "\(hours) hours"
+            return L10n.manager.intervalHours(minutes / 60)
         }
 
         let hours = minutes / 60
         let remainder = minutes % 60
         if hours == 0 {
-            return remainder == 1 ? "1 minute" : "\(remainder) minutes"
+            return L10n.manager.intervalMinutes(remainder)
         }
-        let hourText = hours == 1 ? "1 h" : "\(hours) h"
-        return "\(hourText) \(remainder) min"
+        return L10n.manager.intervalHoursMinutes(hours, remainder)
     }
 
     private func startRotation(applyImmediately: Bool = true) {
@@ -481,7 +478,7 @@ final class WallpaperManager {
         case fileUnavailable
         var errorDescription: String? {
             switch self {
-            case .fileUnavailable: return "Wallpaper file is not available locally."
+            case .fileUnavailable: return L10n.manager.fileUnavailable
             }
         }
     }

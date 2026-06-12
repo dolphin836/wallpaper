@@ -12,11 +12,11 @@ enum APIError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL: return "Invalid URL"
-        case .unauthorized: return "Please log in"
-        case .insufficientCoins: return "Insufficient coins"
-        case .serverError(let code, let msg): return "Server error (\(code)): \(msg)"
-        case .decodingError(let err): return "Decode error: \(err.localizedDescription)"
+        case .invalidURL: return L10n.settings.errInvalidURL
+        case .unauthorized: return L10n.settings.errUnauthorized
+        case .insufficientCoins: return L10n.settings.errInsufficientCoins
+        case .serverError(let code, let msg): return L10n.settings.errServer(code, msg)
+        case .decodingError(let err): return L10n.settings.errDecoding(err.localizedDescription)
         case .networkError(let err): return err.localizedDescription
         }
     }
@@ -108,6 +108,9 @@ actor APIClient {
 
         var req = URLRequest(url: url)
         req.httpMethod = method
+        // Backend localizes content fields (category/tag names, collection
+        // titles) from this header; falls back to the original text.
+        req.setValue(L10n.lang.rawValue, forHTTPHeaderField: "Accept-Language")
 
         if let token = await AuthService.shared.token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -193,6 +196,7 @@ actor APIClient {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(L10n.lang.rawValue, forHTTPHeaderField: "Accept-Language")
         if let token = await AuthService.shared.token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
@@ -219,6 +223,7 @@ actor APIClient {
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(L10n.lang.rawValue, forHTTPHeaderField: "Accept-Language")
         if let token = await AuthService.shared.token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
@@ -232,7 +237,7 @@ actor APIClient {
         if http.statusCode == 401 { throw APIError.unauthorized }
         if http.statusCode == 402 { throw APIError.insufficientCoins }
         if http.statusCode >= 400 {
-            let msg = (try? decoder.decode(MessageEnvelope.self, from: data))?.message ?? "Request failed"
+            let msg = (try? decoder.decode(MessageEnvelope.self, from: data))?.message ?? L10n.settings.errRequestFailed
             throw APIError.serverError(http.statusCode, msg)
         }
         return data
@@ -255,7 +260,7 @@ actor APIClient {
         if http.statusCode >= 400 {
             let envelope = try? decoder.decode(MessageEnvelope.self, from: data)
             throw APIError.serverError(envelope?.code ?? http.statusCode,
-                                       envelope?.message ?? "Authentication failed")
+                                       envelope?.message ?? L10n.settings.errAuthFailed)
         }
 
         do {
@@ -349,7 +354,7 @@ actor APIClient {
         }
 
         let size = try fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
-        guard size > 0 else { throw APIError.serverError(400, "Empty file") }
+        guard size > 0 else { throw APIError.serverError(400, L10n.settings.errEmptyFile) }
 
         let mime = Self.mimeType(for: fileURL)
         var create = URLRequest(url: createURL)
@@ -373,11 +378,11 @@ actor APIClient {
         }
         if http.statusCode == 401 { throw APIError.unauthorized }
         if http.statusCode >= 400 {
-            throw APIError.serverError(http.statusCode, "Video upload could not start")
+            throw APIError.serverError(http.statusCode, L10n.settings.errVideoUploadStart)
         }
         guard let location = http.value(forHTTPHeaderField: "Location"),
               let uploadURL = tusUploadURL(from: location) else {
-            throw APIError.serverError(http.statusCode, "Video upload location missing")
+            throw APIError.serverError(http.statusCode, L10n.settings.errVideoUploadLocation)
         }
 
         let handle = try FileHandle(forReadingFrom: fileURL)
@@ -407,7 +412,7 @@ actor APIClient {
             }
             if patchHTTP.statusCode == 401 { throw APIError.unauthorized }
             if patchHTTP.statusCode >= 400 {
-                throw APIError.serverError(patchHTTP.statusCode, "Video upload failed")
+                throw APIError.serverError(patchHTTP.statusCode, L10n.settings.errVideoUploadFailed)
             }
 
             if let rawOffset = patchHTTP.value(forHTTPHeaderField: "Upload-Offset"),
@@ -461,7 +466,7 @@ actor APIClient {
             throw APIError.networkError(URLError(.badServerResponse))
         }
         if http.statusCode == 401 { throw APIError.unauthorized }
-        if http.statusCode >= 400 { throw APIError.serverError(http.statusCode, "Avatar upload failed") }
+        if http.statusCode >= 400 { throw APIError.serverError(http.statusCode, L10n.settings.errAvatarUploadFailed) }
         struct AvatarResp: Decodable { let avatar_url: String }
         return try decoder.decode(APIResponse<AvatarResp>.self, from: data).data.avatar_url
     }
@@ -557,7 +562,7 @@ actor APIClient {
         guard http.statusCode == 302 || http.statusCode == 301,
               let location = http.value(forHTTPHeaderField: "Location"),
               let redirectURL = URL(string: location) else {
-            let msg = (try? decoder.decode(MessageEnvelope.self, from: data))?.message ?? "Download is not available"
+            let msg = (try? decoder.decode(MessageEnvelope.self, from: data))?.message ?? L10n.settings.errDownloadUnavailable
             throw APIError.serverError(http.statusCode, msg)
         }
 
@@ -571,7 +576,7 @@ actor APIClient {
         if http.statusCode == 401 { throw APIError.unauthorized }
         if http.statusCode == 402 { throw APIError.insufficientCoins }
         if http.statusCode >= 400 {
-            let msg = (try? decoder.decode(MessageEnvelope.self, from: data))?.message ?? "Upload failed"
+            let msg = (try? decoder.decode(MessageEnvelope.self, from: data))?.message ?? L10n.settings.errUploadFailed
             throw APIError.serverError(http.statusCode, msg)
         }
     }

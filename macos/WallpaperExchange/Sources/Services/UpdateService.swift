@@ -56,8 +56,8 @@ final class UpdateService {
         } catch {
             if manual {
                 showAlert(
-                    title: "Couldn't check for updates",
-                    message: "Network or server error: \(error.localizedDescription)",
+                    title: L10n.updates.checkFailedTitle,
+                    message: L10n.updates.checkFailedMessage(error.localizedDescription),
                     style: .warning
                 )
             }
@@ -70,8 +70,8 @@ final class UpdateService {
         if !isNewer(latest: latest, than: current) {
             if manual {
                 showAlert(
-                    title: "You're up to date",
-                    message: "Wallpaper Exchange \(current) is the latest version.",
+                    title: L10n.updates.upToDateTitle,
+                    message: L10n.updates.upToDateMessage(current),
                     style: .informational
                 )
             }
@@ -94,18 +94,17 @@ final class UpdateService {
 
     private func promptInstall(release: MacRelease, current: String) {
         let entry = release.releases?.first { $0.version == release.currentVersion }
-        let notes = entry?.notes?.prefix(5).joined(separator: "\n• ") ?? ""
+        let notes = entry?.localizedNotes(for: L10n.lang).prefix(5).joined(separator: "\n• ") ?? ""
 
         let alert = NSAlert()
-        alert.messageText = "New version available — \(release.currentVersion)"
-        alert.informativeText = """
-            You're running \(current). The latest release is \(release.currentVersion).
-
-            \(notes.isEmpty ? "" : "What's new:\n• \(notes)")
-            """
+        alert.messageText = L10n.updates.newVersionTitle(release.currentVersion)
+        let comparison = L10n.updates.versionComparison(current, release.currentVersion)
+        alert.informativeText = notes.isEmpty
+            ? comparison
+            : comparison + "\n\n" + L10n.updates.whatsNew + "\n• " + notes
         alert.alertStyle = .informational
-        alert.addButton(withTitle: "Install Now")
-        alert.addButton(withTitle: "Later")
+        alert.addButton(withTitle: L10n.updates.installNow)
+        alert.addButton(withTitle: L10n.updates.later)
 
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
@@ -127,7 +126,7 @@ final class UpdateService {
     private func downloadAndInstall(release: MacRelease, panel: UpdateProgressPanel) async {
         guard let url = Self.downloadURL(from: release.currentDmgURL) else {
             panel.close()
-            showAlert(title: "Update failed", message: "Bad download URL.", style: .warning)
+            showAlert(title: L10n.updates.updateFailedTitle, message: L10n.updates.badDownloadURL, style: .warning)
             return
         }
         let dmgPath = NSTemporaryDirectory() + "wxch-update-\(release.currentVersion).dmg"
@@ -144,28 +143,28 @@ final class UpdateService {
             return
         } catch {
             panel.close()
-            showAlert(title: "Update failed", message: "Download failed: \(error.localizedDescription)", style: .warning)
+            showAlert(title: L10n.updates.updateFailedTitle, message: L10n.updates.downloadFailed(error.localizedDescription), style: .warning)
             return
         }
 
         // Switch the bar to indeterminate while we mount + stage. The
         // hdiutil + cp steps are fast (sub-second on a 1.3 MiB DMG) but
         // we still want a visible signal that something is happening.
-        panel.setStage("Installing…")
+        panel.setStage(L10n.updates.installing)
 
         let mountPoint: String
         do {
             mountPoint = try attachDMG(at: dmgPath)
         } catch {
             panel.close()
-            showAlert(title: "Update failed", message: "Couldn't mount the installer: \(error.localizedDescription)", style: .warning)
+            showAlert(title: L10n.updates.updateFailedTitle, message: L10n.updates.mountFailed(error.localizedDescription), style: .warning)
             return
         }
 
         guard let sourceAppPath = locateAppBundle(in: mountPoint) else {
             _ = try? detachDMG(mountPoint: mountPoint)
             panel.close()
-            showAlert(title: "Update failed", message: "The installer didn't contain an app bundle.", style: .warning)
+            showAlert(title: L10n.updates.updateFailedTitle, message: L10n.updates.noAppInInstaller, style: .warning)
             return
         }
 
@@ -179,7 +178,7 @@ final class UpdateService {
             dmgFile: dmgPath
         )
 
-        panel.setStage("Restarting…")
+        panel.setStage(L10n.updates.restarting)
 
         // Brief beat so the user reads the "Restarting…" status before
         // the window closes.
@@ -358,7 +357,7 @@ final class UpdateService {
         alert.messageText = title
         alert.informativeText = message
         alert.alertStyle = style
-        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: L10n.updates.ok)
         alert.runModal()
     }
 }
@@ -391,7 +390,7 @@ private final class UpdateProgressPanel {
             backing: .buffered,
             defer: false
         )
-        panel.title = "Wallpaper Exchange Update"
+        panel.title = L10n.updates.panelTitle
         panel.level = .floating
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
@@ -403,7 +402,7 @@ private final class UpdateProgressPanel {
         stack.edgeInsets = NSEdgeInsets(top: 16, left: 20, bottom: 16, right: 20)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        titleLabel = NSTextField(labelWithString: "Downloading version \(version)…")
+        titleLabel = NSTextField(labelWithString: L10n.updates.downloadingVersion(version))
         titleLabel.font = .systemFont(ofSize: 13, weight: .medium)
 
         progressBar = NSProgressIndicator()
@@ -414,7 +413,7 @@ private final class UpdateProgressPanel {
         progressBar.translatesAutoresizingMaskIntoConstraints = false
         progressBar.startAnimation(nil)
 
-        detailLabel = NSTextField(labelWithString: "Connecting…")
+        detailLabel = NSTextField(labelWithString: L10n.updates.connecting)
         detailLabel.font = .systemFont(ofSize: 11)
         detailLabel.textColor = .secondaryLabelColor
 
@@ -427,7 +426,7 @@ private final class UpdateProgressPanel {
         let spacer = NSView()
         spacer.translatesAutoresizingMaskIntoConstraints = false
 
-        cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
+        cancelButton = NSButton(title: L10n.common.cancel, target: nil, action: nil)
         cancelButton.bezelStyle = .rounded
         cancelButton.keyEquivalent = "\u{1b}" // Escape
         footer.addArrangedSubview(spacer)
@@ -488,7 +487,7 @@ private final class UpdateProgressPanel {
         } else {
             // Server didn't send Content-Length — keep the bar
             // indeterminate but at least show the running total.
-            detailLabel.stringValue = String(format: "%.1f MB downloaded", Double(written) / 1024 / 1024)
+            detailLabel.stringValue = L10n.updates.downloadedSoFar(String(format: "%.1f MB", Double(written) / 1024 / 1024))
         }
     }
 

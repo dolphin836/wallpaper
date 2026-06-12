@@ -54,6 +54,19 @@ struct DiscoverView: View {
         case myDevice = "My Device"
         case live = "Live"
         case ai = "AI Generated"
+
+        /// Localized display label — the rawValue stays a stable
+        /// identifier and never reaches the API (params are computed).
+        var label: String {
+            switch self {
+            case .latest: L10n.browse.filterLatest
+            case .trending: L10n.browse.filterTrending
+            case .forYou: L10n.browse.filterForYou
+            case .myDevice: L10n.browse.filterMyDevice
+            case .live: L10n.browse.filterLive
+            case .ai: L10n.browse.filterAI
+            }
+        }
     }
 
     enum SizeMode: String, CaseIterable { case md = "MD", lg = "LG" }
@@ -141,10 +154,10 @@ struct DiscoverView: View {
             errorBanner(err)
         } else if items.isEmpty {
             RemoteEmptyStateView(
-                title: search.isEmpty ? "No wallpapers yet." : "No wallpapers match.",
+                title: search.isEmpty ? L10n.browse.emptyTitle : L10n.browse.searchEmptyTitle,
                 message: search.isEmpty
-                    ? "New uploads will appear here as soon as the archive has something for this filter."
-                    : "Try a broader search or switch filters to keep browsing.",
+                    ? L10n.browse.emptyMessage
+                    : L10n.browse.searchEmptyMessage,
                 symbol: search.isEmpty ? "photo.on.rectangle" : "magnifyingglass"
             )
         } else {
@@ -169,16 +182,16 @@ struct DiscoverView: View {
             if loading {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Loading more…").font(.sans12).foregroundStyle(Color.muted)
+                    Text(L10n.browse.loadingMore).font(.sans12).foregroundStyle(Color.muted)
                 }
             } else if loadError != nil {
                 HStack(spacing: 10) {
-                    Text("Couldn't load more").font(.sans12).foregroundStyle(Color.ink2)
-                    Button("Retry") { Task { await loadMore() } }.controlSize(.small)
+                    Text(L10n.browse.loadMoreFailed).font(.sans12).foregroundStyle(Color.ink2)
+                    Button(L10n.common.retry) { Task { await loadMore() } }.controlSize(.small)
                 }
             } else if hasMore {
                 Button { Task { await loadMore() } } label: {
-                    Text("Load more")
+                    Text(L10n.browse.loadMore)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Color.ink2)
                         .padding(.horizontal, 18).padding(.vertical, 8)
@@ -188,7 +201,7 @@ struct DiscoverView: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                Text("\(items.count) wallpaper\(items.count == 1 ? "" : "s") · You've reached the end")
+                Text(L10n.browse.endOfFeed(items.count))
                     .font(.mono11).tracking(0.5).foregroundStyle(Color.muted)
             }
         }
@@ -206,7 +219,7 @@ struct DiscoverView: View {
         // scroll. "All" stays pinned at the front, outside the scroll.
         HStack(spacing: 16) {
             HStack(spacing: 8) {
-                categoryChip(label: "All", id: nil)
+                categoryChip(label: L10n.browse.chipAll, id: nil)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(categories) { c in
@@ -271,17 +284,17 @@ struct DiscoverView: View {
                     filter = f
                 } label: {
                     if filter == f {
-                        Label(f.rawValue, systemImage: "checkmark")
+                        Label(f.label, systemImage: "checkmark")
                     } else {
-                        Text(f.rawValue)
+                        Text(f.label)
                     }
                 }
             }
         } label: {
             HStack(spacing: 8) {
-                Text("FILTER")
+                Text(L10n.browse.filterKicker)
                     .font(.mono10).tracking(1.2).foregroundStyle(Color.muted)
-                Text(filter.rawValue)
+                Text(filter.label)
                     .font(.sans12).foregroundStyle(Color.ink2)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold)).foregroundStyle(Color.muted)
