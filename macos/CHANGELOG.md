@@ -10,6 +10,14 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.7] - 2026-06-13
+
+### Fixed
+
+- **The display-language picker now actually appears in Settings.** In
+  2.0.6 it was added to a settings screen that the app never shows; it now
+  lives in the Settings tab right below Appearance.
+
 ## [2.0.6] - 2026-06-13
 
 ### Added

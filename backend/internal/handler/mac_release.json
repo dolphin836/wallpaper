@@ -1,8 +1,26 @@
 {
-  "current_version": "2.0.6",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.6.dmg",
+  "current_version": "2.0.7",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.7.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.7",
+      "released_at": "2026-06-13",
+      "notes": [
+        "Fixed: the display-language picker now actually appears in Settings, right below Appearance. In 2.0.6 it had been added to a settings screen the app never shows."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "修复：界面语言选择器现在会真正出现在「设置」中，就在「外观」下方。2.0.6 中它被加到了一个应用从不显示的设置界面里。"
+        ],
+        "zh-TW": [
+          "修復：介面語言選擇器現在會真正出現在「設定」中，就在「外觀」下方。2.0.6 中它被加到了一個應用程式從不顯示的設定介面裡。"
+        ],
+        "ja": [
+          "修正：表示言語の選択が「設定」の「外観」のすぐ下に正しく表示されるようになりました。2.0.6 ではアプリが表示しない設定画面に追加されていました。"
+        ]
+      }
+    },
     {
       "version": "2.0.6",
       "released_at": "2026-06-13",
