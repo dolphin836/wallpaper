@@ -10,55 +10,62 @@ struct ArchiveTopBar: View {
     @State private var showCollections = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            Button {
+        HStack(spacing: 10) {
+            topButton(icon: "square.stack", selected: false) {
                 showCollections = true
-            } label: {
-                Image(systemName: "square.stack")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .frame(width: 40, height: 40)
-                    .background(.white.opacity(0.08), in: Circle())
-                    .background(.ultraThinMaterial, in: Circle())
             }
-            .buttonStyle(.pressable)
 
-            Spacer()
-
-            // Script brand voice for the page title.
             Text(title)
-                .font(.script(25))
+                .font(.script(27))
                 .foregroundStyle(Color.ink)
                 .baselineOffset(-2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .frame(maxWidth: .infinity)
+                .accessibilityAddTraits(.isHeader)
 
-            Spacer()
-
-            Button {
-                withAnimation(.easeOut(duration: 0.25)) {
+            topButton(icon: prefs.lockPreview ? "lock.iphone" : "iphone", selected: prefs.lockPreview) {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
                     prefs.lockPreview.toggle()
                 }
-            } label: {
-                Image(systemName: prefs.lockPreview ? "lock.iphone" : "iphone")
-                    .font(.system(size: 15, weight: .medium))
-                    .contentTransition(.symbolEffect(.replace))
-                    .foregroundStyle(prefs.lockPreview ? Color.black.opacity(0.82) : .white.opacity(0.9))
-                    .frame(width: 40, height: 40)
-                    .background {
-                        if prefs.lockPreview {
-                            Circle().fill(Color.accent)
-                        } else {
-                            Circle().fill(.white.opacity(0.08))
-                        }
-                    }
-                    .background(.ultraThinMaterial, in: Circle())
             }
-            .buttonStyle(.pressable)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(Color.paper)
+        .frame(height: 52)
+        .padding(.horizontal, 6)
+        .background(.ultraThinMaterial, in: Capsule())
+        .background(Color.paper2.opacity(0.72), in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.hair.opacity(0.78), lineWidth: 1))
+        .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
+        .padding(.horizontal, 12)
+        .padding(.top, 6)
+        .padding(.bottom, 8)
+        .background(
+            Color.paper
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(Color.hair.opacity(0.45))
+                        .frame(height: 1)
+                }
+        )
+        .archiveSelectionFeedback(trigger: prefs.lockPreview)
         .fullScreenCoverCompat(isPresented: $showCollections) {
             CollectionsBrowser()
         }
+    }
+
+    private func topButton(icon: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .contentTransition(.symbolEffect(.replace))
+                .foregroundStyle(selected ? Color.black.opacity(0.82) : Color.ink2)
+                .frame(width: 40, height: 40)
+                .background {
+                    Circle()
+                        .fill(selected ? Color.accent : Color.paper3.opacity(0.74))
+                }
+                .overlay(Circle().strokeBorder(selected ? Color.accent.opacity(0.55) : Color.hair, lineWidth: 1))
+        }
+        .buttonStyle(.pressable)
     }
 }

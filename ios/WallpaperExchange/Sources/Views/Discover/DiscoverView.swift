@@ -37,9 +37,7 @@ struct DiscoverView: View {
                 ArchiveTopBar(title: "Discover")
                 ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    searchField
-                    feedPicker
-                    categoryChips
+                    filterSurface
                     if let loadError, wallpapers.isEmpty {
                         ErrorRetryView(message: loadError) { reload() }
                     } else if wallpapers.isEmpty && loading {
@@ -58,7 +56,7 @@ struct DiscoverView: View {
                         }
                     }
                 }
-                .padding(.top, 4)
+                .padding(.top, 6)
                 }
                 .background(Color.paper)
             }
@@ -89,6 +87,23 @@ struct DiscoverView: View {
 
     // In-page search (the system .searchable bar needs the navigation
     // bar, which the custom top toolbar replaces).
+    private var filterSurface: some View {
+        VStack(spacing: 10) {
+            searchField
+            feedPicker
+            categoryChips
+        }
+        .padding(10)
+        .background(Color.paper2.opacity(0.62), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(Color.hair.opacity(0.72), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.10), radius: 14, y: 6)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 2)
+    }
+
     private var searchField: some View {
         HStack(spacing: 7) {
             Image(systemName: "magnifyingglass")
@@ -114,12 +129,9 @@ struct DiscoverView: View {
             }
         }
         .padding(.horizontal, 11)
-        .padding(.vertical, 8)
-        // Borderless fill: search recedes behind the pill rows instead
-        // of stacking a third outlined row of chrome.
-        .background(Color.paper2, in: Capsule())
-        .padding(.horizontal, 12)
-        .padding(.top, 4)
+        .padding(.vertical, 9)
+        .background(Color.paper3.opacity(0.78), in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.hair.opacity(0.68), lineWidth: 1))
     }
 
     @Namespace private var feedPillNS
@@ -156,7 +168,6 @@ struct DiscoverView: View {
                     .buttonStyle(.pressable)
                 }
             }
-            .padding(.horizontal, 12)
         }
     }
 
@@ -181,7 +192,6 @@ struct DiscoverView: View {
                     }
                 }
             }
-            .padding(.horizontal, 12)
         }
     }
 
@@ -201,6 +211,7 @@ struct DiscoverView: View {
                 .foregroundStyle(isOn ? Color.accentInk : Color.muted)
         }
         .buttonStyle(.plain)
+        .archiveSelectionFeedback(trigger: isOn)
     }
 
     private func reload() {

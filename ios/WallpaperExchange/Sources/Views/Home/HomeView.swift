@@ -20,6 +20,7 @@ struct HomeView: View {
                             ErrorRetryView(message: loadError) { Task { await load() } }
                         } else {
                             if let weekly, !weekly.picks.isEmpty {
+                                weeklyHero(weekly)
                                 weeklySection(weekly)
                             }
                             if !collections.isEmpty {
@@ -66,6 +67,61 @@ struct HomeView: View {
     }
 
     // ─── sections ────────────────────────────────────────────────
+
+    @ViewBuilder
+    private func weeklyHero(_ slate: WeeklyCurrent) -> some View {
+        let usable = slate.picks.map(\.asWallpaper).filter(\.isUsableOnIOS)
+        if let hero = usable.first {
+            NavigationLink(value: WallpaperRoute(slug: hero.slug)) {
+                ZStack(alignment: .bottomLeading) {
+                    Color.clear
+                        .overlay(
+                            CachedAsyncImage(url: URL(string: hero.displayURL), maxPixelDimension: 1700) { image in
+                                image.resizable().aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Rectangle().fill(Color(hex: hero.dominantColor) ?? Color.paper3)
+                            }
+                        )
+                        .clipped()
+
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.10), .black.opacity(0.68)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 6) {
+                            MediaChip(text: "Week \(slate.week)")
+                            MediaChip(text: hero.resolutionLabel, tint: Color.black.opacity(0.22))
+                        }
+
+                        Text(hero.title)
+                            .font(.system(size: 25, weight: .bold))
+                            .foregroundStyle(Color.lightText)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.84)
+
+                        HStack(spacing: 6) {
+                            Text("Open this wallpaper")
+                            Image(systemName: "arrow.right")
+                        }
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.lightText.opacity(0.78))
+                    }
+                    .padding(18)
+                }
+                .frame(height: 430)
+                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .strokeBorder(.white.opacity(0.16), lineWidth: 1)
+                )
+                .shadow(color: (Color(hex: hero.dominantColor) ?? .black).opacity(0.28), radius: 24, y: 12)
+            }
+            .buttonStyle(.pressable)
+            .padding(.horizontal, 12)
+        }
+    }
 
     // Mirrors the shelf layout so content landing doesn't reflow.
     private var homeSkeleton: some View {

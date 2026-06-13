@@ -127,3 +127,33 @@ struct PressableStyle: ButtonStyle {
 extension ButtonStyle where Self == PressableStyle {
     static var pressable: PressableStyle { PressableStyle() }
 }
+
+extension View {
+    // Lightweight iOS-native feedback for stateful controls. The macOS
+    // dev preview type-checks the same sources, so keep the modifier
+    // platform-gated instead of sprinkling availability checks in pages.
+    @ViewBuilder
+    func archiveSelectionFeedback<Value: Equatable>(trigger: Value) -> some View {
+        #if os(iOS)
+        self.sensoryFeedback(.selection, trigger: trigger)
+        #else
+        self
+        #endif
+    }
+
+    // A very small scroll response for image cards. It gives the grid a
+    // native, tactile read without animating layout or fighting reduce-
+    // motion users on non-iOS preview builds.
+    @ViewBuilder
+    func archiveScrollLift() -> some View {
+        #if os(iOS)
+        self.scrollTransition(.interactive, axis: .vertical) { content, phase in
+            content
+                .scaleEffect(phase.isIdentity ? 1 : 0.985)
+                .opacity(phase.isIdentity ? 1 : 0.88)
+        }
+        #else
+        self
+        #endif
+    }
+}

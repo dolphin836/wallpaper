@@ -26,11 +26,11 @@ struct WallpaperGrid: View {
 
     var body: some View {
         let split = columns
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 14) {
             column(split.left)
             column(split.right)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 14)
         if hasMore, let onLoadMore {
             // Sentinel below both columns — appearing means the user
             // reached the grid's tail, so pull the next page.
@@ -41,7 +41,7 @@ struct WallpaperGrid: View {
     }
 
     private func column(_ items: [Wallpaper]) -> some View {
-        LazyVStack(spacing: 12) {
+        LazyVStack(spacing: 14) {
             ForEach(items) { wallpaper in
                 NavigationLink(value: WallpaperRoute(slug: wallpaper.slug)) {
                     WallpaperTile(wallpaper: wallpaper)
@@ -62,6 +62,7 @@ struct WallpaperTile: View {
     let wallpaper: Wallpaper
 
     @Environment(UIPrefs.self) private var prefs
+    @State private var imageLoaded = false
 
     var body: some View {
         // Every tile previews at the device's screen ratio with a
@@ -76,26 +77,36 @@ struct WallpaperTile: View {
                 // ratio is ~1206 physical px tall on a 3x phone, so the
                 // old 700px budget upscaled every tile ~2x — the source
                 // preview (1600w) usually has the pixels, use them.
-                CachedAsyncImage(url: URL(string: wallpaper.displayURL), maxPixelDimension: 1400) { image in
+                CachedAsyncImage(
+                    url: URL(string: wallpaper.displayURL),
+                    maxPixelDimension: 1400,
+                    onLoad: {
+                        withAnimation(.easeOut(duration: 0.28)) {
+                            imageLoaded = true
+                        }
+                    }
+                ) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
+                        .scaleEffect(imageLoaded ? 1 : 1.025)
+                        .opacity(imageLoaded ? 1 : 0)
                 } placeholder: {
                     Rectangle()
                         .fill(Color(hex: wallpaper.dominantColor) ?? Color.paper3)
                 }
             )
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
             .overlay(
             // Hairline frame keeps very light/very dark images from
             // dissolving into the paper background.
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.hair.opacity(0.6), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .strokeBorder(Color.hair.opacity(0.58), lineWidth: 1)
         )
         .overlay {
             if prefs.lockPreview {
                 LockScreenOverlay(compact: true)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
                     .transition(.opacity)
             }
         }
@@ -108,17 +119,73 @@ struct WallpaperTile: View {
                     if wallpaper.isAIGenerated == true {
                         MediaChip(text: "AI", tint: Color.accent.opacity(0.78))
                     }
+                    if wallpaper.isDownloaded == true {
+                        MediaChip(text: "Saved", tint: Color.accentInk.opacity(0.72))
+                    }
                 }
-                .padding(6)
+                .padding(7)
+            }
+        }
+        .overlay(alignment: .bottomLeading) {
+            if !prefs.lockPreview {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(wallpaper.title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.lightText)
+                        .lineLimit(1)
+                    Text(tileMeta)
+                        .font(.mono10)
+                        .tracking(0.4)
+                        .foregroundStyle(Color.lightText.opacity(0.68))
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 9)
+                .padding(.bottom, 9)
+                .padding(.top, 26)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.10), .black.opacity(0.58)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
             }
         }
         // Tinted lift: each tile throws a soft shadow in its own
         // dominant color, so the grid reads as prints on paper rather
         // than rectangles on a flat fill.
         .shadow(
-            color: (Color(hex: wallpaper.dominantColor) ?? .black).opacity(0.22),
-            radius: 9, y: 5
+            color: (Color(hex: wallpaper.dominantColor) ?? .black).opacity(0.18),
+            radius: 12, y: 6
         )
+        .archiveScrollLift()
+        .onChange(of: wallpaper.id) { _, _ in imageLoaded = false }
+        .accessibilityLabel("\(wallpaper.title), \(wallpaper.resolutionLabel)")
+    }
+
+    private var tileMeta: String {
+        if wallpaper.downloadCount > 0 {
+            return "\(compactCount(wallpaper.downloadCount)) downloads"
+        }
+        if wallpaper.likeCount > 0 {
+            return "\(compactCount(wallpaper.likeCount)) likes"
+        }
+        if wallpaper.isAIGenerated == true {
+            return "AI wallpaper"
+        }
+        return "Wallpaper"
+    }
+
+    private func compactCount(_ value: Int) -> String {
+        if value >= 10_000 {
+            return "\(value / 1_000)k"
+        }
+        if value >= 1_000 {
+            let scaled = Double(value) / 1_000
+            return String(format: "%.1fk", scaled)
+        }
+        return "\(value)"
     }
 }
 
