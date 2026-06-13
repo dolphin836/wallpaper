@@ -1,8 +1,30 @@
 {
-  "current_version": "2.0.5",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.5.dmg",
+  "current_version": "2.0.6",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.6.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.6",
+      "released_at": "2026-06-13",
+      "notes": [
+        "New: pick the app's display language in Settings — Follow System, English, 简体中文, 繁體中文, or 日本語. The whole interface switches instantly, no relaunch needed.",
+        "Changed: category, tag, and collection names from the server are now localized to match the language you selected."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "新增：可在「设置」中选择应用界面语言——跟随系统、English、简体中文、繁體中文 或 日本語，整个界面即时切换，无需重启。",
+          "变更：分类、标签和合集名称等服务端内容现在会跟随你选择的语言显示。"
+        ],
+        "zh-TW": [
+          "新增：可在「設定」中選擇應用程式介面語言——跟隨系統、English、简体中文、繁體中文 或 日本語，整個介面即時切換，無需重新啟動。",
+          "變更：分類、標籤和合輯名稱等服務端內容現在會跟隨你選擇的語言顯示。"
+        ],
+        "ja": [
+          "新機能：「設定」でアプリの表示言語（システムに従う、English、简体中文、繁體中文、日本語）を選べるようになりました。インターフェース全体が再起動なしで即座に切り替わります。",
+          "変更：サーバーから返されるカテゴリ・タグ・コレクション名が、選択した言語に合わせてローカライズされるようになりました。"
+        ]
+      }
+    },
     {
       "version": "2.0.5",
       "released_at": "2026-06-10",

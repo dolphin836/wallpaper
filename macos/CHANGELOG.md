@@ -10,6 +10,20 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.6] - 2026-06-13
+
+### Added
+
+- **Pick the app's display language in Settings** — Follow System,
+  English, 简体中文, 繁體中文, or 日本語. The whole interface switches
+  instantly, no relaunch needed.
+
+### Changed
+
+- **Server content now follows your language.** Category, tag, and
+  collection names returned from the backend are localized to match the
+  language you selected.
+
 ## [2.0.5] - 2026-06-10
 
 ### Changed
