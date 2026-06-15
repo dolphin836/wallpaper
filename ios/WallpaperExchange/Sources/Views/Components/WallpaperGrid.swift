@@ -9,6 +9,7 @@ struct WallpaperGrid: View {
     var hasMore: Bool = false
     var isLoading: Bool = false
     var showsEndState: Bool = true
+    var showsMissingDownloadChip: Bool = false
     var onLoadMore: (() -> Void)? = nil
 
     private let gridColumns = [
@@ -21,7 +22,7 @@ struct WallpaperGrid: View {
             LazyVGrid(columns: gridColumns, spacing: 14) {
                 ForEach(wallpapers) { wallpaper in
                     WallpaperDetailLauncher(route: WallpaperRoute(slug: wallpaper.slug, initialWallpaper: wallpaper)) {
-                        WallpaperTile(wallpaper: wallpaper)
+                        WallpaperTile(wallpaper: wallpaper, showsMissingDownloadChip: showsMissingDownloadChip)
                     }
                 }
             }
@@ -92,6 +93,7 @@ struct WallpaperDetailLauncher<Label: View>: View {
 
 struct WallpaperTile: View {
     let wallpaper: Wallpaper
+    var showsMissingDownloadChip = false
 
     @Environment(UIPrefs.self) private var prefs
 
@@ -129,8 +131,8 @@ struct WallpaperTile: View {
                     if wallpaper.isAIGenerated == true {
                         MediaChip(text: "AI", tint: Color.accent.opacity(0.78))
                     }
-                    if wallpaper.isDownloaded == true {
-                        MediaChip(text: L10n.strings(for: prefs.language).downloadedChip, tint: Color.accentInk.opacity(0.72))
+                    if showsMissingDownloadChip && !DownloadedWallpaperStore.isDownloaded(wallpaper.id) {
+                        MediaChip(text: L10n.strings(for: prefs.language).missingDownloadChip, tint: Color.warn.opacity(0.68))
                     }
                 }
                 .padding(7)

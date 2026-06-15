@@ -519,7 +519,9 @@ struct WallpaperDetailView: View {
         Task {
             do {
                 let fileURL = try await APIClient.shared.getDownloadURL(wallpaperID: wallpaperID)
-                try await PhotoSaver.save(remoteURL: fileURL)
+                let data = try await PhotoSaver.fetchData(remoteURL: fileURL)
+                try await PhotoSaver.save(imageData: data)
+                try? DownloadedWallpaperStore.save(wallpaperID: wallpaperID, data: data, sourceURL: fileURL)
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                     downloadState = .saved
                     if !wasDownloaded {

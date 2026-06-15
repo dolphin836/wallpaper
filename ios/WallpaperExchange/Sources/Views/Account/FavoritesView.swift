@@ -761,7 +761,12 @@ private struct AccountWallpaperListView: View {
                 } else if wallpapers.isEmpty {
                     EmptyStateView(kicker: kind.emptyTitle(s), message: kind.emptyMessage(s))
                 } else {
-                    AccountWallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading) {
+                    AccountWallpaperGrid(
+                        wallpapers: wallpapers,
+                        hasMore: hasMore,
+                        isLoading: loading,
+                        showsMissingDownloadChip: kind == .downloads
+                    ) {
                         loadNextPage()
                     }
                 }
@@ -885,6 +890,7 @@ private struct AccountWallpaperGrid: View {
     let wallpapers: [Wallpaper]
     var hasMore: Bool
     var isLoading: Bool
+    var showsMissingDownloadChip = false
     let onLoadMore: () -> Void
 
     private let gridColumns = [
@@ -899,7 +905,7 @@ private struct AccountWallpaperGrid: View {
                     NavigationLink {
                         WallpaperDetailView(slug: wallpaper.slug, initialWallpaper: wallpaper)
                     } label: {
-                        WallpaperTile(wallpaper: wallpaper)
+                        WallpaperTile(wallpaper: wallpaper, showsMissingDownloadChip: showsMissingDownloadChip)
                             .frame(maxWidth: .infinity)
                             .contentShape(Rectangle())
                     }

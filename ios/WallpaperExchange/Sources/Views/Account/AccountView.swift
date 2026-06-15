@@ -235,7 +235,14 @@ struct LibrarySection: View {
             } else if wallpapers.isEmpty {
                 EmptyStateView(kicker: s.emptyLibraryTitle, message: tab.emptyMessage(s))
             } else {
-                WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading) { loadNextPage() }
+                WallpaperGrid(
+                    wallpapers: wallpapers,
+                    hasMore: hasMore,
+                    isLoading: loading,
+                    showsMissingDownloadChip: tab == .downloads
+                ) {
+                    loadNextPage()
+                }
             }
         }
         .task { if wallpapers.isEmpty { reload() } }

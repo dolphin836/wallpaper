@@ -136,7 +136,7 @@ struct AppStrings {
     let downloadOneCoin: String
     let saving: String
     let savedToPhotos: String
-    let downloadedChip: String
+    let missingDownloadChip: String
     let notEnoughCoins: String
     let downloadFailed: String
     let savedToPhotosTitle: String
@@ -416,7 +416,7 @@ enum L10n {
         downloadOneCoin: "下载 · 1 金币",
         saving: "保存中…",
         savedToPhotos: "已保存到照片",
-        downloadedChip: "已下载",
+        missingDownloadChip: "本地缺失",
         notEnoughCoins: "金币不足",
         downloadFailed: "下载失败",
         savedToPhotosTitle: "保存完成",
@@ -598,7 +598,7 @@ enum L10n {
         downloadOneCoin: "下載 · 1 金幣",
         saving: "儲存中…",
         savedToPhotos: "已儲存到照片",
-        downloadedChip: "已下載",
+        missingDownloadChip: "本機缺失",
         notEnoughCoins: "金幣不足",
         downloadFailed: "下載失敗",
         savedToPhotosTitle: "儲存完成",
@@ -780,7 +780,7 @@ enum L10n {
         downloadOneCoin: "ダウンロード · 1 コイン",
         saving: "保存中…",
         savedToPhotos: "写真に保存済み",
-        downloadedChip: "入手済み",
+        missingDownloadChip: "未保存",
         notEnoughCoins: "コイン不足",
         downloadFailed: "ダウンロード失敗",
         savedToPhotosTitle: "保存しました",
@@ -962,7 +962,7 @@ enum L10n {
         downloadOneCoin: "Download · 1 coin",
         saving: "Saving…",
         savedToPhotos: "Saved to Photos",
-        downloadedChip: "Saved",
+        missingDownloadChip: "MISS",
         notEnoughCoins: "Not enough coins",
         downloadFailed: "Download failed",
         savedToPhotosTitle: "Saved",
