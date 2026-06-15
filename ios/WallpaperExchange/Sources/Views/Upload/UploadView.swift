@@ -8,6 +8,7 @@ import PhotosUI
 struct UploadView: View {
     @Environment(AuthService.self) private var auth
     @Environment(UIPrefs.self) private var prefs
+    @Environment(\.dismiss) private var dismiss
 
     @State private var pickerItem: PhotosPickerItem?
     @State private var imageData: Data?
@@ -23,10 +24,12 @@ struct UploadView: View {
     @State private var showAuth = false
 
     var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    SectionHeader(kicker: "Share & earn a coin", title: "Upload")
+                    SectionHeader(kicker: s.uploadKicker, title: s.upload)
                         .padding(.top, 6)
                     if !auth.isLoggedIn {
                         signedOutPrompt
@@ -42,8 +45,13 @@ struct UploadView: View {
                 .padding(12)
             }
             .background(Color.paper)
-            .navigationTitle("")
+            .navigationTitle(s.upload)
             .inlineNavTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(s.cancel) { dismiss() }
+                }
+            }
             .sheet(isPresented: $showAuth) {
                 AuthView()
                     .authSheetPresentation()
@@ -62,25 +70,31 @@ struct UploadView: View {
     }
 
     private var signedOutPrompt: some View {
-        VStack(spacing: 12) {
+        let s = L10n.strings(for: prefs.language)
+
+        return VStack(spacing: 12) {
             Image(systemName: "square.and.arrow.up.on.square")
                 .font(.system(size: 44))
                 .foregroundStyle(.secondary)
-            Text("Sign in to share wallpapers and earn coins.")
+            Text(s.uploadSignedOutMessage)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Button(L10n.strings(for: prefs.language).signInRegister) { showAuth = true }
+                .multilineTextAlignment(.center)
+            Button(s.signInRegister) { showAuth = true }
                 .buttonStyle(.borderedProminent)
         }
+        .frame(maxWidth: .infinity)
         .padding(.vertical, 60)
     }
 
     private var pickerSection: some View {
-        PhotosPicker(selection: $pickerItem, matching: .images, photoLibrary: .shared()) {
+        let s = L10n.strings(for: prefs.language)
+
+        return PhotosPicker(selection: $pickerItem, matching: .images, photoLibrary: .shared()) {
             VStack(spacing: 8) {
                 Image(systemName: "photo.badge.plus")
                     .font(.system(size: 34))
-                Text(previewImage == nil ? "Choose a photo" : "Choose a different photo")
+                Text(previewImage == nil ? s.uploadChoosePhoto : s.uploadChooseDifferentPhoto)
                     .font(.subheadline.weight(.medium))
             }
             .foregroundStyle(Color.accentColor)
@@ -113,12 +127,14 @@ struct UploadView: View {
 
     @ViewBuilder
     private var submitSection: some View {
+        let s = L10n.strings(for: prefs.language)
+
         switch state {
         case .idle:
             Button {
                 submit()
             } label: {
-                Text("Upload")
+                Text(s.upload)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.lightText)
                     .frame(maxWidth: .infinity)
@@ -129,20 +145,20 @@ struct UploadView: View {
         case .uploading(let progress):
             VStack(spacing: 6) {
                 ProgressView(value: progress)
-                Text("Uploading… \(Int(progress * 100))%")
+                Text(String(format: s.uploadProgress, Int(progress * 100)))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         case .done:
             VStack(spacing: 8) {
-                Label("Uploaded — pending review", systemImage: "checkmark.circle.fill")
+                Label(s.uploadPendingReview, systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                     .font(.subheadline.weight(.medium))
-                Text("Your wallpaper will appear publicly once approved. The upload reward lands after processing.")
+                Text(s.uploadPendingMessage)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                Button("Upload another") {
+                Button(s.uploadAnother) {
                     pickerItem = nil
                     imageData = nil
                     previewImage = nil
@@ -155,20 +171,22 @@ struct UploadView: View {
                 Label(message, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.red)
                     .font(.footnote)
-                Button("Try again") { state = .idle }
+                Button(s.uploadTryAgain) { state = .idle }
                     .buttonStyle(.bordered)
             }
         }
     }
 
     private var rulesCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Kicker(text: "House rules")
+        let s = L10n.strings(for: prefs.language)
+
+        return VStack(alignment: .leading, spacing: 6) {
+            Kicker(text: s.uploadRulesTitle)
             Group {
-                Text("• Original or properly licensed images only")
-                Text("• No watermarks, text overlays or people")
-                Text("• Higher resolution ranks better, 4K+ preferred")
-                Text("• Every upload goes through review before publishing")
+                Text("• \(s.uploadRuleLicensed)")
+                Text("• \(s.uploadRuleNoWatermarks)")
+                Text("• \(s.uploadRuleResolution)")
+                Text("• \(s.uploadRuleReview)")
             }
             .font(.caption)
             .foregroundStyle(Color.ink2)

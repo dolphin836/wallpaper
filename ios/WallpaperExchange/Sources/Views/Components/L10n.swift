@@ -55,6 +55,20 @@ struct AppStrings {
     let appVersion: String
     let lockPreview: String
     let upload: String
+    let uploadKicker: String
+    let uploadSignedOutMessage: String
+    let uploadChoosePhoto: String
+    let uploadChooseDifferentPhoto: String
+    let uploadProgress: String
+    let uploadPendingReview: String
+    let uploadPendingMessage: String
+    let uploadAnother: String
+    let uploadTryAgain: String
+    let uploadRulesTitle: String
+    let uploadRuleLicensed: String
+    let uploadRuleNoWatermarks: String
+    let uploadRuleResolution: String
+    let uploadRuleReview: String
     let editProfile: String
     let password: String
     let signOut: String
@@ -180,6 +194,20 @@ enum L10n {
         appVersion: "当前版本",
         lockPreview: "锁屏预览",
         upload: "上传",
+        uploadKicker: "分享并赚取金币",
+        uploadSignedOutMessage: "登录后即可分享壁纸并赚取金币。",
+        uploadChoosePhoto: "选择照片",
+        uploadChooseDifferentPhoto: "换一张照片",
+        uploadProgress: "上传中… %d%%",
+        uploadPendingReview: "已上传，等待审核",
+        uploadPendingMessage: "审核通过后，这张壁纸会公开展示；上传奖励会在处理完成后到账。",
+        uploadAnother: "继续上传",
+        uploadTryAgain: "重试",
+        uploadRulesTitle: "上传规则",
+        uploadRuleLicensed: "仅上传原创或已获得授权的图片",
+        uploadRuleNoWatermarks: "不要上传水印、文字覆盖或人物照片",
+        uploadRuleResolution: "高分辨率会获得更好展示，建议 4K 以上",
+        uploadRuleReview: "所有上传内容发布前都会经过审核",
         editProfile: "编辑资料",
         password: "密码",
         signOut: "退出",
@@ -273,6 +301,20 @@ enum L10n {
         appVersion: "目前版本",
         lockPreview: "鎖定畫面預覽",
         upload: "上傳",
+        uploadKicker: "分享並賺取金幣",
+        uploadSignedOutMessage: "登入後即可分享桌布並賺取金幣。",
+        uploadChoosePhoto: "選擇照片",
+        uploadChooseDifferentPhoto: "換一張照片",
+        uploadProgress: "上傳中… %d%%",
+        uploadPendingReview: "已上傳，等待審核",
+        uploadPendingMessage: "審核通過後，這張桌布會公開展示；上傳獎勵會在處理完成後入帳。",
+        uploadAnother: "繼續上傳",
+        uploadTryAgain: "重試",
+        uploadRulesTitle: "上傳規則",
+        uploadRuleLicensed: "僅上傳原創或已獲授權的圖片",
+        uploadRuleNoWatermarks: "不要上傳浮水印、文字覆蓋或人物照片",
+        uploadRuleResolution: "高解析度會獲得更好展示，建議 4K 以上",
+        uploadRuleReview: "所有上傳內容發布前都會經過審核",
         editProfile: "編輯資料",
         password: "密碼",
         signOut: "登出",
@@ -366,6 +408,20 @@ enum L10n {
         appVersion: "現在のバージョン",
         lockPreview: "ロック画面プレビュー",
         upload: "アップロード",
+        uploadKicker: "共有してコインを獲得",
+        uploadSignedOutMessage: "ログインすると壁紙を共有してコインを獲得できます。",
+        uploadChoosePhoto: "写真を選択",
+        uploadChooseDifferentPhoto: "別の写真を選択",
+        uploadProgress: "アップロード中… %d%%",
+        uploadPendingReview: "アップロード済み、審査待ち",
+        uploadPendingMessage: "承認されると壁紙が公開されます。アップロード報酬は処理完了後に反映されます。",
+        uploadAnother: "別の壁紙をアップロード",
+        uploadTryAgain: "再試行",
+        uploadRulesTitle: "アップロードルール",
+        uploadRuleLicensed: "オリジナル、または適切に許諾された画像のみ",
+        uploadRuleNoWatermarks: "透かし、文字入れ、人物写真は避けてください",
+        uploadRuleResolution: "高解像度ほど表示されやすくなります。4K以上を推奨",
+        uploadRuleReview: "すべてのアップロードは公開前に審査されます",
         editProfile: "プロフィール編集",
         password: "パスワード",
         signOut: "ログアウト",
@@ -459,6 +515,20 @@ enum L10n {
         appVersion: "Current version",
         lockPreview: "Lock Preview",
         upload: "Upload",
+        uploadKicker: "Share and earn a coin",
+        uploadSignedOutMessage: "Sign in to share wallpapers and earn coins.",
+        uploadChoosePhoto: "Choose a photo",
+        uploadChooseDifferentPhoto: "Choose a different photo",
+        uploadProgress: "Uploading… %d%%",
+        uploadPendingReview: "Uploaded, pending review",
+        uploadPendingMessage: "Your wallpaper will appear publicly once approved. The upload reward lands after processing.",
+        uploadAnother: "Upload another",
+        uploadTryAgain: "Try again",
+        uploadRulesTitle: "House rules",
+        uploadRuleLicensed: "Original or properly licensed images only",
+        uploadRuleNoWatermarks: "No watermarks, text overlays or people",
+        uploadRuleResolution: "Higher resolution ranks better, 4K+ preferred",
+        uploadRuleReview: "Every upload goes through review before publishing",
         editProfile: "Edit Profile",
         password: "Password",
         signOut: "Sign Out",
