@@ -1,12 +1,8 @@
 import SwiftUI
 
 // Immersive, action-first detail page. The wallpaper itself paints the
-// whole surface (heavily blurred, dimmed), the hero floats at the
-// device's wallpaper crop, and the only chrome is one mono meta line
-// plus the action set: like / favorite / collect, on-device preview,
-// and the coin download. Everything editorial (title, tags, uploader,
-// palette, similar) lives on the web/Mac surfaces — here the wallpaper
-// is the page.
+// whole surface; the only chrome is the bottom tool set: like /
+// favorite / collect, on-device preview, and coin download.
 struct WallpaperDetailView: View {
     let slug: String
 
@@ -59,7 +55,7 @@ struct WallpaperDetailView: View {
         .fullScreenCoverCompat(isPresented: $showDevicePreview) {
             if let detail {
                 DevicePreviewCover(
-                    url: detail.displayURL,
+                    url: fullScreenURL(for: detail),
                     fallback: Color(hex: detail.dominantColor) ?? .black
                 )
             }
@@ -75,6 +71,10 @@ struct WallpaperDetailView: View {
         Color(hex: detail?.dominantColor) ?? .black
     }
 
+    private func fullScreenURL(for detail: WallpaperDetail) -> String {
+        detail.originalURL.isEmpty ? detail.displayURL : detail.originalURL
+    }
+
     // The wallpaper itself is the page. A subtle scrim keeps only the
     // navigation and bottom tools legible on bright images.
     private var backdrop: some View {
@@ -83,7 +83,7 @@ struct WallpaperDetailView: View {
             if let detail {
                 Color.clear
                     .overlay(
-                        CachedAsyncImage(url: URL(string: detail.displayURL), maxPixelDimension: 700) { image in
+                        CachedAsyncImage(url: URL(string: fullScreenURL(for: detail)), maxPixelDimension: 3200) { image in
                             image.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: {
                             backdropColor
@@ -472,7 +472,7 @@ struct DevicePreviewCover: View {
         ZStack {
             Color.clear
                 .overlay(
-                    CachedAsyncImage(url: URL(string: url), maxPixelDimension: 2200) { image in
+                    CachedAsyncImage(url: URL(string: url), maxPixelDimension: 3200) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
                         fallback

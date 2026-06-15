@@ -1,8 +1,8 @@
 import SwiftUI
 
-// Main browse surface — mirrors the web Discover page: feed switcher
-// (Latest / Popular / For You / Live / AI), category chips, search, and
-// an infinite-scroll grid.
+// Main browse surface — mirrors the web Discover page's feed switcher,
+// category chips, and infinite-scroll grid. Search stays on web/Mac;
+// the iOS browse surface is intentionally lighter.
 struct DiscoverView: View {
     // No Live feed on iOS — the platform can't use video / macOS-dynamic
     // wallpapers, so the client hides that whole content class.
@@ -20,8 +20,6 @@ struct DiscoverView: View {
     @State private var feed: Feed = .latest
     @State private var categories: [Category] = []
     @State private var selectedCategory: Category?
-    @State private var searchText = ""
-    @State private var submittedSearch = ""
 
     @State private var wallpapers: [Wallpaper] = []
     @State private var cursor: Int?
@@ -29,7 +27,7 @@ struct DiscoverView: View {
     @State private var loading = false
     @State private var loadError: String?
     // Monotonic token: bumping it cancels stale in-flight page loads
-    // when the user switches feed/category/search mid-request.
+    // when the user switches feed/category mid-request.
     @State private var loadGeneration = 0
 
     var body: some View {
@@ -73,12 +71,6 @@ struct DiscoverView: View {
             .navigationDestination(for: WallpaperRoute.self) { route in
                 WallpaperDetailView(slug: route.slug)
             }
-            .onChange(of: searchText) { _, newValue in
-                if newValue.isEmpty && !submittedSearch.isEmpty {
-                    submittedSearch = ""
-                    reload()
-                }
-            }
             .refreshable { await load(reset: true) }
             .task {
                 if wallpapers.isEmpty { reload() }
@@ -89,11 +81,8 @@ struct DiscoverView: View {
         }
     }
 
-    // In-page search (the system .searchable bar needs the navigation
-    // bar, which the custom top toolbar replaces).
     private var filterSurface: some View {
         VStack(spacing: 10) {
-            searchField
             feedPicker
             categoryChips
         }
@@ -106,36 +95,6 @@ struct DiscoverView: View {
         .shadow(color: .black.opacity(0.10), radius: 14, y: 6)
         .padding(.horizontal, 12)
         .padding(.bottom, 2)
-    }
-
-    private var searchField: some View {
-        HStack(spacing: 7) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 13))
-                .foregroundStyle(Color.muted)
-            TextField(L10n.strings(for: prefs.language).searchWallpapers, text: $searchText)
-                .textFieldStyle(.plain)
-                .font(.subheadline)
-                .foregroundStyle(Color.ink)
-                .onSubmit {
-                    submittedSearch = searchText
-                    reload()
-                }
-            if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Color.muted)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 11)
-        .padding(.vertical, 9)
-        .background(Color.paper3.opacity(0.78), in: Capsule())
-        .overlay(Capsule().strokeBorder(Color.hair.opacity(0.68), lineWidth: 1))
     }
 
     @Namespace private var feedPillNS
@@ -264,7 +223,6 @@ struct DiscoverView: View {
                 cursor: reset ? nil : cursor,
                 limit: 24,
                 aiOnly: feed == .ai,
-                search: submittedSearch.isEmpty ? nil : submittedSearch,
                 categoryID: selectedCategory?.id,
                 sort: feed == .popular ? "popular" : nil
             )

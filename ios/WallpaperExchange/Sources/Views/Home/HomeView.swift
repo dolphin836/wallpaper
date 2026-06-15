@@ -120,16 +120,7 @@ struct HomeView: View {
             ) {
                 switchToTab(1)
             }
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                ForEach(latestWallpapers.prefix(4)) { wallpaper in
-                    NavigationLink(value: WallpaperRoute(slug: wallpaper.slug)) {
-                        WallpaperTile(wallpaper: wallpaper)
-                            .frame(height: 218)
-                    }
-                    .buttonStyle(.pressable)
-                }
-            }
-            .padding(.horizontal, 12)
+            WallpaperGrid(wallpapers: Array(latestWallpapers.prefix(4)))
         }
     }
 

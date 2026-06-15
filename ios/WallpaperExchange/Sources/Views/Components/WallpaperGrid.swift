@@ -126,32 +126,6 @@ struct WallpaperTile: View {
                 .padding(7)
             }
         }
-        .overlay(alignment: .bottomLeading) {
-            if !prefs.lockPreview {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(wallpaper.title)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.lightText)
-                        .lineLimit(1)
-                    Text(tileMeta)
-                        .font(.mono10)
-                        .tracking(0.4)
-                        .foregroundStyle(Color.lightText.opacity(0.68))
-                        .lineLimit(1)
-                }
-                .padding(.horizontal, 9)
-                .padding(.bottom, 9)
-                .padding(.top, 26)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    LinearGradient(
-                        colors: [.clear, .black.opacity(0.10), .black.opacity(0.58)],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-            }
-        }
         // Tinted lift: each tile throws a soft shadow in its own
         // dominant color, so the grid reads as prints on paper rather
         // than rectangles on a flat fill.
@@ -162,30 +136,6 @@ struct WallpaperTile: View {
         .archiveScrollLift()
         .onChange(of: wallpaper.id) { _, _ in imageLoaded = false }
         .accessibilityLabel("\(wallpaper.title), \(wallpaper.resolutionLabel)")
-    }
-
-    private var tileMeta: String {
-        if wallpaper.downloadCount > 0 {
-            return "\(compactCount(wallpaper.downloadCount)) downloads"
-        }
-        if wallpaper.likeCount > 0 {
-            return "\(compactCount(wallpaper.likeCount)) likes"
-        }
-        if wallpaper.isAIGenerated == true {
-            return "AI wallpaper"
-        }
-        return "Wallpaper"
-    }
-
-    private func compactCount(_ value: Int) -> String {
-        if value >= 10_000 {
-            return "\(value / 1_000)k"
-        }
-        if value >= 1_000 {
-            let scaled = Double(value) / 1_000
-            return String(format: "%.1fk", scaled)
-        }
-        return "\(value)"
     }
 }
 
