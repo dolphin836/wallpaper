@@ -195,7 +195,7 @@ struct ErrorRetryView: View {
 // Section heading: bold title with a quiet supporting line below —
 // the reference's shelf-header pairing.
 struct SectionHeader: View {
-    var kicker: String
+    var kicker: String? = nil
     var title: String
 
     var body: some View {
@@ -203,9 +203,11 @@ struct SectionHeader: View {
             Text(title)
                 .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(Color.ink)
-            Text(kicker)
-                .font(.footnote)
-                .foregroundStyle(Color.muted)
+            if let kicker, !kicker.isEmpty {
+                Text(kicker)
+                    .font(.footnote)
+                    .foregroundStyle(Color.muted)
+            }
         }
     }
 }

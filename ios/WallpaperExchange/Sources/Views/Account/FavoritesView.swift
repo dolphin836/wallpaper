@@ -250,7 +250,7 @@ private struct AccountNavigationCard: View {
         let s = L10n.strings(for: prefs.language)
 
         VStack(alignment: .leading, spacing: 10) {
-            SectionHeader(kicker: s.accountKicker, title: s.accountLibraryTitle)
+            SectionHeader(title: s.accountLibraryTitle)
 
             VStack(spacing: 0) {
                 NavigationLink {
@@ -520,7 +520,7 @@ struct PreferencesCard: View {
         let s = L10n.strings(for: prefs.language)
 
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(kicker: s.settings, title: s.settings)
+            SectionHeader(title: s.settings)
             VStack(spacing: 0) {
                 preferenceRow(title: s.language, icon: "globe") {
                     Picker(s.language, selection: $prefs.language) {
