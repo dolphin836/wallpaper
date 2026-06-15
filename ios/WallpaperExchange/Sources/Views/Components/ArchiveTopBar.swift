@@ -32,20 +32,12 @@ struct ArchiveTopBar: View {
         .frame(height: 52)
         .padding(.horizontal, 6)
         .background(.ultraThinMaterial, in: Capsule())
-        .background(Color.paper2.opacity(0.72), in: Capsule())
+        .background(Color.paper2.opacity(0.36), in: Capsule())
         .overlay(Capsule().strokeBorder(Color.hair.opacity(0.78), lineWidth: 1))
         .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
         .padding(.horizontal, 12)
         .padding(.top, 6)
         .padding(.bottom, 8)
-        .background(
-            Color.paper
-                .overlay(alignment: .bottom) {
-                    Rectangle()
-                        .fill(Color.hair.opacity(0.45))
-                        .frame(height: 1)
-                }
-        )
         .archiveSelectionFeedback(trigger: prefs.lockPreview)
     }
 
