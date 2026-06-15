@@ -24,9 +24,35 @@ struct AppStrings {
     let emptyFavoritesMessage: String
     let signInFavorites: String
     let signInRegister: String
+    let authSignInTitle: String
+    let authRegisterTitle: String
+    let authUsername: String
+    let authEmail: String
+    let authPassword: String
+    let authUsernamePlaceholder: String
+    let authEmailPlaceholder: String
+    let authUsernameHelp: String
+    let authPasswordHelp: String
+    let authSignInSubmit: String
+    let authCreateAccountSubmit: String
+    let authSigningIn: String
+    let authCreating: String
+    let authSwitchToRegister: String
+    let authSwitchToLogin: String
+    let authAcceptLegal: String
+    let authLegalIntro: String
     let settings: String
     let language: String
     let appearance: String
+    let legal: String
+    let termsTitle: String
+    let privacyTitle: String
+    let dmcaTitle: String
+    let legalBodyNote: String
+    let lastUpdated: String
+    let legalVersion: String
+    let about: String
+    let appVersion: String
     let lockPreview: String
     let upload: String
     let editProfile: String
@@ -123,9 +149,35 @@ enum L10n {
         emptyFavoritesMessage: "你收藏的壁纸会出现在这里。",
         signInFavorites: "登录后查看和管理你的收藏、下载与个人设置。",
         signInRegister: "登录 / 注册",
+        authSignInTitle: "登录",
+        authRegisterTitle: "注册",
+        authUsername: "用户名",
+        authEmail: "邮箱",
+        authPassword: "密码",
+        authUsernamePlaceholder: "archivist",
+        authEmailPlaceholder: "you@example.com",
+        authUsernameHelp: "3-32 个字符，支持字母、数字、点和下划线",
+        authPasswordHelp: "至少 6 个字符",
+        authSignInSubmit: "登录",
+        authCreateAccountSubmit: "创建账号",
+        authSigningIn: "正在登录…",
+        authCreating: "正在创建…",
+        authSwitchToRegister: "还没有账号？注册",
+        authSwitchToLogin: "已经有账号？登录",
+        authAcceptLegal: "我已阅读并同意服务条款、隐私政策和 DMCA 政策。",
+        authLegalIntro: "注册即表示你理解这些条款。法律正文以英文为准。",
         settings: "设置",
         language: "语言",
         appearance: "外观",
+        legal: "法律",
+        termsTitle: "服务条款",
+        privacyTitle: "隐私政策",
+        dmcaTitle: "版权 / DMCA",
+        legalBodyNote: "以下法律正文沿用官网英文版本，页面标题跟随你的语言设置。",
+        lastUpdated: "最后更新",
+        legalVersion: "版本",
+        about: "关于",
+        appVersion: "当前版本",
         lockPreview: "锁屏预览",
         upload: "上传",
         editProfile: "编辑资料",
@@ -190,9 +242,35 @@ enum L10n {
         emptyFavoritesMessage: "你收藏的桌布會出現在這裡。",
         signInFavorites: "登入後查看和管理你的收藏、下載與個人設定。",
         signInRegister: "登入 / 註冊",
+        authSignInTitle: "登入",
+        authRegisterTitle: "註冊",
+        authUsername: "使用者名稱",
+        authEmail: "電子郵件",
+        authPassword: "密碼",
+        authUsernamePlaceholder: "archivist",
+        authEmailPlaceholder: "you@example.com",
+        authUsernameHelp: "3-32 個字元，支援字母、數字、點和底線",
+        authPasswordHelp: "至少 6 個字元",
+        authSignInSubmit: "登入",
+        authCreateAccountSubmit: "建立帳號",
+        authSigningIn: "正在登入…",
+        authCreating: "正在建立…",
+        authSwitchToRegister: "還沒有帳號？註冊",
+        authSwitchToLogin: "已經有帳號？登入",
+        authAcceptLegal: "我已閱讀並同意服務條款、隱私政策和 DMCA 政策。",
+        authLegalIntro: "註冊即表示你理解這些條款。法律正文以英文為準。",
         settings: "設定",
         language: "語言",
         appearance: "外觀",
+        legal: "法律",
+        termsTitle: "服務條款",
+        privacyTitle: "隱私政策",
+        dmcaTitle: "版權 / DMCA",
+        legalBodyNote: "以下法律正文沿用官網英文版本，頁面標題會跟隨你的語言設定。",
+        lastUpdated: "最後更新",
+        legalVersion: "版本",
+        about: "關於",
+        appVersion: "目前版本",
         lockPreview: "鎖定畫面預覽",
         upload: "上傳",
         editProfile: "編輯資料",
@@ -257,9 +335,35 @@ enum L10n {
         emptyFavoritesMessage: "お気に入りにした壁紙がここに表示されます。",
         signInFavorites: "ログインするとお気に入り、ダウンロード、設定を管理できます。",
         signInRegister: "ログイン / 登録",
+        authSignInTitle: "ログイン",
+        authRegisterTitle: "新規登録",
+        authUsername: "ユーザー名",
+        authEmail: "メールアドレス",
+        authPassword: "パスワード",
+        authUsernamePlaceholder: "archivist",
+        authEmailPlaceholder: "you@example.com",
+        authUsernameHelp: "3〜32文字。英数字、ドット、アンダースコアが使えます",
+        authPasswordHelp: "6文字以上",
+        authSignInSubmit: "ログイン",
+        authCreateAccountSubmit: "アカウントを作成",
+        authSigningIn: "ログイン中…",
+        authCreating: "作成中…",
+        authSwitchToRegister: "はじめての方は登録",
+        authSwitchToLogin: "アカウントをお持ちの方はログイン",
+        authAcceptLegal: "利用規約、プライバシーポリシー、DMCAポリシーに同意します。",
+        authLegalIntro: "登録すると、これらの条件を理解したものとみなされます。法的本文は英語版を正文とします。",
         settings: "設定",
         language: "言語",
         appearance: "表示",
+        legal: "法務",
+        termsTitle: "利用規約",
+        privacyTitle: "プライバシーポリシー",
+        dmcaTitle: "著作権 / DMCA",
+        legalBodyNote: "以下の法的本文は公式サイトの英語版を使用しています。ページ見出しは言語設定に合わせて表示されます。",
+        lastUpdated: "最終更新",
+        legalVersion: "バージョン",
+        about: "このアプリについて",
+        appVersion: "現在のバージョン",
         lockPreview: "ロック画面プレビュー",
         upload: "アップロード",
         editProfile: "プロフィール編集",
@@ -324,9 +428,35 @@ enum L10n {
         emptyFavoritesMessage: "Wallpapers you favorite will appear here.",
         signInFavorites: "Sign in to manage your favorites, downloads and preferences.",
         signInRegister: "Sign In / Register",
+        authSignInTitle: "Sign in",
+        authRegisterTitle: "Register",
+        authUsername: "Username",
+        authEmail: "Email",
+        authPassword: "Password",
+        authUsernamePlaceholder: "archivist",
+        authEmailPlaceholder: "you@example.com",
+        authUsernameHelp: "3-32 characters: letters, numbers, dot and underscore",
+        authPasswordHelp: "At least 6 characters",
+        authSignInSubmit: "Sign in",
+        authCreateAccountSubmit: "Create account",
+        authSigningIn: "Signing in…",
+        authCreating: "Creating…",
+        authSwitchToRegister: "New here? Register",
+        authSwitchToLogin: "Already have an account? Sign in",
+        authAcceptLegal: "I have read and agree to the Terms of Service, Privacy Policy and DMCA policy.",
+        authLegalIntro: "By registering, you acknowledge these terms. The legal body text is authoritative in English.",
         settings: "Settings",
         language: "Language",
         appearance: "Appearance",
+        legal: "Legal",
+        termsTitle: "Terms of Service",
+        privacyTitle: "Privacy Policy",
+        dmcaTitle: "Copyright / DMCA",
+        legalBodyNote: "The legal body text below mirrors the English website version. Page chrome follows your language setting.",
+        lastUpdated: "Last updated",
+        legalVersion: "Version",
+        about: "About",
+        appVersion: "Current version",
         lockPreview: "Lock Preview",
         upload: "Upload",
         editProfile: "Edit Profile",

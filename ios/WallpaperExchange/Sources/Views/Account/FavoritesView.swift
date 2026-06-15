@@ -4,7 +4,6 @@ struct FavoritesView: View {
     @Environment(AuthService.self) private var auth
     @Environment(UIPrefs.self) private var prefs
 
-    @State private var showAuth = false
     @State private var showEditProfile = false
     @State private var showChangePassword = false
     @State private var showCoinLedger = false
@@ -38,7 +37,6 @@ struct FavoritesView: View {
             .navigationDestination(for: WallpaperRoute.self) { route in
                 WallpaperDetailView(slug: route.slug)
             }
-            .sheet(isPresented: $showAuth) { AuthView() }
             .sheet(isPresented: $showEditProfile) { EditProfileSheet() }
             .sheet(isPresented: $showChangePassword) { ChangePasswordSheet() }
             .sheet(isPresented: $showCoinLedger) { CoinLedgerSheet() }
@@ -67,7 +65,7 @@ struct FavoritesView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 34)
             Button {
-                showAuth = true
+                auth.login()
             } label: {
                 Text(L10n.strings(for: prefs.language).signInRegister)
                     .font(.subheadline.weight(.semibold))
@@ -282,6 +280,26 @@ struct PreferencesCard: View {
                     }
                     .pickerStyle(.menu)
                 }
+
+                Divider().padding(.leading, 38)
+
+                legalRow(kind: .terms, title: s.termsTitle)
+
+                Divider().padding(.leading, 38)
+
+                legalRow(kind: .privacy, title: s.privacyTitle)
+
+                Divider().padding(.leading, 38)
+
+                legalRow(kind: .dmca, title: s.dmcaTitle)
+
+                Divider().padding(.leading, 38)
+
+                preferenceRow(title: s.appVersion, icon: "info.circle") {
+                    Text(AppVersion.display)
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(Color.muted)
+                }
             }
             .background(Color.paper2, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
@@ -290,6 +308,30 @@ struct PreferencesCard: View {
             )
         }
         .padding(.horizontal, 12)
+    }
+
+    private func legalRow(kind: LegalDocumentKind, title: String) -> some View {
+        NavigationLink {
+            LegalDocumentView(kind: kind)
+        } label: {
+            HStack(spacing: 11) {
+                Image(systemName: kind.iconName())
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.accentInk)
+                    .frame(width: 26, height: 26)
+                    .background(Color.accentSoft, in: Circle())
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Color.ink)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.muted)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+        }
+        .buttonStyle(.pressable)
     }
 
     private func preferenceRow<Control: View>(
@@ -311,5 +353,16 @@ struct PreferencesCard: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+    }
+}
+
+enum AppVersion {
+    static var display: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String
+        let build = info?["CFBundleVersion"] as? String
+        let cleanVersion = version.flatMap { $0.isEmpty ? nil : $0 } ?? "1.0.0"
+        let cleanBuild = build.flatMap { $0.isEmpty ? nil : $0 } ?? "1"
+        return "v\(cleanVersion) (\(cleanBuild))"
     }
 }

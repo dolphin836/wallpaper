@@ -7,8 +7,8 @@ import PhotosUI
 // the phone-sized cut of the web ProfilePage + Mac AccountView.
 struct AccountView: View {
     @Environment(AuthService.self) private var auth
+    @Environment(UIPrefs.self) private var prefs
 
-    @State private var showAuth = false
     @State private var showEditProfile = false
     @State private var showChangePassword = false
     @State private var showCoinLedger = false
@@ -35,7 +35,6 @@ struct AccountView: View {
             .navigationDestination(for: WallpaperRoute.self) { route in
                 WallpaperDetailView(slug: route.slug)
             }
-            .sheet(isPresented: $showAuth) { AuthView() }
             .sheet(isPresented: $showEditProfile) { EditProfileSheet() }
             .sheet(isPresented: $showChangePassword) { ChangePasswordSheet() }
             .sheet(isPresented: $showCoinLedger) { CoinLedgerSheet() }
@@ -48,15 +47,15 @@ struct AccountView: View {
             Image(systemName: "person.crop.circle.badge.questionmark")
                 .font(.system(size: 52))
                 .foregroundStyle(.secondary)
-            Text("Sign in to like, favorite, download and upload wallpapers.")
+            Text(L10n.strings(for: prefs.language).signInFavorites)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Button {
-                showAuth = true
+                auth.login()
             } label: {
-                Text("Sign In / Register")
+                Text(L10n.strings(for: prefs.language).signInRegister)
                     .fontWeight(.semibold)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 4)

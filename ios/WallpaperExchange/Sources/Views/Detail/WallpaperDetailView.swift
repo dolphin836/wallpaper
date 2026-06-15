@@ -26,7 +26,6 @@ struct WallpaperDetailView: View {
     }
     @State private var downloadState: DownloadState = .idle
     @State private var showAddToCollection = false
-    @State private var showLoginPrompt = false
     @State private var showDevicePreview = false
 
     var body: some View {
@@ -59,11 +58,6 @@ struct WallpaperDetailView: View {
                     fallback: Color(hex: detail.dominantColor) ?? .black
                 )
             }
-        }
-        .alert(L10n.strings(for: prefs.language).signInRequired, isPresented: $showLoginPrompt) {
-            Button(L10n.strings(for: prefs.language).ok, role: .cancel) {}
-        } message: {
-            Text(L10n.strings(for: prefs.language).signInDetailMessage)
         }
     }
 
@@ -126,7 +120,7 @@ struct WallpaperDetailView: View {
             ) { toggleFavorite() }
 
             toolButton(icon: "rectangle.stack.badge.plus", tint: Color.lightText) {
-                guard auth.isLoggedIn else { showLoginPrompt = true; return }
+                guard requireLogin() else { return }
                 showAddToCollection = true
             }
 
@@ -160,7 +154,7 @@ struct WallpaperDetailView: View {
         switch downloadState {
         case .idle:
             Button {
-                guard auth.isLoggedIn else { showLoginPrompt = true; return }
+                guard requireLogin() else { return }
                 downloadState = detail.isDownloaded == true ? .downloading : .confirming
                 if detail.isDownloaded == true {
                     startDownload(detail)
@@ -227,7 +221,7 @@ struct WallpaperDetailView: View {
                     tint: isFavorited ? Color(red: 1.0, green: 0.80, blue: 0.35) : Color.lightText
                 ) { toggleFavorite() }
                 engagementButton(icon: "rectangle.stack.badge.plus", count: nil, tint: Color.lightText) {
-                    guard auth.isLoggedIn else { showLoginPrompt = true; return }
+                    guard requireLogin() else { return }
                     showAddToCollection = true
                 }
             }
@@ -288,7 +282,7 @@ struct WallpaperDetailView: View {
         switch downloadState {
         case .idle:
             Button {
-                guard auth.isLoggedIn else { showLoginPrompt = true; return }
+                guard requireLogin() else { return }
                 downloadState = detail.isDownloaded == true ? .downloading : .confirming
                 if detail.isDownloaded == true {
                     // Already purchased — re-download is free, skip confirm.
@@ -384,7 +378,7 @@ struct WallpaperDetailView: View {
     }
 
     private func toggleLike() {
-        guard auth.isLoggedIn else { showLoginPrompt = true; return }
+        guard requireLogin() else { return }
         guard let detail else { return }
         let wasLiked = isLiked
         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -407,7 +401,7 @@ struct WallpaperDetailView: View {
     }
 
     private func toggleFavorite() {
-        guard auth.isLoggedIn else { showLoginPrompt = true; return }
+        guard requireLogin() else { return }
         guard let detail else { return }
         let wasFavorited = isFavorited
         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -442,6 +436,12 @@ struct WallpaperDetailView: View {
                 downloadState = .failed(L10n.strings(for: prefs.language).downloadFailed)
             }
         }
+    }
+
+    private func requireLogin() -> Bool {
+        guard !auth.isLoggedIn else { return true }
+        auth.login()
+        return false
     }
 
     private func load() async {

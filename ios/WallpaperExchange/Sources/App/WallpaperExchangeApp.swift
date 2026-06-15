@@ -43,6 +43,7 @@ struct WallpaperExchangeApp: App {
 
 struct RootTabView: View {
     @Environment(UIPrefs.self) private var prefs
+    @Environment(AuthService.self) private var auth
 
     @State private var router = TabRouter.shared
     @State private var debugDetailSlug = LaunchOptions.detailSlug
@@ -53,6 +54,7 @@ struct RootTabView: View {
 
     var body: some View {
         @Bindable var router = router
+        @Bindable var auth = auth
         TabView(selection: $router.selection) {
             HomeView()
                 .tag(0)
@@ -113,6 +115,10 @@ struct RootTabView: View {
                         WallpaperDetailView(slug: route.slug)
                     }
             }
+        }
+        .sheet(item: $auth.authFlow) { flow in
+            AuthView(mode: flow == .register ? .register : .login)
+                .authSheetPresentation()
         }
         // Warm exchange accent drives every interactive tint; the system
         // tab bar is replaced by the floating capsule bar each root page

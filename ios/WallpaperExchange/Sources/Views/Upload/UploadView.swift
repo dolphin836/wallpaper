@@ -7,6 +7,7 @@ import PhotosUI
 // needs to deliver the original file. Earns 1 coin per accepted upload.
 struct UploadView: View {
     @Environment(AuthService.self) private var auth
+    @Environment(UIPrefs.self) private var prefs
 
     @State private var pickerItem: PhotosPickerItem?
     @State private var imageData: Data?
@@ -43,7 +44,10 @@ struct UploadView: View {
             .background(Color.paper)
             .navigationTitle("")
             .inlineNavTitle()
-            .sheet(isPresented: $showAuth) { AuthView() }
+            .sheet(isPresented: $showAuth) {
+                AuthView()
+                    .authSheetPresentation()
+            }
             .onChange(of: pickerItem) { _, newItem in
                 guard let newItem else { return }
                 state = .idle
@@ -65,7 +69,7 @@ struct UploadView: View {
             Text("Sign in to share wallpapers and earn coins.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Button("Sign In / Register") { showAuth = true }
+            Button(L10n.strings(for: prefs.language).signInRegister) { showAuth = true }
                 .buttonStyle(.borderedProminent)
         }
         .padding(.vertical, 60)

@@ -99,6 +99,26 @@ extension View {
         #endif
     }
 
+    @ViewBuilder
+    func authSheetPresentation() -> some View {
+        #if os(iOS)
+        self
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        #else
+        self.frame(minWidth: 420, minHeight: 560)
+        #endif
+    }
+
+    @ViewBuilder
+    func scrollContentBackgroundCompat() -> some View {
+        #if os(iOS)
+        self.scrollContentBackground(.hidden)
+        #else
+        self
+        #endif
+    }
+
     // ToolbarPlacement.navigationBar is iOS-only; macOS keeps its window
     // toolbar untouched.
     @ViewBuilder
