@@ -87,9 +87,6 @@ struct CollectionsBrowser: View {
             .navigationDestination(for: CollectionItem.self) { collection in
                 CollectionDetailView(collection: collection)
             }
-            .navigationDestination(for: WallpaperRoute.self) { route in
-                WallpaperDetailView(slug: route.slug, initialWallpaper: route.initialWallpaper)
-            }
             .refreshable { await reload() }
             .task { if collections.isEmpty { loadNextPage() } }
             .safeAreaInset(edge: .bottom) {

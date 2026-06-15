@@ -62,9 +62,6 @@ struct DiscoverView: View {
             .hideNavBarCompat()
             .hideTabBarCompat()
             .safeAreaInset(edge: .bottom) { FloatingTabBar() }
-            .navigationDestination(for: WallpaperRoute.self) { route in
-                WallpaperDetailView(slug: route.slug, initialWallpaper: route.initialWallpaper)
-            }
             .refreshable { await load(reset: true) }
             .task {
                 if wallpapers.isEmpty { reload() }

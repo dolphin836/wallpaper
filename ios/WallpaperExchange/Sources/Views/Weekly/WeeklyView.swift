@@ -18,9 +18,6 @@ struct WeeklyTabView: View {
             .navigationDestination(for: WeeklyArchiveEntry.self) { entry in
                 WeeklyWeekView(year: entry.year, week: entry.week)
             }
-            .navigationDestination(for: WallpaperRoute.self) { route in
-                WallpaperDetailView(slug: route.slug, initialWallpaper: route.initialWallpaper)
-            }
         }
     }
 }

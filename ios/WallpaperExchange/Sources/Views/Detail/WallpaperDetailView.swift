@@ -6,7 +6,10 @@ import SwiftUI
 struct WallpaperDetailView: View {
     let slug: String
     let initialWallpaper: Wallpaper?
+    let showsModalCloseButton: Bool
+    let onModalClose: (() -> Void)?
 
+    @Environment(\.dismiss) private var dismiss
     @Environment(AuthService.self) private var auth
     @Environment(UIPrefs.self) private var prefs
 
@@ -33,9 +36,16 @@ struct WallpaperDetailView: View {
     @State private var showDevicePreview = false
     @State private var showInfo = false
 
-    init(slug: String, initialWallpaper: Wallpaper? = nil) {
+    init(
+        slug: String,
+        initialWallpaper: Wallpaper? = nil,
+        showsModalCloseButton: Bool = false,
+        onModalClose: (() -> Void)? = nil
+    ) {
         self.slug = slug
         self.initialWallpaper = initialWallpaper
+        self.showsModalCloseButton = showsModalCloseButton
+        self.onModalClose = onModalClose
     }
 
     var body: some View {
@@ -59,6 +69,27 @@ struct WallpaperDetailView: View {
         .tint(Color.lightText)
         .toolbar {
             #if os(iOS)
+            ToolbarItem(placement: .navigationBarLeading) {
+                if showsModalCloseButton {
+                    Button {
+                        if let onModalClose {
+                            onModalClose()
+                        } else {
+                            dismiss()
+                        }
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.lightText)
+                            .frame(width: 36, height: 36)
+                            .background(.black.opacity(0.30), in: Circle())
+                            .background(.ultraThinMaterial, in: Circle())
+                            .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1))
+                    }
+                    .buttonStyle(.pressable)
+                    .accessibilityLabel(L10n.strings(for: prefs.language).cancel)
+                }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 if detail != nil {
                     Button {

@@ -32,9 +32,6 @@ struct AccountView: View {
             .hideNavBarCompat()
             .hideTabBarCompat()
             .safeAreaInset(edge: .bottom) { FloatingTabBar() }
-            .navigationDestination(for: WallpaperRoute.self) { route in
-                WallpaperDetailView(slug: route.slug, initialWallpaper: route.initialWallpaper)
-            }
             .sheet(isPresented: $showEditProfile) { EditProfileSheet() }
             .sheet(isPresented: $showChangePassword) { ChangePasswordSheet() }
             .sheet(isPresented: $showCoinLedger) { CoinLedgerSheet() }

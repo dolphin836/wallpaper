@@ -46,6 +46,7 @@ struct RootTabView: View {
     @Environment(AuthService.self) private var auth
 
     @State private var router = TabRouter.shared
+    @State private var detailRouter = WallpaperDetailRouter.shared
     @State private var debugDetailSlug = LaunchOptions.detailSlug
     @State private var debugDetailPath = NavigationPath()
     @State private var debugDetailWasPushed = false
@@ -55,19 +56,43 @@ struct RootTabView: View {
     var body: some View {
         @Bindable var router = router
         @Bindable var auth = auth
-        TabView(selection: $router.selection) {
-            HomeView()
-                .tag(0)
-            DiscoverView()
-                .tag(1)
-            WeeklyTabView()
-                .tag(2)
-            CollectionsTabView()
-                .tag(3)
-            FavoritesView()
-                .tag(4)
+        ZStack {
+            TabView(selection: $router.selection) {
+                HomeView()
+                    .tag(0)
+                DiscoverView()
+                    .tag(1)
+                WeeklyTabView()
+                    .tag(2)
+                CollectionsTabView()
+                    .tag(3)
+                FavoritesView()
+                    .tag(4)
+            }
+            .allowsHitTesting(detailRouter.route == nil)
+            .accessibilityHidden(detailRouter.route != nil)
+
+            if let route = detailRouter.route {
+                NavigationStack {
+                    WallpaperDetailView(
+                        slug: route.slug,
+                        initialWallpaper: route.initialWallpaper,
+                        showsModalCloseButton: true
+                    ) {
+                        detailRouter.dismiss()
+                    }
+                }
+                .id(route.slug)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal: .move(edge: .trailing).combined(with: .opacity)
+                ))
+                .zIndex(10)
+            }
         }
         .environment(router)
+        .environment(detailRouter)
+        .animation(.spring(response: 0.34, dampingFraction: 0.88), value: detailRouter.route)
         // Screenshot-automation overlays (LaunchOptions args only). The
         // detail route is pushed (not shown as a root) so the screenshots
         // exercise the same back-button context users navigate in.
@@ -110,9 +135,6 @@ struct RootTabView: View {
                 WeeklyArchiveView()
                     .navigationDestination(for: WeeklyArchiveEntry.self) { entry in
                         WeeklyWeekView(year: entry.year, week: entry.week)
-                    }
-                    .navigationDestination(for: WallpaperRoute.self) { route in
-                        WallpaperDetailView(slug: route.slug, initialWallpaper: route.initialWallpaper)
                     }
             }
         }

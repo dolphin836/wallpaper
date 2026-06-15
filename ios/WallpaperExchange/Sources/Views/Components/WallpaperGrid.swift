@@ -47,10 +47,9 @@ struct WallpaperGrid: View {
     private func column(_ items: [Wallpaper]) -> some View {
         LazyVStack(spacing: 14) {
             ForEach(items) { wallpaper in
-                NavigationLink(value: WallpaperRoute(slug: wallpaper.slug, initialWallpaper: wallpaper)) {
+                WallpaperDetailLauncher(route: WallpaperRoute(slug: wallpaper.slug, initialWallpaper: wallpaper)) {
                     WallpaperTile(wallpaper: wallpaper)
                 }
-                .buttonStyle(.pressable)
             }
         }
     }
@@ -65,6 +64,45 @@ struct WallpaperRoute: Hashable {
     init(slug: String, initialWallpaper: Wallpaper? = nil) {
         self.slug = slug
         self.initialWallpaper = initialWallpaper
+    }
+}
+
+@MainActor
+@Observable
+final class WallpaperDetailRouter {
+    static let shared = WallpaperDetailRouter()
+
+    var route: WallpaperRoute?
+
+    private init() {}
+
+    func present(_ route: WallpaperRoute) {
+        self.route = route
+    }
+
+    func dismiss() {
+        route = nil
+    }
+}
+
+struct WallpaperDetailLauncher<Label: View>: View {
+    let route: WallpaperRoute
+    let label: () -> Label
+
+    @Environment(WallpaperDetailRouter.self) private var detailRouter
+
+    init(route: WallpaperRoute, @ViewBuilder label: @escaping () -> Label) {
+        self.route = route
+        self.label = label
+    }
+
+    var body: some View {
+        Button {
+            detailRouter.present(route)
+        } label: {
+            label()
+        }
+        .buttonStyle(.pressable)
     }
 }
 
