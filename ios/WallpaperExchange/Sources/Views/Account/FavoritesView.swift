@@ -4,6 +4,139 @@ struct FavoritesView: View {
     @Environment(AuthService.self) private var auth
     @Environment(UIPrefs.self) private var prefs
 
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                ArchiveTopBar(title: L10n.strings(for: prefs.language).favorites)
+                Group {
+                    if auth.isLoggedIn, let user = auth.user {
+                        FavoritesTabContent(username: user.username)
+                    } else if auth.isLoggedIn {
+                        VStack {
+                            WallpaperGridSkeleton(count: 8)
+                            Spacer(minLength: 0)
+                        }
+                    } else {
+                        signedOut
+                    }
+                }
+            }
+            .background(PageMesh())
+            .navigationTitle("")
+            .inlineNavTitle()
+            .hideNavBarCompat()
+            .hideTabBarCompat()
+            .safeAreaInset(edge: .bottom) { FloatingTabBar() }
+            .refreshable {
+                await auth.refreshProfile()
+            }
+        }
+    }
+
+    private var signedOut: some View {
+        VStack(spacing: 16) {
+            Spacer(minLength: 40)
+            Image(systemName: "heart")
+                .font(.system(size: 54, weight: .light))
+                .foregroundStyle(Color.muted)
+            Text(L10n.strings(for: prefs.language).signInFavorites)
+                .font(.subheadline)
+                .foregroundStyle(Color.muted)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 34)
+            Button {
+                auth.login()
+            } label: {
+                Text(L10n.strings(for: prefs.language).signInRegister)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.lightText)
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 11)
+                    .background(Color.accent, in: Capsule())
+            }
+            .buttonStyle(.pressable)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct FavoritesTabContent: View {
+    let username: String
+
+    @Environment(UIPrefs.self) private var prefs
+
+    @State private var wallpapers: [Wallpaper] = []
+    @State private var cursor: Int?
+    @State private var hasMore = true
+    @State private var loading = false
+    @State private var loadError: String?
+    @State private var loadGeneration = 0
+
+    var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if let loadError, wallpapers.isEmpty {
+                    ErrorRetryView(message: loadError) { reload() }
+                } else if wallpapers.isEmpty && loading {
+                    WallpaperGridSkeleton(count: 8)
+                } else if wallpapers.isEmpty {
+                    EmptyStateView(kicker: s.emptyFavoritesTitle, message: s.emptyFavoritesMessage)
+                } else {
+                    WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading, showsEndState: false) {
+                        loadNextPage()
+                    }
+                }
+            }
+            .padding(.top, 12)
+            .padding(.bottom, 28)
+        }
+        .background(PageMesh())
+        .refreshable { reload() }
+        .task(id: username) {
+            if wallpapers.isEmpty { reload() }
+        }
+    }
+
+    private func reload() {
+        loadGeneration += 1
+        wallpapers = []
+        cursor = nil
+        hasMore = true
+        loadError = nil
+        loadNextPage()
+    }
+
+    private func loadNextPage() {
+        guard !loading, hasMore else { return }
+        let generation = loadGeneration
+        loading = true
+        Task {
+            defer { loading = false }
+            do {
+                let page = try await APIClient.shared.fetchUserFavorites(username: username, cursor: cursor)
+                guard generation == loadGeneration else { return }
+                wallpapers.append(contentsOf: page.items)
+                cursor = page.nextCursor
+                hasMore = page.hasMore
+                loadError = nil
+            } catch {
+                guard generation == loadGeneration else { return }
+                if wallpapers.isEmpty { loadError = error.localizedDescription }
+                hasMore = false
+            }
+        }
+    }
+}
+
+struct ProfileView: View {
+    @Environment(AuthService.self) private var auth
+    @Environment(UIPrefs.self) private var prefs
+
+    var onClose: (() -> Void)?
+
     @State private var showEditProfile = false
     @State private var showChangePassword = false
     @State private var showCoinLedger = false
@@ -12,7 +145,11 @@ struct FavoritesView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                ArchiveTopBar(title: L10n.strings(for: prefs.language).me)
+                ArchiveTopBar(
+                    title: L10n.strings(for: prefs.language).me,
+                    opensProfile: false,
+                    onClose: onClose
+                )
                 Group {
                     if auth.isLoggedIn, let user = auth.user {
                         signedIn(user)
@@ -28,7 +165,6 @@ struct FavoritesView: View {
             .inlineNavTitle()
             .hideNavBarCompat()
             .hideTabBarCompat()
-            .safeAreaInset(edge: .bottom) { FloatingTabBar() }
             .navigationDestination(for: CollectionItem.self) { collection in
                 CollectionDetailView(collection: collection)
             }
@@ -141,17 +277,17 @@ struct FavoritesView: View {
                 .padding(.horizontal, 12)
 
             VStack(spacing: 0) {
-                ForEach(0..<5, id: \.self) { index in
+                ForEach(0..<6, id: \.self) { index in
                     HStack(spacing: 12) {
                         SkeletonBlock(radius: 14).frame(width: 28, height: 28)
-                        SkeletonBlock(radius: 5).frame(width: index == 4 ? 84 : 118, height: 15)
+                        SkeletonBlock(radius: 5).frame(width: index == 5 ? 84 : 118, height: 15)
                         Spacer(minLength: 0)
                         SkeletonBlock(radius: 5).frame(width: 18, height: 12)
                     }
                     .padding(.horizontal, 12)
                     .frame(height: 52)
 
-                    if index < 4 {
+                    if index < 5 {
                         Divider().padding(.leading, 50)
                     }
                 }
@@ -295,6 +431,7 @@ struct FavoritesView: View {
 }
 
 private enum AccountWallpaperListKind: String {
+    case uploads
     case downloads
     case favorites
     case likes
@@ -303,6 +440,7 @@ private enum AccountWallpaperListKind: String {
 
     var icon: String {
         switch self {
+        case .uploads: return "arrow.up.circle"
         case .downloads: return "arrow.down.circle"
         case .favorites: return "heart"
         case .likes: return "hand.thumbsup"
@@ -311,6 +449,7 @@ private enum AccountWallpaperListKind: String {
 
     func title(_ s: AppStrings) -> String {
         switch self {
+        case .uploads: return s.myUploads
         case .downloads: return s.myDownloads
         case .favorites: return s.favorites
         case .likes: return s.myLikes
@@ -319,6 +458,7 @@ private enum AccountWallpaperListKind: String {
 
     func emptyTitle(_ s: AppStrings) -> String {
         switch self {
+        case .uploads: return s.emptyLibraryTitle
         case .downloads: return s.emptyDownloadsTitle
         case .favorites: return s.emptyFavoritesTitle
         case .likes: return s.emptyLikesTitle
@@ -327,6 +467,7 @@ private enum AccountWallpaperListKind: String {
 
     func emptyMessage(_ s: AppStrings) -> String {
         switch self {
+        case .uploads: return s.emptyUploadsMessage
         case .downloads: return s.emptyDownloadsMessage
         case .favorites: return s.emptyFavoritesMessage
         case .likes: return s.emptyLikesMessage
@@ -335,6 +476,8 @@ private enum AccountWallpaperListKind: String {
 
     func fetch(username: String, cursor: Int?) async throws -> PaginatedData<Wallpaper> {
         switch self {
+        case .uploads:
+            return try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, status: "0,1,5,6")
         case .downloads:
             return try await APIClient.shared.fetchUserDownloads(username: username, cursor: cursor)
         case .favorites:
@@ -358,6 +501,15 @@ private struct AccountNavigationCard: View {
             SectionHeader(title: s.accountLibraryTitle)
 
             VStack(spacing: 0) {
+                NavigationLink {
+                    AccountWallpaperListView(kind: .uploads, username: user.username)
+                } label: {
+                    navRow(title: s.myUploads, icon: "arrow.up.circle", tint: Color.accentInk)
+                }
+                .buttonStyle(.pressable)
+
+                rowDivider
+
                 NavigationLink {
                     AccountWallpaperListView(kind: .downloads, username: user.username)
                 } label: {

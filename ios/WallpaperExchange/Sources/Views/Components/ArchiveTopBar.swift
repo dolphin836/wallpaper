@@ -1,14 +1,16 @@
 import SwiftUI
 
-// Shared top toolbar for the four root tabs: collections drawer on the
-// left, the page's title in the middle, and the global lock-screen-
-// preview toggle on the right.
+// Shared top toolbar for the root tabs: avatar/profile access on the left,
+// the page's title in the middle, and the global lock-screen-preview toggle
+// on the right. Modal profile pages can swap the right action for close.
 struct ArchiveTopBar: View {
     var title: String
+    var opensProfile = true
+    var onClose: (() -> Void)?
 
     @Environment(UIPrefs.self) private var prefs
     @Environment(AuthService.self) private var auth
-    @Environment(TabRouter.self) private var router
+    @State private var showProfile = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -23,7 +25,20 @@ struct ArchiveTopBar: View {
                 .frame(maxWidth: .infinity)
                 .accessibilityAddTraits(.isHeader)
 
-            LockPreviewToolbarButton()
+            if let onClose {
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.ink2)
+                        .frame(width: 40, height: 40)
+                        .background(Color.paper3.opacity(0.74), in: Circle())
+                        .overlay(Circle().strokeBorder(Color.hair, lineWidth: 1))
+                }
+                .buttonStyle(.pressable)
+                .accessibilityLabel(L10n.strings(for: prefs.language).cancel)
+            } else {
+                LockPreviewToolbarButton()
+            }
         }
         .frame(height: 52)
         .padding(.horizontal, 6)
@@ -34,13 +49,17 @@ struct ArchiveTopBar: View {
         .padding(.horizontal, 12)
         .padding(.top, 6)
         .padding(.bottom, 8)
+        .fullScreenCoverCompat(isPresented: $showProfile) {
+            ProfileView {
+                showProfile = false
+            }
+        }
     }
 
     private var avatarButton: some View {
         Button {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-                router.selection = 4
-            }
+            guard opensProfile else { return }
+            showProfile = true
         } label: {
             ZStack {
                 if let user = auth.user, !user.avatarURL.isEmpty {
@@ -58,6 +77,7 @@ struct ArchiveTopBar: View {
             .overlay(Circle().strokeBorder(Color.hair, lineWidth: 1))
         }
         .buttonStyle(.pressable)
+        .allowsHitTesting(opensProfile)
         .accessibilityLabel(L10n.strings(for: prefs.language).me)
     }
 

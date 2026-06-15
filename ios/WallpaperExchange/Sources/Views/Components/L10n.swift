@@ -76,6 +76,17 @@ struct AppStrings {
     let uploadSignedOutMessage: String
     let uploadChoosePhoto: String
     let uploadChooseDifferentPhoto: String
+    let uploadChoosePhotos: String
+    let uploadAddMorePhotos: String
+    let uploadBatchHint: String
+    let uploadQueueTitle: String
+    let uploadSelectedCount: String
+    let uploadReadyCount: String
+    let uploadDoneCount: String
+    let uploadFailedCount: String
+    let uploadUploadMany: String
+    let uploadRetryFailed: String
+    let uploadAllDone: String
     let uploadProgress: String
     let uploadPendingReview: String
     let uploadPendingMessage: String
@@ -340,6 +351,17 @@ enum L10n {
         uploadSignedOutMessage: "登录后即可分享壁纸并赚取金币。",
         uploadChoosePhoto: "选择照片",
         uploadChooseDifferentPhoto: "换一张照片",
+        uploadChoosePhotos: "选择照片",
+        uploadAddMorePhotos: "继续添加 %d/%d",
+        uploadBatchHint: "最多 %d 张，按顺序上传，处理完成后进入审核。",
+        uploadQueueTitle: "上传队列",
+        uploadSelectedCount: "%d 张已选择",
+        uploadReadyCount: "%d 张待上传",
+        uploadDoneCount: "%d 已完成",
+        uploadFailedCount: "%d 失败",
+        uploadUploadMany: "上传 %d 张",
+        uploadRetryFailed: "重试失败项",
+        uploadAllDone: "全部已提交审核",
         uploadProgress: "上传中… %d%%",
         uploadPendingReview: "已上传，等待审核",
         uploadPendingMessage: "审核通过后，这张壁纸会公开展示；上传奖励会在处理完成后到账。",
@@ -506,6 +528,17 @@ enum L10n {
         uploadSignedOutMessage: "登入後即可分享桌布並賺取金幣。",
         uploadChoosePhoto: "選擇照片",
         uploadChooseDifferentPhoto: "換一張照片",
+        uploadChoosePhotos: "選擇照片",
+        uploadAddMorePhotos: "繼續加入 %d/%d",
+        uploadBatchHint: "最多 %d 張，會依序上傳，處理完成後進入審核。",
+        uploadQueueTitle: "上傳佇列",
+        uploadSelectedCount: "已選擇 %d 張",
+        uploadReadyCount: "%d 張待上傳",
+        uploadDoneCount: "%d 已完成",
+        uploadFailedCount: "%d 失敗",
+        uploadUploadMany: "上傳 %d 張",
+        uploadRetryFailed: "重試失敗項目",
+        uploadAllDone: "已全部送交審核",
         uploadProgress: "上傳中… %d%%",
         uploadPendingReview: "已上傳，等待審核",
         uploadPendingMessage: "審核通過後，這張桌布會公開展示；上傳獎勵會在處理完成後入帳。",
@@ -672,6 +705,17 @@ enum L10n {
         uploadSignedOutMessage: "ログインすると壁紙を共有してコインを獲得できます。",
         uploadChoosePhoto: "写真を選択",
         uploadChooseDifferentPhoto: "別の写真を選択",
+        uploadChoosePhotos: "写真を選択",
+        uploadAddMorePhotos: "さらに追加 %d/%d",
+        uploadBatchHint: "最大 %d 枚まで。順番にアップロードされ、処理後に審査へ進みます。",
+        uploadQueueTitle: "アップロードキュー",
+        uploadSelectedCount: "%d 枚選択済み",
+        uploadReadyCount: "%d 枚待機中",
+        uploadDoneCount: "%d 完了",
+        uploadFailedCount: "%d 失敗",
+        uploadUploadMany: "%d 枚をアップロード",
+        uploadRetryFailed: "失敗分を再試行",
+        uploadAllDone: "すべて審査待ちです",
         uploadProgress: "アップロード中… %d%%",
         uploadPendingReview: "アップロード済み、審査待ち",
         uploadPendingMessage: "承認されると壁紙が公開されます。アップロード報酬は処理完了後に反映されます。",
@@ -838,6 +882,17 @@ enum L10n {
         uploadSignedOutMessage: "Sign in to share wallpapers and earn coins.",
         uploadChoosePhoto: "Choose a photo",
         uploadChooseDifferentPhoto: "Choose a different photo",
+        uploadChoosePhotos: "Choose photos",
+        uploadAddMorePhotos: "Add more %d/%d",
+        uploadBatchHint: "Up to %d photos. They upload in order and enter review after processing.",
+        uploadQueueTitle: "Upload queue",
+        uploadSelectedCount: "%d selected",
+        uploadReadyCount: "%d ready",
+        uploadDoneCount: "%d done",
+        uploadFailedCount: "%d failed",
+        uploadUploadMany: "Upload %d photos",
+        uploadRetryFailed: "Retry failed",
+        uploadAllDone: "All submitted for review",
         uploadProgress: "Uploading… %d%%",
         uploadPendingReview: "Uploaded, pending review",
         uploadPendingMessage: "Your wallpaper will appear publicly once approved. The upload reward lands after processing.",

@@ -27,7 +27,7 @@ struct FloatingTabBar: View {
             (s.discover, "square.grid.2x2", "square.grid.2x2.fill", 1),
             (s.weekly, "calendar", "calendar.circle.fill", 2),
             (s.collections, "rectangle.stack", "rectangle.stack.fill", 3),
-            (s.me, "person.crop.circle", "person.crop.circle.fill", 4),
+            (s.favorites, "heart", "heart.fill", 4),
         ]
     }
 
