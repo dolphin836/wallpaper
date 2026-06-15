@@ -12,6 +12,7 @@
 		0E2E8F6C26BCC22E318BFC8C /* WeeklyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0EBF20F0DC69056F1188347 /* WeeklyView.swift */; };
 		0FB7FC18B5B9B8B856EDDB91 /* Skeleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 891676FD3AC5342B5F3BC922 /* Skeleton.swift */; };
 		0FEA55929D9BA256D8A90710 /* FavoritesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5CC0CCA18002C7CC6DDDD5E /* FavoritesView.swift */; };
+		11026EF2BC944A79934C9621 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9D2872055A21461DB51D13F1 /* Assets.xcassets */; };
 		1574B21B7D23C6E8E84A03FC /* LegalDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5126AFA7F58FA22BE5889CC7 /* LegalDocumentView.swift */; };
 		3491AF6982D350C9323A7D6E /* UIPrefs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6840921C6F056F4103F924A1 /* UIPrefs.swift */; };
 		3BA0C27793912FD93063A556 /* CollectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07BF7EA05B4D334370551B0B /* CollectionsView.swift */; };
@@ -56,6 +57,7 @@
 		8083E3E1AA6A8D95C9AAF72A /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		891676FD3AC5342B5F3BC922 /* Skeleton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Skeleton.swift; sourceTree = "<group>"; };
 		9081D6FED3FA6C2971ACD00C /* UploadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadView.swift; sourceTree = "<group>"; };
+		9D2872055A21461DB51D13F1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9CBF63EB635C6A6C25F7134C /* WallpaperExchange.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WallpaperExchange.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5CC0CCA18002C7CC6DDDD5E /* FavoritesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesView.swift; sourceTree = "<group>"; };
 		A6DEE52AA567E03A5FB93787 /* FloatingTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingTabBar.swift; sourceTree = "<group>"; };
@@ -217,6 +219,7 @@
 		DDDF1A7A8C868D6B4C69A936 /* WallpaperExchange */ = {
 			isa = PBXGroup;
 			children = (
+				9D2872055A21461DB51D13F1 /* Assets.xcassets */,
 				A436F01BB02841CB560F536B /* Sources */,
 			);
 			path = WallpaperExchange;
@@ -263,6 +266,7 @@
 			buildConfigurationList = 2C113EE2DA30FB9A431D8EB6 /* Build configuration list for PBXNativeTarget "WallpaperExchange" */;
 			buildPhases = (
 				23BEFCD903A59555CB9486C2 /* Sources */,
+				603CE65634224D5AA4512596 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -308,6 +312,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		603CE65634224D5AA4512596 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				11026EF2BC944A79934C9621 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		23BEFCD903A59555CB9486C2 /* Sources */ = {
