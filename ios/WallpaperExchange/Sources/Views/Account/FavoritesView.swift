@@ -40,7 +40,9 @@ struct FavoritesView: View {
             .sheet(isPresented: $showEditProfile) { EditProfileSheet() }
             .sheet(isPresented: $showChangePassword) { ChangePasswordSheet() }
             .sheet(isPresented: $showCoinLedger) { CoinLedgerSheet() }
-            .sheet(isPresented: $showUpload) { UploadView() }
+            .sheet(isPresented: $showUpload) {
+                UploadView { showUpload = false }
+            }
             .refreshable {
                 await auth.refreshProfile()
                 reload()

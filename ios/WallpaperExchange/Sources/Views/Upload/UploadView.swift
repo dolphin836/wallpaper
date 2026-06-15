@@ -6,6 +6,8 @@ import PhotosUI
 // thumbnail generation, then the admin review queue — so the client only
 // needs to deliver the original file. Earns 1 coin per accepted upload.
 struct UploadView: View {
+    var onClose: (() -> Void)?
+
     @Environment(AuthService.self) private var auth
     @Environment(UIPrefs.self) private var prefs
     @Environment(\.dismiss) private var dismiss
@@ -22,6 +24,10 @@ struct UploadView: View {
     }
     @State private var state: UploadState = .idle
     @State private var showAuth = false
+
+    init(onClose: (() -> Void)? = nil) {
+        self.onClose = onClose
+    }
 
     var body: some View {
         let s = L10n.strings(for: prefs.language)
@@ -47,9 +53,10 @@ struct UploadView: View {
             .background(Color.paper)
             .navigationTitle(s.upload)
             .inlineNavTitle()
+            .showNavBarCompat()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(s.cancel) { dismiss() }
+                    Button(s.cancel) { close() }
                 }
             }
             .sheet(isPresented: $showAuth) {
@@ -217,6 +224,11 @@ struct UploadView: View {
                 state = .failed((error as? APIError)?.errorDescription ?? error.localizedDescription)
             }
         }
+    }
+
+    private func close() {
+        onClose?()
+        dismiss()
     }
 
     private static func sniffImageType(_ data: Data) -> (filename: String, mime: String) {
