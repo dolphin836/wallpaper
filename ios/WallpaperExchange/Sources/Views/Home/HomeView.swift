@@ -14,6 +14,8 @@ struct HomeView: View {
     @State private var carouselIndex = 0
 
     private let carouselTimer = Timer.publish(every: 4.5, on: .main, in: .common).autoconnect()
+    private let latestWallpaperPreviewCount = 8
+    private let latestCollectionPreviewCount = 4
 
     var body: some View {
         NavigationStack {
@@ -97,17 +99,18 @@ struct HomeView: View {
     private var homeSkeleton: some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 10) {
+                sectionSkeleton(width: 142)
                 weeklyAlbumSkeleton
             }
 
             VStack(alignment: .leading, spacing: 10) {
                 sectionSkeleton(width: 156)
-                WallpaperGridSkeleton(count: 4)
+                WallpaperGridSkeleton(count: latestWallpaperPreviewCount)
             }
 
             VStack(alignment: .leading, spacing: 10) {
                 sectionSkeleton(width: 150)
-                CollectionListSkeleton(count: 2, height: 148)
+                CollectionListSkeleton(count: latestCollectionPreviewCount, height: 148)
             }
         }
     }
@@ -148,7 +151,7 @@ struct HomeView: View {
             ) {
                 switchToTab(1)
             }
-            WallpaperGrid(wallpapers: Array(latestWallpapers.prefix(4)), showsEndState: false)
+            WallpaperGrid(wallpapers: Array(latestWallpapers.prefix(latestWallpaperPreviewCount)), showsEndState: false)
         }
     }
 
@@ -161,7 +164,7 @@ struct HomeView: View {
                 switchToTab(3)
             }
             LazyVStack(spacing: 10) {
-                ForEach(latestCollections.prefix(2)) { collection in
+                ForEach(latestCollections.prefix(latestCollectionPreviewCount)) { collection in
                     NavigationLink(value: collection) {
                         CollectionCard(collection: collection, height: 148)
                     }
@@ -215,8 +218,8 @@ struct HomeView: View {
     private func load() async {
         do {
             async let archiveReq = APIClient.shared.fetchWeeklyArchive(limit: 4)
-            async let wallpapersReq = APIClient.shared.fetchWallpapers(limit: 4)
-            async let collectionsReq = APIClient.shared.fetchPublicCollections(limit: 2)
+            async let wallpapersReq = APIClient.shared.fetchWallpapers(limit: latestWallpaperPreviewCount)
+            async let collectionsReq = APIClient.shared.fetchPublicCollections(limit: latestCollectionPreviewCount)
 
             weeklyArchive = (try? await archiveReq) ?? []
             latestWallpapers = (try? await wallpapersReq.items) ?? []
