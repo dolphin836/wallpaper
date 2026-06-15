@@ -752,6 +752,11 @@ private struct ProgressiveDetailImage: View {
         return url
     }
 
+    private var awaitingFirstImage: Bool {
+        if previewLoaded || originalLoaded || previewCanSettle { return false }
+        return thumbURL != nil || previewURL != nil || originalURL != nil
+    }
+
     var body: some View {
         ZStack {
             fallback
@@ -823,6 +828,11 @@ private struct ProgressiveDetailImage: View {
                     Color.clear
                 }
                 .allowsHitTesting(false)
+            }
+
+            if awaitingFirstImage {
+                ImageLoadingVeil(strength: .detail)
+                    .transition(.opacity)
             }
         }
         .clipped()

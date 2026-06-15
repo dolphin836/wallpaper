@@ -87,7 +87,7 @@ struct WeeklyArchiveView: View {
             Color.clear
                 .aspectRatio(0.78, contentMode: .fit)
                 .overlay(
-                    CachedAsyncImage(url: URL(string: entry.coverURL), maxPixelDimension: 800) { image in
+                    LoadingCoverImage(url: URL(string: entry.coverURL), maxPixelDimension: 800) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
                         Rectangle().fill(accent.opacity(0.72))

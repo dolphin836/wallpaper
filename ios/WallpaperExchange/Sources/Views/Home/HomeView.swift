@@ -230,7 +230,7 @@ private struct WeeklyAlbumCard: View {
         ZStack(alignment: .bottomLeading) {
             Color.clear
                 .overlay(
-                    CachedAsyncImage(url: URL(string: entry.coverURL), maxPixelDimension: 1200) { image in
+                    LoadingCoverImage(url: URL(string: entry.coverURL), maxPixelDimension: 1200) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
                         Rectangle().fill(accent.opacity(0.72))
@@ -278,7 +278,7 @@ private struct WeeklyAlbumCard: View {
         RoundedRectangle(cornerRadius: 28, style: .continuous)
             .fill(accent.opacity(opacity))
             .overlay(
-                CachedAsyncImage(url: URL(string: entry.coverURL), maxPixelDimension: 520) { image in
+                LoadingCoverImage(url: URL(string: entry.coverURL), maxPixelDimension: 520, veilStrength: .whisper) { image in
                     image.resizable().aspectRatio(contentMode: .fill).opacity(0.28)
                 } placeholder: {
                     accent.opacity(opacity)

@@ -16,6 +16,148 @@ struct SkeletonBlock: View {
     }
 }
 
+struct ImageLoadingVeil: View {
+    enum Strength {
+        case whisper
+        case card
+        case detail
+
+        var baseOpacity: Double {
+            switch self {
+            case .whisper: return 0.05
+            case .card: return 0.08
+            case .detail: return 0.10
+            }
+        }
+
+        var sweepOpacity: Double {
+            switch self {
+            case .whisper: return 0.10
+            case .card: return 0.15
+            case .detail: return 0.18
+            }
+        }
+    }
+
+    var strength: Strength = .card
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var sweep = false
+    @State private var pulse = false
+
+    var body: some View {
+        GeometryReader { proxy in
+            let width = max(proxy.size.width, 1)
+            let sweepWidth = max(width * 0.58, 72)
+
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        .white.opacity(strength.baseOpacity * 0.35),
+                        .white.opacity(strength.baseOpacity),
+                        .white.opacity(strength.baseOpacity * 0.35),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .opacity(pulse ? 1 : 0.58)
+
+                if !reduceMotion {
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .clear, location: 0),
+                                    .init(color: .white.opacity(strength.sweepOpacity), location: 0.48),
+                                    .init(color: .clear, location: 1),
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: sweepWidth)
+                        .rotationEffect(.degrees(17))
+                        .offset(x: sweep ? width + sweepWidth : -sweepWidth)
+                        .blendMode(.screen)
+                }
+            }
+            .animation(
+                .easeInOut(duration: 1.35).repeatForever(autoreverses: true),
+                value: pulse
+            )
+            .animation(
+                reduceMotion ? nil : .easeInOut(duration: 1.85).repeatForever(autoreverses: false),
+                value: sweep
+            )
+            .onAppear {
+                pulse = true
+                sweep = true
+            }
+            .onDisappear {
+                pulse = false
+                sweep = false
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+struct LoadingCoverImage<Content: View, Placeholder: View>: View {
+    let url: URL?
+    var maxPixelDimension: Int = 900
+    var veilStrength: ImageLoadingVeil.Strength = .card
+    let content: (Image) -> Content
+    let placeholder: () -> Placeholder
+
+    @State private var loaded = false
+    @State private var failed = false
+
+    init(
+        url: URL?,
+        maxPixelDimension: Int = 900,
+        veilStrength: ImageLoadingVeil.Strength = .card,
+        @ViewBuilder content: @escaping (Image) -> Content,
+        @ViewBuilder placeholder: @escaping () -> Placeholder
+    ) {
+        self.url = url
+        self.maxPixelDimension = maxPixelDimension
+        self.veilStrength = veilStrength
+        self.content = content
+        self.placeholder = placeholder
+    }
+
+    var body: some View {
+        ZStack {
+            CachedAsyncImage(
+                url: url,
+                maxPixelDimension: maxPixelDimension,
+                onLoad: {
+                    withAnimation(.easeOut(duration: 0.22)) {
+                        loaded = true
+                    }
+                },
+                onFailure: {
+                    failed = true
+                }
+            ) { image in
+                content(image)
+            } placeholder: {
+                placeholder()
+            }
+
+            if url != nil && !loaded && !failed {
+                ImageLoadingVeil(strength: veilStrength)
+                    .transition(.opacity)
+            }
+        }
+        .onChange(of: url) { _, _ in
+            loaded = false
+            failed = false
+        }
+    }
+}
+
 // Mirrors WallpaperGrid's two-column geometry — uniform device-ratio
 // tiles — so the page doesn't reflow when real tiles land.
 struct WallpaperGridSkeleton: View {

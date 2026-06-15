@@ -133,6 +133,8 @@ private struct ProgressiveWallpaperImage: View {
     @State private var lowLoaded = false
     @State private var highLoaded = false
     @State private var shouldLoadHigh = false
+    @State private var lowFailed = false
+    @State private var highFailed = false
 
     private var lowURL: URL? {
         let thumb = wallpaper.thumbURL.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -151,6 +153,12 @@ private struct ProgressiveWallpaperImage: View {
         Color(hex: wallpaper.dominantColor) ?? Color.paper3
     }
 
+    private var showsLoadingVeil: Bool {
+        if highLoaded || highFailed { return false }
+        if highURL != nil { return true }
+        return lowURL != nil && !lowLoaded && !lowFailed
+    }
+
     var body: some View {
         ZStack {
             Rectangle().fill(dominantFill)
@@ -164,6 +172,10 @@ private struct ProgressiveWallpaperImage: View {
                             lowLoaded = true
                             shouldLoadHigh = true
                         }
+                    },
+                    onFailure: {
+                        lowFailed = true
+                        shouldLoadHigh = true
                     }
                 ) { image in
                     image
@@ -191,6 +203,9 @@ private struct ProgressiveWallpaperImage: View {
                         withAnimation(.easeOut(duration: 0.28)) {
                             highLoaded = true
                         }
+                    },
+                    onFailure: {
+                        highFailed = true
                     }
                 ) { image in
                     image
@@ -203,11 +218,18 @@ private struct ProgressiveWallpaperImage: View {
                 }
                 .allowsHitTesting(false)
             }
+
+            if showsLoadingVeil {
+                ImageLoadingVeil(strength: lowLoaded ? .whisper : .card)
+                    .transition(.opacity)
+            }
         }
         .clipped()
         .task(id: wallpaper.id) {
             lowLoaded = false
             highLoaded = false
+            lowFailed = false
+            highFailed = false
             shouldLoadHigh = lowURL == nil
             if lowURL != nil {
                 try? await Task.sleep(nanoseconds: 850_000_000)
