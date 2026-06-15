@@ -456,7 +456,7 @@ private struct AccountCollectionsListView: View {
                             .buttonStyle(.pressable)
                         }
 
-                        PagingFooter(isLoading: loading, hasMore: hasMore, onLoadMore: loadNextPage)
+                        PagingFooter(isLoading: loading, hasMore: hasMore, showsEndState: false, onLoadMore: loadNextPage)
                     }
                     .padding(.horizontal, 12)
                 }

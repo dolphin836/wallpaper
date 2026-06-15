@@ -70,7 +70,7 @@ struct CollectionsBrowser: View {
                                     }
                                     .buttonStyle(.pressable)
                                 }
-                                PagingFooter(isLoading: loading, hasMore: hasMore, onLoadMore: loadNextPage)
+                                PagingFooter(isLoading: loading, hasMore: hasMore, showsEndState: false, onLoadMore: loadNextPage)
                             }
                             .padding(.horizontal, 12)
                         }
@@ -251,7 +251,7 @@ struct CollectionDetailView: View {
                 } else if wallpapers.isEmpty {
                     EmptyStateView(kicker: "Empty shelf", message: L10n.strings(for: UIPrefs.shared.language).emptyCollection)
                 } else {
-                    WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading) { loadNextPage() }
+                    WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading, showsEndState: false) { loadNextPage() }
                 }
             }
             .padding(.top, 8)

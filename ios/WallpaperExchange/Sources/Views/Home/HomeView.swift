@@ -120,7 +120,7 @@ struct HomeView: View {
             ) {
                 switchToTab(1)
             }
-            WallpaperGrid(wallpapers: Array(latestWallpapers.prefix(4)))
+            WallpaperGrid(wallpapers: Array(latestWallpapers.prefix(4)), showsEndState: false)
         }
     }
 
@@ -330,7 +330,7 @@ struct FilteredFeedView: View {
                 } else if wallpapers.isEmpty && loading {
                     WallpaperGridSkeleton(count: 8)
                 } else {
-                    WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading) { loadNextPage() }
+                    WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading, showsEndState: false) { loadNextPage() }
                 }
             }
             .padding(.top, 8)

@@ -66,7 +66,6 @@ struct WallpaperTile: View {
     let wallpaper: Wallpaper
 
     @Environment(UIPrefs.self) private var prefs
-    @State private var imageLoaded = false
 
     var body: some View {
         // Every tile previews at the device's screen ratio with a
@@ -77,28 +76,7 @@ struct WallpaperTile: View {
         Color.clear
             .aspectRatio(DeviceScreenRatio.value, contentMode: .fit)
             .overlay(
-                // 1400px decode budget: a half-width tile at the device
-                // ratio is ~1206 physical px tall on a 3x phone, so the
-                // old 700px budget upscaled every tile ~2x — the source
-                // preview (1600w) usually has the pixels, use them.
-                CachedAsyncImage(
-                    url: URL(string: wallpaper.displayURL),
-                    maxPixelDimension: 1400,
-                    onLoad: {
-                        withAnimation(.easeOut(duration: 0.28)) {
-                            imageLoaded = true
-                        }
-                    }
-                ) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .scaleEffect(imageLoaded ? 1 : 1.025)
-                        .opacity(imageLoaded ? 1 : 0)
-                } placeholder: {
-                    Rectangle()
-                        .fill(Color(hex: wallpaper.dominantColor) ?? Color.paper3)
-                }
+                ProgressiveWallpaperImage(wallpaper: wallpaper)
             )
             .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
             .overlay(
@@ -139,8 +117,100 @@ struct WallpaperTile: View {
         )
         .paletteReactive(palette: wallpaper.colorPalette, dominant: wallpaper.dominantColor)
         .archiveScrollLift()
-        .onChange(of: wallpaper.id) { _, _ in imageLoaded = false }
         .accessibilityLabel("\(wallpaper.title), \(wallpaper.resolutionLabel)")
+    }
+}
+
+private struct ProgressiveWallpaperImage: View {
+    let wallpaper: Wallpaper
+
+    @State private var lowLoaded = false
+    @State private var highLoaded = false
+    @State private var shouldLoadHigh = false
+
+    private var lowURL: URL? {
+        let thumb = wallpaper.thumbURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let high = wallpaper.displayURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !thumb.isEmpty, thumb != high else { return nil }
+        return URL(string: thumb)
+    }
+
+    private var highURL: URL? {
+        let value = wallpaper.displayURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return nil }
+        return URL(string: value)
+    }
+
+    private var dominantFill: Color {
+        Color(hex: wallpaper.dominantColor) ?? Color.paper3
+    }
+
+    var body: some View {
+        ZStack {
+            Rectangle().fill(dominantFill)
+
+            if let lowURL {
+                CachedAsyncImage(
+                    url: lowURL,
+                    maxPixelDimension: 360,
+                    onLoad: {
+                        withAnimation(.easeOut(duration: 0.22)) {
+                            lowLoaded = true
+                            shouldLoadHigh = true
+                        }
+                    }
+                ) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .blur(radius: highLoaded ? 0 : 9)
+                        .saturation(highLoaded ? 1 : 1.16)
+                        .scaleEffect(highLoaded ? 1 : 1.08)
+                        .opacity(highLoaded ? 0 : (lowLoaded ? 0.92 : 0))
+                } placeholder: {
+                    Color.clear
+                }
+                .allowsHitTesting(false)
+            }
+
+            if shouldLoadHigh || lowURL == nil {
+                // 1400px decode budget: a half-width tile at the device
+                // ratio is ~1206 physical px tall on a 3x phone, so the
+                // source preview usually has enough pixels without using
+                // the original image.
+                CachedAsyncImage(
+                    url: highURL,
+                    maxPixelDimension: 1400,
+                    onLoad: {
+                        withAnimation(.easeOut(duration: 0.28)) {
+                            highLoaded = true
+                        }
+                    }
+                ) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .scaleEffect(highLoaded ? 1 : 1.025)
+                        .opacity(highLoaded ? 1 : 0)
+                } placeholder: {
+                    Color.clear
+                }
+                .allowsHitTesting(false)
+            }
+        }
+        .clipped()
+        .task(id: wallpaper.id) {
+            lowLoaded = false
+            highLoaded = false
+            shouldLoadHigh = lowURL == nil
+            if lowURL != nil {
+                try? await Task.sleep(nanoseconds: 850_000_000)
+                guard !Task.isCancelled else { return }
+                // If the tiny thumb is unavailable or slow, still let the
+                // preview load. Dominant color remains the fallback.
+                shouldLoadHigh = true
+            }
+        }
     }
 }
 
