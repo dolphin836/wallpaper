@@ -61,7 +61,30 @@ final class PaletteEnv {
 
     private init() {}
 
-    func apply(palette raw: String?, dominant rawDominant: String?) {
+    func apply(palette raw: String?, dominant rawDominant: String?) -> Bool {
+        guard let colors = Self.resolvedColors(palette: raw, dominant: rawDominant) else {
+            return false
+        }
+
+        c1 = colors.0
+        c2 = colors.1
+        c3 = colors.2
+        revision += 1
+        return true
+    }
+
+    func resetToDefaults() {
+        c1 = .brandPaletteC1
+        c2 = .brandPaletteC2
+        c3 = .brandPaletteC3
+        revision += 1
+    }
+
+    static func canResolve(palette raw: String?, dominant rawDominant: String?) -> Bool {
+        resolvedColors(palette: raw, dominant: rawDominant) != nil
+    }
+
+    private static func resolvedColors(palette raw: String?, dominant rawDominant: String?) -> (Color, Color, Color)? {
         let parts = (raw ?? "")
             .split(separator: ",")
             .map { String($0).trimmingCharacters(in: .whitespaces) }
@@ -71,28 +94,14 @@ final class PaletteEnv {
            let first = Color(hex: parts[0]),
            let middle = Color(hex: parts[parts.count / 2]),
            let last = Color(hex: parts[parts.count - 1]) {
-            c1 = first
-            c2 = middle
-            c3 = last
-            revision += 1
-            return
+            return (first, middle, last)
         }
 
-        guard let rawDominant, let dominant = Color(hex: rawDominant) else {
-            resetToDefaults()
-            return
+        if let rawDominant, let dominant = Color(hex: rawDominant) {
+            return (dominant, dominant, dominant)
         }
-        c1 = dominant
-        c2 = dominant
-        c3 = dominant
-        revision += 1
-    }
 
-    func resetToDefaults() {
-        c1 = .brandPaletteC1
-        c2 = .brandPaletteC2
-        c3 = .brandPaletteC3
-        revision += 1
+        return nil
     }
 }
 
@@ -283,18 +292,26 @@ private struct PaletteReactive: ViewModifier {
 
     @State private var active = false
 
+    private var hasUsableColor: Bool {
+        PaletteEnv.canResolve(palette: palette, dominant: dominant)
+    }
+
     func body(content: Content) -> some View {
-        content
-            .onHover { hovering in
-                hovering ? activate() : deactivate()
-            }
-            .onDisappear { deactivate() }
+        if hasUsableColor {
+            content
+                .onHover { hovering in
+                    hovering ? activate() : deactivate()
+                }
+                .onDisappear { deactivate() }
+        } else {
+            content
+        }
     }
 
     private func activate() {
         guard !active else { return }
+        guard PaletteEnv.shared.apply(palette: palette, dominant: dominant) else { return }
         active = true
-        PaletteEnv.shared.apply(palette: palette, dominant: dominant)
     }
 
     private func deactivate() {
