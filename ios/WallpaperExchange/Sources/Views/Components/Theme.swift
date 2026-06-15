@@ -47,9 +47,8 @@ extension Color {
 }
 
 // Palette source for the iOS ambient mesh. Wallpaper cards call apply()
-// on pointer hover or touch-down; the root background observes these
-// stops and eases between the default brand blend and the wallpaper's
-// extracted palette.
+// on pointer hover; the root background observes these stops and eases
+// between the default brand blend and the wallpaper's extracted palette.
 @MainActor
 @Observable
 final class PaletteEnv {
@@ -286,14 +285,15 @@ private struct PaletteReactive: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onHover { hovering in
-                hovering ? activate() : deactivate()
+            .contentShape(Rectangle())
+            .onContinuousHover { phase in
+                switch phase {
+                case .active:
+                    activate()
+                case .ended:
+                    deactivate()
+                }
             }
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in activate() }
-                    .onEnded { _ in deactivate() }
-            )
             .onDisappear { deactivate() }
     }
 
