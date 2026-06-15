@@ -165,9 +165,6 @@ struct ProfileView: View {
             .inlineNavTitle()
             .hideNavBarCompat()
             .hideTabBarCompat()
-            .navigationDestination(for: WallpaperRoute.self) { route in
-                WallpaperDetailView(slug: route.slug, initialWallpaper: route.initialWallpaper)
-            }
             .navigationDestination(for: CollectionItem.self) { collection in
                 CollectionDetailView(collection: collection)
             }
@@ -692,7 +689,9 @@ private struct AccountWallpaperGrid: View {
         VStack(spacing: 12) {
             LazyVGrid(columns: gridColumns, spacing: 14) {
                 ForEach(wallpapers) { wallpaper in
-                    NavigationLink(value: WallpaperRoute(slug: wallpaper.slug, initialWallpaper: wallpaper)) {
+                    NavigationLink {
+                        WallpaperDetailView(slug: wallpaper.slug, initialWallpaper: wallpaper)
+                    } label: {
                         WallpaperTile(wallpaper: wallpaper)
                             .frame(maxWidth: .infinity)
                             .contentShape(Rectangle())
