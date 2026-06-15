@@ -477,7 +477,7 @@ private enum AccountWallpaperListKind: String {
     func fetch(username: String, cursor: Int?) async throws -> PaginatedData<Wallpaper> {
         switch self {
         case .uploads:
-            return try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, status: "1")
+            return try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, status: "1,2,4,6")
         case .downloads:
             return try await APIClient.shared.fetchUserDownloads(username: username, cursor: cursor)
         case .favorites:
@@ -628,7 +628,7 @@ private struct AccountUploadsListView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
-                    SectionHeader(title: s.uploadPublishedTitle)
+                    SectionHeader(title: s.uploadHistoryTitle)
                         .padding(.horizontal, 12)
 
                     if let publishedError, published.isEmpty {
@@ -638,7 +638,12 @@ private struct AccountUploadsListView: View {
                     } else if published.isEmpty {
                         EmptyStateView(kicker: s.emptyLibraryTitle, message: s.emptyUploadsMessage)
                     } else {
-                        AccountWallpaperGrid(wallpapers: published, hasMore: publishedHasMore, isLoading: publishedLoading) {
+                        AccountWallpaperGrid(
+                            wallpapers: published,
+                            hasMore: publishedHasMore,
+                            isLoading: publishedLoading,
+                            showsUploadStatusChip: true
+                        ) {
                             loadNextPublishedPage()
                         }
                     }
@@ -718,7 +723,7 @@ private struct AccountUploadsListView: View {
         Task {
             defer { publishedLoading = false }
             do {
-                let page = try await APIClient.shared.fetchUserUploads(username: username, cursor: publishedCursor, status: "1")
+                let page = try await APIClient.shared.fetchUserUploads(username: username, cursor: publishedCursor, status: "1,2,4,6")
                 guard generation == loadGeneration else { return }
                 published.append(contentsOf: page.items)
                 publishedCursor = page.nextCursor
@@ -765,7 +770,8 @@ private struct AccountWallpaperListView: View {
                         wallpapers: wallpapers,
                         hasMore: hasMore,
                         isLoading: loading,
-                        showsMissingDownloadChip: kind == .downloads
+                        showsMissingDownloadChip: kind == .downloads,
+                        showsUploadStatusChip: kind == .uploads
                     ) {
                         loadNextPage()
                     }
@@ -886,11 +892,74 @@ private struct PendingUploadTile: View {
     }
 }
 
+private extension View {
+    @ViewBuilder
+    func uploadStatusChip(for wallpaper: Wallpaper, isVisible: Bool) -> some View {
+        if isVisible, wallpaper.status != 1 {
+            self.overlay(alignment: .bottomLeading) {
+                UploadHistoryStatusChip(status: wallpaper.status)
+                    .padding(9)
+            }
+        } else {
+            self
+        }
+    }
+}
+
+private struct UploadHistoryStatusChip: View {
+    let status: Int
+
+    @Environment(UIPrefs.self) private var prefs
+
+    private var label: String {
+        let s = L10n.strings(for: prefs.language)
+        switch status {
+        case 2: return s.uploadStatusFailed
+        case 4: return s.uploadStatusDuplicate
+        case 6: return s.uploadStatusRejected
+        default: return s.uploadStatusPendingReview
+        }
+    }
+
+    private var icon: String {
+        switch status {
+        case 2: return "exclamationmark.triangle"
+        case 4: return "doc.on.doc"
+        case 6: return "xmark.octagon"
+        default: return "hourglass"
+        }
+    }
+
+    private var tint: Color {
+        switch status {
+        case 6: return Color.warn.opacity(0.86)
+        case 2, 4: return Color.black.opacity(0.34)
+        default: return Color.black.opacity(0.34)
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .bold))
+            Text(label)
+                .font(.caption2.weight(.bold))
+        }
+        .foregroundStyle(Color.lightText)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
+        .background(tint, in: Capsule())
+        .background(.ultraThinMaterial, in: Capsule())
+        .environment(\.colorScheme, .dark)
+    }
+}
+
 private struct AccountWallpaperGrid: View {
     let wallpapers: [Wallpaper]
     var hasMore: Bool
     var isLoading: Bool
     var showsMissingDownloadChip = false
+    var showsUploadStatusChip = false
     let onLoadMore: () -> Void
 
     private let gridColumns = [
@@ -906,6 +975,7 @@ private struct AccountWallpaperGrid: View {
                         WallpaperDetailView(slug: wallpaper.slug, initialWallpaper: wallpaper)
                     } label: {
                         WallpaperTile(wallpaper: wallpaper, showsMissingDownloadChip: showsMissingDownloadChip)
+                            .uploadStatusChip(for: wallpaper, isVisible: showsUploadStatusChip)
                             .frame(maxWidth: .infinity)
                             .contentShape(Rectangle())
                     }
