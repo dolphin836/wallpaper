@@ -102,6 +102,15 @@ struct AppStrings {
     let coins: String
     let coinHint: String
     let coinHistory: String
+    let emptyCoinHistoryTitle: String
+    let emptyCoinHistoryMessage: String
+    let coinLedgerBalance: String
+    let coinLedgerLoadFailed: String
+    let coinTxRegisterBonus: String
+    let coinTxUploadReward: String
+    let coinTxDownloadCost: String
+    let coinTxDownloadEarned: String
+    let coinTxAdminGrant: String
     let loadingMore: String
     let loadMore: String
     let allLoaded: String
@@ -357,6 +366,15 @@ enum L10n {
         coins: "金币",
         coinHint: "上传获得 1 枚，下载消耗 1 枚",
         coinHistory: "金币记录",
+        emptyCoinHistoryTitle: "还没有金币记录",
+        emptyCoinHistoryMessage: "上传奖励、下载消耗和获得的金币都会显示在这里。",
+        coinLedgerBalance: "余额 %d",
+        coinLedgerLoadFailed: "金币记录加载失败，请稍后重试。",
+        coinTxRegisterBonus: "注册奖励",
+        coinTxUploadReward: "上传奖励",
+        coinTxDownloadCost: "下载消耗",
+        coinTxDownloadEarned: "下载收益",
+        coinTxAdminGrant: "系统发放",
         loadingMore: "正在加载更多…",
         loadMore: "加载更多",
         allLoaded: "已加载全部内容",
@@ -514,6 +532,15 @@ enum L10n {
         coins: "金幣",
         coinHint: "上傳獲得 1 枚，下載消耗 1 枚",
         coinHistory: "金幣紀錄",
+        emptyCoinHistoryTitle: "還沒有金幣紀錄",
+        emptyCoinHistoryMessage: "上傳獎勵、下載消耗和獲得的金幣都會顯示在這裡。",
+        coinLedgerBalance: "餘額 %d",
+        coinLedgerLoadFailed: "金幣紀錄載入失敗，請稍後再試。",
+        coinTxRegisterBonus: "註冊獎勵",
+        coinTxUploadReward: "上傳獎勵",
+        coinTxDownloadCost: "下載消耗",
+        coinTxDownloadEarned: "下載收益",
+        coinTxAdminGrant: "系統發放",
         loadingMore: "正在載入更多…",
         loadMore: "載入更多",
         allLoaded: "已載入全部內容",
@@ -671,6 +698,15 @@ enum L10n {
         coins: "コイン",
         coinHint: "アップロードで 1 枚獲得、ダウンロードで 1 枚使用",
         coinHistory: "コイン履歴",
+        emptyCoinHistoryTitle: "コイン履歴はまだありません",
+        emptyCoinHistoryMessage: "アップロード報酬、ダウンロードの使用、獲得したコインがここに表示されます。",
+        coinLedgerBalance: "残高 %d",
+        coinLedgerLoadFailed: "コイン履歴を読み込めませんでした。しばらくしてからもう一度お試しください。",
+        coinTxRegisterBonus: "登録ボーナス",
+        coinTxUploadReward: "アップロード報酬",
+        coinTxDownloadCost: "ダウンロード使用",
+        coinTxDownloadEarned: "ダウンロード収益",
+        coinTxAdminGrant: "システム付与",
         loadingMore: "さらに読み込み中…",
         loadMore: "もっと読み込む",
         allLoaded: "すべて読み込みました",
@@ -828,6 +864,15 @@ enum L10n {
         coins: "Coins",
         coinHint: "Earn 1 per upload, downloads cost 1",
         coinHistory: "Coin History",
+        emptyCoinHistoryTitle: "No coin history yet",
+        emptyCoinHistoryMessage: "Upload rewards, download spending, and earned coins will appear here.",
+        coinLedgerBalance: "Balance %d",
+        coinLedgerLoadFailed: "Could not load coin history. Please try again later.",
+        coinTxRegisterBonus: "Registration bonus",
+        coinTxUploadReward: "Upload reward",
+        coinTxDownloadCost: "Download spent",
+        coinTxDownloadEarned: "Download earned",
+        coinTxAdminGrant: "System grant",
         loadingMore: "Loading more…",
         loadMore: "Load more",
         allLoaded: "Everything is loaded",

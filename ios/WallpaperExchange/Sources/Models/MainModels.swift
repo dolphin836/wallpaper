@@ -306,8 +306,8 @@ struct UploaderListResponse: Decodable {
 }
 
 // Coin ledger row, one per credit/debit. tx_type strings follow the
-// backend's lexicon — 'upload_reward', 'download_received',
-// 'download_spent', 'admin_grant'. The ledger view groups by sign of
+// backend's lexicon: 'register_bonus', 'upload_reward', 'download_cost',
+// 'download_earned', and 'admin_grant'. The ledger view groups by sign of
 // amount to render +/- coloring.
 struct CoinTransaction: Decodable, Identifiable, Hashable {
     let id: Int

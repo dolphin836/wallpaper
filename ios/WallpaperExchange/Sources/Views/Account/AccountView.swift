@@ -419,35 +419,52 @@ struct CoinLedgerSheet: View {
     @State private var cursor: Int?
     @State private var hasMore = true
     @State private var loading = false
+    @State private var loadFailed = false
 
     var body: some View {
         let s = L10n.strings(for: prefs.language)
 
         NavigationStack {
             List {
-                ForEach(transactions) { tx in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(tx.description.isEmpty ? tx.txType : tx.description)
-                                .font(.subheadline)
-                                .lineLimit(1)
-                            Text(tx.createdAt.prefix(10))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Text(tx.amount > 0 ? "+\(tx.amount)" : "\(tx.amount)")
-                            .font(.subheadline.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(tx.amount > 0 ? .green : .red)
+                if transactions.isEmpty {
+                    if loading {
+                        LoadingFooter()
+                            .listRowSeparator(.hidden)
+                    } else if loadFailed {
+                        ErrorRetryView(message: s.coinLedgerLoadFailed) { loadNextPage() }
+                            .listRowSeparator(.hidden)
+                    } else {
+                        EmptyStateView(kicker: s.emptyCoinHistoryTitle, message: s.emptyCoinHistoryMessage)
+                            .listRowSeparator(.hidden)
                     }
-                }
-                if hasMore || loading {
-                    PagingFooter(
-                        isLoading: loading,
-                        hasMore: hasMore,
-                        showsEndState: false,
-                        onLoadMore: loadNextPage
-                    )
+                } else {
+                    ForEach(transactions) { tx in
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(title(for: tx, strings: s))
+                                    .font(.subheadline)
+                                    .lineLimit(1)
+                                Text("\(tx.createdAt.prefix(10)) · \(String(format: s.coinLedgerBalance, tx.balance))")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(tx.amount > 0 ? "+\(tx.amount)" : "\(tx.amount)")
+                                .font(.subheadline.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(tx.amount > 0 ? .green : .red)
+                        }
+                    }
+                    if loadFailed {
+                        ErrorRetryView(message: s.coinLedgerLoadFailed) { loadNextPage() }
+                            .listRowSeparator(.hidden)
+                    } else if hasMore || loading {
+                        PagingFooter(
+                            isLoading: loading,
+                            hasMore: hasMore,
+                            showsEndState: false,
+                            onLoadMore: loadNextPage
+                        )
+                    }
                 }
             }
             .navigationTitle(s.coinHistory)
@@ -464,6 +481,7 @@ struct CoinLedgerSheet: View {
     private func loadNextPage() {
         guard !loading, hasMore else { return }
         loading = true
+        loadFailed = false
         Task {
             defer { loading = false }
             do {
@@ -472,8 +490,25 @@ struct CoinLedgerSheet: View {
                 cursor = page.nextCursor
                 hasMore = page.hasMore
             } catch {
-                hasMore = false
+                loadFailed = true
             }
+        }
+    }
+
+    private func title(for tx: CoinTransaction, strings s: AppStrings) -> String {
+        switch tx.txType {
+        case "register_bonus":
+            return s.coinTxRegisterBonus
+        case "upload_reward":
+            return s.coinTxUploadReward
+        case "download_cost", "download_spent":
+            return s.coinTxDownloadCost
+        case "download_earned", "download_received":
+            return s.coinTxDownloadEarned
+        case "admin_grant":
+            return s.coinTxAdminGrant
+        default:
+            return tx.description.isEmpty ? tx.txType : tx.description
         }
     }
 }
