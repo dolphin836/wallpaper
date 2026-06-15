@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -600,9 +601,9 @@ func (s *WallpaperService) chargeAndRecordDownload(ctx context.Context, w *model
 	return nil
 }
 
-// Reprocess re-runs variant generation for a wallpaper that's stuck in
+// Reprocess re-runs derived asset generation for a wallpaper that's stuck in
 // processing or got marked failed. Resets status to processing, then
-// re-publishes the wallpaper.uploaded Kafka event so the image worker
+// re-publishes the matching Kafka event so the image or transcode worker
 // picks it back up. Returns ErrNotFound if the wallpaper is gone and
 // ErrInvalidParam if we can't recover the original object key from the
 // stored URL (legacy uploads where MINIO_PUBLIC_URL since changed).
@@ -624,7 +625,11 @@ func (s *WallpaperService) Reprocess(ctx context.Context, id int64) *errcode.Err
 		slog.ErrorContext(ctx, "reprocess: status reset failed", "id", id, "error", err)
 		return errcode.ErrInternal
 	}
-	s.publishUploadedEvent(ctx, w, w.UserID, objectKey)
+	if strings.HasPrefix(w.FileType, "video/") {
+		s.publishTranscodeEvent(ctx, w, w.UserID, objectKey)
+	} else {
+		s.publishUploadedEvent(ctx, w, w.UserID, objectKey)
+	}
 	return nil
 }
 
