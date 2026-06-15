@@ -11,27 +11,19 @@ struct WallpaperGrid: View {
     var showsEndState: Bool = true
     var onLoadMore: (() -> Void)? = nil
 
-    private var columns: (left: [Wallpaper], right: [Wallpaper]) {
-        // Every tile renders at the device screen ratio, so the columns
-        // stay balanced with a plain alternating split.
-        var left: [Wallpaper] = []
-        var right: [Wallpaper] = []
-        for (i, wallpaper) in wallpapers.enumerated() {
-            if i.isMultiple(of: 2) {
-                left.append(wallpaper)
-            } else {
-                right.append(wallpaper)
-            }
-        }
-        return (left, right)
-    }
+    private let gridColumns = [
+        GridItem(.flexible(), spacing: 14),
+        GridItem(.flexible(), spacing: 14),
+    ]
 
     var body: some View {
-        let split = columns
         VStack(spacing: 12) {
-            HStack(alignment: .top, spacing: 14) {
-                column(split.left)
-                column(split.right)
+            LazyVGrid(columns: gridColumns, spacing: 14) {
+                ForEach(wallpapers) { wallpaper in
+                    WallpaperDetailLauncher(route: WallpaperRoute(slug: wallpaper.slug, initialWallpaper: wallpaper)) {
+                        WallpaperTile(wallpaper: wallpaper)
+                    }
+                }
             }
             .padding(.horizontal, 14)
 
@@ -41,16 +33,6 @@ struct WallpaperGrid: View {
                 showsEndState: showsEndState,
                 onLoadMore: onLoadMore
             )
-        }
-    }
-
-    private func column(_ items: [Wallpaper]) -> some View {
-        LazyVStack(spacing: 14) {
-            ForEach(items) { wallpaper in
-                WallpaperDetailLauncher(route: WallpaperRoute(slug: wallpaper.slug, initialWallpaper: wallpaper)) {
-                    WallpaperTile(wallpaper: wallpaper)
-                }
-            }
         }
     }
 }
@@ -101,6 +83,8 @@ struct WallpaperDetailLauncher<Label: View>: View {
             detailRouter.present(route)
         } label: {
             label()
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.pressable)
     }
