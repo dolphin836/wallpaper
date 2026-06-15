@@ -281,14 +281,14 @@ function AddWallpaperModal({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-start justify-center px-4 py-10 bg-black/40 backdrop-blur-sm overflow-y-auto"
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl bg-paper border border-hair rounded-xl shadow-2xl"
+        className="w-full max-w-3xl max-h-[calc(100vh-2rem)] bg-paper border border-hair rounded-xl shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-4 py-3 border-b border-hair flex items-center gap-3">
+        <div className="px-4 py-3 border-b border-hair flex items-center gap-3 flex-shrink-0">
           <input
             type="text"
             autoFocus
@@ -301,7 +301,7 @@ function AddWallpaperModal({
             Cancel
           </button>
         </div>
-        <div className="p-4 max-h-[70vh] overflow-y-auto">
+        <div className="p-4 min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {loading && results.length === 0 ? <Spinner />
             : results.length === 0 ? <Empty>No wallpapers match.</Empty>
             : (
