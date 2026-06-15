@@ -12,6 +12,7 @@
 		0E2E8F6C26BCC22E318BFC8C /* WeeklyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0EBF20F0DC69056F1188347 /* WeeklyView.swift */; };
 		0FB7FC18B5B9B8B856EDDB91 /* Skeleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 891676FD3AC5342B5F3BC922 /* Skeleton.swift */; };
 		0FEA55929D9BA256D8A90710 /* FavoritesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5CC0CCA18002C7CC6DDDD5E /* FavoritesView.swift */; };
+		10B7CF871A934398A4ED683B /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 65B25054FA434DBA8E90A281 /* InfoPlist.strings */; };
 		11026EF2BC944A79934C9621 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9D2872055A21461DB51D13F1 /* Assets.xcassets */; };
 		1574B21B7D23C6E8E84A03FC /* LegalDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5126AFA7F58FA22BE5889CC7 /* LegalDocumentView.swift */; };
 		3491AF6982D350C9323A7D6E /* UIPrefs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6840921C6F056F4103F924A1 /* UIPrefs.swift */; };
@@ -44,9 +45,11 @@
 		07BF7EA05B4D334370551B0B /* CollectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionsView.swift; sourceTree = "<group>"; };
 		08F1D00C13F74108963DFF94 /* PhotoSaver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoSaver.swift; sourceTree = "<group>"; };
 		0C4768A5919EC84C546C6B7E /* ArchiveTopBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveTopBar.swift; sourceTree = "<group>"; };
+		20C4F77C79174F74B6F97651 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		2E084E1F363660F8442A1600 /* KeychainTokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainTokenStore.swift; sourceTree = "<group>"; };
 		2E7336F0AF243EDDCF080748 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		3F1CD595B5C80A493E26BE00 /* WallpaperGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallpaperGrid.swift; sourceTree = "<group>"; };
+		48C9F70A93B0479DA438FE5E /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		5126AFA7F58FA22BE5889CC7 /* LegalDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegalDocumentView.swift; sourceTree = "<group>"; };
 		5A96C5BD49882CF05E2DB1B3 /* CachedAsyncImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedAsyncImage.swift; sourceTree = "<group>"; };
 		5BE5D60094FDF493D2F8FBF7 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -73,6 +76,8 @@
 		D78EABF2B5F8737CE401641B /* WallpaperDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallpaperDetailView.swift; sourceTree = "<group>"; };
 		D7AE819AABC488EDE4291F6C /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
 		E2B175297F74ACD97B61673F /* WallpaperExchangeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallpaperExchangeApp.swift; sourceTree = "<group>"; };
+		E71C06B10A984177A69A5F76 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		F0F0C513C04D44EA8726798C /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "zh-Hant.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -220,6 +225,7 @@
 			isa = PBXGroup;
 			children = (
 				9D2872055A21461DB51D13F1 /* Assets.xcassets */,
+				65B25054FA434DBA8E90A281 /* InfoPlist.strings */,
 				A436F01BB02841CB560F536B /* Sources */,
 			);
 			path = WallpaperExchange;
@@ -300,6 +306,9 @@
 			knownRegions = (
 				Base,
 				en,
+				"zh-Hans",
+				"zh-Hant",
+				ja,
 			);
 			mainGroup = 1305A47F44A6BA617C92255E;
 			minimizedProjectReferenceProxies = 1;
@@ -319,6 +328,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				11026EF2BC944A79934C9621 /* Assets.xcassets in Resources */,
+				10B7CF871A934398A4ED683B /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -363,6 +373,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		65B25054FA434DBA8E90A281 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				20C4F77C79174F74B6F97651 /* en */,
+				48C9F70A93B0479DA438FE5E /* zh-Hans */,
+				F0F0C513C04D44EA8726798C /* zh-Hant */,
+				E71C06B10A984177A69A5F76 /* ja */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		0107866E59C74F4444E656DA /* Release */ = {
