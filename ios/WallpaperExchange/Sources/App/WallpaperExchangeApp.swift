@@ -47,6 +47,7 @@ struct RootTabView: View {
     @State private var router = TabRouter.shared
     @State private var debugDetailSlug = LaunchOptions.detailSlug
     @State private var debugDetailPath = NavigationPath()
+    @State private var debugDetailWasPushed = false
     @State private var debugCollections = LaunchOptions.showCollections
     @State private var debugWeekly = LaunchOptions.showWeekly
 
@@ -70,7 +71,13 @@ struct RootTabView: View {
         // exercise the same back-button context users navigate in.
         .fullScreenCoverCompat(isPresented: Binding(
             get: { debugDetailSlug != nil },
-            set: { if !$0 { debugDetailSlug = nil } }
+            set: {
+                if !$0 {
+                    debugDetailSlug = nil
+                    debugDetailPath = NavigationPath()
+                    debugDetailWasPushed = false
+                }
+            }
         )) {
             if let slug = debugDetailSlug {
                 NavigationStack(path: $debugDetailPath) {
@@ -81,6 +88,13 @@ struct RootTabView: View {
                         .onAppear {
                             if debugDetailPath.isEmpty {
                                 debugDetailPath.append(WallpaperRoute(slug: slug))
+                                debugDetailWasPushed = true
+                            }
+                        }
+                        .onChange(of: debugDetailPath.count) { _, count in
+                            if debugDetailWasPushed && count == 0 {
+                                debugDetailSlug = nil
+                                debugDetailWasPushed = false
                             }
                         }
                 }
