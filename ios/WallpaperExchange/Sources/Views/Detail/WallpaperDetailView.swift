@@ -167,11 +167,6 @@ struct WallpaperDetailView: View {
             )
         }
         .ignoresSafeArea()
-        .contentShape(Rectangle())
-        .onTapGesture {
-            guard detail != nil else { return }
-            showDevicePreview = true
-        }
     }
 
     private func content(_ detail: WallpaperDetail) -> some View {
@@ -237,6 +232,14 @@ struct WallpaperDetailView: View {
         .background(.ultraThinMaterial, in: Capsule())
         .overlay(Capsule().strokeBorder(.white.opacity(0.18), lineWidth: 1))
         .shadow(color: .black.opacity(0.32), radius: 18, y: 10)
+        .confirmationDialog(
+            L10n.strings(for: prefs.language).downloadOneCoin,
+            isPresented: confirmingBinding,
+            titleVisibility: .visible
+        ) {
+            Button(L10n.strings(for: prefs.language).downloadOneCoin) { startDownload(detail) }
+            Button(L10n.strings(for: prefs.language).cancel, role: .cancel) { downloadState = .idle }
+        }
     }
 
     private func toolButton(icon: String, tint: Color, action: @escaping () -> Void) -> some View {
@@ -269,14 +272,6 @@ struct WallpaperDetailView: View {
                     .background(Color.accent, in: Circle())
             }
             .buttonStyle(.pressable)
-            .confirmationDialog(
-                L10n.strings(for: prefs.language).downloadOneCoin,
-                isPresented: confirmingBinding,
-                titleVisibility: .visible
-            ) {
-                Button(L10n.strings(for: prefs.language).downloadOneCoin) { startDownload(detail) }
-                Button(L10n.strings(for: prefs.language).cancel, role: .cancel) { downloadState = .idle }
-            }
         case .confirming:
             Image(systemName: "arrow.down.circle.fill")
                 .font(.system(size: 20, weight: .semibold))
@@ -770,6 +765,7 @@ private struct ProgressiveDetailImage: View {
     @State private var lowLoaded = false
     @State private var previewLoaded = false
     @State private var originalLoaded = false
+    @State private var originalFailed = false
     @State private var shouldLoadOriginal = false
     @State private var previewCanSettle = false
 
@@ -806,6 +802,18 @@ private struct ProgressiveDetailImage: View {
             return false
         }
         return thumbURL != nil || previewURL != nil || originalURL != nil
+    }
+
+    private var awaitingOriginalImage: Bool {
+        guard originalURL != nil else { return false }
+        return !originalLoaded && !originalFailed && !originalIsCached
+    }
+
+    private var loadingVeilStrength: ImageLoadingVeil.Strength {
+        if previewLoaded || previewIsCached || lowLoaded || lowIsCached || previewCanSettle {
+            return .whisper
+        }
+        return .detail
     }
 
     var body: some View {
@@ -869,6 +877,9 @@ private struct ProgressiveDetailImage: View {
                         withAnimation(.easeOut(duration: 0.28)) {
                             originalLoaded = true
                         }
+                    },
+                    onFailure: {
+                        originalFailed = true
                     }
                 ) { image in
                     image
@@ -880,8 +891,8 @@ private struct ProgressiveDetailImage: View {
                 .allowsHitTesting(false)
             }
 
-            if awaitingFirstImage {
-                ImageLoadingVeil(strength: .detail)
+            if awaitingFirstImage || awaitingOriginalImage {
+                ImageLoadingVeil(strength: loadingVeilStrength)
                     .transition(.opacity)
             }
         }
@@ -890,6 +901,7 @@ private struct ProgressiveDetailImage: View {
             lowLoaded = false
             previewLoaded = false
             originalLoaded = false
+            originalFailed = false
             previewCanSettle = false
             shouldLoadOriginal = previewURL == nil || originalIsCached
             if previewURL != nil {
