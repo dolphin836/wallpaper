@@ -97,7 +97,6 @@ struct HomeView: View {
     private var homeSkeleton: some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 10) {
-                sectionSkeleton(width: 172)
                 weeklyAlbumSkeleton
             }
 
