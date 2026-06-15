@@ -60,9 +60,9 @@ struct DiscoverView: View {
                 }
                 .padding(.top, 6)
                 }
-                .background(Color.paper)
+                .background(Color.clear)
             }
-            .background(Color.paper)
+            .background(PageMesh())
             .navigationTitle("")
             .inlineNavTitle()
             .hideNavBarCompat()

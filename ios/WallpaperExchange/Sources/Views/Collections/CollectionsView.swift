@@ -82,9 +82,9 @@ struct CollectionsBrowser: View {
                     }
                     .padding(.top, showsTopBar ? 8 : 8)
                 }
-                .background(Color.paper)
+                .background(Color.clear)
             }
-            .background(Color.paper)
+            .background(PageMesh())
             .navigationTitle("")
             .inlineNavTitle()
             .hideNavBarCompat()
@@ -182,6 +182,7 @@ struct CollectionCard: View {
                 .strokeBorder(Color.hair, lineWidth: 1)
         )
         .shadow(color: accent.opacity(0.12), radius: 14, y: 7)
+        .paletteReactive(palette: nil, dominant: cover?.dominantColor ?? collection.accentColor)
     }
 
     private var collectionMosaic: some View {
@@ -261,7 +262,7 @@ struct CollectionDetailView: View {
             }
             .padding(.top, 8)
         }
-        .background(Color.paper)
+        .background(PageMesh())
         .navigationTitle(collection.title)
         .inlineNavTitle()
         .showNavBarCompat()

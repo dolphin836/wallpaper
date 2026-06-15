@@ -40,9 +40,9 @@ struct HomeView: View {
                     }
                     .padding(.vertical, 12)
                 }
-                .background(Color.paper)
+                .background(Color.clear)
             }
-            .background(Color.paper)
+            .background(PageMesh())
             .navigationTitle("")
             .inlineNavTitle()
             .hideNavBarCompat()
@@ -223,6 +223,7 @@ private struct WeeklyAlbumCard: View {
         }
         .padding(.trailing, 22)
         .padding(.bottom, 18)
+        .paletteReactive(palette: entry.colorPalette, dominant: entry.dominantColor ?? entry.accentColor)
     }
 
     private var coverLayer: some View {
@@ -335,7 +336,7 @@ struct FilteredFeedView: View {
             }
             .padding(.top, 8)
         }
-        .background(Color.paper)
+        .background(PageMesh())
         .navigationTitle("AI Wallpapers")
         .inlineNavTitle()
         .showNavBarCompat()

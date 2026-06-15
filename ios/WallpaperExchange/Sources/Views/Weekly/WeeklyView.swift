@@ -9,7 +9,7 @@ struct WeeklyTabView: View {
                 ArchiveTopBar(title: L10n.strings(for: prefs.language).weekly)
                 WeeklyArchiveView(showNavigationBar: false)
             }
-            .background(Color.paper)
+            .background(PageMesh())
             .navigationTitle("")
             .inlineNavTitle()
             .hideNavBarCompat()
@@ -49,7 +49,7 @@ struct WeeklyArchiveView: View {
             }
             .padding(.top, 8)
         }
-        .background(Color.paper)
+        .background(PageMesh())
         .navigationTitle(L10n.strings(for: prefs.language).weekly)
         .inlineNavTitle()
         .modifier(WeeklyArchiveNavModifier(showNavigationBar: showNavigationBar))
@@ -119,6 +119,7 @@ struct WeeklyArchiveView: View {
             .padding(12)
         }
         .shadow(color: accent.opacity(0.18), radius: 16, y: 8)
+        .paletteReactive(palette: entry.colorPalette, dominant: entry.dominantColor ?? entry.accentColor)
     }
 
     private func load() async {
@@ -162,7 +163,7 @@ struct WeeklyWeekView: View {
                     .padding(.top, 8)
             }
         }
-        .background(Color.paper)
+        .background(PageMesh())
         .navigationTitle("Week \(week) · \(String(year))")
         .inlineNavTitle()
         .showNavBarCompat()

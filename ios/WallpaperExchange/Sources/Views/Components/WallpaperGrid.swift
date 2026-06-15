@@ -133,6 +133,7 @@ struct WallpaperTile: View {
             color: (Color(hex: wallpaper.dominantColor) ?? .black).opacity(0.18),
             radius: 12, y: 6
         )
+        .paletteReactive(palette: wallpaper.colorPalette, dominant: wallpaper.dominantColor)
         .archiveScrollLift()
         .onChange(of: wallpaper.id) { _, _ in imageLoaded = false }
         .accessibilityLabel("\(wallpaper.title), \(wallpaper.resolutionLabel)")

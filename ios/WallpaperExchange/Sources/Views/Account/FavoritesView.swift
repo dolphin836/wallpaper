@@ -21,7 +21,7 @@ struct FavoritesView: View {
                     }
                 }
             }
-            .background(Color.paper)
+            .background(PageMesh())
             .navigationTitle("")
             .inlineNavTitle()
             .hideNavBarCompat()
@@ -87,7 +87,7 @@ struct FavoritesView: View {
             .padding(.top, 8)
             .padding(.bottom, 10)
         }
-        .background(Color.paper)
+        .background(PageMesh())
     }
 
     private func profileCard(_ user: User) -> some View {
@@ -376,7 +376,7 @@ private struct AccountWallpaperListView: View {
             .padding(.top, 12)
             .padding(.bottom, 28)
         }
-        .background(Color.paper)
+        .background(PageMesh())
         .navigationTitle(kind.title(s))
         .inlineNavTitle()
         .showNavBarCompat()
@@ -471,7 +471,7 @@ private struct AccountCollectionsListView: View {
             .padding(.top, 12)
             .padding(.bottom, 28)
         }
-        .background(Color.paper)
+        .background(PageMesh())
         .navigationTitle(s.myCollections)
         .inlineNavTitle()
         .showNavBarCompat()

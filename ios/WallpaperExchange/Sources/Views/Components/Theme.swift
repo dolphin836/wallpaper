@@ -38,6 +38,122 @@ extension Color {
     static let warn       = Color.adaptive(light: (0.604, 0.416, 0.094), dark: (0.934, 0.694, 0.248))
     // Paper-toned text for chips drawn over imagery, both schemes.
     static let lightText  = Color(red: 0.972, green: 0.964, blue: 0.945)
+
+    // Warm peach / sand / terracotta defaults shared by the web and Mac
+    // mesh background before a wallpaper card lends it a palette.
+    static let brandPaletteC1 = Color.adaptive(light: (0.940, 0.780, 0.550), dark: (0.168, 0.074, 0.052))
+    static let brandPaletteC2 = Color.adaptive(light: (0.950, 0.740, 0.620), dark: (0.016, 0.084, 0.116))
+    static let brandPaletteC3 = Color.adaptive(light: (0.960, 0.840, 0.660), dark: (0.198, 0.096, 0.042))
+}
+
+// Palette source for the iOS ambient mesh. Wallpaper cards call apply()
+// on pointer hover or touch-down; the root background observes these
+// stops and eases between the default brand blend and the wallpaper's
+// extracted palette.
+@MainActor
+@Observable
+final class PaletteEnv {
+    static let shared = PaletteEnv()
+
+    var c1: Color = .brandPaletteC1
+    var c2: Color = .brandPaletteC2
+    var c3: Color = .brandPaletteC3
+    var revision = 0
+
+    private init() {}
+
+    func apply(palette raw: String?, dominant rawDominant: String?) {
+        let parts = (raw ?? "")
+            .split(separator: ",")
+            .map { String($0).trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        if parts.count >= 3,
+           let first = Color(hex: parts[0]),
+           let middle = Color(hex: parts[parts.count / 2]),
+           let last = Color(hex: parts[parts.count - 1]) {
+            c1 = first
+            c2 = middle
+            c3 = last
+            revision += 1
+            return
+        }
+
+        guard let rawDominant, let dominant = Color(hex: rawDominant) else {
+            resetToDefaults()
+            return
+        }
+        c1 = dominant
+        c2 = dominant
+        c3 = dominant
+        revision += 1
+    }
+
+    func resetToDefaults() {
+        c1 = .brandPaletteC1
+        c2 = .brandPaletteC2
+        c3 = .brandPaletteC3
+        revision += 1
+    }
+}
+
+struct PageMesh: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var palette = PaletteEnv.shared
+
+    var body: some View {
+        GeometryReader { proxy in
+            let radius = max(proxy.size.width, proxy.size.height)
+            let isDark = colorScheme == .dark
+
+            ZStack {
+                Color.paper
+
+                LinearGradient(
+                    colors: [
+                        palette.c1.opacity(isDark ? 0.28 : 0.24),
+                        palette.c2.opacity(isDark ? 0.22 : 0.18),
+                        palette.c3.opacity(isDark ? 0.25 : 0.22),
+                        Color.paper.opacity(0.72),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                ZStack {
+                    RadialGradient(
+                        colors: [palette.c1.opacity(isDark ? 0.66 : 0.55), .clear],
+                        center: UnitPoint(x: 0.18, y: 0.22),
+                        startRadius: 0,
+                        endRadius: radius * 0.48
+                    )
+                    RadialGradient(
+                        colors: [palette.c2.opacity(isDark ? 0.54 : 0.46), .clear],
+                        center: UnitPoint(x: 0.86, y: 0.18),
+                        startRadius: 0,
+                        endRadius: radius * 0.54
+                    )
+                    RadialGradient(
+                        colors: [palette.c3.opacity(isDark ? 0.60 : 0.50), .clear],
+                        center: UnitPoint(x: 0.52, y: 0.88),
+                        startRadius: 0,
+                        endRadius: radius * 0.62
+                    )
+                }
+                .blur(radius: 76)
+                .saturation(isDark ? 1.24 : 1.18)
+
+                if isDark {
+                    Color.black.opacity(0.08)
+                } else {
+                    Color.white.opacity(0.18)
+                }
+            }
+            .animation(.easeOut(duration: 0.42), value: palette.revision)
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
 }
 
 // Type ramp: script brand voice for page titles, bold sans for content
@@ -129,6 +245,10 @@ extension ButtonStyle where Self == PressableStyle {
 }
 
 extension View {
+    func paletteReactive(palette: String?, dominant: String?) -> some View {
+        modifier(PaletteReactive(palette: palette, dominant: dominant))
+    }
+
     // Lightweight iOS-native feedback for stateful controls. The macOS
     // dev preview type-checks the same sources, so keep the modifier
     // platform-gated instead of sprinkling availability checks in pages.
@@ -155,5 +275,37 @@ extension View {
         #else
         self
         #endif
+    }
+}
+
+private struct PaletteReactive: ViewModifier {
+    let palette: String?
+    let dominant: String?
+
+    @State private var active = false
+
+    func body(content: Content) -> some View {
+        content
+            .onHover { hovering in
+                hovering ? activate() : deactivate()
+            }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in activate() }
+                    .onEnded { _ in deactivate() }
+            )
+            .onDisappear { deactivate() }
+    }
+
+    private func activate() {
+        guard !active else { return }
+        active = true
+        PaletteEnv.shared.apply(palette: palette, dominant: dominant)
+    }
+
+    private func deactivate() {
+        guard active else { return }
+        active = false
+        PaletteEnv.shared.resetToDefaults()
     }
 }
