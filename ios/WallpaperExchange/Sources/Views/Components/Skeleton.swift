@@ -113,6 +113,11 @@ struct LoadingCoverImage<Content: View, Placeholder: View>: View {
     @State private var loaded = false
     @State private var failed = false
 
+    private var isCached: Bool {
+        guard let url else { return false }
+        return ImageCacheStore.shared.get(url, maxPixelDimension: maxPixelDimension) != nil
+    }
+
     init(
         url: URL?,
         maxPixelDimension: Int = 900,
@@ -146,7 +151,7 @@ struct LoadingCoverImage<Content: View, Placeholder: View>: View {
                 placeholder()
             }
 
-            if url != nil && !loaded && !failed {
+            if url != nil && !loaded && !failed && !isCached {
                 ImageLoadingVeil(strength: veilStrength)
                     .transition(.opacity)
             }

@@ -153,10 +153,20 @@ private struct ProgressiveWallpaperImage: View {
         Color(hex: wallpaper.dominantColor) ?? Color.paper3
     }
 
+    private var lowIsCached: Bool {
+        guard let lowURL else { return false }
+        return ImageCacheStore.shared.get(lowURL, maxPixelDimension: 360) != nil
+    }
+
+    private var highIsCached: Bool {
+        guard let highURL else { return false }
+        return ImageCacheStore.shared.get(highURL, maxPixelDimension: 1400) != nil
+    }
+
     private var showsLoadingVeil: Bool {
-        if highLoaded || highFailed { return false }
+        if highLoaded || highFailed || highIsCached { return false }
         if highURL != nil { return true }
-        return lowURL != nil && !lowLoaded && !lowFailed
+        return lowURL != nil && !lowLoaded && !lowFailed && !lowIsCached
     }
 
     var body: some View {
@@ -184,14 +194,14 @@ private struct ProgressiveWallpaperImage: View {
                         .blur(radius: highLoaded ? 0 : 9)
                         .saturation(highLoaded ? 1 : 1.16)
                         .scaleEffect(highLoaded ? 1 : 1.08)
-                        .opacity(highLoaded ? 0 : (lowLoaded ? 0.92 : 0))
+                        .opacity(highLoaded || highIsCached ? 0 : 0.92)
                 } placeholder: {
                     Color.clear
                 }
                 .allowsHitTesting(false)
             }
 
-            if shouldLoadHigh || lowURL == nil {
+            if shouldLoadHigh || lowURL == nil || highIsCached {
                 // 1400px decode budget: a half-width tile at the device
                 // ratio is ~1206 physical px tall on a 3x phone, so the
                 // source preview usually has enough pixels without using
@@ -211,8 +221,6 @@ private struct ProgressiveWallpaperImage: View {
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .scaleEffect(highLoaded ? 1 : 1.025)
-                        .opacity(highLoaded ? 1 : 0)
                 } placeholder: {
                     Color.clear
                 }
@@ -230,7 +238,7 @@ private struct ProgressiveWallpaperImage: View {
             highLoaded = false
             lowFailed = false
             highFailed = false
-            shouldLoadHigh = lowURL == nil
+            shouldLoadHigh = lowURL == nil || highIsCached
             if lowURL != nil {
                 try? await Task.sleep(nanoseconds: 850_000_000)
                 guard !Task.isCancelled else { return }

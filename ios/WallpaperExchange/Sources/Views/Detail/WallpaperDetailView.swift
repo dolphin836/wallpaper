@@ -136,6 +136,11 @@ struct WallpaperDetailView: View {
             )
         }
         .ignoresSafeArea()
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard detail != nil else { return }
+            showDevicePreview = true
+        }
     }
 
     private func content(_ detail: WallpaperDetail) -> some View {
@@ -153,8 +158,6 @@ struct WallpaperDetailView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 22)
         }
-        .contentShape(Rectangle())
-        .onTapGesture { showDevicePreview = true }
         .environment(\.colorScheme, .dark)
     }
 
@@ -752,8 +755,25 @@ private struct ProgressiveDetailImage: View {
         return url
     }
 
+    private var lowIsCached: Bool {
+        guard let thumbURL, thumbURL != previewURL else { return false }
+        return ImageCacheStore.shared.get(thumbURL, maxPixelDimension: 420) != nil
+    }
+
+    private var previewIsCached: Bool {
+        guard let previewURL else { return false }
+        return ImageCacheStore.shared.get(previewURL, maxPixelDimension: 1400) != nil
+    }
+
+    private var originalIsCached: Bool {
+        guard let originalURL else { return false }
+        return ImageCacheStore.shared.get(originalURL, maxPixelDimension: 3200) != nil
+    }
+
     private var awaitingFirstImage: Bool {
-        if previewLoaded || originalLoaded || previewCanSettle { return false }
+        if previewLoaded || originalLoaded || previewCanSettle || lowIsCached || previewIsCached || originalIsCached {
+            return false
+        }
         return thumbURL != nil || previewURL != nil || originalURL != nil
     }
 
@@ -776,7 +796,7 @@ private struct ProgressiveDetailImage: View {
                         .aspectRatio(contentMode: .fill)
                         .blur(radius: previewLoaded || previewCanSettle ? 0 : 10)
                         .scaleEffect(previewLoaded || previewCanSettle ? 1 : 1.06)
-                        .opacity(previewLoaded || originalLoaded ? 0 : (lowLoaded ? 0.94 : 0))
+                        .opacity(previewLoaded || originalLoaded || previewIsCached || originalIsCached ? 0 : 0.94)
                 } placeholder: {
                     Color.clear
                 }
@@ -803,14 +823,14 @@ private struct ProgressiveDetailImage: View {
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .opacity(originalLoaded ? 0 : (previewLoaded ? 1 : 0))
+                        .opacity(originalLoaded || originalIsCached ? 0 : 1)
                 } placeholder: {
                     Color.clear
                 }
                 .allowsHitTesting(false)
             }
 
-            if let originalURL, shouldLoadOriginal || previewURL == nil {
+            if let originalURL, shouldLoadOriginal || previewURL == nil || originalIsCached {
                 CachedAsyncImage(
                     url: originalURL,
                     maxPixelDimension: 3200,
@@ -823,7 +843,6 @@ private struct ProgressiveDetailImage: View {
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .opacity(originalLoaded ? 1 : 0)
                 } placeholder: {
                     Color.clear
                 }
@@ -841,7 +860,7 @@ private struct ProgressiveDetailImage: View {
             previewLoaded = false
             originalLoaded = false
             previewCanSettle = false
-            shouldLoadOriginal = previewURL == nil
+            shouldLoadOriginal = previewURL == nil || originalIsCached
             if previewURL != nil {
                 try? await Task.sleep(nanoseconds: 900_000_000)
                 guard !Task.isCancelled else { return }

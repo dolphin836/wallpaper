@@ -286,8 +286,21 @@ private struct ProgressiveCollectionMosaicImage: View {
         Color(hex: tile?.dominantColor ?? fallbackTile?.dominantColor) ?? accent
     }
 
+    private var lowIsCached: Bool {
+        guard let lowURL else { return false }
+        return ImageCacheStore.shared.get(lowURL, maxPixelDimension: 320) != nil
+    }
+
+    private var currentHighIsCached: Bool {
+        guard let currentHighURL else { return false }
+        return ImageCacheStore.shared.get(currentHighURL, maxPixelDimension: 760) != nil
+    }
+
     private var showsLoadingVeil: Bool {
-        !highLoaded && !loadingFailed && (currentHighURL != nil || (lowURL != nil && !lowLoaded))
+        !highLoaded
+            && !loadingFailed
+            && !currentHighIsCached
+            && (currentHighURL != nil || (lowURL != nil && !lowLoaded && !lowIsCached))
     }
 
     private var loadIdentity: String {
@@ -328,14 +341,14 @@ private struct ProgressiveCollectionMosaicImage: View {
                         .aspectRatio(contentMode: .fill)
                         .blur(radius: highLoaded || lowIsFinal ? 0 : 8)
                         .scaleEffect(highLoaded || lowIsFinal ? 1 : 1.06)
-                        .opacity(highLoaded ? 0 : (lowLoaded ? 0.96 : 0))
+                        .opacity(highLoaded || currentHighIsCached ? 0 : 0.96)
                 } placeholder: {
                     Color.clear
                 }
                 .allowsHitTesting(false)
             }
 
-            if let currentHighURL, shouldLoadHigh || lowURL == nil {
+            if let currentHighURL, shouldLoadHigh || lowURL == nil || currentHighIsCached {
                 CachedAsyncImage(
                     url: currentHighURL,
                     maxPixelDimension: 760,
@@ -358,7 +371,6 @@ private struct ProgressiveCollectionMosaicImage: View {
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .opacity(highLoaded ? 1 : 0)
                 } placeholder: {
                     Color.clear
                 }
@@ -377,7 +389,7 @@ private struct ProgressiveCollectionMosaicImage: View {
             highCandidateIndex = 0
             lowCanSettle = false
             loadingFailed = false
-            shouldLoadHigh = lowURL == nil
+            shouldLoadHigh = lowURL == nil || currentHighIsCached
             if lowURL != nil {
                 try? await Task.sleep(nanoseconds: 700_000_000)
                 guard !Task.isCancelled else { return }
