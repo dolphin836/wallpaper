@@ -236,12 +236,12 @@ func (s *CollectionService) Unlike(ctx context.Context, userID, collectionID int
 	return nil
 }
 
-func (s *CollectionService) ListWallpapers(ctx context.Context, collectionID int64, cursor int64, limit int) (*WallpaperCollectionResponse, *errcode.ErrCode) {
+func (s *CollectionService) ListWallpapers(ctx context.Context, collectionID int64, cursor int64, limit int, filters repo.WallpaperExclusionFilters) (*WallpaperCollectionResponse, *errcode.ErrCode) {
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
 	fetchLimit := limit + 1
-	items, err := s.collectionRepo.ListWallpapers(ctx, collectionID, int(cursor), fetchLimit)
+	items, err := s.collectionRepo.ListWallpapers(ctx, collectionID, int(cursor), fetchLimit, filters)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to list collection wallpapers", "error", err)
 		return nil, errcode.ErrInternal

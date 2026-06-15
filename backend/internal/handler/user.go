@@ -154,11 +154,14 @@ func (h *UserHandler) GetWallpapers(w http.ResponseWriter, r *http.Request) {
 
 	currentUserID := middleware.GetUserID(r.Context())
 	isOwner := currentUserID == id
+	exclusions := parseWallpaperExclusions(r)
 
 	opts := repo.ListOptions{
-		Cursor: cursor,
-		Limit:  fetchLimit,
-		UserID: id,
+		Cursor:         cursor,
+		Limit:          fetchLimit,
+		UserID:         id,
+		ExcludeDynamic: exclusions.ExcludeDynamic,
+		ExcludeVideo:   exclusions.ExcludeVideo,
 	}
 	// ?status=<n> lets the owner split the profile Uploads tab into a
 	// "Published" + "Pending" pair without two list endpoints. A comma-
@@ -233,8 +236,9 @@ func (h *UserHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 	cursor, limit := parseCursorLimit(r)
 	fetchLimit := limit + 1
+	filters := parseWallpaperExclusions(r)
 
-	items, err := h.interactionRepo.ListFavorites(r.Context(), userID, cursor, fetchLimit)
+	items, err := h.interactionRepo.ListFavorites(r.Context(), userID, cursor, fetchLimit, filters)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to list favorites",
 			"error", err, "user_id", userID)
@@ -242,7 +246,7 @@ func (h *UserHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	total, err := h.interactionRepo.CountFavorites(r.Context(), userID)
+	total, err := h.interactionRepo.CountFavorites(r.Context(), userID, filters)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to count favorites", "error", err, "user_id", userID)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
@@ -273,8 +277,9 @@ func (h *UserHandler) GetLikes(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 	cursor, limit := parseCursorLimit(r)
 	fetchLimit := limit + 1
+	filters := parseWallpaperExclusions(r)
 
-	items, err := h.interactionRepo.ListLikes(r.Context(), userID, cursor, fetchLimit)
+	items, err := h.interactionRepo.ListLikes(r.Context(), userID, cursor, fetchLimit, filters)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to list likes",
 			"error", err, "user_id", userID)
@@ -282,7 +287,7 @@ func (h *UserHandler) GetLikes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	total, err := h.interactionRepo.CountLikes(r.Context(), userID)
+	total, err := h.interactionRepo.CountLikes(r.Context(), userID, filters)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to count likes", "error", err, "user_id", userID)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
@@ -317,11 +322,11 @@ func (h *UserHandler) GetDownloads(w http.ResponseWriter, r *http.Request) {
 	// Same resolution / dynamic filter contract as /wallpapers — lets the
 	// home feed and the My-Downloads list share UI affordances.
 	filters := repo.DownloadFilters{
-		DeviceWidth:    parseIntQuery(r, "device_width"),
-		DeviceHeight:   parseIntQuery(r, "device_height"),
-		DynamicOnly:    r.URL.Query().Get("dynamic_only") == "true",
-		IncludeDynamic: r.URL.Query().Get("include_dynamic") == "true",
-		ExcludeVideo:   r.URL.Query().Get("exclude_video") == "true",
+		DeviceWidth:               parseIntQuery(r, "device_width"),
+		DeviceHeight:              parseIntQuery(r, "device_height"),
+		DynamicOnly:               r.URL.Query().Get("dynamic_only") == "true",
+		IncludeDynamic:            r.URL.Query().Get("include_dynamic") == "true",
+		WallpaperExclusionFilters: parseWallpaperExclusions(r),
 	}
 
 	items, err := h.interactionRepo.ListDownloads(r.Context(), userID, cursor, fetchLimit, filters)
@@ -734,8 +739,8 @@ func privacyEmptyResponse(private bool) map[string]any {
 func (h *UserHandler) listUserInteractions(
 	w http.ResponseWriter, r *http.Request,
 	isPublic func(*model.User) bool,
-	listFn func(ctx context.Context, userID int64, cursor int64, limit int) ([]model.Wallpaper, error),
-	countFn func(ctx context.Context, userID int64) (int64, error),
+	listFn func(ctx context.Context, userID int64, cursor int64, limit int, filters repo.WallpaperExclusionFilters) ([]model.Wallpaper, error),
+	countFn func(ctx context.Context, userID int64, filters repo.WallpaperExclusionFilters) (int64, error),
 ) {
 	target, ok := h.resolveUserParam(w, r)
 	if !ok {
@@ -751,14 +756,15 @@ func (h *UserHandler) listUserInteractions(
 
 	cursor, limit := parseCursorLimit(r)
 	fetchLimit := limit + 1
-	items, err := listFn(r.Context(), target.ID, cursor, fetchLimit)
+	filters := parseWallpaperExclusions(r)
+	items, err := listFn(r.Context(), target.ID, cursor, fetchLimit, filters)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "list user interactions failed",
 			"target_id", target.ID, "error", err)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
-	total, err := countFn(r.Context(), target.ID)
+	total, err := countFn(r.Context(), target.ID, filters)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "count user interactions failed",
 			"target_id", target.ID, "error", err)
@@ -808,11 +814,11 @@ func (h *UserHandler) GetUserLikes(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) GetUserDownloads(w http.ResponseWriter, r *http.Request) {
 	h.listUserInteractions(w, r,
 		func(u *model.User) bool { return u.DownloadsPublic },
-		func(ctx context.Context, userID int64, cursor int64, limit int) ([]model.Wallpaper, error) {
-			return h.interactionRepo.ListDownloads(ctx, userID, cursor, limit, repo.DownloadFilters{})
+		func(ctx context.Context, userID int64, cursor int64, limit int, filters repo.WallpaperExclusionFilters) ([]model.Wallpaper, error) {
+			return h.interactionRepo.ListDownloads(ctx, userID, cursor, limit, repo.DownloadFilters{WallpaperExclusionFilters: filters})
 		},
-		func(ctx context.Context, userID int64) (int64, error) {
-			return h.interactionRepo.CountDownloads(ctx, userID, repo.DownloadFilters{})
+		func(ctx context.Context, userID int64, filters repo.WallpaperExclusionFilters) (int64, error) {
+			return h.interactionRepo.CountDownloads(ctx, userID, repo.DownloadFilters{WallpaperExclusionFilters: filters})
 		},
 	)
 }

@@ -77,7 +77,7 @@ actor APIClient {
         limit: Int,
         queryItems: [URLQueryItem] = []
     ) async throws -> PaginatedData<Wallpaper> {
-        var items = queryItems
+        var items = applyingIOSWallpaperExclusions(to: queryItems)
         items.append(.init(name: "limit", value: String(limit)))
         if let cursor {
             items.append(.init(name: "cursor", value: String(cursor)))
@@ -87,6 +87,18 @@ actor APIClient {
         // user libraries) flows through here, so the iOS live-content
         // exclusion holds everywhere without per-endpoint backend support.
         return resp.data.droppingLiveContent()
+    }
+
+    func applyingIOSWallpaperExclusions(to queryItems: [URLQueryItem]) -> [URLQueryItem] {
+        var items = queryItems
+        let names = Set(items.map(\.name))
+        if !names.contains("exclude_video") {
+            items.append(.init(name: "exclude_video", value: "true"))
+        }
+        if !names.contains("exclude_dynamic") {
+            items.append(.init(name: "exclude_dynamic", value: "true"))
+        }
+        return items
     }
 
     func request<T: Decodable>(_ path: String, method: String = "GET", queryItems: [URLQueryItem]? = nil) async throws -> T {
@@ -155,15 +167,13 @@ actor APIClient {
             items.append(.init(name: "device_width", value: String(req.width)))
             items.append(.init(name: "device_height", value: String(req.height)))
         }
-        items.append(.init(name: "exclude_video", value: "true"))
         return try await fetchWallpaperPage("/wallpapers", cursor: cursor, limit: limit, queryItems: items)
     }
 
     func fetchForYou(limit: Int = 30) async throws -> [Wallpaper] {
-        let items: [URLQueryItem] = [
+        let items = applyingIOSWallpaperExclusions(to: [
             .init(name: "limit", value: String(limit)),
-            .init(name: "exclude_video", value: "true"),
-        ]
+        ])
         let resp: APIResponse<[Wallpaper]> = try await request("/wallpapers/for-you", queryItems: items)
         return resp.data.filter(\.isUsableOnIOS)
     }

@@ -227,16 +227,17 @@ func (r *CollectionRepo) RemoveWallpaper(ctx context.Context, collectionID, wall
 		UpdateColumn("wallpaper_count", gorm.Expr("wallpaper_count - 1")).Error
 }
 
-func (r *CollectionRepo) ListWallpapers(ctx context.Context, collectionID int64, cursor, limit int) ([]model.Wallpaper, error) {
+func (r *CollectionRepo) ListWallpapers(ctx context.Context, collectionID int64, cursor, limit int, filters WallpaperExclusionFilters) ([]model.Wallpaper, error) {
 	query := r.db.WithContext(ctx).
 		Table("wallpapers").
-		Select("wallpapers.id, wallpapers.slug, wallpapers.user_id, wallpapers.title, wallpapers.category_id, wallpapers.thumb_url, wallpapers.preview_url, wallpapers.width, wallpapers.height, wallpapers.file_size, wallpapers.file_type, wallpapers.dominant_color, wallpapers.status, wallpapers.view_count, wallpapers.like_count, wallpapers.download_count, wallpapers.favorite_count, wallpapers.created_at").
+		Select("wallpapers.id, wallpapers.slug, wallpapers.user_id, wallpapers.title, wallpapers.category_id, wallpapers.thumb_url, wallpapers.preview_url, wallpapers.width, wallpapers.height, wallpapers.file_size, wallpapers.file_type, wallpapers.dominant_color, wallpapers.color_palette, wallpapers.status, wallpapers.view_count, wallpapers.like_count, wallpapers.download_count, wallpapers.favorite_count, wallpapers.is_dynamic, wallpapers.dynamic_type, wallpapers.is_ai_generated, wallpapers.created_at").
 		Joins("JOIN collection_wallpapers cw ON cw.wallpaper_id = wallpapers.id").
 		Where("cw.collection_id = ? AND wallpapers.status = ?", collectionID, model.WallpaperStatusPublished)
 
 	if cursor > 0 {
 		query = query.Where("cw.id < ?", cursor)
 	}
+	query = filters.apply(query, "wallpapers")
 
 	var wallpapers []model.Wallpaper
 	err := query.Order("cw.sort_order ASC, cw.id DESC").Limit(limit).Find(&wallpapers).Error
@@ -381,9 +382,7 @@ func (r *CollectionRepo) RecentTilesForCollections(ctx context.Context, ids []in
 // the admin who owns them) for the Add-to-list picker.
 //
 // q (optional)            — case-insensitive title substring filter.
-// wallpaperID (optional)  — when > 0, sets ContainsWallpaper on each
-//                           row by checking collection_wallpapers in a
-//                           single follow-up Pluck.
+// wallpaperID (optional)  — when > 0, sets ContainsWallpaper on each row by checking collection_wallpapers.
 // limit                   — clamped to [1, 100]; defaults to 8 when ≤ 0.
 func (r *CollectionRepo) ListUserCollections(ctx context.Context, userID int64, q string, wallpaperID int64, limit int) ([]CollectionBrief, error) {
 	if limit <= 0 {

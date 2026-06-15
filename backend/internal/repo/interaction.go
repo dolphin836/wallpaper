@@ -107,7 +107,7 @@ func (r *InteractionRepo) BatchIsFavorited(ctx context.Context, userID int64, wa
 	return result, nil
 }
 
-func (r *InteractionRepo) ListFavorites(ctx context.Context, userID int64, cursor int64, limit int) ([]model.Wallpaper, error) {
+func (r *InteractionRepo) ListFavorites(ctx context.Context, userID int64, cursor int64, limit int, filters WallpaperExclusionFilters) ([]model.Wallpaper, error) {
 	query := r.db.WithContext(ctx).
 		Table("wallpapers").
 		Select("wallpapers.id, wallpapers.slug, wallpapers.user_id, wallpapers.title, wallpapers.category_id, wallpapers.dominant_color, wallpapers.color_palette, wallpapers.is_ai_generated, wallpapers.thumb_url, wallpapers.preview_url, wallpapers.status, wallpapers.view_count, wallpapers.like_count, wallpapers.download_count, wallpapers.favorite_count, wallpapers.width, wallpapers.height, wallpapers.file_size, wallpapers.file_type, wallpapers.is_dynamic, wallpapers.dynamic_type, wallpapers.created_at").
@@ -117,6 +117,7 @@ func (r *InteractionRepo) ListFavorites(ctx context.Context, userID int64, curso
 	if cursor > 0 {
 		query = query.Where("wallpapers.id < ?", cursor)
 	}
+	query = filters.apply(query, "wallpapers")
 
 	var wallpapers []model.Wallpaper
 	err := query.Order("wallpapers.id DESC").Limit(limit).Find(&wallpapers).Error
@@ -178,13 +179,14 @@ func (r *InteractionRepo) ListDownloads(ctx context.Context, userID int64, curso
 	return wallpapers, err
 }
 
-func (r *InteractionRepo) CountFavorites(ctx context.Context, userID int64) (int64, error) {
+func (r *InteractionRepo) CountFavorites(ctx context.Context, userID int64, filters WallpaperExclusionFilters) (int64, error) {
 	var count int64
-	err := r.db.WithContext(ctx).
+	query := r.db.WithContext(ctx).
 		Table("user_favorites").
 		Joins("JOIN wallpapers ON wallpapers.id = user_favorites.wallpaper_id").
-		Where("user_favorites.user_id = ? AND wallpapers.status = ?", userID, model.WallpaperStatusPublished).
-		Count(&count).Error
+		Where("user_favorites.user_id = ? AND wallpapers.status = ?", userID, model.WallpaperStatusPublished)
+	query = filters.apply(query, "wallpapers")
+	err := query.Count(&count).Error
 	return count, err
 }
 
@@ -196,18 +198,14 @@ type DownloadFilters struct {
 	DeviceHeight   int
 	DynamicOnly    bool
 	IncludeDynamic bool
-	// ExcludeVideo hides video/* wallpapers — the mac client can't render
-	// them, so it asks the downloads list to drop any it pulled elsewhere.
-	ExcludeVideo bool
+	WallpaperExclusionFilters
 }
 
 // applyDownloadFilters narrows a wallpapers/user_downloads join by the
 // resolution / dynamic-only knobs. Same WHERE clauses as WallpaperRepo.List
 // so the two listings filter identically.
 func (r *InteractionRepo) applyDownloadFilters(query *gorm.DB, f DownloadFilters) *gorm.DB {
-	if f.ExcludeVideo {
-		query = query.Where("wallpapers.file_type NOT LIKE 'video/%'")
-	}
+	query = f.WallpaperExclusionFilters.apply(query, "wallpapers")
 	if f.DynamicOnly {
 		return query.Where("wallpapers.is_dynamic = true OR wallpapers.file_type LIKE 'video/%'")
 	}
@@ -237,17 +235,18 @@ func (r *InteractionRepo) CountDownloads(ctx context.Context, userID int64, filt
 	return count, err
 }
 
-func (r *InteractionRepo) CountLikes(ctx context.Context, userID int64) (int64, error) {
+func (r *InteractionRepo) CountLikes(ctx context.Context, userID int64, filters WallpaperExclusionFilters) (int64, error) {
 	var count int64
-	err := r.db.WithContext(ctx).
+	query := r.db.WithContext(ctx).
 		Table("user_likes").
 		Joins("JOIN wallpapers ON wallpapers.id = user_likes.wallpaper_id").
-		Where("user_likes.user_id = ? AND wallpapers.status = ?", userID, model.WallpaperStatusPublished).
-		Count(&count).Error
+		Where("user_likes.user_id = ? AND wallpapers.status = ?", userID, model.WallpaperStatusPublished)
+	query = filters.apply(query, "wallpapers")
+	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *InteractionRepo) ListLikes(ctx context.Context, userID int64, cursor int64, limit int) ([]model.Wallpaper, error) {
+func (r *InteractionRepo) ListLikes(ctx context.Context, userID int64, cursor int64, limit int, filters WallpaperExclusionFilters) ([]model.Wallpaper, error) {
 	query := r.db.WithContext(ctx).
 		Table("wallpapers").
 		Select("wallpapers.id, wallpapers.slug, wallpapers.user_id, wallpapers.title, wallpapers.category_id, wallpapers.dominant_color, wallpapers.color_palette, wallpapers.is_ai_generated, wallpapers.thumb_url, wallpapers.preview_url, wallpapers.status, wallpapers.view_count, wallpapers.like_count, wallpapers.download_count, wallpapers.favorite_count, wallpapers.width, wallpapers.height, wallpapers.file_size, wallpapers.file_type, wallpapers.is_dynamic, wallpapers.dynamic_type, wallpapers.created_at").
@@ -257,6 +256,7 @@ func (r *InteractionRepo) ListLikes(ctx context.Context, userID int64, cursor in
 	if cursor > 0 {
 		query = query.Where("wallpapers.id < ?", cursor)
 	}
+	query = filters.apply(query, "wallpapers")
 
 	var wallpapers []model.Wallpaper
 	err := query.Order("wallpapers.id DESC").Limit(limit).Find(&wallpapers).Error

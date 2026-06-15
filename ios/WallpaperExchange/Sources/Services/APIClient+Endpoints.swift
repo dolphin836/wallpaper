@@ -17,9 +17,9 @@ extension APIClient {
     func fetchSimilarWallpapers(wallpaperID: Int, limit: Int = 12) async throws -> [Wallpaper] {
         let resp: APIResponse<[Wallpaper]> = try await request(
             "/wallpapers/\(wallpaperID)/similar",
-            queryItems: [.init(name: "limit", value: String(limit))]
+            queryItems: applyingIOSWallpaperExclusions(to: [.init(name: "limit", value: String(limit))])
         )
-        return resp.data
+        return resp.data.filter(\.isUsableOnIOS)
     }
 
     // ─── Categories ──────────────────────────────────────────────
@@ -42,14 +42,14 @@ extension APIClient {
         limit: Int = 24,
         status: String? = nil
     ) async throws -> PaginatedData<Wallpaper> {
-        var items: [URLQueryItem] = []
+        var items = applyingIOSWallpaperExclusions(to: [])
         if let s = status, !s.isEmpty { items.append(.init(name: "status", value: s)) }
         items.append(.init(name: "limit", value: String(limit)))
         if let cursor {
             items.append(.init(name: "cursor", value: String(cursor)))
         }
         let resp: APIResponse<PaginatedData<Wallpaper>> = try await request("/users/\(username)/wallpapers", queryItems: items)
-        return resp.data
+        return resp.data.droppingLiveContent()
     }
 
     func fetchUserLikes(username: String, cursor: Int? = nil, limit: Int = 24) async throws -> PaginatedData<Wallpaper> {

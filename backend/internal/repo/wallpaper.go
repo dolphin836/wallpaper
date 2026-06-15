@@ -119,6 +119,24 @@ type ListOptions struct {
 	ExcludeVideo   bool
 }
 
+type WallpaperExclusionFilters struct {
+	ExcludeDynamic bool
+	ExcludeVideo   bool
+}
+
+func (f WallpaperExclusionFilters) apply(query *gorm.DB, qualifier string) *gorm.DB {
+	if qualifier != "" {
+		qualifier += "."
+	}
+	if f.ExcludeDynamic {
+		query = query.Where(qualifier + "is_dynamic = false")
+	}
+	if f.ExcludeVideo {
+		query = query.Where(qualifier + "file_type NOT LIKE 'video/%'")
+	}
+	return query
+}
+
 // applyListFilters applies every WHERE clause from ListOptions except the cursor.
 // Cursor is intentionally excluded so Count uses the full set, not just the current page slice.
 func (r *WallpaperRepo) applyListFilters(query *gorm.DB, opts ListOptions) *gorm.DB {
@@ -445,12 +463,14 @@ const similarCandidatePoolCap = 5000
 // published wallpapers except the target as SimilarCandidates. The ranker
 // walks this slice in memory — a join-free pass is simpler and faster than
 // building the score in SQL.
-func (r *WallpaperRepo) ListSimilarCandidates(ctx context.Context, excludeID int64) ([]SimilarCandidate, error) {
+func (r *WallpaperRepo) ListSimilarCandidates(ctx context.Context, excludeID int64, filters WallpaperExclusionFilters) ([]SimilarCandidate, error) {
 	var entries []SimilarCandidate
-	err := r.db.WithContext(ctx).
+	query := r.db.WithContext(ctx).
 		Model(&model.Wallpaper{}).
 		Select("id, dominant_color, category_id, phash").
-		Where("status = ? AND id <> ?", model.WallpaperStatusPublished, excludeID).
+		Where("status = ? AND id <> ?", model.WallpaperStatusPublished, excludeID)
+	query = filters.apply(query, "")
+	err := query.
 		Order("id DESC").
 		Limit(similarCandidatePoolCap).
 		Find(&entries).Error
@@ -460,7 +480,7 @@ func (r *WallpaperRepo) ListSimilarCandidates(ctx context.Context, excludeID int
 // ListPopularIDs returns top wallpapers by like+favorite+view weight,
 // excluding wallpapers the given user has already interacted with. Used as
 // a cold-start fallback when the user has no signals to score against.
-func (r *WallpaperRepo) ListPopularIDs(ctx context.Context, userID int64, limit int) ([]int64, error) {
+func (r *WallpaperRepo) ListPopularIDs(ctx context.Context, userID int64, limit int, filters WallpaperExclusionFilters) ([]int64, error) {
 	type row struct {
 		ID int64
 	}
@@ -473,13 +493,15 @@ func (r *WallpaperRepo) ListPopularIDs(ctx context.Context, userID int64, limit 
 			UNION
 			SELECT wallpaper_id FROM user_downloads WHERE user_id = ?
 		)
-		SELECT id
-		FROM wallpapers
-		WHERE status = ?
-		  AND id NOT IN (SELECT wallpaper_id FROM user_signals)
-		ORDER BY (like_count * 2 + favorite_count * 3 + view_count) DESC, created_at DESC
+		SELECT w.id
+		FROM wallpapers w
+		WHERE w.status = ?
+		  AND w.id NOT IN (SELECT wallpaper_id FROM user_signals)
+		  AND (? = false OR w.is_dynamic = false)
+		  AND (? = false OR w.file_type NOT LIKE 'video/%')
+		ORDER BY (w.like_count * 2 + w.favorite_count * 3 + w.view_count) DESC, w.created_at DESC
 		LIMIT ?
-	`, userID, userID, userID, model.WallpaperStatusPublished, limit).Scan(&rows).Error
+	`, userID, userID, userID, model.WallpaperStatusPublished, filters.ExcludeDynamic, filters.ExcludeVideo, limit).Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}
@@ -495,7 +517,7 @@ func (r *WallpaperRepo) ListPopularIDs(ctx context.Context, userID int64, limit 
 // Favorites count for 2, likes and downloads for 1; wallpapers the user has
 // already interacted with are excluded. Falls back to the empty slice when
 // the user has no signals yet — the caller can show popular in that case.
-func (r *WallpaperRepo) ListForYouIDs(ctx context.Context, userID int64, limit int) ([]int64, error) {
+func (r *WallpaperRepo) ListForYouIDs(ctx context.Context, userID int64, limit int, filters WallpaperExclusionFilters) ([]int64, error) {
 	type row struct {
 		WallpaperID int64
 	}
@@ -525,9 +547,11 @@ func (r *WallpaperRepo) ListForYouIDs(ctx context.Context, userID int64, limit i
 		FROM candidate_scores cs
 		JOIN wallpapers w ON w.id = cs.wallpaper_id
 		WHERE w.status = ?
+		  AND (? = false OR w.is_dynamic = false)
+		  AND (? = false OR w.file_type NOT LIKE 'video/%')
 		ORDER BY cs.tag_score DESC, w.created_at DESC
 		LIMIT ?
-	`, userID, userID, userID, model.WallpaperStatusPublished, limit).Scan(&rows).Error
+	`, userID, userID, userID, model.WallpaperStatusPublished, filters.ExcludeDynamic, filters.ExcludeVideo, limit).Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}

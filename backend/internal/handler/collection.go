@@ -335,7 +335,7 @@ func (h *CollectionHandler) ListWallpapers(w http.ResponseWriter, r *http.Reques
 		limit = v
 	}
 
-	resp, ec := h.collectionSvc.ListWallpapers(r.Context(), id, cursor, limit)
+	resp, ec := h.collectionSvc.ListWallpapers(r.Context(), id, cursor, limit, parseWallpaperExclusions(r))
 	if ec != nil {
 		response.Error(w, http.StatusInternalServerError, ec)
 		return

@@ -73,7 +73,8 @@ func (h *RecommendHandler) Similar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	candidates, err := h.wallpaperRepo.ListSimilarCandidates(r.Context(), id)
+	filters := parseWallpaperExclusions(r)
+	candidates, err := h.wallpaperRepo.ListSimilarCandidates(r.Context(), id, filters)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "similar: list candidates failed", "error", err)
 		response.OK(w, []model.Wallpaper{})
@@ -185,7 +186,8 @@ func (h *RecommendHandler) ForYou(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ids, err := h.wallpaperRepo.ListForYouIDs(r.Context(), userID, limit)
+	filters := parseWallpaperExclusions(r)
+	ids, err := h.wallpaperRepo.ListForYouIDs(r.Context(), userID, limit, filters)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "for-you: scoring query failed", "error", err)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
@@ -195,7 +197,7 @@ func (h *RecommendHandler) ForYou(w http.ResponseWriter, r *http.Request) {
 		// Cold-start: no interaction signals to score against. Fall back to
 		// most-engaged wallpapers (excluding any the user has touched) so
 		// the For-You feed always has content on first visit.
-		ids, err = h.wallpaperRepo.ListPopularIDs(r.Context(), userID, limit)
+		ids, err = h.wallpaperRepo.ListPopularIDs(r.Context(), userID, limit, filters)
 		if err != nil {
 			slog.ErrorContext(r.Context(), "for-you: popular fallback failed", "error", err)
 			response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
