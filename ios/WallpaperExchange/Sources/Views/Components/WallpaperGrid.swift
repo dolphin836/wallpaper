@@ -7,6 +7,8 @@ import SwiftUI
 struct WallpaperGrid: View {
     let wallpapers: [Wallpaper]
     var hasMore: Bool = false
+    var isLoading: Bool = false
+    var showsEndState: Bool = true
     var onLoadMore: (() -> Void)? = nil
 
     private var columns: (left: [Wallpaper], right: [Wallpaper]) {
@@ -26,17 +28,19 @@ struct WallpaperGrid: View {
 
     var body: some View {
         let split = columns
-        HStack(alignment: .top, spacing: 14) {
-            column(split.left)
-            column(split.right)
-        }
-        .padding(.horizontal, 14)
-        if hasMore, let onLoadMore {
-            // Sentinel below both columns — appearing means the user
-            // reached the grid's tail, so pull the next page.
-            Color.clear
-                .frame(height: 1)
-                .onAppear { onLoadMore() }
+        VStack(spacing: 12) {
+            HStack(alignment: .top, spacing: 14) {
+                column(split.left)
+                column(split.right)
+            }
+            .padding(.horizontal, 14)
+
+            PagingFooter(
+                isLoading: isLoading,
+                hasMore: hasMore,
+                showsEndState: showsEndState,
+                onLoadMore: onLoadMore
+            )
         }
     }
 
@@ -120,7 +124,7 @@ struct WallpaperTile: View {
                         MediaChip(text: "AI", tint: Color.accent.opacity(0.78))
                     }
                     if wallpaper.isDownloaded == true {
-                        MediaChip(text: "Saved", tint: Color.accentInk.opacity(0.72))
+                        MediaChip(text: L10n.strings(for: prefs.language).downloadedChip, tint: Color.accentInk.opacity(0.72))
                     }
                 }
                 .padding(7)
@@ -156,13 +160,66 @@ extension Color {
 
 // Shared inline states used by every paged list screen.
 struct LoadingFooter: View {
+    @Environment(UIPrefs.self) private var prefs
+    @State private var glow = false
+
     var body: some View {
-        HStack {
+        HStack(spacing: 8) {
             Spacer()
             ProgressView()
+                .controlSize(.small)
+            Text(L10n.strings(for: prefs.language).loadingMore)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(Color.muted)
             Spacer()
         }
+        .opacity(glow ? 1 : 0.62)
+        .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: glow)
+        .onAppear { glow = true }
         .padding(.vertical, 16)
+    }
+}
+
+struct PagingFooter: View {
+    let isLoading: Bool
+    let hasMore: Bool
+    var showsEndState = true
+    let onLoadMore: (() -> Void)?
+
+    @Environment(UIPrefs.self) private var prefs
+
+    var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
+        Group {
+            if isLoading {
+                LoadingFooter()
+            } else if hasMore, let onLoadMore {
+                Button(action: onLoadMore) {
+                    HStack(spacing: 7) {
+                        Image(systemName: "arrow.down.circle")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text(s.loadMore)
+                            .font(.caption.weight(.semibold))
+                    }
+                    .foregroundStyle(Color.accentInk)
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 8)
+                    .background(Color.paper2.opacity(0.76), in: Capsule())
+                    .overlay(Capsule().strokeBorder(Color.hair.opacity(0.8), lineWidth: 1))
+                }
+                .buttonStyle(.pressable)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                // Keep infinite scroll, but leave a visible manual affordance
+                // when the sentinel does not fire in a simulator or slow list.
+                .onAppear { onLoadMore() }
+            } else if showsEndState {
+                Kicker(text: s.allLoaded)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+            }
+        }
     }
 }
 
@@ -170,15 +227,19 @@ struct ErrorRetryView: View {
     let message: String
     let retry: () -> Void
 
+    @Environment(UIPrefs.self) private var prefs
+
     var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
         VStack(spacing: 10) {
-            Kicker(text: "Connection lost", tint: .warn)
+            Kicker(text: s.connectionLost, tint: .warn)
             Text(message)
                 .font(.footnote)
                 .foregroundStyle(Color.muted)
                 .multilineTextAlignment(.center)
             Button(action: retry) {
-                Text("Retry")
+                Text(s.retry)
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(Color.ink)
                     .padding(.horizontal, 18)

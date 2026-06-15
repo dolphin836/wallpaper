@@ -47,14 +47,8 @@ struct DiscoverView: View {
                             message: L10n.strings(for: prefs.language).noMatchesMessage
                         )
                     } else {
-                        WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore) {
+                        WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading) {
                             loadNextPage()
-                        }
-                        if loading { LoadingFooter() }
-                        if !hasMore {
-                            Kicker(text: L10n.strings(for: prefs.language).endOfArchive)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
                         }
                     }
                 }

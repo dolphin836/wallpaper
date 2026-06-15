@@ -16,6 +16,8 @@ struct WallpaperDetailView: View {
     @State private var isFavorited = false
     @State private var likeCount = 0
     @State private var favoriteCount = 0
+    @State private var downloadCount = 0
+    @State private var hasDownloaded = false
 
     enum DownloadState: Equatable {
         case idle
@@ -25,8 +27,10 @@ struct WallpaperDetailView: View {
         case failed(String)
     }
     @State private var downloadState: DownloadState = .idle
+    @State private var notice: DetailNotice?
     @State private var showAddToCollection = false
     @State private var showDevicePreview = false
+    @State private var showInfo = false
 
     var body: some View {
         ZStack {
@@ -45,10 +49,41 @@ struct WallpaperDetailView: View {
         .showNavBarCompat()
         .transparentNavBarCompat()
         .tint(Color.lightText)
+        .toolbar {
+            #if os(iOS)
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if detail != nil {
+                    Button {
+                        showInfo = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Color.lightText)
+                            .frame(width: 36, height: 36)
+                            .background(.black.opacity(0.30), in: Circle())
+                            .background(.ultraThinMaterial, in: Circle())
+                            .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1))
+                    }
+                    .buttonStyle(.pressable)
+                    .accessibilityLabel(L10n.strings(for: prefs.language).wallpaperInfo)
+                }
+            }
+            #endif
+        }
         .task(id: slug) { await load() }
         .sheet(isPresented: $showAddToCollection) {
             if let detail {
                 AddToCollectionSheet(wallpaperID: detail.id)
+            }
+        }
+        .sheet(isPresented: $showInfo) {
+            if let detail {
+                WallpaperInfoSheet(
+                    detail: detail,
+                    likeCount: likeCount,
+                    favoriteCount: favoriteCount,
+                    downloadCount: downloadCount
+                )
             }
         }
         .fullScreenCoverCompat(isPresented: $showDevicePreview) {
@@ -96,6 +131,14 @@ struct WallpaperDetailView: View {
     private func content(_ detail: WallpaperDetail) -> some View {
         VStack(spacing: 0) {
             Spacer()
+
+            if let notice {
+                DetailNoticeBanner(notice: notice)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
             bottomToolBar(detail)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 22)
@@ -155,8 +198,8 @@ struct WallpaperDetailView: View {
         case .idle:
             Button {
                 guard requireLogin() else { return }
-                downloadState = detail.isDownloaded == true ? .downloading : .confirming
-                if detail.isDownloaded == true {
+                downloadState = hasDownloaded ? .downloading : .confirming
+                if hasDownloaded {
                     startDownload(detail)
                 }
             } label: {
@@ -283,8 +326,8 @@ struct WallpaperDetailView: View {
         case .idle:
             Button {
                 guard requireLogin() else { return }
-                downloadState = detail.isDownloaded == true ? .downloading : .confirming
-                if detail.isDownloaded == true {
+                downloadState = hasDownloaded ? .downloading : .confirming
+                if hasDownloaded {
                     // Already purchased — re-download is free, skip confirm.
                     startDownload(detail)
                 }
@@ -366,10 +409,6 @@ struct WallpaperDetailView: View {
         .padding(.horizontal, 38)
     }
 
-    private func byteString(_ bytes: Int) -> String {
-        ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
-    }
-
     private var confirmingBinding: Binding<Bool> {
         Binding(
             get: { downloadState == .confirming },
@@ -423,17 +462,44 @@ struct WallpaperDetailView: View {
     }
 
     private func startDownload(_ detail: WallpaperDetail) {
+        let s = L10n.strings(for: prefs.language)
+        let wasDownloaded = hasDownloaded
         downloadState = .downloading
         Task {
             do {
                 let fileURL = try await APIClient.shared.getDownloadURL(wallpaperID: detail.id)
                 try await PhotoSaver.save(remoteURL: fileURL)
-                downloadState = .saved
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                    downloadState = .saved
+                    if !wasDownloaded {
+                        hasDownloaded = true
+                        downloadCount += 1
+                    }
+                }
+                showNotice(DetailNotice(kind: .success, title: s.savedToPhotosTitle, message: s.savedToPhotosMessage))
                 await auth.refreshCoins()
             } catch APIError.insufficientCoins {
-                downloadState = .failed(L10n.strings(for: prefs.language).notEnoughCoins)
+                downloadState = .failed(s.notEnoughCoins)
+                showNotice(DetailNotice(kind: .error, title: s.notEnoughCoins, message: s.coinHint))
+            } catch PhotoSaverError.accessDenied {
+                downloadState = .failed(s.downloadFailed)
+                showNotice(DetailNotice(kind: .error, title: s.downloadFailed, message: s.photoPermissionMessage))
             } catch {
-                downloadState = .failed(L10n.strings(for: prefs.language).downloadFailed)
+                downloadState = .failed(s.downloadFailed)
+                showNotice(DetailNotice(kind: .error, title: s.downloadFailed, message: s.downloadFailedMessage))
+            }
+        }
+    }
+
+    private func showNotice(_ nextNotice: DetailNotice) {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+            notice = nextNotice
+        }
+        Task {
+            try? await Task.sleep(nanoseconds: 3_200_000_000)
+            guard notice == nextNotice else { return }
+            withAnimation(.easeOut(duration: 0.22)) {
+                notice = nil
             }
         }
     }
@@ -450,12 +516,162 @@ struct WallpaperDetailView: View {
             detail = d
             isLiked = d.isLiked ?? false
             isFavorited = d.isFavorited ?? false
+            hasDownloaded = d.isDownloaded ?? false
             likeCount = d.likeCount
             favoriteCount = d.favoriteCount
+            downloadCount = d.downloadCount
             loadError = nil
         } catch {
             loadError = error.localizedDescription
         }
+    }
+}
+
+struct DetailNotice: Equatable {
+    enum Kind: Equatable {
+        case success
+        case error
+    }
+
+    let kind: Kind
+    let title: String
+    let message: String
+}
+
+private struct DetailNoticeBanner: View {
+    let notice: DetailNotice
+
+    private var icon: String {
+        switch notice.kind {
+        case .success: return "checkmark.circle.fill"
+        case .error: return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var tint: Color {
+        switch notice.kind {
+        case .success: return Color.accent
+        case .error: return Color.warn
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 26, height: 26)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(notice.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.lightText)
+                Text(notice.message)
+                    .font(.caption)
+                    .foregroundStyle(Color.lightText.opacity(0.72))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 11)
+        .background(.black.opacity(0.38), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+        )
+        .environment(\.colorScheme, .dark)
+    }
+}
+
+private struct WallpaperInfoSheet: View {
+    let detail: WallpaperDetail
+    let likeCount: Int
+    let favoriteCount: Int
+    let downloadCount: Int
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(UIPrefs.self) private var prefs
+
+    var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
+        NavigationStack {
+            List {
+                Section(s.wallpaperInfo) {
+                    infoRow(title: s.resolution, value: "\(detail.width) x \(detail.height)", icon: "rectangle.expand.vertical")
+                    infoRow(title: s.fileSizeLabel, value: fileSize, icon: "externaldrive")
+                    infoRow(title: s.fileTypeLabel, value: detail.fileType.uppercased(), icon: "doc")
+                    colorRow(title: s.dominantColorLabel, hex: detail.dominantColor)
+                }
+                Section(s.engagementStats) {
+                    statRow(title: s.likeStat, value: likeCount, icon: "heart")
+                    statRow(title: s.favoriteStat, value: favoriteCount, icon: "star")
+                    statRow(title: s.downloadStat, value: downloadCount, icon: "arrow.down.circle")
+                    statRow(title: s.viewStat, value: detail.viewCount, icon: "eye")
+                }
+            }
+            .navigationTitle(s.wallpaperInfo)
+            .inlineNavTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(s.done) { dismiss() }
+                }
+            }
+        }
+        .mediumSheetDetents()
+    }
+
+    private var fileSize: String {
+        guard detail.fileSize > 0 else { return "--" }
+        return ByteCountFormatter.string(fromByteCount: Int64(detail.fileSize), countStyle: .file)
+    }
+
+    private func infoRow(title: String, value: String, icon: String) -> some View {
+        HStack(spacing: 11) {
+            rowIcon(icon)
+            Text(title)
+            Spacer()
+            Text(value.isEmpty ? "--" : value)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+    }
+
+    private func colorRow(title: String, hex: String?) -> some View {
+        HStack(spacing: 11) {
+            rowIcon("paintpalette")
+            Text(title)
+            Spacer()
+            if let color = Color(hex: hex) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 18, height: 18)
+                    .overlay(Circle().strokeBorder(Color.hair, lineWidth: 1))
+            }
+            Text((hex?.isEmpty == false ? hex : nil) ?? "--")
+                .foregroundStyle(.secondary)
+                .font(.caption.monospaced())
+        }
+    }
+
+    private func statRow(title: String, value: Int, icon: String) -> some View {
+        HStack(spacing: 11) {
+            rowIcon(icon)
+            Text(title)
+            Spacer()
+            Text("\(value)")
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+    }
+
+    private func rowIcon(_ icon: String) -> some View {
+        Image(systemName: icon)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(Color.accentInk)
+            .frame(width: 25, height: 25)
+            .background(Color.accentSoft, in: Circle())
     }
 }
 

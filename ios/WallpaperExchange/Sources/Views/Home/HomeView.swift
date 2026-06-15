@@ -330,8 +330,7 @@ struct FilteredFeedView: View {
                 } else if wallpapers.isEmpty && loading {
                     WallpaperGridSkeleton(count: 8)
                 } else {
-                    WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore) { loadNextPage() }
-                    if loading { LoadingFooter() }
+                    WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading) { loadNextPage() }
                 }
             }
             .padding(.top, 8)

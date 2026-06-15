@@ -367,10 +367,9 @@ private struct AccountWallpaperListView: View {
                 } else if wallpapers.isEmpty {
                     EmptyStateView(kicker: kind.emptyTitle(s), message: kind.emptyMessage(s))
                 } else {
-                    WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore) {
+                    WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading) {
                         loadNextPage()
                     }
-                    if loading { LoadingFooter() }
                 }
             }
             .padding(.top, 12)
@@ -457,15 +456,9 @@ private struct AccountCollectionsListView: View {
                             .buttonStyle(.pressable)
                         }
 
-                        if hasMore {
-                            Color.clear
-                                .frame(height: 1)
-                                .onAppear { loadNextPage() }
-                        }
+                        PagingFooter(isLoading: loading, hasMore: hasMore, onLoadMore: loadNextPage)
                     }
                     .padding(.horizontal, 12)
-
-                    if loading { LoadingFooter() }
                 }
             }
             .padding(.top, 12)

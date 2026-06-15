@@ -70,14 +70,9 @@ struct CollectionsBrowser: View {
                                     }
                                     .buttonStyle(.pressable)
                                 }
-                                if hasMore {
-                                    Color.clear
-                                        .frame(height: 1)
-                                        .onAppear { loadNextPage() }
-                                }
+                                PagingFooter(isLoading: loading, hasMore: hasMore, onLoadMore: loadNextPage)
                             }
                             .padding(.horizontal, 12)
-                            if loading { LoadingFooter() }
                         }
                     }
                     .padding(.top, showsTopBar ? 8 : 8)
@@ -225,7 +220,7 @@ struct CollectionCard: View {
         let s = L10n.strings(for: UIPrefs.shared.language)
         var line = String(format: s.wallpapersCount, collection.wallpaperCount)
         if let likes = collection.likeCount, likes > 0 {
-            line += " · \(likes) likes"
+            line += " · \(likes) \(s.likeStat)"
         }
         return line
     }
@@ -256,8 +251,7 @@ struct CollectionDetailView: View {
                 } else if wallpapers.isEmpty {
                     EmptyStateView(kicker: "Empty shelf", message: L10n.strings(for: UIPrefs.shared.language).emptyCollection)
                 } else {
-                    WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore) { loadNextPage() }
-                    if loading { LoadingFooter() }
+                    WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading) { loadNextPage() }
                 }
             }
             .padding(.top, 8)

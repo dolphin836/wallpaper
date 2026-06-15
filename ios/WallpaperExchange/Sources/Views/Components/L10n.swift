@@ -85,12 +85,22 @@ struct AppStrings {
     let signOut: String
     let coins: String
     let coinHint: String
+    let loadingMore: String
+    let loadMore: String
+    let allLoaded: String
+    let connectionLost: String
+    let retry: String
     let preview: String
     let downloadOneCoin: String
     let saving: String
     let savedToPhotos: String
+    let downloadedChip: String
     let notEnoughCoins: String
     let downloadFailed: String
+    let savedToPhotosTitle: String
+    let savedToPhotosMessage: String
+    let downloadFailedMessage: String
+    let photoPermissionMessage: String
     let signInRequired: String
     let signInDetailMessage: String
     let ok: String
@@ -102,6 +112,16 @@ struct AppStrings {
     let myCollections: String
     let noCollectionsYet: String
     let done: String
+    let wallpaperInfo: String
+    let resolution: String
+    let fileSizeLabel: String
+    let fileTypeLabel: String
+    let dominantColorLabel: String
+    let engagementStats: String
+    let likeStat: String
+    let favoriteStat: String
+    let downloadStat: String
+    let viewStat: String
     let week: String
     let year: String
     let noMatches: String
@@ -235,12 +255,22 @@ enum L10n {
         signOut: "退出",
         coins: "金币",
         coinHint: "上传获得 1 枚，下载消耗 1 枚",
+        loadingMore: "正在加载更多…",
+        loadMore: "加载更多",
+        allLoaded: "已加载全部内容",
+        connectionLost: "连接中断",
+        retry: "重试",
         preview: "预览",
         downloadOneCoin: "下载 · 1 金币",
         saving: "保存中…",
         savedToPhotos: "已保存到照片",
+        downloadedChip: "已下载",
         notEnoughCoins: "金币不足",
         downloadFailed: "下载失败",
+        savedToPhotosTitle: "保存完成",
+        savedToPhotosMessage: "原图已保存到照片。你可以从照片或锁屏自定义里设置为壁纸。",
+        downloadFailedMessage: "暂时无法完成下载，请稍后重试。",
+        photoPermissionMessage: "没有照片写入权限。请在系统设置中允许 Wallpaper Exchange 添加照片。",
         signInRequired: "需要登录",
         signInDetailMessage: "请在我的页登录后再点赞、收藏或下载壁纸。",
         ok: "好的",
@@ -252,6 +282,16 @@ enum L10n {
         myCollections: "我的合集",
         noCollectionsYet: "还没有合集",
         done: "完成",
+        wallpaperInfo: "壁纸信息",
+        resolution: "分辨率",
+        fileSizeLabel: "大小",
+        fileTypeLabel: "格式",
+        dominantColorLabel: "主要颜色",
+        engagementStats: "互动数据",
+        likeStat: "喜欢",
+        favoriteStat: "收藏",
+        downloadStat: "下载",
+        viewStat: "浏览",
         week: "第 %d 周",
         year: "%d 年",
         noMatches: "没有匹配结果",
@@ -353,12 +393,22 @@ enum L10n {
         signOut: "登出",
         coins: "金幣",
         coinHint: "上傳獲得 1 枚，下載消耗 1 枚",
+        loadingMore: "正在載入更多…",
+        loadMore: "載入更多",
+        allLoaded: "已載入全部內容",
+        connectionLost: "連線中斷",
+        retry: "重試",
         preview: "預覽",
         downloadOneCoin: "下載 · 1 金幣",
         saving: "儲存中…",
         savedToPhotos: "已儲存到照片",
+        downloadedChip: "已下載",
         notEnoughCoins: "金幣不足",
         downloadFailed: "下載失敗",
+        savedToPhotosTitle: "儲存完成",
+        savedToPhotosMessage: "原圖已儲存到照片。你可以從照片或鎖定畫面自訂中設為桌布。",
+        downloadFailedMessage: "暫時無法完成下載，請稍後再試。",
+        photoPermissionMessage: "沒有照片寫入權限。請在系統設定中允許 Wallpaper Exchange 加入照片。",
         signInRequired: "需要登入",
         signInDetailMessage: "請在我的頁登入後再按讚、收藏或下載桌布。",
         ok: "好",
@@ -370,6 +420,16 @@ enum L10n {
         myCollections: "我的合集",
         noCollectionsYet: "還沒有合集",
         done: "完成",
+        wallpaperInfo: "桌布資訊",
+        resolution: "解析度",
+        fileSizeLabel: "大小",
+        fileTypeLabel: "格式",
+        dominantColorLabel: "主要顏色",
+        engagementStats: "互動數據",
+        likeStat: "喜歡",
+        favoriteStat: "收藏",
+        downloadStat: "下載",
+        viewStat: "瀏覽",
         week: "第 %d 週",
         year: "%d 年",
         noMatches: "沒有符合結果",
@@ -471,12 +531,22 @@ enum L10n {
         signOut: "ログアウト",
         coins: "コイン",
         coinHint: "アップロードで 1 枚獲得、ダウンロードで 1 枚使用",
+        loadingMore: "さらに読み込み中…",
+        loadMore: "もっと読み込む",
+        allLoaded: "すべて読み込みました",
+        connectionLost: "接続が切れました",
+        retry: "再試行",
         preview: "プレビュー",
         downloadOneCoin: "ダウンロード · 1 コイン",
         saving: "保存中…",
         savedToPhotos: "写真に保存済み",
+        downloadedChip: "入手済み",
         notEnoughCoins: "コイン不足",
         downloadFailed: "ダウンロード失敗",
+        savedToPhotosTitle: "保存しました",
+        savedToPhotosMessage: "元画像を写真に保存しました。写真アプリやロック画面のカスタマイズから壁紙に設定できます。",
+        downloadFailedMessage: "ダウンロードを完了できませんでした。しばらくしてからもう一度お試しください。",
+        photoPermissionMessage: "写真への保存権限がありません。設定で Wallpaper Exchange に写真の追加を許可してください。",
         signInRequired: "ログインが必要です",
         signInDetailMessage: "壁紙のいいね、保存、ダウンロードにはマイページからログインしてください。",
         ok: "OK",
@@ -488,6 +558,16 @@ enum L10n {
         myCollections: "自分のコレクション",
         noCollectionsYet: "コレクションはまだありません",
         done: "完了",
+        wallpaperInfo: "壁紙情報",
+        resolution: "解像度",
+        fileSizeLabel: "サイズ",
+        fileTypeLabel: "形式",
+        dominantColorLabel: "メインカラー",
+        engagementStats: "反応",
+        likeStat: "いいね",
+        favoriteStat: "保存",
+        downloadStat: "DL",
+        viewStat: "表示",
         week: "第 %d 週",
         year: "%d 年",
         noMatches: "一致する壁紙はありません",
@@ -589,12 +669,22 @@ enum L10n {
         signOut: "Sign Out",
         coins: "Coins",
         coinHint: "Earn 1 per upload, downloads cost 1",
+        loadingMore: "Loading more…",
+        loadMore: "Load more",
+        allLoaded: "Everything is loaded",
+        connectionLost: "Connection lost",
+        retry: "Retry",
         preview: "Preview",
         downloadOneCoin: "Download · 1 coin",
         saving: "Saving…",
         savedToPhotos: "Saved to Photos",
+        downloadedChip: "Saved",
         notEnoughCoins: "Not enough coins",
         downloadFailed: "Download failed",
+        savedToPhotosTitle: "Saved",
+        savedToPhotosMessage: "The original image was saved to Photos. Set it from Photos or lock-screen customization.",
+        downloadFailedMessage: "We could not finish this download. Please try again.",
+        photoPermissionMessage: "Photo access is not available. Allow Wallpaper Exchange to add photos in Settings.",
         signInRequired: "Sign in required",
         signInDetailMessage: "Log in from Me to like, favorite and download wallpapers.",
         ok: "OK",
@@ -606,6 +696,16 @@ enum L10n {
         myCollections: "My collections",
         noCollectionsYet: "No collections yet",
         done: "Done",
+        wallpaperInfo: "Wallpaper info",
+        resolution: "Resolution",
+        fileSizeLabel: "Size",
+        fileTypeLabel: "Type",
+        dominantColorLabel: "Dominant color",
+        engagementStats: "Engagement",
+        likeStat: "Likes",
+        favoriteStat: "Favorites",
+        downloadStat: "Downloads",
+        viewStat: "Views",
         week: "Week %d",
         year: "%d",
         noMatches: "No matches",

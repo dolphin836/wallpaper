@@ -212,8 +212,7 @@ struct LibrarySection: View {
             } else if wallpapers.isEmpty {
                 EmptyStateView(kicker: "Nothing here yet", message: emptyMessage)
             } else {
-                WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore) { loadNextPage() }
-                if loading { LoadingFooter() }
+                WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading) { loadNextPage() }
             }
         }
         .task { if wallpapers.isEmpty { reload() } }
@@ -419,9 +418,13 @@ struct CoinLedgerSheet: View {
                             .foregroundStyle(tx.amount > 0 ? .green : .red)
                     }
                 }
-                if hasMore {
-                    LoadingFooter()
-                        .onAppear { loadNextPage() }
+                if hasMore || loading {
+                    PagingFooter(
+                        isLoading: loading,
+                        hasMore: hasMore,
+                        showsEndState: false,
+                        onLoadMore: loadNextPage
+                    )
                 }
             }
             .navigationTitle("Coin History")
