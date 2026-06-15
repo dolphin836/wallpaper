@@ -71,7 +71,7 @@ struct ArchiveTopBar: View {
             .overlay(Circle().strokeBorder(Color.hair, lineWidth: 1))
         }
         .buttonStyle(.pressable)
-        .accessibilityLabel(L10n.strings(for: prefs.language).favorites)
+        .accessibilityLabel(L10n.strings(for: prefs.language).me)
     }
 
     private var avatarFallback: some View {

@@ -9,17 +9,10 @@ struct FavoritesView: View {
     @State private var showCoinLedger = false
     @State private var showUpload = false
 
-    @State private var wallpapers: [Wallpaper] = []
-    @State private var cursor: Int?
-    @State private var hasMore = true
-    @State private var loading = false
-    @State private var loadError: String?
-    @State private var loadGeneration = 0
-
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                ArchiveTopBar(title: L10n.strings(for: prefs.language).favorites)
+                ArchiveTopBar(title: L10n.strings(for: prefs.language).me)
                 Group {
                     if auth.isLoggedIn, let user = auth.user {
                         signedIn(user)
@@ -37,6 +30,9 @@ struct FavoritesView: View {
             .navigationDestination(for: WallpaperRoute.self) { route in
                 WallpaperDetailView(slug: route.slug)
             }
+            .navigationDestination(for: CollectionItem.self) { collection in
+                CollectionDetailView(collection: collection)
+            }
             .sheet(isPresented: $showEditProfile) { EditProfileSheet() }
             .sheet(isPresented: $showChangePassword) { ChangePasswordSheet() }
             .sheet(isPresented: $showCoinLedger) { CoinLedgerSheet() }
@@ -45,12 +41,6 @@ struct FavoritesView: View {
             }
             .refreshable {
                 await auth.refreshProfile()
-                reload()
-            }
-            .task(id: auth.user?.username ?? "") {
-                if auth.isLoggedIn, wallpapers.isEmpty {
-                    reload()
-                }
             }
         }
     }
@@ -58,7 +48,7 @@ struct FavoritesView: View {
     private var signedOut: some View {
         VStack(spacing: 16) {
             Spacer(minLength: 40)
-            Image(systemName: "heart.circle")
+            Image(systemName: "person.crop.circle")
                 .font(.system(size: 58, weight: .light))
                 .foregroundStyle(Color.muted)
             Text(L10n.strings(for: prefs.language).signInFavorites)
@@ -89,8 +79,10 @@ struct FavoritesView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 profileCard(user)
+                AccountNavigationCard(user: user) {
+                    showCoinLedger = true
+                }
                 PreferencesCard()
-                favoritesSection(user)
             }
             .padding(.top, 8)
             .padding(.bottom, 10)
@@ -162,7 +154,6 @@ struct FavoritesView: View {
                 }
                 profileAction(L10n.strings(for: prefs.language).signOut, icon: "rectangle.portrait.and.arrow.right") {
                     auth.logout()
-                    wallpapers = []
                 }
             }
         }
@@ -196,27 +187,202 @@ struct FavoritesView: View {
         }
         .buttonStyle(.pressable)
     }
+}
 
-    private func favoritesSection(_ user: User) -> some View {
+private enum AccountWallpaperListKind: String {
+    case downloads
+    case favorites
+    case likes
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .downloads: return "arrow.down.circle"
+        case .favorites: return "heart"
+        case .likes: return "hand.thumbsup"
+        }
+    }
+
+    func title(_ s: AppStrings) -> String {
+        switch self {
+        case .downloads: return s.myDownloads
+        case .favorites: return s.favorites
+        case .likes: return s.myLikes
+        }
+    }
+
+    func emptyTitle(_ s: AppStrings) -> String {
+        switch self {
+        case .downloads: return s.emptyDownloadsTitle
+        case .favorites: return s.emptyFavoritesTitle
+        case .likes: return s.emptyLikesTitle
+        }
+    }
+
+    func emptyMessage(_ s: AppStrings) -> String {
+        switch self {
+        case .downloads: return s.emptyDownloadsMessage
+        case .favorites: return s.emptyFavoritesMessage
+        case .likes: return s.emptyLikesMessage
+        }
+    }
+
+    func fetch(username: String, cursor: Int?) async throws -> PaginatedData<Wallpaper> {
+        switch self {
+        case .downloads:
+            return try await APIClient.shared.fetchUserDownloads(username: username, cursor: cursor)
+        case .favorites:
+            return try await APIClient.shared.fetchUserFavorites(username: username, cursor: cursor)
+        case .likes:
+            return try await APIClient.shared.fetchUserLikes(username: username, cursor: cursor)
+        }
+    }
+}
+
+private struct AccountNavigationCard: View {
+    @Environment(UIPrefs.self) private var prefs
+
+    let user: User
+    let showCoinLedger: () -> Void
+
+    var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
         VStack(alignment: .leading, spacing: 10) {
-            SectionHeader(kicker: L10n.strings(for: prefs.language).favorites, title: L10n.strings(for: prefs.language).favorites)
-                .padding(.horizontal, 12)
+            SectionHeader(kicker: s.accountKicker, title: s.accountLibraryTitle)
 
-            if let loadError, wallpapers.isEmpty {
-                ErrorRetryView(message: loadError) { reload() }
-            } else if wallpapers.isEmpty && loading {
-                WallpaperGridSkeleton(count: 6)
-            } else if wallpapers.isEmpty {
-                EmptyStateView(
-                    kicker: L10n.strings(for: prefs.language).emptyFavoritesTitle,
-                    message: L10n.strings(for: prefs.language).emptyFavoritesMessage
-                )
-            } else {
-                WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore) {
-                    loadNextPage(username: user.username)
+            VStack(spacing: 0) {
+                NavigationLink {
+                    AccountWallpaperListView(kind: .downloads, username: user.username)
+                } label: {
+                    navRow(title: s.myDownloads, icon: "arrow.down.circle", tint: Color.blue)
                 }
-                if loading { LoadingFooter() }
+                .buttonStyle(.pressable)
+
+                rowDivider
+
+                NavigationLink {
+                    AccountWallpaperListView(kind: .favorites, username: user.username)
+                } label: {
+                    navRow(title: s.favorites, icon: "heart", tint: Color.pink)
+                }
+                .buttonStyle(.pressable)
+
+                rowDivider
+
+                NavigationLink {
+                    AccountWallpaperListView(kind: .likes, username: user.username)
+                } label: {
+                    navRow(title: s.myLikes, icon: "hand.thumbsup", tint: Color.green)
+                }
+                .buttonStyle(.pressable)
+
+                rowDivider
+
+                NavigationLink {
+                    AccountCollectionsListView(username: user.username)
+                } label: {
+                    navRow(title: s.myCollections, icon: "rectangle.stack", tint: Color.orange)
+                }
+                .buttonStyle(.pressable)
+
+                rowDivider
+
+                Button(action: showCoinLedger) {
+                    navRow(title: s.myCoins, icon: "creditcard", tint: Color.accent, detail: "\(user.coins)")
+                }
+                .buttonStyle(.pressable)
             }
+            .background(Color.paper2, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.hair, lineWidth: 1)
+            )
+        }
+        .padding(.horizontal, 12)
+    }
+
+    private var rowDivider: some View {
+        Divider()
+            .padding(.leading, 50)
+    }
+
+    private func navRow(title: String, icon: String, tint: Color, detail: String? = nil) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 28, height: 28)
+                .background(tint.opacity(0.12), in: Circle())
+
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+
+            Spacer(minLength: 10)
+
+            if let detail {
+                Text(detail)
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(Color.muted)
+            }
+
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.muted)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 52)
+    }
+}
+
+private struct AccountWallpaperListView: View {
+    let kind: AccountWallpaperListKind
+    let username: String
+
+    @Environment(UIPrefs.self) private var prefs
+
+    @State private var wallpapers: [Wallpaper] = []
+    @State private var cursor: Int?
+    @State private var hasMore = true
+    @State private var loading = false
+    @State private var loadError: String?
+    @State private var loadGeneration = 0
+
+    var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionHeader(kicker: s.accountKicker, title: kind.title(s))
+                    .padding(.horizontal, 12)
+
+                if let loadError, wallpapers.isEmpty {
+                    ErrorRetryView(message: loadError) { reload() }
+                } else if wallpapers.isEmpty && loading {
+                    WallpaperGridSkeleton(count: 8)
+                } else if wallpapers.isEmpty {
+                    EmptyStateView(kicker: kind.emptyTitle(s), message: kind.emptyMessage(s))
+                } else {
+                    WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore) {
+                        loadNextPage()
+                    }
+                    if loading { LoadingFooter() }
+                }
+            }
+            .padding(.top, 12)
+            .padding(.bottom, 28)
+        }
+        .background(Color.paper)
+        .navigationTitle(kind.title(s))
+        .inlineNavTitle()
+        .showNavBarCompat()
+        .refreshable { reload() }
+        .task(id: "\(username)-\(kind.id)") {
+            if wallpapers.isEmpty { reload() }
         }
     }
 
@@ -226,19 +392,17 @@ struct FavoritesView: View {
         cursor = nil
         hasMore = true
         loadError = nil
-        if let username = auth.user?.username {
-            loadNextPage(username: username)
-        }
+        loadNextPage()
     }
 
-    private func loadNextPage(username: String) {
+    private func loadNextPage() {
         guard !loading, hasMore else { return }
         let generation = loadGeneration
         loading = true
         Task {
             defer { loading = false }
             do {
-                let page = try await APIClient.shared.fetchUserFavorites(username: username, cursor: cursor)
+                let page = try await kind.fetch(username: username, cursor: cursor)
                 guard generation == loadGeneration else { return }
                 wallpapers.append(contentsOf: page.items)
                 cursor = page.nextCursor
@@ -247,6 +411,101 @@ struct FavoritesView: View {
             } catch {
                 guard generation == loadGeneration else { return }
                 if wallpapers.isEmpty { loadError = error.localizedDescription }
+                hasMore = false
+            }
+        }
+    }
+}
+
+private struct AccountCollectionsListView: View {
+    let username: String
+
+    @Environment(UIPrefs.self) private var prefs
+
+    @State private var collections: [CollectionItem] = []
+    @State private var cursor: Int?
+    @State private var hasMore = true
+    @State private var loading = false
+    @State private var loadError: String?
+    @State private var loadGeneration = 0
+
+    var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionHeader(kicker: s.accountKicker, title: s.myCollections)
+                    .padding(.horizontal, 12)
+
+                if let loadError, collections.isEmpty {
+                    ErrorRetryView(message: loadError) { reload() }
+                } else if collections.isEmpty && loading {
+                    VStack(spacing: 12) {
+                        ForEach(0..<3, id: \.self) { _ in
+                            SkeletonBlock(radius: 14).frame(height: 160)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                } else if collections.isEmpty {
+                    EmptyStateView(kicker: s.noCollectionsYet, message: s.emptyCollectionsMessage)
+                } else {
+                    LazyVStack(spacing: 12) {
+                        ForEach(collections) { collection in
+                            NavigationLink(value: collection) {
+                                CollectionCard(collection: collection, height: 172)
+                            }
+                            .buttonStyle(.pressable)
+                        }
+
+                        if hasMore {
+                            Color.clear
+                                .frame(height: 1)
+                                .onAppear { loadNextPage() }
+                        }
+                    }
+                    .padding(.horizontal, 12)
+
+                    if loading { LoadingFooter() }
+                }
+            }
+            .padding(.top, 12)
+            .padding(.bottom, 28)
+        }
+        .background(Color.paper)
+        .navigationTitle(s.myCollections)
+        .inlineNavTitle()
+        .showNavBarCompat()
+        .refreshable { reload() }
+        .task(id: username) {
+            if collections.isEmpty { reload() }
+        }
+    }
+
+    private func reload() {
+        loadGeneration += 1
+        collections = []
+        cursor = nil
+        hasMore = true
+        loadError = nil
+        loadNextPage()
+    }
+
+    private func loadNextPage() {
+        guard !loading, hasMore else { return }
+        let generation = loadGeneration
+        loading = true
+        Task {
+            defer { loading = false }
+            do {
+                let page = try await APIClient.shared.fetchUserCollections(idOrUsername: username, cursor: cursor)
+                guard generation == loadGeneration else { return }
+                collections.append(contentsOf: page.items)
+                cursor = page.nextCursor
+                hasMore = page.hasMore
+                loadError = nil
+            } catch {
+                guard generation == loadGeneration else { return }
+                if collections.isEmpty { loadError = error.localizedDescription }
                 hasMore = false
             }
         }

@@ -6,6 +6,12 @@ struct AppStrings {
     let weekly: String
     let collections: String
     let favorites: String
+    let me: String
+    let accountKicker: String
+    let accountLibraryTitle: String
+    let myDownloads: String
+    let myLikes: String
+    let myCoins: String
     let viewAll: String
     let seeMore: String
     let latestWallpapers: String
@@ -22,6 +28,11 @@ struct AppStrings {
     let emptyCollection: String
     let emptyFavoritesTitle: String
     let emptyFavoritesMessage: String
+    let emptyDownloadsTitle: String
+    let emptyDownloadsMessage: String
+    let emptyLikesTitle: String
+    let emptyLikesMessage: String
+    let emptyCollectionsMessage: String
     let signInFavorites: String
     let signInRegister: String
     let authSignInTitle: String
@@ -145,6 +156,12 @@ enum L10n {
         weekly: "每周推荐",
         collections: "合集",
         favorites: "我的收藏",
+        me: "我的",
+        accountKicker: "个人空间",
+        accountLibraryTitle: "我的内容",
+        myDownloads: "我的下载",
+        myLikes: "我的喜欢",
+        myCoins: "我的金币",
         viewAll: "查看全部",
         seeMore: "查看更多",
         latestWallpapers: "最新壁纸",
@@ -161,6 +178,11 @@ enum L10n {
         emptyCollection: "这个合集还没有壁纸。",
         emptyFavoritesTitle: "还没有收藏",
         emptyFavoritesMessage: "你收藏的壁纸会出现在这里。",
+        emptyDownloadsTitle: "还没有下载",
+        emptyDownloadsMessage: "你下载过的壁纸会出现在这里。",
+        emptyLikesTitle: "还没有喜欢",
+        emptyLikesMessage: "你喜欢过的壁纸会出现在这里。",
+        emptyCollectionsMessage: "你创建或收藏的合集会出现在这里。",
         signInFavorites: "登录后查看和管理你的收藏、下载与个人设置。",
         signInRegister: "登录 / 注册",
         authSignInTitle: "登录",
@@ -220,7 +242,7 @@ enum L10n {
         notEnoughCoins: "金币不足",
         downloadFailed: "下载失败",
         signInRequired: "需要登录",
-        signInDetailMessage: "请在我的收藏页登录后再点赞、收藏或下载壁纸。",
+        signInDetailMessage: "请在我的页登录后再点赞、收藏或下载壁纸。",
         ok: "好的",
         cancel: "取消",
         addToCollection: "加入合集",
@@ -252,6 +274,12 @@ enum L10n {
         weekly: "每週推薦",
         collections: "合集",
         favorites: "我的收藏",
+        me: "我的",
+        accountKicker: "個人空間",
+        accountLibraryTitle: "我的內容",
+        myDownloads: "我的下載",
+        myLikes: "我的喜歡",
+        myCoins: "我的金幣",
         viewAll: "查看全部",
         seeMore: "查看更多",
         latestWallpapers: "最新桌布",
@@ -268,6 +296,11 @@ enum L10n {
         emptyCollection: "這個合集還沒有桌布。",
         emptyFavoritesTitle: "還沒有收藏",
         emptyFavoritesMessage: "你收藏的桌布會出現在這裡。",
+        emptyDownloadsTitle: "還沒有下載",
+        emptyDownloadsMessage: "你下載過的桌布會出現在這裡。",
+        emptyLikesTitle: "還沒有喜歡",
+        emptyLikesMessage: "你喜歡過的桌布會出現在這裡。",
+        emptyCollectionsMessage: "你建立或收藏的合集會出現在這裡。",
         signInFavorites: "登入後查看和管理你的收藏、下載與個人設定。",
         signInRegister: "登入 / 註冊",
         authSignInTitle: "登入",
@@ -327,7 +360,7 @@ enum L10n {
         notEnoughCoins: "金幣不足",
         downloadFailed: "下載失敗",
         signInRequired: "需要登入",
-        signInDetailMessage: "請在我的收藏頁登入後再按讚、收藏或下載桌布。",
+        signInDetailMessage: "請在我的頁登入後再按讚、收藏或下載桌布。",
         ok: "好",
         cancel: "取消",
         addToCollection: "加入合集",
@@ -359,6 +392,12 @@ enum L10n {
         weekly: "週間おすすめ",
         collections: "コレクション",
         favorites: "お気に入り",
+        me: "マイページ",
+        accountKicker: "パーソナル",
+        accountLibraryTitle: "マイライブラリ",
+        myDownloads: "ダウンロード",
+        myLikes: "いいね",
+        myCoins: "コイン",
         viewAll: "すべて見る",
         seeMore: "もっと見る",
         latestWallpapers: "新着壁紙",
@@ -375,6 +414,11 @@ enum L10n {
         emptyCollection: "このコレクションにはまだ壁紙がありません。",
         emptyFavoritesTitle: "お気に入りはまだありません",
         emptyFavoritesMessage: "お気に入りにした壁紙がここに表示されます。",
+        emptyDownloadsTitle: "ダウンロードはまだありません",
+        emptyDownloadsMessage: "ダウンロードした壁紙がここに表示されます。",
+        emptyLikesTitle: "いいねはまだありません",
+        emptyLikesMessage: "いいねした壁紙がここに表示されます。",
+        emptyCollectionsMessage: "作成または保存したコレクションがここに表示されます。",
         signInFavorites: "ログインするとお気に入り、ダウンロード、設定を管理できます。",
         signInRegister: "ログイン / 登録",
         authSignInTitle: "ログイン",
@@ -434,7 +478,7 @@ enum L10n {
         notEnoughCoins: "コイン不足",
         downloadFailed: "ダウンロード失敗",
         signInRequired: "ログインが必要です",
-        signInDetailMessage: "壁紙のいいね、保存、ダウンロードにはお気に入りタブからログインしてください。",
+        signInDetailMessage: "壁紙のいいね、保存、ダウンロードにはマイページからログインしてください。",
         ok: "OK",
         cancel: "キャンセル",
         addToCollection: "コレクションに追加",
@@ -466,6 +510,12 @@ enum L10n {
         weekly: "Weekly",
         collections: "Collections",
         favorites: "Favorites",
+        me: "Me",
+        accountKicker: "Personal space",
+        accountLibraryTitle: "My library",
+        myDownloads: "My downloads",
+        myLikes: "My likes",
+        myCoins: "My coins",
         viewAll: "View all",
         seeMore: "See more",
         latestWallpapers: "Latest Wallpapers",
@@ -482,6 +532,11 @@ enum L10n {
         emptyCollection: "This collection has no wallpapers yet.",
         emptyFavoritesTitle: "No favorites yet",
         emptyFavoritesMessage: "Wallpapers you favorite will appear here.",
+        emptyDownloadsTitle: "No downloads yet",
+        emptyDownloadsMessage: "Wallpapers you download will appear here.",
+        emptyLikesTitle: "No likes yet",
+        emptyLikesMessage: "Wallpapers you like will appear here.",
+        emptyCollectionsMessage: "Collections you create or save will appear here.",
         signInFavorites: "Sign in to manage your favorites, downloads and preferences.",
         signInRegister: "Sign In / Register",
         authSignInTitle: "Sign in",
@@ -541,7 +596,7 @@ enum L10n {
         notEnoughCoins: "Not enough coins",
         downloadFailed: "Download failed",
         signInRequired: "Sign in required",
-        signInDetailMessage: "Log in from Favorites to like, favorite and download wallpapers.",
+        signInDetailMessage: "Log in from Me to like, favorite and download wallpapers.",
         ok: "OK",
         cancel: "Cancel",
         addToCollection: "Add to Collection",
