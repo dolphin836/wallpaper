@@ -165,6 +165,9 @@ struct ProfileView: View {
             .inlineNavTitle()
             .hideNavBarCompat()
             .hideTabBarCompat()
+            .navigationDestination(for: WallpaperRoute.self) { route in
+                WallpaperDetailView(slug: route.slug, initialWallpaper: route.initialWallpaper)
+            }
             .navigationDestination(for: CollectionItem.self) { collection in
                 CollectionDetailView(collection: collection)
             }
@@ -625,7 +628,7 @@ private struct AccountWallpaperListView: View {
                 } else if wallpapers.isEmpty {
                     EmptyStateView(kicker: kind.emptyTitle(s), message: kind.emptyMessage(s))
                 } else {
-                    WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading) {
+                    AccountWallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading) {
                         loadNextPage()
                     }
                 }
@@ -670,6 +673,41 @@ private struct AccountWallpaperListView: View {
                 if wallpapers.isEmpty { loadError = error.localizedDescription }
                 hasMore = false
             }
+        }
+    }
+}
+
+private struct AccountWallpaperGrid: View {
+    let wallpapers: [Wallpaper]
+    var hasMore: Bool
+    var isLoading: Bool
+    let onLoadMore: () -> Void
+
+    private let gridColumns = [
+        GridItem(.flexible(), spacing: 14),
+        GridItem(.flexible(), spacing: 14),
+    ]
+
+    var body: some View {
+        VStack(spacing: 12) {
+            LazyVGrid(columns: gridColumns, spacing: 14) {
+                ForEach(wallpapers) { wallpaper in
+                    NavigationLink(value: WallpaperRoute(slug: wallpaper.slug, initialWallpaper: wallpaper)) {
+                        WallpaperTile(wallpaper: wallpaper)
+                            .frame(maxWidth: .infinity)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.pressable)
+                }
+            }
+            .padding(.horizontal, 14)
+
+            PagingFooter(
+                isLoading: isLoading,
+                hasMore: hasMore,
+                showsEndState: false,
+                onLoadMore: onLoadMore
+            )
         }
     }
 }

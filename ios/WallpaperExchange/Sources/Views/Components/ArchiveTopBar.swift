@@ -1,5 +1,23 @@
 import SwiftUI
 
+@MainActor
+@Observable
+final class ProfileRouter {
+    static let shared = ProfileRouter()
+
+    var isPresented = false
+
+    private init() {}
+
+    func present() {
+        isPresented = true
+    }
+
+    func dismiss() {
+        isPresented = false
+    }
+}
+
 // Shared top toolbar for the root tabs: avatar/profile access on the left,
 // the page's title in the middle, and the global lock-screen-preview toggle
 // on the right. Modal profile pages can swap the right action for close.
@@ -10,7 +28,7 @@ struct ArchiveTopBar: View {
 
     @Environment(UIPrefs.self) private var prefs
     @Environment(AuthService.self) private var auth
-    @State private var showProfile = false
+    @Environment(ProfileRouter.self) private var profileRouter
 
     var body: some View {
         HStack(spacing: 10) {
@@ -49,17 +67,12 @@ struct ArchiveTopBar: View {
         .padding(.horizontal, 12)
         .padding(.top, 6)
         .padding(.bottom, 8)
-        .fullScreenCoverCompat(isPresented: $showProfile) {
-            ProfileView {
-                showProfile = false
-            }
-        }
     }
 
     private var avatarButton: some View {
         Button {
             guard opensProfile else { return }
-            showProfile = true
+            profileRouter.present()
         } label: {
             ZStack {
                 if let user = auth.user, !user.avatarURL.isEmpty {

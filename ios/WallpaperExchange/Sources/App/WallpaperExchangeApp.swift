@@ -47,6 +47,7 @@ struct RootTabView: View {
 
     @State private var router = TabRouter.shared
     @State private var detailRouter = WallpaperDetailRouter.shared
+    @State private var profileRouter = ProfileRouter.shared
     @State private var debugDetailSlug = LaunchOptions.detailSlug
     @State private var debugDetailPath = NavigationPath()
     @State private var debugDetailWasPushed = false
@@ -69,8 +70,8 @@ struct RootTabView: View {
                 FavoritesView()
                     .tag(4)
             }
-            .allowsHitTesting(detailRouter.route == nil)
-            .accessibilityHidden(detailRouter.route != nil)
+            .allowsHitTesting(detailRouter.route == nil && !profileRouter.isPresented)
+            .accessibilityHidden(detailRouter.route != nil || profileRouter.isPresented)
 
             if let route = detailRouter.route {
                 NavigationStack {
@@ -89,10 +90,23 @@ struct RootTabView: View {
                 ))
                 .zIndex(10)
             }
+
+            if profileRouter.isPresented {
+                ProfileView {
+                    profileRouter.dismiss()
+                }
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal: .move(edge: .trailing).combined(with: .opacity)
+                ))
+                .zIndex(20)
+            }
         }
         .environment(router)
         .environment(detailRouter)
+        .environment(profileRouter)
         .animation(.spring(response: 0.34, dampingFraction: 0.88), value: detailRouter.route)
+        .animation(.spring(response: 0.34, dampingFraction: 0.88), value: profileRouter.isPresented)
         // Screenshot-automation overlays (LaunchOptions args only). The
         // detail route is pushed (not shown as a root) so the screenshots
         // exercise the same back-button context users navigate in.
