@@ -9,6 +9,7 @@ struct AppStrings {
     let me: String
     let accountKicker: String
     let accountLibraryTitle: String
+    let myUploads: String
     let myDownloads: String
     let myLikes: String
     let myCoins: String
@@ -25,7 +26,12 @@ struct AppStrings {
     let pastWeeks: String
     let collectionListTitle: String
     let collectionListKicker: String
+    let collectionTheme: String
+    let collectionShelf: String
+    let emptyShelf: String
     let emptyCollection: String
+    let emptyLibraryTitle: String
+    let emptyUploadsMessage: String
     let emptyFavoritesTitle: String
     let emptyFavoritesMessage: String
     let emptyDownloadsTitle: String
@@ -81,10 +87,21 @@ struct AppStrings {
     let uploadRuleResolution: String
     let uploadRuleReview: String
     let editProfile: String
+    let avatar: String
+    let chooseNewAvatar: String
+    let profile: String
+    let nickname: String
+    let bio: String
+    let save: String
     let password: String
+    let changePassword: String
+    let currentPassword: String
+    let newPassword: String
+    let confirmNewPassword: String
     let signOut: String
     let coins: String
     let coinHint: String
+    let coinHistory: String
     let loadingMore: String
     let loadMore: String
     let allLoaded: String
@@ -133,6 +150,8 @@ struct AppStrings {
     let popular: String
     let forYou: String
     let ai: String
+    let aiWallpapers: String
+    let tapToToggleLockScreen: String
     let system: String
     let light: String
     let dark: String
@@ -170,6 +189,72 @@ enum L10n {
         }
     }
 
+    static func categoryName(_ category: Category, language: AppLanguage) -> String {
+        categoryName(slug: category.slug, fallback: category.name, language: language)
+    }
+
+    static func categoryName(slug: String, fallback: String, language: AppLanguage) -> String {
+        let normalized = slug.lowercased()
+        switch language.resolved {
+        case .zhHans, .system:
+            switch normalized {
+            case "nature": return "自然"
+            case "city": return "城市"
+            case "anime": return "动漫"
+            case "abstract": return "抽象"
+            case "minimal": return "极简"
+            case "tech", "technology": return "科技"
+            case "animal", "animals": return "动物"
+            case "space": return "太空"
+            case "game", "games": return "游戏"
+            case "other": return "其他"
+            default: return fallback
+            }
+        case .zhHant:
+            switch normalized {
+            case "nature": return "自然"
+            case "city": return "城市"
+            case "anime": return "動漫"
+            case "abstract": return "抽象"
+            case "minimal": return "極簡"
+            case "tech", "technology": return "科技"
+            case "animal", "animals": return "動物"
+            case "space": return "太空"
+            case "game", "games": return "遊戲"
+            case "other": return "其他"
+            default: return fallback
+            }
+        case .ja:
+            switch normalized {
+            case "nature": return "自然"
+            case "city": return "都市"
+            case "anime": return "アニメ"
+            case "abstract": return "抽象"
+            case "minimal": return "ミニマル"
+            case "tech", "technology": return "テック"
+            case "animal", "animals": return "動物"
+            case "space": return "宇宙"
+            case "game", "games": return "ゲーム"
+            case "other": return "その他"
+            default: return fallback
+            }
+        case .en:
+            switch normalized {
+            case "nature": return "Nature"
+            case "city": return "City"
+            case "anime": return "Anime"
+            case "abstract": return "Abstract"
+            case "minimal": return "Minimal"
+            case "tech", "technology": return "Tech"
+            case "animal", "animals": return "Animal"
+            case "space": return "Space"
+            case "game", "games": return "Game"
+            case "other": return "Other"
+            default: return fallback
+            }
+        }
+    }
+
     private static let zhHans = AppStrings(
         home: "首页",
         discover: "发现页",
@@ -179,6 +264,7 @@ enum L10n {
         me: "我的",
         accountKicker: "个人空间",
         accountLibraryTitle: "我的内容",
+        myUploads: "我的上传",
         myDownloads: "我的下载",
         myLikes: "我的喜欢",
         myCoins: "我的金币",
@@ -195,7 +281,12 @@ enum L10n {
         pastWeeks: "全部周刊",
         collectionListTitle: "全部合集",
         collectionListKicker: "可收藏的主题书架",
+        collectionTheme: "主题",
+        collectionShelf: "书架",
+        emptyShelf: "空合集",
         emptyCollection: "这个合集还没有壁纸。",
+        emptyLibraryTitle: "这里还没有内容",
+        emptyUploadsMessage: "你上传的壁纸会出现在这里。",
         emptyFavoritesTitle: "还没有收藏",
         emptyFavoritesMessage: "你收藏的壁纸会出现在这里。",
         emptyDownloadsTitle: "还没有下载",
@@ -251,10 +342,21 @@ enum L10n {
         uploadRuleResolution: "高分辨率会获得更好展示，建议 4K 以上",
         uploadRuleReview: "所有上传内容发布前都会经过审核",
         editProfile: "编辑资料",
+        avatar: "头像",
+        chooseNewAvatar: "选择新头像",
+        profile: "资料",
+        nickname: "昵称",
+        bio: "简介",
+        save: "保存",
         password: "密码",
+        changePassword: "修改密码",
+        currentPassword: "当前密码",
+        newPassword: "新密码",
+        confirmNewPassword: "确认新密码",
         signOut: "退出",
         coins: "金币",
         coinHint: "上传获得 1 枚，下载消耗 1 枚",
+        coinHistory: "金币记录",
         loadingMore: "正在加载更多…",
         loadMore: "加载更多",
         allLoaded: "已加载全部内容",
@@ -303,6 +405,8 @@ enum L10n {
         popular: "热门",
         forYou: "为你推荐",
         ai: "AI",
+        aiWallpapers: "AI 壁纸",
+        tapToToggleLockScreen: "轻点切换锁屏预览",
         system: "跟随系统",
         light: "浅色",
         dark: "深色"
@@ -317,6 +421,7 @@ enum L10n {
         me: "我的",
         accountKicker: "個人空間",
         accountLibraryTitle: "我的內容",
+        myUploads: "我的上傳",
         myDownloads: "我的下載",
         myLikes: "我的喜歡",
         myCoins: "我的金幣",
@@ -333,7 +438,12 @@ enum L10n {
         pastWeeks: "全部週刊",
         collectionListTitle: "全部合集",
         collectionListKicker: "可收藏的主題書架",
+        collectionTheme: "主題",
+        collectionShelf: "書架",
+        emptyShelf: "空合集",
         emptyCollection: "這個合集還沒有桌布。",
+        emptyLibraryTitle: "這裡還沒有內容",
+        emptyUploadsMessage: "你上傳的桌布會出現在這裡。",
         emptyFavoritesTitle: "還沒有收藏",
         emptyFavoritesMessage: "你收藏的桌布會出現在這裡。",
         emptyDownloadsTitle: "還沒有下載",
@@ -389,10 +499,21 @@ enum L10n {
         uploadRuleResolution: "高解析度會獲得更好展示，建議 4K 以上",
         uploadRuleReview: "所有上傳內容發布前都會經過審核",
         editProfile: "編輯資料",
+        avatar: "頭像",
+        chooseNewAvatar: "選擇新頭像",
+        profile: "資料",
+        nickname: "暱稱",
+        bio: "簡介",
+        save: "儲存",
         password: "密碼",
+        changePassword: "修改密碼",
+        currentPassword: "目前密碼",
+        newPassword: "新密碼",
+        confirmNewPassword: "確認新密碼",
         signOut: "登出",
         coins: "金幣",
         coinHint: "上傳獲得 1 枚，下載消耗 1 枚",
+        coinHistory: "金幣紀錄",
         loadingMore: "正在載入更多…",
         loadMore: "載入更多",
         allLoaded: "已載入全部內容",
@@ -441,6 +562,8 @@ enum L10n {
         popular: "熱門",
         forYou: "為你推薦",
         ai: "AI",
+        aiWallpapers: "AI 桌布",
+        tapToToggleLockScreen: "輕點切換鎖定畫面預覽",
         system: "跟隨系統",
         light: "淺色",
         dark: "深色"
@@ -455,6 +578,7 @@ enum L10n {
         me: "マイページ",
         accountKicker: "パーソナル",
         accountLibraryTitle: "マイライブラリ",
+        myUploads: "アップロード",
         myDownloads: "ダウンロード",
         myLikes: "いいね",
         myCoins: "コイン",
@@ -471,7 +595,12 @@ enum L10n {
         pastWeeks: "すべての週",
         collectionListTitle: "すべてのコレクション",
         collectionListKicker: "保存できるテーマ棚",
+        collectionTheme: "テーマ",
+        collectionShelf: "棚",
+        emptyShelf: "空の棚",
         emptyCollection: "このコレクションにはまだ壁紙がありません。",
+        emptyLibraryTitle: "まだありません",
+        emptyUploadsMessage: "アップロードした壁紙がここに表示されます。",
         emptyFavoritesTitle: "お気に入りはまだありません",
         emptyFavoritesMessage: "お気に入りにした壁紙がここに表示されます。",
         emptyDownloadsTitle: "ダウンロードはまだありません",
@@ -527,10 +656,21 @@ enum L10n {
         uploadRuleResolution: "高解像度ほど表示されやすくなります。4K以上を推奨",
         uploadRuleReview: "すべてのアップロードは公開前に審査されます",
         editProfile: "プロフィール編集",
+        avatar: "アバター",
+        chooseNewAvatar: "新しいアバターを選択",
+        profile: "プロフィール",
+        nickname: "ニックネーム",
+        bio: "自己紹介",
+        save: "保存",
         password: "パスワード",
+        changePassword: "パスワード変更",
+        currentPassword: "現在のパスワード",
+        newPassword: "新しいパスワード",
+        confirmNewPassword: "新しいパスワードを確認",
         signOut: "ログアウト",
         coins: "コイン",
         coinHint: "アップロードで 1 枚獲得、ダウンロードで 1 枚使用",
+        coinHistory: "コイン履歴",
         loadingMore: "さらに読み込み中…",
         loadMore: "もっと読み込む",
         allLoaded: "すべて読み込みました",
@@ -579,6 +719,8 @@ enum L10n {
         popular: "人気",
         forYou: "おすすめ",
         ai: "AI",
+        aiWallpapers: "AI 壁紙",
+        tapToToggleLockScreen: "タップでロック画面プレビューを切替",
         system: "システム",
         light: "ライト",
         dark: "ダーク"
@@ -593,6 +735,7 @@ enum L10n {
         me: "Me",
         accountKicker: "Personal space",
         accountLibraryTitle: "My library",
+        myUploads: "My uploads",
         myDownloads: "My downloads",
         myLikes: "My likes",
         myCoins: "My coins",
@@ -609,7 +752,12 @@ enum L10n {
         pastWeeks: "Past Weeks",
         collectionListTitle: "All Collections",
         collectionListKicker: "Theme shelves worth saving",
+        collectionTheme: "Theme",
+        collectionShelf: "Shelf",
+        emptyShelf: "Empty shelf",
         emptyCollection: "This collection has no wallpapers yet.",
+        emptyLibraryTitle: "Nothing here yet",
+        emptyUploadsMessage: "Wallpapers you upload will appear here.",
         emptyFavoritesTitle: "No favorites yet",
         emptyFavoritesMessage: "Wallpapers you favorite will appear here.",
         emptyDownloadsTitle: "No downloads yet",
@@ -665,10 +813,21 @@ enum L10n {
         uploadRuleResolution: "Higher resolution ranks better, 4K+ preferred",
         uploadRuleReview: "Every upload goes through review before publishing",
         editProfile: "Edit Profile",
+        avatar: "Avatar",
+        chooseNewAvatar: "Choose new avatar",
+        profile: "Profile",
+        nickname: "Nickname",
+        bio: "Bio",
+        save: "Save",
         password: "Password",
+        changePassword: "Change Password",
+        currentPassword: "Current password",
+        newPassword: "New password",
+        confirmNewPassword: "Confirm new password",
         signOut: "Sign Out",
         coins: "Coins",
         coinHint: "Earn 1 per upload, downloads cost 1",
+        coinHistory: "Coin History",
         loadingMore: "Loading more…",
         loadMore: "Load more",
         allLoaded: "Everything is loaded",
@@ -717,6 +876,8 @@ enum L10n {
         popular: "Popular",
         forYou: "For You",
         ai: "AI",
+        aiWallpapers: "AI Wallpapers",
+        tapToToggleLockScreen: "Tap to toggle lock screen",
         system: "System",
         light: "Light",
         dark: "Dark"

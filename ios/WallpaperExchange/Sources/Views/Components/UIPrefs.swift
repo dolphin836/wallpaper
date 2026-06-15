@@ -38,6 +38,15 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         }
         return .en
     }
+
+    var acceptLanguageTag: String {
+        switch resolved {
+        case .system, .en: return "en"
+        case .zhHans: return "zh-CN"
+        case .zhHant: return "zh-TW"
+        case .ja: return "ja"
+        }
+    }
 }
 
 enum AppearancePref: String, CaseIterable, Identifiable {

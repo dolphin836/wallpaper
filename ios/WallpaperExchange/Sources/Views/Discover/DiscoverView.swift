@@ -150,7 +150,7 @@ struct DiscoverView: View {
                     reload()
                 }
                 ForEach(categories) { category in
-                    chipButton(category.name, isOn: selectedCategory == category) {
+                    chipButton(L10n.categoryName(category, language: prefs.language), isOn: selectedCategory == category) {
                         selectedCategory = selectedCategory == category ? nil : category
                         reload()
                     }

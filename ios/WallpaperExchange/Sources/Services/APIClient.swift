@@ -102,6 +102,8 @@ actor APIClient {
 
         var req = URLRequest(url: url)
         req.httpMethod = method
+        let languageTag = await MainActor.run { UIPrefs.shared.language.acceptLanguageTag }
+        req.setValue(languageTag, forHTTPHeaderField: "Accept-Language")
 
         if let token = await AuthService.shared.token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -219,6 +221,8 @@ actor APIClient {
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let languageTag = await MainActor.run { UIPrefs.shared.language.acceptLanguageTag }
+        req.setValue(languageTag, forHTTPHeaderField: "Accept-Language")
         if let token = await AuthService.shared.token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }

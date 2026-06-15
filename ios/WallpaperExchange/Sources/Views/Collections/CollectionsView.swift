@@ -123,6 +123,8 @@ struct CollectionCard: View {
     let collection: CollectionItem
     var height: CGFloat = 190
 
+    @Environment(UIPrefs.self) private var prefs
+
     private var tiles: [CollectionTile] { collection.recentTiles ?? [] }
     private var cover: CollectionTile? { tiles.first }
 
@@ -131,12 +133,14 @@ struct CollectionCard: View {
     }
 
     var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
         HStack(spacing: 12) {
             collectionMosaic
                 .frame(width: max(112, height * 0.72), height: height - 22)
 
             VStack(alignment: .leading, spacing: 8) {
-                Kicker(text: collection.kind == 1 ? "Theme" : "Shelf", tint: Color.muted)
+                Kicker(text: collection.kind == 1 ? s.collectionTheme : s.collectionShelf, tint: Color.muted)
                 Text(collection.title)
                     .font(.system(size: height > 170 ? 22 : 18, weight: .bold))
                     .foregroundStyle(Color.ink)
@@ -221,7 +225,7 @@ struct CollectionCard: View {
     }
 
     private var metaLine: String {
-        let s = L10n.strings(for: UIPrefs.shared.language)
+        let s = L10n.strings(for: prefs.language)
         var line = String(format: s.wallpapersCount, collection.wallpaperCount)
         if let likes = collection.likeCount, likes > 0 {
             line += " · \(likes) \(s.likeStat)"
@@ -401,6 +405,8 @@ private struct ProgressiveCollectionMosaicImage: View {
 struct CollectionDetailView: View {
     let collection: CollectionItem
 
+    @Environment(UIPrefs.self) private var prefs
+
     @State private var wallpapers: [Wallpaper] = []
     @State private var cursor: Int?
     @State private var hasMore = true
@@ -408,6 +414,8 @@ struct CollectionDetailView: View {
     @State private var loadError: String?
 
     var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 if let description = collection.description, !description.isEmpty {
@@ -421,7 +429,7 @@ struct CollectionDetailView: View {
                 } else if wallpapers.isEmpty && loading {
                     WallpaperGridSkeleton(count: 8)
                 } else if wallpapers.isEmpty {
-                    EmptyStateView(kicker: "Empty shelf", message: L10n.strings(for: UIPrefs.shared.language).emptyCollection)
+                    EmptyStateView(kicker: s.emptyShelf, message: s.emptyCollection)
                 } else {
                     WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading, showsEndState: false) { loadNextPage() }
                 }

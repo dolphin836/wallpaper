@@ -166,11 +166,15 @@ struct WeeklyWeekView: View {
     let year: Int
     let week: Int
 
+    @Environment(UIPrefs.self) private var prefs
+
     @State private var picks: [WeeklyPicked] = []
     @State private var loading = false
     @State private var loadError: String?
 
     var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
         ScrollView {
             if let loadError, picks.isEmpty {
                 ErrorRetryView(message: loadError) { Task { await load() } }
@@ -183,7 +187,7 @@ struct WeeklyWeekView: View {
             }
         }
         .background(PageMesh())
-        .navigationTitle("Week \(week) · \(String(year))")
+        .navigationTitle("\(String(format: s.week, week)) · \(String(format: s.year, year))")
         .inlineNavTitle()
         .showNavBarCompat()
         .toolbar {

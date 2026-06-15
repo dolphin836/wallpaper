@@ -17,7 +17,7 @@ struct AccountView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                ArchiveTopBar(title: "Me")
+                ArchiveTopBar(title: L10n.strings(for: prefs.language).me)
                 Group {
                     if auth.isLoggedIn {
                         signedIn
@@ -82,7 +82,9 @@ struct AccountView: View {
     }
 
     private func profileHeader(_ user: User) -> some View {
-        VStack(spacing: 8) {
+        let s = L10n.strings(for: prefs.language)
+
+        return VStack(spacing: 8) {
             CachedAsyncImage(url: URL(string: user.avatarURL), maxPixelDimension: 200) { image in
                 image.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
@@ -110,10 +112,10 @@ struct AccountView: View {
             }
 
             HStack(spacing: 8) {
-                profileAction("Upload", accent: true) { showUpload = true }
-                profileAction("Edit Profile") { showEditProfile = true }
-                profileAction("Password") { showChangePassword = true }
-                profileAction("Sign Out") { auth.logout() }
+                profileAction(s.upload, accent: true) { showUpload = true }
+                profileAction(s.editProfile) { showEditProfile = true }
+                profileAction(s.password) { showChangePassword = true }
+                profileAction(s.signOut) { auth.logout() }
             }
             .padding(.top, 2)
         }
@@ -136,15 +138,17 @@ struct AccountView: View {
     }
 
     private func coinCard(_ user: User) -> some View {
-        Button {
+        let s = L10n.strings(for: prefs.language)
+
+        return Button {
             showCoinLedger = true
         } label: {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Coins")
+                    Text(s.coins)
                         .font(.script(19))
                         .foregroundStyle(.white)
-                    Text("Earn 1 per upload · downloads cost 1")
+                    Text(s.coinHint)
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.78))
                 }
@@ -178,12 +182,32 @@ struct AccountView: View {
 struct LibrarySection: View {
     let username: String
 
+    @Environment(UIPrefs.self) private var prefs
+
     enum Tab: String, CaseIterable, Identifiable {
         case uploads = "Uploads"
         case likes = "Likes"
         case favorites = "Favorites"
         case downloads = "Downloads"
         var id: String { rawValue }
+
+        func title(_ s: AppStrings) -> String {
+            switch self {
+            case .uploads: return s.myUploads
+            case .likes: return s.myLikes
+            case .favorites: return s.favorites
+            case .downloads: return s.myDownloads
+            }
+        }
+
+        func emptyMessage(_ s: AppStrings) -> String {
+            switch self {
+            case .uploads: return s.emptyUploadsMessage
+            case .likes: return s.emptyLikesMessage
+            case .favorites: return s.emptyFavoritesMessage
+            case .downloads: return s.emptyDownloadsMessage
+            }
+        }
     }
 
     @State private var tab: Tab = .uploads
@@ -194,10 +218,12 @@ struct LibrarySection: View {
     @State private var loadGeneration = 0
 
     var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
         VStack(alignment: .leading, spacing: 10) {
-            Picker("Library", selection: $tab) {
+            Picker(s.accountLibraryTitle, selection: $tab) {
                 ForEach(Tab.allCases) { t in
-                    Text(t.rawValue).tag(t)
+                    Text(t.title(s)).tag(t)
                 }
             }
             .pickerStyle(.segmented)
@@ -207,21 +233,12 @@ struct LibrarySection: View {
             if wallpapers.isEmpty && loading {
                 WallpaperGridSkeleton(count: 4)
             } else if wallpapers.isEmpty {
-                EmptyStateView(kicker: "Nothing here yet", message: emptyMessage)
+                EmptyStateView(kicker: s.emptyLibraryTitle, message: tab.emptyMessage(s))
             } else {
                 WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore, isLoading: loading) { loadNextPage() }
             }
         }
         .task { if wallpapers.isEmpty { reload() } }
-    }
-
-    private var emptyMessage: String {
-        switch tab {
-        case .uploads: return "Wallpapers you upload will appear here."
-        case .likes: return "Wallpapers you like will appear here."
-        case .favorites: return "Wallpapers you favorite will appear here."
-        case .downloads: return "Wallpapers you download will appear here."
-        }
     }
 
     private func reload() {
@@ -271,6 +288,7 @@ struct LibrarySection: View {
 struct EditProfileSheet: View {
     @Environment(AuthService.self) private var auth
     @Environment(\.dismiss) private var dismiss
+    @Environment(UIPrefs.self) private var prefs
 
     @State private var nickname = ""
     @State private var bio = ""
@@ -279,33 +297,35 @@ struct EditProfileSheet: View {
     @State private var errorMessage: String?
 
     var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
         NavigationStack {
             Form {
-                Section("Avatar") {
+                Section(s.avatar) {
                     PhotosPicker(selection: $avatarItem, matching: .images) {
-                        Label("Choose new avatar", systemImage: "photo.circle")
+                        Label(s.chooseNewAvatar, systemImage: "photo.circle")
                     }
                 }
-                Section("Profile") {
-                    TextField("Nickname", text: $nickname)
-                    TextField("Bio", text: $bio, axis: .vertical)
+                Section(s.profile) {
+                    TextField(s.nickname, text: $nickname)
+                    TextField(s.bio, text: $bio, axis: .vertical)
                         .lineLimit(2...4)
                 }
                 if let errorMessage {
                     Text(errorMessage).foregroundStyle(.red).font(.footnote)
                 }
             }
-            .navigationTitle("Edit Profile")
+            .navigationTitle(s.editProfile)
             .inlineNavTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(s.cancel) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if working {
                         ProgressView()
                     } else {
-                        Button("Save") { save() }
+                        Button(s.save) { save() }
                     }
                 }
             }
@@ -338,6 +358,7 @@ struct EditProfileSheet: View {
 
 struct ChangePasswordSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(UIPrefs.self) private var prefs
 
     @State private var oldPassword = ""
     @State private var newPassword = ""
@@ -346,26 +367,28 @@ struct ChangePasswordSheet: View {
     @State private var errorMessage: String?
 
     var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
         NavigationStack {
             Form {
-                SecureField("Current password", text: $oldPassword)
-                SecureField("New password", text: $newPassword)
-                SecureField("Confirm new password", text: $confirmPassword)
+                SecureField(s.currentPassword, text: $oldPassword)
+                SecureField(s.newPassword, text: $newPassword)
+                SecureField(s.confirmNewPassword, text: $confirmPassword)
                 if let errorMessage {
                     Text(errorMessage).foregroundStyle(.red).font(.footnote)
                 }
             }
-            .navigationTitle("Change Password")
+            .navigationTitle(s.changePassword)
             .inlineNavTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(s.cancel) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if working {
                         ProgressView()
                     } else {
-                        Button("Save") { save() }
+                        Button(s.save) { save() }
                             .disabled(newPassword.count < 6 || newPassword != confirmPassword || oldPassword.isEmpty)
                     }
                 }
@@ -390,6 +413,7 @@ struct ChangePasswordSheet: View {
 
 struct CoinLedgerSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(UIPrefs.self) private var prefs
 
     @State private var transactions: [CoinTransaction] = []
     @State private var cursor: Int?
@@ -397,6 +421,8 @@ struct CoinLedgerSheet: View {
     @State private var loading = false
 
     var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
         NavigationStack {
             List {
                 ForEach(transactions) { tx in
@@ -424,11 +450,11 @@ struct CoinLedgerSheet: View {
                     )
                 }
             }
-            .navigationTitle("Coin History")
+            .navigationTitle(s.coinHistory)
             .inlineNavTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+                    Button(s.done) { dismiss() }
                 }
             }
             .task { if transactions.isEmpty { loadNextPage() } }

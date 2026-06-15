@@ -923,6 +923,7 @@ private struct DevicePreviewCover: View {
     let fallback: Color
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(UIPrefs.self) private var prefs
     @State private var showLock = true
 
     var body: some View {
@@ -956,7 +957,7 @@ private struct DevicePreviewCover: View {
                 }
                 .padding(.horizontal, 16)
                 Spacer()
-                Text("TAP TO TOGGLE LOCK SCREEN")
+                Text(L10n.strings(for: prefs.language).tapToToggleLockScreen.uppercased())
                     .font(.kicker)
                     .tracking(1.5)
                     .foregroundStyle(.white.opacity(0.55))

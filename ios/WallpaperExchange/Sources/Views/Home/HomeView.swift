@@ -345,6 +345,8 @@ struct WeeklyArchiveRoute: Hashable {}
 struct FilteredFeedView: View {
     let kind: FeedRoute.Kind
 
+    @Environment(UIPrefs.self) private var prefs
+
     @State private var wallpapers: [Wallpaper] = []
     @State private var cursor: Int?
     @State private var hasMore = true
@@ -365,7 +367,7 @@ struct FilteredFeedView: View {
             .padding(.top, 8)
         }
         .background(PageMesh())
-        .navigationTitle("AI Wallpapers")
+        .navigationTitle(L10n.strings(for: prefs.language).aiWallpapers)
         .inlineNavTitle()
         .showNavBarCompat()
         .task { if wallpapers.isEmpty { loadNextPage() } }
