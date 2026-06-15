@@ -47,7 +47,7 @@ struct WallpaperGrid: View {
     private func column(_ items: [Wallpaper]) -> some View {
         LazyVStack(spacing: 14) {
             ForEach(items) { wallpaper in
-                NavigationLink(value: WallpaperRoute(slug: wallpaper.slug)) {
+                NavigationLink(value: WallpaperRoute(slug: wallpaper.slug, initialWallpaper: wallpaper)) {
                     WallpaperTile(wallpaper: wallpaper)
                 }
                 .buttonStyle(.pressable)
@@ -60,6 +60,12 @@ struct WallpaperGrid: View {
 // web uses), so any surface can deep-link with just a slug.
 struct WallpaperRoute: Hashable {
     let slug: String
+    let initialWallpaper: Wallpaper?
+
+    init(slug: String, initialWallpaper: Wallpaper? = nil) {
+        self.slug = slug
+        self.initialWallpaper = initialWallpaper
+    }
 }
 
 struct WallpaperTile: View {

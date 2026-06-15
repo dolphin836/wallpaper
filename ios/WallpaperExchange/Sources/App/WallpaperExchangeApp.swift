@@ -85,7 +85,7 @@ struct RootTabView: View {
                 NavigationStack(path: $debugDetailPath) {
                     Color.paper
                         .navigationDestination(for: WallpaperRoute.self) { route in
-                            WallpaperDetailView(slug: route.slug)
+                            WallpaperDetailView(slug: route.slug, initialWallpaper: route.initialWallpaper)
                         }
                         .onAppear {
                             if debugDetailPath.isEmpty {
@@ -112,7 +112,7 @@ struct RootTabView: View {
                         WeeklyWeekView(year: entry.year, week: entry.week)
                     }
                     .navigationDestination(for: WallpaperRoute.self) { route in
-                        WallpaperDetailView(slug: route.slug)
+                        WallpaperDetailView(slug: route.slug, initialWallpaper: route.initialWallpaper)
                     }
             }
         }

@@ -5,6 +5,7 @@ import SwiftUI
 // favorite / collect, on-device preview, and coin download.
 struct WallpaperDetailView: View {
     let slug: String
+    let initialWallpaper: Wallpaper?
 
     @Environment(AuthService.self) private var auth
     @Environment(UIPrefs.self) private var prefs
@@ -32,6 +33,11 @@ struct WallpaperDetailView: View {
     @State private var showDevicePreview = false
     @State private var showInfo = false
 
+    init(slug: String, initialWallpaper: Wallpaper? = nil) {
+        self.slug = slug
+        self.initialWallpaper = initialWallpaper
+    }
+
     var body: some View {
         ZStack {
             backdrop
@@ -40,6 +46,8 @@ struct WallpaperDetailView: View {
             } else if let loadError {
                 ErrorRetryView(message: loadError) { Task { await load() } }
                     .padding(.horizontal, 24)
+            } else if initialWallpaper != nil {
+                loadingChrome
             } else {
                 skeleton
             }
@@ -89,7 +97,7 @@ struct WallpaperDetailView: View {
         .fullScreenCoverCompat(isPresented: $showDevicePreview) {
             if let detail {
                 DevicePreviewCover(
-                    url: fullScreenURL(for: detail),
+                    source: DetailImageSource(detail: detail),
                     fallback: Color(hex: detail.dominantColor) ?? .black
                 )
             }
@@ -97,11 +105,17 @@ struct WallpaperDetailView: View {
     }
 
     private var backdropColor: Color {
-        Color(hex: detail?.dominantColor) ?? .black
+        Color(hex: imageSource?.dominantColor) ?? .black
     }
 
-    private func fullScreenURL(for detail: WallpaperDetail) -> String {
-        detail.originalURL.isEmpty ? detail.displayURL : detail.originalURL
+    private var imageSource: DetailImageSource? {
+        if let detail {
+            return DetailImageSource(detail: detail)
+        }
+        if let initialWallpaper {
+            return DetailImageSource(wallpaper: initialWallpaper)
+        }
+        return nil
     }
 
     // The wallpaper itself is the page. A subtle scrim keeps only the
@@ -109,14 +123,10 @@ struct WallpaperDetailView: View {
     private var backdrop: some View {
         ZStack {
             backdropColor
-            if let detail {
+            if let imageSource {
                 Color.clear
                     .overlay(
-                        CachedAsyncImage(url: URL(string: fullScreenURL(for: detail)), maxPixelDimension: 3200) { image in
-                            image.resizable().aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            backdropColor
-                        }
+                        ProgressiveDetailImage(source: imageSource, fallback: backdropColor)
                     )
                     .clipped()
             }
@@ -145,6 +155,21 @@ struct WallpaperDetailView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { showDevicePreview = true }
+        .environment(\.colorScheme, .dark)
+    }
+
+    private var loadingChrome: some View {
+        VStack {
+            Spacer()
+            ProgressView()
+                .controlSize(.small)
+                .tint(Color.lightText)
+                .frame(width: 44, height: 44)
+                .background(.black.opacity(0.26), in: Circle())
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(.white.opacity(0.16), lineWidth: 1))
+                .padding(.bottom, 36)
+        }
         .environment(\.colorScheme, .dark)
     }
 
@@ -675,10 +700,157 @@ private struct WallpaperInfoSheet: View {
     }
 }
 
+private struct DetailImageSource: Equatable {
+    let thumbURL: String
+    let previewURL: String
+    let originalURL: String
+    let dominantColor: String?
+
+    init(detail: WallpaperDetail) {
+        thumbURL = detail.thumbURL
+        previewURL = detail.previewURL
+        originalURL = detail.originalURL
+        dominantColor = detail.dominantColor
+    }
+
+    init(wallpaper: Wallpaper) {
+        thumbURL = wallpaper.thumbURL
+        previewURL = wallpaper.previewURL
+        originalURL = wallpaper.originalURL
+        dominantColor = wallpaper.dominantColor
+    }
+
+    var previewDisplayURL: String {
+        previewURL.isEmpty ? thumbURL : previewURL
+    }
+
+    var identity: String {
+        [thumbURL, previewURL, originalURL, dominantColor ?? ""].joined(separator: "|")
+    }
+}
+
+private struct ProgressiveDetailImage: View {
+    let source: DetailImageSource
+    let fallback: Color
+
+    @State private var lowLoaded = false
+    @State private var previewLoaded = false
+    @State private var originalLoaded = false
+    @State private var shouldLoadOriginal = false
+    @State private var previewCanSettle = false
+
+    private var thumbURL: URL? {
+        normalizedURL(source.thumbURL)
+    }
+
+    private var previewURL: URL? {
+        normalizedURL(source.previewDisplayURL)
+    }
+
+    private var originalURL: URL? {
+        guard let url = normalizedURL(source.originalURL), url != previewURL else { return nil }
+        return url
+    }
+
+    var body: some View {
+        ZStack {
+            fallback
+
+            if let thumbURL, thumbURL != previewURL {
+                CachedAsyncImage(
+                    url: thumbURL,
+                    maxPixelDimension: 420,
+                    onLoad: {
+                        withAnimation(.easeOut(duration: 0.18)) {
+                            lowLoaded = true
+                        }
+                    }
+                ) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .blur(radius: previewLoaded || previewCanSettle ? 0 : 10)
+                        .scaleEffect(previewLoaded || previewCanSettle ? 1 : 1.06)
+                        .opacity(previewLoaded || originalLoaded ? 0 : (lowLoaded ? 0.94 : 0))
+                } placeholder: {
+                    Color.clear
+                }
+                .allowsHitTesting(false)
+            }
+
+            if let previewURL {
+                // Match WallpaperTile's 1400px decode key so detail can reuse
+                // the image that was already decoded on the list page.
+                CachedAsyncImage(
+                    url: previewURL,
+                    maxPixelDimension: 1400,
+                    onLoad: {
+                        withAnimation(.easeOut(duration: 0.18)) {
+                            previewLoaded = true
+                            shouldLoadOriginal = originalURL != nil
+                        }
+                    },
+                    onFailure: {
+                        previewCanSettle = true
+                        shouldLoadOriginal = originalURL != nil
+                    }
+                ) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .opacity(originalLoaded ? 0 : (previewLoaded ? 1 : 0))
+                } placeholder: {
+                    Color.clear
+                }
+                .allowsHitTesting(false)
+            }
+
+            if let originalURL, shouldLoadOriginal || previewURL == nil {
+                CachedAsyncImage(
+                    url: originalURL,
+                    maxPixelDimension: 3200,
+                    onLoad: {
+                        withAnimation(.easeOut(duration: 0.28)) {
+                            originalLoaded = true
+                        }
+                    }
+                ) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .opacity(originalLoaded ? 1 : 0)
+                } placeholder: {
+                    Color.clear
+                }
+                .allowsHitTesting(false)
+            }
+        }
+        .clipped()
+        .task(id: source.identity) {
+            lowLoaded = false
+            previewLoaded = false
+            originalLoaded = false
+            previewCanSettle = false
+            shouldLoadOriginal = previewURL == nil
+            if previewURL != nil {
+                try? await Task.sleep(nanoseconds: 900_000_000)
+                guard !Task.isCancelled else { return }
+                shouldLoadOriginal = originalURL != nil
+            }
+        }
+    }
+
+    private func normalizedURL(_ value: String) -> URL? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return URL(string: trimmed)
+    }
+}
+
 // Full-screen on-device preview: the wallpaper fills the real screen,
 // lock-screen chrome on top; tap anywhere to toggle the mock.
-struct DevicePreviewCover: View {
-    let url: String
+private struct DevicePreviewCover: View {
+    let source: DetailImageSource
     let fallback: Color
 
     @Environment(\.dismiss) private var dismiss
@@ -688,11 +860,7 @@ struct DevicePreviewCover: View {
         ZStack {
             Color.clear
                 .overlay(
-                    CachedAsyncImage(url: URL(string: url), maxPixelDimension: 3200) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        fallback
-                    }
+                    ProgressiveDetailImage(source: source, fallback: fallback)
                 )
                 .clipped()
                 .ignoresSafeArea()

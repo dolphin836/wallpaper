@@ -28,7 +28,7 @@ struct FavoritesView: View {
             .hideTabBarCompat()
             .safeAreaInset(edge: .bottom) { FloatingTabBar() }
             .navigationDestination(for: WallpaperRoute.self) { route in
-                WallpaperDetailView(slug: route.slug)
+                WallpaperDetailView(slug: route.slug, initialWallpaper: route.initialWallpaper)
             }
             .navigationDestination(for: CollectionItem.self) { collection in
                 CollectionDetailView(collection: collection)

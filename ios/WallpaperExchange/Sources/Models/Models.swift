@@ -48,7 +48,7 @@ struct AuthResponse: Decodable {
     let user: User
 }
 
-struct Wallpaper: Decodable, Identifiable {
+struct Wallpaper: Decodable, Identifiable, Hashable {
     let id: Int
     let slug: String
     let userID: Int
