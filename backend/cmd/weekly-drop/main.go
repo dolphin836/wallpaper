@@ -320,6 +320,7 @@ type themeMatchRow struct {
 	ID         int64
 	CategoryID int64
 	Phash      int64
+	Title      string
 }
 
 func queryThemeCandidates(ctx context.Context, db *gorm.DB, since time.Time, limit int, excludeIDs []int64) []themeCandidateRow {
@@ -476,7 +477,7 @@ func matchWallpapersByKeywords(ctx context.Context, db *gorm.DB, keywords []stri
 	pattern := strings.Join(keywords, "|")
 	var rows []themeMatchRow
 	if err := db.WithContext(ctx).Raw(`
-		SELECT w.id, w.category_id, w.phash
+		SELECT w.id, w.category_id, w.phash, w.title
 		FROM wallpapers w
 		LEFT JOIN categories c ON c.id = w.category_id
 		WHERE w.status = 1
@@ -570,10 +571,15 @@ func diversifyThemeMatches(rows []themeMatchRow, limit int) []int64 {
 	out := make([]int64, 0, limit)
 	categoryCounts := map[int64]int{}
 	selectedPhashes := make([]int64, 0, limit)
+	selectedTitles := map[string]bool{}
 
 	for _, r := range rows {
 		if limit > 0 && len(out) >= limit {
 			break
+		}
+		titleKey := normalizeTitle(r.Title)
+		if titleKey != "" && selectedTitles[titleKey] {
+			continue
 		}
 		if r.CategoryID != 0 && categoryCounts[r.CategoryID] >= maxThemePerCategory {
 			continue
@@ -587,6 +593,9 @@ func diversifyThemeMatches(rows []themeMatchRow, limit int) []int64 {
 		}
 		if r.Phash != 0 {
 			selectedPhashes = append(selectedPhashes, r.Phash)
+		}
+		if titleKey != "" {
+			selectedTitles[titleKey] = true
 		}
 	}
 
@@ -602,6 +611,10 @@ func diversifyThemeMatches(rows []themeMatchRow, limit int) []int64 {
 		if containsInt64(out, r.ID) {
 			continue
 		}
+		titleKey := normalizeTitle(r.Title)
+		if titleKey != "" && selectedTitles[titleKey] {
+			continue
+		}
 		if r.Phash != 0 && hasNearDuplicatePhash(r.Phash, selectedPhashes) {
 			continue
 		}
@@ -609,8 +622,15 @@ func diversifyThemeMatches(rows []themeMatchRow, limit int) []int64 {
 		if r.Phash != 0 {
 			selectedPhashes = append(selectedPhashes, r.Phash)
 		}
+		if titleKey != "" {
+			selectedTitles[titleKey] = true
+		}
 	}
 	return out
+}
+
+func normalizeTitle(title string) string {
+	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(title))), " ")
 }
 
 func hasNearDuplicatePhash(phash int64, selected []int64) bool {
