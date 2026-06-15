@@ -285,14 +285,8 @@ private struct PaletteReactive: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .contentShape(Rectangle())
-            .onContinuousHover { phase in
-                switch phase {
-                case .active:
-                    activate()
-                case .ended:
-                    deactivate()
-                }
+            .onHover { hovering in
+                hovering ? activate() : deactivate()
             }
             .onDisappear { deactivate() }
     }
