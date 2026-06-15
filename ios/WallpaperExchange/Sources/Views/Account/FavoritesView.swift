@@ -582,8 +582,10 @@ struct PreferencesCard: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Color.muted)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.pressable)
     }

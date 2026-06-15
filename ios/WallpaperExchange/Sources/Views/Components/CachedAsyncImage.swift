@@ -177,6 +177,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     let url: URL?
     let maxPixelDimension: Int
     let onLoad: (() -> Void)?
+    let onFailure: (() -> Void)?
     let content: (Image) -> Content
     let placeholder: () -> Placeholder
 
@@ -187,12 +188,14 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         url: URL?,
         maxPixelDimension: Int = 900,
         onLoad: (() -> Void)? = nil,
+        onFailure: (() -> Void)? = nil,
         @ViewBuilder content: @escaping (Image) -> Content,
         @ViewBuilder placeholder: @escaping () -> Placeholder
     ) {
         self.url = url
         self.maxPixelDimension = maxPixelDimension
         self.onLoad = onLoad
+        self.onFailure = onFailure
         self.content = content
         self.placeholder = placeholder
     }
@@ -240,6 +243,9 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
             }
             loadedURL = requestURL
             onLoad?()
+        } else {
+            guard !Task.isCancelled, self.url == requestURL else { return }
+            onFailure?()
         }
     }
 }

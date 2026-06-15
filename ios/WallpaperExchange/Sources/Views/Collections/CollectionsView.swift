@@ -201,17 +201,12 @@ struct CollectionCard: View {
     }
 
     private func mosaicImage(_ tile: CollectionTile?) -> some View {
-        Color.clear
-            .overlay(
-                CachedAsyncImage(
-                    url: URL(string: tile?.previewURL ?? cover?.previewURL ?? ""),
-                    maxPixelDimension: 420
-                ) { image in
-                    image.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle().fill(Color(hex: tile?.dominantColor ?? cover?.dominantColor) ?? accent)
-                }
-            )
+        ProgressiveCollectionMosaicImage(
+            tile: tile,
+            fallbackTile: cover,
+            coverURL: collection.coverURL,
+            accent: accent
+        )
             .clipped()
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
@@ -223,6 +218,147 @@ struct CollectionCard: View {
             line += " · \(likes) \(s.likeStat)"
         }
         return line
+    }
+}
+
+private struct ProgressiveCollectionMosaicImage: View {
+    let tile: CollectionTile?
+    let fallbackTile: CollectionTile?
+    let coverURL: String?
+    let accent: Color
+
+    @State private var lowLoaded = false
+    @State private var highLoaded = false
+    @State private var shouldLoadHigh = false
+    @State private var highCandidateIndex = 0
+    @State private var lowCanSettle = false
+
+    private var lowURL: URL? {
+        normalizedURL(tile?.thumbURL) ?? (tile == nil ? normalizedURL(fallbackTile?.thumbURL) : nil)
+    }
+
+    private var highCandidates: [URL] {
+        var candidates: [URL] = []
+        let low = lowURL
+
+        func appendCandidate(_ value: String?) {
+            guard let url = normalizedURL(value), url != low, !candidates.contains(url) else { return }
+            candidates.append(url)
+        }
+
+        if tile != nil {
+            appendCandidate(tile?.previewURL)
+            appendCandidate(tile?.thumbURL)
+        } else {
+            appendCandidate(coverURL)
+            appendCandidate(fallbackTile?.previewURL)
+            appendCandidate(fallbackTile?.thumbURL)
+        }
+
+        return candidates
+    }
+
+    private var currentHighURL: URL? {
+        let candidates = highCandidates
+        guard candidates.indices.contains(highCandidateIndex) else { return nil }
+        return candidates[highCandidateIndex]
+    }
+
+    private var dominantFill: Color {
+        Color(hex: tile?.dominantColor ?? fallbackTile?.dominantColor) ?? accent
+    }
+
+    private var loadIdentity: String {
+        [
+            tile?.thumbURL ?? "",
+            tile?.previewURL ?? "",
+            fallbackTile?.thumbURL ?? "",
+            fallbackTile?.previewURL ?? "",
+            coverURL ?? "",
+        ].joined(separator: "|")
+    }
+
+    var body: some View {
+        ZStack {
+            Rectangle().fill(dominantFill)
+
+            if let lowURL {
+                let lowIsFinal = currentHighURL == nil || lowCanSettle
+                CachedAsyncImage(
+                    url: lowURL,
+                    maxPixelDimension: 320,
+                    onLoad: {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            lowLoaded = true
+                            shouldLoadHigh = currentHighURL != nil
+                        }
+                    },
+                    onFailure: {
+                        shouldLoadHigh = currentHighURL != nil
+                        lowCanSettle = true
+                    }
+                ) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .blur(radius: highLoaded || lowIsFinal ? 0 : 8)
+                        .scaleEffect(highLoaded || lowIsFinal ? 1 : 1.06)
+                        .opacity(highLoaded ? 0 : (lowLoaded ? 0.96 : 0))
+                } placeholder: {
+                    Color.clear
+                }
+                .allowsHitTesting(false)
+            }
+
+            if let currentHighURL, shouldLoadHigh || lowURL == nil {
+                CachedAsyncImage(
+                    url: currentHighURL,
+                    maxPixelDimension: 760,
+                    onLoad: {
+                        withAnimation(.easeOut(duration: 0.28)) {
+                            highLoaded = true
+                        }
+                    },
+                    onFailure: {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            if highCandidateIndex + 1 < highCandidates.count {
+                                highCandidateIndex += 1
+                            } else {
+                                lowCanSettle = true
+                            }
+                        }
+                    }
+                ) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .opacity(highLoaded ? 1 : 0)
+                } placeholder: {
+                    Color.clear
+                }
+                .allowsHitTesting(false)
+            }
+        }
+        .clipped()
+        .task(id: loadIdentity) {
+            lowLoaded = false
+            highLoaded = false
+            highCandidateIndex = 0
+            lowCanSettle = false
+            shouldLoadHigh = lowURL == nil
+            if lowURL != nil {
+                try? await Task.sleep(nanoseconds: 700_000_000)
+                guard !Task.isCancelled else { return }
+                shouldLoadHigh = currentHighURL != nil
+            }
+        }
+    }
+
+    private func normalizedURL(_ value: String?) -> URL? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return URL(string: trimmed)
     }
 }
 

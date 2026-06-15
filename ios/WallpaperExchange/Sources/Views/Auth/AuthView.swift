@@ -80,16 +80,22 @@ struct AuthView: View {
                             LegalDocumentView(kind: .terms)
                         } label: {
                             Label(s.termsTitle, systemImage: LegalDocumentKind.terms.iconName())
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                         }
                         NavigationLink {
                             LegalDocumentView(kind: .privacy)
                         } label: {
                             Label(s.privacyTitle, systemImage: LegalDocumentKind.privacy.iconName())
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                         }
                         NavigationLink {
                             LegalDocumentView(kind: .dmca)
                         } label: {
                             Label(s.dmcaTitle, systemImage: LegalDocumentKind.dmca.iconName())
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                         }
                     }
                 }
