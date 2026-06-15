@@ -17,14 +17,19 @@ final class TabRouter {
 // safe-area inset so pushed pages naturally cover it.
 struct FloatingTabBar: View {
     @Environment(TabRouter.self) private var router
+    @Environment(UIPrefs.self) private var prefs
     @Namespace private var tabSelection
 
-    private let items: [(title: String, icon: String, selected: String, tag: Int)] = [
-        ("Home", "mountain.2", "mountain.2.fill", 0),
-        ("Discover", "square.grid.2x2", "square.grid.2x2.fill", 1),
-        ("Make", "wand.and.stars", "wand.and.stars.inverse", 2),
-        ("Me", "person", "person.fill", 3),
-    ]
+    private var items: [(title: String, icon: String, selected: String, tag: Int)] {
+        let s = L10n.strings(for: prefs.language)
+        return [
+            (s.home, "house", "house.fill", 0),
+            (s.discover, "square.grid.2x2", "square.grid.2x2.fill", 1),
+            (s.weekly, "calendar", "calendar.circle.fill", 2),
+            (s.collections, "rectangle.stack", "rectangle.stack.fill", 3),
+            (s.favorites, "heart", "heart.fill", 4),
+        ]
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -41,9 +46,9 @@ struct FloatingTabBar: View {
                             .font(.system(size: 16, weight: .semibold))
                             .contentTransition(.symbolEffect(.replace))
                         Text(item.title)
-                            .font(.system(size: 10, weight: isOn ? .semibold : .medium))
+                            .font(.system(size: 9.5, weight: isOn ? .semibold : .medium))
                             .lineLimit(1)
-                            .minimumScaleFactor(0.72)
+                            .minimumScaleFactor(0.58)
                     }
                     .foregroundStyle(isOn ? Color.black.opacity(0.82) : .white.opacity(0.78))
                     .frame(maxWidth: .infinity)

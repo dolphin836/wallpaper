@@ -42,6 +42,8 @@ struct WallpaperExchangeApp: App {
 }
 
 struct RootTabView: View {
+    @Environment(UIPrefs.self) private var prefs
+
     @State private var router = TabRouter.shared
     @State private var debugDetailSlug = LaunchOptions.detailSlug
     @State private var debugDetailPath = NavigationPath()
@@ -55,10 +57,12 @@ struct RootTabView: View {
                 .tag(0)
             DiscoverView()
                 .tag(1)
-            MakeView()
+            WeeklyTabView()
                 .tag(2)
-            AccountView()
+            CollectionsTabView()
                 .tag(3)
+            FavoritesView()
+                .tag(4)
         }
         .environment(router)
         // Screenshot-automation overlays (LaunchOptions args only). The
@@ -88,13 +92,20 @@ struct RootTabView: View {
         .fullScreenCoverCompat(isPresented: $debugWeekly) {
             NavigationStack {
                 WeeklyArchiveView()
+                    .navigationDestination(for: WeeklyArchiveEntry.self) { entry in
+                        WeeklyWeekView(year: entry.year, week: entry.week)
+                    }
+                    .navigationDestination(for: WallpaperRoute.self) { route in
+                        WallpaperDetailView(slug: route.slug)
+                    }
             }
         }
         // Warm exchange accent drives every interactive tint; the system
         // tab bar is replaced by the floating capsule bar each root page
-        // hosts in its bottom safe-area inset. Dark-only, per the brand.
+        // hosts in its bottom safe-area inset.
         .tint(Color.accent)
         .background(Color.paper)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(prefs.appearance.colorScheme)
+        .id(prefs.language.rawValue)
     }
 }

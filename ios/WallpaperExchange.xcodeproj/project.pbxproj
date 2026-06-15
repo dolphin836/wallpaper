@@ -11,6 +11,7 @@
 		0C0E66550E883009BAE82095 /* WallpaperDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D78EABF2B5F8737CE401641B /* WallpaperDetailView.swift */; };
 		0E2E8F6C26BCC22E318BFC8C /* WeeklyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0EBF20F0DC69056F1188347 /* WeeklyView.swift */; };
 		0FB7FC18B5B9B8B856EDDB91 /* Skeleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 891676FD3AC5342B5F3BC922 /* Skeleton.swift */; };
+		0FEA55929D9BA256D8A90710 /* FavoritesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5CC0CCA18002C7CC6DDDD5E /* FavoritesView.swift */; };
 		3491AF6982D350C9323A7D6E /* UIPrefs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6840921C6F056F4103F924A1 /* UIPrefs.swift */; };
 		3BA0C27793912FD93063A556 /* CollectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07BF7EA05B4D334370551B0B /* CollectionsView.swift */; };
 		3BC36526E84DF28F0B2644A8 /* WallpaperGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1CD595B5C80A493E26BE00 /* WallpaperGrid.swift */; };
@@ -25,6 +26,7 @@
 		7C70C218FD718CE8136BD894 /* KeychainTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E084E1F363660F8442A1600 /* KeychainTokenStore.swift */; };
 		7EA061A11A4AE3CBA1E5B383 /* FloatingTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6DEE52AA567E03A5FB93787 /* FloatingTabBar.swift */; };
 		833F1DBFB5476BE6B3D3C22B /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE0BD07F16DB06ABE38BB509 /* AuthView.swift */; };
+		844B513BF49425E26F89466E /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B9EF8AB68B3F899D9B1A1D /* L10n.swift */; };
 		84B0CDC079F1E9E2A8DE9434 /* PhotoSaver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08F1D00C13F74108963DFF94 /* PhotoSaver.swift */; };
 		8BFB631A1575E35F55AE71DC /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C83E572431E6FD7591BDCFD /* HomeView.swift */; };
 		B7111D4A0DF6B03D5AED3E5C /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D7BE8F4177C155993449937 /* Theme.swift */; };
@@ -53,6 +55,7 @@
 		891676FD3AC5342B5F3BC922 /* Skeleton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Skeleton.swift; sourceTree = "<group>"; };
 		9081D6FED3FA6C2971ACD00C /* UploadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadView.swift; sourceTree = "<group>"; };
 		9CBF63EB635C6A6C25F7134C /* WallpaperExchange.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WallpaperExchange.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A5CC0CCA18002C7CC6DDDD5E /* FavoritesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesView.swift; sourceTree = "<group>"; };
 		A6DEE52AA567E03A5FB93787 /* FloatingTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingTabBar.swift; sourceTree = "<group>"; };
 		A7E5D5624E1AA771F14B85B5 /* MainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainModels.swift; sourceTree = "<group>"; };
 		B38DCF4BC7380AF2AA04B022 /* MakeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MakeView.swift; sourceTree = "<group>"; };
@@ -60,6 +63,7 @@
 		B99232659AB129556B846144 /* APIClient+Endpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "APIClient+Endpoints.swift"; sourceTree = "<group>"; };
 		BA1D6B4108C6E5D3009E3F3A /* DiscoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverView.swift; sourceTree = "<group>"; };
 		BE0BD07F16DB06ABE38BB509 /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		C5B9EF8AB68B3F899D9B1A1D /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		D0EBF20F0DC69056F1188347 /* WeeklyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyView.swift; sourceTree = "<group>"; };
 		D446903C2B4979FD014C7C30 /* LockScreenOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenOverlay.swift; sourceTree = "<group>"; };
 		D78EABF2B5F8737CE401641B /* WallpaperDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallpaperDetailView.swift; sourceTree = "<group>"; };
@@ -123,6 +127,7 @@
 				0C4768A5919EC84C546C6B7E /* ArchiveTopBar.swift */,
 				5A96C5BD49882CF05E2DB1B3 /* CachedAsyncImage.swift */,
 				A6DEE52AA567E03A5FB93787 /* FloatingTabBar.swift */,
+				C5B9EF8AB68B3F899D9B1A1D /* L10n.swift */,
 				D446903C2B4979FD014C7C30 /* LockScreenOverlay.swift */,
 				B468C9C1CE8BA3DDAC39FCAA /* PlatformShims.swift */,
 				891676FD3AC5342B5F3BC922 /* Skeleton.swift */,
@@ -218,6 +223,7 @@
 			isa = PBXGroup;
 			children = (
 				D7AE819AABC488EDE4291F6C /* AccountView.swift */,
+				A5CC0CCA18002C7CC6DDDD5E /* FavoritesView.swift */,
 			);
 			path = Account;
 			sourceTree = "<group>";
@@ -306,9 +312,11 @@
 				6CF39DA7A5831E156770A66F /* CachedAsyncImage.swift in Sources */,
 				3BA0C27793912FD93063A556 /* CollectionsView.swift in Sources */,
 				4AF29DC2175D1BBB2A422DBE /* DiscoverView.swift in Sources */,
+				0FEA55929D9BA256D8A90710 /* FavoritesView.swift in Sources */,
 				7EA061A11A4AE3CBA1E5B383 /* FloatingTabBar.swift in Sources */,
 				8BFB631A1575E35F55AE71DC /* HomeView.swift in Sources */,
 				7C70C218FD718CE8136BD894 /* KeychainTokenStore.swift in Sources */,
+				844B513BF49425E26F89466E /* L10n.swift in Sources */,
 				4B15D7A1F98260ECD8D1B23C /* LaunchOptions.swift in Sources */,
 				E69D7EA958D02979F30C3B61 /* LockScreenOverlay.swift in Sources */,
 				7399BF858373785A9289D8C8 /* MainModels.swift in Sources */,

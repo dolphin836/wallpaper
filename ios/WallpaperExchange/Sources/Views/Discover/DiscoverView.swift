@@ -15,6 +15,7 @@ struct DiscoverView: View {
     }
 
     @Environment(AuthService.self) private var auth
+    @Environment(UIPrefs.self) private var prefs
 
     @State private var feed: Feed = .latest
     @State private var categories: [Category] = []
@@ -34,7 +35,7 @@ struct DiscoverView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                ArchiveTopBar(title: "Discover")
+                ArchiveTopBar(title: L10n.strings(for: prefs.language).discover)
                 ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     filterSurface
@@ -43,14 +44,17 @@ struct DiscoverView: View {
                     } else if wallpapers.isEmpty && loading {
                         WallpaperGridSkeleton(count: 8)
                     } else if wallpapers.isEmpty {
-                        EmptyStateView(kicker: "No matches", message: "Nothing in the archive fits those filters yet.")
+                        EmptyStateView(
+                            kicker: L10n.strings(for: prefs.language).noMatches,
+                            message: L10n.strings(for: prefs.language).noMatchesMessage
+                        )
                     } else {
                         WallpaperGrid(wallpapers: wallpapers, hasMore: hasMore) {
                             loadNextPage()
                         }
                         if loading { LoadingFooter() }
                         if !hasMore {
-                            Kicker(text: "End of archive")
+                            Kicker(text: L10n.strings(for: prefs.language).endOfArchive)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
                         }
@@ -109,7 +113,7 @@ struct DiscoverView: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 13))
                 .foregroundStyle(Color.muted)
-            TextField("Search wallpapers", text: $searchText)
+            TextField(L10n.strings(for: prefs.language).searchWallpapers, text: $searchText)
                 .textFieldStyle(.plain)
                 .font(.subheadline)
                 .foregroundStyle(Color.ink)
@@ -147,7 +151,7 @@ struct DiscoverView: View {
                         }
                         reload()
                     } label: {
-                        Text(f.rawValue)
+                        Text(feedTitle(f))
                             .font(.subheadline.weight(feed == f ? .semibold : .regular))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 7)
@@ -177,10 +181,20 @@ struct DiscoverView: View {
         auth.isLoggedIn ? Feed.allCases : Feed.allCases.filter { $0 != .forYou }
     }
 
+    private func feedTitle(_ feed: Feed) -> String {
+        let s = L10n.strings(for: prefs.language)
+        switch feed {
+        case .latest: return s.latest
+        case .popular: return s.popular
+        case .forYou: return s.forYou
+        case .ai: return s.ai
+        }
+    }
+
     private var categoryChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                chipButton("All", isOn: selectedCategory == nil) {
+                chipButton(L10n.strings(for: prefs.language).all, isOn: selectedCategory == nil) {
                     guard selectedCategory != nil else { return }
                     selectedCategory = nil
                     reload()

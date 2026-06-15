@@ -11,6 +11,7 @@ struct WallpaperDetailView: View {
     let slug: String
 
     @Environment(AuthService.self) private var auth
+    @Environment(UIPrefs.self) private var prefs
 
     @State private var detail: WallpaperDetail?
     @State private var loadError: String?
@@ -63,10 +64,10 @@ struct WallpaperDetailView: View {
                 )
             }
         }
-        .alert("Sign in required", isPresented: $showLoginPrompt) {
-            Button("OK", role: .cancel) {}
+        .alert(L10n.strings(for: prefs.language).signInRequired, isPresented: $showLoginPrompt) {
+            Button(L10n.strings(for: prefs.language).ok, role: .cancel) {}
         } message: {
-            Text("Log in from the Me tab to like, favorite and download wallpapers.")
+            Text(L10n.strings(for: prefs.language).signInDetailMessage)
         }
     }
 
@@ -74,8 +75,8 @@ struct WallpaperDetailView: View {
         Color(hex: detail?.dominantColor) ?? .black
     }
 
-    // The wallpaper, blown past the edges and frosted, is the page
-    // surface. Dark scrim keeps the light chrome legible on any image.
+    // The wallpaper itself is the page. A subtle scrim keeps only the
+    // navigation and bottom tools legible on bright images.
     private var backdrop: some View {
         ZStack {
             backdropColor
@@ -89,11 +90,9 @@ struct WallpaperDetailView: View {
                         }
                     )
                     .clipped()
-                    .blur(radius: 48)
-                    .scaleEffect(1.25)
             }
             LinearGradient(
-                colors: [.black.opacity(0.30), .black.opacity(0.55)],
+                colors: [.black.opacity(0.20), .clear, .black.opacity(0.46)],
                 startPoint: .top, endPoint: .bottom
             )
         }
@@ -102,57 +101,117 @@ struct WallpaperDetailView: View {
 
     private func content(_ detail: WallpaperDetail) -> some View {
         VStack(spacing: 0) {
-            Spacer(minLength: 12)
-
-            // Hero at the exact crop this device applies as wallpaper.
-            Color.clear
-                .aspectRatio(DeviceScreenRatio.value, contentMode: .fit)
-                .overlay(
-                    CachedAsyncImage(url: URL(string: detail.displayURL), maxPixelDimension: 1600) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle().fill(backdropColor)
-                    }
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 30))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 30)
-                        .strokeBorder(.white.opacity(0.22), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.45), radius: 30, y: 18)
-                .frame(maxHeight: 480)
-                .onTapGesture { showDevicePreview = true }
-
-            Spacer(minLength: 16)
-
-            // One quiet technical line.
-            HStack(spacing: 7) {
-                Text(detail.resolutionLabel.uppercased())
-                if detail.isAIGenerated == true {
-                    Text("·")
-                    Text("AI")
-                }
-                Text("·")
-                Text("\(detail.width)×\(detail.height)")
-                Text("·")
-                Text(byteString(detail.fileSize))
-            }
-            .font(.mono11)
-            .tracking(1.2)
-            .foregroundStyle(Color.lightText.opacity(0.65))
-
-            Spacer(minLength: 18)
-
-            actionCluster(detail)
-                .padding(.horizontal, 20)
-
-            Spacer(minLength: 24)
+            Spacer()
+            bottomToolBar(detail)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 22)
         }
-        .padding(.horizontal, 38)
+        .contentShape(Rectangle())
+        .onTapGesture { showDevicePreview = true }
         .environment(\.colorScheme, .dark)
     }
 
     // ─── actions ─────────────────────────────────────────────────
+
+    private func bottomToolBar(_ detail: WallpaperDetail) -> some View {
+        HStack(spacing: 12) {
+            toolButton(
+                icon: isLiked ? "heart.fill" : "heart",
+                tint: isLiked ? Color(red: 1.0, green: 0.42, blue: 0.42) : Color.lightText
+            ) { toggleLike() }
+
+            toolButton(
+                icon: isFavorited ? "star.fill" : "star",
+                tint: isFavorited ? Color(red: 1.0, green: 0.80, blue: 0.35) : Color.lightText
+            ) { toggleFavorite() }
+
+            toolButton(icon: "rectangle.stack.badge.plus", tint: Color.lightText) {
+                guard auth.isLoggedIn else { showLoginPrompt = true; return }
+                showAddToCollection = true
+            }
+
+            toolButton(icon: "iphone", tint: Color.lightText) {
+                showDevicePreview = true
+            }
+
+            compactDownloadButton(detail)
+        }
+        .padding(10)
+        .background(.black.opacity(0.30), in: Capsule())
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(.white.opacity(0.18), lineWidth: 1))
+        .shadow(color: .black.opacity(0.32), radius: 18, y: 10)
+    }
+
+    private func toolButton(icon: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .semibold))
+                .contentTransition(.symbolEffect(.replace))
+                .foregroundStyle(tint)
+                .frame(width: 46, height: 46)
+                .background(.white.opacity(0.12), in: Circle())
+        }
+        .buttonStyle(.pressable)
+    }
+
+    @ViewBuilder
+    private func compactDownloadButton(_ detail: WallpaperDetail) -> some View {
+        switch downloadState {
+        case .idle:
+            Button {
+                guard auth.isLoggedIn else { showLoginPrompt = true; return }
+                downloadState = detail.isDownloaded == true ? .downloading : .confirming
+                if detail.isDownloaded == true {
+                    startDownload(detail)
+                }
+            } label: {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(Color.lightText)
+                    .frame(width: 46, height: 46)
+                    .background(Color.accent, in: Circle())
+            }
+            .buttonStyle(.pressable)
+            .confirmationDialog(
+                L10n.strings(for: prefs.language).downloadOneCoin,
+                isPresented: confirmingBinding,
+                titleVisibility: .visible
+            ) {
+                Button(L10n.strings(for: prefs.language).downloadOneCoin) { startDownload(detail) }
+                Button(L10n.strings(for: prefs.language).cancel, role: .cancel) { downloadState = .idle }
+            }
+        case .confirming:
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Color.lightText)
+                .frame(width: 46, height: 46)
+                .background(Color.accent.opacity(0.72), in: Circle())
+        case .downloading:
+            ProgressView()
+                .controlSize(.small)
+                .tint(Color.lightText)
+                .frame(width: 46, height: 46)
+                .background(Color.accent.opacity(0.72), in: Circle())
+        case .saved:
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Color.lightText)
+                .frame(width: 46, height: 46)
+                .background(Color.accent, in: Circle())
+        case .failed:
+            Button {
+                downloadState = .idle
+            } label: {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Color.lightText)
+                    .frame(width: 46, height: 46)
+                    .background(.white.opacity(0.14), in: Circle())
+            }
+            .buttonStyle(.pressable)
+        }
+    }
 
     private func actionCluster(_ detail: WallpaperDetail) -> some View {
         VStack(spacing: 14) {
@@ -180,7 +239,7 @@ struct WallpaperDetailView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "iphone")
                             .font(.system(size: 14))
-                        Text("Preview")
+                        Text(L10n.strings(for: prefs.language).preview)
                             .font(.subheadline.weight(.semibold))
                     }
                     .fixedSize()
@@ -236,23 +295,23 @@ struct WallpaperDetailView: View {
                     startDownload(detail)
                 }
             } label: {
-                ctaLabel("Download · 1 coin", icon: "arrow.down.circle.fill")
+                ctaLabel(L10n.strings(for: prefs.language).downloadOneCoin, icon: "arrow.down.circle.fill")
             }
             .buttonStyle(.pressable)
             .confirmationDialog(
-                "Download costs 1 coin",
+                L10n.strings(for: prefs.language).downloadOneCoin,
                 isPresented: confirmingBinding,
                 titleVisibility: .visible
             ) {
-                Button("Download · 1 coin") { startDownload(detail) }
-                Button("Cancel", role: .cancel) { downloadState = .idle }
+                Button(L10n.strings(for: prefs.language).downloadOneCoin) { startDownload(detail) }
+                Button(L10n.strings(for: prefs.language).cancel, role: .cancel) { downloadState = .idle }
             }
         case .confirming:
-            ctaLabel("Download · 1 coin", icon: "arrow.down.circle.fill")
+            ctaLabel(L10n.strings(for: prefs.language).downloadOneCoin, icon: "arrow.down.circle.fill")
         case .downloading:
             HStack(spacing: 7) {
                 ProgressView().controlSize(.small).tint(Color.lightText)
-                Text("Saving…")
+                Text(L10n.strings(for: prefs.language).saving)
                     .font(.subheadline.weight(.semibold))
             }
             .foregroundStyle(Color.lightText)
@@ -260,7 +319,7 @@ struct WallpaperDetailView: View {
             .frame(maxWidth: .infinity)
             .background(Color.accent.opacity(0.7), in: Capsule())
         case .saved:
-            ctaLabel("Saved to Photos", icon: "checkmark.circle.fill")
+            ctaLabel(L10n.strings(for: prefs.language).savedToPhotos, icon: "checkmark.circle.fill")
         case .failed(let message):
             Button {
                 downloadState = .idle
@@ -378,9 +437,9 @@ struct WallpaperDetailView: View {
                 downloadState = .saved
                 await auth.refreshCoins()
             } catch APIError.insufficientCoins {
-                downloadState = .failed("Not enough coins")
+                downloadState = .failed(L10n.strings(for: prefs.language).notEnoughCoins)
             } catch {
-                downloadState = .failed("Download failed")
+                downloadState = .failed(L10n.strings(for: prefs.language).downloadFailed)
             }
         }
     }
@@ -466,6 +525,7 @@ struct AddToCollectionSheet: View {
     let wallpaperID: Int
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(UIPrefs.self) private var prefs
     @State private var collections: [CollectionBrief] = []
     @State private var newTitle = ""
     @State private var working = false
@@ -474,16 +534,16 @@ struct AddToCollectionSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("New collection") {
+                Section(L10n.strings(for: prefs.language).newCollection) {
                     HStack {
-                        TextField("Collection name", text: $newTitle)
-                        Button("Create") { createAndAdd() }
+                        TextField(L10n.strings(for: prefs.language).collectionName, text: $newTitle)
+                        Button(L10n.strings(for: prefs.language).create) { createAndAdd() }
                             .disabled(newTitle.trimmingCharacters(in: .whitespaces).isEmpty || working)
                     }
                 }
-                Section("My collections") {
+                Section(L10n.strings(for: prefs.language).myCollections) {
                     if collections.isEmpty {
-                        Text("No collections yet")
+                        Text(L10n.strings(for: prefs.language).noCollectionsYet)
                             .foregroundStyle(.secondary)
                     }
                     ForEach(collections) { collection in
@@ -511,11 +571,11 @@ struct AddToCollectionSheet: View {
                         .font(.footnote)
                 }
             }
-            .navigationTitle("Add to Collection")
+            .navigationTitle(L10n.strings(for: prefs.language).addToCollection)
             .inlineNavTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+                    Button(L10n.strings(for: prefs.language).done) { dismiss() }
                 }
             }
             .task {

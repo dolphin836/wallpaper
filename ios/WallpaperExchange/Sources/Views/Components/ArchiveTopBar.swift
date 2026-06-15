@@ -1,19 +1,18 @@
 import SwiftUI
 
 // Shared top toolbar for the four root tabs: collections drawer on the
-// left, the page's serif title in the middle, and the global
-// lock-screen-preview toggle on the right.
+// left, the page's title in the middle, and the global lock-screen-
+// preview toggle on the right.
 struct ArchiveTopBar: View {
     var title: String
 
     @Environment(UIPrefs.self) private var prefs
-    @State private var showCollections = false
+    @Environment(AuthService.self) private var auth
+    @Environment(TabRouter.self) private var router
 
     var body: some View {
         HStack(spacing: 10) {
-            topButton(icon: "square.stack", selected: false) {
-                showCollections = true
-            }
+            avatarButton
 
             Text(title)
                 .font(.script(27))
@@ -48,9 +47,47 @@ struct ArchiveTopBar: View {
                 }
         )
         .archiveSelectionFeedback(trigger: prefs.lockPreview)
-        .fullScreenCoverCompat(isPresented: $showCollections) {
-            CollectionsBrowser()
+    }
+
+    private var avatarButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+                router.selection = 4
+            }
+        } label: {
+            ZStack {
+                if let user = auth.user, !user.avatarURL.isEmpty {
+                    CachedAsyncImage(url: URL(string: user.avatarURL), maxPixelDimension: 180) { image in
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        avatarFallback
+                    }
+                } else {
+                    avatarFallback
+                }
+            }
+            .frame(width: 40, height: 40)
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(Color.hair, lineWidth: 1))
         }
+        .buttonStyle(.pressable)
+        .accessibilityLabel(L10n.strings(for: prefs.language).favorites)
+    }
+
+    private var avatarFallback: some View {
+        Circle()
+            .fill(Color.paper3.opacity(0.78))
+            .overlay {
+                if let user = auth.user {
+                    Text(String((user.nickname.isEmpty ? user.username : user.nickname).prefix(1)).uppercased())
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.ink2)
+                } else {
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(Color.ink2)
+                }
+            }
     }
 
     private func topButton(icon: String, selected: Bool, action: @escaping () -> Void) -> some View {

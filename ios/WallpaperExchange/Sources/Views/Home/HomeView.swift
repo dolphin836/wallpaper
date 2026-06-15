@@ -1,37 +1,39 @@
 import SwiftUI
 
-// Home — the curated shelf, mirroring the web/Mac home: this week's
-// picks, community collections, then the AI rail. (No Live rail on
-// iOS — the platform can't use video wallpapers.) Everything links
-// deeper; nothing here paginates.
+// Home — a phone-first editorial front page: the last four weekly
+// slates as an auto-paging album, then compact two-row previews for
+// latest wallpapers and latest collections.
 struct HomeView: View {
-    @State private var weekly: WeeklyCurrent?
-    @State private var collections: [CollectionItem] = []
-    @State private var aiPicks: [Wallpaper] = []
+    @Environment(UIPrefs.self) private var prefs
+    @Environment(TabRouter.self) private var router
+
+    @State private var weeklyArchive: [WeeklyArchiveEntry] = []
+    @State private var latestWallpapers: [Wallpaper] = []
+    @State private var latestCollections: [CollectionItem] = []
     @State private var loadError: String?
+    @State private var carouselIndex = 0
+
+    private let carouselTimer = Timer.publish(every: 4.5, on: .main, in: .common).autoconnect()
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                ArchiveTopBar(title: "Home")
+                ArchiveTopBar(title: L10n.strings(for: prefs.language).home)
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        if let loadError, weekly == nil, aiPicks.isEmpty {
+                    VStack(alignment: .leading, spacing: 26) {
+                        if let loadError, weeklyArchive.isEmpty, latestWallpapers.isEmpty, latestCollections.isEmpty {
                             ErrorRetryView(message: loadError) { Task { await load() } }
                         } else {
-                            if let weekly, !weekly.picks.isEmpty {
-                                weeklyHero(weekly)
-                                weeklySection(weekly)
+                            if !weeklyArchive.isEmpty {
+                                weeklyAlbumSection
                             }
-                            if !collections.isEmpty {
-                                collectionsSection
+                            if !latestWallpapers.isEmpty {
+                                latestWallpapersSection
                             }
-                            if !aiPicks.isEmpty {
-                                raitSection(
-                                    kicker: "Machine dreams", title: "AI Wallpapers",
-                                    items: aiPicks, route: FeedRoute(kind: .ai))
+                            if !latestCollections.isEmpty {
+                                latestCollectionsSection
                             }
-                            if weekly == nil && aiPicks.isEmpty {
+                            if weeklyArchive.isEmpty && latestWallpapers.isEmpty && latestCollections.isEmpty {
                                 homeSkeleton
                             }
                         }
@@ -52,9 +54,6 @@ struct HomeView: View {
             .navigationDestination(for: CollectionItem.self) { collection in
                 CollectionDetailView(collection: collection)
             }
-            .navigationDestination(for: FeedRoute.self) { route in
-                FilteredFeedView(kind: route.kind)
-            }
             .navigationDestination(for: WeeklyArchiveRoute.self) { _ in
                 WeeklyArchiveView()
             }
@@ -62,64 +61,38 @@ struct HomeView: View {
                 WeeklyWeekView(year: entry.year, week: entry.week)
             }
             .refreshable { await load() }
-            .task { if weekly == nil { await load() } }
+            .task { if weeklyArchive.isEmpty { await load() } }
+            .onReceive(carouselTimer) { _ in
+                guard weeklyArchive.count > 1 else { return }
+                withAnimation(.easeOut(duration: 0.28)) {
+                    carouselIndex = (carouselIndex + 1) % min(weeklyArchive.count, 4)
+                }
+            }
         }
     }
 
     // ─── sections ────────────────────────────────────────────────
 
-    @ViewBuilder
-    private func weeklyHero(_ slate: WeeklyCurrent) -> some View {
-        let usable = slate.picks.map(\.asWallpaper).filter(\.isUsableOnIOS)
-        if let hero = usable.first {
-            NavigationLink(value: WallpaperRoute(slug: hero.slug)) {
-                ZStack(alignment: .bottomLeading) {
-                    Color.clear
-                        .overlay(
-                            CachedAsyncImage(url: URL(string: hero.displayURL), maxPixelDimension: 1700) { image in
-                                image.resizable().aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Rectangle().fill(Color(hex: hero.dominantColor) ?? Color.paper3)
-                            }
-                        )
-                        .clipped()
+    private var weeklyAlbumSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionRow(
+                kicker: L10n.strings(for: prefs.language).weeklyKicker,
+                title: L10n.strings(for: prefs.language).recentWeekly,
+                route: WeeklyArchiveRoute()
+            )
 
-                    LinearGradient(
-                        colors: [.clear, .black.opacity(0.10), .black.opacity(0.68)],
-                        startPoint: .top, endPoint: .bottom
-                    )
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 6) {
-                            MediaChip(text: "Week \(slate.week)")
-                            MediaChip(text: hero.resolutionLabel, tint: Color.black.opacity(0.22))
-                        }
-
-                        Text(hero.title)
-                            .font(.system(size: 25, weight: .bold))
-                            .foregroundStyle(Color.lightText)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.84)
-
-                        HStack(spacing: 6) {
-                            Text("Open this wallpaper")
-                            Image(systemName: "arrow.right")
-                        }
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.lightText.opacity(0.78))
+            TabView(selection: $carouselIndex) {
+                ForEach(Array(weeklyArchive.prefix(4).enumerated()), id: \.element.id) { index, entry in
+                    NavigationLink(value: entry) {
+                        WeeklyAlbumCard(entry: entry, index: index, count: min(weeklyArchive.count, 4))
+                            .padding(.horizontal, 12)
                     }
-                    .padding(18)
+                    .buttonStyle(.pressable)
+                    .tag(index)
                 }
-                .frame(height: 430)
-                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .strokeBorder(.white.opacity(0.16), lineWidth: 1)
-                )
-                .shadow(color: (Color(hex: hero.dominantColor) ?? .black).opacity(0.28), radius: 24, y: 12)
             }
-            .buttonStyle(.pressable)
-            .padding(.horizontal, 12)
+            .weeklyCarouselStyle()
+            .frame(height: 336)
         }
     }
 
@@ -133,69 +106,50 @@ struct HomeView: View {
                         SkeletonBlock(radius: 5).frame(width: 160, height: 20)
                     }
                     .padding(.horizontal, 12)
-                    RailSkeleton(height: i == 0 ? 240 : 190)
+                    RailSkeleton(height: i == 0 ? 316 : 210)
                 }
             }
         }
     }
 
-    private func weeklySection(_ slate: WeeklyCurrent) -> some View {
+    private var latestWallpapersSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionRow(
-                kicker: "Week \(slate.week) · \(String(slate.year))",
-                title: "Weekly Picks",
-                route: WeeklyArchiveRoute()
-            )
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    // Weekly slates can include video picks; drop them on iOS.
-                    ForEach(slate.picks.map(\.asWallpaper).filter(\.isUsableOnIOS)) { pick in
-                        NavigationLink(value: WallpaperRoute(slug: pick.slug)) {
-                            WallpaperTile(wallpaper: pick)
-                                .frame(height: 240)
-                        }
-                        .buttonStyle(.pressable)
-                    }
-                }
-                .padding(.horizontal, 12)
+                kicker: L10n.strings(for: prefs.language).latest,
+                title: L10n.strings(for: prefs.language).latestWallpapers
+            ) {
+                switchToTab(1)
             }
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                ForEach(latestWallpapers.prefix(4)) { wallpaper in
+                    NavigationLink(value: WallpaperRoute(slug: wallpaper.slug)) {
+                        WallpaperTile(wallpaper: wallpaper)
+                            .frame(height: 218)
+                    }
+                    .buttonStyle(.pressable)
+                }
+            }
+            .padding(.horizontal, 12)
         }
     }
 
-    private var collectionsSection: some View {
+    private var latestCollectionsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionHeader(kicker: "Curated shelves", title: "Collections")
-                .padding(.horizontal, 12)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(collections) { collection in
-                        NavigationLink(value: collection) {
-                            CollectionCard(collection: collection, height: 150)
-                                .frame(width: 280)
-                        }
-                        .buttonStyle(.pressable)
-                    }
-                }
-                .padding(.horizontal, 12)
+            sectionRow(
+                kicker: L10n.strings(for: prefs.language).collectionsKicker,
+                title: L10n.strings(for: prefs.language).latestCollections
+            ) {
+                switchToTab(3)
             }
-        }
-    }
-
-    private func raitSection(kicker: String, title: String, items: [Wallpaper], route: FeedRoute) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionRow(kicker: kicker, title: title, route: route)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(items) { wallpaper in
-                        NavigationLink(value: WallpaperRoute(slug: wallpaper.slug)) {
-                            WallpaperTile(wallpaper: wallpaper)
-                                .frame(height: 190)
-                        }
-                        .buttonStyle(.pressable)
+            LazyVStack(spacing: 10) {
+                ForEach(latestCollections.prefix(2)) { collection in
+                    NavigationLink(value: collection) {
+                        CollectionCard(collection: collection, height: 148)
                     }
+                    .buttonStyle(.pressable)
                 }
-                .padding(.horizontal, 12)
             }
+            .padding(.horizontal, 12)
         }
     }
 
@@ -204,37 +158,156 @@ struct HomeView: View {
             SectionHeader(kicker: kicker, title: title)
             Spacer()
             NavigationLink(value: route) {
-                HStack(spacing: 3) {
-                    Text("See all")
-                        .font(.caption.weight(.medium))
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 10, weight: .semibold))
-                }
-                .foregroundStyle(Color.accentInk)
+                sectionActionLabel(L10n.strings(for: prefs.language).viewAll)
             }
             .buttonStyle(.pressable)
         }
         .padding(.horizontal, 12)
     }
 
+    private func sectionRow(kicker: String, title: String, action: @escaping () -> Void) -> some View {
+        HStack(alignment: .bottom) {
+            SectionHeader(kicker: kicker, title: title)
+            Spacer()
+            Button(action: action) {
+                sectionActionLabel(L10n.strings(for: prefs.language).seeMore)
+            }
+            .buttonStyle(.pressable)
+        }
+        .padding(.horizontal, 12)
+    }
+
+    private func sectionActionLabel(_ title: String) -> some View {
+        HStack(spacing: 3) {
+            Text(title)
+                .font(.caption.weight(.medium))
+            Image(systemName: "arrow.right")
+                .font(.system(size: 10, weight: .semibold))
+        }
+        .foregroundStyle(Color.accentInk)
+    }
+
+    private func switchToTab(_ tag: Int) {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+            router.selection = tag
+        }
+    }
+
     private func load() async {
         do {
-            async let weeklyReq = APIClient.shared.fetchWeeklyCurrent()
-            async let collectionsReq = APIClient.shared.fetchPublicCollections(limit: 10)
-            async let aiReq = APIClient.shared.fetchWallpapers(limit: 10, aiOnly: true)
+            async let archiveReq = APIClient.shared.fetchWeeklyArchive(limit: 4)
+            async let wallpapersReq = APIClient.shared.fetchWallpapers(limit: 4)
+            async let collectionsReq = APIClient.shared.fetchPublicCollections(limit: 2)
 
-            weekly = try? await weeklyReq
-            collections = (try? await collectionsReq.items) ?? []
-            aiPicks = (try? await aiReq.items) ?? []
-            if weekly == nil && collections.isEmpty && aiPicks.isEmpty {
-                // Every fetch failed — surface one retryable error instead
-                // of an empty shelf.
-                _ = try await APIClient.shared.fetchWeeklyCurrent()
+            weeklyArchive = (try? await archiveReq) ?? []
+            latestWallpapers = (try? await wallpapersReq.items) ?? []
+            latestCollections = (try? await collectionsReq.items) ?? []
+            carouselIndex = min(carouselIndex, max(weeklyArchive.count - 1, 0))
+            if weeklyArchive.isEmpty && latestWallpapers.isEmpty && latestCollections.isEmpty {
+                _ = try await APIClient.shared.fetchWeeklyArchive(limit: 1)
             }
             loadError = nil
         } catch {
             loadError = error.localizedDescription
         }
+    }
+}
+
+private struct WeeklyAlbumCard: View {
+    let entry: WeeklyArchiveEntry
+    let index: Int
+    let count: Int
+
+    @Environment(UIPrefs.self) private var prefs
+
+    private var accent: Color {
+        Color(hex: entry.accentColor ?? entry.dominantColor) ?? Color.accent
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            albumLayer(offset: CGSize(width: 22, height: 18), scale: 0.88, opacity: 0.34)
+            albumLayer(offset: CGSize(width: 11, height: 9), scale: 0.94, opacity: 0.55)
+            coverLayer
+        }
+        .padding(.trailing, 22)
+        .padding(.bottom, 18)
+    }
+
+    private var coverLayer: some View {
+        ZStack(alignment: .bottomLeading) {
+            Color.clear
+                .overlay(
+                    CachedAsyncImage(url: URL(string: entry.coverURL), maxPixelDimension: 1200) { image in
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle().fill(accent.opacity(0.72))
+                    }
+                )
+                .clipped()
+
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.08), .black.opacity(0.70)],
+                startPoint: .top, endPoint: .bottom
+            )
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(String(format: L10n.strings(for: prefs.language).week, entry.week))
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(Color.lightText)
+                    .lineLimit(1)
+                Text(String(format: L10n.strings(for: prefs.language).picksCount, entry.count))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.lightText.opacity(0.78))
+            }
+            .padding(18)
+
+            HStack(spacing: 6) {
+                ForEach(0..<count, id: \.self) { dot in
+                    Circle()
+                        .fill(dot == index ? Color.lightText : Color.lightText.opacity(0.38))
+                        .frame(width: dot == index ? 7 : 5, height: dot == index ? 7 : 5)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.bottom, 14)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 316)
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(.white.opacity(0.16), lineWidth: 1)
+        )
+        .shadow(color: accent.opacity(0.24), radius: 24, y: 14)
+    }
+
+    private func albumLayer(offset: CGSize, scale: CGFloat, opacity: Double) -> some View {
+        RoundedRectangle(cornerRadius: 28, style: .continuous)
+            .fill(accent.opacity(opacity))
+            .overlay(
+                CachedAsyncImage(url: URL(string: entry.coverURL), maxPixelDimension: 520) { image in
+                    image.resizable().aspectRatio(contentMode: .fill).opacity(0.28)
+                } placeholder: {
+                    accent.opacity(opacity)
+                }
+            )
+            .frame(height: 300)
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .offset(offset)
+            .scaleEffect(scale)
+            .blur(radius: 0.2)
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func weeklyCarouselStyle() -> some View {
+        #if os(iOS)
+        self.tabViewStyle(.page(indexDisplayMode: .never))
+        #else
+        self
+        #endif
     }
 }
 

@@ -10,8 +10,9 @@ enum LaunchOptions {
         guard let i = args.firstIndex(of: "-tab"), i + 1 < args.count else { return 0 }
         switch args[i + 1] {
         case "discover": return 1
-        case "make": return 2
-        case "me": return 3
+        case "weekly": return 2
+        case "collections": return 3
+        case "favorites", "me": return 4
         default: return 0
         }
     }
