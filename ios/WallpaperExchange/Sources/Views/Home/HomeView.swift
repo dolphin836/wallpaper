@@ -96,17 +96,49 @@ struct HomeView: View {
     // Mirrors the shelf layout so content landing doesn't reflow.
     private var homeSkeleton: some View {
         VStack(alignment: .leading, spacing: 24) {
-            ForEach(0..<3, id: \.self) { i in
-                VStack(alignment: .leading, spacing: 10) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        SkeletonBlock(radius: 3).frame(width: 90, height: 9)
-                        SkeletonBlock(radius: 5).frame(width: 160, height: 20)
-                    }
-                    .padding(.horizontal, 12)
-                    RailSkeleton(height: i == 0 ? 316 : 210)
-                }
+            VStack(alignment: .leading, spacing: 10) {
+                sectionSkeleton(width: 172)
+                weeklyAlbumSkeleton
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                sectionSkeleton(width: 156)
+                WallpaperGridSkeleton(count: 4)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                sectionSkeleton(width: 150)
+                CollectionListSkeleton(count: 2, height: 148)
             }
         }
+    }
+
+    private func sectionSkeleton(width: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            SkeletonBlock(radius: 3).frame(width: 90, height: 9)
+            SkeletonBlock(radius: 5).frame(width: width, height: 20)
+        }
+        .padding(.horizontal, 12)
+    }
+
+    private var weeklyAlbumSkeleton: some View {
+        ZStack(alignment: .bottom) {
+            SkeletonBlock(radius: 28)
+                .frame(height: 300)
+                .opacity(0.48)
+                .offset(x: 22, y: 18)
+                .scaleEffect(0.88)
+            SkeletonBlock(radius: 28)
+                .frame(height: 300)
+                .opacity(0.62)
+                .offset(x: 11, y: 9)
+                .scaleEffect(0.94)
+            SkeletonBlock(radius: 28)
+                .frame(height: 316)
+        }
+        .padding(.horizontal, 12)
+        .padding(.trailing, 22)
+        .padding(.bottom, 18)
     }
 
     private var latestWallpapersSection: some View {

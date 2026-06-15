@@ -41,7 +41,7 @@ struct WeeklyArchiveView: View {
                 } else if !archive.isEmpty {
                     archiveSection
                 } else if loading {
-                    LoadingFooter()
+                    archiveSkeleton
                 }
             }
             .padding(.top, 8)
@@ -66,6 +66,24 @@ struct WeeklyArchiveView: View {
                         archiveCard(entry)
                     }
                     .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+        }
+    }
+
+    private var archiveSkeleton: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 5) {
+                SkeletonBlock(radius: 3).frame(width: 86, height: 9)
+                SkeletonBlock(radius: 5).frame(width: 150, height: 20)
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                ForEach(0..<6, id: \.self) { _ in
+                    WeeklyArchiveCardSkeleton()
                 }
             }
             .padding(.horizontal, 12)
@@ -149,12 +167,16 @@ struct WeeklyWeekView: View {
     let week: Int
 
     @State private var picks: [WeeklyPicked] = []
+    @State private var loading = false
     @State private var loadError: String?
 
     var body: some View {
         ScrollView {
             if let loadError, picks.isEmpty {
                 ErrorRetryView(message: loadError) { Task { await load() } }
+            } else if picks.isEmpty && loading {
+                WallpaperGridSkeleton(count: 8)
+                    .padding(.top, 8)
             } else {
                 WallpaperGrid(wallpapers: picks.map(\.asWallpaper).filter(\.isUsableOnIOS), showsEndState: false)
                     .padding(.top, 8)
@@ -175,11 +197,35 @@ struct WeeklyWeekView: View {
     }
 
     private func load() async {
+        loading = true
+        defer { loading = false }
         do {
             picks = try await APIClient.shared.fetchWeeklyByWeek(year: year, week: week).picks
             loadError = nil
         } catch {
             loadError = error.localizedDescription
+        }
+    }
+}
+
+private struct WeeklyArchiveCardSkeleton: View {
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            SkeletonBlock(radius: 18)
+                .offset(x: 7, y: -7)
+                .opacity(0.46)
+
+            SkeletonBlock(radius: 18)
+                .aspectRatio(0.78, contentMode: .fit)
+
+            VStack(alignment: .leading, spacing: 7) {
+                SkeletonBlock(radius: 5).frame(width: 82, height: 18)
+                HStack(spacing: 6) {
+                    SkeletonBlock(radius: 6).frame(width: 54, height: 18)
+                    SkeletonBlock(radius: 6).frame(width: 66, height: 18)
+                }
+            }
+            .padding(12)
         }
     }
 }

@@ -169,15 +169,68 @@ struct WallpaperGridSkeleton: View {
     var count: Int = 6
 
     private let columns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 14),
+        GridItem(.flexible(), spacing: 14),
     ]
 
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 10) {
+        LazyVGrid(columns: columns, spacing: 14) {
             ForEach(0..<count, id: \.self) { _ in
                 SkeletonBlock()
                     .aspectRatio(DeviceScreenRatio.value, contentMode: .fit)
+            }
+        }
+        .padding(.horizontal, 12)
+    }
+}
+
+struct CollectionCardSkeleton: View {
+    var height: CGFloat = 190
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                SkeletonBlock(radius: 14)
+                HStack(spacing: 5) {
+                    SkeletonBlock(radius: 10)
+                        .frame(maxWidth: .infinity)
+                    VStack(spacing: 5) {
+                        SkeletonBlock(radius: 9)
+                        SkeletonBlock(radius: 9)
+                    }
+                    .frame(maxWidth: 50)
+                }
+                .padding(5)
+            }
+            .frame(width: max(112, height * 0.72), height: height - 22)
+
+            VStack(alignment: .leading, spacing: 9) {
+                SkeletonBlock(radius: 3).frame(width: 54, height: 9)
+                SkeletonBlock(radius: 5).frame(height: 20)
+                SkeletonBlock(radius: 5).frame(width: 118, height: 13)
+                Spacer(minLength: 0)
+                SkeletonBlock(radius: 5).frame(width: 76, height: 12)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(11)
+        .frame(height: height)
+        .background(Color.paper2, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.hair, lineWidth: 1)
+        )
+    }
+}
+
+struct CollectionListSkeleton: View {
+    var count: Int = 3
+    var height: CGFloat = 190
+
+    var body: some View {
+        VStack(spacing: 12) {
+            ForEach(0..<count, id: \.self) { _ in
+                CollectionCardSkeleton(height: height)
             }
         }
         .padding(.horizontal, 12)

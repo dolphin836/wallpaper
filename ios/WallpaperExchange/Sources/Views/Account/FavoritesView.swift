@@ -16,6 +16,8 @@ struct FavoritesView: View {
                 Group {
                     if auth.isLoggedIn, let user = auth.user {
                         signedIn(user)
+                    } else if auth.isLoggedIn {
+                        signedInSkeleton
                     } else {
                         signedOut
                     }
@@ -85,6 +87,112 @@ struct FavoritesView: View {
             .padding(.bottom, 10)
         }
         .background(PageMesh())
+    }
+
+    private var signedInSkeleton: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                profileCardSkeleton
+                accountNavigationSkeleton
+                preferencesSkeleton
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 10)
+        }
+        .background(PageMesh())
+    }
+
+    private var profileCardSkeleton: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 12) {
+                SkeletonBlock(radius: 33)
+                    .frame(width: 66, height: 66)
+                VStack(alignment: .leading, spacing: 7) {
+                    SkeletonBlock(radius: 5).frame(width: 140, height: 17)
+                    SkeletonBlock(radius: 5).frame(width: 88, height: 12)
+                    SkeletonBlock(radius: 5).frame(width: 180, height: 12)
+                }
+                Spacer(minLength: 0)
+                SkeletonBlock(radius: 27)
+                    .frame(width: 54, height: 54)
+            }
+
+            HStack(spacing: 8) {
+                ForEach(0..<4, id: \.self) { _ in
+                    SkeletonBlock(radius: 14)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.paper2, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color.hair, lineWidth: 1)
+        )
+        .padding(.horizontal, 12)
+    }
+
+    private var accountNavigationSkeleton: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SkeletonBlock(radius: 5)
+                .frame(width: 130, height: 18)
+                .padding(.horizontal, 12)
+
+            VStack(spacing: 0) {
+                ForEach(0..<5, id: \.self) { index in
+                    HStack(spacing: 12) {
+                        SkeletonBlock(radius: 14).frame(width: 28, height: 28)
+                        SkeletonBlock(radius: 5).frame(width: index == 4 ? 84 : 118, height: 15)
+                        Spacer(minLength: 0)
+                        SkeletonBlock(radius: 5).frame(width: 18, height: 12)
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(height: 52)
+
+                    if index < 4 {
+                        Divider().padding(.leading, 50)
+                    }
+                }
+            }
+            .background(Color.paper2, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.hair, lineWidth: 1)
+            )
+            .padding(.horizontal, 12)
+        }
+    }
+
+    private var preferencesSkeleton: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SkeletonBlock(radius: 5)
+                .frame(width: 78, height: 18)
+                .padding(.horizontal, 12)
+            VStack(spacing: 0) {
+                ForEach(0..<6, id: \.self) { index in
+                    HStack(spacing: 11) {
+                        SkeletonBlock(radius: 13).frame(width: 26, height: 26)
+                        SkeletonBlock(radius: 5).frame(width: index < 2 ? 104 : 150, height: 14)
+                        Spacer(minLength: 0)
+                        SkeletonBlock(radius: 5).frame(width: index < 2 ? 60 : 18, height: 12)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+
+                    if index < 5 {
+                        Divider().padding(.leading, 38)
+                    }
+                }
+            }
+            .background(Color.paper2, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.hair, lineWidth: 1)
+            )
+            .padding(.horizontal, 12)
+        }
     }
 
     private func profileCard(_ user: User) -> some View {
@@ -332,7 +440,8 @@ private struct AccountNavigationCard: View {
                 .foregroundStyle(Color.muted)
         }
         .padding(.horizontal, 12)
-        .frame(height: 52)
+        .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+        .contentShape(Rectangle())
     }
 }
 
@@ -436,12 +545,7 @@ private struct AccountCollectionsListView: View {
                 if let loadError, collections.isEmpty {
                     ErrorRetryView(message: loadError) { reload() }
                 } else if collections.isEmpty && loading {
-                    VStack(spacing: 12) {
-                        ForEach(0..<3, id: \.self) { _ in
-                            SkeletonBlock(radius: 14).frame(height: 160)
-                        }
-                    }
-                    .padding(.horizontal, 12)
+                    CollectionListSkeleton(count: 3, height: 172)
                 } else if collections.isEmpty {
                     EmptyStateView(kicker: s.noCollectionsYet, message: s.emptyCollectionsMessage)
                 } else {

@@ -56,12 +56,7 @@ struct CollectionsBrowser: View {
                         if let loadError, collections.isEmpty {
                             ErrorRetryView(message: loadError) { loadNextPage() }
                         } else if collections.isEmpty && loading {
-                            VStack(spacing: 12) {
-                                ForEach(0..<3, id: \.self) { _ in
-                                    SkeletonBlock(radius: 14).frame(height: 160)
-                                }
-                            }
-                            .padding(.horizontal, 12)
+                            CollectionListSkeleton(count: 3)
                         } else {
                             LazyVStack(spacing: 12) {
                                 ForEach(collections) { collection in
