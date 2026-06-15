@@ -164,6 +164,13 @@ struct WeeklyWeekView: View {
         .navigationTitle("Week \(week) · \(String(year))")
         .inlineNavTitle()
         .showNavBarCompat()
+        .toolbar {
+            #if os(iOS)
+            ToolbarItem(placement: .navigationBarTrailing) {
+                LockPreviewToolbarButton()
+            }
+            #endif
+        }
         .task { if picks.isEmpty { await load() } }
     }
 

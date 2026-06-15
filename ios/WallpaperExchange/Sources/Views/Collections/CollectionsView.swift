@@ -437,6 +437,13 @@ struct CollectionDetailView: View {
         .navigationTitle(collection.title)
         .inlineNavTitle()
         .showNavBarCompat()
+        .toolbar {
+            #if os(iOS)
+            ToolbarItem(placement: .navigationBarTrailing) {
+                LockPreviewToolbarButton()
+            }
+            #endif
+        }
         .task { if wallpapers.isEmpty { loadNextPage() } }
     }
 

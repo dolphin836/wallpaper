@@ -23,11 +23,7 @@ struct ArchiveTopBar: View {
                 .frame(maxWidth: .infinity)
                 .accessibilityAddTraits(.isHeader)
 
-            topButton(icon: prefs.lockPreview ? "lock.iphone" : "iphone", selected: prefs.lockPreview) {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                    prefs.lockPreview.toggle()
-                }
-            }
+            LockPreviewToolbarButton()
         }
         .frame(height: 52)
         .padding(.horizontal, 6)
@@ -38,7 +34,6 @@ struct ArchiveTopBar: View {
         .padding(.horizontal, 12)
         .padding(.top, 6)
         .padding(.bottom, 8)
-        .archiveSelectionFeedback(trigger: prefs.lockPreview)
     }
 
     private var avatarButton: some View {
@@ -82,8 +77,17 @@ struct ArchiveTopBar: View {
             }
     }
 
-    private func topButton(icon: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+}
+
+struct LockPreviewToolbarButton: View {
+    @Environment(UIPrefs.self) private var prefs
+
+    var body: some View {
+        Button {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                prefs.lockPreview.toggle()
+            }
+        } label: {
             Image(systemName: icon)
                 .font(.system(size: 15, weight: .semibold))
                 .contentTransition(.symbolEffect(.replace))
@@ -96,5 +100,15 @@ struct ArchiveTopBar: View {
                 .overlay(Circle().strokeBorder(selected ? Color.accent.opacity(0.55) : Color.hair, lineWidth: 1))
         }
         .buttonStyle(.pressable)
+        .accessibilityLabel(L10n.strings(for: prefs.language).lockPreview)
+        .archiveSelectionFeedback(trigger: prefs.lockPreview)
+    }
+
+    private var icon: String {
+        prefs.lockPreview ? "lock.iphone" : "iphone"
+    }
+
+    private var selected: Bool {
+        prefs.lockPreview
     }
 }
