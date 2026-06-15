@@ -1087,6 +1087,15 @@ func (h *AdminHandler) AddWeeklyPick(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, &errcode.ErrCode{Code: 40010, Message: "wallpaper is not published"})
 		return
 	}
+	if wp.QualityFlag != "ok" {
+		response.Error(w, http.StatusBadRequest, &errcode.ErrCode{Code: 40011, Message: "wallpaper has not passed quality review"})
+		return
+	}
+	if wp.ThumbURL == "" || wp.PreviewURL == "" || wp.Width <= 0 || wp.Height <= 0 ||
+		int64(wp.Width)*int64(wp.Height) < 2000000 || min(wp.Width, wp.Height) < 900 {
+		response.Error(w, http.StatusBadRequest, &errcode.ErrCode{Code: 40012, Message: "wallpaper is not suitable for weekly picks"})
+		return
+	}
 	if err := h.weeklyPickRepo.AddPick(r.Context(), int16(year), int16(week), body.WallpaperID); err != nil {
 		if errors.Is(err, repo.ErrAlreadyPicked) {
 			response.Error(w, http.StatusConflict, &errcode.ErrCode{Code: 40902, Message: "wallpaper is already in this week's slate"})

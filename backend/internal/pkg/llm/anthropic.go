@@ -208,11 +208,11 @@ type QualityAssessment struct {
 // a free-form flag the admin UI doesn't know how to filter on.
 var AllowedQualityFlags = []string{
 	"ok",
-	"blurry",         // out of focus, motion blur, low sharpness
-	"watermark",      // visible watermark, photo-stock logo, signature
-	"ai_slop",        // obvious AI artifacts (mangled hands, garbled text)
-	"text_overlay",   // screenshots, memes, large overlaid text — not wallpaper material
-	"low_aesthetic",  // bad composition, heavy noise, blown highlights, dim/dull
+	"blurry",        // out of focus, motion blur, low sharpness
+	"watermark",     // visible watermark, photo-stock logo, signature
+	"ai_slop",       // obvious AI artifacts (mangled hands, garbled text)
+	"text_overlay",  // screenshots, memes, large overlaid text — not wallpaper material
+	"low_aesthetic", // bad composition, heavy noise, blown highlights, dim/dull
 }
 
 const assessQualityPrompt = `You are moderating wallpaper uploads on a wallpaper-sharing site. Look at the image and decide whether it is suitable as a desktop or mobile wallpaper. Respond with ONLY a JSON object (no markdown, no commentary):
@@ -399,8 +399,12 @@ type ThemeCandidate struct {
 	Tags          []string `json:"tags"`
 	Title         string   `json:"title"`
 	Dominant      string   `json:"dominant"`
+	Width         int      `json:"width"`
+	Height        int      `json:"height"`
 	LikeCount     int64    `json:"like_count"`
+	FavoriteCount int64    `json:"favorite_count"`
 	DownloadCount int64    `json:"download_count"`
+	ViewCount     int64    `json:"view_count"`
 }
 
 // ThemePick is the LLM's answer for a weekly theme collection. We
@@ -623,9 +627,10 @@ const proposeWeeklyPicksPrompt = `You are an editor selecting the 10 wallpapers 
 
 Selection criteria, in order:
 1. QUALITY — every pick should look polished: confident composition, clean execution, no obvious AI-slop artifacts. Title and tags help you judge this; ignore obvious filler.
-2. POPULARITY as a quality signal — like_count and download_count are cumulative engagement. High counts suggest other users found the wallpaper worth keeping. Use them as a hint, NOT as a sort key — top-10 by raw engagement would produce a boring monoculture.
+2. POPULARITY as a quality signal — favorite_count, like_count, and download_count are cumulative engagement. High counts suggest other users found the wallpaper worth keeping. Use them as a hint, NOT as a sort key — top-10 by raw engagement would produce a boring monoculture.
 3. VARIETY — the 10 picks together should span DIFFERENT categories, subjects, palettes, and moods. Avoid stacking 6 mountain landscapes or 5 cyberpunk scenes even if they're all popular. Aim for at most 2-3 wallpapers per category, and watch the dominant colors / tags to avoid visual repetition.
 4. ENGAGEMENT FLOOR — prefer wallpapers with at least 1 like or download over ones with zero, unless quality clearly stands out.
+5. RESOLUTION — prefer wallpapers with enough source detail for modern desktop/mobile displays. Avoid low-resolution rows when stronger alternatives exist.
 
 Hard rules:
 - Output exactly 10 IDs. If the pool truly cannot yield 10 strong picks, output the most you confidently can (down to 5) — never duplicate IDs.

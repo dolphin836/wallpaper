@@ -106,7 +106,10 @@ func (r *WeeklyPickRepo) ListByWeek(ctx context.Context, year, week int16) ([]We
 	// migration touchup.
 	heroIdx := -1
 	for i, r := range rows {
-		if r.IsHero { heroIdx = i; break }
+		if r.IsHero {
+			heroIdx = i
+			break
+		}
 	}
 	if heroIdx == -1 && len(rows) > 0 {
 		heroIdx = 0
@@ -218,12 +221,12 @@ func (r *WeeklyPickRepo) RemovePick(ctx context.Context, year, week int16, wallp
 // wallpaper is the hero, so the admin list can render cover thumbnails
 // without a per-row second fetch.
 type WeekSummary struct {
-	Year         int16  `json:"year"`
-	Week         int16  `json:"week"`
-	Count        int    `json:"count"`
-	HeroThumb    string `json:"hero_thumb"`
-	HeroTitle    string `json:"hero_title"`
-	HeroWPID     int64  `json:"hero_wallpaper_id"`
+	Year      int16  `json:"year"`
+	Week      int16  `json:"week"`
+	Count     int    `json:"count"`
+	HeroThumb string `json:"hero_thumb"`
+	HeroTitle string `json:"hero_title"`
+	HeroWPID  int64  `json:"hero_wallpaper_id"`
 }
 
 // ListAllWeeks returns every week that has a picks slate, newest first,
@@ -369,22 +372,35 @@ func (r *WeeklyPickRepo) Archive(ctx context.Context, limit int) ([]ArchiveEntry
 
 // CandidatePool returns published wallpapers with quality_flag='ok',
 // joined with their engagement counts, ordered by a weighted "hot
-// score" — likes weigh more than downloads, downloads more than views.
+// score" — favorites/likes/downloads weigh more than views, with a
+// small resolution bonus. It also enforces the curation floor shared by
+// weekly-drop so under-sized or not-yet-previewed rows never reach the
+// LLM picker.
 // Optionally filter to wallpapers uploaded since `since`; when the
 // recent pool is empty the picker calls again with a zero time to
 // fall back to the historical pool.
 type Candidate struct {
-	ID       int64
-	Score    float64
+	ID    int64
+	Score float64
 }
 
 func (r *WeeklyPickRepo) CandidatePool(ctx context.Context, sinceUnix int64, excludeIDs []int64) ([]Candidate, error) {
 	q := r.db.WithContext(ctx).
 		Table("wallpapers").
 		Select(`id,
-		        (3.0 * like_count + 2.0 * download_count + 0.1 * view_count) AS score`).
+		        (
+		          4.0 * favorite_count +
+		          3.0 * like_count +
+		          2.0 * download_count +
+		          0.05 * view_count +
+		          LEAST((width::float * height::float) / 8000000.0, 1.0)
+		        ) AS score`).
 		Where("status = ?", model.WallpaperStatusPublished).
 		Where("quality_flag = ?", "ok").
+		Where("thumb_url <> '' AND preview_url <> ''").
+		Where("width > 0 AND height > 0").
+		Where("(width::bigint * height::bigint) >= ?", 2000000).
+		Where("LEAST(width, height) >= ?", 900).
 		Order("score DESC, created_at DESC")
 	if sinceUnix > 0 {
 		q = q.Where("created_at >= to_timestamp(?)", sinceUnix)

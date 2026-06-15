@@ -24,7 +24,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/bits"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -44,7 +46,10 @@ const (
 	themeCandidatePoolSize = 120 // candidates handed to Claude for the themed collection
 	themeMinPicks          = 6   // minimum coherent picks before we publish a theme
 	recentLookbackDays     = 14  // "current-week" mode: bias toward recent uploads
+	minFreshCandidatePool  = 30  // if recent reviewed content is thinner than this, fall back to all-time unused rows
 	avoidThemesLookback    = 32  // when proposing a theme, avoid the last N created themes (covers ~half a year of weekly drops + any backfill churn so Claude sees the full slate at a glance)
+	maxThemePerCategory    = 4   // themed sets can focus, but should not become a category dump
+	nearDuplicateHamming   = 10  // stricter than the upload duplicate window; avoids visual repeats inside one theme
 )
 
 func main() {
@@ -60,25 +65,25 @@ func main() {
 	flag.Int64Var(&owner, "owner", 1, "user id that owns generated theme collections (defaults to admin user 1)")
 	flag.Parse()
 
-	// "Backfill mode" = the operator pinned an explicit --week. In that
-	// case we are stitching a slate for a past week, so we should NOT
-	// bias toward recently-uploaded wallpapers (those didn't exist when
-	// that historical week was live, conceptually). Current-week mode
-	// keeps the recency boost so this Friday's drop reflects what users
-	// have just been adding and engaging with.
-	backfillMode := week > 0
+	requestedYear, requestedWeek := year, week
+	currentYear, currentWeek := time.Now().UTC().ISOWeek()
 	if year == 0 || week == 0 {
-		y, w := time.Now().UTC().ISOWeek()
 		if year == 0 {
-			year = y
+			year = currentYear
 		}
 		if week == 0 {
-			week = w
+			week = currentWeek
 		}
 	}
 	if week < 1 || week > 53 {
 		log.Fatalf("--week must be 1-53, got %d", week)
 	}
+	// "Backfill mode" only means a historical target. Passing
+	// --week=<current week> should still be a current-week run; otherwise
+	// the operator can accidentally pull from the all-time pool and repeat
+	// stale collection content for this week.
+	explicitTarget := requestedYear > 0 || requestedWeek > 0
+	backfillMode := explicitTarget && (year != currentYear || week != currentWeek)
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -114,8 +119,13 @@ func main() {
 	}
 
 	// ── PART 2: Theme Collection.
-	candidates := loadThemeCandidates(ctx, db, themeCandidatePoolSize, backfillMode)
+	themeExcludeIDs := loadThemeCollectionWallpaperIDs(ctx, db)
+	themeExcludeIDs = appendUniqueIDs(themeExcludeIDs, pickIDs...)
+	candidates := loadThemeCandidates(ctx, db, themeCandidatePoolSize, backfillMode, themeExcludeIDs)
 	fmt.Printf("Theme candidates: %d\n", len(candidates))
+	if len(themeExcludeIDs) > 0 {
+		fmt.Printf("Theme exclusions: %d historical/current picks\n", len(themeExcludeIDs))
+	}
 	if len(candidates) < themeMinPicks {
 		fmt.Println("not enough candidates for a theme; will skip theme generation")
 	}
@@ -126,8 +136,8 @@ func main() {
 	}
 
 	var (
-		pick        *llm.ThemePick
-		themeWpIDs  []int64
+		pick       *llm.ThemePick
+		themeWpIDs []int64
 	)
 	if len(candidates) >= themeMinPicks {
 		fmt.Println("Asking Claude for a coherent weekly theme...")
@@ -142,7 +152,7 @@ func main() {
 			fmt.Println("  (Claude returned empty keywords — skipping theme this week)")
 			pick = nil
 		} else {
-			themeWpIDs = matchWallpapersByKeywords(ctx, db, pick.Keywords, weeklyPicksTarget)
+			themeWpIDs = matchWallpapersByKeywords(ctx, db, pick.Keywords, candidates, weeklyPicksTarget)
 			fmt.Printf("  Matched %d wallpapers in DB\n", len(themeWpIDs))
 			if len(themeWpIDs) < themeMinPicks {
 				fmt.Printf("  (theme rejected — only %d matched, need >= %d)\n", len(themeWpIDs), themeMinPicks)
@@ -247,6 +257,7 @@ func loadPickCandidates(ctx context.Context, db *gorm.DB, weeklyRepo *repo.Weekl
 	for id := range excluded {
 		excludedIDs = append(excludedIDs, id)
 	}
+	excludedIDs = appendUniqueIDs(excludedIDs, loadThemeCollectionWallpaperIDs(ctx, db)...)
 	var since int64
 	if !backfillMode {
 		since = time.Now().UTC().AddDate(0, 0, -recentLookbackDays).Unix()
@@ -254,6 +265,13 @@ func loadPickCandidates(ctx context.Context, db *gorm.DB, weeklyRepo *repo.Weekl
 	pool, err := weeklyRepo.CandidatePool(ctx, since, excludedIDs)
 	if err != nil {
 		log.Fatal("pick candidate pool: ", err)
+	}
+	if !backfillMode && len(pool) < minFreshCandidatePool {
+		fmt.Printf("Pick recent pool thin (%d); falling back to all-time unused reviewed wallpapers\n", len(pool))
+		pool, err = weeklyRepo.CandidatePool(ctx, 0, excludedIDs)
+		if err != nil {
+			log.Fatal("pick fallback pool: ", err)
+		}
 	}
 	if len(pool) > limit {
 		pool = pool[:limit]
@@ -267,41 +285,87 @@ func loadPickCandidates(ctx context.Context, db *gorm.DB, weeklyRepo *repo.Weekl
 
 // loadThemeCandidates returns the candidate pool for the themed
 // collection. The themed collection deliberately does NOT exclude
-// previously-picked wallpapers (a wallpaper can star in a slate AND in
-// a later theme — that's by design). Recency vs. all-time follows the
-// same backfill switch as picks.
-func loadThemeCandidates(ctx context.Context, db *gorm.DB, limit int, backfillMode bool) []llm.ThemeCandidate {
-	type row struct {
-		ID            int64
-		CategoryID    int64
-		Category      string
-		Title         string
-		Dominant      string
-		LikeCount     int64
-		DownloadCount int64
+// previously themed wallpapers, and it also excludes this week's weekly
+// picks so the Home page does not show the same image in both editorial
+// sections. Recency vs. all-time follows the same backfill switch as
+// picks, with a fallback when recent reviewed content is thin.
+func loadThemeCandidates(ctx context.Context, db *gorm.DB, limit int, backfillMode bool, excludeIDs []int64) []llm.ThemeCandidate {
+	var since time.Time
+	if !backfillMode {
+		since = time.Now().UTC().AddDate(0, 0, -recentLookbackDays)
 	}
+	rows := queryThemeCandidates(ctx, db, since, limit, excludeIDs)
+	if !backfillMode && len(rows) < themeMinPicks {
+		fmt.Printf("Theme recent pool thin (%d); falling back to all-time unused reviewed wallpapers\n", len(rows))
+		rows = queryThemeCandidates(ctx, db, time.Time{}, limit, excludeIDs)
+	}
+	return themeRowsToCandidates(ctx, db, rows)
+}
+
+type themeCandidateRow struct {
+	ID            int64
+	CategoryID    int64
+	Category      string
+	Title         string
+	Dominant      string
+	Width         int
+	Height        int
+	LikeCount     int64
+	FavoriteCount int64
+	DownloadCount int64
+	ViewCount     int64
+}
+
+type themeMatchRow struct {
+	ID         int64
+	CategoryID int64
+	Phash      int64
+}
+
+func queryThemeCandidates(ctx context.Context, db *gorm.DB, since time.Time, limit int, excludeIDs []int64) []themeCandidateRow {
 	base := `
 		SELECT w.id, w.category_id, COALESCE(c.slug, '') AS category,
 		       w.title, w.dominant_color AS dominant,
-		       w.like_count, w.download_count
+		       w.width, w.height,
+		       w.like_count, w.favorite_count, w.download_count, w.view_count
 		FROM wallpapers w
 		LEFT JOIN categories c ON c.id = w.category_id
-		WHERE w.status = 1 AND w.quality_flag = 'ok'`
-	var rows []row
-	if backfillMode {
-		if err := db.WithContext(ctx).Raw(base+`
-			ORDER BY (3.0 * w.like_count + 2.0 * w.download_count + 0.1 * w.view_count) DESC
-			LIMIT ?`, limit).Scan(&rows).Error; err != nil {
-			log.Fatal("load theme candidates (all-time): ", err)
-		}
-	} else {
-		since := time.Now().UTC().AddDate(0, 0, -recentLookbackDays)
-		if err := db.WithContext(ctx).Raw(base+` AND w.created_at >= ?
-			ORDER BY (3.0 * w.like_count + 2.0 * w.download_count + 0.1 * w.view_count) DESC
-			LIMIT ?`, since, limit).Scan(&rows).Error; err != nil {
-			log.Fatal("load theme candidates (recent): ", err)
-		}
+		WHERE w.status = 1
+		  AND w.quality_flag = 'ok'
+		  AND w.thumb_url <> ''
+		  AND w.preview_url <> ''
+		  AND w.width > 0 AND w.height > 0
+		  AND (w.width::bigint * w.height::bigint) >= 2000000
+		  AND LEAST(w.width, w.height) >= 900`
+	args := []any{}
+	if !since.IsZero() {
+		base += ` AND w.created_at >= ?`
+		args = append(args, since)
 	}
+	if len(excludeIDs) > 0 {
+		base += ` AND w.id NOT IN ?`
+		args = append(args, excludeIDs)
+	}
+	base += `
+		ORDER BY (
+		          4.0 * w.favorite_count +
+		          3.0 * w.like_count +
+		          2.0 * w.download_count +
+		          0.05 * w.view_count +
+		          LEAST((w.width::float * w.height::float) / 8000000.0, 1.0)
+		        ) DESC,
+		        w.created_at DESC
+		LIMIT ?`
+	args = append(args, limit)
+
+	var rows []themeCandidateRow
+	if err := db.WithContext(ctx).Raw(base, args...).Scan(&rows).Error; err != nil {
+		log.Fatal("load theme candidates: ", err)
+	}
+	return rows
+}
+
+func themeRowsToCandidates(ctx context.Context, db *gorm.DB, rows []themeCandidateRow) []llm.ThemeCandidate {
 	ids := make([]int64, len(rows))
 	for i, r := range rows {
 		ids[i] = r.ID
@@ -317,8 +381,12 @@ func loadThemeCandidates(ctx context.Context, db *gorm.DB, limit int, backfillMo
 			Tags:          tagsByWp[r.ID],
 			Title:         strings.TrimSpace(r.Title),
 			Dominant:      r.Dominant,
+			Width:         r.Width,
+			Height:        r.Height,
 			LikeCount:     r.LikeCount,
+			FavoriteCount: r.FavoriteCount,
 			DownloadCount: r.DownloadCount,
+			ViewCount:     r.ViewCount,
 		}
 	}
 	return out
@@ -338,14 +406,19 @@ func hydrateCandidates(ctx context.Context, db *gorm.DB, ids []int64) []llm.Them
 		Category      string
 		Title         string
 		Dominant      string
+		Width         int
+		Height        int
 		LikeCount     int64
+		FavoriteCount int64
 		DownloadCount int64
+		ViewCount     int64
 	}
 	var rows []row
 	if err := db.WithContext(ctx).Raw(`
 		SELECT w.id, w.category_id, COALESCE(c.slug, '') AS category,
 		       w.title, w.dominant_color AS dominant,
-		       w.like_count, w.download_count
+		       w.width, w.height,
+		       w.like_count, w.favorite_count, w.download_count, w.view_count
 		FROM wallpapers w
 		LEFT JOIN categories c ON c.id = w.category_id
 		WHERE w.id IN ?
@@ -370,8 +443,12 @@ func hydrateCandidates(ctx context.Context, db *gorm.DB, ids []int64) []llm.Them
 			Tags:          tagsByWp[r.ID],
 			Title:         strings.TrimSpace(r.Title),
 			Dominant:      r.Dominant,
+			Width:         r.Width,
+			Height:        r.Height,
 			LikeCount:     r.LikeCount,
+			FavoriteCount: r.FavoriteCount,
 			DownloadCount: r.DownloadCount,
+			ViewCount:     r.ViewCount,
 		})
 	}
 	return out
@@ -384,22 +461,32 @@ func hydrateCandidates(ctx context.Context, db *gorm.DB, ids []int64) []llm.Them
 // themed-collection picker — Claude proposes a theme + keywords, this
 // function does the actual selection so we stop relying on the LLM to
 // remember which IDs are in the catalog.
-func matchWallpapersByKeywords(ctx context.Context, db *gorm.DB, keywords []string, limit int) []int64 {
-	if len(keywords) == 0 {
+func matchWallpapersByKeywords(ctx context.Context, db *gorm.DB, keywords []string, candidates []llm.ThemeCandidate, limit int) []int64 {
+	keywords = cleanThemeKeywords(keywords)
+	if len(keywords) == 0 || len(candidates) == 0 {
 		return nil
 	}
-	// Build a single Postgres regex alternation: "cat|kitten|feline".
-	// Keywords are LLM-supplied lowercase short terms — no escaping of
-	// regex metachars needed in practice (they'd be malformed input
-	// anyway and the regex would just fail to match, not crash).
+	allowedIDs := make([]int64, 0, len(candidates))
+	for _, c := range candidates {
+		allowedIDs = append(allowedIDs, c.ID)
+	}
+	// Build a single escaped Postgres regex alternation:
+	// "cat|kitten|feline". Keywords are LLM-supplied, so escape them
+	// instead of letting punctuation turn into regex operators.
 	pattern := strings.Join(keywords, "|")
-	var ids []int64
+	var rows []themeMatchRow
 	if err := db.WithContext(ctx).Raw(`
-		SELECT w.id
+		SELECT w.id, w.category_id, w.phash
 		FROM wallpapers w
 		LEFT JOIN categories c ON c.id = w.category_id
 		WHERE w.status = 1
 		  AND w.quality_flag = 'ok'
+		  AND w.thumb_url <> ''
+		  AND w.preview_url <> ''
+		  AND w.width > 0 AND w.height > 0
+		  AND (w.width::bigint * w.height::bigint) >= 2000000
+		  AND LEAST(w.width, w.height) >= 900
+		  AND w.id IN ?
 		  AND (
 		      w.title ~* ?
 		      OR (c.slug IS NOT NULL AND c.slug ~* ?)
@@ -409,13 +496,139 @@ func matchWallpapersByKeywords(ctx context.Context, db *gorm.DB, keywords []stri
 		          WHERE wt.wallpaper_id = w.id AND t.name ~* ?
 		      )
 		  )
-		ORDER BY (3.0 * w.like_count + 2.0 * w.download_count + 0.1 * w.view_count) DESC,
+		ORDER BY (
+		          4.0 * w.favorite_count +
+		          3.0 * w.like_count +
+		          2.0 * w.download_count +
+		          0.05 * w.view_count +
+		          LEAST((w.width::float * w.height::float) / 8000000.0, 1.0)
+		        ) DESC,
 		         w.created_at DESC
 		LIMIT ?
-	`, pattern, pattern, pattern, limit).Scan(&ids).Error; err != nil {
+	`, allowedIDs, pattern, pattern, pattern, limit*4).Scan(&rows).Error; err != nil {
 		log.Fatal("match wallpapers by keywords: ", err)
 	}
+	return diversifyThemeMatches(rows, limit)
+}
+
+func loadThemeCollectionWallpaperIDs(ctx context.Context, db *gorm.DB) []int64 {
+	var ids []int64
+	if err := db.WithContext(ctx).Raw(`
+		SELECT DISTINCT cw.wallpaper_id
+		FROM collection_wallpapers cw
+		JOIN collections c ON c.id = cw.collection_id
+		WHERE c.kind = 1
+	`).Scan(&ids).Error; err != nil {
+		log.Fatal("load themed collection exclusions: ", err)
+	}
 	return ids
+}
+
+func appendUniqueIDs(ids []int64, more ...int64) []int64 {
+	seen := make(map[int64]bool, len(ids)+len(more))
+	out := make([]int64, 0, len(ids)+len(more))
+	for _, id := range ids {
+		if id == 0 || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	for _, id := range more {
+		if id == 0 || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out
+}
+
+var genericThemeKeywords = map[string]bool{
+	"wallpaper": true, "background": true, "image": true, "photo": true,
+	"nature": true, "landscape": true, "outdoor": true, "scene": true, "view": true,
+	"sky": true, "light": true, "lights": true, "dark": true, "bright": true, "soft": true,
+	"blue": true, "green": true, "red": true, "white": true, "black": true, "earth": true,
+}
+
+func cleanThemeKeywords(keywords []string) []string {
+	seen := make(map[string]bool, len(keywords))
+	out := make([]string, 0, len(keywords))
+	for _, kw := range keywords {
+		kw = strings.ToLower(strings.TrimSpace(kw))
+		kw = strings.Trim(kw, "\"'`.,;:!?()[]{}")
+		if len(kw) < 3 || genericThemeKeywords[kw] || seen[kw] {
+			continue
+		}
+		seen[kw] = true
+		out = append(out, regexp.QuoteMeta(kw))
+	}
+	return out
+}
+
+func diversifyThemeMatches(rows []themeMatchRow, limit int) []int64 {
+	out := make([]int64, 0, limit)
+	categoryCounts := map[int64]int{}
+	selectedPhashes := make([]int64, 0, limit)
+
+	for _, r := range rows {
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+		if r.CategoryID != 0 && categoryCounts[r.CategoryID] >= maxThemePerCategory {
+			continue
+		}
+		if r.Phash != 0 && hasNearDuplicatePhash(r.Phash, selectedPhashes) {
+			continue
+		}
+		out = append(out, r.ID)
+		if r.CategoryID != 0 {
+			categoryCounts[r.CategoryID]++
+		}
+		if r.Phash != 0 {
+			selectedPhashes = append(selectedPhashes, r.Phash)
+		}
+	}
+
+	if len(out) >= themeMinPicks || len(out) == len(rows) {
+		return out
+	}
+	// If diversity filters were too strict for a small theme, relax only
+	// the category cap while keeping near-duplicate protection.
+	for _, r := range rows {
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+		if containsInt64(out, r.ID) {
+			continue
+		}
+		if r.Phash != 0 && hasNearDuplicatePhash(r.Phash, selectedPhashes) {
+			continue
+		}
+		out = append(out, r.ID)
+		if r.Phash != 0 {
+			selectedPhashes = append(selectedPhashes, r.Phash)
+		}
+	}
+	return out
+}
+
+func hasNearDuplicatePhash(phash int64, selected []int64) bool {
+	for _, existing := range selected {
+		if bits.OnesCount64(uint64(phash^existing)) <= nearDuplicateHamming {
+			return true
+		}
+	}
+	return false
+}
+
+func containsInt64(ids []int64, needle int64) bool {
+	for _, id := range ids {
+		if id == needle {
+			return true
+		}
+	}
+	return false
 }
 
 // loadRecentThemeNames returns the most recently CREATED themed-collection
