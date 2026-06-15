@@ -184,14 +184,28 @@ struct CollectionCard: View {
         ZStack {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(accent.opacity(0.20))
-            HStack(spacing: 5) {
-                mosaicImage(tiles.indices.contains(0) ? tiles[0] : nil)
-                VStack(spacing: 5) {
-                    mosaicImage(tiles.indices.contains(1) ? tiles[1] : nil)
-                    mosaicImage(tiles.indices.contains(2) ? tiles[2] : nil)
+            GeometryReader { proxy in
+                let inset: CGFloat = 5
+                let gap: CGFloat = 5
+                let contentWidth = max(0, proxy.size.width - inset * 2)
+                let contentHeight = max(0, proxy.size.height - inset * 2)
+                let mainWidth = max(0, (contentWidth - gap) * 0.62)
+                let sideWidth = max(0, contentWidth - gap - mainWidth)
+                let sideHeight = max(0, (contentHeight - gap) / 2)
+
+                HStack(spacing: gap) {
+                    mosaicImage(tiles.indices.contains(0) ? tiles[0] : nil)
+                        .frame(width: mainWidth, height: contentHeight)
+                    VStack(spacing: gap) {
+                        mosaicImage(tiles.indices.contains(1) ? tiles[1] : nil)
+                            .frame(width: sideWidth, height: sideHeight)
+                        mosaicImage(tiles.indices.contains(2) ? tiles[2] : nil)
+                            .frame(width: sideWidth, height: sideHeight)
+                    }
+                    .frame(width: sideWidth, height: contentHeight)
                 }
+                .padding(inset)
             }
-            .padding(5)
         }
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
@@ -208,6 +222,7 @@ struct CollectionCard: View {
             accent: accent
         )
             .clipped()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
