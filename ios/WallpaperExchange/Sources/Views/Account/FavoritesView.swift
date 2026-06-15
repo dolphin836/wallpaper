@@ -477,7 +477,7 @@ private enum AccountWallpaperListKind: String {
     func fetch(username: String, cursor: Int?) async throws -> PaginatedData<Wallpaper> {
         switch self {
         case .uploads:
-            return try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, status: "0,1,5,6")
+            return try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, status: "1")
         case .downloads:
             return try await APIClient.shared.fetchUserDownloads(username: username, cursor: cursor)
         case .favorites:
@@ -502,7 +502,7 @@ private struct AccountNavigationCard: View {
 
             VStack(spacing: 0) {
                 NavigationLink {
-                    AccountWallpaperListView(kind: .uploads, username: user.username)
+                    AccountUploadsListView(username: user.username)
                 } label: {
                     navRow(title: s.myUploads, icon: "arrow.up.circle", tint: Color.accentInk)
                 }
@@ -597,6 +597,142 @@ private struct AccountNavigationCard: View {
     }
 }
 
+private struct AccountUploadsListView: View {
+    let username: String
+
+    @Environment(UIPrefs.self) private var prefs
+
+    @State private var pending: [Wallpaper] = []
+    @State private var pendingCursor: Int?
+    @State private var pendingHasMore = true
+    @State private var pendingLoading = false
+    @State private var pendingLoaded = false
+
+    @State private var published: [Wallpaper] = []
+    @State private var publishedCursor: Int?
+    @State private var publishedHasMore = true
+    @State private var publishedLoading = false
+    @State private var publishedError: String?
+    @State private var loadGeneration = 0
+
+    var body: some View {
+        let s = L10n.strings(for: prefs.language)
+
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                SectionHeader(kicker: s.accountKicker, title: s.myUploads)
+                    .padding(.horizontal, 12)
+
+                if !pending.isEmpty {
+                    pendingSection(strings: s)
+                }
+
+                VStack(alignment: .leading, spacing: 12) {
+                    SectionHeader(title: s.uploadPublishedTitle)
+                        .padding(.horizontal, 12)
+
+                    if let publishedError, published.isEmpty {
+                        ErrorRetryView(message: publishedError) { reload() }
+                    } else if published.isEmpty && publishedLoading {
+                        WallpaperGridSkeleton(count: 8)
+                    } else if published.isEmpty {
+                        EmptyStateView(kicker: s.emptyLibraryTitle, message: s.emptyUploadsMessage)
+                    } else {
+                        AccountWallpaperGrid(wallpapers: published, hasMore: publishedHasMore, isLoading: publishedLoading) {
+                            loadNextPublishedPage()
+                        }
+                    }
+                }
+            }
+            .padding(.top, 12)
+            .padding(.bottom, 28)
+        }
+        .background(PageMesh())
+        .navigationTitle(s.myUploads)
+        .inlineNavTitle()
+        .showNavBarCompat()
+        .refreshable { reload() }
+        .task(id: username) {
+            if !pendingLoaded && published.isEmpty { reload() }
+        }
+    }
+
+    private func pendingSection(strings s: AppStrings) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(kicker: s.uploadPendingDescription, title: s.uploadPendingTitle)
+                .padding(.horizontal, 12)
+
+            AccountPendingUploadGrid(
+                wallpapers: pending,
+                hasMore: pendingHasMore,
+                isLoading: pendingLoading
+            ) {
+                loadNextPendingPage()
+            }
+        }
+    }
+
+    private func reload() {
+        loadGeneration += 1
+
+        pending = []
+        pendingCursor = nil
+        pendingHasMore = true
+        pendingLoaded = false
+
+        published = []
+        publishedCursor = nil
+        publishedHasMore = true
+        publishedError = nil
+
+        loadNextPendingPage()
+        loadNextPublishedPage()
+    }
+
+    private func loadNextPendingPage() {
+        guard !pendingLoading, pendingHasMore else { return }
+        let generation = loadGeneration
+        pendingLoading = true
+        Task {
+            defer {
+                pendingLoading = false
+                pendingLoaded = true
+            }
+            do {
+                let page = try await APIClient.shared.fetchUserUploads(username: username, cursor: pendingCursor, status: "0,5")
+                guard generation == loadGeneration else { return }
+                pending.append(contentsOf: page.items)
+                pendingCursor = page.nextCursor
+                pendingHasMore = page.hasMore
+            } catch {
+                guard generation == loadGeneration else { return }
+                pendingHasMore = false
+            }
+        }
+    }
+
+    private func loadNextPublishedPage() {
+        guard !publishedLoading, publishedHasMore else { return }
+        let generation = loadGeneration
+        publishedLoading = true
+        Task {
+            defer { publishedLoading = false }
+            do {
+                let page = try await APIClient.shared.fetchUserUploads(username: username, cursor: publishedCursor, status: "1")
+                guard generation == loadGeneration else { return }
+                published.append(contentsOf: page.items)
+                publishedCursor = page.nextCursor
+                publishedHasMore = page.hasMore
+                publishedError = nil
+            } catch {
+                guard generation == loadGeneration else { return }
+                if published.isEmpty { publishedError = error.localizedDescription }
+                publishedHasMore = false
+            }
+        }
+    }
+}
+
 private struct AccountWallpaperListView: View {
     let kind: AccountWallpaperListKind
     let username: String
@@ -671,6 +807,77 @@ private struct AccountWallpaperListView: View {
                 hasMore = false
             }
         }
+    }
+}
+
+private struct AccountPendingUploadGrid: View {
+    let wallpapers: [Wallpaper]
+    var hasMore: Bool
+    var isLoading: Bool
+    let onLoadMore: () -> Void
+
+    private let gridColumns = [
+        GridItem(.flexible(), spacing: 14),
+        GridItem(.flexible(), spacing: 14),
+    ]
+
+    var body: some View {
+        VStack(spacing: 12) {
+            LazyVGrid(columns: gridColumns, spacing: 14) {
+                ForEach(wallpapers) { wallpaper in
+                    PendingUploadTile(wallpaper: wallpaper)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.horizontal, 14)
+
+            PagingFooter(
+                isLoading: isLoading,
+                hasMore: hasMore,
+                showsEndState: false,
+                onLoadMore: onLoadMore
+            )
+        }
+    }
+}
+
+private struct PendingUploadTile: View {
+    let wallpaper: Wallpaper
+
+    @Environment(UIPrefs.self) private var prefs
+
+    private var statusText: String {
+        let s = L10n.strings(for: prefs.language)
+        return wallpaper.status == 0 ? s.uploadStatusProcessing : s.uploadStatusPendingReview
+    }
+
+    private var statusIcon: String {
+        wallpaper.status == 0 ? "arrow.triangle.2.circlepath" : "hourglass"
+    }
+
+    var body: some View {
+        WallpaperTile(wallpaper: wallpaper)
+            .overlay {
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .fill(Color.black.opacity(0.08))
+                    .allowsHitTesting(false)
+            }
+            .overlay(alignment: .bottomLeading) {
+                HStack(spacing: 6) {
+                    Image(systemName: statusIcon)
+                        .font(.system(size: 10, weight: .bold))
+                    Text(statusText)
+                        .font(.caption2.weight(.bold))
+                }
+                .foregroundStyle(Color.lightText)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 6)
+                .background(Color.black.opacity(0.34), in: Capsule())
+                .background(.ultraThinMaterial, in: Capsule())
+                .environment(\.colorScheme, .dark)
+                .padding(9)
+            }
+            .accessibilityLabel("\(wallpaper.title), \(statusText)")
     }
 }
 

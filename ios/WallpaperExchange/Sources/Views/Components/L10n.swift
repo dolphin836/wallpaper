@@ -90,6 +90,11 @@ struct AppStrings {
     let uploadProgress: String
     let uploadPendingReview: String
     let uploadPendingMessage: String
+    let uploadPendingTitle: String
+    let uploadPendingDescription: String
+    let uploadPublishedTitle: String
+    let uploadStatusProcessing: String
+    let uploadStatusPendingReview: String
     let uploadAnother: String
     let uploadTryAgain: String
     let uploadRulesTitle: String
@@ -365,6 +370,11 @@ enum L10n {
         uploadProgress: "上传中… %d%%",
         uploadPendingReview: "已上传，等待审核",
         uploadPendingMessage: "审核通过后，这张壁纸会公开展示；上传奖励会在处理完成后到账。",
+        uploadPendingTitle: "处理中 / 待审核",
+        uploadPendingDescription: "这些壁纸正在生成预览或等待管理员审核，通过后会进入下方列表。",
+        uploadPublishedTitle: "已发布上传",
+        uploadStatusProcessing: "处理中",
+        uploadStatusPendingReview: "待审核",
         uploadAnother: "继续上传",
         uploadTryAgain: "重试",
         uploadRulesTitle: "上传规则",
@@ -542,6 +552,11 @@ enum L10n {
         uploadProgress: "上傳中… %d%%",
         uploadPendingReview: "已上傳，等待審核",
         uploadPendingMessage: "審核通過後，這張桌布會公開展示；上傳獎勵會在處理完成後入帳。",
+        uploadPendingTitle: "處理中 / 待審核",
+        uploadPendingDescription: "這些桌布正在產生預覽或等待管理員審核，通過後會進入下方列表。",
+        uploadPublishedTitle: "已發布上傳",
+        uploadStatusProcessing: "處理中",
+        uploadStatusPendingReview: "待審核",
         uploadAnother: "繼續上傳",
         uploadTryAgain: "重試",
         uploadRulesTitle: "上傳規則",
@@ -719,6 +734,11 @@ enum L10n {
         uploadProgress: "アップロード中… %d%%",
         uploadPendingReview: "アップロード済み、審査待ち",
         uploadPendingMessage: "承認されると壁紙が公開されます。アップロード報酬は処理完了後に反映されます。",
+        uploadPendingTitle: "処理中 / 審査待ち",
+        uploadPendingDescription: "これらの壁紙はプレビュー生成中、または管理者の審査待ちです。承認後に下の一覧へ移動します。",
+        uploadPublishedTitle: "公開済みアップロード",
+        uploadStatusProcessing: "処理中",
+        uploadStatusPendingReview: "審査待ち",
         uploadAnother: "別の壁紙をアップロード",
         uploadTryAgain: "再試行",
         uploadRulesTitle: "アップロードルール",
@@ -896,6 +916,11 @@ enum L10n {
         uploadProgress: "Uploading… %d%%",
         uploadPendingReview: "Uploaded, pending review",
         uploadPendingMessage: "Your wallpaper will appear publicly once approved. The upload reward lands after processing.",
+        uploadPendingTitle: "Processing / Pending review",
+        uploadPendingDescription: "These wallpapers are generating previews or waiting for admin review. Approved uploads move into the list below.",
+        uploadPublishedTitle: "Published uploads",
+        uploadStatusProcessing: "Processing",
+        uploadStatusPendingReview: "Pending review",
         uploadAnother: "Upload another",
         uploadTryAgain: "Try again",
         uploadRulesTitle: "House rules",

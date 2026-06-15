@@ -271,8 +271,7 @@ struct LibrarySection: View {
     private func fetchPage() async throws -> PaginatedData<Wallpaper> {
         switch tab {
         case .uploads:
-            // Owners see pending/in-review uploads too, matching the web.
-            return try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, status: "0,1,5,6")
+            return try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, status: "1")
         case .likes:
             return try await APIClient.shared.fetchUserLikes(username: username, cursor: cursor)
         case .favorites:
