@@ -46,18 +46,22 @@ struct WallpaperDetailView: View {
         self.initialWallpaper = initialWallpaper
         self.showsModalCloseButton = showsModalCloseButton
         self.onModalClose = onModalClose
+        self._isLiked = State(initialValue: initialWallpaper?.isLiked ?? false)
+        self._isFavorited = State(initialValue: initialWallpaper?.isFavorited ?? false)
+        self._likeCount = State(initialValue: initialWallpaper?.likeCount ?? 0)
+        self._favoriteCount = State(initialValue: initialWallpaper?.favoriteCount ?? 0)
+        self._downloadCount = State(initialValue: initialWallpaper?.downloadCount ?? 0)
+        self._hasDownloaded = State(initialValue: initialWallpaper?.isDownloaded ?? false)
     }
 
     var body: some View {
         ZStack {
             backdrop
-            if let detail {
-                content(detail)
+            if let actionWallpaperID {
+                content(wallpaperID: actionWallpaperID)
             } else if let loadError {
                 ErrorRetryView(message: loadError) { Task { await load() } }
                     .padding(.horizontal, 24)
-            } else if initialWallpaper != nil {
-                loadingChrome
             } else {
                 skeleton
             }
@@ -111,8 +115,8 @@ struct WallpaperDetailView: View {
         }
         .task(id: slug) { await load() }
         .sheet(isPresented: $showAddToCollection) {
-            if let detail {
-                AddToCollectionSheet(wallpaperID: detail.id)
+            if let actionWallpaperID {
+                AddToCollectionSheet(wallpaperID: actionWallpaperID)
             }
         }
         .sheet(isPresented: $showInfo) {
@@ -126,10 +130,10 @@ struct WallpaperDetailView: View {
             }
         }
         .fullScreenCoverCompat(isPresented: $showDevicePreview) {
-            if let detail {
+            if let imageSource {
                 DevicePreviewCover(
-                    source: DetailImageSource(detail: detail),
-                    fallback: Color(hex: detail.dominantColor) ?? .black
+                    source: imageSource,
+                    fallback: backdropColor
                 )
             }
         }
@@ -147,6 +151,10 @@ struct WallpaperDetailView: View {
             return DetailImageSource(wallpaper: initialWallpaper)
         }
         return nil
+    }
+
+    private var actionWallpaperID: Int? {
+        detail?.id ?? initialWallpaper?.id
     }
 
     // The wallpaper itself is the page. A subtle scrim keeps only the
@@ -169,7 +177,7 @@ struct WallpaperDetailView: View {
         .ignoresSafeArea()
     }
 
-    private func content(_ detail: WallpaperDetail) -> some View {
+    private func content(wallpaperID: Int) -> some View {
         VStack(spacing: 0) {
             Spacer()
 
@@ -180,31 +188,16 @@ struct WallpaperDetailView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
-            bottomToolBar(detail)
+            bottomToolBar(wallpaperID: wallpaperID)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 22)
         }
         .environment(\.colorScheme, .dark)
     }
 
-    private var loadingChrome: some View {
-        VStack {
-            Spacer()
-            ProgressView()
-                .controlSize(.small)
-                .tint(Color.lightText)
-                .frame(width: 44, height: 44)
-                .background(.black.opacity(0.26), in: Circle())
-                .background(.ultraThinMaterial, in: Circle())
-                .overlay(Circle().strokeBorder(.white.opacity(0.16), lineWidth: 1))
-                .padding(.bottom, 36)
-        }
-        .environment(\.colorScheme, .dark)
-    }
-
     // ─── actions ─────────────────────────────────────────────────
 
-    private func bottomToolBar(_ detail: WallpaperDetail) -> some View {
+    private func bottomToolBar(wallpaperID: Int) -> some View {
         HStack(spacing: 12) {
             toolButton(
                 icon: isLiked ? "heart.fill" : "heart",
@@ -225,7 +218,7 @@ struct WallpaperDetailView: View {
                 showDevicePreview = true
             }
 
-            compactDownloadButton(detail)
+            compactDownloadButton(wallpaperID: wallpaperID)
         }
         .padding(10)
         .background(.black.opacity(0.30), in: Capsule())
@@ -237,7 +230,9 @@ struct WallpaperDetailView: View {
             isPresented: confirmingBinding,
             titleVisibility: .visible
         ) {
-            Button(L10n.strings(for: prefs.language).downloadOneCoin) { startDownload(detail) }
+            Button(L10n.strings(for: prefs.language).downloadOneCoin) {
+                startDownload(wallpaperID: wallpaperID)
+            }
             Button(L10n.strings(for: prefs.language).cancel, role: .cancel) { downloadState = .idle }
         }
     }
@@ -255,14 +250,14 @@ struct WallpaperDetailView: View {
     }
 
     @ViewBuilder
-    private func compactDownloadButton(_ detail: WallpaperDetail) -> some View {
+    private func compactDownloadButton(wallpaperID: Int) -> some View {
         switch downloadState {
         case .idle:
             Button {
                 guard requireLogin() else { return }
                 downloadState = hasDownloaded ? .downloading : .confirming
                 if hasDownloaded {
-                    startDownload(detail)
+                    startDownload(wallpaperID: wallpaperID)
                 }
             } label: {
                 Image(systemName: "arrow.down.circle.fill")
@@ -343,7 +338,7 @@ struct WallpaperDetailView: View {
                 }
                 .buttonStyle(.pressable)
 
-                downloadButton(detail)
+                downloadButton(wallpaperID: detail.id)
                     .animation(.spring(response: 0.35, dampingFraction: 0.8), value: downloadState)
             }
         }
@@ -375,7 +370,7 @@ struct WallpaperDetailView: View {
     }
 
     @ViewBuilder
-    private func downloadButton(_ detail: WallpaperDetail) -> some View {
+    private func downloadButton(wallpaperID: Int) -> some View {
         switch downloadState {
         case .idle:
             Button {
@@ -383,7 +378,7 @@ struct WallpaperDetailView: View {
                 downloadState = hasDownloaded ? .downloading : .confirming
                 if hasDownloaded {
                     // Already purchased — re-download is free, skip confirm.
-                    startDownload(detail)
+                    startDownload(wallpaperID: wallpaperID)
                 }
             } label: {
                 ctaLabel(L10n.strings(for: prefs.language).downloadOneCoin, icon: "arrow.down.circle.fill")
@@ -394,7 +389,9 @@ struct WallpaperDetailView: View {
                 isPresented: confirmingBinding,
                 titleVisibility: .visible
             ) {
-                Button(L10n.strings(for: prefs.language).downloadOneCoin) { startDownload(detail) }
+                Button(L10n.strings(for: prefs.language).downloadOneCoin) {
+                    startDownload(wallpaperID: wallpaperID)
+                }
                 Button(L10n.strings(for: prefs.language).cancel, role: .cancel) { downloadState = .idle }
             }
         case .confirming:
@@ -472,7 +469,7 @@ struct WallpaperDetailView: View {
 
     private func toggleLike() {
         guard requireLogin() else { return }
-        guard let detail else { return }
+        guard let wallpaperID = actionWallpaperID else { return }
         let wasLiked = isLiked
         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
             isLiked.toggle()
@@ -481,9 +478,9 @@ struct WallpaperDetailView: View {
         Task {
             do {
                 if wasLiked {
-                    try await APIClient.shared.unlike(wallpaperID: detail.id)
+                    try await APIClient.shared.unlike(wallpaperID: wallpaperID)
                 } else {
-                    try await APIClient.shared.like(wallpaperID: detail.id)
+                    try await APIClient.shared.like(wallpaperID: wallpaperID)
                 }
             } catch {
                 // Roll the optimistic flip back on failure.
@@ -495,7 +492,7 @@ struct WallpaperDetailView: View {
 
     private func toggleFavorite() {
         guard requireLogin() else { return }
-        guard let detail else { return }
+        guard let wallpaperID = actionWallpaperID else { return }
         let wasFavorited = isFavorited
         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
             isFavorited.toggle()
@@ -504,9 +501,9 @@ struct WallpaperDetailView: View {
         Task {
             do {
                 if wasFavorited {
-                    try await APIClient.shared.unfavorite(wallpaperID: detail.id)
+                    try await APIClient.shared.unfavorite(wallpaperID: wallpaperID)
                 } else {
-                    try await APIClient.shared.favorite(wallpaperID: detail.id)
+                    try await APIClient.shared.favorite(wallpaperID: wallpaperID)
                 }
             } catch {
                 isFavorited = wasFavorited
@@ -515,13 +512,13 @@ struct WallpaperDetailView: View {
         }
     }
 
-    private func startDownload(_ detail: WallpaperDetail) {
+    private func startDownload(wallpaperID: Int) {
         let s = L10n.strings(for: prefs.language)
         let wasDownloaded = hasDownloaded
         downloadState = .downloading
         Task {
             do {
-                let fileURL = try await APIClient.shared.getDownloadURL(wallpaperID: detail.id)
+                let fileURL = try await APIClient.shared.getDownloadURL(wallpaperID: wallpaperID)
                 try await PhotoSaver.save(remoteURL: fileURL)
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                     downloadState = .saved
