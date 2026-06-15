@@ -193,20 +193,20 @@ struct CollectionCard: View {
                 let sideWidth = max(0, contentWidth - gap - mainWidth)
                 let sideHeight = max(0, (contentHeight - gap) / 2)
 
-                HStack(spacing: gap) {
+                ZStack(alignment: .topLeading) {
                     mosaicImage(tiles.indices.contains(0) ? tiles[0] : nil)
                         .frame(width: mainWidth, height: contentHeight)
-                    VStack(spacing: gap) {
-                        mosaicImage(tiles.indices.contains(1) ? tiles[1] : nil)
-                            .frame(width: sideWidth, height: sideHeight)
-                        mosaicImage(tiles.indices.contains(2) ? tiles[2] : nil)
-                            .frame(width: sideWidth, height: sideHeight)
-                    }
-                    .frame(width: sideWidth, height: contentHeight)
+                        .offset(x: inset, y: inset)
+                    mosaicImage(tiles.indices.contains(1) ? tiles[1] : nil)
+                        .frame(width: sideWidth, height: sideHeight)
+                        .offset(x: inset + mainWidth + gap, y: inset)
+                    mosaicImage(tiles.indices.contains(2) ? tiles[2] : nil)
+                        .frame(width: sideWidth, height: sideHeight)
+                        .offset(x: inset + mainWidth + gap, y: inset + sideHeight + gap)
                 }
-                .padding(inset)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -215,15 +215,17 @@ struct CollectionCard: View {
     }
 
     private func mosaicImage(_ tile: CollectionTile?) -> some View {
-        ProgressiveCollectionMosaicImage(
-            tile: tile,
-            fallbackTile: cover,
-            coverURL: collection.coverURL,
-            accent: accent
-        )
-            .clipped()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        Color.clear
+            .overlay {
+                ProgressiveCollectionMosaicImage(
+                    tile: tile,
+                    fallbackTile: cover,
+                    coverURL: collection.coverURL,
+                    accent: accent
+                )
+            }
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipped()
     }
 
     private var metaLine: String {
