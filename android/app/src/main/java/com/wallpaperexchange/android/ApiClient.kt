@@ -135,6 +135,23 @@ object ApiClient {
     suspend fun fetchProfile(token: String): User =
         objectData("/users/me", token = token).toUser()
 
+    suspend fun updateProfile(nickname: String, bio: String, token: String): User =
+        objectData(
+            "/users/me/profile",
+            token = token,
+            method = "PUT",
+            body = JSONObject().put("nickname", nickname).put("bio", bio),
+        ).toUser()
+
+    suspend fun changePassword(oldPassword: String, newPassword: String, token: String) {
+        request(
+            "/users/me/password",
+            token = token,
+            method = "PUT",
+            body = JSONObject().put("old_password", oldPassword).put("new_password", newPassword),
+        )
+    }
+
     suspend fun login(email: String, password: String): AuthPayload =
         auth("/auth/login", JSONObject().put("email", email).put("password", password))
 

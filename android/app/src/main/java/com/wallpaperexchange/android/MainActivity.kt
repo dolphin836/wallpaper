@@ -3,10 +3,12 @@ package com.wallpaperexchange.android
 import android.app.DownloadManager
 import android.app.WallpaperManager
 import android.content.Context
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.LocaleList
 import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -57,10 +59,12 @@ import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Paid
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PhoneIphone
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material.icons.outlined.Visibility
@@ -79,6 +83,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -101,6 +106,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -126,8 +132,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            WallpaperExchangeTheme {
-                WallpaperExchangeApp()
+            val preferences = remember { AppPreferencesState(this) }
+            AppLanguageProvider(preferences.language) {
+                CompositionLocalProvider(LocalAppPreferences provides preferences) {
+                    WallpaperExchangeTheme(themeMode = preferences.themeMode) {
+                        WallpaperExchangeApp()
+                    }
+                }
             }
         }
     }
@@ -144,6 +155,68 @@ enum class RootTab(val label: Int, val icon: ImageVector) {
 enum class Feed { Latest, Popular, ForYou, Ai }
 enum class AuthMode { Login, Register }
 enum class UploadStatus { Ready, Uploading, Success, Failed }
+
+enum class AppLanguage(val key: String, val tag: String?) {
+    System("system", null),
+    English("en", "en"),
+    SimplifiedChinese("zh-Hans", "zh-CN"),
+    TraditionalChinese("zh-Hant", "zh-TW"),
+    Japanese("ja", "ja");
+
+    companion object {
+        fun fromKey(key: String?): AppLanguage =
+            entries.firstOrNull { it.key == key } ?: System
+    }
+}
+
+@Stable
+class AppPreferencesState(context: Context) {
+    private val prefs = context.applicationContext.getSharedPreferences("wallx_preferences", Context.MODE_PRIVATE)
+
+    var language by mutableStateOf(AppLanguage.fromKey(prefs.getString("language", AppLanguage.System.key)))
+        private set
+    var themeMode by mutableStateOf(AppThemeMode.fromKey(prefs.getString("theme_mode", AppThemeMode.System.key)))
+        private set
+
+    fun updateLanguage(value: AppLanguage) {
+        prefs.edit().putString("language", value.key).apply()
+        language = value
+    }
+
+    fun updateThemeMode(value: AppThemeMode) {
+        prefs.edit().putString("theme_mode", value.key).apply()
+        themeMode = value
+    }
+}
+
+val LocalAppPreferences = staticCompositionLocalOf<AppPreferencesState> {
+    error("AppPreferencesState is not provided")
+}
+
+@Composable
+fun AppLanguageProvider(language: AppLanguage, content: @Composable () -> Unit) {
+    val context = LocalContext.current
+    val baseConfiguration = LocalConfiguration.current
+    val tag = language.tag
+    if (tag == null) {
+        content()
+    } else {
+        val localizedConfiguration = remember(baseConfiguration, tag) {
+            Configuration(baseConfiguration).apply {
+                setLocales(LocaleList.forLanguageTags(tag))
+            }
+        }
+        val localizedContext = remember(context, localizedConfiguration) {
+            context.createConfigurationContext(localizedConfiguration)
+        }
+        CompositionLocalProvider(
+            LocalContext provides localizedContext,
+            LocalConfiguration provides localizedConfiguration,
+            content = content,
+        )
+    }
+}
+
 enum class ProfileDestination(val title: Int, val icon: ImageVector) {
     Downloads(R.string.my_downloads, Icons.Outlined.Download),
     Favorites(R.string.my_favorites, Icons.Outlined.FavoriteBorder),
@@ -189,6 +262,16 @@ class AuthSession(context: Context) {
         runCatching { ApiClient.fetchProfile(current) }
             .onSuccess { user = it }
             .onFailure { logout() }
+    }
+
+    suspend fun updateProfile(nickname: String, bio: String) {
+        val current = token ?: throw ApiException("Sign in required", 401)
+        user = ApiClient.updateProfile(nickname, bio, current)
+    }
+
+    suspend fun changePassword(oldPassword: String, newPassword: String) {
+        val current = token ?: throw ApiException("Sign in required", 401)
+        ApiClient.changePassword(oldPassword, newPassword, current)
     }
 
     suspend fun login(email: String, password: String) {
@@ -1000,7 +1083,8 @@ fun ProfileScreen(
     onUpload: () -> Unit,
     onOpen: (ProfileDestination) -> Unit,
 ) {
-    val context = LocalContext.current
+    var showEditProfile by remember { mutableStateOf(false) }
+    var showChangePassword by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
         ArchiveTopBar(stringResource(R.string.me), onProfile = {}, onClose = onClose, session = session)
         if (session.isLoggedIn && session.user != null) {
@@ -1013,8 +1097,8 @@ fun ProfileScreen(
                     ProfileCard(
                         session = session,
                         onUpload = onUpload,
-                        onEdit = { Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show() },
-                        onPassword = { Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show() },
+                        onEdit = { showEditProfile = true },
+                        onPassword = { showChangePassword = true },
                         onSignOut = { session.logout() },
                         onCoins = { onOpen(ProfileDestination.Coins) },
                     )
@@ -1038,6 +1122,134 @@ fun ProfileScreen(
             }
         }
     }
+    if (showEditProfile) {
+        EditProfileDialog(session = session, onDismiss = { showEditProfile = false })
+    }
+    if (showChangePassword) {
+        ChangePasswordDialog(session = session, onDismiss = { showChangePassword = false })
+    }
+}
+
+@Composable
+fun EditProfileDialog(session: AuthSession, onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val user = session.user ?: return
+    var nickname by remember(user.id) { mutableStateOf(user.nickname) }
+    var bio by remember(user.id) { mutableStateOf(user.bio) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text(stringResource(R.string.edit_profile)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = nickname,
+                    onValueChange = { nickname = it },
+                    label = { Text(stringResource(R.string.nickname)) },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = bio,
+                    onValueChange = { bio = it },
+                    label = { Text(stringResource(R.string.bio)) },
+                    minLines = 3,
+                    maxLines = 5,
+                )
+                error?.let { Text(it, color = Color.Red, fontSize = 12.sp) }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = !busy && nickname.length <= 64 && bio.length <= 500,
+                onClick = {
+                    scope.launch {
+                        busy = true
+                        error = null
+                        runCatching {
+                            session.updateProfile(nickname.trim(), bio.trim())
+                        }.onSuccess {
+                            onDismiss()
+                        }.onFailure {
+                            error = it.message
+                        }
+                        busy = false
+                    }
+                },
+            ) {
+                if (busy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { if (!busy) onDismiss() }) { Text(stringResource(R.string.cancel)) }
+        },
+    )
+}
+
+@Composable
+fun ChangePasswordDialog(session: AuthSession, onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val mismatchText = stringResource(R.string.password_mismatch)
+    val tooShortText = stringResource(R.string.password_too_short)
+    var currentPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text(stringResource(R.string.change_password)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                PasswordTextField(
+                    value = currentPassword,
+                    onValueChange = { currentPassword = it },
+                    label = stringResource(R.string.current_password),
+                )
+                PasswordTextField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it },
+                    label = stringResource(R.string.new_password),
+                )
+                PasswordTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = stringResource(R.string.confirm_new_password),
+                )
+                error?.let { Text(it, color = Color.Red, fontSize = 12.sp) }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = !busy && currentPassword.isNotBlank() && newPassword.isNotBlank() && confirmPassword.isNotBlank(),
+                onClick = {
+                    when {
+                        newPassword.length < 8 -> error = tooShortText
+                        newPassword != confirmPassword -> error = mismatchText
+                        else -> scope.launch {
+                            busy = true
+                            error = null
+                            runCatching {
+                                session.changePassword(currentPassword, newPassword)
+                            }.onSuccess {
+                                onDismiss()
+                            }.onFailure {
+                                error = it.message
+                            }
+                            busy = false
+                        }
+                    }
+                },
+            ) {
+                if (busy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { if (!busy) onDismiss() }) { Text(stringResource(R.string.cancel)) }
+        },
+    )
 }
 
 @Composable
@@ -1091,7 +1303,7 @@ fun ProfileCard(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ProfileActionButton(Icons.Outlined.Upload, stringResource(R.string.upload), accent = true, modifier = Modifier.weight(1f), onClick = onUpload)
             ProfileActionButton(Icons.Outlined.Person, stringResource(R.string.edit_profile), modifier = Modifier.weight(1f), onClick = onEdit)
-            ProfileActionButton(Icons.Outlined.Info, stringResource(R.string.password), modifier = Modifier.weight(1f), onClick = onPassword)
+            ProfileActionButton(Icons.Outlined.Key, stringResource(R.string.password), modifier = Modifier.weight(1f), onClick = onPassword)
             ProfileActionButton(Icons.Outlined.Close, stringResource(R.string.sign_out), modifier = Modifier.weight(1f), onClick = onSignOut)
         }
     }
@@ -1160,16 +1372,123 @@ fun AccountNavRow(icon: ImageVector, title: String, tint: Color, detail: String?
 @Composable
 fun PreferencesCard() {
     val scheme = LocalArchiveScheme.current
+    val preferences = LocalAppPreferences.current
+    var showLanguagePicker by remember { mutableStateOf(false) }
+    var showThemePicker by remember { mutableStateOf(false) }
     Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionHeader("", stringResource(R.string.settings))
         Column(Modifier.clip(RoundedCornerShape(18.dp)).background(scheme.paper2)) {
-            AccountNavRow(Icons.Outlined.Search, stringResource(R.string.language), scheme.accentInk) {}
+            AccountNavRow(
+                Icons.Outlined.Language,
+                stringResource(R.string.language),
+                scheme.accentInk,
+                detail = languageLabel(preferences.language),
+            ) { showLanguagePicker = true }
             RowDivider()
-            AccountNavRow(Icons.Outlined.PhoneIphone, stringResource(R.string.appearance), scheme.accentInk) {}
+            AccountNavRow(
+                Icons.Outlined.Palette,
+                stringResource(R.string.appearance),
+                scheme.accentInk,
+                detail = themeModeLabel(preferences.themeMode),
+            ) { showThemePicker = true }
             RowDivider()
             AccountNavRow(Icons.Outlined.Info, stringResource(R.string.app_version), scheme.accentInk, detail = "0.1.0") {}
         }
     }
+    if (showLanguagePicker) {
+        LanguagePickerDialog(
+            selected = preferences.language,
+            onSelect = {
+                preferences.updateLanguage(it)
+                showLanguagePicker = false
+            },
+            onDismiss = { showLanguagePicker = false },
+        )
+    }
+    if (showThemePicker) {
+        ThemePickerDialog(
+            selected = preferences.themeMode,
+            onSelect = {
+                preferences.updateThemeMode(it)
+                showThemePicker = false
+            },
+            onDismiss = { showThemePicker = false },
+        )
+    }
+}
+
+@Composable
+fun LanguagePickerDialog(selected: AppLanguage, onSelect: (AppLanguage) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.select_language)) },
+        text = {
+            Column {
+                AppLanguage.entries.forEach { language ->
+                    PreferenceOption(
+                        title = languageLabel(language),
+                        selected = selected == language,
+                        onClick = { onSelect(language) },
+                    )
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+@Composable
+fun ThemePickerDialog(selected: AppThemeMode, onSelect: (AppThemeMode) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.select_theme)) },
+        text = {
+            Column {
+                AppThemeMode.entries.forEach { mode ->
+                    PreferenceOption(
+                        title = themeModeLabel(mode),
+                        selected = selected == mode,
+                        onClick = { onSelect(mode) },
+                    )
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+@Composable
+fun PreferenceOption(title: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Text(title, color = LocalArchiveScheme.current.ink, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+fun languageLabel(language: AppLanguage): String = when (language) {
+    AppLanguage.System -> stringResource(R.string.language_system)
+    AppLanguage.English -> stringResource(R.string.language_english)
+    AppLanguage.SimplifiedChinese -> stringResource(R.string.language_simplified_chinese)
+    AppLanguage.TraditionalChinese -> stringResource(R.string.language_traditional_chinese)
+    AppLanguage.Japanese -> stringResource(R.string.language_japanese)
+}
+
+@Composable
+fun themeModeLabel(mode: AppThemeMode): String = when (mode) {
+    AppThemeMode.System -> stringResource(R.string.theme_system)
+    AppThemeMode.Light -> stringResource(R.string.theme_light)
+    AppThemeMode.Dark -> stringResource(R.string.theme_dark)
 }
 
 @Composable
@@ -1623,11 +1942,20 @@ fun CoinTransactionRow(tx: CoinTransaction) {
     ) {
         Text(if (tx.amount >= 0) "+${tx.amount}" else "${tx.amount}", color = if (tx.amount >= 0) Color(0xFF2E8B57) else Color(0xFFC84C31), fontSize = 18.sp, fontWeight = FontWeight.Black)
         Column(Modifier.weight(1f)) {
-            Text(tx.description.ifBlank { tx.txType }, color = scheme.ink, fontWeight = FontWeight.SemiBold)
-            Text(tx.createdAt.take(10), color = scheme.muted, fontSize = 12.sp)
+            Text(coinTransactionTitle(tx), color = scheme.ink, fontWeight = FontWeight.SemiBold)
+            Text("${tx.createdAt.take(10)} · ${stringResource(R.string.coin_ledger_balance, tx.balance)}", color = scheme.muted, fontSize = 12.sp)
         }
-        Text("${tx.balance}", color = scheme.muted, fontFamily = FontFamily.Monospace)
     }
+}
+
+@Composable
+fun coinTransactionTitle(tx: CoinTransaction): String = when (tx.txType) {
+    "register_bonus" -> stringResource(R.string.coin_tx_register_bonus)
+    "upload_reward" -> stringResource(R.string.coin_tx_upload_reward)
+    "download_cost", "download_spent" -> stringResource(R.string.coin_tx_download_cost)
+    "download_earned", "download_received" -> stringResource(R.string.coin_tx_download_earned)
+    "admin_grant" -> stringResource(R.string.coin_tx_admin_grant)
+    else -> tx.description.ifBlank { tx.txType }
 }
 
 @Composable
@@ -2093,7 +2421,6 @@ fun AuthDialog(session: AuthSession, mode: AuthMode) {
     var email by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var passwordVisible by remember(mode) { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(
@@ -2124,22 +2451,11 @@ fun AuthDialog(session: AuthSession, mode: AuthMode) {
                     OutlinedTextField(username, { username = it }, label = { Text(stringResource(R.string.username)) }, singleLine = true)
                 }
                 OutlinedTextField(email, { email = it }, label = { Text(stringResource(R.string.email)) }, singleLine = true)
-                OutlinedTextField(
+                PasswordTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text(stringResource(R.string.password)) },
-                    singleLine = true,
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    trailingIcon = {
-                        val label = stringResource(if (passwordVisible) R.string.hide_password else R.string.show_password)
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                                contentDescription = label,
-                            )
-                        }
-                    },
+                    label = stringResource(R.string.password),
+                    resetKey = mode,
                 )
                 error?.let { Text(it, color = Color.Red) }
                 TextButton(onClick = { session.present(if (mode == AuthMode.Login) AuthMode.Register else AuthMode.Login) }) {
@@ -2147,6 +2463,35 @@ fun AuthDialog(session: AuthSession, mode: AuthMode) {
                 }
             }
         },
+    )
+}
+
+@Composable
+fun PasswordTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    resetKey: Any? = Unit,
+) {
+    var passwordVisible by remember(resetKey) { mutableStateOf(false) }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = true,
+        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        trailingIcon = {
+            val iconLabel = stringResource(if (passwordVisible) R.string.hide_password else R.string.show_password)
+            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                Icon(
+                    imageVector = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                    contentDescription = iconLabel,
+                )
+            }
+        },
+        modifier = modifier,
     )
 }
 

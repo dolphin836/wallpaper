@@ -44,6 +44,15 @@
     <string name="password">密碼</string>
     <string name="show_password">顯示密碼</string>
     <string name="hide_password">隱藏密碼</string>
+    <string name="save">儲存</string>
+    <string name="nickname">暱稱</string>
+    <string name="bio">簡介</string>
+    <string name="change_password">修改密碼</string>
+    <string name="current_password">目前密碼</string>
+    <string name="new_password">新密碼</string>
+    <string name="confirm_new_password">確認新密碼</string>
+    <string name="password_mismatch">兩次輸入的新密碼不一致。</string>
+    <string name="password_too_short">新密碼至少需要 8 位。</string>
     <string name="cancel">取消</string>
     <string name="settings">設定</string>
     <string name="my_downloads">我的下載</string>
@@ -54,6 +63,16 @@
     <string name="my_coins">我的金幣</string>
     <string name="language">語言</string>
     <string name="appearance">外觀</string>
+    <string name="select_language">選擇語言</string>
+    <string name="language_system">跟隨系統</string>
+    <string name="language_english">English</string>
+    <string name="language_simplified_chinese">简体中文</string>
+    <string name="language_traditional_chinese">繁體中文</string>
+    <string name="language_japanese">日本語</string>
+    <string name="select_theme">選擇外觀</string>
+    <string name="theme_system">跟隨系統</string>
+    <string name="theme_light">淺色</string>
+    <string name="theme_dark">深色</string>
     <string name="app_version">版本 0.1.0</string>
     <string name="preview">預覽</string>
     <string name="lock_preview">鎖定畫面預覽</string>
@@ -93,4 +112,10 @@
     <string name="published_uploads">已發布上傳</string>
     <string name="coin_balance">%1$d 金幣</string>
     <string name="coin_transactions">金幣流水</string>
+    <string name="coin_ledger_balance">餘額 %1$d</string>
+    <string name="coin_tx_register_bonus">註冊獎勵</string>
+    <string name="coin_tx_upload_reward">上傳獎勵</string>
+    <string name="coin_tx_download_cost">下載消耗</string>
+    <string name="coin_tx_download_earned">下載收益</string>
+    <string name="coin_tx_admin_grant">系統發放</string>
 </resources>

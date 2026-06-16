@@ -26,6 +26,17 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.unit.dp
 
+enum class AppThemeMode(val key: String) {
+    System("system"),
+    Light("light"),
+    Dark("dark");
+
+    companion object {
+        fun fromKey(key: String?): AppThemeMode =
+            entries.firstOrNull { it.key == key } ?: System
+    }
+}
+
 @Stable
 data class ArchiveScheme(
     val paper: Color,
@@ -81,8 +92,13 @@ class MeshState {
 val LocalMeshState = staticCompositionLocalOf { MeshState() }
 
 @Composable
-fun WallpaperExchangeTheme(content: @Composable () -> Unit) {
-    val isDark = isSystemInDarkTheme()
+fun WallpaperExchangeTheme(themeMode: AppThemeMode = AppThemeMode.System, content: @Composable () -> Unit) {
+    val systemDark = isSystemInDarkTheme()
+    val isDark = when (themeMode) {
+        AppThemeMode.System -> systemDark
+        AppThemeMode.Light -> false
+        AppThemeMode.Dark -> true
+    }
     val scheme = if (isDark) {
         ArchiveScheme(
             paper = Color(0xFF050608),

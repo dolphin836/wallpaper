@@ -44,6 +44,15 @@
     <string name="password">パスワード</string>
     <string name="show_password">パスワードを表示</string>
     <string name="hide_password">パスワードを非表示</string>
+    <string name="save">保存</string>
+    <string name="nickname">ニックネーム</string>
+    <string name="bio">自己紹介</string>
+    <string name="change_password">パスワード変更</string>
+    <string name="current_password">現在のパスワード</string>
+    <string name="new_password">新しいパスワード</string>
+    <string name="confirm_new_password">新しいパスワードを確認</string>
+    <string name="password_mismatch">新しいパスワードが一致しません。</string>
+    <string name="password_too_short">新しいパスワードは 8 文字以上にしてください。</string>
     <string name="cancel">キャンセル</string>
     <string name="settings">設定</string>
     <string name="my_downloads">ダウンロード</string>
@@ -54,6 +63,16 @@
     <string name="my_coins">コイン</string>
     <string name="language">言語</string>
     <string name="appearance">外観</string>
+    <string name="select_language">言語</string>
+    <string name="language_system">システム</string>
+    <string name="language_english">English</string>
+    <string name="language_simplified_chinese">简体中文</string>
+    <string name="language_traditional_chinese">繁體中文</string>
+    <string name="language_japanese">日本語</string>
+    <string name="select_theme">外観</string>
+    <string name="theme_system">システム</string>
+    <string name="theme_light">ライト</string>
+    <string name="theme_dark">ダーク</string>
     <string name="app_version">バージョン 0.1.0</string>
     <string name="preview">プレビュー</string>
     <string name="lock_preview">ロック画面プレビュー</string>
@@ -93,4 +112,10 @@
     <string name="published_uploads">公開済みアップロード</string>
     <string name="coin_balance">%1$d コイン</string>
     <string name="coin_transactions">コイン履歴</string>
+    <string name="coin_ledger_balance">残高 %1$d</string>
+    <string name="coin_tx_register_bonus">登録ボーナス</string>
+    <string name="coin_tx_upload_reward">アップロード報酬</string>
+    <string name="coin_tx_download_cost">ダウンロード使用</string>
+    <string name="coin_tx_download_earned">ダウンロード収益</string>
+    <string name="coin_tx_admin_grant">システム付与</string>
 </resources>
