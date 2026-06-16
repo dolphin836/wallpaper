@@ -40,7 +40,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -707,7 +706,6 @@ fun WeeklyAlbumCard(entry: WeeklyArchiveEntry, index: Int, count: Int, onWeekly:
     val accent = hexColor(entry.accentColor ?: entry.dominantColor, scheme.accent)
     Box(
         modifier = Modifier
-            .widthIn(max = 560.dp)
             .fillMaxWidth()
             .aspectRatio(1.12f)
             .then(paletteReactiveModifier(entry.colorPalette, entry.dominantColor ?: entry.accentColor))
@@ -2179,7 +2177,7 @@ fun ErrorState(message: String, onRetry: () -> Unit) {
 fun HomeSkeleton() {
     Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            SkeletonBlock(Modifier.widthIn(max = 560.dp).fillMaxWidth().aspectRatio(1.12f), 28)
+            SkeletonBlock(Modifier.fillMaxWidth().aspectRatio(1.12f), 28)
         }
         WallpaperGridSkeleton(8)
         CollectionListSkeleton(4, 148)
