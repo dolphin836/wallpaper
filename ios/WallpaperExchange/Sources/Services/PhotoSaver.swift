@@ -1,5 +1,6 @@
 import Foundation
 import Photos
+import UniformTypeIdentifiers
 
 
 enum PhotoSaverError: LocalizedError {
@@ -29,22 +30,63 @@ enum PhotoSaver {
 
     static func save(remoteURL: URL) async throws {
         let data = try await fetchData(remoteURL: remoteURL)
-        try await save(imageData: data)
+        try await save(imageData: data, sourceURL: remoteURL)
     }
 
     static func save(imageData: Data) async throws {
+        try await save(imageData: imageData, sourceURL: nil)
+    }
+
+    static func save(imageData: Data, sourceURL: URL) async throws {
+        try await save(imageData: imageData, sourceURL: Optional(sourceURL))
+    }
+
+    private static func save(imageData: Data, sourceURL: URL?) async throws {
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
         guard status == .authorized || status == .limited else {
             throw PhotoSaverError.accessDenied
         }
+
+        let fileURL = try temporaryImageFile(for: imageData, sourceURL: sourceURL)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
         do {
             try await PHPhotoLibrary.shared().performChanges {
                 let request = PHAssetCreationRequest.forAsset()
-                request.addResource(with: .photo, data: imageData, options: nil)
+                let options = PHAssetResourceCreationOptions()
+                options.shouldMoveFile = false
+                options.uniformTypeIdentifier = uniformTypeIdentifier(for: fileURL)
+                request.addResource(with: .photo, fileURL: fileURL, options: options)
             }
         } catch {
             throw PhotoSaverError.saveFailed
         }
+    }
+
+    private static func temporaryImageFile(for data: Data, sourceURL: URL?) throws -> URL {
+        let ext = preferredImageExtension(for: data, sourceURL: sourceURL)
+        let filename = "wallpaper-\(UUID().uuidString).\(ext)"
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename, isDirectory: false)
+        try data.write(to: url, options: [.atomic])
+        return url
+    }
+
+    private static func preferredImageExtension(for data: Data, sourceURL: URL?) -> String {
+        if let ext = sourceURL?.pathExtension.lowercased(),
+           ["jpg", "jpeg", "png", "heic", "heif"].contains(ext) {
+            return ext == "jpeg" ? "jpg" : ext
+        }
+        if data.starts(with: [0x89, 0x50, 0x4E, 0x47]) {
+            return "png"
+        }
+        if data.starts(with: [0xFF, 0xD8, 0xFF]) {
+            return "jpg"
+        }
+        return "jpg"
+    }
+
+    private static func uniformTypeIdentifier(for fileURL: URL) -> String? {
+        UTType(filenameExtension: fileURL.pathExtension)?.identifier
     }
 }
 
