@@ -88,6 +88,7 @@ function FramedTile({
           onError={() => setLoaded(true)}
           style={{ backgroundColor: w.dominant_color || undefined }}
         />
+        {!loaded && <span className="card-loading-beam" aria-hidden />}
         {/* Top-left chip stack — same vocabulary as the discover
             salon variant. Resolution + Video + Mac (dynamic) + AI
             chips; .is-ai keeps the violet wash so synthetic

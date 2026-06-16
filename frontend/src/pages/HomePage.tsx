@@ -269,6 +269,7 @@ function HeroCard({ hero, week, year }: { hero: Wallpaper; week: number; year: n
         onLoad={() => setLoaded(true)}
         onError={() => setLoaded(true)}
       />
+      {!loaded && <span className="card-loading-beam" aria-hidden />}
       <ResChip wallpaper={hero} />
       <div className="h3-hero-overlay">
         <div className="flex-1 min-w-0">
@@ -319,6 +320,7 @@ function CollectionTile({
           onLoad={() => setLoaded(true)}
           onError={() => setLoaded(true)}
         />
+        {!loaded && <span className="card-loading-beam" aria-hidden />}
         <div className="h3-gradient" />
       </div>
       <div className="h3-copy">

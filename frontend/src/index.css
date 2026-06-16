@@ -180,6 +180,7 @@
 
   .animate-fade-in,
   .animate-route-in,
+  .card-loading-beam::after,
   .shimmer-overlay::after,
   .skeleton-card::after,
   .feed-spinner,
@@ -260,6 +261,65 @@
     transparent 100%
   );
   animation: shimmer 1.6s ease-in-out infinite;
+}
+
+.card-loading-beam {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255,255,255,0.02),
+      rgba(255,255,255,0.12),
+      rgba(255,255,255,0.02)
+    );
+}
+.card-loading-beam::after {
+  content: '';
+  position: absolute;
+  top: -34%;
+  bottom: -34%;
+  left: -64%;
+  width: 58%;
+  background:
+    linear-gradient(
+      100deg,
+      transparent 0%,
+      rgba(255,255,255,0.08) 30%,
+      rgba(255,255,255,0.42) 50%,
+      rgba(255,255,255,0.08) 70%,
+      transparent 100%
+    );
+  transform: translateX(-120%) rotate(14deg);
+  animation: card-loading-beam 1.55s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+.dark .card-loading-beam {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255,255,255,0.01),
+      rgba(255,255,255,0.05),
+      rgba(255,255,255,0.01)
+    );
+}
+.dark .card-loading-beam::after {
+  background:
+    linear-gradient(
+      100deg,
+      transparent 0%,
+      rgba(255,255,255,0.04) 30%,
+      rgba(255,255,255,0.16) 50%,
+      rgba(255,255,255,0.04) 70%,
+      transparent 100%
+    );
+}
+@keyframes card-loading-beam {
+  0%   { transform: translateX(-120%) rotate(14deg); }
+  100% { transform: translateX(420%) rotate(14deg); }
 }
 
 /* Skeleton tiles get a shimmer pass instead of a flat pulse. The base

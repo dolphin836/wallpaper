@@ -124,6 +124,7 @@ function Tile({ tile }: { tile?: CollectionTile }) {
           }}
         />
       )}
+      {tile.preview_url && !highLoaded && <span className="card-loading-beam" aria-hidden />}
     </div>
   );
 }

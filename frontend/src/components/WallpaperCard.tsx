@@ -172,6 +172,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               className={`tile-img absolute inset-0 w-full h-full object-cover select-none ${highLoaded ? 'opacity-100' : 'opacity-0'}`}
               style={{ WebkitUserDrag: 'none', transition: highLoaded ? undefined : 'opacity 300ms ease' } as React.CSSProperties}
             />
+            {!highLoaded && <span className="card-loading-beam" aria-hidden />}
             <div
               className="tile-gradient absolute inset-0 opacity-0 pointer-events-none"
               style={{
@@ -275,9 +276,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           aspectRatio: !fixedAspect && !fillHeight ? aspectRatio : undefined,
         }}
       >
-        {hasImage && !highLoaded && (
-          <div className="absolute inset-0 z-[1] shimmer-overlay" />
-        )}
+        {hasImage && !highLoaded && <span className="card-loading-beam" aria-hidden />}
 
         {hasImage ? (
           <>

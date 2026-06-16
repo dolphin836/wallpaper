@@ -57,6 +57,7 @@ function WeeklyHero({ hero, week, year }: { hero: WeeklyPicked; week: number; ye
         onLoad={() => setLoaded(true)}
         onError={() => setLoaded(true)}
       />
+      {!loaded && <span className="card-loading-beam" aria-hidden />}
       <ResChip wallpaper={hero} />
       <div className="h3-hero-overlay">
         <div className="flex-1 min-w-0">

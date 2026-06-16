@@ -207,11 +207,14 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     }
 
     var body: some View {
-        Group {
+        ZStack {
             if let nsImage {
                 content(Image(nsImage: nsImage))
             } else {
                 placeholder()
+                if url != nil {
+                    ImageLoadingBeam()
+                }
             }
         }
         .task(id: url) {
@@ -248,5 +251,60 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
             loadedURL = requestURL
             onLoad?()
         }
+    }
+}
+
+private struct ImageLoadingBeam: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var sweep = false
+
+    var body: some View {
+        GeometryReader { proxy in
+            let width = max(proxy.size.width, 1)
+            let height = max(proxy.size.height, 1)
+            let bandWidth = max(width * 0.58, 72)
+
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(0.02),
+                        Color.white.opacity(0.10),
+                        Color.white.opacity(0.02),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                if !reduceMotion {
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .clear, location: 0),
+                                    .init(color: Color.white.opacity(0.34), location: 0.50),
+                                    .init(color: .clear, location: 1),
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: bandWidth, height: height * 1.7)
+                        .rotationEffect(.degrees(14))
+                        .offset(x: sweep ? width + bandWidth : -bandWidth, y: 0)
+                        .blendMode(.plusLighter)
+                }
+            }
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 1.55).repeatForever(autoreverses: false)) {
+                    sweep = true
+                }
+            }
+            .onDisappear {
+                sweep = false
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }

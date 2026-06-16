@@ -40,6 +40,7 @@ export default function CoverImage({ src, alt = '', className = '' }: Props) {
           style={{ opacity: loaded ? 1 : 0 }}
         />
       )}
+      {src && !loaded && !errored && <span className="card-loading-beam" aria-hidden />}
     </div>
   );
 }

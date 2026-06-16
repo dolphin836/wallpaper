@@ -92,6 +92,7 @@ export default function WallpaperTile({ w, variant, onHover }: Props) {
         onError={() => setLoaded(true)}
         style={{ backgroundColor: w.dominant_color || undefined }}
       />
+      {!loaded && <span className="card-loading-beam" aria-hidden />}
       {variant === 'ai' && <span className="h3-foil" aria-hidden />}
       {variant === 'video' && w.preview_video_url && playing && (
         <video
