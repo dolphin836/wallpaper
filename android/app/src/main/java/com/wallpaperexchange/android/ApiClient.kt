@@ -132,6 +132,9 @@ object ApiClient {
         return page("/users/me/coin-transactions", params, token) { it.toCoinTransaction() }
     }
 
+    suspend fun fetchAndroidRelease(): AndroidRelease =
+        objectData("/android/release").toAndroidRelease()
+
     suspend fun fetchProfile(token: String): User =
         objectData("/users/me", token = token).toUser()
 

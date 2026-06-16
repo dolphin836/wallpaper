@@ -1,0 +1,26 @@
+{
+  "current_version": "0.1.0",
+  "current_version_code": 1,
+  "minimum_version_code": 1,
+  "current_apk_url": "/downloads/android/WallpaperExchange-0.1.0.apk",
+  "apk_sha256": "498b610764b88cdd7be808f139a18d63221e8fa025c56a17169156325277f778",
+  "released_at": "2026-06-16T00:00:00Z",
+  "notes": [
+    "Initial Android preview build with home, discovery, weekly picks, collections, profile, downloads, uploads, and wallpaper actions.",
+    "The app now checks this manifest on launch and can download newer APK builds from the official website."
+  ],
+  "notes_i18n": {
+    "zh-CN": [
+      "Android 预览版，包含首页、发现、每周推荐、合集、个人主页、下载、上传和壁纸操作。",
+      "应用启动时会检查此版本清单，并可从官网下载安装新版 APK。"
+    ],
+    "zh-TW": [
+      "Android 預覽版，包含首頁、發現、每週推薦、合集、個人主頁、下載、上傳和桌布操作。",
+      "應用啟動時會檢查此版本清單，並可從官網下載安裝新版 APK。"
+    ],
+    "ja": [
+      "Android プレビュー版です。ホーム、発見、週間おすすめ、コレクション、プロフィール、ダウンロード、アップロード、壁紙操作に対応しています。",
+      "起動時にこのリリース情報を確認し、公式サイトから新しい APK をダウンロードできます。"
+    ]
+  }
+}

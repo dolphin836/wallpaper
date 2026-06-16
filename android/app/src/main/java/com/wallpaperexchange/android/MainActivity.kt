@@ -2,7 +2,10 @@ package com.wallpaperexchange.android
 
 import android.app.DownloadManager
 import android.app.WallpaperManager
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
@@ -10,6 +13,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.LocaleList
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -42,6 +46,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -66,6 +71,7 @@ import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Paid
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PhoneIphone
 import androidx.compose.material.icons.outlined.PrivacyTip
 import androidx.compose.material.icons.outlined.ThumbUp
@@ -93,6 +99,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -122,10 +129,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -256,6 +266,74 @@ class LockPreviewState {
 
 val LocalLockPreviewState = staticCompositionLocalOf { LockPreviewState() }
 
+data class PendingApkDownload(
+    val id: Long,
+    val fileName: String,
+    val release: AndroidRelease,
+)
+
+@Stable
+class AndroidUpdateState(context: Context) {
+    private val prefs = context.applicationContext.getSharedPreferences("wallx_update", Context.MODE_PRIVATE)
+
+    var release by mutableStateOf<AndroidRelease?>(null)
+        private set
+    var promptRelease by mutableStateOf<AndroidRelease?>(null)
+        private set
+    var pendingDownload by mutableStateOf<PendingApkDownload?>(null)
+        private set
+    var checking by mutableStateOf(false)
+        private set
+    var downloading by mutableStateOf(false)
+        private set
+    var error by mutableStateOf<String?>(null)
+        private set
+
+    suspend fun check(manual: Boolean): AndroidRelease? {
+        if (checking) return null
+        checking = true
+        error = null
+        val result = runCatching { ApiClient.fetchAndroidRelease() }
+        checking = false
+        result.onSuccess { remote ->
+            release = remote
+            val hasUpdate = remote.versionCode > BuildConfig.VERSION_CODE
+            val skipped = prefs.getInt("skipped_version_code", 0)
+            if (hasUpdate && (manual || remote.forceUpdate || skipped < remote.versionCode)) {
+                promptRelease = remote
+                return remote
+            }
+        }.onFailure {
+            error = it.message
+        }
+        return null
+    }
+
+    fun remindLater() {
+        promptRelease = null
+    }
+
+    fun skipCurrentVersion() {
+        promptRelease?.let { release ->
+            prefs.edit().putInt("skipped_version_code", release.versionCode).apply()
+        }
+        promptRelease = null
+    }
+
+    fun beginDownload(context: Context, target: AndroidRelease) {
+        val fileName = "WallpaperExchange-${target.versionName}.apk"
+        downloading = true
+        pendingDownload = startApkDownload(context, target, fileName)
+        if (pendingDownload == null) downloading = false
+    }
+
+    fun finishDownload() {
+        downloading = false
+        promptRelease = null
+        pendingDownload = null
+    }
+}
+
 @Stable
 class AuthSession(context: Context) {
     private val prefs = context.getSharedPreferences("wallx_auth", Context.MODE_PRIVATE)
@@ -278,6 +356,12 @@ class AuthSession(context: Context) {
     suspend fun updateProfile(nickname: String, bio: String) {
         val current = token ?: throw ApiException("Sign in required", 401)
         user = ApiClient.updateProfile(nickname, bio, current)
+    }
+
+    suspend fun updateAvatar(context: Context, uri: Uri) {
+        val current = token ?: throw ApiException("Sign in required", 401)
+        val avatarUrl = uploadAvatar(context, uri, current)
+        user = user?.copy(avatarUrl = avatarUrl)
     }
 
     suspend fun changePassword(oldPassword: String, newPassword: String) {
@@ -322,6 +406,7 @@ class AuthSession(context: Context) {
 fun WallpaperExchangeApp() {
     val context = LocalContext.current
     val session = remember { AuthSession(context.applicationContext) }
+    val updateState = remember { AndroidUpdateState(context.applicationContext) }
     val lockPreview = remember { LockPreviewState() }
     var tab by remember { mutableStateOf(RootTab.Home) }
     var detail by remember { mutableStateOf<Wallpaper?>(null) }
@@ -333,6 +418,9 @@ fun WallpaperExchangeApp() {
 
     LaunchedEffect(session.token) {
         session.refreshProfile()
+    }
+    LaunchedEffect(Unit) {
+        updateState.check(manual = false)
     }
 
     CompositionLocalProvider(LocalLockPreviewState provides lockPreview) {
@@ -374,16 +462,6 @@ fun WallpaperExchangeApp() {
             }
         }
 
-        detail?.let { wallpaper ->
-            OverlaySurface {
-                WallpaperDetailScreen(
-                    initial = wallpaper,
-                    session = session,
-                    onClose = { detail = null },
-                )
-            }
-        }
-
         collection?.let { item ->
             OverlaySurface {
                 CollectionDetailScreen(
@@ -417,6 +495,7 @@ fun WallpaperExchangeApp() {
                         profileDestination = destination
                         profileOpen = false
                     },
+                    updateState = updateState,
                 )
             }
         }
@@ -448,6 +527,19 @@ fun WallpaperExchangeApp() {
             }
         }
 
+        detail?.let { wallpaper ->
+            OverlaySurface {
+                WallpaperDetailScreen(
+                    initial = wallpaper,
+                    session = session,
+                    onClose = { detail = null },
+                )
+            }
+        }
+
+        AndroidUpdateDownloadWatcher(updateState)
+        AndroidUpdateDialog(updateState)
+
         session.authMode?.let {
             AuthDialog(session = session, mode = it)
         }
@@ -464,6 +556,102 @@ fun OverlaySurface(content: @Composable () -> Unit) {
         shadowElevation = 0.dp,
         content = content,
     )
+}
+
+@Composable
+fun AndroidUpdateDialog(updateState: AndroidUpdateState) {
+    val context = LocalContext.current
+    val release = updateState.promptRelease ?: return
+    val notes = localizedReleaseNotes(release)
+    AlertDialog(
+        onDismissRequest = {
+            if (!release.forceUpdate && !updateState.downloading) updateState.remindLater()
+        },
+        title = { Text(stringResource(R.string.update_available_title, release.versionName)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    stringResource(R.string.update_available_message, BuildConfig.VERSION_NAME, release.versionName),
+                    color = LocalArchiveScheme.current.ink2,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                )
+                if (notes.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        notes.take(4).forEach { note ->
+                            Text("• $note", color = LocalArchiveScheme.current.muted, fontSize = 13.sp, lineHeight = 18.sp)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = !updateState.downloading,
+                onClick = { updateState.beginDownload(context, release) },
+            ) {
+                if (updateState.downloading) {
+                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(stringResource(R.string.download_update))
+                }
+            }
+        },
+        dismissButton = {
+            if (!release.forceUpdate) {
+                TextButton(onClick = { updateState.skipCurrentVersion() }, enabled = !updateState.downloading) {
+                    Text(stringResource(R.string.skip_this_version))
+                }
+            }
+        },
+    )
+}
+
+@Composable
+fun AndroidUpdateDownloadWatcher(updateState: AndroidUpdateState) {
+    val context = LocalContext.current
+    val pending = updateState.pendingDownload
+    val installFailed = stringResource(R.string.install_open_failed)
+    val allowInstall = stringResource(R.string.allow_unknown_apps)
+    DisposableEffect(pending?.id) {
+        if (pending == null) {
+            onDispose {}
+        } else {
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
+                    if (id != pending.id) return
+                    updateState.finishDownload()
+                    if (isDownloadSuccessful(context, pending.id)) {
+                        installDownloadedApk(context, pending.fileName, allowInstall, installFailed)
+                    } else {
+                        Toast.makeText(context, context.getString(R.string.download_failed), Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                context.registerReceiver(receiver, filter)
+            }
+            onDispose { runCatching { context.unregisterReceiver(receiver) } }
+        }
+    }
+}
+
+@Composable
+fun localizedReleaseNotes(release: AndroidRelease): List<String> {
+    val configuration = LocalConfiguration.current
+    val tag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        configuration.locales[0]?.toLanguageTag().orEmpty()
+    } else {
+        @Suppress("DEPRECATION")
+        configuration.locale.toLanguageTag()
+    }
+    return release.notesI18n[tag]
+        ?: release.notesI18n[tag.substringBefore("-")]
+        ?: release.notes
 }
 
 @Composable
@@ -1093,6 +1281,7 @@ fun ProfileScreen(
     onClose: () -> Unit,
     onUpload: () -> Unit,
     onOpen: (ProfileDestination) -> Unit,
+    updateState: AndroidUpdateState,
 ) {
     var showEditProfile by remember { mutableStateOf(false) }
     var showChangePassword by remember { mutableStateOf(false) }
@@ -1115,7 +1304,7 @@ fun ProfileScreen(
                     )
                 }
                 item { AccountNavigationCard(session.user!!, onOpen) }
-                item { PreferencesCard() }
+                item { PreferencesCard(updateState) }
             }
         } else {
             Column(
@@ -1129,7 +1318,7 @@ fun ProfileScreen(
                 Spacer(Modifier.height(16.dp))
                 Button(onClick = { session.present(AuthMode.Login) }) { Text(stringResource(R.string.sign_in)) }
                 Spacer(Modifier.height(20.dp))
-                PreferencesCard()
+                PreferencesCard(updateState)
             }
         }
     }
@@ -1143,18 +1332,45 @@ fun ProfileScreen(
 
 @Composable
 fun EditProfileDialog(session: AuthSession, onDismiss: () -> Unit) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val user = session.user ?: return
     var nickname by remember(user.id) { mutableStateOf(user.nickname) }
     var bio by remember(user.id) { mutableStateOf(user.bio) }
+    var avatarUri by remember(user.id) { mutableStateOf<Uri?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) avatarUri = uri
+    }
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         title = { Text(stringResource(R.string.edit_profile)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Box(Modifier.size(68.dp).clip(CircleShape).background(LocalArchiveScheme.current.paper3), contentAlignment = Alignment.Center) {
+                        val preview = avatarUri?.toString() ?: user.avatarUrl
+                        if (preview.isNotBlank()) {
+                            RemoteImage(preview, Modifier.fillMaxSize())
+                        } else {
+                            Text((user.nickname.ifBlank { user.username }).take(1).uppercase(), color = LocalArchiveScheme.current.ink2, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    OutlinedButton(
+                        enabled = !busy,
+                        onClick = { avatarPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    ) {
+                        Icon(Icons.Outlined.PhotoCamera, contentDescription = null, modifier = Modifier.size(17.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.change_avatar))
+                    }
+                }
                 OutlinedTextField(
                     value = nickname,
                     onValueChange = { nickname = it },
@@ -1180,6 +1396,7 @@ fun EditProfileDialog(session: AuthSession, onDismiss: () -> Unit) {
                         error = null
                         runCatching {
                             session.updateProfile(nickname.trim(), bio.trim())
+                            avatarUri?.let { session.updateAvatar(context, it) }
                         }.onSuccess {
                             onDismiss()
                         }.onFailure {
@@ -1297,19 +1514,7 @@ fun ProfileCard(
                     Text(user.bio, color = scheme.ink2, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
-            Box(
-                Modifier
-                    .size(54.dp)
-                    .clip(CircleShape)
-                    .background(scheme.accentSoft)
-                    .clickable { onCoins() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Text("${user.coins}", color = scheme.accentInk, fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.coins), color = scheme.muted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                }
-            }
+            ProfileCoinBadge(coins = user.coins, onClick = onCoins)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ProfileActionButton(Icons.Outlined.Upload, stringResource(R.string.upload), accent = true, modifier = Modifier.weight(1f), onClick = onUpload)
@@ -1317,6 +1522,39 @@ fun ProfileCard(
             ProfileActionButton(Icons.Outlined.Key, stringResource(R.string.password), modifier = Modifier.weight(1f), onClick = onPassword)
             ProfileActionButton(Icons.Outlined.Close, stringResource(R.string.sign_out), modifier = Modifier.weight(1f), onClick = onSignOut)
         }
+    }
+}
+
+@Composable
+fun ProfileCoinBadge(coins: Int, onClick: () -> Unit) {
+    val scheme = LocalArchiveScheme.current
+    val digits = coins.toString().length
+    val numberSize = when {
+        digits >= 5 -> 15.sp
+        digits >= 4 -> 17.sp
+        else -> 20.sp
+    }
+    Column(
+        Modifier
+            .height(54.dp)
+            .widthIn(min = 62.dp, max = 88.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(scheme.accentSoft)
+            .clickable { onClick() }
+            .padding(horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            "$coins",
+            color = scheme.accentInk,
+            fontSize = numberSize,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(stringResource(R.string.coins), color = scheme.muted, fontSize = 10.sp, fontFamily = FontFamily.Monospace, maxLines = 1)
     }
 }
 
@@ -1381,9 +1619,13 @@ fun AccountNavRow(icon: ImageVector, title: String, tint: Color, detail: String?
 }
 
 @Composable
-fun PreferencesCard() {
+fun PreferencesCard(updateState: AndroidUpdateState) {
     val scheme = LocalArchiveScheme.current
     val preferences = LocalAppPreferences.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val alreadyLatest = stringResource(R.string.already_latest)
+    val checkFailed = stringResource(R.string.update_check_failed)
     var showLanguagePicker by remember { mutableStateOf(false) }
     var showThemePicker by remember { mutableStateOf(false) }
     var legalDocument by remember { mutableStateOf<LegalDocumentKind?>(null) }
@@ -1410,7 +1652,23 @@ fun PreferencesCard() {
             RowDivider()
             AccountNavRow(Icons.Outlined.Copyright, stringResource(R.string.dmca_title), scheme.accentInk) { legalDocument = LegalDocumentKind.Dmca }
             RowDivider()
-            AccountNavRow(Icons.Outlined.Info, stringResource(R.string.app_version), scheme.accentInk, detail = "0.1.0") {}
+            AccountNavRow(
+                Icons.Outlined.Download,
+                stringResource(R.string.check_for_updates),
+                scheme.accentInk,
+                detail = if (updateState.checking) stringResource(R.string.checking_updates) else "v${BuildConfig.VERSION_NAME}",
+            ) {
+                scope.launch {
+                    val found = updateState.check(manual = true)
+                    if (found == null) {
+                        Toast.makeText(
+                            context,
+                            if (updateState.error == null) alreadyLatest else checkFailed,
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                }
+            }
         }
     }
     if (showLanguagePicker) {
@@ -1762,6 +2020,41 @@ suspend fun uploadUri(context: Context, uri: Uri, fileName: String, token: Strin
         throw ApiException(message.ifBlank { "Upload failed" }, status)
     }
 }
+
+suspend fun uploadAvatar(context: Context, uri: Uri, token: String): String = withContext(Dispatchers.IO) {
+    val resolver = context.contentResolver
+    val mime = resolver.getType(uri) ?: "image/jpeg"
+    val boundary = "Boundary-${UUID.randomUUID()}"
+    val connection = (URL("$API_BASE_URL/users/me/avatar").openConnection() as HttpURLConnection).apply {
+        requestMethod = "POST"
+        doOutput = true
+        connectTimeout = 15000
+        readTimeout = 60000
+        setRequestProperty("Authorization", "Bearer $token")
+        setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+        setRequestProperty("Accept", "application/json")
+    }
+    connection.outputStream.use { output ->
+        fun write(value: String) = output.write(value.toByteArray(Charsets.UTF_8))
+        write("--$boundary\r\n")
+        write("Content-Disposition: form-data; name=\"avatar\"; filename=\"avatar.jpg\"\r\n")
+        write("Content-Type: $mime\r\n\r\n")
+        resolver.openInputStream(uri)?.use { input -> input.copyTo(output) } ?: throw ApiException("Cannot open selected photo")
+        write("\r\n--$boundary--\r\n")
+    }
+    val status = connection.responseCode
+    val stream = if (status >= 400) connection.errorStream else connection.inputStream
+    val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+    val json = if (text.isBlank()) JSONObject() else JSONObject(text)
+    if (status >= 400) {
+        throw ApiException(json.optString("message").ifBlank { "Avatar upload failed" }, status)
+    }
+    json.optJSONObject("data")?.optString("avatar_url").orEmpty().ifBlank {
+        throw ApiException("Avatar upload failed", status)
+    }
+}
+
+private const val API_BASE_URL = "https://wallpaperexchange.com/api/v1"
 
 @Composable
 fun ProfileRow(icon: ImageVector, title: String, onClick: () -> Unit = {}) {
@@ -2485,6 +2778,72 @@ fun startDownload(context: Context, wallpaper: Wallpaper, token: String) {
         Toast.makeText(context, context.getString(R.string.download_failed), Toast.LENGTH_SHORT).show()
     }
 }
+
+fun startApkDownload(context: Context, release: AndroidRelease, fileName: String): PendingApkDownload? =
+    runCatching {
+        val uri = androidReleaseApkUri(release)
+        val target = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName)
+        if (target.exists()) target.delete()
+        val request = DownloadManager.Request(uri)
+            .setTitle(context.getString(R.string.update_download_title, release.versionName))
+            .setDescription(context.getString(R.string.update_download_description))
+            .setMimeType(APK_MIME)
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, fileName)
+        val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        PendingApkDownload(manager.enqueue(request), fileName, release).also {
+            Toast.makeText(context, context.getString(R.string.update_download_started), Toast.LENGTH_SHORT).show()
+        }
+    }.getOrElse {
+        Toast.makeText(context, context.getString(R.string.download_failed), Toast.LENGTH_SHORT).show()
+        null
+    }
+
+fun androidReleaseApkUri(release: AndroidRelease): Uri {
+    val url = release.apkUrl
+    return Uri.parse(
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            url
+        } else {
+            "https://wallpaperexchange.com$url"
+        }
+    )
+}
+
+fun isDownloadSuccessful(context: Context, id: Long): Boolean {
+    val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+    manager.query(DownloadManager.Query().setFilterById(id))?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+            return statusIndex >= 0 && cursor.getInt(statusIndex) == DownloadManager.STATUS_SUCCESSFUL
+        }
+    }
+    return false
+}
+
+fun installDownloadedApk(context: Context, fileName: String, allowInstallText: String, failedText: String) {
+    runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+            Toast.makeText(context, allowInstallText, Toast.LENGTH_LONG).show()
+            context.startActivity(
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            return
+        }
+        val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName)
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val intent = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, APK_MIME)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        context.startActivity(intent)
+    }.onFailure {
+        Toast.makeText(context, failedText, Toast.LENGTH_SHORT).show()
+    }
+}
+
+private const val APK_MIME = "application/vnd.android.package-archive"
 
 suspend fun setAsWallpaper(context: Context, wallpaper: Wallpaper, token: String) = withContext(Dispatchers.IO) {
     runCatching {

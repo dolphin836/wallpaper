@@ -15,6 +15,9 @@ import (
 //go:embed mac_release.json
 var macReleaseJSON []byte
 
+//go:embed android_release.json
+var androidReleaseJSON []byte
+
 type ReleaseHandler struct{}
 
 func NewReleaseHandler() *ReleaseHandler {
@@ -28,4 +31,12 @@ func NewReleaseHandler() *ReleaseHandler {
 func (h *ReleaseHandler) GetMacRelease(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=300")
 	response.OK(w, json.RawMessage(macReleaseJSON))
+}
+
+// GetAndroidRelease returns the native Android APK release manifest. The APK
+// update flow is intentionally manifest-driven so the client can stay stable
+// while the hosted APK URL changes release by release.
+func (h *ReleaseHandler) GetAndroidRelease(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	response.OK(w, json.RawMessage(androidReleaseJSON))
 }

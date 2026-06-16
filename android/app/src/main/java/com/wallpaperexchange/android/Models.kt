@@ -146,6 +146,20 @@ data class CoinTransaction(
     val createdAt: String,
 )
 
+data class AndroidRelease(
+    val versionName: String,
+    val versionCode: Int,
+    val minimumVersionCode: Int,
+    val apkUrl: String,
+    val apkSha256: String?,
+    val releasedAt: String,
+    val notes: List<String>,
+    val notesI18n: Map<String, List<String>>,
+) {
+    val forceUpdate: Boolean
+        get() = BuildConfig.VERSION_CODE < minimumVersionCode
+}
+
 internal fun JSONObject.stringOrNull(name: String): String? =
     if (isNull(name)) null else optString(name).trim().takeIf { it.isNotEmpty() }
 
@@ -263,3 +277,22 @@ internal fun JSONObject.toCoinTransaction(): CoinTransaction = CoinTransaction(
     description = optString("description"),
     createdAt = optString("created_at"),
 )
+
+internal fun JSONObject.toAndroidRelease(): AndroidRelease = AndroidRelease(
+    versionName = optString("current_version"),
+    versionCode = optInt("current_version_code"),
+    minimumVersionCode = optInt("minimum_version_code", optInt("current_version_code")),
+    apkUrl = optString("current_apk_url"),
+    apkSha256 = stringOrNull("apk_sha256"),
+    releasedAt = optString("released_at"),
+    notes = optJSONArray("notes")?.strings().orEmpty(),
+    notesI18n = optJSONObject("notes_i18n")?.toStringListMap().orEmpty(),
+)
+
+private fun JSONArray.strings(): List<String> =
+    (0 until length()).mapNotNull { optString(it).takeIf { value -> value.isNotBlank() } }
+
+private fun JSONObject.toStringListMap(): Map<String, List<String>> =
+    keys().asSequence().associateWith { key ->
+        optJSONArray(key)?.strings().orEmpty()
+    }.filterValues { it.isNotEmpty() }

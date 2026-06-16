@@ -74,6 +74,19 @@
     <string name="theme_light">ライト</string>
     <string name="theme_dark">ダーク</string>
     <string name="app_version">バージョン 0.1.0</string>
+    <string name="check_for_updates">アップデートを確認</string>
+    <string name="checking_updates">確認中...</string>
+    <string name="already_latest">最新バージョンです。</string>
+    <string name="update_check_failed">アップデートを確認できませんでした。</string>
+    <string name="update_available_title">バージョン %1$s が利用可能</string>
+    <string name="update_available_message">現在は v%1$s です。公式サイトから v%2$s の APK をダウンロードして更新できます。</string>
+    <string name="download_update">アップデートをダウンロード</string>
+    <string name="skip_this_version">このバージョンをスキップ</string>
+    <string name="update_download_title">Wallpaper Exchange v%1$s</string>
+    <string name="update_download_description">Android APK をダウンロード中</string>
+    <string name="update_download_started">アップデートのダウンロードを開始しました</string>
+    <string name="allow_unknown_apps">Wallpaper Exchange にアプリのインストールを許可してから、ダウンロード済み APK を開いてください。</string>
+    <string name="install_open_failed">インストーラーを開けませんでした。</string>
     <string name="preview">プレビュー</string>
     <string name="lock_preview">ロック画面プレビュー</string>
     <string name="download">ダウンロード</string>
@@ -94,6 +107,7 @@
     <string name="wallpaper_set_failed">壁紙を設定できませんでした</string>
     <string name="upload">アップロード</string>
     <string name="edit_profile">編集</string>
+    <string name="change_avatar">アバターを変更</string>
     <string name="coming_soon">近日対応予定</string>
     <string name="account_library_title">ライブラリ</string>
     <string name="coins">コイン</string>

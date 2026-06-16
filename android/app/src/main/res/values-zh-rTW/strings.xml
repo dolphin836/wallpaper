@@ -74,6 +74,19 @@
     <string name="theme_light">淺色</string>
     <string name="theme_dark">深色</string>
     <string name="app_version">版本 0.1.0</string>
+    <string name="check_for_updates">檢查更新</string>
+    <string name="checking_updates">檢查中...</string>
+    <string name="already_latest">目前已是最新版本。</string>
+    <string name="update_check_failed">無法檢查更新。</string>
+    <string name="update_available_title">發現 %1$s 版本</string>
+    <string name="update_available_message">目前使用的是 v%1$s，可從官網下載 v%2$s APK 更新。</string>
+    <string name="download_update">下載更新</string>
+    <string name="skip_this_version">略過此版本</string>
+    <string name="update_download_title">Wallpaper Exchange v%1$s</string>
+    <string name="update_download_description">正在下載 Android APK</string>
+    <string name="update_download_started">已開始下載更新</string>
+    <string name="allow_unknown_apps">請允許 Wallpaper Exchange 安裝應用，然後開啟已下載的 APK。</string>
+    <string name="install_open_failed">無法開啟安裝器。</string>
     <string name="preview">預覽</string>
     <string name="lock_preview">鎖定畫面預覽</string>
     <string name="download">下載</string>
@@ -94,6 +107,7 @@
     <string name="wallpaper_set_failed">無法設為桌布</string>
     <string name="upload">上傳</string>
     <string name="edit_profile">編輯</string>
+    <string name="change_avatar">修改頭像</string>
     <string name="coming_soon">即將支援</string>
     <string name="account_library_title">個人庫</string>
     <string name="coins">金幣</string>
