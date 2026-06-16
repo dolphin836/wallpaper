@@ -54,17 +54,20 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Collections
+import androidx.compose.material.icons.outlined.Contrast
+import androidx.compose.material.icons.outlined.Copyright
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Gavel
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Paid
-import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PhoneIphone
+import androidx.compose.material.icons.outlined.PrivacyTip
 import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material.icons.outlined.Visibility
@@ -117,6 +120,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -224,6 +229,12 @@ enum class ProfileDestination(val title: Int, val icon: ImageVector) {
     Likes(R.string.my_likes, Icons.Outlined.ThumbUp),
     Collections(R.string.my_collections, Icons.Outlined.Collections),
     Coins(R.string.my_coins, Icons.Outlined.Paid),
+}
+
+enum class LegalDocumentKind(val title: Int, val icon: ImageVector, val updated: Int) {
+    Terms(R.string.terms_title, Icons.Outlined.Gavel, R.string.legal_updated_terms),
+    Privacy(R.string.privacy_title, Icons.Outlined.PrivacyTip, R.string.legal_updated_terms),
+    Dmca(R.string.dmca_title, Icons.Outlined.Copyright, R.string.legal_updated_dmca),
 }
 
 data class AndroidUploadItem(
@@ -1375,6 +1386,7 @@ fun PreferencesCard() {
     val preferences = LocalAppPreferences.current
     var showLanguagePicker by remember { mutableStateOf(false) }
     var showThemePicker by remember { mutableStateOf(false) }
+    var legalDocument by remember { mutableStateOf<LegalDocumentKind?>(null) }
     Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionHeader("", stringResource(R.string.settings))
         Column(Modifier.clip(RoundedCornerShape(18.dp)).background(scheme.paper2)) {
@@ -1386,11 +1398,17 @@ fun PreferencesCard() {
             ) { showLanguagePicker = true }
             RowDivider()
             AccountNavRow(
-                Icons.Outlined.Palette,
+                Icons.Outlined.Contrast,
                 stringResource(R.string.appearance),
                 scheme.accentInk,
                 detail = themeModeLabel(preferences.themeMode),
             ) { showThemePicker = true }
+            RowDivider()
+            AccountNavRow(Icons.Outlined.Gavel, stringResource(R.string.terms_title), scheme.accentInk) { legalDocument = LegalDocumentKind.Terms }
+            RowDivider()
+            AccountNavRow(Icons.Outlined.PrivacyTip, stringResource(R.string.privacy_title), scheme.accentInk) { legalDocument = LegalDocumentKind.Privacy }
+            RowDivider()
+            AccountNavRow(Icons.Outlined.Copyright, stringResource(R.string.dmca_title), scheme.accentInk) { legalDocument = LegalDocumentKind.Dmca }
             RowDivider()
             AccountNavRow(Icons.Outlined.Info, stringResource(R.string.app_version), scheme.accentInk, detail = "0.1.0") {}
         }
@@ -1414,6 +1432,9 @@ fun PreferencesCard() {
             },
             onDismiss = { showThemePicker = false },
         )
+    }
+    legalDocument?.let { kind ->
+        LegalDocumentDialog(kind = kind, onDismiss = { legalDocument = null })
     }
 }
 
@@ -1489,6 +1510,88 @@ fun themeModeLabel(mode: AppThemeMode): String = when (mode) {
     AppThemeMode.System -> stringResource(R.string.theme_system)
     AppThemeMode.Light -> stringResource(R.string.theme_light)
     AppThemeMode.Dark -> stringResource(R.string.theme_dark)
+}
+
+data class LegalSectionText(val title: String, val body: String)
+
+@Composable
+fun LegalDocumentDialog(kind: LegalDocumentKind, onDismiss: () -> Unit) {
+    val scheme = LocalArchiveScheme.current
+    val title = stringResource(kind.title)
+    val sections = legalSections(kind)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp)
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+            shape = RoundedCornerShape(24.dp),
+            color = scheme.paper,
+            border = BorderStroke(1.dp, scheme.hair.copy(alpha = 0.72f)),
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    CircleIconButton(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.cancel), false, onDismiss)
+                    Text(title, color = scheme.ink, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                ) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(stringResource(R.string.legal), color = scheme.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
+                            Text(title, color = scheme.ink, fontSize = 28.sp, fontWeight = FontWeight.Black)
+                            Text("${stringResource(R.string.legal_version)} v1.0 · ${stringResource(kind.updated)}", color = scheme.muted, fontSize = 13.sp)
+                            Text(stringResource(R.string.legal_body_note), color = scheme.ink2, fontSize = 13.sp, lineHeight = 19.sp)
+                        }
+                    }
+                    items(sections) { section ->
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(section.title, color = scheme.ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                            Text(section.body, color = scheme.ink2, fontSize = 14.sp, lineHeight = 21.sp)
+                        }
+                    }
+                    item { Spacer(Modifier.height(10.dp)) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun legalSections(kind: LegalDocumentKind): List<LegalSectionText> = when (kind) {
+    LegalDocumentKind.Terms -> listOf(
+        LegalSectionText(stringResource(R.string.terms_section_acceptance_title), stringResource(R.string.terms_section_acceptance_body)),
+        LegalSectionText(stringResource(R.string.terms_section_account_title), stringResource(R.string.terms_section_account_body)),
+        LegalSectionText(stringResource(R.string.terms_section_content_title), stringResource(R.string.terms_section_content_body)),
+        LegalSectionText(stringResource(R.string.terms_section_coins_title), stringResource(R.string.terms_section_coins_body)),
+        LegalSectionText(stringResource(R.string.terms_section_contact_title), stringResource(R.string.terms_section_contact_body)),
+    )
+    LegalDocumentKind.Privacy -> listOf(
+        LegalSectionText(stringResource(R.string.privacy_section_collect_title), stringResource(R.string.privacy_section_collect_body)),
+        LegalSectionText(stringResource(R.string.privacy_section_use_title), stringResource(R.string.privacy_section_use_body)),
+        LegalSectionText(stringResource(R.string.privacy_section_share_title), stringResource(R.string.privacy_section_share_body)),
+        LegalSectionText(stringResource(R.string.privacy_section_rights_title), stringResource(R.string.privacy_section_rights_body)),
+        LegalSectionText(stringResource(R.string.privacy_section_contact_title), stringResource(R.string.privacy_section_contact_body)),
+    )
+    LegalDocumentKind.Dmca -> listOf(
+        LegalSectionText(stringResource(R.string.dmca_section_notice_title), stringResource(R.string.dmca_section_notice_body)),
+        LegalSectionText(stringResource(R.string.dmca_section_counter_title), stringResource(R.string.dmca_section_counter_body)),
+        LegalSectionText(stringResource(R.string.dmca_section_repeat_title), stringResource(R.string.dmca_section_repeat_body)),
+        LegalSectionText(stringResource(R.string.dmca_section_contact_title), stringResource(R.string.dmca_section_contact_body)),
+    )
 }
 
 @Composable
