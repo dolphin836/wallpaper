@@ -66,7 +66,7 @@
     <string name="file_size">大小</string>
     <string name="file_type">类型</string>
     <string name="dominant_color">主要颜色</string>
-    <string name="engagement">数据</string>
+    <string name="views">浏览</string>
     <string name="download_started">已开始下载</string>
     <string name="download_failed">下载失败</string>
     <string name="wallpaper_set">已设为壁纸</string>

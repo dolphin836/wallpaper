@@ -2001,7 +2001,7 @@ fun WallpaperInfoSheet(wallpaper: Wallpaper, onDismiss: () -> Unit) {
                 InfoLine(stringResource(R.string.like), "${wallpaper.likeCount}")
                 InfoLine(stringResource(R.string.favorite), "${wallpaper.favoriteCount}")
                 InfoLine(stringResource(R.string.download), "${wallpaper.downloadCount}")
-                InfoLine(stringResource(R.string.engagement), "${wallpaper.viewCount}")
+                InfoLine(stringResource(R.string.views), "${wallpaper.viewCount}")
             }
         }
     }

@@ -66,7 +66,7 @@
     <string name="file_size">サイズ</string>
     <string name="file_type">種類</string>
     <string name="dominant_color">メインカラー</string>
-    <string name="engagement">データ</string>
+    <string name="views">表示</string>
     <string name="download_started">ダウンロードを開始しました</string>
     <string name="download_failed">ダウンロードに失敗しました</string>
     <string name="wallpaper_set">壁紙を設定しました</string>
