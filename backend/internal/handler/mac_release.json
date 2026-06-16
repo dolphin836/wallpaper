@@ -1,8 +1,26 @@
 {
-  "current_version": "2.0.8",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.8.dmg",
+  "current_version": "2.0.9",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.9.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.9",
+      "released_at": "2026-06-16",
+      "notes": [
+        "Changed: wallpaper cards now show a soft light sweep while preview images are loading, matching the iOS loading treatment."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "变更：壁纸卡片预览图加载时会显示柔和的扫光效果，与 iOS 端的加载动效保持一致。"
+        ],
+        "zh-TW": [
+          "變更：桌布卡片預覽圖載入時會顯示柔和的掃光效果，與 iOS 端的載入動效保持一致。"
+        ],
+        "ja": [
+          "変更：壁紙カードのプレビュー画像読み込み中に、iOS 版と揃えた柔らかなライトスイープを表示するようにしました。"
+        ]
+      }
+    },
     {
       "version": "2.0.8",
       "released_at": "2026-06-16",

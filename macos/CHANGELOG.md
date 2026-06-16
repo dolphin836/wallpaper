@@ -10,6 +10,14 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.9] - 2026-06-16
+
+### Changed
+
+- **Wallpaper cards now show the same loading light sweep as iOS.** Preview
+  images fade in with a soft beam effect while remote content is still
+  loading.
+
 ## [2.0.8] - 2026-06-16
 
 ### Changed
