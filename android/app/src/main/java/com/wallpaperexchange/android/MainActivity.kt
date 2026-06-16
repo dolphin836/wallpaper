@@ -1,8 +1,10 @@
 package com.wallpaperexchange.android
 
 import android.app.DownloadManager
+import android.app.WallpaperManager
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.OpenableColumns
@@ -38,7 +40,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -67,9 +68,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -77,6 +80,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -85,9 +89,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -103,6 +109,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
@@ -144,6 +153,18 @@ data class AndroidUploadItem(
     val name: String,
     val status: UploadStatus = UploadStatus.Ready,
 )
+
+@Stable
+class LockPreviewState {
+    var enabled by mutableStateOf(false)
+        private set
+
+    fun toggle() {
+        enabled = !enabled
+    }
+}
+
+val LocalLockPreviewState = staticCompositionLocalOf { LockPreviewState() }
 
 @Stable
 class AuthSession(context: Context) {
@@ -201,6 +222,7 @@ class AuthSession(context: Context) {
 fun WallpaperExchangeApp() {
     val context = LocalContext.current
     val session = remember { AuthSession(context.applicationContext) }
+    val lockPreview = remember { LockPreviewState() }
     var tab by remember { mutableStateOf(RootTab.Home) }
     var detail by remember { mutableStateOf<Wallpaper?>(null) }
     var collection by remember { mutableStateOf<CollectionItem?>(null) }
@@ -213,6 +235,7 @@ fun WallpaperExchangeApp() {
         session.refreshProfile()
     }
 
+    CompositionLocalProvider(LocalLockPreviewState provides lockPreview) {
     Box(Modifier.fillMaxSize()) {
         PageMesh()
         Scaffold(
@@ -230,6 +253,7 @@ fun WallpaperExchangeApp() {
                 ) { current ->
                     when (current) {
                         RootTab.Home -> HomeScreen(
+                            session = session,
                             onProfile = { profileOpen = true },
                             onWallpaper = { detail = it },
                             onCollection = { collection = it },
@@ -237,9 +261,10 @@ fun WallpaperExchangeApp() {
                             onTab = { tab = it },
                         )
                         RootTab.Discover -> DiscoverScreen(session, { profileOpen = true }, { detail = it })
-                        RootTab.Weekly -> WeeklyScreen({ profileOpen = true }, { weekly = it })
+                        RootTab.Weekly -> WeeklyScreen(session, { profileOpen = true }, { weekly = it })
                         RootTab.Collections -> CollectionsScreen(
                             topBar = true,
+                            session = session,
                             onProfile = { profileOpen = true },
                             onCollection = { collection = it },
                         )
@@ -327,6 +352,7 @@ fun WallpaperExchangeApp() {
             AuthDialog(session = session, mode = it)
         }
     }
+    }
 }
 
 @Composable
@@ -341,43 +367,171 @@ fun OverlaySurface(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun ArchiveTopBar(title: String, onProfile: () -> Unit, onClose: (() -> Unit)? = null) {
+fun ArchiveTopBar(
+    title: String,
+    onProfile: () -> Unit,
+    onClose: (() -> Unit)? = null,
+    session: AuthSession? = null,
+) {
     val scheme = LocalArchiveScheme.current
     Row(
         modifier = Modifier
             .statusBarsPadding()
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
             .fillMaxWidth()
-            .height(54.dp)
+            .height(52.dp)
+            .shadow(18.dp, RoundedCornerShape(28.dp))
             .clip(RoundedCornerShape(28.dp))
-            .background(scheme.paper2.copy(alpha = 0.72f))
-            .padding(horizontal = 8.dp),
+            .background(scheme.paper2.copy(alpha = 0.58f))
+            .padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        IconButton(onClick = onProfile, modifier = Modifier.size(40.dp).clip(CircleShape).background(scheme.paper3)) {
-            Icon(Icons.Outlined.Person, contentDescription = stringResource(R.string.me), tint = scheme.ink2)
-        }
+        TopAvatar(session = session, enabled = onClose == null, onClick = onProfile)
         Text(
             text = title,
             color = scheme.ink,
-            fontSize = 28.sp,
+            fontSize = 27.sp,
             fontWeight = FontWeight.Black,
             fontFamily = FontFamily.Serif,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
-        IconButton(
-            onClick = onClose ?: {},
-            modifier = Modifier.size(40.dp).clip(CircleShape).background(scheme.paper3),
-        ) {
-            Icon(
-                imageVector = if (onClose == null) Icons.Outlined.PhoneIphone else Icons.Outlined.Close,
-                contentDescription = stringResource(R.string.preview),
-                tint = scheme.ink2,
+        if (onClose != null) {
+            CircleIconButton(
+                icon = Icons.Outlined.Close,
+                label = stringResource(R.string.cancel),
+                selected = false,
+                onClick = onClose,
             )
+        } else {
+            LockPreviewToolbarButton()
         }
+    }
+}
+
+@Composable
+fun NavigationTopBar(title: String, onBack: () -> Unit) {
+    val scheme = LocalArchiveScheme.current
+    Row(
+        modifier = Modifier
+            .statusBarsPadding()
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .fillMaxWidth()
+            .height(52.dp)
+            .shadow(18.dp, RoundedCornerShape(28.dp))
+            .clip(RoundedCornerShape(28.dp))
+            .background(scheme.paper2.copy(alpha = 0.58f))
+            .padding(horizontal = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CircleIconButton(
+            icon = Icons.Outlined.ArrowBack,
+            label = stringResource(R.string.cancel),
+            selected = false,
+            onClick = onBack,
+        )
+        Text(
+            text = title,
+            color = scheme.ink,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+        LockPreviewToolbarButton()
+    }
+}
+
+@Composable
+fun DetailTopBar(onBack: () -> Unit, previewActive: Boolean, onPreview: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .statusBarsPadding()
+            .padding(12.dp)
+            .fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TranslucentCircleButton(Icons.Outlined.ArrowBack, stringResource(R.string.cancel), onBack)
+        TranslucentCircleButton(
+            icon = Icons.Outlined.PhoneIphone,
+            label = stringResource(R.string.preview),
+            selected = previewActive,
+            onClick = onPreview,
+        )
+    }
+}
+
+@Composable
+fun TopAvatar(session: AuthSession?, enabled: Boolean, onClick: () -> Unit) {
+    val scheme = LocalArchiveScheme.current
+    val user = session?.user
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(scheme.paper3.copy(alpha = 0.78f))
+            .clickable(enabled = enabled) { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (user != null && user.avatarUrl.isNotBlank()) {
+            RemoteImage(user.avatarUrl, Modifier.fillMaxSize())
+        } else if (user != null) {
+            Text(
+                text = (user.nickname.ifBlank { user.username }).take(1).uppercase(),
+                color = scheme.ink2,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+            )
+        } else {
+            Icon(Icons.Outlined.Person, contentDescription = stringResource(R.string.me), tint = scheme.ink2, modifier = Modifier.size(19.dp))
+        }
+        Box(Modifier.matchParentSize().clip(CircleShape).background(Color.Transparent))
+    }
+}
+
+@Composable
+fun LockPreviewToolbarButton() {
+    val lockPreview = LocalLockPreviewState.current
+    CircleIconButton(
+        icon = Icons.Outlined.PhoneIphone,
+        label = stringResource(R.string.lock_preview),
+        selected = lockPreview.enabled,
+        onClick = { lockPreview.toggle() },
+    )
+}
+
+@Composable
+fun CircleIconButton(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
+    val scheme = LocalArchiveScheme.current
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(if (selected) scheme.accent else scheme.paper3.copy(alpha = 0.78f)),
+    ) {
+        Icon(icon, contentDescription = label, tint = if (selected) Color.Black.copy(alpha = 0.82f) else scheme.ink2, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+fun TranslucentCircleButton(icon: ImageVector, label: String, onClick: () -> Unit, selected: Boolean = false) {
+    val scheme = LocalArchiveScheme.current
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(if (selected) scheme.accent else Color.Black.copy(alpha = 0.32f)),
+    ) {
+        Icon(icon, contentDescription = label, tint = if (selected) Color.Black.copy(alpha = 0.82f) else scheme.lightText, modifier = Modifier.size(19.dp))
     }
 }
 
@@ -431,8 +585,10 @@ fun FloatingTabBar(selected: RootTab, onSelect: (RootTab) -> Unit) {
 fun SectionHeader(kicker: String, title: String, modifier: Modifier = Modifier) {
     val scheme = LocalArchiveScheme.current
     Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Text(kicker.uppercase(), color = scheme.muted, fontSize = 10.sp, letterSpacing = 2.sp, fontFamily = FontFamily.Monospace)
-        Text(title, color = scheme.ink, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+        Text(title, color = scheme.ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        if (kicker.isNotBlank()) {
+            Text(kicker, color = scheme.muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        }
     }
 }
 
@@ -452,6 +608,7 @@ fun SectionRow(kicker: String, title: String, action: String, onAction: () -> Un
 
 @Composable
 fun HomeScreen(
+    session: AuthSession,
     onProfile: () -> Unit,
     onWallpaper: (Wallpaper) -> Unit,
     onCollection: (CollectionItem) -> Unit,
@@ -478,7 +635,7 @@ fun HomeScreen(
     LaunchedEffect(Unit) { load() }
 
     Column(Modifier.fillMaxSize()) {
-        ArchiveTopBar(stringResource(R.string.home), onProfile)
+        ArchiveTopBar(stringResource(R.string.home), onProfile, session = session)
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp),
@@ -503,7 +660,7 @@ fun HomeScreen(
                         }
                         if (collections.isNotEmpty()) {
                             SectionRow(
-                                kicker = "COLLECTIONS",
+                                kicker = stringResource(R.string.collections_kicker),
                                 title = stringResource(R.string.latest_collections),
                                 action = stringResource(R.string.see_more),
                                 onAction = { onTab(RootTab.Collections) },
@@ -534,7 +691,7 @@ fun WeeklyAlbumSection(
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionRow("WEEKLY", stringResource(R.string.recent_weekly), stringResource(R.string.view_all), onViewAll)
+        SectionRow(stringResource(R.string.weekly_kicker), stringResource(R.string.recent_weekly), stringResource(R.string.view_all), onViewAll)
         Box(Modifier.padding(horizontal = 12.dp)) {
             visible.getOrNull(index)?.let { entry ->
                 WeeklyAlbumCard(entry, index, visible.size, onWeekly)
@@ -555,17 +712,8 @@ fun WeeklyAlbumCard(entry: WeeklyArchiveEntry, index: Int, count: Int, onWeekly:
             .clickable { onWeekly(entry) },
         contentAlignment = Alignment.BottomCenter,
     ) {
-        repeat(2) { layer ->
-            Box(
-                Modifier
-                    .padding(end = (22 - layer * 11).dp, bottom = (18 - layer * 9).dp)
-                    .fillMaxWidth()
-                    .height(300.dp)
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(accent.copy(alpha = if (layer == 0) 0.28f else 0.42f))
-                    .align(Alignment.BottomCenter)
-            )
-        }
+        WeeklyAlbumLayer(entry, accent, scale = 0.88f, alpha = 0.34f, x = 22.dp, y = 18.dp)
+        WeeklyAlbumLayer(entry, accent, scale = 0.94f, alpha = 0.55f, x = 11.dp, y = 9.dp)
         Box(
             Modifier
                 .padding(end = 22.dp, bottom = 18.dp)
@@ -591,6 +739,30 @@ fun WeeklyAlbumCard(entry: WeeklyArchiveEntry, index: Int, count: Int, onWeekly:
                 }
             }
         }
+    }
+}
+
+@Composable
+fun WeeklyAlbumLayer(entry: WeeklyArchiveEntry, accent: Color, scale: Float, alpha: Float, x: androidx.compose.ui.unit.Dp, y: androidx.compose.ui.unit.Dp) {
+    Box(
+        Modifier
+            .padding(end = x, bottom = y)
+            .fillMaxWidth()
+            .height(300.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 1f)
+            }
+            .clip(RoundedCornerShape(28.dp))
+            .background(accent.copy(alpha = alpha))
+    ) {
+        RemoteImage(
+            entry.coverUrl,
+            Modifier.fillMaxSize(),
+            placeholder = accent.copy(alpha = alpha),
+        )
+        Box(Modifier.fillMaxSize().background(accent.copy(alpha = 0.55f)))
     }
 }
 
@@ -646,7 +818,7 @@ fun DiscoverScreen(session: AuthSession, onProfile: () -> Unit, onWallpaper: (Wa
     LaunchedEffect(feed, category) { load(true) }
 
     Column(Modifier.fillMaxSize()) {
-        ArchiveTopBar(stringResource(R.string.discover), onProfile)
+        ArchiveTopBar(stringResource(R.string.discover), onProfile, session = session)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 28.dp)) {
             item {
                 FilterSurface(
@@ -718,7 +890,7 @@ fun feedTitle(feed: Feed): String = when (feed) {
 }
 
 @Composable
-fun CollectionsScreen(topBar: Boolean, onProfile: () -> Unit, onCollection: (CollectionItem) -> Unit) {
+fun CollectionsScreen(topBar: Boolean, session: AuthSession? = null, onProfile: () -> Unit, onCollection: (CollectionItem) -> Unit) {
     val scope = rememberCoroutineScope()
     var collections by remember { mutableStateOf<List<CollectionItem>>(emptyList()) }
     var cursor by remember { mutableStateOf<Int?>(null) }
@@ -751,10 +923,10 @@ fun CollectionsScreen(topBar: Boolean, onProfile: () -> Unit, onCollection: (Col
     LaunchedEffect(Unit) { load(true) }
 
     Column(Modifier.fillMaxSize()) {
-        if (topBar) ArchiveTopBar(stringResource(R.string.collections), onProfile)
+        if (topBar) ArchiveTopBar(stringResource(R.string.collections), onProfile, session = session)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 28.dp)) {
             item {
-                SectionHeader("COLLECTIONS", stringResource(R.string.collections), Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                SectionHeader(stringResource(R.string.collections_kicker), stringResource(R.string.collections), Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
             }
             when {
                 collections.isEmpty() && loading -> item { CollectionListSkeleton(3) }
@@ -773,7 +945,7 @@ fun CollectionsScreen(topBar: Boolean, onProfile: () -> Unit, onCollection: (Col
 }
 
 @Composable
-fun WeeklyScreen(onProfile: () -> Unit, onWeekly: (WeeklyArchiveEntry) -> Unit) {
+fun WeeklyScreen(session: AuthSession, onProfile: () -> Unit, onWeekly: (WeeklyArchiveEntry) -> Unit) {
     var entries by remember { mutableStateOf<List<WeeklyArchiveEntry>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -785,15 +957,27 @@ fun WeeklyScreen(onProfile: () -> Unit, onWeekly: (WeeklyArchiveEntry) -> Unit) 
         loading = false
     }
     Column(Modifier.fillMaxSize()) {
-        ArchiveTopBar(stringResource(R.string.weekly), onProfile)
+        ArchiveTopBar(stringResource(R.string.weekly), onProfile, session = session)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 28.dp)) {
-            item { SectionHeader("ARCHIVE", stringResource(R.string.weekly), Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) }
+            item { SectionHeader(stringResource(R.string.weekly_archive_kicker), stringResource(R.string.past_weeks), Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) }
             when {
                 loading && entries.isEmpty() -> item { WeeklyArchiveSkeleton() }
                 error != null && entries.isEmpty() -> item { ErrorState(error.orEmpty()) {} }
-                else -> items(entries, key = { it.id }) { entry ->
-                    WeeklyArchiveCard(entry = entry, onClick = onWeekly, modifier = Modifier.padding(horizontal = 12.dp))
+                else -> item { WeeklyArchiveGrid(entries, onWeekly) }
+            }
+        }
+    }
+}
+
+@Composable
+fun WeeklyArchiveGrid(entries: List<WeeklyArchiveEntry>, onWeekly: (WeeklyArchiveEntry) -> Unit) {
+    Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        entries.chunked(2).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { entry ->
+                    WeeklyArchiveCard(entry = entry, onClick = onWeekly, modifier = Modifier.weight(1f))
                 }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }
@@ -813,7 +997,7 @@ fun FavoritesScreen(session: AuthSession, onProfile: () -> Unit, onWallpaper: (W
         loading = false
     }
     Column(Modifier.fillMaxSize()) {
-        ArchiveTopBar(stringResource(R.string.favorites), onProfile)
+        ArchiveTopBar(stringResource(R.string.favorites), onProfile, session = session)
         if (!session.isLoggedIn) {
             SignInGate(session)
         } else {
@@ -838,69 +1022,181 @@ fun ProfileScreen(
     onUpload: () -> Unit,
     onOpen: (ProfileDestination) -> Unit,
 ) {
-    val scheme = LocalArchiveScheme.current
+    val context = LocalContext.current
     Column(Modifier.fillMaxSize()) {
-        ArchiveTopBar(stringResource(R.string.me), onProfile = {}, onClose = onClose)
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 28.dp),
-        ) {
-            item {
-                ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = scheme.paper2)) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(Modifier.size(64.dp).clip(CircleShape).background(scheme.paper3), contentAlignment = Alignment.Center) {
-                            Text((session.user?.nickname ?: session.user?.username ?: "W").take(1).uppercase(), color = scheme.ink, fontWeight = FontWeight.Bold)
-                        }
-                        Column(Modifier.weight(1f)) {
-                            Text(session.user?.nickname ?: session.user?.username ?: stringResource(R.string.sign_in_required), color = scheme.ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                            Text(session.user?.email ?: stringResource(R.string.sign_in_message), color = scheme.muted, maxLines = 2)
-                        }
-                    }
+        ArchiveTopBar(stringResource(R.string.me), onProfile = {}, onClose = onClose, session = session)
+        if (session.isLoggedIn && session.user != null) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 8.dp, bottom = 28.dp),
+            ) {
+                item {
+                    ProfileCard(
+                        session = session,
+                        onUpload = onUpload,
+                        onEdit = { Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show() },
+                        onPassword = { Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show() },
+                        onSignOut = { session.logout() },
+                        onCoins = { onOpen(ProfileDestination.Coins) },
+                    )
                 }
+                item { AccountNavigationCard(session.user!!, onOpen) }
+                item { PreferencesCard() }
             }
-            item {
-                if (session.isLoggedIn) {
-                    Button(onClick = onUpload, Modifier.fillMaxWidth()) {
-                        Icon(Icons.Outlined.Upload, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.upload))
-                    }
-                }
-            }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ProfileRow(ProfileDestination.Downloads.icon, stringResource(ProfileDestination.Downloads.title)) { onOpen(ProfileDestination.Downloads) }
-                    ProfileRow(ProfileDestination.Favorites.icon, stringResource(ProfileDestination.Favorites.title)) { onOpen(ProfileDestination.Favorites) }
-                    ProfileRow(ProfileDestination.Uploads.icon, stringResource(ProfileDestination.Uploads.title)) { onOpen(ProfileDestination.Uploads) }
-                    ProfileRow(ProfileDestination.Likes.icon, stringResource(ProfileDestination.Likes.title)) { onOpen(ProfileDestination.Likes) }
-                    ProfileRow(ProfileDestination.Collections.icon, stringResource(ProfileDestination.Collections.title)) { onOpen(ProfileDestination.Collections) }
-                    ProfileRow(ProfileDestination.Coins.icon, stringResource(ProfileDestination.Coins.title)) { onOpen(ProfileDestination.Coins) }
-                }
-            }
-            item {
-                SectionHeader("SETTINGS", stringResource(R.string.settings))
-            }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ProfileRow(Icons.Outlined.Search, stringResource(R.string.language))
-                    ProfileRow(Icons.Outlined.PhoneIphone, stringResource(R.string.appearance))
-                    ProfileRow(Icons.Outlined.Info, stringResource(R.string.app_version))
-                }
-            }
-            item {
-                if (session.isLoggedIn) {
-                    OutlinedButton(onClick = { session.logout() }, Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.sign_out))
-                    }
-                } else {
-                    Button(onClick = { session.present(AuthMode.Login) }, Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.sign_in))
-                    }
-                }
+        } else {
+            Column(
+                Modifier.fillMaxSize().padding(horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Icon(Icons.Outlined.Person, contentDescription = null, tint = LocalArchiveScheme.current.muted, modifier = Modifier.size(58.dp))
+                Spacer(Modifier.height(16.dp))
+                Text(stringResource(R.string.sign_in_message), color = LocalArchiveScheme.current.muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = { session.present(AuthMode.Login) }) { Text(stringResource(R.string.sign_in)) }
+                Spacer(Modifier.height(20.dp))
+                PreferencesCard()
             }
         }
     }
+}
+
+@Composable
+fun ProfileCard(
+    session: AuthSession,
+    onUpload: () -> Unit,
+    onEdit: () -> Unit,
+    onPassword: () -> Unit,
+    onSignOut: () -> Unit,
+    onCoins: () -> Unit,
+) {
+    val scheme = LocalArchiveScheme.current
+    val user = session.user ?: return
+    Column(
+        Modifier
+            .padding(horizontal = 12.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(scheme.paper2)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(66.dp).clip(CircleShape).background(scheme.paper3), contentAlignment = Alignment.Center) {
+                if (user.avatarUrl.isNotBlank()) {
+                    RemoteImage(user.avatarUrl, Modifier.fillMaxSize())
+                } else {
+                    Text((user.nickname.ifBlank { user.username }).take(1).uppercase(), color = scheme.ink2, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(user.nickname.ifBlank { user.username }, color = scheme.ink, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("@${user.username}", color = scheme.muted, fontSize = 12.sp)
+                if (user.bio.isNotBlank()) {
+                    Text(user.bio, color = scheme.ink2, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Box(
+                Modifier
+                    .size(54.dp)
+                    .clip(CircleShape)
+                    .background(scheme.accentSoft)
+                    .clickable { onCoins() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text("${user.coins}", color = scheme.accentInk, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.coins), color = scheme.muted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ProfileActionButton(Icons.Outlined.Upload, stringResource(R.string.upload), accent = true, modifier = Modifier.weight(1f), onClick = onUpload)
+            ProfileActionButton(Icons.Outlined.Person, stringResource(R.string.edit_profile), modifier = Modifier.weight(1f), onClick = onEdit)
+            ProfileActionButton(Icons.Outlined.Info, stringResource(R.string.password), modifier = Modifier.weight(1f), onClick = onPassword)
+            ProfileActionButton(Icons.Outlined.Close, stringResource(R.string.sign_out), modifier = Modifier.weight(1f), onClick = onSignOut)
+        }
+    }
+}
+
+@Composable
+fun ProfileActionButton(icon: ImageVector, title: String, accent: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val scheme = LocalArchiveScheme.current
+    Column(
+        modifier
+            .height(52.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (accent) scheme.accent else scheme.paper3)
+            .clickable { onClick() }
+            .padding(horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = if (accent) scheme.lightText else scheme.ink2, modifier = Modifier.size(15.dp))
+        Text(title, color = if (accent) scheme.lightText else scheme.ink2, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+fun AccountNavigationCard(user: User, onOpen: (ProfileDestination) -> Unit) {
+    val scheme = LocalArchiveScheme.current
+    Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionHeader("", stringResource(R.string.account_library_title))
+        Column(Modifier.clip(RoundedCornerShape(18.dp)).background(scheme.paper2)) {
+            AccountNavRow(ProfileDestination.Uploads.icon, stringResource(R.string.my_uploads), scheme.accentInk) { onOpen(ProfileDestination.Uploads) }
+            RowDivider()
+            AccountNavRow(ProfileDestination.Downloads.icon, stringResource(R.string.my_downloads), Color(0xFF3E7EBB)) { onOpen(ProfileDestination.Downloads) }
+            RowDivider()
+            AccountNavRow(ProfileDestination.Favorites.icon, stringResource(R.string.favorites), Color(0xFFD55A8A)) { onOpen(ProfileDestination.Favorites) }
+            RowDivider()
+            AccountNavRow(ProfileDestination.Likes.icon, stringResource(R.string.my_likes), Color(0xFF3E8B5B)) { onOpen(ProfileDestination.Likes) }
+            RowDivider()
+            AccountNavRow(ProfileDestination.Collections.icon, stringResource(R.string.my_collections), Color(0xFFD48235)) { onOpen(ProfileDestination.Collections) }
+            RowDivider()
+            AccountNavRow(ProfileDestination.Coins.icon, stringResource(R.string.my_coins), scheme.accent, detail = "${user.coins}") { onOpen(ProfileDestination.Coins) }
+        }
+    }
+}
+
+@Composable
+fun AccountNavRow(icon: ImageVector, title: String, tint: Color, detail: String? = null, onClick: () -> Unit) {
+    val scheme = LocalArchiveScheme.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(Modifier.size(28.dp).clip(CircleShape).background(tint.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+        }
+        Text(title, color = scheme.ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1)
+        detail?.let { Text(it, color = scheme.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace) }
+        Text("›", color = scheme.muted, fontSize = 22.sp)
+    }
+}
+
+@Composable
+fun PreferencesCard() {
+    val scheme = LocalArchiveScheme.current
+    Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionHeader("", stringResource(R.string.settings))
+        Column(Modifier.clip(RoundedCornerShape(18.dp)).background(scheme.paper2)) {
+            AccountNavRow(Icons.Outlined.Search, stringResource(R.string.language), scheme.accentInk) {}
+            RowDivider()
+            AccountNavRow(Icons.Outlined.PhoneIphone, stringResource(R.string.appearance), scheme.accentInk) {}
+            RowDivider()
+            AccountNavRow(Icons.Outlined.Info, stringResource(R.string.app_version), scheme.accentInk, detail = "0.1.0") {}
+        }
+    }
+}
+
+@Composable
+fun RowDivider() {
+    Box(Modifier.fillMaxWidth().padding(start = 50.dp).height(1.dp).background(LocalArchiveScheme.current.hair.copy(alpha = 0.72f)))
 }
 
 @Composable
@@ -940,7 +1236,7 @@ fun UploadScreen(session: AuthSession, onClose: () -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        ArchiveTopBar(stringResource(R.string.upload), onProfile = {}, onClose = onClose)
+        ArchiveTopBar(stringResource(R.string.upload), onProfile = {}, onClose = onClose, session = session)
         if (!session.isLoggedIn) {
             SignInGate(session)
         } else {
@@ -1095,7 +1391,7 @@ fun AccountDestinationScreen(
     onCollection: (CollectionItem) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
-        ArchiveTopBar(stringResource(destination.title), onProfile = {}, onClose = onBack)
+        NavigationTopBar(stringResource(destination.title), onBack)
         if (!session.isLoggedIn) {
             SignInGate(session)
         } else {
@@ -1209,13 +1505,13 @@ fun AccountUploadsScreen(session: AuthSession, onWallpaper: (Wallpaper) -> Unit)
     LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         if (pending.isNotEmpty()) {
             item {
-                SectionHeader("REVIEW", stringResource(R.string.pending_uploads), Modifier.padding(horizontal = 12.dp))
+                SectionHeader(stringResource(R.string.processing_review_kicker), stringResource(R.string.pending_uploads), Modifier.padding(horizontal = 12.dp))
                 Spacer(Modifier.height(10.dp))
                 WallpaperGrid(pending, onWallpaper)
             }
         }
         item {
-            SectionHeader("UPLOADS", stringResource(R.string.published_uploads), Modifier.padding(horizontal = 12.dp))
+            SectionHeader(stringResource(R.string.uploads_kicker), stringResource(R.string.published_uploads), Modifier.padding(horizontal = 12.dp))
         }
         item {
             when {
@@ -1326,7 +1622,7 @@ fun AccountCoinsScreen(session: AuthSession) {
                 }
             }
         }
-        item { SectionHeader("LEDGER", stringResource(R.string.coin_transactions)) }
+        item { SectionHeader(stringResource(R.string.ledger_kicker), stringResource(R.string.coin_transactions)) }
         when {
             transactions.isEmpty() && loading -> item { CollectionListSkeleton(3, 72) }
             transactions.isEmpty() && error != null -> item { ErrorState(error.orEmpty()) { scope.launch { load(true) } } }
@@ -1373,6 +1669,7 @@ fun WallpaperGrid(wallpapers: List<Wallpaper>, onWallpaper: (Wallpaper) -> Unit)
 @Composable
 fun WallpaperCard(wallpaper: Wallpaper, onWallpaper: (Wallpaper) -> Unit, modifier: Modifier = Modifier) {
     val scheme = LocalArchiveScheme.current
+    val lockPreview = LocalLockPreviewState.current
     val tint = hexColor(wallpaper.dominantColor, scheme.paper3)
     Box(
         modifier
@@ -1383,10 +1680,64 @@ fun WallpaperCard(wallpaper: Wallpaper, onWallpaper: (Wallpaper) -> Unit, modifi
             .clickable { onWallpaper(wallpaper) },
     ) {
         RemoteImage(wallpaper.displayUrl, Modifier.fillMaxSize(), placeholder = tint.copy(alpha = 0.55f))
-        Row(Modifier.padding(7.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            MediaChip(wallpaper.resolutionLabel)
-            if (wallpaper.isAiGenerated) MediaChip("AI", scheme.accent.copy(alpha = 0.78f))
+        if (lockPreview.enabled) {
+            LockScreenOverlay(compact = true, modifier = Modifier.fillMaxSize())
+        } else {
+            Row(Modifier.padding(7.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                MediaChip(wallpaper.resolutionLabel)
+                if (wallpaper.isAiGenerated) MediaChip("AI", scheme.accent.copy(alpha = 0.78f))
+            }
         }
+    }
+}
+
+@Composable
+fun LockScreenOverlay(compact: Boolean, modifier: Modifier = Modifier) {
+    val now = remember { Date() }
+    val time = remember(now) { SimpleDateFormat("HH:mm", Locale.getDefault()).format(now) }
+    val date = remember(now) { SimpleDateFormat("EEEE, MMMM d", Locale.getDefault()).format(now) }
+    Column(
+        modifier
+            .background(Color.Black.copy(alpha = if (compact) 0.04f else 0.08f))
+            .padding(horizontal = if (compact) 10.dp else 36.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Column(
+            Modifier.padding(top = if (compact) 12.dp else 58.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(if (compact) 0.dp else 2.dp),
+        ) {
+            Text(date, color = Color.White, fontSize = if (compact) 7.sp else 15.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+            Text(time, color = Color.White, fontSize = if (compact) 21.sp else 64.sp, fontWeight = FontWeight.SemiBold)
+        }
+        Spacer(Modifier.weight(1f))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(bottom = if (compact) 10.dp else 28.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            LockScreenPill(compact)
+            LockScreenPill(compact)
+        }
+    }
+}
+
+@Composable
+fun LockScreenPill(compact: Boolean) {
+    Box(
+        Modifier
+            .size(if (compact) 18.dp else 46.dp)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.35f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .size(if (compact) 5.dp else 12.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.82f))
+        )
     }
 }
 
@@ -1457,18 +1808,33 @@ fun WeeklyArchiveCard(entry: WeeklyArchiveEntry, onClick: (WeeklyArchiveEntry) -
     val accent = hexColor(entry.accentColor ?: entry.dominantColor, scheme.accent)
     Box(
         modifier
-            .height(210.dp)
             .fillMaxWidth()
+            .aspectRatio(0.78f)
             .then(paletteReactiveModifier(entry.colorPalette, entry.dominantColor ?: entry.accentColor))
-            .clip(RoundedCornerShape(22.dp))
-            .background(accent.copy(alpha = 0.38f))
             .clickable { onClick(entry) },
     ) {
-        RemoteImage(entry.coverUrl, Modifier.fillMaxSize(), placeholder = accent.copy(alpha = 0.42f))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.78f)))))
-        Column(Modifier.align(Alignment.BottomStart).padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.week, entry.week), color = scheme.lightText, fontSize = 25.sp, fontWeight = FontWeight.Black)
-            Text(stringResource(R.string.picks_count, entry.count), color = scheme.lightText.copy(alpha = 0.78f), fontWeight = FontWeight.SemiBold)
+        Box(
+            Modifier
+                .matchParentSize()
+                .padding(start = 7.dp, bottom = 7.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(accent.copy(alpha = 0.18f))
+        )
+        Box(
+            Modifier
+                .matchParentSize()
+                .padding(end = 7.dp, top = 7.dp)
+                .clip(RoundedCornerShape(18.dp))
+        ) {
+            RemoteImage(entry.coverUrl, Modifier.fillMaxSize(), placeholder = accent.copy(alpha = 0.72f))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.08f), Color.Black.copy(alpha = 0.72f)))))
+            Column(Modifier.align(Alignment.BottomStart).padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text(stringResource(R.string.week, entry.week), color = scheme.lightText, fontSize = 20.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    MediaChip(stringResource(R.string.year, entry.year), Color.Black.copy(alpha = 0.20f))
+                    MediaChip(stringResource(R.string.picks_count, entry.count), Color.Black.copy(alpha = 0.20f))
+                }
+            }
         }
     }
 }
@@ -1486,7 +1852,7 @@ fun CollectionDetailScreen(collection: CollectionItem, onBack: () -> Unit, onWal
         loading = false
     }
     Column(Modifier.fillMaxSize()) {
-        ArchiveTopBar(collection.title, onProfile = {}, onClose = onBack)
+        NavigationTopBar(collection.title, onBack)
         LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 28.dp)) {
             item {
                 when {
@@ -1513,7 +1879,7 @@ fun WeeklyDetailScreen(entry: WeeklyArchiveEntry, onBack: () -> Unit, onWallpape
         loading = false
     }
     Column(Modifier.fillMaxSize()) {
-        ArchiveTopBar(stringResource(R.string.week, entry.week), onProfile = {}, onClose = onBack)
+        NavigationTopBar("${stringResource(R.string.week, entry.week)} · ${stringResource(R.string.year, entry.year)}", onBack)
         LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 28.dp)) {
             item {
                 when {
@@ -1534,6 +1900,7 @@ fun WallpaperDetailScreen(initial: Wallpaper, session: AuthSession, onClose: () 
     val scheme = LocalArchiveScheme.current
     var detail by remember { mutableStateOf<WallpaperDetail?>(null) }
     var showInfo by remember { mutableStateOf(false) }
+    var showDevicePreview by remember { mutableStateOf(false) }
     val wallpaper = detail?.wallpaper ?: initial
     LaunchedEffect(initial.slug) {
         runCatching { ApiClient.fetchWallpaperDetail(initial.slug) }.onSuccess { detail = it }
@@ -1541,17 +1908,16 @@ fun WallpaperDetailScreen(initial: Wallpaper, session: AuthSession, onClose: () 
     Box(Modifier.fillMaxSize().background(hexColor(wallpaper.dominantColor, scheme.paper3))) {
         RemoteImage(wallpaper.displayUrl, Modifier.fillMaxSize(), placeholder = hexColor(wallpaper.dominantColor, scheme.paper3))
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.35f), Color.Transparent, Color.Black.copy(alpha = 0.62f)))))
-        Row(Modifier.statusBarsPadding().padding(12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            IconButton(onClick = onClose, modifier = Modifier.clip(CircleShape).background(Color.Black.copy(alpha = 0.32f))) {
-                Icon(Icons.Outlined.ArrowBack, contentDescription = null, tint = scheme.lightText)
-            }
-            IconButton(onClick = { showInfo = true }, modifier = Modifier.clip(CircleShape).background(Color.Black.copy(alpha = 0.32f))) {
-                Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.info), tint = scheme.lightText)
-            }
+        if (showDevicePreview) {
+            LockScreenOverlay(compact = false, modifier = Modifier.fillMaxSize())
         }
+        DetailTopBar(
+            onBack = onClose,
+            previewActive = showDevicePreview,
+            onPreview = { showDevicePreview = !showDevicePreview },
+        )
         DetailToolbar(
             modifier = Modifier.align(Alignment.BottomCenter).padding(18.dp).navigationBarsPadding(),
-            onPreview = {},
             onDownload = {
                 val token = session.token
                 if (token == null) {
@@ -1576,55 +1942,107 @@ fun WallpaperDetailScreen(initial: Wallpaper, session: AuthSession, onClose: () 
                     scope.launch { runCatching { ApiClient.favorite(wallpaper.id, token) } }
                 }
             },
+            onInfo = { showInfo = true },
+            onSetWallpaper = {
+                val token = session.token
+                if (token == null) {
+                    session.present(AuthMode.Login)
+                } else {
+                    scope.launch { setAsWallpaper(context, wallpaper, token) }
+                }
+            },
         )
-        if (showInfo) WallpaperInfoDialog(wallpaper) { showInfo = false }
+        if (showInfo) WallpaperInfoSheet(wallpaper) { showInfo = false }
     }
 }
 
 @Composable
-fun DetailToolbar(modifier: Modifier, onPreview: () -> Unit, onDownload: () -> Unit, onLike: () -> Unit, onFavorite: () -> Unit) {
+fun DetailToolbar(
+    modifier: Modifier,
+    onDownload: () -> Unit,
+    onLike: () -> Unit,
+    onFavorite: () -> Unit,
+    onInfo: () -> Unit,
+    onSetWallpaper: () -> Unit,
+) {
     val scheme = LocalArchiveScheme.current
     Row(
         modifier
             .clip(RoundedCornerShape(28.dp))
-            .background(Color.Black.copy(alpha = 0.42f))
-            .padding(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .background(Color.Black.copy(alpha = 0.32f))
+            .padding(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        ToolbarButton(Icons.Outlined.PhoneIphone, stringResource(R.string.preview), onPreview, scheme)
-        ToolbarButton(Icons.Outlined.Download, stringResource(R.string.download), onDownload, scheme)
         ToolbarButton(Icons.Outlined.ThumbUp, stringResource(R.string.like), onLike, scheme)
         ToolbarButton(Icons.Outlined.FavoriteBorder, stringResource(R.string.favorite), onFavorite, scheme)
+        ToolbarButton(Icons.Outlined.Info, stringResource(R.string.info), onInfo, scheme)
+        ToolbarButton(Icons.Outlined.Download, stringResource(R.string.download), onDownload, scheme, selected = true)
+        ToolbarButton(Icons.Outlined.PhoneIphone, stringResource(R.string.set_wallpaper), onSetWallpaper, scheme, selected = true)
     }
 }
 
 @Composable
-fun ToolbarButton(icon: ImageVector, label: String, action: () -> Unit, scheme: ArchiveScheme) {
-    Column(
-        Modifier.widthIn(min = 58.dp).clip(RoundedCornerShape(22.dp)).clickable { action() }.padding(horizontal = 9.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+fun ToolbarButton(icon: ImageVector, label: String, action: () -> Unit, scheme: ArchiveScheme, selected: Boolean = false) {
+    Box(
+        Modifier
+            .size(46.dp)
+            .clip(CircleShape)
+            .background(if (selected) scheme.accent else Color.White.copy(alpha = 0.12f))
+            .clickable { action() },
+        contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = label, tint = scheme.lightText, modifier = Modifier.size(20.dp))
-        Text(label, color = scheme.lightText, fontSize = 10.sp, maxLines = 1)
+        Icon(icon, contentDescription = label, tint = if (selected) Color.Black.copy(alpha = 0.82f) else scheme.lightText, modifier = Modifier.size(20.dp))
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WallpaperInfoDialog(wallpaper: Wallpaper, onDismiss: () -> Unit) {
-    AlertDialog(
+fun WallpaperInfoSheet(wallpaper: Wallpaper, onDismiss: () -> Unit) {
+    val scheme = LocalArchiveScheme.current
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ok)) } },
-        title = { Text(stringResource(R.string.info)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        containerColor = scheme.paper,
+        contentColor = scheme.ink,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp)
+                .padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.wallpaper_info), color = scheme.ink, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.done)) }
+            }
+            InfoGroup {
                 InfoLine(stringResource(R.string.resolution), "${wallpaper.width} x ${wallpaper.height}")
                 InfoLine(stringResource(R.string.file_size), formatBytes(wallpaper.fileSize))
-                InfoLine(stringResource(R.string.file_type), wallpaper.fileType.ifBlank { "-" })
+                InfoLine(stringResource(R.string.file_type), wallpaper.fileType.ifBlank { "-" }.uppercase())
                 InfoLine(stringResource(R.string.dominant_color), wallpaper.dominantColor ?: "-")
-                InfoLine(stringResource(R.string.engagement), "${wallpaper.favoriteCount} / ${wallpaper.likeCount} / ${wallpaper.downloadCount}")
             }
-        },
+            InfoGroup {
+                InfoLine(stringResource(R.string.like), "${wallpaper.likeCount}")
+                InfoLine(stringResource(R.string.favorite), "${wallpaper.favoriteCount}")
+                InfoLine(stringResource(R.string.download), "${wallpaper.downloadCount}")
+                InfoLine(stringResource(R.string.engagement), "${wallpaper.viewCount}")
+            }
+        }
+    }
+}
+
+@Composable
+fun InfoGroup(content: @Composable () -> Unit) {
+    val scheme = LocalArchiveScheme.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(scheme.paper2)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        content = { content() },
     )
 }
 
@@ -1655,6 +2073,38 @@ fun startDownload(context: Context, wallpaper: Wallpaper, token: String) {
         Toast.makeText(context, context.getString(R.string.download_started), Toast.LENGTH_SHORT).show()
     }.onFailure {
         Toast.makeText(context, context.getString(R.string.download_failed), Toast.LENGTH_SHORT).show()
+    }
+}
+
+suspend fun setAsWallpaper(context: Context, wallpaper: Wallpaper, token: String) = withContext(Dispatchers.IO) {
+    runCatching {
+        val connection = (URL(ApiClient.downloadEndpoint(wallpaper.id)).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 15000
+            readTimeout = 60000
+            instanceFollowRedirects = true
+            setRequestProperty("Authorization", "Bearer $token")
+            setRequestProperty("Accept", "image/*,*/*")
+        }
+        if (connection.responseCode >= 400) {
+            throw ApiException("Wallpaper download failed", connection.responseCode)
+        }
+        connection.inputStream.use { input ->
+            val manager = WallpaperManager.getInstance(context.applicationContext)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                manager.setStream(input, null, true, WallpaperManager.FLAG_SYSTEM)
+            } else {
+                manager.setStream(input)
+            }
+        }
+    }.onSuccess {
+        withContext(Dispatchers.Main) {
+            Toast.makeText(context, context.getString(R.string.wallpaper_set), Toast.LENGTH_SHORT).show()
+        }
+    }.onFailure {
+        withContext(Dispatchers.Main) {
+            Toast.makeText(context, context.getString(R.string.wallpaper_set_failed), Toast.LENGTH_SHORT).show()
+        }
     }
 }
 
@@ -1782,8 +2232,13 @@ fun CollectionListSkeleton(count: Int, height: Int = 190) {
 
 @Composable
 fun WeeklyArchiveSkeleton() {
-    Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        repeat(3) { SkeletonBlock(Modifier.height(210.dp).fillMaxWidth(), 22) }
+    Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        repeat(3) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SkeletonBlock(Modifier.weight(1f).aspectRatio(0.78f), 18)
+                SkeletonBlock(Modifier.weight(1f).aspectRatio(0.78f), 18)
+            }
+        }
     }
 }
 
