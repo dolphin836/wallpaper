@@ -57,11 +57,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.AddCircle
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.Contrast
 import androidx.compose.material.icons.outlined.Copyright
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Gavel
 import androidx.compose.material.icons.outlined.GridView
@@ -251,6 +254,7 @@ data class AndroidUploadItem(
     val id: String = UUID.randomUUID().toString(),
     val uri: Uri,
     val name: String,
+    val fileSize: Long,
     val status: UploadStatus = UploadStatus.Ready,
 )
 
@@ -1864,14 +1868,18 @@ fun UploadScreen(session: AuthSession, onClose: () -> Unit) {
     var queue by remember { mutableStateOf<List<AndroidUploadItem>>(emptyList()) }
     var uploading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val maxFiles = 20
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(20)) { uris ->
         val existing = queue.map { it.uri }.toSet()
         val additions = uris
             .filterNot { it in existing }
-            .take(20 - queue.size)
-            .map { uri -> AndroidUploadItem(uri = uri, name = displayName(context, uri)) }
+            .take(maxFiles - queue.size)
+            .map { uri -> uploadItem(context, uri) }
         if (additions.isNotEmpty()) queue = queue + additions
     }
+
+    fun needsUpload(item: AndroidUploadItem): Boolean =
+        item.status == UploadStatus.Ready || item.status == UploadStatus.Failed
 
     suspend fun submit() {
         val token = session.token
@@ -1881,7 +1889,7 @@ fun UploadScreen(session: AuthSession, onClose: () -> Unit) {
         }
         uploading = true
         error = null
-        for (item in queue.filter { it.status == UploadStatus.Ready || it.status == UploadStatus.Failed }) {
+        for (item in queue.filter(::needsUpload)) {
             queue = queue.map { if (it.id == item.id) it.copy(status = UploadStatus.Uploading) else it }
             runCatching { uploadUri(context, item.uri, item.name, token) }
                 .onSuccess { queue = queue.map { if (it.id == item.id) it.copy(status = UploadStatus.Success) else it } }
@@ -1893,55 +1901,161 @@ fun UploadScreen(session: AuthSession, onClose: () -> Unit) {
         uploading = false
     }
 
+    val doneCount = queue.count { it.status == UploadStatus.Success }
+    val failedCount = queue.count { it.status == UploadStatus.Failed }
+    val readyCount = queue.count(::needsUpload)
+    val allDone = queue.isNotEmpty() && doneCount == queue.size
+    val slots = maxOf(0, maxFiles - queue.size)
+
     Column(Modifier.fillMaxSize()) {
         ArchiveTopBar(stringResource(R.string.upload), onProfile = {}, onClose = onClose, session = session)
-        if (!session.isLoggedIn) {
-            SignInGate(session)
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 12.dp, top = 8.dp, end = 12.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item {
+                SectionHeader(
+                    kicker = stringResource(R.string.upload_kicker),
+                    title = stringResource(R.string.upload),
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+            if (!session.isLoggedIn) {
+                item { UploadSignedOutPrompt(session) }
+            } else {
                 item {
-                    OutlinedButton(
-                        enabled = !uploading && queue.size < 20,
+                    UploadPickerCard(
+                        queueCount = queue.size,
+                        maxFiles = maxFiles,
+                        enabled = !uploading && slots > 0,
                         onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                        modifier = Modifier.fillMaxWidth().height(if (queue.isEmpty()) 132.dp else 58.dp),
-                    ) {
-                        Icon(Icons.Outlined.Upload, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(if (queue.isEmpty()) stringResource(R.string.choose_photos) else stringResource(R.string.selected_photos, queue.size))
-                    }
+                    )
                 }
                 if (queue.isNotEmpty()) {
                     item {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            queue.forEach { item ->
-                                UploadQueueRow(
-                                    item = item,
-                                    onRemove = {
-                                        if (!uploading) queue = queue.filterNot { it.id == item.id }
-                                    },
-                                )
-                            }
-                        }
+                        UploadQueueSection(
+                            queue = queue,
+                            uploading = uploading,
+                            onRemove = { item ->
+                                if (!uploading) queue = queue.filterNot { it.id == item.id }
+                            },
+                        )
                     }
                     item {
-                        Button(
-                            enabled = !uploading && queue.any { it.status == UploadStatus.Ready || it.status == UploadStatus.Failed },
-                            onClick = { scope.launch { submit() } },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(if (uploading) stringResource(R.string.uploading) else stringResource(R.string.start_upload))
-                        }
+                        UploadControlCard(
+                            queueSize = queue.size,
+                            readyCount = readyCount,
+                            doneCount = doneCount,
+                            failedCount = failedCount,
+                            uploading = uploading,
+                            allDone = allDone,
+                            error = error,
+                            onSubmit = { scope.launch { submit() } },
+                            onClear = {
+                                queue = emptyList()
+                                error = null
+                            },
+                        )
                     }
                 }
-                error?.let { message ->
-                    item { Text(message, color = Color(0xFFC84C31), modifier = Modifier.padding(horizontal = 4.dp)) }
-                }
-                item {
-                    Text(stringResource(R.string.upload_rules), color = LocalArchiveScheme.current.muted, fontSize = 13.sp)
+                item { UploadRulesCard() }
+            }
+        }
+    }
+}
+
+@Composable
+fun UploadSignedOutPrompt(session: AuthSession) {
+    val scheme = LocalArchiveScheme.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(Icons.Outlined.Upload, contentDescription = null, tint = scheme.muted, modifier = Modifier.size(44.dp))
+        Text(
+            stringResource(R.string.upload_signed_out_message),
+            color = scheme.muted,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            lineHeight = 20.sp,
+        )
+        Button(onClick = { session.present(AuthMode.Login) }) {
+            Text(stringResource(R.string.sign_in))
+        }
+    }
+}
+
+@Composable
+fun UploadPickerCard(queueCount: Int, maxFiles: Int, enabled: Boolean, onClick: () -> Unit) {
+    val scheme = LocalArchiveScheme.current
+    val empty = queueCount == 0
+    val tint = if (enabled) scheme.accentInk else scheme.muted
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(enabled = enabled) { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        color = Color.Transparent,
+        border = BorderStroke(1.5.dp, if (enabled) scheme.accentInk.copy(alpha = 0.42f) else scheme.hair),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = if (empty) 40.dp else 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(if (empty) 9.dp else 7.dp),
+        ) {
+            Icon(
+                imageVector = if (empty) Icons.Outlined.Upload else Icons.Outlined.AddCircle,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(if (empty) 34.dp else 22.dp),
+            )
+            Text(
+                if (empty) stringResource(R.string.choose_photos) else stringResource(R.string.upload_add_more_photos, queueCount, maxFiles),
+                color = tint,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+            )
+            Text(
+                stringResource(R.string.upload_batch_hint, maxFiles),
+                color = scheme.muted,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                maxLines = 2,
+            )
+        }
+    }
+}
+
+@Composable
+fun UploadQueueSection(
+    queue: List<AndroidUploadItem>,
+    uploading: Boolean,
+    onRemove: (AndroidUploadItem) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionHeader(
+            kicker = stringResource(R.string.selected_photos, queue.size),
+            title = stringResource(R.string.upload_queue_title),
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            queue.chunked(2).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    row.forEach { item ->
+                        UploadQueueTile(
+                            item = item,
+                            uploading = uploading,
+                            onRemove = { onRemove(item) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (row.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
         }
@@ -1949,28 +2063,199 @@ fun UploadScreen(session: AuthSession, onClose: () -> Unit) {
 }
 
 @Composable
-fun UploadQueueRow(item: AndroidUploadItem, onRemove: () -> Unit) {
+fun UploadQueueTile(
+    item: AndroidUploadItem,
+    uploading: Boolean,
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val scheme = LocalArchiveScheme.current
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(scheme.paper2).padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    val border = when (item.status) {
+        UploadStatus.Ready -> scheme.hair
+        UploadStatus.Uploading -> scheme.accentInk.copy(alpha = 0.78f)
+        UploadStatus.Success -> Color(0xFF2E8B57).copy(alpha = 0.68f)
+        UploadStatus.Failed -> Color(0xFFC84C31).copy(alpha = 0.72f)
+    }
+    Column(
+        modifier,
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp))) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(9f / 16.8f)
+                .clip(RoundedCornerShape(14.dp))
+                .background(scheme.paper3),
+        ) {
             RemoteImage(item.uri.toString(), Modifier.fillMaxSize())
+            when (item.status) {
+                UploadStatus.Ready -> Unit
+                UploadStatus.Uploading -> UploadStatusVeil()
+                UploadStatus.Success -> UploadStatusBadge(Icons.Outlined.CheckCircle, Color(0xFF2E8B57))
+                UploadStatus.Failed -> UploadStatusBadge(Icons.Outlined.ErrorOutline, Color(0xFFC84C31))
+            }
+            if (!uploading && item.status != UploadStatus.Success) {
+                IconButton(
+                    onClick = onRemove,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.55f)),
+                ) {
+                    Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.cancel), tint = scheme.lightText, modifier = Modifier.size(14.dp))
+                }
+            }
         }
-        Column(Modifier.weight(1f)) {
-            Text(item.name, color = scheme.ink, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(uploadStatusText(item.status), color = scheme.muted, fontSize = 12.sp)
+        Text(
+            uploadTileMeta(item),
+            color = scheme.muted,
+            fontSize = 10.sp,
+            fontFamily = FontFamily.Monospace,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (item.status == UploadStatus.Failed) {
+            Text(uploadStatusText(item.status), color = Color(0xFFC84C31), fontSize = 11.sp, maxLines = 2)
         }
-        if (item.status == UploadStatus.Uploading) {
-            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-        } else if (item.status != UploadStatus.Success) {
-            IconButton(onClick = onRemove) {
-                Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.cancel), tint = scheme.muted)
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp),
+            color = border,
+            content = {},
+        )
+    }
+}
+
+@Composable
+fun UploadStatusVeil() {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.34f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            CircularProgressIndicator(Modifier.size(26.dp), strokeWidth = 2.dp, color = LocalArchiveScheme.current.lightText)
+            Text(stringResource(R.string.uploading), color = LocalArchiveScheme.current.lightText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+fun UploadStatusBadge(icon: ImageVector, tint: Color) {
+    Box(
+        Modifier
+            .padding(7.dp)
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.34f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(23.dp))
+    }
+}
+
+@Composable
+fun UploadControlCard(
+    queueSize: Int,
+    readyCount: Int,
+    doneCount: Int,
+    failedCount: Int,
+    uploading: Boolean,
+    allDone: Boolean,
+    error: String?,
+    onSubmit: () -> Unit,
+    onClear: () -> Unit,
+) {
+    val scheme = LocalArchiveScheme.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(scheme.paper2)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            when {
+                uploading -> {
+                    CircularProgressIndicator(Modifier.size(17.dp), strokeWidth = 2.dp, color = scheme.accentInk)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "${doneCount}/${queueSize}",
+                        color = scheme.muted,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                allDone -> {
+                    Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = Color(0xFF2E8B57), modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.upload_all_done), color = Color(0xFF2E8B57), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                }
+                else -> {
+                    Text(stringResource(R.string.upload_ready_count, readyCount), color = scheme.ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    if (doneCount > 0) {
+                        Text(" · ${stringResource(R.string.upload_done_count, doneCount)}", color = Color(0xFF2E8B57), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    if (failedCount > 0) {
+                        Text(" · ${stringResource(R.string.upload_failed_count, failedCount)}", color = Color(0xFFC84C31), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+        error?.let {
+            Text(it, color = Color(0xFFC84C31), fontSize = 12.sp, lineHeight = 17.sp)
+        }
+        if (allDone) {
+            OutlinedButton(onClick = onClear, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Outlined.AddCircle, contentDescription = null, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.upload_another))
+            }
+        } else {
+            Button(
+                enabled = !uploading && readyCount > 0,
+                onClick = onSubmit,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Outlined.Upload, contentDescription = null, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(uploadButtonTitle(readyCount, failedCount))
             }
         }
     }
+}
+
+@Composable
+fun UploadRulesCard() {
+    val scheme = LocalArchiveScheme.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(scheme.paper2)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Text(stringResource(R.string.upload_rules_title), color = scheme.muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
+        Text("- ${stringResource(R.string.upload_rule_licensed)}", color = scheme.ink2, fontSize = 12.sp)
+        Text("- ${stringResource(R.string.upload_rule_no_watermarks)}", color = scheme.ink2, fontSize = 12.sp)
+        Text("- ${stringResource(R.string.upload_rule_resolution)}", color = scheme.ink2, fontSize = 12.sp)
+        Text("- ${stringResource(R.string.upload_rule_review)}", color = scheme.ink2, fontSize = 12.sp)
+    }
+}
+
+@Composable
+fun uploadButtonTitle(readyCount: Int, failedCount: Int): String = when {
+    failedCount > 0 && readyCount == failedCount -> stringResource(R.string.upload_retry_failed)
+    readyCount <= 1 -> stringResource(R.string.upload)
+    else -> stringResource(R.string.upload_upload_many, readyCount)
 }
 
 @Composable
@@ -1981,6 +2266,12 @@ fun uploadStatusText(status: UploadStatus): String = when (status) {
     UploadStatus.Failed -> stringResource(R.string.upload_failed_short)
 }
 
+fun uploadTileMeta(item: AndroidUploadItem): String =
+    "${item.name} · ${formatBytes(item.fileSize)}"
+
+fun uploadItem(context: Context, uri: Uri): AndroidUploadItem =
+    AndroidUploadItem(uri = uri, name = displayName(context, uri), fileSize = fileSize(context, uri))
+
 fun displayName(context: Context, uri: Uri): String {
     val resolver = context.contentResolver
     resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
@@ -1990,6 +2281,17 @@ fun displayName(context: Context, uri: Uri): String {
         }
     }
     return "wallpaper-${System.currentTimeMillis()}.jpg"
+}
+
+fun fileSize(context: Context, uri: Uri): Long {
+    val resolver = context.contentResolver
+    resolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+        val index = cursor.getColumnIndex(OpenableColumns.SIZE)
+        if (index >= 0 && cursor.moveToFirst()) {
+            return cursor.getLong(index)
+        }
+    }
+    return 0
 }
 
 suspend fun uploadUri(context: Context, uri: Uri, fileName: String, token: String) = withContext(Dispatchers.IO) {
