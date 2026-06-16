@@ -1,5 +1,5 @@
 import client, { resolveBaseURL } from './client';
-import type { ApiResponse, AuthResponse, Wallpaper, WallpaperDetail, PaginatedData, Category, Tag, User, UserListItem, DeviceProfile, WallpaperVariant, Collection, CollectionDetail, CollectionBrief, CoinTransaction, Engagements, MacRelease } from '../types';
+import type { ApiResponse, AuthResponse, Wallpaper, WallpaperDetail, PaginatedData, Category, Tag, User, UserListItem, DeviceProfile, WallpaperVariant, Collection, CollectionDetail, CollectionBrief, CoinTransaction, Engagements, MacRelease, AndroidRelease } from '../types';
 
 export const register = (data: { username: string; email: string; password: string }) =>
   client.post<ApiResponse<AuthResponse>>('/auth/register', data);
@@ -232,6 +232,9 @@ export const getCoinTransactions = (params: { cursor?: number; limit?: number })
 
 export const getMacRelease = () =>
   client.get<ApiResponse<MacRelease>>('/mac/release');
+
+export const getAndroidRelease = () =>
+  client.get<ApiResponse<AndroidRelease>>('/android/release');
 
 export interface PublicStats { wallpapers: number; collections: number }
 export const getPublicStats = () => client.get<ApiResponse<PublicStats>>('/stats');

@@ -202,3 +202,14 @@ export interface MacRelease {
   min_macos_version: string;
   releases: MacReleaseEntry[];
 }
+
+export interface AndroidRelease {
+  current_version: string;
+  current_version_code: number;
+  minimum_version_code: number;
+  current_apk_url: string;
+  apk_sha256: string;
+  released_at: string;
+  notes: string[];
+  notes_i18n?: Record<string, string[]>;
+}

@@ -61,7 +61,7 @@ const NAV_ITEMS: { labelKey: string; to: string }[] = [
   { labelKey: 'nav.collections', to: '/collections' },
   { labelKey: 'nav.uploaders',   to: '/uploaders' },
   { labelKey: 'nav.devices',     to: '/wallpapers-for' },
-  { labelKey: 'nav.macApp',      to: '/download/mac' },
+  { labelKey: 'nav.clients',     to: '/download' },
 ];
 
 function isItemActive(pathname: string, to: string) {

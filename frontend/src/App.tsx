@@ -124,6 +124,7 @@ function AppRoutes() {
             <Route path="/contribute" element={<ContributePage />} />
             <Route path="/wallpapers-for" element={<DeviceIndexPage />} />
             <Route path="/wallpapers-for/:slug" element={<DeviceWallpapersPage />} />
+            <Route path="/download" element={<DownloadMacPage />} />
             <Route path="/download/mac" element={<DownloadMacPage />} />
             {DevWallpaperDetailPreviewPage && (
               <Route path="/dev/wp-detail" element={<DevWallpaperDetailPreviewPage />} />

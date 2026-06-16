@@ -11,6 +11,7 @@ const en = {
     uploaders: 'Uploaders',
     devices: 'Devices',
     macApp: 'Mac App',
+    clients: 'Download',
   },
   header: {
     switchToLight: 'Switch to light mode',
@@ -97,6 +98,7 @@ const zhCN: typeof en = {
     uploaders: '创作者',
     devices: '设备',
     macApp: 'Mac 客户端',
+    clients: '下载客户端',
   },
   header: {
     switchToLight: '切换到浅色模式',
@@ -181,6 +183,7 @@ const zhTW: typeof en = {
     uploaders: '創作者',
     devices: '裝置',
     macApp: 'Mac 應用程式',
+    clients: '下載客戶端',
   },
   header: {
     switchToLight: '切換至淺色模式',
@@ -265,6 +268,7 @@ const ja: typeof en = {
     uploaders: 'アップローダー',
     devices: 'デバイス',
     macApp: 'Macアプリ',
+    clients: 'ダウンロード',
   },
   header: {
     switchToLight: 'ライトモードに切り替え',

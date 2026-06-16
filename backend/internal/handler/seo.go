@@ -100,7 +100,8 @@ func (h *SEOHandler) Sitemap(w http.ResponseWriter, r *http.Request) {
 		{Loc: base + "/about", ChangeFreq: "monthly", Priority: "0.4"},
 		{Loc: base + "/contribute", ChangeFreq: "monthly", Priority: "0.5"},
 		{Loc: base + "/wallpapers-for", ChangeFreq: "weekly", Priority: "0.7"},
-		{Loc: base + "/download/mac", ChangeFreq: "monthly", Priority: "0.5"},
+		{Loc: base + "/download", ChangeFreq: "monthly", Priority: "0.5"},
+		{Loc: base + "/download/mac", ChangeFreq: "monthly", Priority: "0.4"},
 	}
 
 	// Category landing pages — one URL per category. Stable, small set
