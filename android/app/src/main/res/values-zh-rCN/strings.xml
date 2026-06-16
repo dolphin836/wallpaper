@@ -10,13 +10,13 @@
     <string name="latest">最新</string>
     <string name="latest_wallpapers">最新壁纸</string>
     <string name="latest_collections">最新合集</string>
-    <string name="recent_weekly">每周推荐相册</string>
+    <string name="recent_weekly">每周推荐</string>
     <string name="weekly_kicker">每周精选</string>
     <string name="collections_kicker">精选合集</string>
     <string name="weekly_archive_kicker">往期精选</string>
     <string name="past_weeks">往期周刊</string>
     <string name="year">%1$d 年</string>
-    <string name="view_all">查看全部</string>
+    <string name="view_all">查看更多</string>
     <string name="see_more">查看更多</string>
     <string name="all">全部</string>
     <string name="popular">热门</string>

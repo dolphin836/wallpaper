@@ -75,8 +75,7 @@ struct HomeView: View {
     private var weeklyAlbumSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionRow(
-                kicker: L10n.strings(for: prefs.language).weeklyKicker,
-                title: L10n.strings(for: prefs.language).recentWeekly,
+                title: L10n.strings(for: prefs.language).weekly,
                 route: WeeklyArchiveRoute()
             )
 
@@ -117,7 +116,6 @@ struct HomeView: View {
 
     private func sectionSkeleton(width: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            SkeletonBlock(radius: 3).frame(width: 90, height: 9)
             SkeletonBlock(radius: 5).frame(width: width, height: 20)
         }
         .padding(.horizontal, 12)
@@ -146,7 +144,6 @@ struct HomeView: View {
     private var latestWallpapersSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionRow(
-                kicker: L10n.strings(for: prefs.language).latest,
                 title: L10n.strings(for: prefs.language).latestWallpapers
             ) {
                 switchToTab(1)
@@ -158,7 +155,6 @@ struct HomeView: View {
     private var latestCollectionsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionRow(
-                kicker: L10n.strings(for: prefs.language).collectionsKicker,
                 title: L10n.strings(for: prefs.language).latestCollections
             ) {
                 switchToTab(3)
@@ -175,21 +171,21 @@ struct HomeView: View {
         }
     }
 
-    private func sectionRow(kicker: String, title: String, route: some Hashable) -> some View {
+    private func sectionRow(title: String, route: some Hashable) -> some View {
         HStack(alignment: .bottom) {
-            SectionHeader(kicker: kicker, title: title)
+            SectionHeader(title: title)
             Spacer()
             NavigationLink(value: route) {
-                sectionActionLabel(L10n.strings(for: prefs.language).viewAll)
+                sectionActionLabel(L10n.strings(for: prefs.language).seeMore)
             }
             .buttonStyle(.pressable)
         }
         .padding(.horizontal, 12)
     }
 
-    private func sectionRow(kicker: String, title: String, action: @escaping () -> Void) -> some View {
+    private func sectionRow(title: String, action: @escaping () -> Void) -> some View {
         HStack(alignment: .bottom) {
-            SectionHeader(kicker: kicker, title: title)
+            SectionHeader(title: title)
             Spacer()
             Button(action: action) {
                 sectionActionLabel(L10n.strings(for: prefs.language).seeMore)

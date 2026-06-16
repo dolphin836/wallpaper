@@ -40,14 +40,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Collections
@@ -62,6 +63,7 @@ import androidx.compose.material.icons.outlined.PhoneIphone
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material.icons.outlined.Upload
+import androidx.compose.material.icons.outlined.Wallpaper
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -93,7 +95,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -429,7 +430,7 @@ fun NavigationTopBar(title: String, onBack: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CircleIconButton(
-            icon = Icons.Outlined.ArrowBack,
+            icon = Icons.AutoMirrored.Outlined.ArrowBack,
             label = stringResource(R.string.cancel),
             selected = false,
             onClick = onBack,
@@ -449,7 +450,7 @@ fun NavigationTopBar(title: String, onBack: () -> Unit) {
 }
 
 @Composable
-fun DetailTopBar(onBack: () -> Unit, previewActive: Boolean, onPreview: () -> Unit) {
+fun DetailTopBar(onBack: () -> Unit, onInfo: () -> Unit) {
     Row(
         modifier = Modifier
             .statusBarsPadding()
@@ -458,13 +459,8 @@ fun DetailTopBar(onBack: () -> Unit, previewActive: Boolean, onPreview: () -> Un
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TranslucentCircleButton(Icons.Outlined.ArrowBack, stringResource(R.string.cancel), onBack)
-        TranslucentCircleButton(
-            icon = Icons.Outlined.PhoneIphone,
-            label = stringResource(R.string.preview),
-            selected = previewActive,
-            onClick = onPreview,
-        )
+        TranslucentCircleButton(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.cancel), onBack)
+        TranslucentCircleButton(Icons.Outlined.Info, stringResource(R.string.wallpaper_info), onInfo)
     }
 }
 
@@ -651,7 +647,7 @@ fun HomeScreen(
                         }
                         if (wallpapers.isNotEmpty()) {
                             SectionRow(
-                                kicker = stringResource(R.string.latest),
+                                kicker = "",
                                 title = stringResource(R.string.latest_wallpapers),
                                 action = stringResource(R.string.see_more),
                                 onAction = { onTab(RootTab.Discover) },
@@ -660,7 +656,7 @@ fun HomeScreen(
                         }
                         if (collections.isNotEmpty()) {
                             SectionRow(
-                                kicker = stringResource(R.string.collections_kicker),
+                                kicker = "",
                                 title = stringResource(R.string.latest_collections),
                                 action = stringResource(R.string.see_more),
                                 onAction = { onTab(RootTab.Collections) },
@@ -691,8 +687,13 @@ fun WeeklyAlbumSection(
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionRow(stringResource(R.string.weekly_kicker), stringResource(R.string.recent_weekly), stringResource(R.string.view_all), onViewAll)
-        Box(Modifier.padding(horizontal = 12.dp)) {
+        SectionRow("", stringResource(R.string.weekly), stringResource(R.string.see_more), onViewAll)
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
             visible.getOrNull(index)?.let { entry ->
                 WeeklyAlbumCard(entry, index, visible.size, onWeekly)
             }
@@ -706,24 +707,21 @@ fun WeeklyAlbumCard(entry: WeeklyArchiveEntry, index: Int, count: Int, onWeekly:
     val accent = hexColor(entry.accentColor ?: entry.dominantColor, scheme.accent)
     Box(
         modifier = Modifier
+            .widthIn(max = 560.dp)
             .fillMaxWidth()
-            .height(336.dp)
+            .aspectRatio(1.12f)
             .then(paletteReactiveModifier(entry.colorPalette, entry.dominantColor ?: entry.accentColor))
             .clickable { onWeekly(entry) },
         contentAlignment = Alignment.BottomCenter,
     ) {
-        WeeklyAlbumLayer(entry, accent, scale = 0.88f, alpha = 0.34f, x = 22.dp, y = 18.dp)
-        WeeklyAlbumLayer(entry, accent, scale = 0.94f, alpha = 0.55f, x = 11.dp, y = 9.dp)
         Box(
             Modifier
-                .padding(end = 22.dp, bottom = 18.dp)
-                .fillMaxWidth()
-                .height(316.dp)
+                .fillMaxSize()
                 .clip(RoundedCornerShape(28.dp))
                 .background(accent.copy(alpha = 0.72f))
         ) {
             RemoteImage(entry.coverUrl, Modifier.fillMaxSize(), placeholder = accent.copy(alpha = 0.50f))
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.74f)))))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.08f), Color.Black.copy(alpha = 0.74f)))))
             Column(Modifier.align(Alignment.BottomStart).padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.week, entry.week), color = scheme.lightText, fontSize = 28.sp, fontWeight = FontWeight.Black)
                 Text(stringResource(R.string.picks_count, entry.count), color = scheme.lightText.copy(alpha = 0.78f), fontWeight = FontWeight.SemiBold)
@@ -739,30 +737,6 @@ fun WeeklyAlbumCard(entry: WeeklyArchiveEntry, index: Int, count: Int, onWeekly:
                 }
             }
         }
-    }
-}
-
-@Composable
-fun WeeklyAlbumLayer(entry: WeeklyArchiveEntry, accent: Color, scale: Float, alpha: Float, x: androidx.compose.ui.unit.Dp, y: androidx.compose.ui.unit.Dp) {
-    Box(
-        Modifier
-            .padding(end = x, bottom = y)
-            .fillMaxWidth()
-            .height(300.dp)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 1f)
-            }
-            .clip(RoundedCornerShape(28.dp))
-            .background(accent.copy(alpha = alpha))
-    ) {
-        RemoteImage(
-            entry.coverUrl,
-            Modifier.fillMaxSize(),
-            placeholder = accent.copy(alpha = alpha),
-        )
-        Box(Modifier.fillMaxSize().background(accent.copy(alpha = 0.55f)))
     }
 }
 
@@ -1913,11 +1887,11 @@ fun WallpaperDetailScreen(initial: Wallpaper, session: AuthSession, onClose: () 
         }
         DetailTopBar(
             onBack = onClose,
-            previewActive = showDevicePreview,
-            onPreview = { showDevicePreview = !showDevicePreview },
+            onInfo = { showInfo = true },
         )
         DetailToolbar(
             modifier = Modifier.align(Alignment.BottomCenter).padding(18.dp).navigationBarsPadding(),
+            previewActive = showDevicePreview,
             onDownload = {
                 val token = session.token
                 if (token == null) {
@@ -1942,7 +1916,7 @@ fun WallpaperDetailScreen(initial: Wallpaper, session: AuthSession, onClose: () 
                     scope.launch { runCatching { ApiClient.favorite(wallpaper.id, token) } }
                 }
             },
-            onInfo = { showInfo = true },
+            onPreview = { showDevicePreview = !showDevicePreview },
             onSetWallpaper = {
                 val token = session.token
                 if (token == null) {
@@ -1959,10 +1933,11 @@ fun WallpaperDetailScreen(initial: Wallpaper, session: AuthSession, onClose: () 
 @Composable
 fun DetailToolbar(
     modifier: Modifier,
+    previewActive: Boolean,
     onDownload: () -> Unit,
     onLike: () -> Unit,
     onFavorite: () -> Unit,
-    onInfo: () -> Unit,
+    onPreview: () -> Unit,
     onSetWallpaper: () -> Unit,
 ) {
     val scheme = LocalArchiveScheme.current
@@ -1976,9 +1951,9 @@ fun DetailToolbar(
     ) {
         ToolbarButton(Icons.Outlined.ThumbUp, stringResource(R.string.like), onLike, scheme)
         ToolbarButton(Icons.Outlined.FavoriteBorder, stringResource(R.string.favorite), onFavorite, scheme)
-        ToolbarButton(Icons.Outlined.Info, stringResource(R.string.info), onInfo, scheme)
+        ToolbarButton(Icons.Outlined.PhoneIphone, stringResource(R.string.preview), onPreview, scheme, selected = previewActive)
         ToolbarButton(Icons.Outlined.Download, stringResource(R.string.download), onDownload, scheme, selected = true)
-        ToolbarButton(Icons.Outlined.PhoneIphone, stringResource(R.string.set_wallpaper), onSetWallpaper, scheme, selected = true)
+        ToolbarButton(Icons.Outlined.Wallpaper, stringResource(R.string.set_wallpaper), onSetWallpaper, scheme, selected = true)
     }
 }
 
@@ -2203,7 +2178,9 @@ fun ErrorState(message: String, onRetry: () -> Unit) {
 @Composable
 fun HomeSkeleton() {
     Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        SkeletonBlock(Modifier.height(316.dp).fillMaxWidth(), 28)
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            SkeletonBlock(Modifier.widthIn(max = 560.dp).fillMaxWidth().aspectRatio(1.12f), 28)
+        }
         WallpaperGridSkeleton(8)
         CollectionListSkeleton(4, 148)
     }
