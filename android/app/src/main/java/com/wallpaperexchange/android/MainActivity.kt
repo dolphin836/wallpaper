@@ -26,6 +26,8 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -114,7 +116,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -2659,10 +2663,15 @@ fun coinTransactionTitle(tx: CoinTransaction): String = when (tx.txType) {
 @Composable
 fun WallpaperGrid(wallpapers: List<Wallpaper>, onWallpaper: (Wallpaper) -> Unit) {
     Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        wallpapers.chunked(2).forEach { row ->
+        wallpapers.chunked(2).forEachIndexed { rowIndex, row ->
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxWidth()) {
-                row.forEach { wallpaper ->
-                    WallpaperCard(wallpaper, onWallpaper, Modifier.weight(1f))
+                row.forEachIndexed { columnIndex, wallpaper ->
+                    WallpaperCard(
+                        wallpaper = wallpaper,
+                        onWallpaper = onWallpaper,
+                        modifier = Modifier.weight(1f),
+                        index = rowIndex * 2 + columnIndex,
+                    )
                 }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }
@@ -2671,12 +2680,29 @@ fun WallpaperGrid(wallpapers: List<Wallpaper>, onWallpaper: (Wallpaper) -> Unit)
 }
 
 @Composable
-fun WallpaperCard(wallpaper: Wallpaper, onWallpaper: (Wallpaper) -> Unit, modifier: Modifier = Modifier) {
+fun WallpaperCard(wallpaper: Wallpaper, onWallpaper: (Wallpaper) -> Unit, modifier: Modifier = Modifier, index: Int = 0) {
     val scheme = LocalArchiveScheme.current
     val lockPreview = LocalLockPreviewState.current
     val tint = hexColor(wallpaper.dominantColor, scheme.paper3)
+    var entered by remember(wallpaper.id) { mutableStateOf(false) }
+    val delayMillis = (index.coerceAtMost(7) * 34)
+    val cardAlpha by animateFloatAsState(
+        targetValue = if (entered) 1f else 0f,
+        animationSpec = tween(durationMillis = 260, delayMillis = delayMillis),
+        label = "wallpaper-card-alpha",
+    )
+    val cardScale by animateFloatAsState(
+        targetValue = if (entered) 1f else 0.965f,
+        animationSpec = tween(durationMillis = 280, delayMillis = delayMillis),
+        label = "wallpaper-card-scale",
+    )
+    LaunchedEffect(wallpaper.id) {
+        entered = true
+    }
     Box(
         modifier
+            .alpha(cardAlpha)
+            .scale(cardScale)
             .aspectRatio(9f / 19.5f)
             .then(paletteReactiveModifier(wallpaper.colorPalette, wallpaper.dominantColor))
             .clip(RoundedCornerShape(15.dp))
@@ -2906,11 +2932,19 @@ fun WallpaperDetailScreen(initial: Wallpaper, session: AuthSession, onClose: () 
     var showInfo by remember { mutableStateOf(false) }
     var showDevicePreview by remember { mutableStateOf(false) }
     val wallpaper = detail?.wallpaper ?: initial
+    val previewUrl = initial.displayUrl
+    val fullImageUrl = wallpaper.originalUrl.ifBlank { wallpaper.displayUrl }
     LaunchedEffect(initial.slug) {
         runCatching { ApiClient.fetchWallpaperDetail(initial.slug) }.onSuccess { detail = it }
     }
     Box(Modifier.fillMaxSize().background(hexColor(wallpaper.dominantColor, scheme.paper3))) {
-        RemoteImage(wallpaper.displayUrl, Modifier.fillMaxSize(), placeholder = hexColor(wallpaper.dominantColor, scheme.paper3))
+        RemoteImage(
+            url = fullImageUrl,
+            modifier = Modifier.fillMaxSize(),
+            placeholder = hexColor(wallpaper.dominantColor, scheme.paper3),
+            fallbackUrl = previewUrl,
+            cacheTarget = false,
+        )
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.35f), Color.Transparent, Color.Black.copy(alpha = 0.62f)))))
         if (showDevicePreview) {
             LockScreenOverlay(compact = false, modifier = Modifier.fillMaxSize())

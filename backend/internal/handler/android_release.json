@@ -1,26 +1,26 @@
 {
-  "current_version": "0.1.1",
-  "current_version_code": 2,
+  "current_version": "0.1.2",
+  "current_version_code": 3,
   "minimum_version_code": 1,
-  "current_apk_url": "/downloads/android/WallpaperExchange-0.1.1.apk",
-  "apk_sha256": "0068f1599c415ab7233954ac4a3f2a136a7b1cf232544ae32dbb6122f14bd911",
-  "released_at": "2026-06-16T00:00:00Z",
+  "current_apk_url": "/downloads/android/WallpaperExchange-0.1.2.apk",
+  "apk_sha256": "d75c63a4755a082af5d1b53ecb1013b40d577ee35653c8df1a8f404849a22c1f",
+  "released_at": "2026-06-16T08:52:50Z",
   "notes": [
-    "Upload now matches the iOS flow with a full upload workspace, batch picker, queue grid, status summary, retry state, and upload rules.",
-    "Polished the signed-out upload state and batch progress copy across supported languages."
+    "Wallpaper detail now opens with the preview image already loaded from the list before continuing to load the original image.",
+    "Wallpaper cards now have a smoother loading shimmer and staggered entry animation."
   ],
   "notes_i18n": {
     "zh-CN": [
-      "上传页已对齐 iOS：完整上传工作台、批量选择、队列网格、状态汇总、失败重试和上传规则。",
-      "优化了未登录上传提示和批量进度文案，并补齐多语言。"
+      "壁纸详情页现在会先使用列表里已经加载成功的预览图，再继续加载原图。",
+      "壁纸卡片补上了更顺滑的加载 shimmer 和错位入场动效。"
     ],
     "zh-TW": [
-      "上傳頁已對齊 iOS：完整上傳工作台、批量選擇、佇列網格、狀態彙總、失敗重試和上傳規則。",
-      "優化了未登入上傳提示和批量進度文案，並補齊多語言。"
+      "桌布詳情頁現在會先使用列表裡已經載入成功的預覽圖，再繼續載入原始圖。",
+      "桌布卡片補上了更順滑的載入 shimmer 和錯位進場動效。"
     ],
     "ja": [
-      "アップロード画面を iOS と揃えました。アップロード作業画面、複数選択、キューグリッド、状態サマリー、失敗時の再試行、ルール表示に対応しています。",
-      "未ログイン時の案内と一括アップロードの文言を改善し、多言語も補完しました。"
+      "壁紙詳細は、一覧で読み込み済みのプレビュー画像を先に表示してからオリジナル画像を読み込むようになりました。",
+      "壁紙カードに、より滑らかな読み込み shimmer と段階的な表示アニメーションを追加しました。"
     ]
   }
 }
