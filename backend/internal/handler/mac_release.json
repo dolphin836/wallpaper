@@ -1,8 +1,26 @@
 {
-  "current_version": "2.0.7",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.7.dmg",
+  "current_version": "2.0.8",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.8.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.8",
+      "released_at": "2026-06-16",
+      "notes": [
+        "Changed: the Mac app icon now matches the iOS app icon, replacing the old white-tile mark with the shared gradient brand icon."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "变更：Mac 应用图标现在与 iOS 端保持一致，旧的白底图标已替换为统一的渐变品牌图标。"
+        ],
+        "zh-TW": [
+          "變更：Mac 應用程式圖示現在與 iOS 端保持一致，舊的白底圖示已替換為統一的漸層品牌圖示。"
+        ],
+        "ja": [
+          "変更：Mac アプリのアイコンを iOS 版と同じものに揃え、従来の白いタイル状のアイコンから共通のグラデーションブランドアイコンに更新しました。"
+        ]
+      }
+    },
     {
       "version": "2.0.7",
       "released_at": "2026-06-13",

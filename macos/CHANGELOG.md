@@ -10,6 +10,13 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.8] - 2026-06-16
+
+### Changed
+
+- **The Mac app icon now matches the iOS app icon.** The old white-tile
+  mark has been replaced with the shared gradient brand icon.
+
 ## [2.0.7] - 2026-06-13
 
 ### Fixed
