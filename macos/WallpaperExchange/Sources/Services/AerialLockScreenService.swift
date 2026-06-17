@@ -82,7 +82,7 @@ final class AerialLockScreenService {
             videoURL: videoDestination,
             thumbnailURL: thumbnailDestination
         )
-        try applySystemWallpaperPointers(videoURL: videoDestination, thumbnailURL: thumbnailDestination)
+        try applySystemWallpaperPointers(videoURL: videoDestination)
         try restartAerialExtension()
     }
 
@@ -282,17 +282,13 @@ final class AerialLockScreenService {
         "WALLPAPER_EXCHANGE_\(wallpaperID)"
     }
 
-    private func applySystemWallpaperPointers(videoURL: URL, thumbnailURL: URL) throws {
+    private func applySystemWallpaperPointers(videoURL: URL) throws {
         try writeDefault(
             domain: "com.apple.wallpaper",
             key: "SystemWallpaperURL",
             value: videoURL.absoluteString
         )
-        try writeDefault(
-            domain: "com.apple.loginwindow",
-            key: "DesktopPicture",
-            value: thumbnailURL.path
-        )
+        deleteDefault(domain: "com.apple.loginwindow", key: "DesktopPicture")
     }
 
     private func writeDefault(domain: String, key: String, value: String) throws {
@@ -317,6 +313,14 @@ final class AerialLockScreenService {
             logger.error("failed to write default \(domain, privacy: .public).\(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
             throw AerialError.manifestUnavailable
         }
+    }
+
+    private func deleteDefault(domain: String, key: String) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
+        process.arguments = ["delete", domain, key]
+        try? process.run()
+        process.waitUntilExit()
     }
 
     private func restartAerialExtension() throws {
