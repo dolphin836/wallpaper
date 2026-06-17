@@ -1,8 +1,34 @@
 {
-  "current_version": "2.0.9",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.9.dmg",
+  "current_version": "2.0.10",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.10.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.10",
+      "released_at": "2026-06-17",
+      "notes": [
+        "New: video wallpaper details now include an experimental Lock Screen target on macOS 26+, alongside Desktop and Both targets.",
+        "Fixed: setting a lock-screen wallpaper now refreshes the login-window static fallback and lock-screen cache image to the selected wallpaper.",
+        "Fixed: setting a video wallpaper on one display no longer overwrites active video wallpapers on other displays."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "新增：视频壁纸详情页现在提供实验性的 macOS 26+「锁屏」目标，可在桌面、锁屏或同时应用之间选择。",
+          "修复：设置锁屏壁纸时现在会同步刷新登录窗口的静态兜底图和锁屏缓存图，指向当前选择的壁纸。",
+          "修复：只给一个显示器设置视频壁纸时，不再覆盖其他显示器当前正在使用的视频壁纸。"
+        ],
+        "zh-TW": [
+          "新增：影片桌布詳細頁現在提供實驗性的 macOS 26+「鎖定畫面」目標，可在桌面、鎖定畫面或同時套用之間選擇。",
+          "修復：設定鎖定畫面桌布時，現在會同步刷新登入視窗的靜態備援圖和鎖定畫面快取圖，指向目前選擇的桌布。",
+          "修復：只為一個顯示器設定影片桌布時，不再覆蓋其他顯示器目前正在使用的影片桌布。"
+        ],
+        "ja": [
+          "新機能：ビデオ壁紙の詳細画面に、macOS 26+ 向けの実験的な「ロック画面」ターゲットを追加しました。デスクトップ、ロック画面、または両方を選べます。",
+          "修正：ロック画面の壁紙を設定するとき、ログインウインドウの静的フォールバック画像とロック画面キャッシュ画像を選択中の壁紙に更新するようにしました。",
+          "修正：1 つのディスプレイにビデオ壁紙を設定しても、他のディスプレイで再生中のビデオ壁紙を上書きしないようにしました。"
+        ]
+      }
+    },
     {
       "version": "2.0.9",
       "released_at": "2026-06-16",

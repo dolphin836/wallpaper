@@ -10,6 +10,24 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.10] - 2026-06-17
+
+### Added
+
+- **Video wallpapers now expose an experimental Lock Screen target on macOS
+  26+.** The detail page can apply a wallpaper to Desktop, Lock Screen, or
+  both, and prepares a matching Aerial asset for Apple's lock-screen pipeline.
+
+### Fixed
+
+- **Lock-screen wallpaper attempts now refresh the current static fallback.**
+  The Mac client updates the login-window wallpaper pointer and lock-screen
+  cache image to the selected wallpaper's poster, so the lock screen no longer
+  stays on an older cached image when the experimental live path is unavailable.
+- **Per-display video wallpapers no longer overwrite unrelated displays.**
+  Setting a video wallpaper for one screen keeps the other screens' active
+  video wallpapers intact.
+
 ## [2.0.9] - 2026-06-16
 
 ### Changed
