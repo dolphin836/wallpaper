@@ -45,7 +45,7 @@ struct DetailPage: View {
     @State private var applyingWallpaper = false
     @State private var videoDuration: Double?
     @State private var videoDurationTask: Task<Void, Never>?
-    @State private var detailScrollOffset: CGFloat = 0
+    @State private var recommendationsTopY: CGFloat = .infinity
     @Environment(\.dismiss) private var dismiss
 
     // Raw values are stable identifiers (ForEach ids) — display labels are
@@ -141,16 +141,6 @@ struct DetailPage: View {
         return primary
     }
 
-    private var scrollOffsetProbe: some View {
-        GeometryReader { proxy in
-            Color.clear.preference(
-                key: DetailScrollOffsetPreferenceKey.self,
-                value: max(0, -proxy.frame(in: .named("detail-scroll")).minY)
-            )
-        }
-        .frame(height: 0)
-    }
-
     var body: some View {
         GeometryReader { proxy in
             let layout = DetailLayout(size: proxy.size, isModal: onClose != nil, isFullScreen: isWindowFullScreen)
@@ -159,7 +149,6 @@ struct DetailPage: View {
                     .ignoresSafeArea()
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 0) {
-                        scrollOffsetProbe
                         if let d = detail {
                             immersiveDetail(detail: d, layout: layout)
                         } else if let err = loadError {
@@ -171,7 +160,6 @@ struct DetailPage: View {
                     .frame(minHeight: proxy.size.height, alignment: .top)
                 }
                 .id(detailRequestKey)
-                .coordinateSpace(name: "detail-scroll")
                 .frame(width: proxy.size.width, height: proxy.size.height)
 
                 if isShowingDetailActionPopup && shouldShowDetailActionOverlay(layout: layout) {
@@ -192,6 +180,7 @@ struct DetailPage: View {
                     .padding(.top, layout.topControlsTopPadding)
                     .zIndex(20)
             }
+            .coordinateSpace(name: "detail-root")
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
             .task(id: "\(slug)-\(detail?.id ?? 0)-\(layout.recommendationLimit)") {
@@ -203,8 +192,8 @@ struct DetailPage: View {
             guard width > 0 else { return }
             measuredActionBarWidth = width
         }
-        .onPreferenceChange(DetailScrollOffsetPreferenceKey.self) { offset in
-            detailScrollOffset = max(0, offset)
+        .onPreferenceChange(RecommendationsTopPreferenceKey.self) { topY in
+            recommendationsTopY = topY
         }
         .confirmationDialog(
             L10n.detail.deleteConfirmTitle,
@@ -836,6 +825,15 @@ struct DetailPage: View {
             .frame(width: layout.pageWidth, alignment: .leading)
             .frame(width: layout.size.width, alignment: .center)
             .background(recommendationsBackground(detail: d))
+            .overlay(alignment: .top) {
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: RecommendationsTopPreferenceKey.self,
+                        value: proxy.frame(in: .named("detail-root")).minY
+                    )
+                }
+                .frame(height: 0)
+            }
     }
 
     private func recommendationsBackground(detail d: WallpaperDetail) -> some View {
@@ -1708,8 +1706,8 @@ struct DetailPage: View {
         let overlayBottomY = layout.size.height - layout.overlayBottomPadding
         let estimatedOverlayHeight: CGFloat = isShowingDetailActionPopup ? 320 : 92
         let overlayTopY = overlayBottomY - estimatedOverlayHeight
-        let heroBottomY = layout.heroViewportHeight - detailScrollOffset
-        return heroBottomY > overlayTopY
+        guard recommendationsTopY.isFinite else { return true }
+        return recommendationsTopY > overlayTopY + 8
     }
 
     private var collectionTitleField: some View {
@@ -2229,6 +2227,7 @@ struct DetailPage: View {
         loadError = nil
         downloadNotice = nil
         infoActionMessage = nil
+        recommendationsTopY = .infinity
         videoDurationTask?.cancel()
         videoDuration = nil
         do {
@@ -2475,8 +2474,8 @@ private struct ActionBarWidthPreferenceKey: PreferenceKey {
     }
 }
 
-private struct DetailScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
+private struct RecommendationsTopPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = .infinity
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
