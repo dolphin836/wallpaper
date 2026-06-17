@@ -627,33 +627,18 @@ final class WallpaperManager {
     }
 
     func setAsWallpaper(_ wallpaper: Wallpaper, target: WallpaperDisplayTarget, surface: WallpaperApplySurface) async throws {
+        guard surface != .lockScreen else {
+            throw WallpaperError.lockScreenUnavailable
+        }
+
         if Self.isVideo(wallpaper) {
             let videoURL = try await ensureLocalVideo(wallpaper)
             let poster = try? await ensureVideoPoster(wallpaper)
 
             if surface == .desktop || surface == .both {
                 applyVideoDesktopWallpaper(wallpaper, videoURL: videoURL, poster: poster, target: target)
-            }
-
-            if surface == .lockScreen || surface == .both {
-                if AerialLockScreenService.isSupported {
-                    do {
-                        try await AerialLockScreenService.shared.apply(
-                            wallpaper: wallpaper,
-                            videoURL: videoURL,
-                            thumbnailURL: poster
-                        )
-                    } catch {
-                        if let poster {
-                            try AerialLockScreenService.shared.applyStaticImage(imageURL: poster)
-                        } else {
-                            throw error
-                        }
-                    }
-                } else if let poster {
-                    try AerialLockScreenService.shared.applyStaticImage(imageURL: poster)
-                } else {
-                    throw WallpaperError.lockScreenUnavailable
+                if target.isAll, let poster {
+                    try? AerialLockScreenService.shared.applyStaticImage(imageURL: poster)
                 }
             }
             return
@@ -675,11 +660,11 @@ final class WallpaperManager {
                 screens: targetScreens,
                 markAsCurrent: target.isAll
             )
+            if target.isAll {
+                try? AerialLockScreenService.shared.applyStaticImage(imageURL: url)
+            }
         }
 
-        if surface == .lockScreen || surface == .both {
-            try AerialLockScreenService.shared.applyStaticImage(imageURL: url)
-        }
     }
 
     private func applyVideoDesktopWallpaper(_ wallpaper: Wallpaper, videoURL: URL, poster: URL?, target: WallpaperDisplayTarget) {

@@ -81,7 +81,6 @@ struct DetailStrings {
     let wallpaperSecondaryDisplay: String
     let wallpaperApply: String
     let wallpaperApplying: String
-    let wallpaperOpenSettings: String
     let wallpaperPanelHint: String
     let wallpaperVideoLockUnavailable: String
     let lockScreenUnavailable: String
@@ -162,10 +161,9 @@ private let detailEN = DetailStrings(
     wallpaperSecondaryDisplay: "Display",
     wallpaperApply: "Apply",
     wallpaperApplying: "Applying",
-    wallpaperOpenSettings: "Open Wallpaper Settings",
-    wallpaperPanelHint: "The lock screen follows the current desktop. For video lock screen playback, open Wallpaper settings and select Wallpaper Exchange once.",
+    wallpaperPanelHint: "Wallpaper Exchange sets the desktop only. The macOS lock screen follows the desktop image; live lock screen playback is disabled until it is reliable.",
     wallpaperVideoLockUnavailable: "Lock screen wallpaper will use the selected wallpaper image.",
-    lockScreenUnavailable: "Lock screen live wallpaper requires macOS 26 or later.",
+    lockScreenUnavailable: "Lock screen wallpaper is managed by macOS. Set the desktop wallpaper instead.",
     lockScreenConversionUnavailable: "This video cannot be converted for lock screen wallpaper.",
     lockScreenConversionFailed: "Failed to convert this video for lock screen wallpaper.",
     lockScreenThumbnailFailed: "Failed to prepare the lock screen thumbnail.",
@@ -239,10 +237,9 @@ private let detailZhCN = DetailStrings(
     wallpaperSecondaryDisplay: "显示器",
     wallpaperApply: "应用",
     wallpaperApplying: "应用中",
-    wallpaperOpenSettings: "打开墙纸设置",
-    wallpaperPanelHint: "macOS 锁屏会跟随当前桌面；视频已加入 Wallpaper Exchange 分区，需要在系统设置 > 墙纸里选中一次才会动态播放。",
+    wallpaperPanelHint: "Wallpaper Exchange 只设置桌面壁纸；macOS 锁屏会跟随桌面静态图。动态锁屏在稳定前先关闭。",
     wallpaperVideoLockUnavailable: "锁屏壁纸会使用当前选择的壁纸图片。",
-    lockScreenUnavailable: "锁屏动态壁纸需要 macOS 26 或更高版本。",
+    lockScreenUnavailable: "锁屏壁纸由 macOS 跟随桌面管理，请设置桌面壁纸。",
     lockScreenConversionUnavailable: "这个视频无法转换成锁屏壁纸格式。",
     lockScreenConversionFailed: "转换锁屏壁纸视频失败。",
     lockScreenThumbnailFailed: "准备锁屏缩略图失败。",
@@ -316,10 +313,9 @@ private let detailZhTW = DetailStrings(
     wallpaperSecondaryDisplay: "顯示器",
     wallpaperApply: "套用",
     wallpaperApplying: "套用中",
-    wallpaperOpenSettings: "開啟桌布設定",
-    wallpaperPanelHint: "macOS 鎖定畫面會跟隨目前桌面；影片已加入 Wallpaper Exchange 分區，需要在系統設定 > 桌布中選取一次才會動態播放。",
+    wallpaperPanelHint: "Wallpaper Exchange 只設定桌面桌布；macOS 鎖定畫面會跟隨桌面靜態圖。動態鎖定畫面在穩定前先關閉。",
     wallpaperVideoLockUnavailable: "鎖定畫面桌布會使用目前選擇的桌布圖片。",
-    lockScreenUnavailable: "鎖定畫面動態桌布需要 macOS 26 或更新版本。",
+    lockScreenUnavailable: "鎖定畫面桌布由 macOS 跟隨桌面管理，請設定桌面桌布。",
     lockScreenConversionUnavailable: "此影片無法轉換為鎖定畫面桌布格式。",
     lockScreenConversionFailed: "轉換鎖定畫面桌布影片失敗。",
     lockScreenThumbnailFailed: "準備鎖定畫面縮圖失敗。",
@@ -393,10 +389,9 @@ private let detailJA = DetailStrings(
     wallpaperSecondaryDisplay: "ディスプレイ",
     wallpaperApply: "適用",
     wallpaperApplying: "適用中",
-    wallpaperOpenSettings: "壁紙設定を開く",
-    wallpaperPanelHint: "ロック画面は現在のデスクトップに追従します。動画をロック画面で再生するには、システム設定の壁紙で Wallpaper Exchange を一度選択してください。",
+    wallpaperPanelHint: "Wallpaper Exchange はデスクトップのみを設定します。macOS のロック画面はデスクトップ画像に追従します。ライブロック画面は安定するまで無効です。",
     wallpaperVideoLockUnavailable: "ロック画面壁紙には選択中の壁紙画像を使用します。",
-    lockScreenUnavailable: "ロック画面ライブ壁紙には macOS 26 以降が必要です。",
+    lockScreenUnavailable: "ロック画面壁紙は macOS がデスクトップに追従して管理します。デスクトップ壁紙を設定してください。",
     lockScreenConversionUnavailable: "このビデオはロック画面壁紙形式に変換できません。",
     lockScreenConversionFailed: "ロック画面壁紙用ビデオの変換に失敗しました。",
     lockScreenThumbnailFailed: "ロック画面サムネイルの準備に失敗しました。",

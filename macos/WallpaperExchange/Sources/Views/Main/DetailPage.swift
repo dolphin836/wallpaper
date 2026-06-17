@@ -441,12 +441,6 @@ struct DetailPage: View {
         }
     }
 
-    private func openWallpaperSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.Wallpaper-Settings.extension") {
-            NSWorkspace.shared.open(url)
-        }
-    }
-
     // Raw wallpaper mirrors web .wd-hero-img: the image gets max-width /
     // max-height constraints, then the rounded border is attached to the
     // actual rendered image rect rather than a full-width SwiftUI frame.
@@ -674,7 +668,7 @@ struct DetailPage: View {
         }
     }
 
-    private static let wallpaperSurfaceOptions: [WallpaperApplySurface] = [.both, .desktop]
+    private static let wallpaperSurfaceOptions: [WallpaperApplySurface] = [.desktop]
 
     private func wallpaperPicker(detail d: WallpaperDetail) -> some View {
         let targets = WallpaperManager.displayTargets()
@@ -703,36 +697,38 @@ struct DetailPage: View {
                 .buttonStyle(.plain)
             }
 
-            HStack(spacing: 6) {
-                ForEach(Self.wallpaperSurfaceOptions) { surface in
-                    let selected = selectedWallpaperSurface == surface
-                    let disabled = surfaceUnavailable(surface, detail: d)
-                    Button {
-                        guard !disabled else { return }
-                        selectedWallpaperSurface = surface
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: wallpaperSurfaceIcon(surface))
-                                .font(.system(size: 11, weight: .semibold))
-                            Text(wallpaperSurfaceLabel(surface))
-                                .font(.sans11)
-                                .lineLimit(1)
+            if Self.wallpaperSurfaceOptions.count > 1 {
+                HStack(spacing: 6) {
+                    ForEach(Self.wallpaperSurfaceOptions) { surface in
+                        let selected = selectedWallpaperSurface == surface
+                        let disabled = surfaceUnavailable(surface, detail: d)
+                        Button {
+                            guard !disabled else { return }
+                            selectedWallpaperSurface = surface
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: wallpaperSurfaceIcon(surface))
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text(wallpaperSurfaceLabel(surface))
+                                    .font(.sans11)
+                                    .lineLimit(1)
+                            }
+                            .foregroundStyle(selected ? Color.ink : Color.muted)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(Capsule().fill(selected ? Color.paper : Color.clear))
+                            .overlay(Capsule().stroke(selected ? Color.accent.opacity(0.65) : Color.clear, lineWidth: 1))
                         }
-                        .foregroundStyle(selected ? Color.ink : Color.muted)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(Capsule().fill(selected ? Color.paper : Color.clear))
-                        .overlay(Capsule().stroke(selected ? Color.accent.opacity(0.65) : Color.clear, lineWidth: 1))
+                        .buttonStyle(.plain)
+                        .disabled(disabled)
+                        .opacity(disabled ? 0.42 : 1)
+                        .help(disabled ? surfaceUnavailableReason(surface, detail: d) : wallpaperSurfaceLabel(surface))
                     }
-                    .buttonStyle(.plain)
-                    .disabled(disabled)
-                    .opacity(disabled ? 0.42 : 1)
-                    .help(disabled ? surfaceUnavailableReason(surface, detail: d) : wallpaperSurfaceLabel(surface))
                 }
+                .padding(4)
+                .background(Capsule().fill(Color.paper2.opacity(0.88)))
+                .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
             }
-            .padding(4)
-            .background(Capsule().fill(Color.paper2.opacity(0.88)))
-            .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
 
             if selectedWallpaperSurface != .lockScreen {
                 VStack(alignment: .leading, spacing: 9) {
@@ -758,23 +754,6 @@ struct DetailPage: View {
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)
-                if isVideo(detail: d) {
-                    Button(action: openWallpaperSettings) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "gearshape")
-                                .font(.system(size: 11, weight: .semibold))
-                            Text(L10n.detail.wallpaperOpenSettings)
-                                .font(.system(size: 12, weight: .semibold))
-                                .lineLimit(1)
-                        }
-                        .foregroundStyle(Color.ink2)
-                        .padding(.horizontal, 13)
-                        .padding(.vertical, 9)
-                        .background(Capsule().fill(Color.paper))
-                        .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                }
                 Button {
                     Task { await applySelectedWallpaper(d) }
                 } label: {
@@ -868,18 +847,18 @@ struct DetailPage: View {
 
     private func surfaceUnavailable(_ surface: WallpaperApplySurface, detail d: WallpaperDetail) -> Bool {
         switch surface {
-        case .desktop, .both:
+        case .desktop:
             return false
-        case .lockScreen:
+        case .lockScreen, .both:
             return true
         }
     }
 
     private func surfaceUnavailableReason(_ surface: WallpaperApplySurface, detail d: WallpaperDetail) -> String {
         switch surface {
-        case .desktop, .both:
+        case .desktop:
             return L10n.detail.wallpaperApply
-        case .lockScreen:
+        case .lockScreen, .both:
             return L10n.detail.wallpaperPanelHint
         }
     }
