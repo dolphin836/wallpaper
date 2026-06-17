@@ -395,22 +395,97 @@ struct ProgressiveCachedAsyncImage<Content: View, Placeholder: View>: View {
 }
 
 struct ImageLoadingBeam: View {
+    enum Style {
+        case image
+        case skeleton
+
+        var baseOpacity: Double {
+            switch self {
+            case .image: return 0.06
+            case .skeleton: return 0.10
+            }
+        }
+
+        var softOpacity: Double {
+            switch self {
+            case .image: return 0.22
+            case .skeleton: return 0.34
+            }
+        }
+
+        var coreOpacity: Double {
+            switch self {
+            case .image: return 0.82
+            case .skeleton: return 1.0
+            }
+        }
+
+        var bandWidthRatio: CGFloat {
+            switch self {
+            case .image: return 0.72
+            case .skeleton: return 0.42
+            }
+        }
+
+        var minBandWidth: CGFloat {
+            switch self {
+            case .image: return 96
+            case .skeleton: return 72
+            }
+        }
+
+        var duration: Double {
+            switch self {
+            case .image: return 1.12
+            case .skeleton: return 1.35
+            }
+        }
+
+        var backgroundColors: [Color] {
+            switch self {
+            case .image:
+                return [
+                    Color.white.opacity(baseOpacity),
+                    Color.white.opacity(softOpacity),
+                    Color.white.opacity(baseOpacity),
+                ]
+            case .skeleton:
+                return [
+                    Color.accent.opacity(0.10),
+                    Color.white.opacity(0.34),
+                    Color.accent.opacity(0.14),
+                ]
+            }
+        }
+
+        var sweepSoftColor: Color {
+            switch self {
+            case .image: return Color.white.opacity(softOpacity)
+            case .skeleton: return Color.accent.opacity(0.48)
+            }
+        }
+
+        var sweepCoreColor: Color {
+            switch self {
+            case .image: return Color.white.opacity(coreOpacity)
+            case .skeleton: return Color.white.opacity(0.98)
+            }
+        }
+    }
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var style: Style = .image
     @State private var sweep = false
 
     var body: some View {
         GeometryReader { proxy in
             let width = max(proxy.size.width, 1)
             let height = max(proxy.size.height, 1)
-            let bandWidth = max(width * 0.72, 96)
+            let bandWidth = max(width * style.bandWidthRatio, style.minBandWidth)
 
             ZStack {
                 LinearGradient(
-                    colors: [
-                        Color.white.opacity(0.06),
-                        Color.white.opacity(0.24),
-                        Color.white.opacity(0.06),
-                    ],
+                    colors: style.backgroundColors,
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -421,9 +496,9 @@ struct ImageLoadingBeam: View {
                             LinearGradient(
                                 stops: [
                                     .init(color: .clear, location: 0),
-                                    .init(color: Color.white.opacity(0.22), location: 0.36),
-                                    .init(color: Color.white.opacity(0.82), location: 0.50),
-                                    .init(color: Color.white.opacity(0.22), location: 0.64),
+                                    .init(color: style.sweepSoftColor, location: 0.38),
+                                    .init(color: style.sweepCoreColor, location: 0.50),
+                                    .init(color: style.sweepSoftColor, location: 0.62),
                                     .init(color: .clear, location: 1),
                                 ],
                                 startPoint: .top,
@@ -438,7 +513,7 @@ struct ImageLoadingBeam: View {
             }
             .onAppear {
                 guard !reduceMotion else { return }
-                withAnimation(.easeInOut(duration: 1.12).repeatForever(autoreverses: false)) {
+                withAnimation(.easeInOut(duration: style.duration).repeatForever(autoreverses: false)) {
                     sweep = true
                 }
             }
