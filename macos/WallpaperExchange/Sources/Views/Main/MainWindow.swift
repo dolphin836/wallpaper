@@ -17,8 +17,9 @@ struct MainWindow: View {
     @State private var path: [MainRoute] = []
     @State private var search: String = ""
     @State private var committedSearch: String = ""
-    // Wallpaper detail is presented as a modal overlay (web-style inset
-    // panel + scrim), not a navigation push.
+    // Wallpaper detail is presented as a modal overlay, not a navigation
+    // push. The overlay now fills the window visually so list scroll
+    // position stays intact while the detail feels immersive.
     @State private var detailTarget: DetailTarget?
     @State private var refreshToken = UUID()
     @State private var forwardPath: [MainRoute] = []
@@ -139,15 +140,14 @@ struct MainWindow: View {
             topToolbar
                 .zIndex(3)
 
-            // Wallpaper detail modal — web-style: dim scrim over the whole
-            // window + an inset rounded panel hosting DetailPage. Sits at
-            // the top of the ZStack so it covers the sidebar and any
-            // pushed page. Backdrop tap / ✕ / ESC all close.
+            // Wallpaper detail modal — full-window overlay instead of a
+            // navigation push, so the grid/list underneath keeps its
+            // scroll position. Backdrop tap / ESC / toolbar back close.
             if let target = detailTarget {
                 DetailModalOverlay(
                     target: target,
                     onClose: { detailTarget = nil },
-                    onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
+                    onWallpaper: { wp in openDetail(wp) },
                     onUploader: { username in detailTarget = nil; push(.profile(username: username)) }
                 )
                 .transition(.opacity)
@@ -168,9 +168,13 @@ struct MainWindow: View {
         .task { await auth.refreshProfile() }
     }
 
-    private func openDetail(slug: String, fallbackID: Int) {
+    private func openDetail(_ wallpaper: Wallpaper) {
+        openDetail(slug: wallpaper.slug, fallbackID: wallpaper.id, initialWallpaper: wallpaper)
+    }
+
+    private func openDetail(slug: String, fallbackID: Int, initialWallpaper: Wallpaper? = nil) {
         withAnimation(.easeOut(duration: 0.18)) {
-            detailTarget = DetailTarget(slug: slug, fallbackID: fallbackID)
+            detailTarget = DetailTarget(slug: slug, fallbackID: fallbackID, initialWallpaper: initialWallpaper)
         }
     }
 
@@ -331,7 +335,7 @@ struct MainWindow: View {
                 sidebar: sidebar,
                 search: committedSearch,
                 discoverInitialFilter: pendingDiscoverFilter,
-                onPick: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
+                onPick: { wp in openDetail(wp) },
                 onDevice: { d in push(.device(slug: d.slug, name: d.name)) },
                 onWeeklyWeek: { y, w in push(.weeklyWeek(year: y, week: w)) },
                 onCategory: { c in push(.category(id: c.id, name: c.name, slug: c.slug)) },
@@ -352,26 +356,26 @@ struct MainWindow: View {
         case .detail(let slug, _):
             DetailPage(slug: slug,
                        onUploader: { push(.profile(username: $0)) },
-                       onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                       onWallpaper: { wp in openDetail(wp) })
         case .profile(let username):
             AccountView(username: username,
-                        onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) },
+                        onWallpaper: { wp in openDetail(wp) },
                         onCollection: { c in push(.collection(slug: c.slug, title: c.title)) })
         case .collection(let slug, _):
             CollectionDetailView(slug: slug,
-                                 onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                                 onWallpaper: { wp in openDetail(wp) })
         case .device(let slug, let name):
             DeviceDetailView(slug: slug, name: name,
-                             onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                             onWallpaper: { wp in openDetail(wp) })
         case .search(let q):
             SearchResultsView(query: q,
-                              onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                              onWallpaper: { wp in openDetail(wp) })
         case .weeklyWeek(let y, let w):
             WeeklyWeekView(year: y, week: w,
-                           onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                           onWallpaper: { wp in openDetail(wp) })
         case .category(let id, let name, let slug):
             CategoryFeedView(category: Category(id: id, name: name, slug: slug, sortOrder: nil),
-                             onWallpaper: { wp in openDetail(slug: wp.slug, fallbackID: wp.id) })
+                             onWallpaper: { wp in openDetail(wp) })
         }
     }
 
@@ -831,62 +835,45 @@ struct ContentRouter: View {
 struct DetailTarget: Identifiable, Equatable {
     let slug: String
     let fallbackID: Int
+    let initialWallpaper: Wallpaper?
     var id: String { slug.isEmpty ? "\(fallbackID)" : slug }
+
+    static func == (lhs: DetailTarget, rhs: DetailTarget) -> Bool {
+        lhs.slug == rhs.slug && lhs.fallbackID == rhs.fallbackID
+    }
 }
 
-// Web-style detail modal: a dim scrim over the whole window plus an
-// inset rounded panel hosting DetailPage. ESC / ✕ / backdrop-tap close;
-// tapping a "more like this" tile swaps the panel to that wallpaper.
+// Detail modal: a dim scrim under a full-window DetailPage. It remains
+// an overlay so the underlying grid/list scroll position is preserved.
 struct DetailModalOverlay: View {
     let target: DetailTarget
     var onClose: () -> Void
     var onWallpaper: (Wallpaper) -> Void
     var onUploader: (String) -> Void
-
-    @State private var closeHover = false
-
     var body: some View {
         ZStack {
             Rectangle()
-                .fill(Color.black.opacity(0.55))
+                .fill(Color.black.opacity(0.66))
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture { onClose() }
 
-            DetailPage(slug: target.slug, onUploader: onUploader, onWallpaper: onWallpaper, onClose: onClose)
+            DetailPage(
+                slug: target.slug,
+                initialWallpaper: target.initialWallpaper,
+                onUploader: onUploader,
+                onWallpaper: onWallpaper,
+                onClose: onClose
+            )
                 .id(target.id)
-                // Fill the whole inset rectangle. The panel's own
-                // background is DetailPage's blurred-wallpaper backdrop, so
-                // no opaque paper fill here.
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.hair, lineWidth: 1))
-                .overlay(alignment: .topTrailing) { closeButton }
-                .shadow(color: .black.opacity(0.40), radius: 48, x: 0, y: 24)
-                // Float the panel with a uniform gap on every side. The
-                // whole window tree ignores the safe area, so the top must
-                // also clear the floating title bar (WindowChrome.topBar) —
-                // that keeps the visible gap below the chrome equal to the
-                // side gaps in both windowed and full-screen modes.
-                .padding(.top, WindowChrome.topBar + WindowChrome.modalInset)
-                .padding(.bottom, WindowChrome.modalInset)
-                .padding(.horizontal, WindowChrome.modalInset)
-        }
-    }
 
-    private var closeButton: some View {
-        Button(action: onClose) {
-            Image(systemName: "xmark").font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white).frame(width: 34, height: 34)
-                .background(Circle().fill(Color.black.opacity(closeHover ? 0.70 : 0.42)))
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
-                .opacity(closeHover ? 1 : 0.55)
-                .scaleEffect(closeHover ? 1.05 : 1.0)
+            Button(action: onClose) {
+                Color.clear.frame(width: 1, height: 1)
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.cancelAction)
+            .accessibilityHidden(true)
         }
-        .buttonStyle(.plain)
-        // ESC also closes (the in-content ESC pill was removed).
-        .keyboardShortcut(.cancelAction)
-        .padding(16)
-        .onHover { h in closeHover = h; if h { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
     }
 }

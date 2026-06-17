@@ -8,6 +8,7 @@ import AVFoundation
 // lighter Wallpaper carried by the list.
 struct DetailPage: View {
     let slug: String
+    var initialWallpaper: Wallpaper? = nil
     var onUploader: (String) -> Void
     var onWallpaper: (Wallpaper) -> Void
     // Set when presented as a modal overlay — the breadcrumb close + ESC
@@ -80,6 +81,12 @@ struct DetailPage: View {
         var stageSpacing: CGFloat { isCompact ? 14 : 16 }
         var actionPadding: CGFloat { isCompact ? 12 : 14 }
         var metaPadding: CGFloat { isCompact ? 16 : 20 }
+        var heroViewportHeight: CGFloat { max(size.height, isCompact ? 520 : 600) }
+        var overlayHorizontalPadding: CGFloat { isCompact ? 16 : 28 }
+        var overlayBottomPadding: CGFloat { isCompact ? 20 : 28 }
+        var toolbarMaxWidth: CGFloat {
+            max(320, min(isCompact ? 620 : 820, size.width - overlayHorizontalPadding * 2))
+        }
 
         var heroMaxHeight: CGFloat {
             let h = max(size.height, 560)
@@ -101,42 +108,19 @@ struct DetailPage: View {
         GeometryReader { proxy in
             let layout = DetailLayout(size: proxy.size, isModal: onClose != nil)
             ZStack {
-                backdrop(size: proxy.size)
+                Color.black
+                    .ignoresSafeArea()
                 ScrollView(.vertical, showsIndicators: false) {
-                    if let d = detail {
-                        VStack(alignment: .leading, spacing: layout.isCompact ? 18 : 24) {
-                            stagePanel(detail: d, layout: layout)
-                            metaGrid(detail: d, layout: layout)
-                            if !similar.isEmpty {
-                                moreLikeThis(layout: layout)
-                            }
-                            Color.clear
-                                .frame(height: 40)
-                                .accessibilityHidden(true)
+                    VStack(spacing: 0) {
+                        if let d = detail {
+                            immersiveDetail(detail: d, layout: layout)
+                        } else if let err = loadError {
+                            immersiveError(message: err, layout: layout)
+                        } else {
+                            immersiveLoading(layout: layout)
                         }
-                        .padding(.horizontal, layout.horizontalPadding)
-                        .padding(.top, layout.topPadding)
-                        .padding(.bottom, layout.bottomPadding)
-                        .frame(width: layout.pageWidth, alignment: .leading)
-                        // A vertical ScrollView otherwise lets a child's
-                        // intrinsic width influence its horizontal origin.
-                        .frame(width: layout.size.width, alignment: .center)
-                    } else if let err = loadError {
-                        RemoteLoadErrorView(message: err) {
-                            Task { await load() }
-                        }
-                        .padding(.horizontal, layout.horizontalPadding)
-                        .padding(.top, 48)
-                        .frame(width: layout.pageWidth, alignment: .leading)
-                        .frame(width: layout.size.width, alignment: .center)
-                    } else {
-                        detailSkeleton(layout: layout)
-                            .padding(.horizontal, layout.horizontalPadding)
-                            .padding(.top, layout.topPadding)
-                            .padding(.bottom, layout.bottomPadding)
-                            .frame(width: layout.pageWidth, alignment: .leading)
-                            .frame(width: layout.size.width, alignment: .center)
                     }
+                    .frame(minHeight: proxy.size.height, alignment: .top)
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
             }
@@ -147,6 +131,388 @@ struct DetailPage: View {
             }
         }
         .task(id: slug) { await load() }
+    }
+
+    private func immersiveDetail(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
+        VStack(spacing: 0) {
+            immersiveHero(detail: d, layout: layout)
+            if !similar.isEmpty {
+                recommendationsBand(layout: layout)
+            }
+        }
+    }
+
+    private func immersiveLoading(layout: DetailLayout) -> some View {
+        ZStack(alignment: .bottom) {
+            if let wallpaper = initialWallpaper {
+                posterImage(
+                    url: URL(string: wallpaper.displayURL),
+                    dominantColor: wallpaper.dominantColor,
+                    maxPixelDimension: 1100
+                )
+            } else {
+                LinearGradient(
+                    colors: [Color.black, Color.paper2.blended(with: Color.black, fraction: 0.72)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(.white)
+            }
+
+            heroVignette
+
+            if let wallpaper = initialWallpaper {
+                provisionalActionBar(wallpaper: wallpaper, layout: layout)
+                    .padding(.horizontal, layout.overlayHorizontalPadding)
+                    .padding(.bottom, layout.overlayBottomPadding)
+            }
+        }
+        .frame(width: layout.size.width, height: layout.heroViewportHeight)
+        .clipped()
+    }
+
+    private func immersiveError(message: String, layout: DetailLayout) -> some View {
+        ZStack(alignment: .bottom) {
+            LinearGradient(
+                colors: [Color.black, Color.paper2.blended(with: Color.black, fraction: 0.74)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            RemoteLoadErrorView(message: message) {
+                Task { await load() }
+            }
+            .padding(.horizontal, layout.horizontalPadding)
+            .frame(width: layout.pageWidth, alignment: .center)
+
+            HStack {
+                toolbarIconButton(systemName: "chevron.left", help: L10n.shell.back) {
+                    closeOrDismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, layout.overlayHorizontalPadding)
+            .padding(.bottom, layout.overlayBottomPadding)
+        }
+        .frame(width: layout.size.width, height: layout.heroViewportHeight)
+    }
+
+    private func immersiveHero(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
+        ZStack(alignment: .bottom) {
+            immersiveHeroMedia(detail: d, layout: layout)
+            heroVignette
+
+            VStack(spacing: 12) {
+                downloadProgressBar(detail: d)
+                    .frame(maxWidth: layout.toolbarMaxWidth)
+
+                if showingWallpaperPicker {
+                    wallpaperPicker(detail: d)
+                        .frame(maxWidth: min(760, layout.size.width - layout.overlayHorizontalPadding * 2))
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
+
+                downloadNoticeView(detail: d)
+                    .frame(maxWidth: min(760, layout.size.width - layout.overlayHorizontalPadding * 2))
+
+                immersiveActionBar(detail: d, layout: layout)
+            }
+            .padding(.horizontal, layout.overlayHorizontalPadding)
+            .padding(.bottom, layout.overlayBottomPadding)
+        }
+        .frame(width: layout.size.width, height: layout.heroViewportHeight)
+        .clipped()
+    }
+
+    @ViewBuilder
+    private func immersiveHeroMedia(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
+        if let videoURL = livePreviewVideoURL(detail: d) {
+            LiveVideoPreview(
+                sourceURL: videoURL,
+                posterURL: detailPosterURL(d),
+                dominantColor: d.dominantColor ?? initialWallpaper?.dominantColor
+            )
+            .frame(width: layout.size.width, height: layout.heroViewportHeight)
+            .clipped()
+        } else {
+            progressivePosterImage(detail: d)
+        }
+    }
+
+    private func posterImage(url: URL?, dominantColor: String?, maxPixelDimension: Int) -> some View {
+        CachedAsyncImage(url: url, maxPixelDimension: maxPixelDimension) { img in
+            img.resizable().aspectRatio(contentMode: .fill)
+        } placeholder: {
+            Color(hex: dominantColor ?? "#111111")
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
+    }
+
+    private func progressivePosterImage(detail d: WallpaperDetail) -> some View {
+        ZStack {
+            Color(hex: d.dominantColor ?? initialWallpaper?.dominantColor ?? "#111111")
+
+            if let wallpaper = initialWallpaper {
+                posterImage(
+                    url: URL(string: wallpaper.displayURL),
+                    dominantColor: wallpaper.dominantColor,
+                    maxPixelDimension: 1100
+                )
+            }
+
+            CachedAsyncImage(url: detailPosterURL(d), maxPixelDimension: 2600) { img in
+                img.resizable().aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Color.clear
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
+    }
+
+    private var heroVignette: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color.black.opacity(0.36), Color.clear, Color.black.opacity(0.68)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            LinearGradient(
+                colors: [Color.clear, Color.black.opacity(0.38)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func provisionalActionBar(wallpaper: Wallpaper, layout: DetailLayout) -> some View {
+        HStack(spacing: layout.isCompact ? 10 : 14) {
+            toolbarIconButton(systemName: "chevron.left", help: L10n.shell.back) {
+                closeOrDismiss()
+            }
+            .keyboardShortcut(.cancelAction)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(displayTitle(wallpaper.title))
+                    .font(.system(size: layout.isCompact ? 15 : 16, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Text(metaSpecText(wallpaper: wallpaper))
+                    .font(.mono10)
+                    .tracking(0.35)
+                    .foregroundStyle(Color.white.opacity(0.76))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            ProgressView()
+                .controlSize(.small)
+                .tint(.white)
+                .scaleEffect(0.78)
+        }
+        .padding(.leading, 8)
+        .padding(.trailing, 16)
+        .padding(.vertical, 8)
+        .frame(maxWidth: layout.toolbarMaxWidth)
+        .background(.ultraThinMaterial, in: Capsule())
+        .background(Capsule().fill(Color.black.opacity(0.56)))
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
+        .shadow(color: Color.black.opacity(0.34), radius: 24, x: 0, y: 12)
+    }
+
+    private func immersiveActionBar(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
+        ViewThatFits(in: .horizontal) {
+            immersiveToolbar(detail: d, layout: layout, compact: false)
+            immersiveToolbar(detail: d, layout: layout, compact: true)
+        }
+        .frame(maxWidth: layout.toolbarMaxWidth)
+        .animation(.easeOut(duration: 0.16), value: showingWallpaperPicker)
+    }
+
+    private func immersiveToolbar(detail d: WallpaperDetail, layout: DetailLayout, compact: Bool) -> some View {
+        let downloading = manager.downloading.contains(d.id)
+        let downloaded = isLocalDownloaded(d)
+        return HStack(spacing: compact ? 8 : 12) {
+            toolbarIconButton(systemName: "chevron.left", help: L10n.shell.back) {
+                closeOrDismiss()
+            }
+            .keyboardShortcut(.cancelAction)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(displayTitle(d.title))
+                    .font(.system(size: compact ? 14 : 16, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Text(metaSpecText(detail: d))
+                    .font(.mono10)
+                    .tracking(0.35)
+                    .foregroundStyle(Color.white.opacity(0.76))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .frame(width: compact ? 170 : 260, alignment: .leading)
+
+            if !compact {
+                toolbarIconButton(systemName: downloaded ? "checkmark.circle.fill" : "tray.and.arrow.down", help: downloadButtonText(detail: d, downloaded: downloaded, downloading: downloading)) {
+                    Task { await downloadOriginal(d) }
+                }
+                .disabled(downloading || downloaded)
+            }
+
+            toolbarIconButton(systemName: "square.and.arrow.up", help: "Share") {
+                shareWallpaper(d)
+            }
+
+            addToListToolbarMenu(d)
+
+            toolbarIconButton(
+                systemName: isFavorited ? "heart.fill" : "heart",
+                help: isFavorited ? L10n.detail.saved : L10n.detail.favorite,
+                active: isFavorited,
+                activeColor: Color(red: 1.0, green: 0.34, blue: 0.38)
+            ) {
+                Task { await toggleFavorite(d) }
+            }
+
+            Button(action: {
+                withAnimation(.easeOut(duration: 0.16)) {
+                    showingWallpaperPicker.toggle()
+                }
+            }) {
+                HStack(spacing: 7) {
+                    if applyingWallpaper || downloading {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(Color.ink)
+                            .scaleEffect(0.72)
+                            .frame(width: 12, height: 12)
+                    }
+                    Text(downloadAndSetButtonText(detail: d, downloaded: downloaded))
+                        .font(.system(size: compact ? 12 : 13, weight: .semibold))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(Color.ink)
+                .padding(.horizontal, compact ? 15 : 22)
+                .frame(height: 38)
+                .background(Capsule().fill(Color.white.opacity(0.96)))
+            }
+            .buttonStyle(.plain)
+            .disabled(downloading || applyingWallpaper)
+            .keyboardShortcut("d", modifiers: .command)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: Capsule())
+        .background(Capsule().fill(Color.black.opacity(0.58)))
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
+        .shadow(color: Color.black.opacity(0.34), radius: 24, x: 0, y: 12)
+    }
+
+    private func toolbarIconButton(
+        systemName: String,
+        help: String,
+        active: Bool = false,
+        activeColor: Color = Color.accent,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(active ? activeColor : Color.white.opacity(0.92))
+                .frame(width: 38, height: 38)
+                .background(Circle().fill(Color.white.opacity(active ? 0.18 : 0.08)))
+                .overlay(Circle().strokeBorder(Color.white.opacity(active ? 0.22 : 0.10), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+
+    private func addToListToolbarMenu(_ detail: WallpaperDetail) -> some View {
+        Menu {
+            if myCollections.isEmpty {
+                Text(L10n.detail.noCollections)
+            } else {
+                ForEach(myCollections) { c in
+                    Button {
+                        Task {
+                            try? await APIClient.shared.addToCollection(collectionID: c.id, wallpaperID: detail.id)
+                            await loadCollections(wallpaperID: detail.id)
+                        }
+                    } label: {
+                        if c.containsWallpaper == true {
+                            Label(c.title, systemImage: "checkmark")
+                        } else {
+                            Text(c.title)
+                        }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "rectangle.stack.badge.plus")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.white.opacity(0.92))
+                .frame(width: 38, height: 38)
+                .background(Circle().fill(Color.white.opacity(0.08)))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
+        }
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+        .help(L10n.detail.addToList)
+    }
+
+    private func recommendationsBand(layout: DetailLayout) -> some View {
+        moreLikeThis(layout: layout)
+            .padding(.horizontal, layout.horizontalPadding)
+            .padding(.top, layout.isCompact ? 28 : 38)
+            .padding(.bottom, layout.bottomPadding)
+            .frame(width: layout.pageWidth, alignment: .leading)
+            .frame(width: layout.size.width, alignment: .center)
+            .background(Color.paper)
+    }
+
+    private func detailPosterURL(_ d: WallpaperDetail) -> URL? {
+        let detailURL = d.displayURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !detailURL.isEmpty {
+            return URL(string: detailURL)
+        }
+        return initialWallpaper.flatMap { URL(string: $0.displayURL) }
+    }
+
+    private func displayTitle(_ title: String) -> String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? L10n.detail.wallpaperTitle : trimmed
+    }
+
+    private func metaSpecText(wallpaper: Wallpaper) -> String {
+        [wallpaper.resolutionLabel, wallpaper.fileType.uppercased(), byteString(wallpaper.fileSize)]
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+    }
+
+    private func shareWallpaper(_ detail: WallpaperDetail) {
+        let key = detail.slug.isEmpty ? "\(detail.id)" : detail.slug
+        if let url = URL(string: "https://wallpaperexchange.com/wallpaper/\(key)") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    private func closeOrDismiss() {
+        if let onClose {
+            onClose()
+        } else {
+            dismiss()
+        }
     }
 
     private func detailSkeleton(layout: DetailLayout) -> some View {
@@ -1402,10 +1768,11 @@ private struct LiveVideoPreview: View {
         ZStack {
             Color.black
             CachedAsyncImage(url: posterURL) { img in
-                img.resizable().aspectRatio(contentMode: .fit)
+                img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
                 Color(hex: dominantColor ?? "#111")
             }
+            .clipped()
             .opacity(player == nil ? 1 : 0)
 
             InlineAVPlayerView(player: player)
@@ -1656,7 +2023,7 @@ private final class InlineAVPlayerNSView: NSView {
         wantsLayer = true
         layer = CALayer()
         layer?.backgroundColor = NSColor.black.cgColor
-        playerLayer.videoGravity = .resizeAspect
+        playerLayer.videoGravity = .resizeAspectFill
         layer?.addSublayer(playerLayer)
     }
 
