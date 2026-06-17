@@ -1,22 +1,29 @@
-// API client. Uses the Tauri HTTP plugin so we can talk to
-// wallpaperexchange.com directly without browser CORS rules in our
-// way. The base URL is the same prod endpoint the web + macOS
-// clients use.
-//
-// One difference from the web client: the JWT lives in Tauri's local
-// app data (via the auth module), not in localStorage — same
-// reasoning as the macOS app, since browser localStorage clears with
-// WebView2 user-data resets.
+// API client for the Windows Tauri app. It uses the Tauri HTTP plugin so the
+// desktop WebView is not constrained by browser CORS, and it points at the same
+// apex-domain API the macOS client now uses.
 
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { getToken } from './auth';
-import type { ApiResponse, AuthResponse, ListResponse, User, Wallpaper } from './types';
+import type {
+  ApiResponse,
+  AuthResponse,
+  Category,
+  CoinTransaction,
+  CollectionBrief,
+  CollectionItem,
+  EmptyData,
+  ListResponse,
+  User,
+  Wallpaper,
+  WallpaperDetail,
+  WeeklyArchiveEntry,
+  WeeklyByWeek,
+  WeeklyCurrent,
+} from './types';
 
-// Apex domain serves /api/v1 via Caddy → Go api container. The
-// api.wallpaperexchange.com subdomain isn't routed in prod (returns
-// connection-reset), so the macOS client's hardcoded subdomain is
-// actually wrong — we point at the apex directly here.
 const API_BASE = 'https://wallpaperexchange.com/api/v1';
+
+type QueryValue = string | number | boolean | null | undefined;
 
 async function request<T>(
   path: string,
@@ -24,43 +31,54 @@ async function request<T>(
     method?: string;
     body?: unknown;
     auth?: boolean;
-    query?: Record<string, string | number | boolean | undefined>;
+    query?: Record<string, QueryValue>;
   } = {},
 ): Promise<T> {
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Accept-Language': 'zh-CN',
+  };
   if (init.body !== undefined) headers['Content-Type'] = 'application/json';
 
   if (init.auth !== false) {
     const tok = await getToken();
-    if (tok) headers['Authorization'] = `Bearer ${tok}`;
+    if (tok) headers.Authorization = `Bearer ${tok}`;
   }
 
-  const qs = init.query
-    ? '?' +
-      Object.entries(init.query)
-        .filter(([, v]) => v !== undefined && v !== null && v !== '')
-        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
-        .join('&')
-    : '';
-
+  const qs = init.query ? buildQuery(init.query) : '';
   const res = await tauriFetch(API_BASE + path + qs, {
     method: init.method ?? 'GET',
     headers,
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
   });
+
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     try {
       const j = (await res.json()) as { message?: string };
       if (j.message) msg = j.message;
-    } catch { /* keep default */ }
+    } catch {
+      // Keep the HTTP status fallback.
+    }
     throw new Error(msg);
   }
+
   const body = (await res.json()) as ApiResponse<T>;
   if (body.code !== 0 && body.code !== 200) {
     throw new Error(body.message || `API code ${body.code}`);
   }
   return body.data;
+}
+
+function buildQuery(query: Record<string, QueryValue>): string {
+  const items = Object.entries(query)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+  return items.length ? `?${items.join('&')}` : '';
+}
+
+function enc(value: string | number): string {
+  return encodeURIComponent(String(value));
 }
 
 export const api = {
@@ -72,54 +90,173 @@ export const api = {
     });
   },
 
+  register(username: string, email: string, password: string) {
+    return request<AuthResponse>('/auth/register', {
+      method: 'POST',
+      body: { username, email, password },
+      auth: false,
+    });
+  },
+
   me() {
     return request<User>('/users/me');
   },
 
+  updateProfile(nickname: string, bio: string) {
+    return request<User>('/users/me/profile', {
+      method: 'PUT',
+      body: { nickname, bio },
+    });
+  },
+
+  changePassword(oldPassword: string, newPassword: string) {
+    return request<EmptyData>('/users/me/password', {
+      method: 'PUT',
+      body: { old_password: oldPassword, new_password: newPassword },
+    });
+  },
+
   listWallpapers(params: {
     limit?: number;
-    cursor?: number;
+    cursor?: number | null;
     sort?: string;
+    search?: string;
+    category_id?: number | null;
+    dynamic_only?: boolean;
+    ai_only?: boolean;
     exclude_dynamic?: boolean;
     exclude_video?: boolean;
+    include_dynamic?: boolean;
+    device_width?: number;
+    device_height?: number;
   } = {}) {
     return request<ListResponse<Wallpaper>>('/wallpapers', { query: params });
   },
 
-  getWallpaper(id: number) {
-    return request<Wallpaper>(`/wallpapers/${id}`);
+  forYou(limit = 30) {
+    return request<Wallpaper[]>('/wallpapers/for-you', { query: { limit } });
   },
 
-  // Server-side history of every wallpaper this user has downloaded.
-  // The Downloaded column mirrors this list — local-file presence is
-  // tracked separately via the Rust `list_downloaded` command, so a
-  // wallpaper the user pulled on another device still shows up here
-  // (with a Re-download affordance).
-  listMyDownloads(params: { limit?: number; cursor?: number } = {}) {
+  getWallpaper(idOrSlug: string | number) {
+    return request<WallpaperDetail>(`/wallpapers/${enc(idOrSlug)}`);
+  },
+
+  similar(wallpaperID: number, limit = 12) {
+    return request<Wallpaper[]>(`/wallpapers/${enc(wallpaperID)}/similar`, { query: { limit } });
+  },
+
+  categories() {
+    return request<Category[]>('/categories', { auth: false });
+  },
+
+  weeklyCurrent() {
+    return request<WeeklyCurrent>('/weekly-picks/current', { auth: false });
+  },
+
+  weeklyArchive(limit = 50) {
+    return request<WeeklyArchiveEntry[]>('/weekly-picks/archive', {
+      auth: false,
+      query: { limit },
+    });
+  },
+
+  weeklyByWeek(year: number, week: number) {
+    return request<WeeklyByWeek>(`/weekly-picks/${enc(year)}/${enc(week)}`, { auth: false });
+  },
+
+  listCollections(params: { limit?: number; cursor?: number | null; kind?: number } = {}) {
+    return request<ListResponse<CollectionItem>>('/collections', { query: params });
+  },
+
+  getCollection(idOrSlug: string | number) {
+    return request<CollectionItem>(`/collections/${enc(idOrSlug)}`);
+  },
+
+  listCollectionWallpapers(collectionID: number, params: { limit?: number; cursor?: number | null } = {}) {
+    return request<ListResponse<Wallpaper>>(`/collections/${enc(collectionID)}/wallpapers`, {
+      query: params,
+    });
+  },
+
+  listMyCollections(params: { q?: string; wallpaper_id?: number; limit?: number } = {}) {
+    return request<CollectionBrief[]>('/users/me/collections', { query: params });
+  },
+
+  createCollection(title: string, isPublic = true) {
+    return request<CollectionItem>('/collections', {
+      method: 'POST',
+      body: { title, is_public: isPublic },
+    });
+  },
+
+  addToCollection(collectionID: number, wallpaperID: number) {
+    return request<EmptyData>(`/collections/${enc(collectionID)}/wallpapers`, {
+      method: 'POST',
+      body: { wallpaper_id: wallpaperID },
+    });
+  },
+
+  removeFromCollection(collectionID: number, wallpaperID: number) {
+    return request<EmptyData>(`/collections/${enc(collectionID)}/wallpapers/${enc(wallpaperID)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  listMyDownloads(params: { limit?: number; cursor?: number | null; dynamic_only?: boolean } = {}) {
     return request<ListResponse<Wallpaper>>('/users/me/downloads', { query: params });
   },
 
-  // /wallpapers/{id}/download 302-redirects to a signed object-storage
-  // URL. We intercept the redirect to hand the final URL to the Rust
-  // downloader, since `original_url` is stripped from the My Downloads
-  // payload for items the user didn't upload. HasDownloaded on the
-  // server makes the re-fetch free of coin charges.
+  listMyFavorites(params: { limit?: number; cursor?: number | null } = {}) {
+    return request<ListResponse<Wallpaper>>('/users/me/favorites', { query: params });
+  },
+
+  listMyLikes(params: { limit?: number; cursor?: number | null } = {}) {
+    return request<ListResponse<Wallpaper>>('/users/me/likes', { query: params });
+  },
+
+  coinTransactions(params: { limit?: number; cursor?: number | null } = {}) {
+    return request<ListResponse<CoinTransaction>>('/users/me/coin-transactions', { query: params });
+  },
+
+  like(wallpaperID: number) {
+    return request<EmptyData>(`/wallpapers/${enc(wallpaperID)}/like`, { method: 'POST' });
+  },
+
+  unlike(wallpaperID: number) {
+    return request<EmptyData>(`/wallpapers/${enc(wallpaperID)}/like`, { method: 'DELETE' });
+  },
+
+  favorite(wallpaperID: number) {
+    return request<EmptyData>(`/wallpapers/${enc(wallpaperID)}/favorite`, { method: 'POST' });
+  },
+
+  unfavorite(wallpaperID: number) {
+    return request<EmptyData>(`/wallpapers/${enc(wallpaperID)}/favorite`, { method: 'DELETE' });
+  },
+
+  reportWallpaper(wallpaperID: number, reason = 'other', note = '') {
+    return request<EmptyData>(`/wallpapers/${enc(wallpaperID)}/report`, {
+      method: 'POST',
+      body: { reason, note },
+    });
+  },
+
   async getDownloadURL(id: number): Promise<string> {
     const tok = await getToken();
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    if (tok) headers['Authorization'] = `Bearer ${tok}`;
-    // Tauri's plugin-http uses `maxRedirections` rather than the
-    // standard Fetch API's `redirect: 'manual'` — setting it to 0
-    // stops reqwest from following the 302 so we can read Location.
-    const res = await tauriFetch(`${API_BASE}/wallpapers/${id}/download`, {
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      'Accept-Language': 'zh-CN',
+    };
+    if (tok) headers.Authorization = `Bearer ${tok}`;
+    const res = await tauriFetch(`${API_BASE}/wallpapers/${enc(id)}/download`, {
       method: 'GET',
       headers,
       maxRedirections: 0,
     });
-    if (res.status === 401) throw new Error('Sign in required');
-    if (res.status === 402) throw new Error('Insufficient coins');
+    if (res.status === 401) throw new Error('请先登录');
+    if (res.status === 402) throw new Error('金币不足');
     const location = res.headers.get('Location') || res.headers.get('location');
-    if (!location) throw new Error(`No redirect URL (status ${res.status})`);
+    if (!location) throw new Error(`没有拿到下载地址：${res.status}`);
     return location;
   },
 };

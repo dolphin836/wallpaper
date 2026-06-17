@@ -130,6 +130,7 @@ pub fn downloads_total_bytes<R: Runtime>(app: AppHandle<R>) -> Result<u64, Strin
 /// Path-only helper for external callers. Useful for the wallpaper
 /// service to look up "where does id=N live locally" without a
 /// readdir scan.
+#[allow(dead_code)]
 pub fn local_path_for<R: Runtime>(app: &AppHandle<R>, id: i64) -> Result<Option<PathBuf>, String> {
     let dir = downloads_dir(app)?;
     for entry in fs::read_dir(&dir).map_err(|e| e.to_string())?.flatten() {

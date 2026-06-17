@@ -2,11 +2,6 @@ import { useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 import { setToken } from '../lib/auth';
 
-// Login appears as a centered modal-style overlay on top of the
-// Home screen. Click outside the form (the dim backdrop) or press
-// Esc to dismiss without signing in. Sign-up is web-only — link
-// users out to the marketing site rather than reimplementing the
-// flow in the desktop client.
 export default function LoginScreen({
   onSignedIn,
   onCancel,
@@ -14,63 +9,96 @@ export default function LoginScreen({
   onSignedIn: (token: string) => void;
   onCancel: () => void;
 }) {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
+  async function submit(event: FormEvent) {
+    event.preventDefault();
     setBusy(true);
     setErr(null);
     try {
-      const r = await api.login(email, password);
-      await setToken(r.token);
-      onSignedIn(r.token);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Sign in failed');
+      const response = mode === 'login'
+        ? await api.login(email, password)
+        : await api.register(username.trim(), email, password);
+      await setToken(response.token);
+      onSignedIn(response.token);
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : '登录失败');
     } finally {
       setBusy(false);
     }
   }
 
+  const disabled = busy || !email || !password || (mode === 'register' && !username.trim());
+
   return (
-    <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-      <form className="login-form" onSubmit={submit} onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}>
+    <div className="modal-backdrop" onClick={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
+      <form className="login-form" onSubmit={submit} onKeyDown={(event) => { if (event.key === 'Escape') onCancel(); }}>
         <div className="brand">
           <div className="name">Wallpaper Exchange</div>
-          <div className="kicker" style={{ marginTop: 4 }}>Sign in to download</div>
+          <div className="kicker">{mode === 'login' ? '登录后同步收藏和下载' : '创建账号后即可下载'}</div>
         </div>
+
+        {mode === 'register' && (
+          <input
+            type="text"
+            autoComplete="username"
+            placeholder="用户名"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            disabled={busy}
+            autoFocus
+          />
+        )}
 
         <input
           type="email"
-          autoComplete="username"
-          placeholder="Email"
+          autoComplete="email"
+          placeholder="邮箱"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          autoFocus
+          onChange={(event) => setEmail(event.target.value)}
+          autoFocus={mode === 'login'}
           required
           disabled={busy}
         />
-        <input
-          type="password"
-          autoComplete="current-password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          disabled={busy}
-        />
-        {err && <div className="err">{err}</div>}
-        <button type="submit" className="primary" disabled={busy || !email || !password}>
-          {busy ? 'Signing in…' : 'Sign in'}
-        </button>
-        <div className="kicker" style={{ textAlign: 'center', marginTop: 8 }}>
-          No account? Sign up at wallpaperexchange.com
+
+        <div className="password-field">
+          <input
+            type={passwordVisible ? 'text' : 'password'}
+            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+            placeholder="密码"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            disabled={busy}
+          />
+          <button type="button" onClick={() => setPasswordVisible((value) => !value)} disabled={busy}>
+            {passwordVisible ? '隐藏' : '显示'}
+          </button>
         </div>
-        <button type="button" onClick={onCancel} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', marginTop: 4, fontSize: 12 }}>
-          Cancel
+
+        {err && <div className="err">{err}</div>}
+
+        <button type="submit" className="primary-pill" disabled={disabled}>
+          {busy ? '处理中...' : mode === 'login' ? '登录' : '注册'}
         </button>
+
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => {
+            setErr(null);
+            setMode(mode === 'login' ? 'register' : 'login');
+          }}
+        >
+          {mode === 'login' ? '没有账号？注册' : '已有账号？登录'}
+        </button>
+        <button type="button" className="ghost" onClick={onCancel}>取消</button>
       </form>
     </div>
   );

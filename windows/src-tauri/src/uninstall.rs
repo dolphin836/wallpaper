@@ -8,8 +8,9 @@
 // macOS still compiles. The tray menu hides the option on non-
 // Windows builds.
 
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Runtime};
 
+#[cfg(target_os = "windows")]
 const PRODUCT_NAME: &str = "Wallpaper Exchange";
 
 pub fn run_uninstaller<R: Runtime>(app: &AppHandle<R>) {

@@ -1,73 +1,45 @@
-# React + TypeScript + Vite
+# Wallpaper Exchange Windows Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Windows desktop client built with React + Tauri 2. The UI mirrors the current
+macOS client structure as closely as practical:
 
-Currently, two official plugins are available:
+- Home, Discover, Weekly Picks, Collections, Downloads, Library, Upload, Settings.
+- Full-screen wallpaper detail overlay with preview-first loading, similar wallpapers,
+  info menu, like/favorite, add-to-collection, download, and set-wallpaper actions.
+- Local download cache under the Tauri app data directory.
+- Windows static wallpaper support through `SystemParametersInfoW`.
+- macOS dynamic HEIC and video wallpapers are displayed in-app, downloaded normally,
+  and downgraded to a static preview when setting the Windows desktop wallpaper.
+- My Collections can be selected as the preferred autoplay source. Missing collection
+  wallpapers are downloaded before the autoplay source is activated.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Development
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd windows
+npm install
+npm run tauri:dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Verification
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd windows
+npm run build
+npm run lint
+cd src-tauri && cargo check
 ```
+
+## Packaging
+
+The Tauri config targets Windows MSI and NSIS installers:
+
+```bash
+cd windows
+npm run tauri:build
+```
+
+Run the packaging command on a Windows machine or Windows CI runner to produce
+the `.msi` / `.exe` installers. Running the same command on macOS validates the
+frontend and Rust app and emits a current-platform release binary, but it cannot
+produce Windows installers.
