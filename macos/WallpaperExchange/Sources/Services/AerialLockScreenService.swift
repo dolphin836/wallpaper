@@ -82,6 +82,8 @@ final class AerialLockScreenService {
             videoURL: videoDestination,
             thumbnailURL: thumbnailDestination
         )
+        restartAgent(named: "WallpaperAgent")
+        try updateWallpaperStoreIndex(indexURL: paths.storeIndex, backupURL: paths.storeBackup, assetID: assetID)
         try applySystemWallpaperPointers(videoURL: videoDestination)
         try restartAerialExtension()
     }
@@ -93,6 +95,8 @@ final class AerialLockScreenService {
         let backup: URL
         let videos: URL
         let thumbnails: URL
+        let storeIndex: URL
+        let storeBackup: URL
     }
 
     private func aerialPaths() throws -> AerialPaths {
@@ -108,7 +112,9 @@ final class AerialLockScreenService {
             manifest: manifest,
             backup: manifestDir.appendingPathComponent("entries.json.wallpaperexchange.backup"),
             videos: root.appendingPathComponent("videos", isDirectory: true),
-            thumbnails: root.appendingPathComponent("thumbnails", isDirectory: true)
+            thumbnails: root.appendingPathComponent("thumbnails", isDirectory: true),
+            storeIndex: appSupport.appendingPathComponent("com.apple.wallpaper/Store/Index.plist"),
+            storeBackup: appSupport.appendingPathComponent("com.apple.wallpaper/Store/Index.plist.wallpaperexchange.backup")
         )
     }
 
@@ -116,6 +122,7 @@ final class AerialLockScreenService {
         try fm.createDirectory(at: paths.manifestDir, withIntermediateDirectories: true)
         try fm.createDirectory(at: paths.videos, withIntermediateDirectories: true)
         try fm.createDirectory(at: paths.thumbnails, withIntermediateDirectories: true)
+        try fm.createDirectory(at: paths.storeIndex.deletingLastPathComponent(), withIntermediateDirectories: true)
     }
 
     private func assetID(for wallpaperID: Int) -> String {
@@ -280,6 +287,68 @@ final class AerialLockScreenService {
 
     private func shotID(for wallpaperID: Int) -> String {
         "WALLPAPER_EXCHANGE_\(wallpaperID)"
+    }
+
+    private func updateWallpaperStoreIndex(indexURL: URL, backupURL: URL, assetID: String) throws {
+        guard fm.fileExists(atPath: indexURL.path) else {
+            throw AerialError.manifestUnavailable
+        }
+        let originalData = try Data(contentsOf: indexURL)
+        if !fm.fileExists(atPath: backupURL.path) {
+            try originalData.write(to: backupURL, options: .atomic)
+        }
+
+        guard var root = try PropertyListSerialization.propertyList(from: originalData, options: [], format: nil) as? [String: Any] else {
+            throw AerialError.manifestUnavailable
+        }
+
+        let configuration = try PropertyListSerialization.data(
+            fromPropertyList: ["assetID": assetID],
+            format: .binary,
+            options: 0
+        )
+        let choice: [String: Any] = [
+            "Configuration": configuration,
+            "Files": [],
+            "Provider": "com.apple.wallpaper.choice.aerials",
+        ]
+        let now = Date()
+        updateIdleNodes(in: &root, choice: choice, now: now)
+
+        do {
+            let data = try PropertyListSerialization.data(fromPropertyList: root, format: .binary, options: 0)
+            try data.write(to: indexURL, options: .atomic)
+        } catch {
+            try? originalData.write(to: indexURL, options: .atomic)
+            throw AerialError.manifestUnavailable
+        }
+    }
+
+    private func updateIdleNodes(in dictionary: inout [String: Any], choice: [String: Any], now: Date) {
+        if var idle = dictionary["Idle"] as? [String: Any] {
+            applyIdleChoice(to: &idle, choice: choice, now: now)
+            dictionary["Idle"] = idle
+        }
+
+        for key in Array(dictionary.keys) {
+            if var child = dictionary[key] as? [String: Any] {
+                updateIdleNodes(in: &child, choice: choice, now: now)
+                dictionary[key] = child
+            } else if var array = dictionary[key] as? [[String: Any]] {
+                for index in array.indices {
+                    updateIdleNodes(in: &array[index], choice: choice, now: now)
+                }
+                dictionary[key] = array
+            }
+        }
+    }
+
+    private func applyIdleChoice(to idle: inout [String: Any], choice: [String: Any], now: Date) {
+        var content = idle["Content"] as? [String: Any] ?? [:]
+        content["Choices"] = [choice]
+        idle["Content"] = content
+        idle["LastSet"] = now
+        idle["LastUse"] = now
     }
 
     private func applySystemWallpaperPointers(videoURL: URL) throws {
