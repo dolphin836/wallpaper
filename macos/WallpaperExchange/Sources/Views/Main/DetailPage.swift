@@ -45,6 +45,7 @@ struct DetailPage: View {
     @State private var applyingWallpaper = false
     @State private var videoDuration: Double?
     @State private var videoDurationTask: Task<Void, Never>?
+    @State private var detailScrollOffset: CGFloat = 0
     @Environment(\.dismiss) private var dismiss
 
     // Raw values are stable identifiers (ForEach ids) — display labels are
@@ -100,9 +101,9 @@ struct DetailPage: View {
         var overlayHorizontalPadding: CGFloat { isCompact ? 16 : 28 }
         var overlayBottomPadding: CGFloat {
             if isFullScreen {
-                return isCompact ? 88 : 118
+                return isCompact ? 72 : 92
             }
-            return isCompact ? 50 : 64
+            return isCompact ? 36 : 44
         }
         var topControlsHorizontalPadding: CGFloat { isCompact ? 22 : 46 }
         var topControlsTopPadding: CGFloat { isCompact ? 22 : 30 }
@@ -140,6 +141,16 @@ struct DetailPage: View {
         return primary
     }
 
+    private var scrollOffsetProbe: some View {
+        GeometryReader { proxy in
+            Color.clear.preference(
+                key: DetailScrollOffsetPreferenceKey.self,
+                value: max(0, -proxy.frame(in: .named("detail-scroll")).minY)
+            )
+        }
+        .frame(height: 0)
+    }
+
     var body: some View {
         GeometryReader { proxy in
             let layout = DetailLayout(size: proxy.size, isModal: onClose != nil, isFullScreen: isWindowFullScreen)
@@ -148,6 +159,7 @@ struct DetailPage: View {
                     .ignoresSafeArea()
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 0) {
+                        scrollOffsetProbe
                         if let d = detail {
                             immersiveDetail(detail: d, layout: layout)
                         } else if let err = loadError {
@@ -159,9 +171,10 @@ struct DetailPage: View {
                     .frame(minHeight: proxy.size.height, alignment: .top)
                 }
                 .id(detailRequestKey)
+                .coordinateSpace(name: "detail-scroll")
                 .frame(width: proxy.size.width, height: proxy.size.height)
 
-                if isShowingDetailActionPopup {
+                if isShowingDetailActionPopup && shouldShowDetailActionOverlay(layout: layout) {
                     actionPopupDismissLayer(layout: layout)
                         .transition(.opacity)
                         .zIndex(10)
@@ -169,6 +182,8 @@ struct DetailPage: View {
 
                 if let detail {
                     detailActionOverlay(detail: detail, layout: layout)
+                        .opacity(shouldShowDetailActionOverlay(layout: layout) ? 1 : 0)
+                        .allowsHitTesting(shouldShowDetailActionOverlay(layout: layout))
                         .zIndex(15)
                 }
 
@@ -187,6 +202,9 @@ struct DetailPage: View {
         .onPreferenceChange(ActionBarWidthPreferenceKey.self) { width in
             guard width > 0 else { return }
             measuredActionBarWidth = width
+        }
+        .onPreferenceChange(DetailScrollOffsetPreferenceKey.self) { offset in
+            detailScrollOffset = max(0, offset)
         }
         .confirmationDialog(
             L10n.detail.deleteConfirmTitle,
@@ -1686,6 +1704,14 @@ struct DetailPage: View {
         showingWallpaperPicker || showingCollectionPicker
     }
 
+    private func shouldShowDetailActionOverlay(layout: DetailLayout) -> Bool {
+        let overlayBottomY = layout.size.height - layout.overlayBottomPadding
+        let estimatedOverlayHeight: CGFloat = isShowingDetailActionPopup ? 320 : 92
+        let overlayTopY = overlayBottomY - estimatedOverlayHeight
+        let heroBottomY = layout.heroViewportHeight - detailScrollOffset
+        return heroBottomY > overlayTopY
+    }
+
     private var collectionTitleField: some View {
         ZStack(alignment: .leading) {
             if newCollectionTitle.isEmpty && !collectionTitleFocused {
@@ -2446,6 +2472,14 @@ private struct ActionBarWidthPreferenceKey: PreferenceKey {
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
+    }
+}
+
+private struct DetailScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
