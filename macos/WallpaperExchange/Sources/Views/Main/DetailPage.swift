@@ -384,13 +384,13 @@ struct DetailPage: View {
         if let videoURL = livePreviewVideoURL(detail: d) {
             LiveVideoPreview(
                 sourceURL: videoURL,
-                posterURL: detailPosterURL(d),
+                posterURL: detailPreviewPosterURL(d),
                 dominantColor: d.dominantColor ?? initialWallpaper?.dominantColor
             )
             .frame(width: layout.size.width, height: layout.heroViewportHeight)
             .clipped()
         } else {
-            progressivePosterImage(detail: d)
+            progressivePosterImage(detail: d, layout: layout)
         }
     }
 
@@ -404,7 +404,7 @@ struct DetailPage: View {
         .clipped()
     }
 
-    private func progressivePosterImage(detail d: WallpaperDetail) -> some View {
+    private func progressivePosterImage(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
         ZStack {
             Color(hex: d.dominantColor ?? initialWallpaper?.dominantColor ?? "#111111")
 
@@ -416,7 +416,7 @@ struct DetailPage: View {
                 )
             }
 
-            CachedAsyncImage(url: detailPosterURL(d), maxPixelDimension: 2600) { img in
+            CachedAsyncImage(url: detailHeroImageURL(d), maxPixelDimension: detailHeroDecodeDimension(detail: d, layout: layout)) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
                 Color.clear
@@ -861,12 +861,30 @@ struct DetailPage: View {
         }
     }
 
-    private func detailPosterURL(_ d: WallpaperDetail) -> URL? {
+    private func detailHeroImageURL(_ d: WallpaperDetail) -> URL? {
+        if !isVideo(detail: d) {
+            let originalURL = d.originalURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !originalURL.isEmpty {
+                return URL(string: originalURL)
+            }
+        }
+        return detailPreviewPosterURL(d)
+    }
+
+    private func detailPreviewPosterURL(_ d: WallpaperDetail) -> URL? {
         let detailURL = d.displayURL.trimmingCharacters(in: .whitespacesAndNewlines)
         if !detailURL.isEmpty {
             return URL(string: detailURL)
         }
         return initialWallpaper.flatMap { URL(string: $0.displayURL) }
+    }
+
+    private func detailHeroDecodeDimension(detail d: WallpaperDetail, layout: DetailLayout) -> Int {
+        let sourceMax = CGFloat(max(d.width, d.height, 1))
+        let screenScale = NSScreen.screens.map(\.backingScaleFactor).max() ?? NSScreen.main?.backingScaleFactor ?? 2
+        let viewportMax = max(layout.size.width, layout.heroViewportHeight) * screenScale
+        let target = min(max(viewportMax, 2600), sourceMax, 5200)
+        return max(1, Int(target.rounded(.up)))
     }
 
     private func displayTitle(_ title: String) -> String {
@@ -1196,7 +1214,7 @@ struct DetailPage: View {
         let size = rawHeroSize(detail: detail, layout: layout)
         return HStack {
             Spacer(minLength: 0)
-            CachedAsyncImage(url: URL(string: detail.displayURL)) { img in
+            CachedAsyncImage(url: detailHeroImageURL(detail), maxPixelDimension: detailHeroDecodeDimension(detail: detail, layout: layout)) { img in
                 img.resizable().aspectRatio(contentMode: .fit)
             } placeholder: {
                 Color(hex: detail.dominantColor ?? "#bbb")
@@ -1221,7 +1239,7 @@ struct DetailPage: View {
             Spacer(minLength: 0)
             LiveVideoPreview(
                 sourceURL: sourceURL,
-                posterURL: URL(string: detail.displayURL),
+                posterURL: detailPreviewPosterURL(detail),
                 dominantColor: detail.dominantColor
             )
             .frame(width: size.width, height: size.height)

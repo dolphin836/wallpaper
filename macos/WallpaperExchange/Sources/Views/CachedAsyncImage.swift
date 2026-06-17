@@ -191,6 +191,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
 
     @State private var nsImage: NSImage?
     @State private var loadedURL: URL?
+    @State private var loadedMaxPixelDimension: Int?
 
     init(
         url: URL?,
@@ -217,21 +218,27 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
                 }
             }
         }
-        .task(id: url) {
+        .task(id: loadIdentity) {
             await load()
         }
+    }
+
+    private var loadIdentity: String {
+        "\(url?.absoluteString ?? "nil")#px=\(maxPixelDimension)"
     }
 
     private func load() async {
         guard let url else {
             nsImage = nil
             loadedURL = nil
+            loadedMaxPixelDimension = nil
             return
         }
 
-        if loadedURL != url {
+        if loadedURL != url || loadedMaxPixelDimension != maxPixelDimension {
             nsImage = nil
             loadedURL = nil
+            loadedMaxPixelDimension = nil
         }
 
         // Cache hit — instant, no flash.
@@ -240,15 +247,20 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
                 self.nsImage = cached
             }
             loadedURL = url
+            loadedMaxPixelDimension = maxPixelDimension
             onLoad?()
             return
         }
 
         let requestURL = url
-        if let img = await ImageCacheStore.shared.load(requestURL, maxPixelDimension: maxPixelDimension) {
-            guard !Task.isCancelled, self.url == requestURL else { return }
+        let requestMaxPixelDimension = maxPixelDimension
+        if let img = await ImageCacheStore.shared.load(requestURL, maxPixelDimension: requestMaxPixelDimension) {
+            guard !Task.isCancelled,
+                  self.url == requestURL,
+                  self.maxPixelDimension == requestMaxPixelDimension else { return }
             self.nsImage = img
             loadedURL = requestURL
+            loadedMaxPixelDimension = requestMaxPixelDimension
             onLoad?()
         }
     }
@@ -262,14 +274,14 @@ private struct ImageLoadingBeam: View {
         GeometryReader { proxy in
             let width = max(proxy.size.width, 1)
             let height = max(proxy.size.height, 1)
-            let bandWidth = max(width * 0.58, 72)
+            let bandWidth = max(width * 0.72, 96)
 
             ZStack {
                 LinearGradient(
                     colors: [
-                        Color.white.opacity(0.02),
-                        Color.white.opacity(0.10),
-                        Color.white.opacity(0.02),
+                        Color.white.opacity(0.04),
+                        Color.white.opacity(0.18),
+                        Color.white.opacity(0.04),
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -281,14 +293,16 @@ private struct ImageLoadingBeam: View {
                             LinearGradient(
                                 stops: [
                                     .init(color: .clear, location: 0),
-                                    .init(color: Color.white.opacity(0.34), location: 0.50),
+                                    .init(color: Color.white.opacity(0.18), location: 0.36),
+                                    .init(color: Color.white.opacity(0.68), location: 0.50),
+                                    .init(color: Color.white.opacity(0.18), location: 0.64),
                                     .init(color: .clear, location: 1),
                                 ],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
                         )
-                        .frame(width: bandWidth, height: height * 1.7)
+                        .frame(width: bandWidth, height: height * 1.85)
                         .rotationEffect(.degrees(14))
                         .offset(x: sweep ? width + bandWidth : -bandWidth, y: 0)
                         .blendMode(.plusLighter)
@@ -296,7 +310,7 @@ private struct ImageLoadingBeam: View {
             }
             .onAppear {
                 guard !reduceMotion else { return }
-                withAnimation(.easeInOut(duration: 1.55).repeatForever(autoreverses: false)) {
+                withAnimation(.easeInOut(duration: 1.25).repeatForever(autoreverses: false)) {
                     sweep = true
                 }
             }
