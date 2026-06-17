@@ -137,7 +137,7 @@ struct DetailPage: View {
         VStack(spacing: 0) {
             immersiveHero(detail: d, layout: layout)
             if !similar.isEmpty {
-                recommendationsBand(layout: layout)
+                recommendationsBand(detail: d, layout: layout)
             }
         }
     }
@@ -463,14 +463,55 @@ struct DetailPage: View {
         .help(L10n.detail.addToList)
     }
 
-    private func recommendationsBand(layout: DetailLayout) -> some View {
+    private func recommendationsBand(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
         moreLikeThis(layout: layout)
             .padding(.horizontal, layout.horizontalPadding)
-            .padding(.top, layout.isCompact ? 28 : 38)
+            .padding(.top, layout.isCompact ? 34 : 46)
             .padding(.bottom, layout.bottomPadding)
             .frame(width: layout.pageWidth, alignment: .leading)
             .frame(width: layout.size.width, alignment: .center)
-            .background(Color.paper)
+            .background(recommendationsBackground(detail: d))
+            .overlay(alignment: .top) {
+                recommendationsTransitionShadow
+            }
+    }
+
+    private func recommendationsBackground(detail d: WallpaperDetail) -> some View {
+        let tint = Color(hex: d.dominantColor ?? "#888888")
+        return ZStack {
+            Color.paper
+            LinearGradient(
+                colors: [
+                    tint.opacity(0.18),
+                    Color.paper.opacity(0.94),
+                    Color.paper
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            RadialGradient(
+                colors: [tint.opacity(0.20), .clear],
+                center: .topLeading,
+                startRadius: 0,
+                endRadius: 520
+            )
+        }
+    }
+
+    private var recommendationsTransitionShadow: some View {
+        LinearGradient(
+            colors: [
+                Color.black.opacity(0.34),
+                Color.black.opacity(0.16),
+                Color.black.opacity(0.05),
+                Color.clear,
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(height: 96)
+        .offset(y: -58)
+        .allowsHitTesting(false)
     }
 
     private func detailPosterURL(_ d: WallpaperDetail) -> URL? {
@@ -910,9 +951,6 @@ struct DetailPage: View {
 
     private func actionBar(detail: WallpaperDetail, layout: DetailLayout) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            // File info (no title) + divider, then the action rows.
-            metaRow(detail: detail)
-            Rectangle().fill(Color.hair).frame(height: 1)
             ViewThatFits(in: .horizontal) {
                 actionRowsWide(detail: detail)
                 actionRowsMedium(detail: detail)
@@ -925,15 +963,25 @@ struct DetailPage: View {
         }
         .animation(.easeOut(duration: 0.16), value: showingWallpaperPicker)
         .padding(layout.actionPadding)
-        .background(RoundedRectangle(cornerRadius: 18).fill(Color.paper.opacity(0.82)))
-        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.black.opacity(0.06), lineWidth: 1))
-        .shadow(color: .black.opacity(0.12), radius: 24, y: 10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Color.paper.opacity(0.36))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.42), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.24), radius: 28, y: 14)
         .frame(maxWidth: .infinity)
     }
 
     private func actionRowsWide(detail: WallpaperDetail) -> some View {
         HStack(spacing: 12) {
             socialActions(detail: detail)
+                .fixedSize(horizontal: true, vertical: false)
+            divider.opacity(0.42)
+            toolbarMeta(detail: detail)
                 .fixedSize(horizontal: true, vertical: false)
             Spacer(minLength: 16)
             downloadActions(detail: detail)
@@ -946,6 +994,9 @@ struct DetailPage: View {
             HStack(spacing: 12) {
                 socialActions(detail: detail)
                     .fixedSize(horizontal: true, vertical: false)
+                divider.opacity(0.42)
+                toolbarMeta(detail: detail)
+                    .fixedSize(horizontal: true, vertical: false)
                 Spacer(minLength: 0)
             }
             downloadActions(detail: detail)
@@ -955,10 +1006,30 @@ struct DetailPage: View {
 
     private func actionRowsCompact(detail: WallpaperDetail) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            socialActions(detail: detail)
+            HStack(spacing: 10) {
+                socialActions(detail: detail)
+                toolbarMeta(detail: detail)
+            }
             downloadActions(detail: detail)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func toolbarMeta(detail d: WallpaperDetail) -> some View {
+        Text(toolbarMetaText(detail: d))
+            .font(.mono10)
+            .tracking(0.8)
+            .foregroundStyle(Color.ink2.opacity(0.74))
+            .lineLimit(1)
+            .truncationMode(.tail)
+    }
+
+    private func toolbarMetaText(detail d: WallpaperDetail) -> String {
+        var parts = ["\(d.width.formatted()) × \(d.height.formatted())", byteString(d.fileSize)]
+        if isVideo(detail: d), let videoDuration {
+            parts.append(formatDuration(videoDuration))
+        }
+        return parts.joined(separator: " · ")
     }
 
     private func socialActions(detail: WallpaperDetail) -> some View {
