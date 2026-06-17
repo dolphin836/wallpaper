@@ -441,6 +441,12 @@ struct DetailPage: View {
         }
     }
 
+    private func openWallpaperSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Wallpaper-Settings.extension") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     // Raw wallpaper mirrors web .wd-hero-img: the image gets max-width /
     // max-height constraints, then the rounded border is attached to the
     // actual rendered image rect rather than a full-width SwiftUI frame.
@@ -668,7 +674,7 @@ struct DetailPage: View {
         }
     }
 
-    private static let wallpaperSurfaceOptions: [WallpaperApplySurface] = [.both, .desktop, .lockScreen]
+    private static let wallpaperSurfaceOptions: [WallpaperApplySurface] = [.both, .desktop]
 
     private func wallpaperPicker(detail d: WallpaperDetail) -> some View {
         let targets = WallpaperManager.displayTargets()
@@ -749,9 +755,26 @@ struct DetailPage: View {
                 Text(L10n.detail.wallpaperPanelHint)
                     .font(.system(size: 10))
                     .foregroundStyle(Color.muted)
-                    .lineLimit(2)
+                    .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)
+                if isVideo(detail: d) {
+                    Button(action: openWallpaperSettings) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text(L10n.detail.wallpaperOpenSettings)
+                                .font(.system(size: 12, weight: .semibold))
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(Color.ink2)
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, 9)
+                        .background(Capsule().fill(Color.paper))
+                        .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
                 Button {
                     Task { await applySelectedWallpaper(d) }
                 } label: {
@@ -845,13 +868,20 @@ struct DetailPage: View {
 
     private func surfaceUnavailable(_ surface: WallpaperApplySurface, detail d: WallpaperDetail) -> Bool {
         switch surface {
-        case .desktop, .lockScreen, .both:
+        case .desktop, .both:
             return false
+        case .lockScreen:
+            return true
         }
     }
 
     private func surfaceUnavailableReason(_ surface: WallpaperApplySurface, detail d: WallpaperDetail) -> String {
-        return L10n.detail.wallpaperApply
+        switch surface {
+        case .desktop, .both:
+            return L10n.detail.wallpaperApply
+        case .lockScreen:
+            return L10n.detail.wallpaperPanelHint
+        }
     }
 
     private func downloadLabel(icon: String, text: String, emphasized: Bool) -> some View {
