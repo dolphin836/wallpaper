@@ -24,6 +24,12 @@ struct DetailPage: View {
     @State private var isFavorited: Bool = false
     @State private var myCollections: [CollectionBrief] = []
     @State private var downloadNotice: DownloadNotice?
+    @State private var showingWallpaperPicker = false
+    @State private var selectedWallpaperSurface: WallpaperApplySurface = .desktop
+    @State private var selectedDisplayTargetID = WallpaperDisplayTarget.allID
+    @State private var applyingWallpaper = false
+    @State private var videoDuration: Double?
+    @State private var videoDurationTask: Task<Void, Never>?
     @Environment(\.dismiss) private var dismiss
 
     // Raw values are stable identifiers (ForEach ids) — display labels are
@@ -522,7 +528,11 @@ struct DetailPage: View {
     }
 
     private func isLive(detail d: WallpaperDetail) -> Bool {
-        d.isDynamic || d.fileType.hasPrefix("video/")
+        d.isDynamic || isVideo(detail: d)
+    }
+
+    private func isVideo(detail d: WallpaperDetail) -> Bool {
+        d.fileType.lowercased().hasPrefix("video/")
     }
 
     private func rawHeroSize(detail: WallpaperDetail, layout: DetailLayout) -> CGSize {
@@ -550,7 +560,12 @@ struct DetailPage: View {
                 actionRowsMedium(detail: detail)
                 actionRowsCompact(detail: detail)
             }
+            if showingWallpaperPicker {
+                wallpaperPicker(detail: detail)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
+        .animation(.easeOut(duration: 0.16), value: showingWallpaperPicker)
         .padding(layout.actionPadding)
         .background(RoundedRectangle(cornerRadius: 18).fill(Color.paper.opacity(0.82)))
         .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.black.opacity(0.06), lineWidth: 1))
@@ -639,16 +654,197 @@ struct DetailPage: View {
             .disabled(downloading || downloaded)
             .buttonStyle(.plain)
             Button(action: {
-                Task { await downloadOriginalAndSet(detail) }
+                withAnimation(.easeOut(duration: 0.16)) {
+                    showingWallpaperPicker.toggle()
+                }
             }) {
-                downloadLabel(icon: downloaded ? "display" : "arrow.down.circle.fill",
+                downloadLabel(icon: downloaded ? "display" : "rectangle.on.rectangle.angled",
                               text: downloadAndSetButtonText(detail: detail, downloaded: downloaded),
                               emphasized: true)
             }
-            .disabled(downloading)
+            .disabled(downloading || applyingWallpaper)
             .buttonStyle(.plain)
             .keyboardShortcut("d", modifiers: .command)
         }
+    }
+
+    private static let wallpaperSurfaceOptions: [WallpaperApplySurface] = [.both, .desktop, .lockScreen]
+
+    private func wallpaperPicker(detail d: WallpaperDetail) -> some View {
+        let targets = WallpaperManager.displayTargets()
+        let activeTargetID = targets.contains { $0.id == selectedDisplayTargetID }
+            ? selectedDisplayTargetID
+            : WallpaperDisplayTarget.allID
+        let cannotApply = applyingWallpaper || manager.downloading.contains(d.id) || surfaceUnavailable(selectedWallpaperSurface, detail: d)
+
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(L10n.detail.wallpaperPickerTitle)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.ink)
+                Spacer(minLength: 0)
+                Button {
+                    withAnimation(.easeOut(duration: 0.16)) {
+                        showingWallpaperPicker = false
+                    }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color.muted)
+                        .frame(width: 24, height: 24)
+                        .background(Circle().fill(Color.paper2))
+                }
+                .buttonStyle(.plain)
+            }
+
+            HStack(spacing: 6) {
+                ForEach(Self.wallpaperSurfaceOptions) { surface in
+                    let selected = selectedWallpaperSurface == surface
+                    let disabled = surfaceUnavailable(surface, detail: d)
+                    Button {
+                        guard !disabled else { return }
+                        selectedWallpaperSurface = surface
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: wallpaperSurfaceIcon(surface))
+                                .font(.system(size: 11, weight: .semibold))
+                            Text(wallpaperSurfaceLabel(surface))
+                                .font(.sans11)
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(selected ? Color.ink : Color.muted)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(selected ? Color.paper : Color.clear))
+                        .overlay(Capsule().stroke(selected ? Color.accent.opacity(0.65) : Color.clear, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(disabled)
+                    .opacity(disabled ? 0.42 : 1)
+                    .help(disabled ? L10n.detail.wallpaperVideoLockUnavailable : wallpaperSurfaceLabel(surface))
+                }
+            }
+            .padding(4)
+            .background(Capsule().fill(Color.paper2.opacity(0.88)))
+            .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
+
+            if selectedWallpaperSurface != .lockScreen {
+                VStack(alignment: .leading, spacing: 9) {
+                    Text(L10n.detail.wallpaperChooseDisplay)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.ink2)
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: 170, maximum: 260), spacing: 10, alignment: .top)],
+                        alignment: .leading,
+                        spacing: 10
+                    ) {
+                        ForEach(targets) { target in
+                            displayTargetButton(target: target, selected: activeTargetID == target.id)
+                        }
+                    }
+                }
+            }
+
+            HStack(alignment: .center, spacing: 12) {
+                Text(L10n.detail.wallpaperPanelHint)
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.muted)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Button {
+                    Task { await applySelectedWallpaper(d) }
+                } label: {
+                    HStack(spacing: 7) {
+                        if applyingWallpaper || manager.downloading.contains(d.id) {
+                            ProgressView()
+                                .controlSize(.small)
+                                .scaleEffect(0.7)
+                                .frame(width: 12, height: 12)
+                        } else {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 11, weight: .bold))
+                        }
+                        Text(applyingWallpaper || manager.downloading.contains(d.id) ? L10n.detail.wallpaperApplying : L10n.detail.wallpaperApply)
+                            .font(.system(size: 12, weight: .semibold))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(Color.white)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 9)
+                    .background(Capsule().fill(cannotApply ? Color.muted.opacity(0.5) : Color.accent))
+                    .shadow(color: cannotApply ? Color.clear : Color.accent.opacity(0.35), radius: 10, y: 4)
+                }
+                .buttonStyle(.plain)
+                .disabled(cannotApply)
+                .help(surfaceUnavailable(selectedWallpaperSurface, detail: d) ? L10n.detail.wallpaperVideoLockUnavailable : L10n.detail.wallpaperApply)
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.paper2.opacity(0.94))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.55), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.10), radius: 18, y: 8)
+    }
+
+    private func displayTargetButton(target: WallpaperDisplayTarget, selected: Bool) -> some View {
+        Button {
+            selectedDisplayTargetID = target.id
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: target.isAll ? "rectangle.on.rectangle" : "display")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(selected ? Color.accent : Color.muted)
+                    if selected {
+                        Spacer(minLength: 0)
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.accent)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(target.name)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.ink)
+                        .lineLimit(1)
+                    Text(target.detail)
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.muted)
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 74, alignment: .leading)
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(selected ? Color.accent.opacity(0.10) : Color.paper.opacity(0.78)))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(selected ? Color.accent.opacity(0.75) : Color.hair, lineWidth: selected ? 1.4 : 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func wallpaperSurfaceLabel(_ surface: WallpaperApplySurface) -> String {
+        switch surface {
+        case .desktop: L10n.detail.wallpaperSurfaceDesktop
+        case .lockScreen: L10n.detail.wallpaperSurfaceLockScreen
+        case .both: L10n.detail.wallpaperSurfaceBoth
+        }
+    }
+
+    private func wallpaperSurfaceIcon(_ surface: WallpaperApplySurface) -> String {
+        switch surface {
+        case .desktop: "display"
+        case .lockScreen: "lock.fill"
+        case .both: "rectangle.on.rectangle"
+        }
+    }
+
+    private func surfaceUnavailable(_ surface: WallpaperApplySurface, detail d: WallpaperDetail) -> Bool {
+        isVideo(detail: d) && surface != .desktop
     }
 
     private func downloadLabel(icon: String, text: String, emphasized: Bool) -> some View {
@@ -694,12 +890,31 @@ struct DetailPage: View {
     }
 
     private func metaSpecs(detail d: WallpaperDetail) -> some View {
-        Text("\(d.resolutionLabel) · \(d.fileType.uppercased()) · \(byteString(d.fileSize))")
+        Text(metaSpecText(detail: d))
             .font(.system(size: 11, design: .monospaced))
             .tracking(0.4)
             .foregroundStyle(Color.muted)
             .lineLimit(1)
             .truncationMode(.tail)
+    }
+
+    private func metaSpecText(detail d: WallpaperDetail) -> String {
+        var parts = [d.resolutionLabel, d.fileType.uppercased(), byteString(d.fileSize)]
+        if isVideo(detail: d), let videoDuration {
+            parts.append(formatDuration(videoDuration))
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func formatDuration(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let secs = total % 60
+        if hours > 0 {
+            return "\(hours):\(String(format: "%02d", minutes)):\(String(format: "%02d", secs))"
+        }
+        return "\(minutes):\(String(format: "%02d", secs))"
     }
 
     private func byteString(_ bytes: Int) -> String {
@@ -951,30 +1166,34 @@ struct DetailPage: View {
         }
     }
 
-    private func downloadOriginalAndSet(_ detail: WallpaperDetail) async {
-        let wallpaper = lightWallpaper(detail)
-        if isLocalDownloaded(detail) {
-            downloadNotice = nil
-            do {
-                try await manager.setAsWallpaper(wallpaper)
-                downloadNotice = .set
-            } catch {
-                handleDownloadError(error)
-            }
+    private func applySelectedWallpaper(_ detail: WallpaperDetail) async {
+        guard !surfaceUnavailable(selectedWallpaperSurface, detail: detail) else {
+            downloadNotice = .failed(L10n.detail.wallpaperVideoLockUnavailable)
             return
         }
-        guard auth.isLoggedIn else {
+        let wallpaper = lightWallpaper(detail)
+        guard auth.isLoggedIn || isLocalDownloaded(detail) else {
             downloadNotice = .failed(L10n.detail.signInToDownloadAndSet)
             auth.login()
             return
         }
-        await refreshCoinsIfTradeRequired(detail)
+
+        applyingWallpaper = true
         downloadNotice = nil
+        defer { applyingWallpaper = false }
+
         do {
-            try await manager.downloadOriginal(wallpaper: wallpaper)
-            try await manager.setAsWallpaper(wallpaper)
+            if !isLocalDownloaded(detail) {
+                await refreshCoinsIfTradeRequired(detail)
+                try await manager.downloadOriginal(wallpaper: wallpaper)
+            }
+            let target = selectedDisplayTarget()
+            try await manager.setAsWallpaper(wallpaper, target: target, surface: selectedWallpaperSurface)
             await auth.refreshProfile()
             downloadNotice = .set
+            withAnimation(.easeOut(duration: 0.16)) {
+                showingWallpaperPicker = false
+            }
         } catch {
             handleDownloadError(error)
         }
@@ -1005,14 +1224,60 @@ struct DetailPage: View {
     private func load() async {
         loadError = nil
         downloadNotice = nil
+        videoDurationTask?.cancel()
+        videoDuration = nil
         do {
             let d = try await APIClient.shared.fetchWallpaperDetail(slug: slug)
             detail = d
             isLiked = d.isLiked ?? false
             isFavorited = d.isFavorited ?? false
+            if isVideo(detail: d), selectedWallpaperSurface != .desktop {
+                selectedWallpaperSurface = .desktop
+            }
+            loadVideoDurationIfNeeded(detail: d)
             await loadCollections(wallpaperID: d.id)
         } catch {
             loadError = error.localizedDescription
+        }
+    }
+
+    private func selectedDisplayTarget() -> WallpaperDisplayTarget {
+        let targets = WallpaperManager.displayTargets()
+        return targets.first { $0.id == selectedDisplayTargetID } ?? targets.first ?? WallpaperDisplayTarget(
+            id: WallpaperDisplayTarget.allID,
+            name: L10n.detail.wallpaperAllDisplays,
+            detail: L10n.detail.wallpaperAllDisplaysDetail(0),
+            screenKey: nil,
+            isMain: false
+        )
+    }
+
+    private func loadVideoDurationIfNeeded(detail d: WallpaperDetail) {
+        videoDurationTask?.cancel()
+        videoDuration = nil
+        guard isVideo(detail: d) else { return }
+        videoDurationTask = Task {
+            await loadVideoDuration(detail: d)
+        }
+    }
+
+    private func loadVideoDuration(detail d: WallpaperDetail) async {
+        let rawURL = d.previewVideoURL?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let source = rawURL?.isEmpty == false ? (rawURL ?? d.originalURL) : d.originalURL
+        guard let url = URL(string: source) else { return }
+        let asset = AVURLAsset(url: url)
+        do {
+            let duration = try await asset.load(.duration)
+            let seconds = CMTimeGetSeconds(duration)
+            guard seconds.isFinite, seconds > 0, !Task.isCancelled else { return }
+            await MainActor.run {
+                if detail?.id == d.id {
+                    videoDuration = seconds
+                }
+            }
+        } catch {
+            // Duration is a nice-to-have meta field; leave it hidden if the
+            // preview resource cannot expose timing metadata.
         }
     }
 

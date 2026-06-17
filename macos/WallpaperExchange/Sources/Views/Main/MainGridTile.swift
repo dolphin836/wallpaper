@@ -3,8 +3,9 @@ import AppKit
 
 // Wallpaper grid card — matches web salon tiles. Image fills a 3:2
 // frame on the dominant-color floor; chips overlay top-left
-// (Resolution / Video / Mac / AI); hover reveals a 4-button action
-// rail at top-right (Favorite · Like · Download · Set as wallpaper).
+// (Resolution / Video / Mac / AI); hover reveals a 3-button action
+// rail at top-right (Favorite · Like · Download). Setting a wallpaper
+// now lives in DetailPage so users can choose the target display.
 struct MainGridTile: View {
     let wallpaper: Wallpaper
     var aspectRatio: CGFloat = 3.0 / 2.0
@@ -41,7 +42,6 @@ struct MainGridTile: View {
     private var isTransferring: Bool { manager.downloading.contains(wallpaper.id) }
     private var downloadProgress: Double? { manager.downloadProgress[wallpaper.id] }
     private var downloadButtonLoading: Bool { isTransferring && (transferAction == .download || transferAction == nil) }
-    private var setButtonLoading: Bool { isTransferring && transferAction == .set }
 
     // GeometryReader-anchored sizing — proven reliable in
     // MacDynamicTile after Rectangle/.aspectRatio variants leaked the
@@ -124,15 +124,6 @@ struct MainGridTile: View {
                                       progress: downloadProgress,
                                       size: dotSize,
                                       action: { Task { await doDownload() } })
-                            ActionDot(icon: "rectangle.on.rectangle.angled",
-                                      kind: .neutral,
-                                      active: false,
-                                      help: L10n.browse.tipSetWallpaper,
-                                      busy: busy,
-                                      loading: setButtonLoading,
-                                      progress: downloadProgress,
-                                      size: dotSize,
-                                      action: { Task { await doSetWallpaper() } })
                         }
                         .opacity(hover ? 1 : 0)
                         .offset(y: hover ? 0 : 4)
@@ -247,24 +238,10 @@ struct MainGridTile: View {
             await auth.refreshProfile()
         } catch {}
     }
-    private func doSetWallpaper() async {
-        guard auth.isLoggedIn else { auth.login(); return }
-        busy = true; transferAction = .set
-        defer { busy = false; transferAction = nil }
-        do {
-            if !localFileExists {
-                try await manager.download(wallpaper: wallpaper)
-            }
-            downloaded = true
-            try await manager.setAsWallpaper(wallpaper)
-            await auth.refreshProfile()
-        } catch {}
-    }
 }
 
 private enum TransferAction {
     case download
-    case set
 }
 
 // ─── ActionDot — single hover-revealed action button ───────────

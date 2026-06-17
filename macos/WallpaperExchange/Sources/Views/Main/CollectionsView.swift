@@ -662,7 +662,6 @@ struct FramedTile: View {
     private var isTransferring: Bool { manager.downloading.contains(wallpaper.id) }
     private var downloadProgress: Double? { manager.downloadProgress[wallpaper.id] }
     private var downloadButtonLoading: Bool { isTransferring && (transferAction == .download || transferAction == nil) }
-    private var setButtonLoading: Bool { isTransferring && transferAction == .set }
 
     private var imageURL: URL? {
         let s = wallpaper.previewURL.isEmpty ? wallpaper.thumbURL : wallpaper.previewURL
@@ -738,9 +737,9 @@ struct FramedTile: View {
         .background(Capsule().fill(Color.black.opacity(0.45)))
     }
 
-    // Hover-revealed action rail — Favorite · Like · Download · Set,
-    // same vocabulary as MainGridTile's rail (the web FramedTile shows
-    // favorite/like/download over the mat on hover).
+    // Hover-revealed action rail — Favorite · Like · Download.
+    // Setting a wallpaper now lives in DetailPage, where display and
+    // lock-screen targets can be chosen explicitly.
     @ViewBuilder private var actionRail: some View {
         VStack(spacing: 5) {
             ActionDot(icon: isFavorited ? "star.fill" : "star",
@@ -759,14 +758,6 @@ struct FramedTile: View {
                       progress: downloadProgress,
                       size: 26,
                       action: { Task { await doDownload() } })
-            ActionDot(icon: "rectangle.on.rectangle.angled",
-                      kind: .neutral, active: false,
-                      help: L10n.collections.setAsWallpaper,
-                      busy: busy,
-                      loading: setButtonLoading,
-                      progress: downloadProgress,
-                      size: 26,
-                      action: { Task { await doSetWallpaper() } })
         }
         .opacity(hovering ? 1 : 0)
         .offset(y: hovering ? 0 : 4)
@@ -797,23 +788,10 @@ struct FramedTile: View {
         defer { busy = false; transferAction = nil }
         do { try await manager.download(wallpaper: wallpaper); downloaded = true; await auth.refreshProfile() } catch {}
     }
-    private func doSetWallpaper() async {
-        guard auth.isLoggedIn else { auth.login(); return }
-        busy = true; transferAction = .set
-        defer { busy = false; transferAction = nil }
-        do {
-            if !localFileExists {
-                try await manager.download(wallpaper: wallpaper)
-            }
-            downloaded = true
-            try await manager.setAsWallpaper(wallpaper); await auth.refreshProfile()
-        } catch {}
-    }
 }
 
 private enum FramedTransferAction {
     case download
-    case set
 }
 
 // Relative-time formatter for the collection byline — mirrors the web's

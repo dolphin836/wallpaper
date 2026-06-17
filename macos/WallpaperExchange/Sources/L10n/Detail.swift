@@ -70,6 +70,20 @@ struct DetailStrings {
     let setAsWallpaper: String
     let downloadAndSetCoin: String
     let downloadAndSet: String
+    let wallpaperPickerTitle: String
+    let wallpaperSurfaceDesktop: String
+    let wallpaperSurfaceLockScreen: String
+    let wallpaperSurfaceBoth: String
+    let wallpaperChooseDisplay: String
+    let wallpaperAllDisplays: String
+    let wallpaperAllDisplaysDetail: (Int) -> String        // (display count)
+    let wallpaperMainDisplay: String
+    let wallpaperSecondaryDisplay: String
+    let wallpaperApply: String
+    let wallpaperApplying: String
+    let wallpaperPanelHint: String
+    let wallpaperVideoLockUnavailable: String
+    let lockScreenUnavailable: String
 
     // Download errors
     let signInToDownload: String
@@ -99,7 +113,7 @@ private let detailEN = DetailStrings(
     noticeUnavailableTitle: "Not ready to download",
     noticeFailedTitle: "Download failed",
     noticeSuccessMessage: { name, size in "\(name) · \(size) saved to your Wallpaper Exchange downloads." },
-    noticeSetMessage: "Applied to every connected display from your local Wallpaper Exchange file.",
+    noticeSetMessage: "Applied your wallpaper settings from the local Wallpaper Exchange file.",
     noticeInsufficientCoinsMessage: { n in "Your balance is \(n) coin\(n == 1 ? "" : "s"). Upload wallpapers to earn more and keep downloading." },
     noticeUnavailableMessage: "The original file is still being prepared or is temporarily unavailable. Try again in a moment.",
     chipLive: "LIVE",
@@ -131,6 +145,20 @@ private let detailEN = DetailStrings(
     setAsWallpaper: "Set as wallpaper",
     downloadAndSetCoin: "Download & set · 1 coin",
     downloadAndSet: "Download & set",
+    wallpaperPickerTitle: "Set wallpaper",
+    wallpaperSurfaceDesktop: "Desktop",
+    wallpaperSurfaceLockScreen: "Lock screen",
+    wallpaperSurfaceBoth: "Both",
+    wallpaperChooseDisplay: "Choose display",
+    wallpaperAllDisplays: "All displays",
+    wallpaperAllDisplaysDetail: { n in n == 1 ? "1 connected display" : "\(n) connected displays" },
+    wallpaperMainDisplay: "Main",
+    wallpaperSecondaryDisplay: "Display",
+    wallpaperApply: "Apply",
+    wallpaperApplying: "Applying",
+    wallpaperPanelHint: "Desktop changes are applied per display. Lock screen sync uses the macOS wallpaper source and may apply globally.",
+    wallpaperVideoLockUnavailable: "Video wallpapers can be applied to the desktop only.",
+    lockScreenUnavailable: "Lock screen sync is not available on this Mac.",
     signInToDownload: "Please sign in to download this wallpaper.",
     signInToDownloadAndSet: "Please sign in to download and set this wallpaper.",
     signInAgain: "Please sign in again to download this wallpaper.",
@@ -156,7 +184,7 @@ private let detailZhCN = DetailStrings(
     noticeUnavailableTitle: "暂不可下载",
     noticeFailedTitle: "下载失败",
     noticeSuccessMessage: { name, size in "\(name) · \(size) 已保存到你的 Wallpaper Exchange 下载目录。" },
-    noticeSetMessage: "已使用本地 Wallpaper Exchange 文件应用到所有已连接的显示器。",
+    noticeSetMessage: "已使用本地 Wallpaper Exchange 文件应用你的壁纸设置。",
     noticeInsufficientCoinsMessage: { n in "你的余额为 \(n) 金币。上传壁纸即可赚取更多金币，继续下载。" },
     noticeUnavailableMessage: "原图仍在准备中或暂时不可用，请稍后再试。",
     chipLive: "动态",
@@ -188,6 +216,20 @@ private let detailZhCN = DetailStrings(
     setAsWallpaper: "设为壁纸",
     downloadAndSetCoin: "下载并设置 · 1 金币",
     downloadAndSet: "下载并设置",
+    wallpaperPickerTitle: "设置壁纸",
+    wallpaperSurfaceDesktop: "桌面",
+    wallpaperSurfaceLockScreen: "锁屏",
+    wallpaperSurfaceBoth: "同时",
+    wallpaperChooseDisplay: "选择显示器",
+    wallpaperAllDisplays: "全部显示器",
+    wallpaperAllDisplaysDetail: { n in "已连接 \(n) 个显示器" },
+    wallpaperMainDisplay: "主显示器",
+    wallpaperSecondaryDisplay: "显示器",
+    wallpaperApply: "应用",
+    wallpaperApplying: "应用中",
+    wallpaperPanelHint: "桌面壁纸会按显示器应用；锁屏会同步到 macOS 的系统壁纸来源，通常是全局生效。",
+    wallpaperVideoLockUnavailable: "视频壁纸只能应用到桌面。",
+    lockScreenUnavailable: "这台 Mac 当前无法同步锁屏壁纸。",
     signInToDownload: "请登录后再下载这张壁纸。",
     signInToDownloadAndSet: "请登录后再下载并设置这张壁纸。",
     signInAgain: "请重新登录后再下载这张壁纸。",
@@ -213,7 +255,7 @@ private let detailZhTW = DetailStrings(
     noticeUnavailableTitle: "暫不可下載",
     noticeFailedTitle: "下載失敗",
     noticeSuccessMessage: { name, size in "\(name) · \(size) 已儲存到你的 Wallpaper Exchange 下載資料夾。" },
-    noticeSetMessage: "已使用本機 Wallpaper Exchange 檔案套用到所有已連接的顯示器。",
+    noticeSetMessage: "已使用本機 Wallpaper Exchange 檔案套用你的桌布設定。",
     noticeInsufficientCoinsMessage: { n in "你的餘額為 \(n) 金幣。上傳桌布即可賺取更多金幣，繼續下載。" },
     noticeUnavailableMessage: "原圖仍在準備中或暫時無法使用，請稍後再試。",
     chipLive: "動態",
@@ -245,6 +287,20 @@ private let detailZhTW = DetailStrings(
     setAsWallpaper: "設為桌布",
     downloadAndSetCoin: "下載並設定 · 1 金幣",
     downloadAndSet: "下載並設定",
+    wallpaperPickerTitle: "設定桌布",
+    wallpaperSurfaceDesktop: "桌面",
+    wallpaperSurfaceLockScreen: "鎖定畫面",
+    wallpaperSurfaceBoth: "同時",
+    wallpaperChooseDisplay: "選擇顯示器",
+    wallpaperAllDisplays: "全部顯示器",
+    wallpaperAllDisplaysDetail: { n in "已連接 \(n) 個顯示器" },
+    wallpaperMainDisplay: "主顯示器",
+    wallpaperSecondaryDisplay: "顯示器",
+    wallpaperApply: "套用",
+    wallpaperApplying: "套用中",
+    wallpaperPanelHint: "桌面桌布會按顯示器套用；鎖定畫面會同步到 macOS 的系統桌布來源，通常是全域生效。",
+    wallpaperVideoLockUnavailable: "影片桌布只能套用到桌面。",
+    lockScreenUnavailable: "這台 Mac 目前無法同步鎖定畫面桌布。",
     signInToDownload: "請登入後再下載這張桌布。",
     signInToDownloadAndSet: "請登入後再下載並設定這張桌布。",
     signInAgain: "請重新登入後再下載這張桌布。",
@@ -270,7 +326,7 @@ private let detailJA = DetailStrings(
     noticeUnavailableTitle: "ダウンロード準備中",
     noticeFailedTitle: "ダウンロード失敗",
     noticeSuccessMessage: { name, size in "\(name) · \(size) を Wallpaper Exchange のダウンロードに保存しました。" },
-    noticeSetMessage: "ローカルの Wallpaper Exchange ファイルから、接続中のすべてのディスプレイに適用しました。",
+    noticeSetMessage: "ローカルの Wallpaper Exchange ファイルから、壁紙設定を適用しました。",
     noticeInsufficientCoinsMessage: { n in "残高は \(n) コインです。壁紙をアップロードしてコインを獲得すると、引き続きダウンロードできます。" },
     noticeUnavailableMessage: "オリジナルファイルは準備中か、一時的に利用できません。しばらくしてからもう一度お試しください。",
     chipLive: "ライブ",
@@ -302,6 +358,20 @@ private let detailJA = DetailStrings(
     setAsWallpaper: "壁紙に設定",
     downloadAndSetCoin: "ダウンロードして設定 · 1コイン",
     downloadAndSet: "ダウンロードして設定",
+    wallpaperPickerTitle: "壁紙を設定",
+    wallpaperSurfaceDesktop: "デスクトップ",
+    wallpaperSurfaceLockScreen: "ロック画面",
+    wallpaperSurfaceBoth: "両方",
+    wallpaperChooseDisplay: "ディスプレイを選択",
+    wallpaperAllDisplays: "すべてのディスプレイ",
+    wallpaperAllDisplaysDetail: { n in "接続中のディスプレイ \(n) 台" },
+    wallpaperMainDisplay: "メイン",
+    wallpaperSecondaryDisplay: "ディスプレイ",
+    wallpaperApply: "適用",
+    wallpaperApplying: "適用中",
+    wallpaperPanelHint: "デスクトップ壁紙はディスプレイごとに適用されます。ロック画面は macOS のシステム壁紙ソースへ同期され、通常は全体に反映されます。",
+    wallpaperVideoLockUnavailable: "ビデオ壁紙はデスクトップにのみ適用できます。",
+    lockScreenUnavailable: "この Mac ではロック画面の同期を利用できません。",
     signInToDownload: "この壁紙をダウンロードするにはサインインしてください。",
     signInToDownloadAndSet: "この壁紙をダウンロードして設定するにはサインインしてください。",
     signInAgain: "もう一度サインインしてから、この壁紙をダウンロードしてください。",

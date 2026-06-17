@@ -69,8 +69,6 @@ struct PopoverContentView: View {
                         emptyTitle: "No wallpapers",
                         emptySubtitle: nil,
                         onDownload: { wp in Task { await download(wp) } },
-                        onDownloadAndSet: { wp in Task { await downloadAndSet(wp) } },
-                        onSetWallpaper: { wp in Task { await setWallpaper(wp) } },
                         onRedownload: { _ in },
                         onLoadMore: { Task { await loadLatest() } }
                     )
@@ -93,10 +91,8 @@ struct PopoverContentView: View {
                         shuffleNextAt: manager.nextRotationAt,
                         onOpenLocalFolder: { revealDownloadsFolder() },
                         emptyTitle: "No downloads yet",
-                        emptySubtitle: "Try a wallpaper from Latest. Use Set & download to apply it instantly.",
+                        emptySubtitle: "Try a wallpaper from Latest. Open a wallpaper detail page to set it.",
                         onDownload: { _ in },
-                        onDownloadAndSet: { _ in },
-                        onSetWallpaper: { wp in Task { await setWallpaper(wp) } },
                         onRedownload: { wp in Task { await download(wp) } },
                         onLoadMore: { Task { await loadDownloaded() } }
                     )
@@ -250,32 +246,4 @@ struct PopoverContentView: View {
         }
     }
 
-    private func downloadAndSet(_ wallpaper: Wallpaper) async {
-        guard auth.isLoggedIn else { auth.login(); return }
-        do {
-            try await manager.download(wallpaper: wallpaper)
-            await auth.refreshProfile()
-            await loadDownloaded(reset: true)
-            try await manager.setAsWallpaper(wallpaper)
-        } catch APIError.insufficientCoins {
-            errorMessage = "Insufficient coins. Upload wallpapers to earn more!"
-        } catch APIError.unauthorized {
-            auth.logout()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    private func setWallpaper(_ wallpaper: Wallpaper) async {
-        do {
-            try await manager.setAsWallpaper(wallpaper)
-            await loadDownloaded(reset: true)
-        } catch APIError.insufficientCoins {
-            errorMessage = "Insufficient coins. Upload wallpapers to earn more!"
-        } catch APIError.unauthorized {
-            auth.logout()
-        } catch {
-            errorMessage = "Failed to set wallpaper: \(error.localizedDescription)"
-        }
-    }
 }

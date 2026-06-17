@@ -2,9 +2,8 @@ import SwiftUI
 
 // What hover action set to render. Two parallel surfaces share the same
 // tile chrome but expose different actions:
-//   .latest      — Download / Set & download
-//   .downloaded  — Set as wallpaper (plus optional Re-download when the
-//                  local file is missing)
+//   .latest      — Download
+//   .downloaded  — optional Re-download when the local file is missing
 enum WallpaperTileKind {
     case latest
     case downloaded
@@ -23,8 +22,6 @@ struct WallpaperTileView: View {
     // construction, an Active wallpaper has its file on disk.
     let isActive: Bool
     let onDownload: () -> Void
-    let onDownloadAndSet: () -> Void
-    let onSetWallpaper: () -> Void
     let onRedownload: () -> Void
 
     @State private var isHovering = false
@@ -105,26 +102,13 @@ struct WallpaperTileView: View {
         HStack(spacing: 6) {
             switch kind {
             case .latest:
-                // If the file is already on this Mac (the user already paid
-                // and pulled it on this device), the Download / Set &
-                // download pair are both confusing — "download" implies the
-                // file isn't local, but it is. Collapse to a single Set as
-                // wallpaper button, matching .downloaded's hover row.
-                if localFileExists {
-                    PillButton(icon: "display", label: "Set as wallpaper", primary: true, action: onSetWallpaper)
-                } else {
+                if !localFileExists {
                     PillButton(icon: "arrow.down",
                                label: downloadLabel,
                                primary: false,
                                loading: isDownloading,
                                progress: downloadProgress,
                                action: onDownload)
-                    PillButton(icon: "display",
-                               label: "Set & download",
-                               primary: true,
-                               loading: isDownloading,
-                               progress: downloadProgress,
-                               action: onDownloadAndSet)
                 }
             case .downloaded:
                 if !localFileExists {
@@ -135,7 +119,6 @@ struct WallpaperTileView: View {
                                progress: downloadProgress,
                                action: onRedownload)
                 }
-                PillButton(icon: "display", label: "Set as wallpaper", primary: true, action: onSetWallpaper)
             }
         }
         .padding(actionInset)

@@ -28,8 +28,6 @@ struct WallpaperColumnView: View {
     let emptySubtitle: String?
 
     let onDownload: (Wallpaper) -> Void
-    let onDownloadAndSet: (Wallpaper) -> Void
-    let onSetWallpaper: (Wallpaper) -> Void
     let onRedownload: (Wallpaper) -> Void
     let onLoadMore: () -> Void
 
@@ -63,8 +61,6 @@ struct WallpaperColumnView: View {
                                 localFileExists: manager.downloadedIDs.contains(wp.id),
                                 isActive: manager.currentWallpaperID == wp.id,
                                 onDownload: { onDownload(wp) },
-                                onDownloadAndSet: { onDownloadAndSet(wp) },
-                                onSetWallpaper: { onSetWallpaper(wp) },
                                 onRedownload: { onRedownload(wp) }
                             )
                             .onAppear {

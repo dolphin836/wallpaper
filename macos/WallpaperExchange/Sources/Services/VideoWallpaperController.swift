@@ -7,27 +7,49 @@ final class VideoWallpaperController {
 
     private var activeVideoURL: URL?
     private var activeWallpaperID: Int?
+    private var activeScreenKeys: Set<String>?
     private var sessions: [VideoWallpaperSession] = []
 
     private init() {}
 
-    func start(videoURL: URL, wallpaperID: Int) {
+    func start(videoURL: URL, wallpaperID: Int, screens requestedScreens: [NSScreen]? = nil) {
         activeVideoURL = videoURL
         activeWallpaperID = wallpaperID
+        activeScreenKeys = requestedScreens.map { Set($0.compactMap(Self.screenKey)) }
         closeSessions()
 
-        let screens = NSScreen.screens.isEmpty ? [NSScreen.main].compactMap { $0 } : NSScreen.screens
+        let allScreens = NSScreen.screens.isEmpty ? [NSScreen.main].compactMap { $0 } : NSScreen.screens
+        let screens: [NSScreen]
+        if let keys = activeScreenKeys, !keys.isEmpty {
+            screens = allScreens.filter { screen in
+                guard let key = Self.screenKey(screen) else { return false }
+                return keys.contains(key)
+            }
+        } else {
+            screens = allScreens
+        }
         sessions = screens.map { VideoWallpaperSession(screen: $0, videoURL: videoURL) }
     }
 
     func restartActive() {
         guard let activeVideoURL, let activeWallpaperID else { return }
-        start(videoURL: activeVideoURL, wallpaperID: activeWallpaperID)
+        let screens: [NSScreen]?
+        if let keys = activeScreenKeys {
+            let allScreens = NSScreen.screens.isEmpty ? [NSScreen.main].compactMap { $0 } : NSScreen.screens
+            screens = allScreens.filter { screen in
+                guard let key = Self.screenKey(screen) else { return false }
+                return keys.contains(key)
+            }
+        } else {
+            screens = nil
+        }
+        start(videoURL: activeVideoURL, wallpaperID: activeWallpaperID, screens: screens)
     }
 
     func stop() {
         activeVideoURL = nil
         activeWallpaperID = nil
+        activeScreenKeys = nil
         closeSessions()
     }
 
@@ -39,6 +61,13 @@ final class VideoWallpaperController {
     private func closeSessions() {
         sessions.forEach { $0.close() }
         sessions.removeAll()
+    }
+
+    private static func screenKey(_ screen: NSScreen) -> String? {
+        if let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber {
+            return number.stringValue
+        }
+        return nil
     }
 }
 
