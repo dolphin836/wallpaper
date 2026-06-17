@@ -160,6 +160,17 @@ struct DetailPage: View {
                 .id(detailRequestKey)
                 .frame(width: proxy.size.width, height: proxy.size.height)
 
+                if isShowingDetailActionPopup {
+                    actionPopupDismissLayer(layout: layout)
+                        .transition(.opacity)
+                        .zIndex(10)
+                }
+
+                if let detail {
+                    detailActionOverlay(detail: detail, layout: layout)
+                        .zIndex(15)
+                }
+
                 detailTopControls(detail: detail, layout: layout)
                     .padding(.horizontal, layout.topControlsHorizontalPadding)
                     .padding(.top, layout.topControlsTopPadding)
@@ -361,33 +372,6 @@ struct DetailPage: View {
         ZStack(alignment: .bottom) {
             immersiveHeroMedia(detail: d, layout: layout)
             heroVignette
-
-            if isShowingDetailActionPopup {
-                actionPopupDismissLayer(layout: layout)
-                    .transition(.opacity)
-                    .zIndex(1)
-            }
-
-            VStack(alignment: .center, spacing: 12) {
-                downloadProgressBar(detail: d, layout: layout)
-                downloadNoticeView(detail: d, layout: layout)
-
-                if showingCollectionPicker {
-                    collectionPicker(detail: d, layout: layout)
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
-                }
-
-                if showingWallpaperPicker {
-                    wallpaperPicker(detail: d, layout: layout)
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
-                }
-
-                actionBar(detail: d, layout: layout)
-            }
-            .frame(maxWidth: layout.actionBarAvailableWidth, alignment: .center)
-            .padding(.horizontal, layout.overlayHorizontalPadding)
-            .padding(.bottom, layout.overlayBottomPadding)
-            .zIndex(2)
         }
         .frame(width: layout.size.width, height: layout.heroViewportHeight)
         .clipped()
@@ -1317,6 +1301,29 @@ struct DetailPage: View {
 
     private static let previewOptions: [PreviewMode] = [.off, .plain, .home, .lock]
 
+    private func detailActionOverlay(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
+        VStack(alignment: .center, spacing: 12) {
+            downloadProgressBar(detail: d, layout: layout)
+            downloadNoticeView(detail: d, layout: layout)
+
+            if showingCollectionPicker {
+                collectionPicker(detail: d, layout: layout)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+
+            if showingWallpaperPicker {
+                wallpaperPicker(detail: d, layout: layout)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+
+            actionBar(detail: d, layout: layout)
+        }
+        .frame(maxWidth: layout.actionBarAvailableWidth, alignment: .center)
+        .padding(.horizontal, layout.overlayHorizontalPadding)
+        .padding(.bottom, layout.overlayBottomPadding)
+        .frame(width: layout.size.width, height: layout.size.height, alignment: .bottom)
+    }
+
     private func actionBar(detail: WallpaperDetail, layout: DetailLayout) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             ViewThatFits(in: .horizontal) {
@@ -1746,7 +1753,7 @@ struct DetailPage: View {
     private func actionPopupDismissLayer(layout: DetailLayout) -> some View {
         Color.black.opacity(0.001)
             .contentShape(Rectangle())
-            .frame(width: layout.size.width, height: layout.heroViewportHeight)
+            .frame(width: layout.size.width, height: layout.size.height)
             .onTapGesture {
                 dismissDetailActionPopups()
             }
