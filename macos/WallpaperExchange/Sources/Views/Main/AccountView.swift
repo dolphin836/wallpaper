@@ -661,6 +661,7 @@ struct PagedCollectionGrid: View {
     @State private var pendingAutoPlayWallpapers: [Wallpaper] = []
     @State private var pendingMissingCount = 0
     @State private var showAutoPlayDownloadPrompt = false
+    @State private var hoveredAutoPlayCollectionID: Int?
 
     private let pageSize = 12
     private var totalPages: Int { total > 0 ? Int(ceil(Double(total) / Double(pageSize))) : max(cursors.count, 1) }
@@ -772,11 +773,23 @@ struct PagedCollectionGrid: View {
             }
             .buttonStyle(.plain)
 
-            if showsAutoPlayControls {
+            if shouldShowAutoPlayButton(for: collection) {
                 autoPlayButton(collection)
-                    .padding(10)
+                    .padding(.top, 12)
+                    .padding(.trailing, 22)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
             }
         }
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            hoveredAutoPlayCollectionID = hovering ? collection.id : nil
+        }
+        .animation(.easeOut(duration: 0.16), value: hoveredAutoPlayCollectionID)
+    }
+
+    private func shouldShowAutoPlayButton(for collection: CollectionItem) -> Bool {
+        guard showsAutoPlayControls else { return false }
+        return hoveredAutoPlayCollectionID == collection.id || autoPlayBusyCollectionID == collection.id
     }
 
     private func autoPlayButton(_ collection: CollectionItem) -> some View {
