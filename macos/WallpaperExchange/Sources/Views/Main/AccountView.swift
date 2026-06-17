@@ -22,6 +22,21 @@ struct AccountView: View {
     @State private var didInit = false
     @State private var counts: [AccountTab: Int] = [:]
 
+    init(
+        username: String,
+        initialTab: AccountTab = .uploads,
+        onWallpaper: @escaping (Wallpaper) -> Void,
+        onCollection: @escaping (CollectionItem) -> Void,
+        onUpload: @escaping () -> Void = {}
+    ) {
+        self.username = username
+        self.initialTab = initialTab
+        self.onWallpaper = onWallpaper
+        self.onCollection = onCollection
+        self.onUpload = onUpload
+        _tab = State(initialValue: initialTab)
+    }
+
     private var isOwner: Bool {
         guard let me = auth.user else { return false }
         return me.username == username
@@ -79,11 +94,27 @@ struct AccountView: View {
             }
             .padding(.top, 4)
             .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
+            accountContentSkeleton
+            .padding(.top, 2)
+        }
+    }
+
+    @ViewBuilder
+    private var accountContentSkeleton: some View {
+        switch tab {
+        case .collections:
+            CollectionGridSkeleton(
+                columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)],
+                count: 8,
+                spacing: 28
+            )
+        case .ledger:
+            LedgerRowsSkeleton(rows: 4)
+        default:
             WallpaperGridSkeleton(
                 columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14, alignment: .top)],
                 count: 12
             )
-            .padding(.top, 2)
         }
     }
 
@@ -616,7 +647,7 @@ struct PagedCollectionGrid: View {
     @State private var page = 1
     @State private var cursors: [Int?] = [nil]
     @State private var total = 0
-    @State private var loading = false
+    @State private var loading = true
     @State private var loaded = false
     @State private var loadError: String?
 
