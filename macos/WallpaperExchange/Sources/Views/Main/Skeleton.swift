@@ -87,10 +87,7 @@ struct WallpaperGridSkeleton: View {
     var body: some View {
         LazyVGrid(columns: columns, spacing: spacing) {
             ForEach(0..<count, id: \.self) { _ in
-                VStack(alignment: .leading, spacing: 8) {
-                    SkeletonPlate(aspectRatio: aspectRatio, cornerRadius: cornerRadius)
-                    SkeletonLine(width: 92, height: 9)
-                }
+                SkeletonPlate(aspectRatio: aspectRatio, cornerRadius: cornerRadius)
             }
         }
     }
