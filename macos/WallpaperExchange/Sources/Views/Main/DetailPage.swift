@@ -18,6 +18,7 @@ struct DetailPage: View {
 
     @State private var detail: WallpaperDetail?
     @State private var similar: [Wallpaper] = []
+    @State private var similarLoaded = false
     @State private var loadError: String?
     @State private var mode: PreviewMode = .off
     @State private var manager = WallpaperManager.shared
@@ -208,10 +209,19 @@ struct DetailPage: View {
     private func immersivePage(layout: DetailLayout) -> some View {
         VStack(spacing: 0) {
             immersiveHero(layout: layout)
-            if let d = detail, !similar.isEmpty {
+            if shouldShowRecommendationSkeleton {
+                recommendationsSkeletonBand(layout: layout)
+            } else if let d = detail, !similar.isEmpty {
                 recommendationsBand(detail: d, layout: layout)
             }
         }
+    }
+
+    private var shouldShowRecommendationSkeleton: Bool {
+        if detail == nil {
+            return loadError == nil
+        }
+        return !similarLoaded
     }
 
     private func detailAmbientBackground(size: CGSize) -> some View {
@@ -307,29 +317,32 @@ struct DetailPage: View {
     }
 
     private func immersiveHero(layout: DetailLayout) -> some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             immersiveHeroMedia(layout: layout)
             heroVignette
-
+        }
+        .frame(width: layout.size.width, height: layout.heroViewportHeight)
+        .overlay(alignment: .bottom) {
             if detail != nil, isShowingDetailActionPopup {
                 actionPopupDismissLayer(layout: layout)
                     .transition(.opacity)
-                    .zIndex(2)
+                    .zIndex(20)
             }
-
+        }
+        .overlay {
             if let loadError, detail == nil {
                 RemoteLoadErrorView(message: loadError) {
                     Task { await load() }
                 }
                 .padding(.horizontal, layout.horizontalPadding)
                 .frame(width: layout.pageWidth, alignment: .center)
-                .zIndex(2)
+                .zIndex(30)
             }
-
-            detailActionOverlay(detail: detail, layout: layout)
-                .zIndex(3)
         }
-        .frame(width: layout.size.width, height: layout.heroViewportHeight)
+        .overlay(alignment: .bottom) {
+            detailActionOverlay(detail: detail, layout: layout)
+                .zIndex(40)
+        }
         .clipped()
     }
 
@@ -750,11 +763,47 @@ struct DetailPage: View {
             .padding(.bottom, layout.bottomPadding)
             .frame(width: layout.pageWidth, alignment: .leading)
             .frame(width: layout.size.width, alignment: .center)
-            .background(recommendationsBackground(detail: d))
+            .background(recommendationsBackground(dominantColor: d.dominantColor))
     }
 
-    private func recommendationsBackground(detail d: WallpaperDetail) -> some View {
-        let tint = Color(hex: d.dominantColor ?? "#888888")
+    private func recommendationsSkeletonBand(layout: DetailLayout) -> some View {
+        recommendationsSkeleton(layout: layout)
+            .padding(.horizontal, layout.horizontalPadding)
+            .padding(.top, layout.isCompact ? 34 : 46)
+            .padding(.bottom, layout.bottomPadding)
+            .frame(width: layout.pageWidth, alignment: .leading)
+            .frame(width: layout.size.width, alignment: .center)
+            .background(recommendationsBackground(dominantColor: detail?.dominantColor ?? initialWallpaper?.dominantColor))
+    }
+
+    private func recommendationsSkeleton(layout: DetailLayout) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .bottom, spacing: 18) {
+                VStack(alignment: .leading, spacing: 7) {
+                    SkeletonLine(width: 72, height: 9)
+                    SkeletonLine(width: 220, height: 32, cornerRadius: 8)
+                }
+                Spacer()
+                SkeletonLine(width: 72, height: 10)
+            }
+            Rectangle().fill(Color.hair).frame(height: 1)
+            WallpaperGridSkeleton(
+                columns: Array(
+                    repeating: GridItem(.flexible(), spacing: 14, alignment: .top),
+                    count: layout.recommendationColumns
+                ),
+                count: max(layout.recommendationLimit, layout.recommendationColumns),
+                spacing: 14,
+                aspectRatio: 3.0 / 2.0,
+                cornerRadius: 10
+            )
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func recommendationsBackground(dominantColor: String?) -> some View {
+        let tint = Color(hex: dominantColor ?? "#888888")
         return ZStack {
             LinearGradient(
                 colors: [
@@ -2193,9 +2242,17 @@ struct DetailPage: View {
     }
 
     private func load() async {
+        detail = nil
         loadError = nil
         downloadNotice = nil
         infoActionMessage = nil
+        similar = []
+        similarLoaded = false
+        showingWallpaperPicker = false
+        showingCollectionPicker = false
+        collectionError = nil
+        isLiked = initialWallpaper?.isLiked ?? false
+        isFavorited = initialWallpaper?.isFavorited ?? false
         videoDurationTask?.cancel()
         videoDuration = nil
         do {
@@ -2211,6 +2268,7 @@ struct DetailPage: View {
             await loadCollections(wallpaperID: d.id)
         } catch {
             loadError = error.localizedDescription
+            similarLoaded = true
         }
     }
 
@@ -2255,9 +2313,21 @@ struct DetailPage: View {
     }
 
     private func loadSimilar(limit: Int) async {
-        guard let detail else { return }
-        if let wallpapers = try? await APIClient.shared.fetchSimilarWallpapers(wallpaperID: detail.id, limit: limit) {
+        guard let detail else {
+            similarLoaded = false
+            return
+        }
+        let detailID = detail.id
+        similarLoaded = false
+        do {
+            let wallpapers = try await APIClient.shared.fetchSimilarWallpapers(wallpaperID: detailID, limit: limit)
+            guard self.detail?.id == detailID else { return }
             similar = wallpapers
+            similarLoaded = true
+        } catch {
+            guard self.detail?.id == detailID else { return }
+            similar = []
+            similarLoaded = true
         }
     }
 
