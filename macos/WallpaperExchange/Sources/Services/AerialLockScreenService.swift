@@ -82,6 +82,7 @@ final class AerialLockScreenService {
             videoURL: videoDestination,
             thumbnailURL: thumbnailDestination
         )
+        try applySystemWallpaperPointers(videoURL: videoDestination, thumbnailURL: thumbnailDestination)
         try restartAerialExtension()
     }
 
@@ -281,11 +282,50 @@ final class AerialLockScreenService {
         "WALLPAPER_EXCHANGE_\(wallpaperID)"
     }
 
+    private func applySystemWallpaperPointers(videoURL: URL, thumbnailURL: URL) throws {
+        try writeDefault(
+            domain: "com.apple.wallpaper",
+            key: "SystemWallpaperURL",
+            value: videoURL.absoluteString
+        )
+        try writeDefault(
+            domain: "com.apple.loginwindow",
+            key: "DesktopPicture",
+            value: thumbnailURL.path
+        )
+    }
+
+    private func writeDefault(domain: String, key: String, value: String) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
+        process.arguments = ["write", domain, key, "-string", value]
+        let errorPipe = Pipe()
+        process.standardError = errorPipe
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else {
+                let data = errorPipe.fileHandleForReading.readDataToEndOfFile()
+                let message = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                logger.error("failed to write default \(domain, privacy: .public).\(key, privacy: .public): \(message, privacy: .public)")
+                throw AerialError.manifestUnavailable
+            }
+        } catch let error as AerialError {
+            throw error
+        } catch {
+            logger.error("failed to write default \(domain, privacy: .public).\(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            throw AerialError.manifestUnavailable
+        }
+    }
+
     private func restartAerialExtension() throws {
         let extensionPath = "/System/Library/ExtensionKit/Extensions/WallpaperAerialsExtension.appex/Contents/MacOS/WallpaperAerialsExtension"
         guard fm.fileExists(atPath: extensionPath) else {
             throw AerialError.extensionUnavailable
         }
+
+        restartAgent(named: "WallpaperAgent")
 
         let kill = Process()
         kill.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
@@ -302,5 +342,13 @@ final class AerialLockScreenService {
             logger.error("failed to restart WallpaperAerialsExtension: \(error.localizedDescription, privacy: .public)")
             throw AerialError.extensionUnavailable
         }
+    }
+
+    private func restartAgent(named name: String) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        process.arguments = [name]
+        try? process.run()
+        process.waitUntilExit()
     }
 }
