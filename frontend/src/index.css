@@ -272,9 +272,9 @@
   background:
     linear-gradient(
       135deg,
-      rgba(255,255,255,0.02),
-      rgba(255,255,255,0.12),
-      rgba(255,255,255,0.02)
+      rgba(255,255,255,0.03),
+      rgba(255,255,255,0.16),
+      rgba(255,255,255,0.03)
     );
 }
 .card-loading-beam::after {
@@ -288,13 +288,13 @@
     linear-gradient(
       100deg,
       transparent 0%,
-      rgba(255,255,255,0.08) 30%,
-      rgba(255,255,255,0.42) 50%,
-      rgba(255,255,255,0.08) 70%,
+      rgba(255,255,255,0.12) 30%,
+      rgba(255,255,255,0.58) 50%,
+      rgba(255,255,255,0.12) 70%,
       transparent 100%
     );
   transform: translateX(-120%) rotate(14deg);
-  animation: card-loading-beam 1.55s ease-in-out infinite;
+  animation: card-loading-beam 1.35s ease-in-out infinite;
   mix-blend-mode: screen;
 }
 .dark .card-loading-beam {
@@ -311,9 +311,9 @@
     linear-gradient(
       100deg,
       transparent 0%,
-      rgba(255,255,255,0.04) 30%,
-      rgba(255,255,255,0.16) 50%,
-      rgba(255,255,255,0.04) 70%,
+      rgba(255,255,255,0.07) 30%,
+      rgba(255,255,255,0.28) 50%,
+      rgba(255,255,255,0.07) 70%,
       transparent 100%
     );
 }
@@ -4120,6 +4120,10 @@
   width: 100%; height: 100%; object-fit: cover; display: block;
   transition: transform 800ms var(--ease-out-quart), opacity 400ms var(--ease-out-quart);
   opacity: 0;
+}
+.h3-tile img.h3-progressive-img {
+  position: absolute;
+  inset: 0;
 }
 .h3-tile img.h3-loaded { opacity: 1; }
 .h3-tile:hover img { transform: scale(1.05); }

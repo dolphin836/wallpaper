@@ -238,19 +238,42 @@ export default function HomePage() {
 function HeroCard({ hero, week, year }: { hero: Wallpaper; week: number; year: number }) {
   const { t } = useTranslation('browse');
   const location = useLocation();
-  // Paint preview_url first (fast first frame), then background-fetch the
-  // original_url (only the hero pick gets it from the server). Swap src
-  // once it's decoded. If original never finishes, preview stays — best
-  // possible quality given the link, without blocking first paint.
-  const [src, setSrc] = useState(hero.preview_url || hero.thumb_url);
+  const [src, setSrc] = useState(hero.thumb_url || hero.preview_url || hero.original_url);
   const [loaded, setLoaded] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
   useEffect(() => {
-    setSrc(hero.preview_url || hero.thumb_url);
+    let alive = true;
+    const baseSrc = hero.thumb_url || hero.preview_url || hero.original_url;
+    const previewSrc = hero.preview_url && hero.preview_url !== baseSrc ? hero.preview_url : '';
+    const originalSrc = hero.original_url && hero.original_url !== (previewSrc || baseSrc) ? hero.original_url : '';
+
+    setSrc(baseSrc);
     setLoaded(false);
-    if (!hero.original_url || hero.original_url === hero.preview_url) return;
-    const upgrade = new Image();
-    upgrade.onload = () => setSrc(hero.original_url);
-    upgrade.src = hero.original_url;
+
+    const queue = [previewSrc, originalSrc].filter(Boolean);
+    setUpgrading(queue.length > 0);
+
+    const loadNext = (index: number) => {
+      const next = queue[index];
+      if (!next) {
+        if (alive) setUpgrading(false);
+        return;
+      }
+      const image = new Image();
+      image.onload = () => {
+        if (!alive) return;
+        setLoaded(false);
+        setSrc(next);
+        loadNext(index + 1);
+      };
+      image.onerror = () => loadNext(index + 1);
+      image.src = next;
+    };
+    loadNext(0);
+
+    return () => {
+      alive = false;
+    };
   }, [hero.id, hero.preview_url, hero.thumb_url, hero.original_url]);
 
   return (
@@ -268,8 +291,9 @@ function HeroCard({ hero, week, year }: { hero: Wallpaper; week: number; year: n
         className={loaded ? 'h3-loaded' : ''}
         onLoad={() => setLoaded(true)}
         onError={() => setLoaded(true)}
+        style={{ backgroundColor: hero.dominant_color || undefined }}
       />
-      {!loaded && <span className="card-loading-beam" aria-hidden />}
+      {(!loaded || upgrading) && <span className="card-loading-beam" aria-hidden />}
       <ResChip wallpaper={hero} />
       <div className="h3-hero-overlay">
         <div className="flex-1 min-w-0">

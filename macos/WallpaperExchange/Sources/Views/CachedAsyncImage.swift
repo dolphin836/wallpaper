@@ -266,6 +266,134 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     }
 }
 
+struct ProgressiveCachedAsyncImage<Content: View, Placeholder: View>: View {
+    let lowURL: URL?
+    let highURL: URL?
+    let lowMaxPixelDimension: Int
+    let highMaxPixelDimension: Int
+    let onLoad: (() -> Void)?
+    let content: (Image) -> Content
+    let placeholder: () -> Placeholder
+
+    @State private var lowImage: NSImage?
+    @State private var highImage: NSImage?
+    @State private var loading = false
+
+    init(
+        lowURL: URL?,
+        highURL: URL?,
+        lowMaxPixelDimension: Int = 520,
+        highMaxPixelDimension: Int = 1400,
+        onLoad: (() -> Void)? = nil,
+        @ViewBuilder content: @escaping (Image) -> Content,
+        @ViewBuilder placeholder: @escaping () -> Placeholder
+    ) {
+        self.lowURL = lowURL
+        self.highURL = highURL
+        self.lowMaxPixelDimension = lowMaxPixelDimension
+        self.highMaxPixelDimension = highMaxPixelDimension
+        self.onLoad = onLoad
+        self.content = content
+        self.placeholder = placeholder
+    }
+
+    var body: some View {
+        ZStack {
+            placeholder()
+
+            if let lowImage {
+                content(Image(nsImage: lowImage))
+                    .blur(radius: shouldUpgrade && loading && highImage == nil ? 7 : 0)
+                    .scaleEffect(shouldUpgrade && loading && highImage == nil ? 1.035 : 1)
+                    .opacity(highImage == nil ? 1 : 0)
+            }
+
+            if let highImage {
+                content(Image(nsImage: highImage))
+                    .transition(.opacity)
+            }
+
+            if loading {
+                ImageLoadingBeam()
+                    .opacity(lowImage == nil ? 1 : 0.92)
+            }
+        }
+        .animation(.easeOut(duration: 0.28), value: highImage != nil)
+        .task(id: loadIdentity) {
+            await load()
+        }
+    }
+
+    private var targetURL: URL? {
+        highURL ?? lowURL
+    }
+
+    private var shouldUpgrade: Bool {
+        guard let lowURL, let highURL else { return false }
+        return lowURL != highURL
+    }
+
+    private var loadIdentity: String {
+        [
+            lowURL?.absoluteString ?? "nil",
+            highURL?.absoluteString ?? "nil",
+            String(lowMaxPixelDimension),
+            String(highMaxPixelDimension)
+        ].joined(separator: "#")
+    }
+
+    private func load() async {
+        let requestID = loadIdentity
+        let requestLowURL = lowURL
+        let requestHighURL = highURL
+        let requestTargetURL = targetURL
+        let requestShouldUpgrade = shouldUpgrade
+
+        lowImage = nil
+        highImage = nil
+        loading = requestTargetURL != nil
+
+        guard let requestTargetURL else {
+            loading = false
+            return
+        }
+
+        if requestShouldUpgrade, let requestLowURL {
+            if let cachedLow = ImageCacheStore.shared.get(requestLowURL, maxPixelDimension: lowMaxPixelDimension) {
+                lowImage = cachedLow
+            } else if let loadedLow = await ImageCacheStore.shared.load(requestLowURL, maxPixelDimension: lowMaxPixelDimension) {
+                guard !Task.isCancelled, loadIdentity == requestID else { return }
+                lowImage = loadedLow
+            }
+        }
+
+        let finalPixelDimension = requestShouldUpgrade ? highMaxPixelDimension : lowMaxPixelDimension
+        let finalURL = requestShouldUpgrade ? (requestHighURL ?? requestTargetURL) : requestTargetURL
+
+        if let cachedHigh = ImageCacheStore.shared.get(finalURL, maxPixelDimension: finalPixelDimension) {
+            guard !Task.isCancelled, loadIdentity == requestID else { return }
+            highImage = cachedHigh
+            loading = false
+            onLoad?()
+            return
+        }
+
+        if let loadedHigh = await ImageCacheStore.shared.load(finalURL, maxPixelDimension: finalPixelDimension) {
+            guard !Task.isCancelled, loadIdentity == requestID else { return }
+            highImage = loadedHigh
+            loading = false
+            onLoad?()
+            return
+        }
+
+        guard !Task.isCancelled, loadIdentity == requestID else { return }
+        loading = false
+        if !requestShouldUpgrade, highImage == nil {
+            lowImage = nil
+        }
+    }
+}
+
 private struct ImageLoadingBeam: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var sweep = false
@@ -279,9 +407,9 @@ private struct ImageLoadingBeam: View {
             ZStack {
                 LinearGradient(
                     colors: [
-                        Color.white.opacity(0.04),
-                        Color.white.opacity(0.18),
-                        Color.white.opacity(0.04),
+                        Color.white.opacity(0.06),
+                        Color.white.opacity(0.24),
+                        Color.white.opacity(0.06),
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -293,9 +421,9 @@ private struct ImageLoadingBeam: View {
                             LinearGradient(
                                 stops: [
                                     .init(color: .clear, location: 0),
-                                    .init(color: Color.white.opacity(0.18), location: 0.36),
-                                    .init(color: Color.white.opacity(0.68), location: 0.50),
-                                    .init(color: Color.white.opacity(0.18), location: 0.64),
+                                    .init(color: Color.white.opacity(0.22), location: 0.36),
+                                    .init(color: Color.white.opacity(0.82), location: 0.50),
+                                    .init(color: Color.white.opacity(0.22), location: 0.64),
                                     .init(color: .clear, location: 1),
                                 ],
                                 startPoint: .top,
@@ -310,7 +438,7 @@ private struct ImageLoadingBeam: View {
             }
             .onAppear {
                 guard !reduceMotion else { return }
-                withAnimation(.easeInOut(duration: 1.25).repeatForever(autoreverses: false)) {
+                withAnimation(.easeInOut(duration: 1.12).repeatForever(autoreverses: false)) {
                     sweep = true
                 }
             }

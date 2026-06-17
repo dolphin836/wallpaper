@@ -2709,7 +2709,13 @@ fun WallpaperCard(wallpaper: Wallpaper, onWallpaper: (Wallpaper) -> Unit, modifi
             .background(tint.copy(alpha = 0.65f))
             .clickable { onWallpaper(wallpaper) },
     ) {
-        RemoteImage(wallpaper.displayUrl, Modifier.fillMaxSize(), placeholder = tint.copy(alpha = 0.55f))
+        RemoteImage(
+            url = wallpaper.previewUrl.ifBlank { wallpaper.thumbUrl },
+            modifier = Modifier.fillMaxSize(),
+            placeholder = tint.copy(alpha = 0.55f),
+            fallbackUrl = wallpaper.thumbUrl,
+            showLoadingOverFallback = true,
+        )
         if (lockPreview.enabled) {
             LockScreenOverlay(compact = true, modifier = Modifier.fillMaxSize())
         } else {
@@ -2821,13 +2827,27 @@ fun CollectionMosaic(collection: CollectionItem, accent: Color, modifier: Modifi
     val tiles = collection.recentTiles
     Row(modifier.clip(RoundedCornerShape(14.dp)).background(accent.copy(alpha = 0.18f)).padding(5.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         RemoteImage(
-            tiles.getOrNull(0)?.previewUrl ?: collection.coverUrl,
-            Modifier.weight(0.62f).fillMaxHeight().clip(RoundedCornerShape(10.dp)),
+            url = tiles.getOrNull(0)?.previewUrl ?: collection.coverUrl,
+            modifier = Modifier.weight(0.62f).fillMaxHeight().clip(RoundedCornerShape(10.dp)),
             placeholder = accent.copy(alpha = 0.35f),
+            fallbackUrl = tiles.getOrNull(0)?.thumbUrl,
+            showLoadingOverFallback = true,
         )
         Column(Modifier.weight(0.38f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            RemoteImage(tiles.getOrNull(1)?.previewUrl, Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(9.dp)), placeholder = accent.copy(alpha = 0.24f))
-            RemoteImage(tiles.getOrNull(2)?.previewUrl, Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(9.dp)), placeholder = accent.copy(alpha = 0.30f))
+            RemoteImage(
+                url = tiles.getOrNull(1)?.previewUrl,
+                modifier = Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(9.dp)),
+                placeholder = accent.copy(alpha = 0.24f),
+                fallbackUrl = tiles.getOrNull(1)?.thumbUrl,
+                showLoadingOverFallback = true,
+            )
+            RemoteImage(
+                url = tiles.getOrNull(2)?.previewUrl,
+                modifier = Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(9.dp)),
+                placeholder = accent.copy(alpha = 0.30f),
+                fallbackUrl = tiles.getOrNull(2)?.thumbUrl,
+                showLoadingOverFallback = true,
+            )
         }
     }
 }

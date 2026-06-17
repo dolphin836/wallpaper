@@ -48,6 +48,8 @@ export default function WallpaperTile({ w, variant, onHover }: Props) {
   const { t } = useTranslation('browse');
   const location = useLocation();
   const [loaded, setLoaded] = useState(false);
+  const [highLoaded, setHighLoaded] = useState(false);
+  const [highFailed, setHighFailed] = useState(false);
   const [playing, setPlaying] = useState(false);
   const vidRef = useRef<HTMLVideoElement | null>(null);
   useEffect(() => {
@@ -56,6 +58,17 @@ export default function WallpaperTile({ w, variant, onHover }: Props) {
   }, [playing]);
 
   const acts = useWallpaperActions(w);
+  const lowResSrc = w.thumb_url || '';
+  const highResSrc = w.preview_url || w.thumb_url || '';
+  const hasHighResLayer = Boolean(lowResSrc && highResSrc && highResSrc !== lowResSrc);
+  const baseSrc = lowResSrc || highResSrc;
+  const imageReady = hasHighResLayer ? highLoaded || (highFailed && loaded) : loaded;
+
+  useEffect(() => {
+    setLoaded(false);
+    setHighLoaded(false);
+    setHighFailed(false);
+  }, [w.id, lowResSrc, highResSrc]);
 
   const handleEnter = () => {
     onHover?.(w.color_palette, w.dominant_color);
@@ -82,17 +95,35 @@ export default function WallpaperTile({ w, variant, onHover }: Props) {
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
     >
-      <img
-        src={w.preview_url || w.thumb_url}
-        alt={w.title || t('tile.wallpaperAlt', { id: w.id })}
-        loading="lazy"
-        decoding="async"
-        className={loaded ? 'h3-loaded' : ''}
-        onLoad={() => setLoaded(true)}
-        onError={() => setLoaded(true)}
-        style={{ backgroundColor: w.dominant_color || undefined }}
-      />
-      {!loaded && <span className="card-loading-beam" aria-hidden />}
+      {baseSrc && (
+        <img
+          src={baseSrc}
+          alt={w.title || t('tile.wallpaperAlt', { id: w.id })}
+          loading="lazy"
+          decoding="async"
+          className={`h3-progressive-img ${loaded ? 'h3-loaded' : ''}`}
+          onLoad={() => setLoaded(true)}
+          onError={() => setLoaded(true)}
+          style={{
+            backgroundColor: w.dominant_color || undefined,
+            filter: hasHighResLayer && !highLoaded && !highFailed ? 'blur(12px)' : undefined,
+            transform: hasHighResLayer && !highLoaded && !highFailed ? 'scale(1.06)' : undefined,
+          }}
+        />
+      )}
+      {hasHighResLayer && !highFailed && (
+        <img
+          src={highResSrc}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          decoding="async"
+          className={`h3-progressive-img ${highLoaded ? 'h3-loaded' : ''}`}
+          onLoad={() => setHighLoaded(true)}
+          onError={() => setHighFailed(true)}
+        />
+      )}
+      {highResSrc && !imageReady && <span className="card-loading-beam" aria-hidden />}
       {variant === 'ai' && <span className="h3-foil" aria-hidden />}
       {variant === 'video' && w.preview_video_url && playing && (
         <video

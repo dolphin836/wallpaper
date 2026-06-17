@@ -52,6 +52,7 @@ fun RemoteImage(
     placeholder: Color? = null,
     fallbackUrl: String? = null,
     cacheTarget: Boolean = true,
+    showLoadingOverFallback: Boolean = false,
 ) {
     val context = LocalContext.current
     val scheme = LocalArchiveScheme.current
@@ -96,7 +97,7 @@ fun RemoteImage(
                 contentScale = contentScale,
             )
         }
-        AnimatedVisibility(loading && bitmap == null) {
+        AnimatedVisibility(loading && (bitmap == null || showLoadingOverFallback)) {
             LoadingVeil(Modifier.fillMaxSize())
         }
     }
@@ -113,13 +114,13 @@ fun LoadingVeil(modifier: Modifier = Modifier) {
     )
     Box(
         modifier
-            .alpha(0.55f)
+            .alpha(0.68f)
             .background(
                 Brush.linearGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.02f),
-                        Color.White.copy(alpha = 0.30f),
-                        Color.White.copy(alpha = 0.04f),
+                        Color.White.copy(alpha = 0.03f),
+                        Color.White.copy(alpha = 0.42f),
+                        Color.White.copy(alpha = 0.05f),
                     ),
                     start = Offset(sweep * 420f, 0f),
                     end = Offset(sweep * 420f + 260f, 520f),
