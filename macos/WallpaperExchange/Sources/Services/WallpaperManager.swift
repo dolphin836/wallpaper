@@ -632,11 +632,25 @@ final class WallpaperManager {
             let poster = try? await ensureVideoPoster(wallpaper)
 
             if surface == .lockScreen || surface == .both {
-                try await AerialLockScreenService.shared.apply(
-                    wallpaper: wallpaper,
-                    videoURL: videoURL,
-                    thumbnailURL: poster
-                )
+                if AerialLockScreenService.isSupported {
+                    do {
+                        try await AerialLockScreenService.shared.apply(
+                            wallpaper: wallpaper,
+                            videoURL: videoURL,
+                            thumbnailURL: poster
+                        )
+                    } catch {
+                        if let poster {
+                            try AerialLockScreenService.shared.applyStaticImage(imageURL: poster)
+                        } else {
+                            throw error
+                        }
+                    }
+                } else if let poster {
+                    try AerialLockScreenService.shared.applyStaticImage(imageURL: poster)
+                } else {
+                    throw WallpaperError.lockScreenUnavailable
+                }
             }
 
             if surface == .desktop || surface == .both {
@@ -645,16 +659,21 @@ final class WallpaperManager {
             return
         }
 
-        guard surface == .desktop else {
-            throw WallpaperError.lockScreenUnavailable
-        }
-
         if localURL(for: wallpaper.id) == nil {
             try await download(wallpaper: wallpaper)
         }
         guard let url = localURL(for: wallpaper.id) else {
             throw WallpaperError.fileUnavailable
         }
+
+        if surface == .lockScreen || surface == .both {
+            try AerialLockScreenService.shared.applyStaticImage(imageURL: url)
+        }
+
+        guard surface == .desktop || surface == .both else {
+            return
+        }
+
         let targetScreens = screens(for: target)
         applyLocalWallpaper(
             id: wallpaper.id,

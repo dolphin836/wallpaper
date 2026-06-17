@@ -845,23 +845,12 @@ struct DetailPage: View {
 
     private func surfaceUnavailable(_ surface: WallpaperApplySurface, detail d: WallpaperDetail) -> Bool {
         switch surface {
-        case .desktop:
+        case .desktop, .lockScreen, .both:
             return false
-        case .lockScreen, .both:
-            return !isVideo(detail: d) || !AerialLockScreenService.isSupported
         }
     }
 
     private func surfaceUnavailableReason(_ surface: WallpaperApplySurface, detail d: WallpaperDetail) -> String {
-        if surface == .desktop {
-            return L10n.detail.wallpaperApply
-        }
-        if !isVideo(detail: d) {
-            return L10n.detail.wallpaperVideoLockUnavailable
-        }
-        if !AerialLockScreenService.isSupported {
-            return L10n.detail.lockScreenUnavailable
-        }
         return L10n.detail.wallpaperApply
     }
 

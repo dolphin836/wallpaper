@@ -62,10 +62,26 @@ final class AerialLockScreenService {
 
     private init() {}
 
+    func applyStaticImage(imageURL: URL) throws {
+        logger.notice("applying static lock-screen image \(imageURL.path, privacy: .public)")
+        let paths = try aerialPaths()
+        try ensureDirectories(paths)
+
+        restartAgent(named: "WallpaperAgent")
+        do {
+            try updateWallpaperStoreIndexForImage(indexURL: paths.storeIndex, backupURL: paths.storeBackup, imageURL: imageURL)
+        } catch {
+            logger.error("failed to update lock-screen image store: \(error.localizedDescription, privacy: .public)")
+        }
+        try applyStaticLockScreenFallback(imageURL: imageURL)
+        restartAgent(named: "WallpaperAgent")
+    }
+
     func apply(wallpaper: Wallpaper, videoURL: URL, thumbnailURL: URL?) async throws {
         guard Self.isSupported else { throw AerialError.unsupported }
 
         let assetID = assetID(for: wallpaper.id)
+        logger.notice("applying aerial lock-screen wallpaper id=\(wallpaper.id, privacy: .public) asset=\(assetID, privacy: .public)")
         let paths = try aerialPaths()
         try ensureDirectories(paths)
 
@@ -324,6 +340,44 @@ final class AerialLockScreenService {
         }
     }
 
+    private func updateWallpaperStoreIndexForImage(indexURL: URL, backupURL: URL, imageURL: URL) throws {
+        guard fm.fileExists(atPath: indexURL.path) else {
+            throw AerialError.manifestUnavailable
+        }
+        let originalData = try Data(contentsOf: indexURL)
+        if !fm.fileExists(atPath: backupURL.path) {
+            try originalData.write(to: backupURL, options: .atomic)
+        }
+
+        guard var root = try PropertyListSerialization.propertyList(from: originalData, options: [], format: nil) as? [String: Any] else {
+            throw AerialError.manifestUnavailable
+        }
+
+        let configuration = try PropertyListSerialization.data(
+            fromPropertyList: [
+                "type": "imageFile",
+                "url": ["relative": imageURL.absoluteString],
+            ],
+            format: .binary,
+            options: 0
+        )
+        let choice: [String: Any] = [
+            "Configuration": configuration,
+            "Files": [],
+            "Provider": "com.apple.wallpaper.choice.image",
+        ]
+        let now = Date()
+        updateIdleNodes(in: &root, choice: choice, now: now)
+
+        do {
+            let data = try PropertyListSerialization.data(fromPropertyList: root, format: .binary, options: 0)
+            try data.write(to: indexURL, options: .atomic)
+        } catch {
+            try? originalData.write(to: indexURL, options: .atomic)
+            throw AerialError.manifestUnavailable
+        }
+    }
+
     private func updateIdleNodes(in dictionary: inout [String: Any], choice: [String: Any], now: Date) {
         if var idle = dictionary["Idle"] as? [String: Any] {
             applyIdleChoice(to: &idle, choice: choice, now: now)
@@ -357,12 +411,16 @@ final class AerialLockScreenService {
             key: "SystemWallpaperURL",
             value: videoURL.absoluteString
         )
+        try applyStaticLockScreenFallback(imageURL: thumbnailURL)
+    }
+
+    private func applyStaticLockScreenFallback(imageURL: URL) throws {
         try writeDefault(
             domain: "com.apple.loginwindow",
             key: "DesktopPicture",
-            value: thumbnailURL.path
+            value: imageURL.path
         )
-        writeLockScreenCacheImage(thumbnailURL)
+        writeLockScreenCacheImage(imageURL)
     }
 
     private func writeDefault(domain: String, key: String, value: String) throws {
@@ -404,9 +462,13 @@ final class AerialLockScreenService {
             if fm.fileExists(atPath: destination.path) {
                 try fm.removeItem(at: destination)
             }
-            try fm.copyItem(at: imageURL, to: destination)
+            if let image = NSImage(contentsOf: imageURL), try writePNG(image: image, to: destination) {
+                logger.info("updated lock-screen cache image at \(destination.path, privacy: .public)")
+            } else {
+                try fm.copyItem(at: imageURL, to: destination)
+                logger.info("copied lock-screen cache image at \(destination.path, privacy: .public)")
+            }
             try fm.setAttributes([.posixPermissions: 0o644], ofItemAtPath: destination.path)
-            logger.info("updated lock-screen cache image at \(destination.path, privacy: .public)")
         } catch {
             logger.error("failed to update lock-screen cache image: \(error.localizedDescription, privacy: .public)")
         }
