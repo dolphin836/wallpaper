@@ -409,7 +409,7 @@ final class WallpaperManager {
             return
         }
 
-        VideoWallpaperController.shared.stop()
+        VideoWallpaperController.shared.stop(screens: targetScreens)
         applyToScreens(url: url, screens: targetScreens, source: source, expectedWallpaperID: id)
         if markAsCurrent {
             markCurrent(id, screens: targetScreens)
@@ -627,7 +627,7 @@ final class WallpaperManager {
     }
 
     func setAsWallpaper(_ wallpaper: Wallpaper, target: WallpaperDisplayTarget, surface: WallpaperApplySurface) async throws {
-        if Self.isVideo(wallpaper), surface != .desktop {
+        guard surface == .desktop else {
             throw WallpaperError.lockScreenUnavailable
         }
 
@@ -655,27 +655,13 @@ final class WallpaperManager {
             throw WallpaperError.fileUnavailable
         }
         let targetScreens = screens(for: target)
-        switch surface {
-        case .desktop:
-            applyLocalWallpaper(
-                id: wallpaper.id,
-                url: url,
-                source: "manual-set id=\(wallpaper.id)",
-                screens: targetScreens,
-                markAsCurrent: target.isAll
-            )
-        case .lockScreen:
-            try applyLockScreenImage(url: url, source: "manual-lock id=\(wallpaper.id)")
-        case .both:
-            applyLocalWallpaper(
-                id: wallpaper.id,
-                url: url,
-                source: "manual-set id=\(wallpaper.id)",
-                screens: targetScreens,
-                markAsCurrent: target.isAll
-            )
-            try applyLockScreenImage(url: url, source: "manual-lock id=\(wallpaper.id)")
-        }
+        applyLocalWallpaper(
+            id: wallpaper.id,
+            url: url,
+            source: "manual-set id=\(wallpaper.id)",
+            screens: targetScreens,
+            markAsCurrent: target.isAll
+        )
     }
 
     // Record the wallpaper id that is currently on the desktop. Drives the
@@ -685,33 +671,6 @@ final class WallpaperManager {
         currentWallpaperID = id
         currentWallpaperScreenKeys = screens.map { Set($0.compactMap(Self.screenKey)) }
         UserDefaults.standard.set(id, forKey: currentWallpaperIDDefaultsKey)
-    }
-
-    private func applyLockScreenImage(url: URL, source: String) throws {
-        // macOS does not expose a public AppKit API for an independent
-        // lock-screen wallpaper. The wallpaper agent reads this system
-        // preference for its global wallpaper source, so we update it as a
-        // best-effort lock-screen sync while keeping the desktop path on the
-        // supported NSWorkspace API above.
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
-        process.arguments = ["write", "com.apple.wallpaper", "SystemWallpaperURL", "-string", url.absoluteString]
-        let errorPipe = Pipe()
-        process.standardError = errorPipe
-        do {
-            try process.run()
-            process.waitUntilExit()
-            if process.terminationStatus != 0 {
-                let data = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                let message = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown error"
-                logger.error("lock-screen sync from \(source, privacy: .public): FAILED — \(message, privacy: .public)")
-                throw WallpaperError.lockScreenUnavailable
-            }
-            logger.info("lock-screen sync from \(source, privacy: .public): OK")
-        } catch {
-            logger.error("lock-screen sync from \(source, privacy: .public): FAILED — \(error.localizedDescription, privacy: .public)")
-            throw WallpaperError.lockScreenUnavailable
-        }
     }
 
     func deleteLocal(_ wallpaperID: Int) {

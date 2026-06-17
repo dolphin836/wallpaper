@@ -5,62 +5,104 @@ import AVFoundation
 final class VideoWallpaperController {
     static let shared = VideoWallpaperController()
 
-    private var activeVideoURL: URL?
-    private var activeWallpaperID: Int?
-    private var activeScreenKeys: Set<String>?
-    private var sessions: [VideoWallpaperSession] = []
+    private struct ActiveVideo {
+        let videoURL: URL
+        let wallpaperID: Int
+    }
+
+    private var activeVideosByScreen: [String: ActiveVideo] = [:]
+    private var sessionsByScreen: [String: VideoWallpaperSession] = [:]
 
     private init() {}
 
     func start(videoURL: URL, wallpaperID: Int, screens requestedScreens: [NSScreen]? = nil) {
-        activeVideoURL = videoURL
-        activeWallpaperID = wallpaperID
-        activeScreenKeys = requestedScreens.map { Set($0.compactMap(Self.screenKey)) }
-        closeSessions()
-
-        let allScreens = NSScreen.screens.isEmpty ? [NSScreen.main].compactMap { $0 } : NSScreen.screens
-        let screens: [NSScreen]
-        if let keys = activeScreenKeys, !keys.isEmpty {
-            screens = allScreens.filter { screen in
-                guard let key = Self.screenKey(screen) else { return false }
-                return keys.contains(key)
-            }
-        } else {
-            screens = allScreens
+        let targetScreens = targetScreens(from: requestedScreens)
+        let targetKeys = Set(targetScreens.compactMap(Self.screenKey))
+        if coversAllConnectedScreens(targetKeys) {
+            stopScreens(excluding: targetKeys)
         }
-        sessions = screens.map { VideoWallpaperSession(screen: $0, videoURL: videoURL) }
+
+        for screen in targetScreens {
+            guard let key = Self.screenKey(screen) else { continue }
+            sessionsByScreen[key]?.close()
+            sessionsByScreen[key] = VideoWallpaperSession(screen: screen, videoURL: videoURL)
+            activeVideosByScreen[key] = ActiveVideo(videoURL: videoURL, wallpaperID: wallpaperID)
+        }
     }
 
     func restartActive() {
-        guard let activeVideoURL, let activeWallpaperID else { return }
-        let screens: [NSScreen]?
-        if let keys = activeScreenKeys {
-            let allScreens = NSScreen.screens.isEmpty ? [NSScreen.main].compactMap { $0 } : NSScreen.screens
-            screens = allScreens.filter { screen in
-                guard let key = Self.screenKey(screen) else { return false }
-                return keys.contains(key)
-            }
-        } else {
-            screens = nil
+        closeSessions()
+        for screen in Self.connectedScreens() {
+            guard let key = Self.screenKey(screen), let active = activeVideosByScreen[key] else { continue }
+            sessionsByScreen[key] = VideoWallpaperSession(screen: screen, videoURL: active.videoURL)
         }
-        start(videoURL: activeVideoURL, wallpaperID: activeWallpaperID, screens: screens)
     }
 
-    func stop() {
-        activeVideoURL = nil
-        activeWallpaperID = nil
-        activeScreenKeys = nil
-        closeSessions()
+    func stop(screens requestedScreens: [NSScreen]? = nil) {
+        guard let requestedScreens else {
+            activeVideosByScreen.removeAll()
+            closeSessions()
+            return
+        }
+
+        let requestedKeys = Set(requestedScreens.compactMap(Self.screenKey))
+        if coversAllConnectedScreens(requestedKeys) {
+            stop()
+            return
+        }
+        stopScreens(matching: requestedKeys)
     }
 
     func stopIfActive(wallpaperID: Int) {
-        guard activeWallpaperID == wallpaperID else { return }
-        stop()
+        let keys = activeVideosByScreen.compactMap { key, active in
+            active.wallpaperID == wallpaperID ? key : nil
+        }
+        for key in keys {
+            sessionsByScreen[key]?.close()
+            sessionsByScreen.removeValue(forKey: key)
+            activeVideosByScreen.removeValue(forKey: key)
+        }
     }
 
     private func closeSessions() {
-        sessions.forEach { $0.close() }
-        sessions.removeAll()
+        sessionsByScreen.values.forEach { $0.close() }
+        sessionsByScreen.removeAll()
+    }
+
+    private func targetScreens(from requestedScreens: [NSScreen]?) -> [NSScreen] {
+        let allScreens = Self.connectedScreens()
+        guard let requestedScreens, !requestedScreens.isEmpty else { return allScreens }
+        let requestedKeys = Set(requestedScreens.compactMap(Self.screenKey))
+        let screens = allScreens.filter { screen in
+            guard let key = Self.screenKey(screen) else { return false }
+            return requestedKeys.contains(key)
+        }
+        return screens.isEmpty ? requestedScreens : screens
+    }
+
+    private func coversAllConnectedScreens(_ keys: Set<String>) -> Bool {
+        let connectedKeys = Set(Self.connectedScreens().compactMap(Self.screenKey))
+        return !connectedKeys.isEmpty && keys == connectedKeys
+    }
+
+    private func stopScreens(matching keys: Set<String>) {
+        for key in keys {
+            sessionsByScreen[key]?.close()
+            sessionsByScreen.removeValue(forKey: key)
+            activeVideosByScreen.removeValue(forKey: key)
+        }
+    }
+
+    private func stopScreens(excluding keys: Set<String>) {
+        let staleKeys = Set(activeVideosByScreen.keys).subtracting(keys)
+        stopScreens(matching: staleKeys)
+    }
+
+    private static func connectedScreens() -> [NSScreen] {
+        let screens = NSScreen.screens
+        if !screens.isEmpty { return screens }
+        if let main = NSScreen.main { return [main] }
+        return []
     }
 
     private static func screenKey(_ screen: NSScreen) -> String? {

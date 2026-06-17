@@ -721,7 +721,7 @@ struct DetailPage: View {
                     .buttonStyle(.plain)
                     .disabled(disabled)
                     .opacity(disabled ? 0.42 : 1)
-                    .help(disabled ? L10n.detail.wallpaperVideoLockUnavailable : wallpaperSurfaceLabel(surface))
+                    .help(disabled ? surfaceUnavailableReason(surface, detail: d) : wallpaperSurfaceLabel(surface))
                 }
             }
             .padding(4)
@@ -777,7 +777,7 @@ struct DetailPage: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(cannotApply)
-                .help(surfaceUnavailable(selectedWallpaperSurface, detail: d) ? L10n.detail.wallpaperVideoLockUnavailable : L10n.detail.wallpaperApply)
+                .help(surfaceUnavailable(selectedWallpaperSurface, detail: d) ? surfaceUnavailableReason(selectedWallpaperSurface, detail: d) : L10n.detail.wallpaperApply)
             }
         }
         .padding(14)
@@ -844,7 +844,17 @@ struct DetailPage: View {
     }
 
     private func surfaceUnavailable(_ surface: WallpaperApplySurface, detail d: WallpaperDetail) -> Bool {
-        isVideo(detail: d) && surface != .desktop
+        surface != .desktop
+    }
+
+    private func surfaceUnavailableReason(_ surface: WallpaperApplySurface, detail d: WallpaperDetail) -> String {
+        if surface != .desktop {
+            return L10n.detail.lockScreenUnavailable
+        }
+        if isVideo(detail: d) {
+            return L10n.detail.wallpaperVideoLockUnavailable
+        }
+        return L10n.detail.wallpaperApply
     }
 
     private func downloadLabel(icon: String, text: String, emphasized: Bool) -> some View {
@@ -1168,7 +1178,7 @@ struct DetailPage: View {
 
     private func applySelectedWallpaper(_ detail: WallpaperDetail) async {
         guard !surfaceUnavailable(selectedWallpaperSurface, detail: detail) else {
-            downloadNotice = .failed(L10n.detail.wallpaperVideoLockUnavailable)
+            downloadNotice = .failed(surfaceUnavailableReason(selectedWallpaperSurface, detail: detail))
             return
         }
         let wallpaper = lightWallpaper(detail)
@@ -1231,7 +1241,7 @@ struct DetailPage: View {
             detail = d
             isLiked = d.isLiked ?? false
             isFavorited = d.isFavorited ?? false
-            if isVideo(detail: d), selectedWallpaperSurface != .desktop {
+            if selectedWallpaperSurface != .desktop {
                 selectedWallpaperSurface = .desktop
             }
             loadVideoDurationIfNeeded(detail: d)
