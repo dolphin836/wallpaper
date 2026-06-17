@@ -362,6 +362,12 @@ struct DetailPage: View {
             immersiveHeroMedia(detail: d, layout: layout)
             heroVignette
 
+            if isShowingDetailActionPopup {
+                actionPopupDismissLayer(layout: layout)
+                    .transition(.opacity)
+                    .zIndex(1)
+            }
+
             VStack(alignment: .center, spacing: 12) {
                 downloadProgressBar(detail: d, layout: layout)
                 downloadNoticeView(detail: d, layout: layout)
@@ -1615,14 +1621,7 @@ struct DetailPage: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
-                        TextField(L10n.collections.titlePlaceholder, text: $newCollectionTitle)
-                            .textFieldStyle(.plain)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(Color.white.opacity(0.88))
-                            .padding(.horizontal, 11)
-                            .frame(height: 34)
-                            .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Color.white.opacity(0.08)))
-                            .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+                        collectionTitleField
 
                         Button {
                             Task { await createCollectionAndAddWallpaper(d) }
@@ -1675,25 +1674,56 @@ struct DetailPage: View {
         !newCollectionTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var isShowingDetailActionPopup: Bool {
+        showingWallpaperPicker || showingCollectionPicker
+    }
+
+    private var collectionTitleField: some View {
+        ZStack(alignment: .leading) {
+            if newCollectionTitle.isEmpty {
+                Text(L10n.collections.titlePlaceholder)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.44))
+                    .padding(.leading, 11)
+                    .allowsHitTesting(false)
+            }
+
+            TextField("", text: $newCollectionTitle)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(Color.white.opacity(0.92))
+                .tint(Color.white.opacity(0.90))
+                .colorScheme(.dark)
+                .padding(.horizontal, 11)
+                .frame(height: 34)
+        }
+        .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Color.black.opacity(0.20)))
+        .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(Color.white.opacity(0.15), lineWidth: 1))
+    }
+
     private func collectionPickerRow(collection: CollectionBrief, detail d: WallpaperDetail) -> some View {
         let contains = collection.containsWallpaper == true
         return Button {
             Task { await addWallpaper(d, to: collection) }
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: contains ? "checkmark.circle.fill" : "rectangle.stack.badge.plus")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(contains ? Color.accent : Color.white.opacity(0.62))
-                    .frame(width: 18)
+                ZStack {
+                    Circle()
+                        .fill(contains ? Color.accent.opacity(0.22) : Color.white.opacity(0.08))
+                    Image(systemName: contains ? "checkmark" : "plus")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(contains ? Color.accent : Color.white.opacity(0.72))
+                }
+                .frame(width: 24, height: 24)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(collection.title)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.white.opacity(contains ? 0.70 : 0.90))
+                        .foregroundStyle(Color.white.opacity(0.92))
                         .lineLimit(1)
                     Text(L10n.collections.wallpaperCountCaps(collection.wallpaperCount))
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.50))
+                        .foregroundStyle(contains ? Color.accent.opacity(0.74) : Color.white.opacity(0.50))
                         .lineLimit(1)
                 }
 
@@ -1701,11 +1731,33 @@ struct DetailPage: View {
             }
             .padding(.horizontal, 11)
             .padding(.vertical, 10)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(contains ? 0.06 : 0.09)))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(contains ? Color.accent.opacity(0.36) : Color.white.opacity(0.12), lineWidth: 1))
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(contains ? Color.accent.opacity(0.10) : Color.white.opacity(0.075))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(contains ? Color.accent.opacity(0.34) : Color.white.opacity(0.10), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
-        .disabled(contains)
+    }
+
+    private func actionPopupDismissLayer(layout: DetailLayout) -> some View {
+        Color.black.opacity(0.001)
+            .contentShape(Rectangle())
+            .frame(width: layout.size.width, height: layout.heroViewportHeight)
+            .onTapGesture {
+                dismissDetailActionPopups()
+            }
+    }
+
+    private func dismissDetailActionPopups() {
+        withAnimation(.easeOut(duration: 0.16)) {
+            showingWallpaperPicker = false
+            showingCollectionPicker = false
+            collectionError = nil
+        }
     }
 
     private func displayTargetButton(target: WallpaperDisplayTarget, selected: Bool) -> some View {
