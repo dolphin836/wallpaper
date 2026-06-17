@@ -1,8 +1,42 @@
 {
-  "current_version": "2.0.10",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.10.dmg",
+  "current_version": "2.0.11",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.11.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.11",
+      "released_at": "2026-06-18",
+      "notes": [
+        "New: Mac dynamic wallpapers now animate in the detail preview by playing through extracted frames.",
+        "Changed: wallpaper details now use an immersive full-window overlay with a compact floating toolbar and similar wallpapers below.",
+        "Changed: wallpaper application is focused on Desktop only; the unstable lock-screen experiment has been removed from the picker.",
+        "Changed: cards and detail images now load progressively from preview to original image with a consistent loading beam.",
+        "Fixed: Discover and collection skeletons no longer flash empty-state text, switch caption styles, or leave incomplete rows."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "新增：Mac 动态壁纸详情页现在会播放已提取的多帧预览，不再只显示一张静态图。",
+          "变更：壁纸详情页改为沉浸式全窗口弹层，保留当前页面位置，首屏显示预览，底部使用紧凑悬浮工具栏，并在下方展示相似壁纸。",
+          "变更：设置壁纸现在专注于桌面；不稳定的锁屏实验入口已从选择器中移除。",
+          "变更：卡片和详情图现在会从预览图渐进加载到原图，并保持一致的加载光束效果。",
+          "修复：发现页和合集的骨架屏不再闪出空状态文案、切换标题样式或出现不满行。"
+        ],
+        "zh-TW": [
+          "新增：Mac 動態桌布詳細頁現在會播放已擷取的多幀預覽，不再只顯示一張靜態圖。",
+          "變更：桌布詳細頁改為沉浸式全視窗彈層，保留目前頁面位置，首屏顯示預覽，底部使用緊湊浮動工具列，並在下方顯示相似桌布。",
+          "變更：設定桌布現在專注於桌面；不穩定的鎖定畫面實驗入口已從選擇器中移除。",
+          "變更：卡片和詳細圖現在會從預覽圖漸進載入到原圖，並保持一致的載入光束效果。",
+          "修復：探索頁和合輯的骨架畫面不再閃出空狀態文案、切換標題樣式或出現不滿行。"
+        ],
+        "ja": [
+          "新機能：Mac 動的壁紙の詳細画面で、抽出済みフレームを再生するプレビューを表示するようになりました。静止画 1 枚だけには見えません。",
+          "変更：壁紙詳細を没入型のフルウインドウオーバーレイにしました。現在のページ位置を保ち、最初にプレビューを表示し、下部にコンパクトなフローティングツールバーと類似壁紙を配置します。",
+          "変更：壁紙の適用はデスクトップに集中しました。不安定だったロック画面の実験的な入口はピッカーから削除しました。",
+          "変更：カードと詳細画像はプレビューから元画像へ段階的に読み込み、一貫したライトスイープの読み込み表現を使うようになりました。",
+          "修正：発見ページとコレクションのスケルトンが、空状態テキストを一瞬表示したり、キャプションの有無を切り替えたり、不完全な行を残したりしなくなりました。"
+        ]
+      }
+    },
     {
       "version": "2.0.10",
       "released_at": "2026-06-17",

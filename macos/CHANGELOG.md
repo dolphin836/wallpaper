@@ -10,6 +10,35 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.11] - 2026-06-18
+
+### Added
+
+- **Mac dynamic wallpapers now animate in the detail preview.** The detail page
+  plays through extracted frames, so Apple dynamic wallpaper files no longer
+  look like a single static still before download.
+
+### Changed
+
+- **Wallpaper details now use an immersive full-window overlay.** Opening a
+  wallpaper keeps the previous page in place, shows the preview first, moves
+  actions into a compact floating toolbar, and leaves similar wallpapers below.
+- **Setting wallpapers is focused on Desktop only.** The unstable lock-screen
+  experiment has been removed from the picker so the apply flow no longer
+  offers a target macOS cannot reliably update.
+- **Cards and detail images now load progressively.** The app uses the list
+  preview immediately, upgrades to the original image when it is ready, and
+  keeps the loading beam treatment consistent.
+
+### Fixed
+
+- **Discover and collection skeletons are stable while loading.** Placeholders
+  no longer flash empty-state text, switch between caption styles, or leave
+  incomplete rows.
+- **Detail toolbar and action popovers are stable across entry points.** Weekly
+  recommendations and similar-wallpaper entries now show the same toolbar,
+  notices, collection picker, and display picker placement.
+
 ## [2.0.10] - 2026-06-17
 
 ### Added
