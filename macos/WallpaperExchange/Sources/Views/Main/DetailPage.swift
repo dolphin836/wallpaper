@@ -330,12 +330,11 @@ struct DetailPage: View {
             immersiveHeroMedia(detail: d, layout: layout)
             heroVignette
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .center, spacing: 12) {
                 downloadProgressBar(detail: d)
 
                 if showingWallpaperPicker {
-                    wallpaperPicker(detail: d)
-                        .frame(width: layout.actionBarWidth, alignment: .leading)
+                    wallpaperPicker(detail: d, layout: layout)
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
 
@@ -1280,6 +1279,7 @@ struct DetailPage: View {
         }
         .animation(.easeOut(duration: 0.16), value: showingWallpaperPicker)
         .padding(layout.actionPadding)
+        .frame(width: layout.actionBarWidth, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(Color.black.opacity(0.48))
@@ -1290,10 +1290,6 @@ struct DetailPage: View {
         )
         .shadow(color: .black.opacity(0.46), radius: 34, y: 18)
         .shadow(color: Color.accent.opacity(0.16), radius: 30, y: 8)
-        .frame(
-            width: layout.actionBarWidth,
-            alignment: .leading
-        )
     }
 
     private func actionRowsWide(detail: WallpaperDetail) -> some View {
@@ -1422,7 +1418,7 @@ struct DetailPage: View {
         }
     }
 
-    private func wallpaperPicker(detail d: WallpaperDetail) -> some View {
+    private func wallpaperPicker(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
         let targets = WallpaperManager.displayTargets()
         let activeTargetID = targets.contains { $0.id == selectedDisplayTargetID }
             ? selectedDisplayTargetID
@@ -1492,6 +1488,7 @@ struct DetailPage: View {
             }
         }
         .padding(14)
+        .frame(width: layout.actionBarWidth, alignment: .leading)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
