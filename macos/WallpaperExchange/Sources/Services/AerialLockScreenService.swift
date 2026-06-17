@@ -96,7 +96,6 @@ final class AerialLockScreenService {
             videoURL: videoDestination,
             thumbnailURL: thumbnailDestination
         )
-        try restartAerialExtension()
         try updateWallpaperStoreIndex(
             indexURL: paths.storeIndex,
             backupURL: paths.storeBackup,
@@ -104,6 +103,12 @@ final class AerialLockScreenService {
             thumbnailURL: thumbnailDestination
         )
         try applySystemWallpaperPointers(videoURL: videoDestination, thumbnailURL: thumbnailDestination)
+
+        do {
+            try restartAerialExtension()
+        } catch {
+            logger.error("lock-screen static fallback was applied, but Aerial restart failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     private struct AerialPaths {
