@@ -94,7 +94,8 @@ struct DetailPage: View {
         var topControlsHorizontalPadding: CGFloat { isCompact ? 22 : 46 }
         var topControlsTopPadding: CGFloat { isCompact ? 22 : 30 }
         var toolbarMaxWidth: CGFloat {
-            max(320, min(isCompact ? 620 : 1120, size.width - overlayHorizontalPadding * 2))
+            let preferred: CGFloat = isCompact ? 620 : 900
+            return max(320, min(preferred, size.width - overlayHorizontalPadding * 2))
         }
         var actionBarWidth: CGFloat {
             min(toolbarMaxWidth, max(320, size.width - overlayHorizontalPadding * 2))
@@ -1280,9 +1281,10 @@ struct DetailPage: View {
         .animation(.easeOut(duration: 0.16), value: showingWallpaperPicker)
         .padding(layout.actionPadding)
         .frame(width: layout.actionBarWidth, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color.black.opacity(0.48))
+                .fill(Color.black.opacity(0.32))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -1492,7 +1494,7 @@ struct DetailPage: View {
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.black.opacity(0.48))
+                .fill(Color.black.opacity(0.32))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
