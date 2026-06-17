@@ -21,6 +21,7 @@ struct DetailPage: View {
     @State private var mode: PreviewMode = .off
     @State private var manager = WallpaperManager.shared
     @State private var auth = AuthService.shared
+    @State private var palette = PaletteEnv.shared
     @State private var isLiked: Bool = false
     @State private var isFavorited: Bool = false
     @State private var myCollections: [CollectionBrief] = []
@@ -111,6 +112,18 @@ struct DetailPage: View {
         }
     }
 
+    private var detailRequestKey: String {
+        let primary = slug.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !primary.isEmpty { return primary }
+        if let fallbackSlug = initialWallpaper?.slug.trimmingCharacters(in: .whitespacesAndNewlines), !fallbackSlug.isEmpty {
+            return fallbackSlug
+        }
+        if let fallbackID = initialWallpaper?.id, fallbackID > 0 {
+            return String(fallbackID)
+        }
+        return primary
+    }
+
     var body: some View {
         GeometryReader { proxy in
             let layout = DetailLayout(size: proxy.size, isModal: onClose != nil)
@@ -137,7 +150,7 @@ struct DetailPage: View {
                 await loadSimilar(limit: layout.recommendationLimit)
             }
         }
-        .task(id: slug) { await load() }
+        .task(id: detailRequestKey) { await load() }
         .confirmationDialog(
             L10n.detail.deleteConfirmTitle,
             isPresented: $showingDeleteConfirm,
@@ -210,9 +223,16 @@ struct DetailPage: View {
             )
         }
         .frame(width: size.width, height: size.height)
+        .animation(.easeOut(duration: 0.42), value: palette.c1)
+        .animation(.easeOut(duration: 0.42), value: palette.c2)
+        .animation(.easeOut(duration: 0.42), value: palette.c3)
+        .animation(.easeOut(duration: 0.42), value: palette.isDefault)
     }
 
     private func ambientColors() -> [Color] {
+        if !palette.isDefault {
+            return [palette.c1, palette.c2, palette.c3]
+        }
         let hexes = ambientHexes()
         return hexes.map { Color(hex: $0) }
     }
@@ -323,6 +343,12 @@ struct DetailPage: View {
 
             VStack(spacing: 12) {
                 downloadProgressBar(detail: d)
+
+                if showingWallpaperPicker {
+                    wallpaperPicker(detail: d)
+                        .frame(maxWidth: min(760, layout.size.width - layout.overlayHorizontalPadding * 2))
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
 
                 actionBar(detail: d, layout: layout)
 
@@ -615,7 +641,6 @@ struct DetailPage: View {
         VStack(alignment: .leading, spacing: 11) {
             infoPanelRow(icon: "person.crop.circle", label: L10n.detail.uploadedBy, value: uploaderName(d))
             infoPanelRow(icon: "folder", label: L10n.detail.category, value: categoryName(for: d))
-            infoPanelRow(icon: "textformat", label: L10n.detail.wallpaperTitle, value: displayTitle(d.title))
             infoColorRow(detail: d)
 
             Rectangle()
@@ -661,7 +686,6 @@ struct DetailPage: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
         )
-        .shadow(color: Color.black.opacity(0.38), radius: 28, y: 16)
     }
 
     private func infoPanelRow(icon: String, label: String, value: String) -> some View {
@@ -803,9 +827,6 @@ struct DetailPage: View {
             .frame(width: layout.pageWidth, alignment: .leading)
             .frame(width: layout.size.width, alignment: .center)
             .background(recommendationsBackground(detail: d))
-            .overlay(alignment: .top) {
-                recommendationsTransitionShadow
-            }
     }
 
     private func recommendationsBackground(detail d: WallpaperDetail) -> some View {
@@ -827,22 +848,6 @@ struct DetailPage: View {
                 endRadius: 520
             )
         }
-    }
-
-    private var recommendationsTransitionShadow: some View {
-        LinearGradient(
-            colors: [
-                Color.black.opacity(0.56),
-                Color.black.opacity(0.30),
-                Color.black.opacity(0.10),
-                Color.clear,
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .frame(height: 142)
-        .offset(y: -92)
-        .allowsHitTesting(false)
     }
 
     private func detailPosterURL(_ d: WallpaperDetail) -> URL? {
@@ -1288,10 +1293,6 @@ struct DetailPage: View {
                 actionRowsCompact(detail: detail)
                 actionRowsMinimal(detail: detail)
             }
-            if showingWallpaperPicker {
-                wallpaperPicker(detail: detail)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
         }
         .animation(.easeOut(duration: 0.16), value: showingWallpaperPicker)
         .padding(layout.actionPadding)
@@ -1306,9 +1307,7 @@ struct DetailPage: View {
         .shadow(color: .black.opacity(0.46), radius: 34, y: 18)
         .shadow(color: Color.accent.opacity(0.16), radius: 30, y: 8)
         .frame(
-            maxWidth: showingWallpaperPicker
-                ? min(760, layout.size.width - layout.overlayHorizontalPadding * 2)
-                : min(layout.toolbarMaxWidth, layout.size.width - layout.overlayHorizontalPadding * 2),
+            maxWidth: min(layout.toolbarMaxWidth, layout.size.width - layout.overlayHorizontalPadding * 2),
             alignment: .leading
         )
     }
@@ -1439,8 +1438,6 @@ struct DetailPage: View {
         }
     }
 
-    private static let wallpaperSurfaceOptions: [WallpaperApplySurface] = [.desktop]
-
     private func wallpaperPicker(detail d: WallpaperDetail) -> some View {
         let targets = WallpaperManager.displayTargets()
         let activeTargetID = targets.contains { $0.id == selectedDisplayTargetID }
@@ -1449,45 +1446,12 @@ struct DetailPage: View {
         let cannotApply = applyingWallpaper || manager.downloading.contains(d.id) || surfaceUnavailable(selectedWallpaperSurface, detail: d)
 
         return VStack(alignment: .leading, spacing: 14) {
-            if Self.wallpaperSurfaceOptions.count > 1 {
-                HStack(spacing: 6) {
-                    ForEach(Self.wallpaperSurfaceOptions) { surface in
-                        let selected = selectedWallpaperSurface == surface
-                        let disabled = surfaceUnavailable(surface, detail: d)
-                        Button {
-                            guard !disabled else { return }
-                            selectedWallpaperSurface = surface
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: wallpaperSurfaceIcon(surface))
-                                    .font(.system(size: 11, weight: .semibold))
-                                Text(wallpaperSurfaceLabel(surface))
-                                    .font(.sans11)
-                                    .lineLimit(1)
-                            }
-                            .foregroundStyle(selected ? Color.ink : Color.muted)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(Capsule().fill(selected ? Color.paper : Color.clear))
-                            .overlay(Capsule().stroke(selected ? Color.accent.opacity(0.65) : Color.clear, lineWidth: 1))
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(disabled)
-                        .opacity(disabled ? 0.42 : 1)
-                        .help(disabled ? surfaceUnavailableReason(surface, detail: d) : wallpaperSurfaceLabel(surface))
-                    }
-                }
-                .padding(4)
-                .background(Capsule().fill(Color.paper2.opacity(0.88)))
-                .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
-            }
-
             if selectedWallpaperSurface != .lockScreen {
                 VStack(alignment: .leading, spacing: 9) {
                     HStack(alignment: .center, spacing: 10) {
                         Text(L10n.detail.wallpaperChooseDisplay)
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Color.ink2)
+                            .foregroundStyle(Color.white.opacity(0.88))
                         Spacer(minLength: 0)
                         Button {
                             withAnimation(.easeOut(duration: 0.16)) {
@@ -1496,9 +1460,9 @@ struct DetailPage: View {
                         } label: {
                             Image(systemName: "xmark")
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(Color.muted)
+                                .foregroundStyle(Color.white.opacity(0.66))
                                 .frame(width: 24, height: 24)
-                                .background(Circle().fill(Color.paper2))
+                                .background(Circle().fill(Color.white.opacity(0.08)))
                         }
                         .buttonStyle(.plain)
                     }
@@ -1536,8 +1500,7 @@ struct DetailPage: View {
                     .foregroundStyle(Color.white)
                     .padding(.horizontal, 18)
                     .padding(.vertical, 9)
-                    .background(Capsule().fill(cannotApply ? Color.muted.opacity(0.5) : Color.accent))
-                    .shadow(color: cannotApply ? Color.clear : Color.accent.opacity(0.35), radius: 10, y: 4)
+                    .background(Capsule().fill(cannotApply ? Color.white.opacity(0.20) : Color.accent))
                 }
                 .buttonStyle(.plain)
                 .disabled(cannotApply)
@@ -1545,15 +1508,15 @@ struct DetailPage: View {
             }
         }
         .padding(14)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.paper2.opacity(0.94))
+                .fill(Color.black.opacity(0.48))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.55), lineWidth: 1)
+                .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.10), radius: 18, y: 8)
     }
 
     private func displayTargetButton(target: WallpaperDisplayTarget, selected: Bool) -> some View {
@@ -1564,7 +1527,7 @@ struct DetailPage: View {
                 HStack(spacing: 8) {
                     Image(systemName: target.isAll ? "rectangle.on.rectangle" : "display")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(selected ? Color.accent : Color.muted)
+                        .foregroundStyle(selected ? Color.accent : Color.white.opacity(0.62))
                     if selected {
                         Spacer(minLength: 0)
                         Image(systemName: "checkmark.circle.fill")
@@ -1575,36 +1538,20 @@ struct DetailPage: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(target.name)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.ink)
+                        .foregroundStyle(Color.white.opacity(0.92))
                         .lineLimit(1)
                     Text(target.detail)
                         .font(.system(size: 10))
-                        .foregroundStyle(Color.muted)
+                        .foregroundStyle(Color.white.opacity(0.54))
                         .lineLimit(1)
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 74, alignment: .leading)
             .padding(12)
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(selected ? Color.accent.opacity(0.10) : Color.paper.opacity(0.78)))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(selected ? Color.accent.opacity(0.75) : Color.hair, lineWidth: selected ? 1.4 : 1))
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(selected ? Color.accent.opacity(0.20) : Color.white.opacity(0.08)))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(selected ? Color.accent.opacity(0.70) : Color.white.opacity(0.12), lineWidth: selected ? 1.4 : 1))
         }
         .buttonStyle(.plain)
-    }
-
-    private func wallpaperSurfaceLabel(_ surface: WallpaperApplySurface) -> String {
-        switch surface {
-        case .desktop: L10n.detail.wallpaperSurfaceDesktop
-        case .lockScreen: L10n.detail.wallpaperSurfaceLockScreen
-        case .both: L10n.detail.wallpaperSurfaceBoth
-        }
-    }
-
-    private func wallpaperSurfaceIcon(_ surface: WallpaperApplySurface) -> String {
-        switch surface {
-        case .desktop: "display"
-        case .lockScreen: "lock.fill"
-        case .both: "rectangle.on.rectangle"
-        }
     }
 
     private func surfaceUnavailable(_ surface: WallpaperApplySurface, detail d: WallpaperDetail) -> Bool {
@@ -2009,7 +1956,7 @@ struct DetailPage: View {
         videoDurationTask?.cancel()
         videoDuration = nil
         do {
-            let d = try await APIClient.shared.fetchWallpaperDetail(slug: slug)
+            let d = try await APIClient.shared.fetchWallpaperDetail(slug: detailRequestKey)
             detail = d
             isLiked = d.isLiked ?? false
             isFavorited = d.isFavorited ?? false
