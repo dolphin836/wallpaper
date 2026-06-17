@@ -1,8 +1,8 @@
 import SwiftUI
 
-// Immersive, action-first detail page. The wallpaper itself paints the
-// whole surface; the only chrome is the bottom tool set: like /
-// favorite / collect, on-device preview, and coin download.
+// Immersive, action-first detail page. The wallpaper stays as the hero
+// preview, while the page background uses the same palette mesh language
+// as the other iOS surfaces.
 struct WallpaperDetailView: View {
     let slug: String
     let initialWallpaper: Wallpaper?
@@ -35,6 +35,8 @@ struct WallpaperDetailView: View {
     @State private var showAddToCollection = false
     @State private var showDevicePreview = false
     @State private var showInfo = false
+    @State private var similar: [Wallpaper] = []
+    @State private var similarLoading = false
 
     init(
         slug: String,
@@ -157,42 +159,109 @@ struct WallpaperDetailView: View {
         detail?.id ?? initialWallpaper?.id
     }
 
-    // The wallpaper itself is the page. A subtle scrim keeps only the
-    // navigation and bottom tools legible on bright images.
     private var backdrop: some View {
-        ZStack {
-            backdropColor
-            if let imageSource {
-                Color.clear
-                    .overlay(
-                        ProgressiveDetailImage(source: imageSource, fallback: backdropColor)
-                    )
-                    .clipped()
-            }
-            LinearGradient(
-                colors: [.black.opacity(0.20), .clear, .black.opacity(0.46)],
-                startPoint: .top, endPoint: .bottom
-            )
-        }
+        DetailAmbientBackground(source: imageSource)
         .ignoresSafeArea()
     }
 
     private func content(wallpaperID: Int) -> some View {
-        VStack(spacing: 0) {
-            Spacer()
+        GeometryReader { proxy in
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 0) {
+                    heroSection(wallpaperID: wallpaperID, height: max(proxy.size.height, 560))
+                        .zIndex(1)
+                    relatedSection
+                }
+            }
+            .ignoresSafeArea(edges: .top)
+        }
+    }
 
-            if let notice {
-                DetailNoticeBanner(notice: notice)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 10)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+    private func heroSection(wallpaperID: Int, height: CGFloat) -> some View {
+        ZStack(alignment: .bottom) {
+            if let imageSource {
+                ProgressiveDetailImage(source: imageSource, fallback: backdropColor)
+            } else {
+                backdropColor
             }
 
-            bottomToolBar(wallpaperID: wallpaperID)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 22)
+            LinearGradient(
+                colors: [.black.opacity(0.22), .clear, .black.opacity(0.50)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            VStack(spacing: 0) {
+                Spacer()
+
+                if let notice {
+                    DetailNoticeBanner(notice: notice)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 10)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
+                bottomToolBar(wallpaperID: wallpaperID)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 22)
+            }
+            .environment(\.colorScheme, .dark)
         }
-        .environment(\.colorScheme, .dark)
+        .frame(height: height)
+        .clipped()
+        .overlay(alignment: .bottom) {
+            heroRecommendationShadow
+                .offset(y: 38)
+        }
+    }
+
+    private var heroRecommendationShadow: some View {
+        LinearGradient(
+            colors: [
+                Color.black.opacity(0.34),
+                Color.black.opacity(0.14),
+                Color.black.opacity(0.04),
+                Color.clear,
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(height: 76)
+        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private var relatedSection: some View {
+        if similarLoading || !similar.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .lastTextBaseline) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Kicker(text: L10n.strings(for: prefs.language).forYou)
+                        Text(L10n.strings(for: prefs.language).forYou)
+                            .font(.display22)
+                            .foregroundStyle(Color.ink)
+                    }
+                    Spacer()
+                    if !similar.isEmpty {
+                        Text("\(similar.count)")
+                            .font(.mono10)
+                            .foregroundStyle(Color.muted)
+                            .monospacedDigit()
+                    }
+                }
+                .padding(.horizontal, 18)
+
+                if similarLoading && similar.isEmpty {
+                    WallpaperGridSkeleton(count: 4)
+                } else {
+                    WallpaperGrid(wallpapers: similar, showsEndState: false)
+                }
+            }
+            .padding(.top, 34)
+            .padding(.bottom, 42)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.paper)
+        }
     }
 
     // ─── actions ─────────────────────────────────────────────────
@@ -574,8 +643,19 @@ struct WallpaperDetailView: View {
             favoriteCount = d.favoriteCount
             downloadCount = d.downloadCount
             loadError = nil
+            await loadSimilar(wallpaperID: d.id)
         } catch {
             loadError = error.localizedDescription
+        }
+    }
+
+    private func loadSimilar(wallpaperID: Int) async {
+        similarLoading = true
+        defer { similarLoading = false }
+        do {
+            similar = try await APIClient.shared.fetchSimilarWallpapers(wallpaperID: wallpaperID, limit: 10)
+        } catch {
+            similar = []
         }
     }
 }
@@ -733,12 +813,14 @@ private struct DetailImageSource: Equatable {
     let previewURL: String
     let originalURL: String
     let dominantColor: String?
+    let colorPalette: String?
 
     init(detail: WallpaperDetail) {
         thumbURL = detail.thumbURL
         previewURL = detail.previewURL
         originalURL = detail.originalURL
         dominantColor = detail.dominantColor
+        colorPalette = detail.colorPalette
     }
 
     init(wallpaper: Wallpaper) {
@@ -746,6 +828,7 @@ private struct DetailImageSource: Equatable {
         previewURL = wallpaper.previewURL
         originalURL = wallpaper.originalURL
         dominantColor = wallpaper.dominantColor
+        colorPalette = wallpaper.colorPalette
     }
 
     var previewDisplayURL: String {
@@ -753,7 +836,84 @@ private struct DetailImageSource: Equatable {
     }
 
     var identity: String {
-        [thumbURL, previewURL, originalURL, dominantColor ?? ""].joined(separator: "|")
+        [thumbURL, previewURL, originalURL, dominantColor ?? "", colorPalette ?? ""].joined(separator: "|")
+    }
+}
+
+private struct DetailAmbientBackground: View {
+    let source: DetailImageSource?
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var paletteColors: [Color] {
+        (source?.colorPalette ?? "")
+            .split(separator: ",")
+            .map { String($0).trimmingCharacters(in: .whitespaces) }
+            .compactMap { Color(hex: $0) }
+    }
+
+    private var dominant: Color {
+        Color(hex: source?.dominantColor) ?? Color.accent
+    }
+
+    private var first: Color {
+        paletteColors.first ?? dominant
+    }
+
+    private var middle: Color {
+        paletteColors.isEmpty ? dominant : paletteColors[paletteColors.count / 2]
+    }
+
+    private var last: Color {
+        paletteColors.last ?? dominant
+    }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let radius = max(proxy.size.width, proxy.size.height)
+            let isDark = colorScheme == .dark
+
+            ZStack {
+                Color.paper
+
+                LinearGradient(
+                    colors: [
+                        first.opacity(isDark ? 0.26 : 0.24),
+                        dominant.opacity(isDark ? 0.22 : 0.18),
+                        last.opacity(isDark ? 0.24 : 0.20),
+                        Color.paper.opacity(0.78),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                ZStack {
+                    RadialGradient(
+                        colors: [dominant.opacity(isDark ? 0.62 : 0.54), .clear],
+                        center: UnitPoint(x: 0.16, y: 0.16),
+                        startRadius: 0,
+                        endRadius: radius * 0.58
+                    )
+                    RadialGradient(
+                        colors: [middle.opacity(isDark ? 0.48 : 0.42), .clear],
+                        center: UnitPoint(x: 0.86, y: 0.18),
+                        startRadius: 0,
+                        endRadius: radius * 0.50
+                    )
+                    RadialGradient(
+                        colors: [last.opacity(isDark ? 0.54 : 0.46), .clear],
+                        center: UnitPoint(x: 0.52, y: 0.86),
+                        startRadius: 0,
+                        endRadius: radius * 0.62
+                    )
+                }
+                .blur(radius: 72)
+                .saturation(isDark ? 1.20 : 1.16)
+
+                Color.paper.opacity(isDark ? 0.42 : 0.28)
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 
