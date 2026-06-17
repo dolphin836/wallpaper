@@ -84,7 +84,7 @@ final class AerialLockScreenService {
         )
         restartAgent(named: "WallpaperAgent")
         try updateWallpaperStoreIndex(indexURL: paths.storeIndex, backupURL: paths.storeBackup, assetID: assetID)
-        try applySystemWallpaperPointers(videoURL: videoDestination)
+        try applySystemWallpaperPointers(videoURL: videoDestination, thumbnailURL: thumbnailDestination)
         try restartAerialExtension()
     }
 
@@ -351,13 +351,18 @@ final class AerialLockScreenService {
         idle["LastUse"] = now
     }
 
-    private func applySystemWallpaperPointers(videoURL: URL) throws {
+    private func applySystemWallpaperPointers(videoURL: URL, thumbnailURL: URL) throws {
         try writeDefault(
             domain: "com.apple.wallpaper",
             key: "SystemWallpaperURL",
             value: videoURL.absoluteString
         )
-        deleteDefault(domain: "com.apple.loginwindow", key: "DesktopPicture")
+        try writeDefault(
+            domain: "com.apple.loginwindow",
+            key: "DesktopPicture",
+            value: thumbnailURL.path
+        )
+        writeLockScreenCacheImage(thumbnailURL)
     }
 
     private func writeDefault(domain: String, key: String, value: String) throws {
@@ -384,12 +389,54 @@ final class AerialLockScreenService {
         }
     }
 
-    private func deleteDefault(domain: String, key: String) {
+    private func writeLockScreenCacheImage(_ imageURL: URL) {
+        guard let userUUID = generatedUserUUID() else {
+            logger.error("failed to resolve GeneratedUID for lock-screen cache")
+            return
+        }
+
+        let directory = URL(fileURLWithPath: "/Library/Caches/Desktop Pictures", isDirectory: true)
+            .appendingPathComponent(userUUID, isDirectory: true)
+        let destination = directory.appendingPathComponent("lockscreen.png")
+
+        do {
+            try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+            if fm.fileExists(atPath: destination.path) {
+                try fm.removeItem(at: destination)
+            }
+            try fm.copyItem(at: imageURL, to: destination)
+            try fm.setAttributes([.posixPermissions: 0o644], ofItemAtPath: destination.path)
+            logger.info("updated lock-screen cache image at \(destination.path, privacy: .public)")
+        } catch {
+            logger.error("failed to update lock-screen cache image: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func generatedUserUUID() -> String? {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
-        process.arguments = ["delete", domain, key]
-        try? process.run()
-        process.waitUntilExit()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/dscl")
+        process.arguments = [".", "-read", "/Users/\(NSUserName())", "GeneratedUID"]
+
+        let outputPipe = Pipe()
+        process.standardOutput = outputPipe
+        process.standardError = Pipe()
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else { return nil }
+            let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            let output = String(data: data, encoding: .utf8) ?? ""
+            return output
+                .split(separator: "\n")
+                .first(where: { $0.contains("GeneratedUID:") })?
+                .split(separator: " ")
+                .last
+                .map(String.init)
+        } catch {
+            logger.error("failed to read GeneratedUID: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     private func restartAerialExtension() throws {
