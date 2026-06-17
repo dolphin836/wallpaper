@@ -33,6 +33,7 @@ struct DetailPage: View {
     @State private var deletingWallpaper = false
     @State private var showingDeleteConfirm = false
     @State private var showingWallpaperPicker = false
+    @State private var measuredActionBarWidth: CGFloat = 0
     @State private var selectedWallpaperSurface: WallpaperApplySurface = .desktop
     @State private var selectedDisplayTargetID = WallpaperDisplayTarget.allID
     @State private var applyingWallpaper = false
@@ -97,9 +98,7 @@ struct DetailPage: View {
             let preferred: CGFloat = isCompact ? 620 : 900
             return max(320, min(preferred, size.width - overlayHorizontalPadding * 2))
         }
-        var actionBarWidth: CGFloat {
-            min(toolbarMaxWidth, max(320, size.width - overlayHorizontalPadding * 2))
-        }
+        var actionBarAvailableWidth: CGFloat { max(320, size.width - overlayHorizontalPadding * 2) }
 
         var heroMaxHeight: CGFloat {
             let h = max(size.height, 560)
@@ -161,6 +160,10 @@ struct DetailPage: View {
             }
         }
         .task(id: detailRequestKey) { await load() }
+        .onPreferenceChange(ActionBarWidthPreferenceKey.self) { width in
+            guard width > 0 else { return }
+            measuredActionBarWidth = width
+        }
         .confirmationDialog(
             L10n.detail.deleteConfirmTitle,
             isPresented: $showingDeleteConfirm,
@@ -343,7 +346,7 @@ struct DetailPage: View {
 
                 downloadNoticeView(detail: d)
             }
-            .frame(width: layout.actionBarWidth, alignment: .leading)
+            .frame(maxWidth: layout.actionBarAvailableWidth, alignment: .center)
             .padding(.horizontal, layout.overlayHorizontalPadding)
             .padding(.bottom, layout.overlayBottomPadding)
             .zIndex(2)
@@ -1280,11 +1283,10 @@ struct DetailPage: View {
         }
         .animation(.easeOut(duration: 0.16), value: showingWallpaperPicker)
         .padding(layout.actionPadding)
-        .frame(width: layout.actionBarWidth, alignment: .leading)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color.black.opacity(0.32))
+                .fill(Color.black.opacity(0.24))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -1292,6 +1294,11 @@ struct DetailPage: View {
         )
         .shadow(color: .black.opacity(0.46), radius: 34, y: 18)
         .shadow(color: Color.accent.opacity(0.16), radius: 30, y: 8)
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(key: ActionBarWidthPreferenceKey.self, value: proxy.size.width)
+            }
+        )
     }
 
     private func actionRowsWide(detail: WallpaperDetail) -> some View {
@@ -1420,6 +1427,12 @@ struct DetailPage: View {
         }
     }
 
+    private func resolvedActionBarWidth(layout: DetailLayout) -> CGFloat {
+        let fallback = min(layout.actionBarAvailableWidth, layout.isCompact ? 620 : 720)
+        let measured = measuredActionBarWidth > 0 ? measuredActionBarWidth : fallback
+        return min(max(320, measured), layout.actionBarAvailableWidth)
+    }
+
     private func wallpaperPicker(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
         let targets = WallpaperManager.displayTargets()
         let activeTargetID = targets.contains { $0.id == selectedDisplayTargetID }
@@ -1490,11 +1503,11 @@ struct DetailPage: View {
             }
         }
         .padding(14)
-        .frame(width: layout.actionBarWidth, alignment: .leading)
+        .frame(width: resolvedActionBarWidth(layout: layout), alignment: .leading)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.black.opacity(0.32))
+                .fill(Color.black.opacity(0.24))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -2139,6 +2152,14 @@ struct DetailPage: View {
             isLiked: d.isLiked, isFavorited: d.isFavorited, isDownloaded: d.isDownloaded,
             createdAt: d.createdAt
         )
+    }
+}
+
+private struct ActionBarWidthPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 
