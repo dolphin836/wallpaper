@@ -67,14 +67,12 @@ final class AerialLockScreenService {
         let paths = try aerialPaths()
         try ensureDirectories(paths)
 
-        restartAgent(named: "WallpaperAgent")
         do {
             try updateWallpaperStoreIndexForImage(indexURL: paths.storeIndex, backupURL: paths.storeBackup, imageURL: imageURL)
         } catch {
             logger.error("failed to update lock-screen image store: \(error.localizedDescription, privacy: .public)")
         }
         try applyStaticLockScreenFallback(imageURL: imageURL)
-        restartAgent(named: "WallpaperAgent")
     }
 
     func apply(wallpaper: Wallpaper, videoURL: URL, thumbnailURL: URL?) async throws {
@@ -98,7 +96,7 @@ final class AerialLockScreenService {
             videoURL: videoDestination,
             thumbnailURL: thumbnailDestination
         )
-        restartAgent(named: "WallpaperAgent")
+        try restartAerialExtension()
         try updateWallpaperStoreIndex(
             indexURL: paths.storeIndex,
             backupURL: paths.storeBackup,
@@ -106,7 +104,6 @@ final class AerialLockScreenService {
             thumbnailURL: thumbnailDestination
         )
         try applySystemWallpaperPointers(videoURL: videoDestination, thumbnailURL: thumbnailDestination)
-        try restartAerialExtension()
     }
 
     private struct AerialPaths {
@@ -538,8 +535,6 @@ final class AerialLockScreenService {
             throw AerialError.extensionUnavailable
         }
 
-        restartAgent(named: "WallpaperAgent")
-
         let kill = Process()
         kill.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
         kill.arguments = ["-f", "WallpaperAerialsExtension"]
@@ -555,13 +550,5 @@ final class AerialLockScreenService {
             logger.error("failed to restart WallpaperAerialsExtension: \(error.localizedDescription, privacy: .public)")
             throw AerialError.extensionUnavailable
         }
-    }
-
-    private func restartAgent(named name: String) {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
-        process.arguments = [name]
-        try? process.run()
-        process.waitUntilExit()
     }
 }
