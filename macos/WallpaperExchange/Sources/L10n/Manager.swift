@@ -14,6 +14,7 @@ struct ManagerStrings {
 
     // WallpaperError
     let fileUnavailable: String
+    let autoRotateCollectionEmpty: String
 }
 
 private let managerEN = ManagerStrings(
@@ -21,7 +22,8 @@ private let managerEN = ManagerStrings(
     intervalHours: { n in n == 1 ? "1 hour" : "\(n) hours" },
     intervalDays: { n in n == 1 ? "1 day" : "\(n) days" },
     intervalHoursMinutes: { h, m in "\(h == 1 ? "1 h" : "\(h) h") \(m) min" },
-    fileUnavailable: "Wallpaper file is not available locally."
+    fileUnavailable: "Wallpaper file is not available locally.",
+    autoRotateCollectionEmpty: "This collection does not contain any wallpapers."
 )
 
 private let managerZhCN = ManagerStrings(
@@ -29,7 +31,8 @@ private let managerZhCN = ManagerStrings(
     intervalHours: { n in "\(n) 小时" },
     intervalDays: { n in "\(n) 天" },
     intervalHoursMinutes: { h, m in "\(h) 小时 \(m) 分钟" },
-    fileUnavailable: "本地没有该壁纸文件。"
+    fileUnavailable: "本地没有该壁纸文件。",
+    autoRotateCollectionEmpty: "这个合集里还没有壁纸。"
 )
 
 private let managerZhTW = ManagerStrings(
@@ -37,7 +40,8 @@ private let managerZhTW = ManagerStrings(
     intervalHours: { n in "\(n) 小時" },
     intervalDays: { n in "\(n) 天" },
     intervalHoursMinutes: { h, m in "\(h) 小時 \(m) 分鐘" },
-    fileUnavailable: "本機沒有該桌布檔案。"
+    fileUnavailable: "本機沒有該桌布檔案。",
+    autoRotateCollectionEmpty: "這個合輯裡還沒有桌布。"
 )
 
 private let managerJA = ManagerStrings(
@@ -45,7 +49,8 @@ private let managerJA = ManagerStrings(
     intervalHours: { n in "\(n)時間" },
     intervalDays: { n in "\(n)日" },
     intervalHoursMinutes: { h, m in "\(h)時間\(m)分" },
-    fileUnavailable: "壁紙ファイルがローカルにありません。"
+    fileUnavailable: "壁紙ファイルがローカルにありません。",
+    autoRotateCollectionEmpty: "このコレクションにはまだ壁紙がありません。"
 )
 
 extension L10n {

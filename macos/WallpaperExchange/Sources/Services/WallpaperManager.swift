@@ -41,6 +41,8 @@ final class WallpaperManager {
     // rotation.
     private(set) var autoRotate: Bool = false
     private(set) var autoRotateInterval: TimeInterval = WallpaperManager.defaultAutoRotateInterval
+    private(set) var autoRotateCollectionID: Int?
+    private(set) var autoRotateCollectionTitle: String?
     // Absolute timestamp of the next rotation tick. Surfaced to the
     // ShuffleStatusBanner so it can render a live "NEXT · 2 H 34 M"
     // countdown. nil whenever autoRotate is off.
@@ -48,6 +50,8 @@ final class WallpaperManager {
     private var rotationTask: Task<Void, Never>?
     private let autoRotateDefaultsKey = "wallpaper.autoRotate"
     private let autoRotateIntervalDefaultsKey = "wallpaper.autoRotate.interval"
+    private let autoRotateCollectionIDDefaultsKey = "wallpaper.autoRotate.collectionID"
+    private let autoRotateCollectionTitleDefaultsKey = "wallpaper.autoRotate.collectionTitle"
     static let defaultAutoRotateInterval: TimeInterval = 4 * 3600
     static let minAutoRotateInterval: TimeInterval = 15 * 60
     static let maxAutoRotateInterval: TimeInterval = 7 * 24 * 3600
@@ -80,6 +84,9 @@ final class WallpaperManager {
             savedInterval > 0 ? savedInterval : Self.defaultAutoRotateInterval
         )
         autoRotate = UserDefaults.standard.bool(forKey: autoRotateDefaultsKey)
+        let savedCollectionID = UserDefaults.standard.integer(forKey: autoRotateCollectionIDDefaultsKey)
+        autoRotateCollectionID = savedCollectionID > 0 ? savedCollectionID : nil
+        autoRotateCollectionTitle = UserDefaults.standard.string(forKey: autoRotateCollectionTitleDefaultsKey)
         let saved = UserDefaults.standard.integer(forKey: currentWallpaperIDDefaultsKey)
         currentWallpaperID = saved > 0 ? saved : nil
         if autoRotate {
@@ -169,6 +176,72 @@ final class WallpaperManager {
         }
     }
 
+    func clearAutoRotateCollection() {
+        autoRotateCollectionID = nil
+        autoRotateCollectionTitle = nil
+        UserDefaults.standard.removeObject(forKey: autoRotateCollectionIDDefaultsKey)
+        UserDefaults.standard.removeObject(forKey: autoRotateCollectionTitleDefaultsKey)
+        if autoRotate {
+            startRotation(applyImmediately: false)
+        }
+    }
+
+    func fetchAllCollectionWallpapers(collectionID: Int) async throws -> [Wallpaper] {
+        var items: [Wallpaper] = []
+        var cursor: Int?
+        var seenCursors: Set<Int> = []
+
+        while true {
+            let data = try await APIClient.shared.fetchCollectionWallpapers(
+                collectionID: collectionID,
+                cursor: cursor,
+                limit: 100
+            )
+            items.append(contentsOf: data.items)
+
+            guard data.hasMore, let nextCursor = data.nextCursor, nextCursor > 0 else {
+                break
+            }
+            guard seenCursors.insert(nextCursor).inserted else {
+                break
+            }
+            cursor = nextCursor
+        }
+
+        return items
+    }
+
+    func missingLocalWallpapers(in wallpapers: [Wallpaper]) -> [Wallpaper] {
+        wallpapers.filter { !isDownloaded($0.id) }
+    }
+
+    func setAutoRotateCollection(
+        _ collection: CollectionItem,
+        wallpapers: [Wallpaper],
+        downloadMissing: Bool
+    ) async throws {
+        guard !wallpapers.isEmpty else {
+            throw WallpaperError.autoRotateCollectionEmpty
+        }
+
+        if downloadMissing {
+            for wallpaper in wallpapers where !isDownloaded(wallpaper.id) {
+                try await download(wallpaper: wallpaper)
+            }
+        }
+
+        autoRotateCollectionID = collection.id
+        autoRotateCollectionTitle = collection.title
+        UserDefaults.standard.set(collection.id, forKey: autoRotateCollectionIDDefaultsKey)
+        UserDefaults.standard.set(collection.title, forKey: autoRotateCollectionTitleDefaultsKey)
+
+        if autoRotate {
+            startRotation()
+        } else {
+            setAutoRotate(true)
+        }
+    }
+
     var autoRotateIntervalLabel: String {
         Self.formatAutoRotateInterval(autoRotateInterval)
     }
@@ -208,12 +281,12 @@ final class WallpaperManager {
         rotationTask = Task { [weak self] in
             guard let self else { return }
             if applyImmediately {
-                self.applyRandomLocalWallpaper()
+                await self.applyNextAutoRotateWallpaper()
             }
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: self.rotationIntervalNs)
                 guard !Task.isCancelled else { break }
-                self.applyRandomLocalWallpaper()
+                await self.applyNextAutoRotateWallpaper()
                 self.nextRotationAt = Date().addingTimeInterval(self.autoRotateInterval)
             }
         }
@@ -241,6 +314,31 @@ final class WallpaperManager {
         }
         guard let pick = pairs.randomElement() else { return }
         applyLocalWallpaper(id: pick.0, url: pick.1, source: "auto-rotate")
+    }
+
+    private func applyNextAutoRotateWallpaper() async {
+        if let collectionID = autoRotateCollectionID {
+            await applyRandomCollectionWallpaper(collectionID: collectionID)
+        } else {
+            applyRandomLocalWallpaper()
+        }
+    }
+
+    private func applyRandomCollectionWallpaper(collectionID: Int) async {
+        do {
+            let wallpapers = try await fetchAllCollectionWallpapers(collectionID: collectionID)
+            let pairs: [(Int, URL)] = wallpapers.compactMap { wallpaper in
+                guard let url = localURL(for: wallpaper.id) else { return nil }
+                return (wallpaper.id, url)
+            }
+            guard let pick = pairs.randomElement() else {
+                logger.info("auto-rotate collection \(collectionID, privacy: .public): no local wallpapers available")
+                return
+            }
+            applyLocalWallpaper(id: pick.0, url: pick.1, source: "auto-rotate collection=\(collectionID)")
+        } catch {
+            logger.error("auto-rotate collection \(collectionID, privacy: .public): failed — \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// Set the same image URL on every connected NSScreen and log the
@@ -592,11 +690,13 @@ final class WallpaperManager {
     enum WallpaperError: LocalizedError {
         case fileUnavailable
         case lockScreenUnavailable
+        case autoRotateCollectionEmpty
 
         var errorDescription: String? {
             switch self {
             case .fileUnavailable: return L10n.manager.fileUnavailable
             case .lockScreenUnavailable: return L10n.detail.lockScreenUnavailable
+            case .autoRotateCollectionEmpty: return L10n.manager.autoRotateCollectionEmpty
             }
         }
     }

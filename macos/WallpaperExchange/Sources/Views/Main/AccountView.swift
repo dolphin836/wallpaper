@@ -203,7 +203,10 @@ struct AccountView: View {
             PagedCollectionGrid(
                 headLabel: L10n.account.headCreated,
                 fetch: { cursor, limit in try await APIClient.shared.fetchUserCollections(idOrUsername: username, cursor: cursor, limit: limit) },
-                onCollection: onCollection, onCount: { counts[.collections] = $0 }, onPalette: applyMesh
+                onCollection: onCollection,
+                onCount: { counts[.collections] = $0 },
+                onPalette: applyMesh,
+                showsAutoPlayControls: isOwner
             ).id("collections-\(username)")
         case .favorites:
             wallpaperList(.favorites, head: L10n.account.headFavorites, empty: L10n.account.emptyFavorites,
@@ -642,7 +645,9 @@ struct PagedCollectionGrid: View {
     var onCollection: (CollectionItem) -> Void
     var onCount: (Int) -> Void = { _ in }
     var onPalette: (String?, String?) -> Void = { _, _ in }
+    var showsAutoPlayControls: Bool = false
 
+    @State private var manager = WallpaperManager.shared
     @State private var items: [CollectionItem] = []
     @State private var page = 1
     @State private var cursors: [Int?] = [nil]
@@ -650,6 +655,12 @@ struct PagedCollectionGrid: View {
     @State private var loading = true
     @State private var loaded = false
     @State private var loadError: String?
+    @State private var autoPlayBusyCollectionID: Int?
+    @State private var autoPlayError: String?
+    @State private var pendingAutoPlayCollection: CollectionItem?
+    @State private var pendingAutoPlayWallpapers: [Wallpaper] = []
+    @State private var pendingMissingCount = 0
+    @State private var showAutoPlayDownloadPrompt = false
 
     private let pageSize = 12
     private var totalPages: Int { total > 0 ? Int(ceil(Double(total) / Double(pageSize))) : max(cursors.count, 1) }
@@ -658,6 +669,9 @@ struct PagedCollectionGrid: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             LabelRule(text: "\(headLabel) · \(loaded ? "\(total)" : "…")")
+            if showsAutoPlayControls {
+                autoPlayStatusPanel
+            }
             if loading && items.isEmpty {
                 CollectionGridSkeleton(
                     columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)],
@@ -677,7 +691,7 @@ struct PagedCollectionGrid: View {
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)], spacing: 28) {
                     ForEach(items) { c in
-                        Button(action: { onCollection(c) }) { CollectionTileCard(item: c) }.buttonStyle(.plain)
+                        collectionCell(c)
                     }
                 }
                 PageBar(current: page, totalPages: totalPages, maxReachable: cursors.count) { p in Task { await loadPage(p) } }
@@ -693,6 +707,166 @@ struct PagedCollectionGrid: View {
         }
         .task { if !loaded { await loadPage(1) } }
         .onAppear { if loaded { onPalette(nil, baseTint) } }
+        .confirmationDialog(
+            L10n.account.collectionAutoPlayDownloadTitle,
+            isPresented: $showAutoPlayDownloadPrompt,
+            titleVisibility: .visible
+        ) {
+            Button(L10n.account.collectionAutoPlayDownloadConfirm) {
+                Task { await confirmAutoPlayDownload() }
+            }
+            Button(L10n.common.cancel, role: .cancel) {
+                clearPendingAutoPlay()
+            }
+        } message: {
+            Text(L10n.account.collectionAutoPlayDownloadMessage(pendingMissingCount))
+        }
+    }
+
+    private var autoPlayStatusPanel: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: manager.autoRotateCollectionID == nil ? "shuffle" : "rectangle.stack.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(manager.autoRotateCollectionID == nil ? Color.muted : Color.accent)
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(Color.paper2))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(manager.autoRotateCollectionTitle.map(L10n.account.collectionAutoPlayStatus)
+                     ?? L10n.account.collectionAutoPlayFallback)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.ink2)
+                    .lineLimit(2)
+                if let autoPlayError {
+                    Text(autoPlayError)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.warn)
+                        .lineLimit(2)
+                }
+            }
+            Spacer(minLength: 0)
+            if manager.autoRotateCollectionID != nil {
+                Button {
+                    autoPlayError = nil
+                    manager.clearAutoRotateCollection()
+                } label: {
+                    Text(L10n.account.collectionAutoPlayStop)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.ink2)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Color.paper2))
+                        .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.paper.opacity(0.52)))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.hair.opacity(0.85), lineWidth: 1))
+    }
+
+    private func collectionCell(_ collection: CollectionItem) -> some View {
+        ZStack(alignment: .topTrailing) {
+            Button(action: { onCollection(collection) }) {
+                CollectionTileCard(item: collection)
+            }
+            .buttonStyle(.plain)
+
+            if showsAutoPlayControls {
+                autoPlayButton(collection)
+                    .padding(10)
+            }
+        }
+    }
+
+    private func autoPlayButton(_ collection: CollectionItem) -> some View {
+        let isActive = manager.autoRotateCollectionID == collection.id
+        let isBusy = autoPlayBusyCollectionID == collection.id
+        return Button {
+            autoPlayError = nil
+            if isActive {
+                manager.clearAutoRotateCollection()
+            } else {
+                Task { await prepareAutoPlay(collection) }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                if isBusy {
+                    ProgressView()
+                        .controlSize(.small)
+                        .scaleEffect(0.68)
+                } else {
+                    Image(systemName: isActive ? "checkmark.circle.fill" : "shuffle")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                Text(isBusy
+                     ? L10n.account.collectionAutoPlayPreparing
+                     : (isActive ? L10n.account.collectionAutoPlayActive : L10n.account.collectionAutoPlay))
+                    .font(.system(size: 11, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(isActive ? Color.accentInk : Color.ink2)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(isActive ? Color.accentSoft.opacity(0.94) : Color.paper.opacity(0.92))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(isActive ? Color.accent.opacity(0.42) : Color.hair.opacity(0.86), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 5)
+        }
+        .buttonStyle(.plain)
+        .disabled(isBusy || (autoPlayBusyCollectionID != nil && !isBusy))
+        .help(isActive ? L10n.account.collectionAutoPlayStop : L10n.account.collectionAutoPlay)
+    }
+
+    private func prepareAutoPlay(_ collection: CollectionItem) async {
+        guard autoPlayBusyCollectionID == nil else { return }
+        autoPlayBusyCollectionID = collection.id
+        autoPlayError = nil
+        defer { autoPlayBusyCollectionID = nil }
+
+        do {
+            let wallpapers = try await manager.fetchAllCollectionWallpapers(collectionID: collection.id)
+            let missing = manager.missingLocalWallpapers(in: wallpapers)
+            if missing.isEmpty {
+                try await manager.setAutoRotateCollection(collection, wallpapers: wallpapers, downloadMissing: false)
+            } else {
+                pendingAutoPlayCollection = collection
+                pendingAutoPlayWallpapers = wallpapers
+                pendingMissingCount = missing.count
+                showAutoPlayDownloadPrompt = true
+            }
+        } catch {
+            autoPlayError = error.localizedDescription
+        }
+    }
+
+    private func confirmAutoPlayDownload() async {
+        guard let collection = pendingAutoPlayCollection else { return }
+        let wallpapers = pendingAutoPlayWallpapers
+        clearPendingAutoPlay(keepPrompt: false)
+        autoPlayBusyCollectionID = collection.id
+        autoPlayError = nil
+        defer { autoPlayBusyCollectionID = nil }
+
+        do {
+            try await manager.setAutoRotateCollection(collection, wallpapers: wallpapers, downloadMissing: true)
+        } catch {
+            autoPlayError = error.localizedDescription
+        }
+    }
+
+    private func clearPendingAutoPlay(keepPrompt: Bool = false) {
+        pendingAutoPlayCollection = nil
+        pendingAutoPlayWallpapers = []
+        pendingMissingCount = 0
+        if !keepPrompt {
+            showAutoPlayDownloadPrompt = false
+        }
     }
 
     private func loadPage(_ p: Int) async {

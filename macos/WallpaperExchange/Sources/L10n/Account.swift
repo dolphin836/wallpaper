@@ -61,6 +61,15 @@ struct AccountStrings {
 
     // ── Auto-shuffle panel ──
     let autoShuffleKicker: String
+    let collectionAutoPlay: String
+    let collectionAutoPlayActive: String
+    let collectionAutoPlayPreparing: String
+    let collectionAutoPlayStop: String
+    let collectionAutoPlayStatus: (String) -> String
+    let collectionAutoPlayFallback: String
+    let collectionAutoPlayDownloadTitle: String
+    let collectionAutoPlayDownloadMessage: (Int) -> String
+    let collectionAutoPlayDownloadConfirm: String
 
     // ── Privacy banner ──
     let nounFavorites: String
@@ -153,6 +162,19 @@ private let accountEN = AccountStrings(
     emptyCollectionsTitle: "No collections yet.",
     emptyCollectionsMessage: "Collections will appear here when this user starts grouping wallpapers into sets.",
     autoShuffleKicker: "AUTO-SHUFFLE",
+    collectionAutoPlay: "Auto-play",
+    collectionAutoPlayActive: "Playing",
+    collectionAutoPlayPreparing: "Preparing…",
+    collectionAutoPlayStop: "Use downloads",
+    collectionAutoPlayStatus: { "Auto-play is prioritizing “\($0)”." },
+    collectionAutoPlayFallback: "No collection is prioritized. Auto-shuffle falls back to all local downloads.",
+    collectionAutoPlayDownloadTitle: "Download collection wallpapers?",
+    collectionAutoPlayDownloadMessage: { count in
+        count == 1
+            ? "1 wallpaper in this collection is not local yet. Wallpaper Exchange will download it before enabling auto-play."
+            : "\(count) wallpapers in this collection are not local yet. Wallpaper Exchange will download them before enabling auto-play."
+    },
+    collectionAutoPlayDownloadConfirm: "Download and enable",
     nounFavorites: "favorites",
     nounLikes: "likes",
     nounDownloads: "downloads",
@@ -235,6 +257,15 @@ private let accountZhCN = AccountStrings(
     emptyCollectionsTitle: "还没有合集。",
     emptyCollectionsMessage: "当该用户开始把壁纸整理成合集时，就会显示在这里。",
     autoShuffleKicker: "自动轮换",
+    collectionAutoPlay: "自动播放",
+    collectionAutoPlayActive: "播放中",
+    collectionAutoPlayPreparing: "准备中…",
+    collectionAutoPlayStop: "使用下载列表",
+    collectionAutoPlayStatus: { "自动播放会优先使用「\($0)」。" },
+    collectionAutoPlayFallback: "当前没有指定合集，自动轮换会使用全部本地下载壁纸。",
+    collectionAutoPlayDownloadTitle: "下载合集内壁纸？",
+    collectionAutoPlayDownloadMessage: { "该合集有 \($0) 张壁纸还没有下载到本地。启用自动播放前，会先自动下载这些壁纸。" },
+    collectionAutoPlayDownloadConfirm: "下载并启用",
     nounFavorites: "收藏",
     nounLikes: "点赞",
     nounDownloads: "下载记录",
@@ -317,6 +348,15 @@ private let accountZhTW = AccountStrings(
     emptyCollectionsTitle: "還沒有合輯。",
     emptyCollectionsMessage: "當這位使用者開始把桌布整理成合輯時，就會顯示在這裡。",
     autoShuffleKicker: "自動輪換",
+    collectionAutoPlay: "自動播放",
+    collectionAutoPlayActive: "播放中",
+    collectionAutoPlayPreparing: "準備中…",
+    collectionAutoPlayStop: "使用下載清單",
+    collectionAutoPlayStatus: { "自動播放會優先使用「\($0)」。" },
+    collectionAutoPlayFallback: "目前沒有指定合輯，自動輪換會使用全部本機下載桌布。",
+    collectionAutoPlayDownloadTitle: "下載合輯內桌布？",
+    collectionAutoPlayDownloadMessage: { "此合輯有 \($0) 張桌布尚未下載到本機。啟用自動播放前，會先自動下載這些桌布。" },
+    collectionAutoPlayDownloadConfirm: "下載並啟用",
     nounFavorites: "收藏",
     nounLikes: "按讚",
     nounDownloads: "下載記錄",
@@ -399,6 +439,15 @@ private let accountJA = AccountStrings(
     emptyCollectionsTitle: "コレクションはまだありません。",
     emptyCollectionsMessage: "このユーザーが壁紙をコレクションにまとめると、ここに表示されます。",
     autoShuffleKicker: "自動シャッフル",
+    collectionAutoPlay: "自動再生",
+    collectionAutoPlayActive: "再生中",
+    collectionAutoPlayPreparing: "準備中…",
+    collectionAutoPlayStop: "ダウンロードを使用",
+    collectionAutoPlayStatus: { "自動再生は「\($0)」を優先します。" },
+    collectionAutoPlayFallback: "優先コレクションはありません。自動シャッフルはローカルの全ダウンロードを使用します。",
+    collectionAutoPlayDownloadTitle: "コレクションの壁紙をダウンロードしますか？",
+    collectionAutoPlayDownloadMessage: { "\($0)枚の壁紙がまだローカルにありません。自動再生を有効にする前にダウンロードします。" },
+    collectionAutoPlayDownloadConfirm: "ダウンロードして有効化",
     nounFavorites: "お気に入り",
     nounLikes: "いいね",
     nounDownloads: "ダウンロード履歴",

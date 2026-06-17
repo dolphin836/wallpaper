@@ -1,7 +1,7 @@
 import SwiftUI
 
-// Auto-shuffle cadence controls. Lives on the owner's Downloads page
-// because it only works with locally downloaded wallpapers.
+// Auto-shuffle cadence controls. The rotation source can be all local
+// downloads, or a prioritized collection whose wallpapers are local.
 private struct AutoShufflePreset: Identifiable {
     let label: String
     let seconds: TimeInterval
@@ -28,6 +28,13 @@ struct AutoShuffleSettings: View {
         )
     }
 
+    private var sourceDescription: String {
+        if let title = manager.autoRotateCollectionTitle {
+            return L10n.account.collectionAutoPlayStatus(title)
+        }
+        return "Switch to a random downloaded wallpaper every \(manager.autoRotateIntervalLabel)"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Toggle(isOn: Binding(
@@ -36,7 +43,7 @@ struct AutoShuffleSettings: View {
             )) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Auto-shuffle").font(.system(size: 13)).foregroundStyle(Color.ink)
-                    Text("Switch to a random downloaded wallpaper every \(manager.autoRotateIntervalLabel)")
+                    Text(sourceDescription)
                         .font(.system(size: 11)).foregroundStyle(Color.muted)
                 }
             }
