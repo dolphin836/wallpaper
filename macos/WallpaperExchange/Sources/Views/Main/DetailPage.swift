@@ -38,6 +38,7 @@ struct DetailPage: View {
     @State private var newCollectionTitle = ""
     @State private var creatingCollection = false
     @State private var collectionError: String?
+    @FocusState private var collectionTitleFocused: Bool
     @State private var measuredActionBarWidth: CGFloat = 0
     @State private var selectedWallpaperSurface: WallpaperApplySurface = .desktop
     @State private var selectedDisplayTargetID = WallpaperDisplayTarget.allID
@@ -1687,7 +1688,7 @@ struct DetailPage: View {
 
     private var collectionTitleField: some View {
         ZStack(alignment: .leading) {
-            if newCollectionTitle.isEmpty {
+            if newCollectionTitle.isEmpty && !collectionTitleFocused {
                 Text(L10n.collections.titlePlaceholder)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.44))
@@ -1703,6 +1704,7 @@ struct DetailPage: View {
                 .colorScheme(.dark)
                 .padding(.horizontal, 11)
                 .frame(height: 34)
+                .focused($collectionTitleFocused)
         }
         .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Color.black.opacity(0.20)))
         .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(Color.white.opacity(0.15), lineWidth: 1))
