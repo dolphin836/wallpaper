@@ -99,7 +99,12 @@ final class AerialLockScreenService {
             thumbnailURL: thumbnailDestination
         )
         restartAgent(named: "WallpaperAgent")
-        try updateWallpaperStoreIndex(indexURL: paths.storeIndex, backupURL: paths.storeBackup, assetID: assetID)
+        try updateWallpaperStoreIndex(
+            indexURL: paths.storeIndex,
+            backupURL: paths.storeBackup,
+            assetID: assetID,
+            thumbnailURL: thumbnailDestination
+        )
         try applySystemWallpaperPointers(videoURL: videoDestination, thumbnailURL: thumbnailDestination)
         try restartAerialExtension()
     }
@@ -305,7 +310,7 @@ final class AerialLockScreenService {
         "WALLPAPER_EXCHANGE_\(wallpaperID)"
     }
 
-    private func updateWallpaperStoreIndex(indexURL: URL, backupURL: URL, assetID: String) throws {
+    private func updateWallpaperStoreIndex(indexURL: URL, backupURL: URL, assetID: String, thumbnailURL: URL) throws {
         guard fm.fileExists(atPath: indexURL.path) else {
             throw AerialError.manifestUnavailable
         }
@@ -323,13 +328,15 @@ final class AerialLockScreenService {
             format: .binary,
             options: 0
         )
-        let choice: [String: Any] = [
+        let aerialChoice: [String: Any] = [
             "Configuration": configuration,
             "Files": [],
             "Provider": "com.apple.wallpaper.choice.aerials",
         ]
+        let imageChoice = try imageChoice(for: thumbnailURL)
         let now = Date()
-        updateIdleNodes(in: &root, choice: choice, now: now)
+        updateIdleNodes(in: &root, choice: aerialChoice, now: now)
+        updateDesktopNodes(in: &root, choice: imageChoice, now: now)
 
         do {
             let data = try PropertyListSerialization.data(fromPropertyList: root, format: .binary, options: 0)
@@ -353,21 +360,10 @@ final class AerialLockScreenService {
             throw AerialError.manifestUnavailable
         }
 
-        let configuration = try PropertyListSerialization.data(
-            fromPropertyList: [
-                "type": "imageFile",
-                "url": ["relative": imageURL.absoluteString],
-            ],
-            format: .binary,
-            options: 0
-        )
-        let choice: [String: Any] = [
-            "Configuration": configuration,
-            "Files": [],
-            "Provider": "com.apple.wallpaper.choice.image",
-        ]
+        let choice = try imageChoice(for: imageURL)
         let now = Date()
         updateIdleNodes(in: &root, choice: choice, now: now)
+        updateDesktopNodes(in: &root, choice: choice, now: now)
 
         do {
             let data = try PropertyListSerialization.data(fromPropertyList: root, format: .binary, options: 0)
@@ -380,7 +376,7 @@ final class AerialLockScreenService {
 
     private func updateIdleNodes(in dictionary: inout [String: Any], choice: [String: Any], now: Date) {
         if var idle = dictionary["Idle"] as? [String: Any] {
-            applyIdleChoice(to: &idle, choice: choice, now: now)
+            applyWallpaperChoice(to: &idle, choice: choice, now: now)
             dictionary["Idle"] = idle
         }
 
@@ -397,12 +393,47 @@ final class AerialLockScreenService {
         }
     }
 
-    private func applyIdleChoice(to idle: inout [String: Any], choice: [String: Any], now: Date) {
-        var content = idle["Content"] as? [String: Any] ?? [:]
+    private func updateDesktopNodes(in dictionary: inout [String: Any], choice: [String: Any], now: Date) {
+        if var desktop = dictionary["Desktop"] as? [String: Any] {
+            applyWallpaperChoice(to: &desktop, choice: choice, now: now)
+            dictionary["Desktop"] = desktop
+        }
+
+        for key in Array(dictionary.keys) {
+            if var child = dictionary[key] as? [String: Any] {
+                updateDesktopNodes(in: &child, choice: choice, now: now)
+                dictionary[key] = child
+            } else if var array = dictionary[key] as? [[String: Any]] {
+                for index in array.indices {
+                    updateDesktopNodes(in: &array[index], choice: choice, now: now)
+                }
+                dictionary[key] = array
+            }
+        }
+    }
+
+    private func applyWallpaperChoice(to node: inout [String: Any], choice: [String: Any], now: Date) {
+        var content = node["Content"] as? [String: Any] ?? [:]
         content["Choices"] = [choice]
-        idle["Content"] = content
-        idle["LastSet"] = now
-        idle["LastUse"] = now
+        node["Content"] = content
+        node["LastSet"] = now
+        node["LastUse"] = now
+    }
+
+    private func imageChoice(for imageURL: URL) throws -> [String: Any] {
+        let configuration = try PropertyListSerialization.data(
+            fromPropertyList: [
+                "type": "imageFile",
+                "url": ["relative": imageURL.absoluteString],
+            ],
+            format: .binary,
+            options: 0
+        )
+        return [
+            "Configuration": configuration,
+            "Files": [],
+            "Provider": "com.apple.wallpaper.choice.image",
+        ]
     }
 
     private func applySystemWallpaperPointers(videoURL: URL, thumbnailURL: URL) throws {
