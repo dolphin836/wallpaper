@@ -84,6 +84,11 @@ struct DetailStrings {
     let wallpaperPanelHint: String
     let wallpaperVideoLockUnavailable: String
     let lockScreenUnavailable: String
+    let lockScreenConversionUnavailable: String
+    let lockScreenConversionFailed: String
+    let lockScreenThumbnailFailed: String
+    let lockScreenManifestFailed: String
+    let lockScreenExtensionFailed: String
 
     // Download errors
     let signInToDownload: String
@@ -156,9 +161,14 @@ private let detailEN = DetailStrings(
     wallpaperSecondaryDisplay: "Display",
     wallpaperApply: "Apply",
     wallpaperApplying: "Applying",
-    wallpaperPanelHint: "Desktop wallpapers can be applied per display. Lock screen wallpaper is not exposed through a reliable macOS app API yet.",
-    wallpaperVideoLockUnavailable: "Video wallpapers can be applied to the desktop only.",
-    lockScreenUnavailable: "macOS does not expose a reliable lock screen wallpaper API to regular apps.",
+    wallpaperPanelHint: "Desktop wallpapers can be applied per display. Lock screen live wallpaper is experimental on macOS 26+ and applies globally.",
+    wallpaperVideoLockUnavailable: "Lock screen wallpaper needs a video wallpaper on macOS 26 or later.",
+    lockScreenUnavailable: "Lock screen live wallpaper requires macOS 26 or later.",
+    lockScreenConversionUnavailable: "This video cannot be converted for lock screen wallpaper.",
+    lockScreenConversionFailed: "Failed to convert this video for lock screen wallpaper.",
+    lockScreenThumbnailFailed: "Failed to prepare the lock screen thumbnail.",
+    lockScreenManifestFailed: "Failed to update the macOS lock screen wallpaper manifest.",
+    lockScreenExtensionFailed: "Failed to restart the macOS lock screen wallpaper extension.",
     signInToDownload: "Please sign in to download this wallpaper.",
     signInToDownloadAndSet: "Please sign in to download and set this wallpaper.",
     signInAgain: "Please sign in again to download this wallpaper.",
@@ -227,9 +237,14 @@ private let detailZhCN = DetailStrings(
     wallpaperSecondaryDisplay: "显示器",
     wallpaperApply: "应用",
     wallpaperApplying: "应用中",
-    wallpaperPanelHint: "桌面壁纸可以按显示器应用；macOS 暂未给普通 App 开放可靠的锁屏壁纸接口。",
-    wallpaperVideoLockUnavailable: "视频壁纸只能应用到桌面。",
-    lockScreenUnavailable: "macOS 暂未给普通 App 开放可靠的锁屏壁纸接口。",
+    wallpaperPanelHint: "桌面壁纸可以按显示器应用；锁屏动态壁纸是 macOS 26+ 实验功能，并且通常全局生效。",
+    wallpaperVideoLockUnavailable: "锁屏壁纸需要视频壁纸，并且系统为 macOS 26 或更高版本。",
+    lockScreenUnavailable: "锁屏动态壁纸需要 macOS 26 或更高版本。",
+    lockScreenConversionUnavailable: "这个视频无法转换成锁屏壁纸格式。",
+    lockScreenConversionFailed: "转换锁屏壁纸视频失败。",
+    lockScreenThumbnailFailed: "准备锁屏缩略图失败。",
+    lockScreenManifestFailed: "更新 macOS 锁屏壁纸清单失败。",
+    lockScreenExtensionFailed: "重启 macOS 锁屏壁纸扩展失败。",
     signInToDownload: "请登录后再下载这张壁纸。",
     signInToDownloadAndSet: "请登录后再下载并设置这张壁纸。",
     signInAgain: "请重新登录后再下载这张壁纸。",
@@ -298,9 +313,14 @@ private let detailZhTW = DetailStrings(
     wallpaperSecondaryDisplay: "顯示器",
     wallpaperApply: "套用",
     wallpaperApplying: "套用中",
-    wallpaperPanelHint: "桌面桌布可以按顯示器套用；macOS 尚未提供一般 App 可可靠使用的鎖定畫面桌布介面。",
-    wallpaperVideoLockUnavailable: "影片桌布只能套用到桌面。",
-    lockScreenUnavailable: "macOS 尚未提供一般 App 可可靠使用的鎖定畫面桌布介面。",
+    wallpaperPanelHint: "桌面桌布可以按顯示器套用；鎖定畫面動態桌布是 macOS 26+ 實驗功能，且通常全域生效。",
+    wallpaperVideoLockUnavailable: "鎖定畫面桌布需要影片桌布，且系統為 macOS 26 或更新版本。",
+    lockScreenUnavailable: "鎖定畫面動態桌布需要 macOS 26 或更新版本。",
+    lockScreenConversionUnavailable: "此影片無法轉換為鎖定畫面桌布格式。",
+    lockScreenConversionFailed: "轉換鎖定畫面桌布影片失敗。",
+    lockScreenThumbnailFailed: "準備鎖定畫面縮圖失敗。",
+    lockScreenManifestFailed: "更新 macOS 鎖定畫面桌布清單失敗。",
+    lockScreenExtensionFailed: "重新啟動 macOS 鎖定畫面桌布擴充失敗。",
     signInToDownload: "請登入後再下載這張桌布。",
     signInToDownloadAndSet: "請登入後再下載並設定這張桌布。",
     signInAgain: "請重新登入後再下載這張桌布。",
@@ -369,9 +389,14 @@ private let detailJA = DetailStrings(
     wallpaperSecondaryDisplay: "ディスプレイ",
     wallpaperApply: "適用",
     wallpaperApplying: "適用中",
-    wallpaperPanelHint: "デスクトップ壁紙はディスプレイごとに適用できます。macOS は通常のアプリ向けに信頼できるロック画面壁紙 API を公開していません。",
-    wallpaperVideoLockUnavailable: "ビデオ壁紙はデスクトップにのみ適用できます。",
-    lockScreenUnavailable: "macOS は通常のアプリ向けに信頼できるロック画面壁紙 API を公開していません。",
+    wallpaperPanelHint: "デスクトップ壁紙はディスプレイごとに適用できます。ロック画面ライブ壁紙は macOS 26+ の実験機能で、通常は全体に反映されます。",
+    wallpaperVideoLockUnavailable: "ロック画面壁紙にはビデオ壁紙と macOS 26 以降が必要です。",
+    lockScreenUnavailable: "ロック画面ライブ壁紙には macOS 26 以降が必要です。",
+    lockScreenConversionUnavailable: "このビデオはロック画面壁紙形式に変換できません。",
+    lockScreenConversionFailed: "ロック画面壁紙用ビデオの変換に失敗しました。",
+    lockScreenThumbnailFailed: "ロック画面サムネイルの準備に失敗しました。",
+    lockScreenManifestFailed: "macOS ロック画面壁紙マニフェストの更新に失敗しました。",
+    lockScreenExtensionFailed: "macOS ロック画面壁紙拡張機能の再起動に失敗しました。",
     signInToDownload: "この壁紙をダウンロードするにはサインインしてください。",
     signInToDownloadAndSet: "この壁紙をダウンロードして設定するにはサインインしてください。",
     signInAgain: "もう一度サインインしてから、この壁紙をダウンロードしてください。",

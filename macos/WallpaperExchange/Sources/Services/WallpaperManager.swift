@@ -627,25 +627,26 @@ final class WallpaperManager {
     }
 
     func setAsWallpaper(_ wallpaper: Wallpaper, target: WallpaperDisplayTarget, surface: WallpaperApplySurface) async throws {
-        guard surface == .desktop else {
-            throw WallpaperError.lockScreenUnavailable
-        }
-
         if Self.isVideo(wallpaper) {
             let videoURL = try await ensureLocalVideo(wallpaper)
-            if let poster = try? await ensureVideoPoster(wallpaper) {
-                applyToScreens(
-                    url: poster,
-                    screens: screens(for: target),
-                    source: "video-poster id=\(wallpaper.id)",
-                    expectedWallpaperID: target.isAll ? wallpaper.id : nil
+            let poster = try? await ensureVideoPoster(wallpaper)
+
+            if surface == .lockScreen || surface == .both {
+                try await AerialLockScreenService.shared.apply(
+                    wallpaper: wallpaper,
+                    videoURL: videoURL,
+                    thumbnailURL: poster
                 )
             }
-            VideoWallpaperController.shared.start(videoURL: videoURL, wallpaperID: wallpaper.id, screens: screens(for: target))
-            if target.isAll {
-                markCurrent(wallpaper.id, screens: screens(for: target))
+
+            if surface == .desktop || surface == .both {
+                applyVideoDesktopWallpaper(wallpaper, videoURL: videoURL, poster: poster, target: target)
             }
             return
+        }
+
+        guard surface == .desktop else {
+            throw WallpaperError.lockScreenUnavailable
         }
 
         if localURL(for: wallpaper.id) == nil {
@@ -662,6 +663,22 @@ final class WallpaperManager {
             screens: targetScreens,
             markAsCurrent: target.isAll
         )
+    }
+
+    private func applyVideoDesktopWallpaper(_ wallpaper: Wallpaper, videoURL: URL, poster: URL?, target: WallpaperDisplayTarget) {
+        let targetScreens = screens(for: target)
+        if let poster {
+            applyToScreens(
+                url: poster,
+                screens: targetScreens,
+                source: "video-poster id=\(wallpaper.id)",
+                expectedWallpaperID: target.isAll ? wallpaper.id : nil
+            )
+        }
+        VideoWallpaperController.shared.start(videoURL: videoURL, wallpaperID: wallpaper.id, screens: targetScreens)
+        if target.isAll {
+            markCurrent(wallpaper.id, screens: targetScreens)
+        }
     }
 
     // Record the wallpaper id that is currently on the desktop. Drives the

@@ -844,15 +844,23 @@ struct DetailPage: View {
     }
 
     private func surfaceUnavailable(_ surface: WallpaperApplySurface, detail d: WallpaperDetail) -> Bool {
-        surface != .desktop
+        switch surface {
+        case .desktop:
+            return false
+        case .lockScreen, .both:
+            return !isVideo(detail: d) || !AerialLockScreenService.isSupported
+        }
     }
 
     private func surfaceUnavailableReason(_ surface: WallpaperApplySurface, detail d: WallpaperDetail) -> String {
-        if surface != .desktop {
-            return L10n.detail.lockScreenUnavailable
+        if surface == .desktop {
+            return L10n.detail.wallpaperApply
         }
-        if isVideo(detail: d) {
+        if !isVideo(detail: d) {
             return L10n.detail.wallpaperVideoLockUnavailable
+        }
+        if !AerialLockScreenService.isSupported {
+            return L10n.detail.lockScreenUnavailable
         }
         return L10n.detail.wallpaperApply
     }
@@ -1241,7 +1249,7 @@ struct DetailPage: View {
             detail = d
             isLiked = d.isLiked ?? false
             isFavorited = d.isFavorited ?? false
-            if selectedWallpaperSurface != .desktop {
+            if surfaceUnavailable(selectedWallpaperSurface, detail: d) {
                 selectedWallpaperSurface = .desktop
             }
             loadVideoDurationIfNeeded(detail: d)
