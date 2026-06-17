@@ -14,6 +14,7 @@ struct DetailPage: View {
     // Set when presented as a modal overlay — the breadcrumb close + ESC
     // dismiss the modal instead of popping the navigation stack.
     var onClose: (() -> Void)? = nil
+    var isWindowFullScreen: Bool = false
 
     @State private var detail: WallpaperDetail?
     @State private var similar: [Wallpaper] = []
@@ -64,6 +65,7 @@ struct DetailPage: View {
     private struct DetailLayout {
         let size: CGSize
         let isModal: Bool
+        let isFullScreen: Bool
 
         var isCompact: Bool { size.width < 760 }
         var isTight: Bool { size.width < 980 }
@@ -91,7 +93,12 @@ struct DetailPage: View {
         var metaPadding: CGFloat { isCompact ? 16 : 20 }
         var heroViewportHeight: CGFloat { max(size.height, isCompact ? 520 : 600) }
         var overlayHorizontalPadding: CGFloat { isCompact ? 16 : 28 }
-        var overlayBottomPadding: CGFloat { isCompact ? 50 : 64 }
+        var overlayBottomPadding: CGFloat {
+            if isFullScreen {
+                return isCompact ? 88 : 118
+            }
+            return isCompact ? 50 : 64
+        }
         var topControlsHorizontalPadding: CGFloat { isCompact ? 22 : 46 }
         var topControlsTopPadding: CGFloat { isCompact ? 22 : 30 }
         var toolbarMaxWidth: CGFloat {
@@ -130,7 +137,7 @@ struct DetailPage: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let layout = DetailLayout(size: proxy.size, isModal: onClose != nil)
+            let layout = DetailLayout(size: proxy.size, isModal: onClose != nil, isFullScreen: isWindowFullScreen)
             ZStack(alignment: .top) {
                 detailAmbientBackground(size: proxy.size)
                     .ignoresSafeArea()

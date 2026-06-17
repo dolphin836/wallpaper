@@ -146,6 +146,7 @@ struct MainWindow: View {
             if let target = detailTarget {
                 DetailModalOverlay(
                     target: target,
+                    isFullScreen: isFullScreen,
                     onClose: { detailTarget = nil },
                     onWallpaper: { wp in openDetail(wp) },
                     onUploader: { username in detailTarget = nil; push(.profile(username: username)) }
@@ -356,7 +357,8 @@ struct MainWindow: View {
         case .detail(let slug, _):
             DetailPage(slug: slug,
                        onUploader: { push(.profile(username: $0)) },
-                       onWallpaper: { wp in openDetail(wp) })
+                       onWallpaper: { wp in openDetail(wp) },
+                       isWindowFullScreen: isFullScreen)
         case .profile(let username):
             AccountView(username: username,
                         onWallpaper: { wp in openDetail(wp) },
@@ -912,6 +914,7 @@ private struct WindowTrafficLightVisibility: NSViewRepresentable {
 // an overlay so the underlying grid/list scroll position is preserved.
 struct DetailModalOverlay: View {
     let target: DetailTarget
+    let isFullScreen: Bool
     var onClose: () -> Void
     var onWallpaper: (Wallpaper) -> Void
     var onUploader: (String) -> Void
@@ -931,7 +934,8 @@ struct DetailModalOverlay: View {
                 initialWallpaper: target.initialWallpaper,
                 onUploader: onUploader,
                 onWallpaper: onWallpaper,
-                onClose: onClose
+                onClose: onClose,
+                isWindowFullScreen: isFullScreen
             )
                 .id(target.id)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
