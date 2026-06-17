@@ -34,6 +34,10 @@ struct DetailPage: View {
     @State private var deletingWallpaper = false
     @State private var showingDeleteConfirm = false
     @State private var showingWallpaperPicker = false
+    @State private var showingCollectionPicker = false
+    @State private var newCollectionTitle = ""
+    @State private var creatingCollection = false
+    @State private var collectionError: String?
     @State private var measuredActionBarWidth: CGFloat = 0
     @State private var selectedWallpaperSurface: WallpaperApplySurface = .desktop
     @State private var selectedDisplayTargetID = WallpaperDisplayTarget.allID
@@ -360,6 +364,12 @@ struct DetailPage: View {
 
             VStack(alignment: .center, spacing: 12) {
                 downloadProgressBar(detail: d, layout: layout)
+                downloadNoticeView(detail: d, layout: layout)
+
+                if showingCollectionPicker {
+                    collectionPicker(detail: d, layout: layout)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
 
                 if showingWallpaperPicker {
                     wallpaperPicker(detail: d, layout: layout)
@@ -367,8 +377,6 @@ struct DetailPage: View {
                 }
 
                 actionBar(detail: d, layout: layout)
-
-                downloadNoticeView(detail: d, layout: layout)
             }
             .frame(maxWidth: layout.actionBarAvailableWidth, alignment: .center)
             .padding(.horizontal, layout.overlayHorizontalPadding)
@@ -797,25 +805,8 @@ struct DetailPage: View {
     }
 
     private func addToListToolbarMenu(_ detail: WallpaperDetail) -> some View {
-        Menu {
-            if myCollections.isEmpty {
-                Text(L10n.detail.noCollections)
-            } else {
-                ForEach(myCollections) { c in
-                    Button {
-                        Task {
-                            try? await APIClient.shared.addToCollection(collectionID: c.id, wallpaperID: detail.id)
-                            await loadCollections(wallpaperID: detail.id)
-                        }
-                    } label: {
-                        if c.containsWallpaper == true {
-                            Label(c.title, systemImage: "checkmark")
-                        } else {
-                            Text(c.title)
-                        }
-                    }
-                }
-            }
+        Button {
+            toggleCollectionPicker(detail)
         } label: {
             Image(systemName: "rectangle.stack.badge.plus")
                 .font(.system(size: 15, weight: .semibold))
@@ -824,8 +815,6 @@ struct DetailPage: View {
                 .background(Circle().fill(Color.white.opacity(0.08)))
                 .overlay(Circle().strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
         }
-        .menuStyle(.button)
-        .menuIndicator(.hidden)
         .buttonStyle(.plain)
         .help(L10n.detail.addToList)
     }
@@ -1013,8 +1002,14 @@ struct DetailPage: View {
         return VStack(spacing: layout.stageSpacing) {
             hero(detail: d, layout: layout)
             downloadProgressBar(detail: d, layout: layout)
-            actionBar(detail: d, layout: layout)
             downloadNoticeView(detail: d, layout: layout)
+            if showingCollectionPicker {
+                collectionPicker(detail: d, layout: layout)
+            }
+            if showingWallpaperPicker {
+                wallpaperPicker(detail: d, layout: layout)
+            }
+            actionBar(detail: d, layout: layout)
         }
         .padding(layout.stagePadding)
         .background(
@@ -1326,6 +1321,7 @@ struct DetailPage: View {
             }
         }
         .animation(.easeOut(duration: 0.16), value: showingWallpaperPicker)
+        .animation(.easeOut(duration: 0.16), value: showingCollectionPicker)
         .padding(layout.actionPadding)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .background(
@@ -1458,6 +1454,7 @@ struct DetailPage: View {
             .buttonStyle(.plain)
             Button(action: {
                 withAnimation(.easeOut(duration: 0.16)) {
+                    showingCollectionPicker = false
                     showingWallpaperPicker.toggle()
                 }
             }) {
@@ -1557,6 +1554,158 @@ struct DetailPage: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
         )
+    }
+
+    private func collectionPicker(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 10) {
+                Text(L10n.detail.addToList)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.88))
+                Spacer(minLength: 0)
+                Button {
+                    withAnimation(.easeOut(duration: 0.16)) {
+                        showingCollectionPicker = false
+                    }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color.white.opacity(0.66))
+                        .frame(width: 24, height: 24)
+                        .background(Circle().fill(Color.white.opacity(0.08)))
+                }
+                .buttonStyle(.plain)
+            }
+
+            if !auth.isLoggedIn {
+                Button {
+                    auth.login()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "person.crop.circle.badge.checkmark")
+                        Text(L10n.browse.signInPrompt(L10n.detail.addToList))
+                            .lineLimit(2)
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.84))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.08)))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            } else {
+                if myCollections.isEmpty {
+                    Text(L10n.detail.noCollections)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.64))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.07)))
+                } else {
+                    ScrollView(.vertical, showsIndicators: myCollections.count > 4) {
+                        VStack(spacing: 8) {
+                            ForEach(myCollections) { collection in
+                                collectionPickerRow(collection: collection, detail: d)
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 210)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        TextField(L10n.collections.titlePlaceholder, text: $newCollectionTitle)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color.white.opacity(0.88))
+                            .padding(.horizontal, 11)
+                            .frame(height: 34)
+                            .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Color.white.opacity(0.08)))
+                            .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+
+                        Button {
+                            Task { await createCollectionAndAddWallpaper(d) }
+                        } label: {
+                            HStack(spacing: 6) {
+                                if creatingCollection {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                        .scaleEffect(0.7)
+                                        .frame(width: 12, height: 12)
+                                } else {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                                Text(creatingCollection ? L10n.collections.creating : L10n.collections.create)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .lineLimit(1)
+                            }
+                            .foregroundStyle(Color.white)
+                            .padding(.horizontal, 13)
+                            .frame(height: 34)
+                            .background(Capsule().fill(canCreateCollection ? Color.accent : Color.white.opacity(0.18)))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!canCreateCollection || creatingCollection)
+                    }
+
+                    if let collectionError {
+                        Text(collectionError)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Color.warn.opacity(0.90))
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(width: resolvedActionBarWidth(layout: layout), alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.black.opacity(0.24))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
+        )
+    }
+
+    private var canCreateCollection: Bool {
+        !newCollectionTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func collectionPickerRow(collection: CollectionBrief, detail d: WallpaperDetail) -> some View {
+        let contains = collection.containsWallpaper == true
+        return Button {
+            Task { await addWallpaper(d, to: collection) }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: contains ? "checkmark.circle.fill" : "rectangle.stack.badge.plus")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(contains ? Color.accent : Color.white.opacity(0.62))
+                    .frame(width: 18)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(collection.title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(contains ? 0.70 : 0.90))
+                        .lineLimit(1)
+                    Text(L10n.collections.wallpaperCountCaps(collection.wallpaperCount))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.50))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 10)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(contains ? 0.06 : 0.09)))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(contains ? Color.accent.opacity(0.36) : Color.white.opacity(0.12), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(contains)
     }
 
     private func displayTargetButton(target: WallpaperDisplayTarget, selected: Bool) -> some View {
@@ -2146,25 +2295,8 @@ struct DetailPage: View {
     // ones already containing this wallpaper). Mirrors the web's
     // AddToCollectionModal entry point.
     private func addToListMenu(_ detail: WallpaperDetail) -> some View {
-        Menu {
-            if myCollections.isEmpty {
-                Text(L10n.detail.noCollections)
-            } else {
-                ForEach(myCollections) { c in
-                    Button {
-                        Task {
-                            try? await APIClient.shared.addToCollection(collectionID: c.id, wallpaperID: detail.id)
-                            await loadCollections(wallpaperID: detail.id)
-                        }
-                    } label: {
-                        if c.containsWallpaper == true {
-                            Label(c.title, systemImage: "checkmark")
-                        } else {
-                            Text(c.title)
-                        }
-                    }
-                }
-            }
+        Button {
+            toggleCollectionPicker(detail)
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "plus").font(.system(size: 11, weight: .medium))
@@ -2175,7 +2307,56 @@ struct DetailPage: View {
             .background(Capsule().fill(Color.paper))
             .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
         }
-        .menuStyle(.button).menuIndicator(.hidden).buttonStyle(.plain).fixedSize()
+        .buttonStyle(.plain)
+        .fixedSize()
+    }
+
+    private func toggleCollectionPicker(_ detail: WallpaperDetail) {
+        guard auth.isLoggedIn else {
+            auth.login()
+            return
+        }
+        withAnimation(.easeOut(duration: 0.16)) {
+            showingWallpaperPicker = false
+            showingCollectionPicker.toggle()
+            collectionError = nil
+        }
+        Task { await loadCollections(wallpaperID: detail.id) }
+    }
+
+    private func addWallpaper(_ detail: WallpaperDetail, to collection: CollectionBrief) async {
+        guard auth.isLoggedIn else {
+            auth.login()
+            return
+        }
+        guard collection.containsWallpaper != true else { return }
+        collectionError = nil
+        do {
+            try await APIClient.shared.addToCollection(collectionID: collection.id, wallpaperID: detail.id)
+            await loadCollections(wallpaperID: detail.id)
+        } catch {
+            collectionError = L10n.collections.createFailed
+        }
+    }
+
+    private func createCollectionAndAddWallpaper(_ detail: WallpaperDetail) async {
+        guard auth.isLoggedIn else {
+            auth.login()
+            return
+        }
+        let title = newCollectionTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty, !creatingCollection else { return }
+        creatingCollection = true
+        collectionError = nil
+        defer { creatingCollection = false }
+        do {
+            let collection = try await APIClient.shared.createCollection(title: title, isPublic: true)
+            try await APIClient.shared.addToCollection(collectionID: collection.id, wallpaperID: detail.id)
+            newCollectionTitle = ""
+            await loadCollections(wallpaperID: detail.id)
+        } catch {
+            collectionError = L10n.collections.createFailed
+        }
     }
 
     private func loadCollections(wallpaperID: Int) async {
