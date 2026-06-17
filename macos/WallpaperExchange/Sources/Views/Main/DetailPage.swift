@@ -90,10 +90,14 @@ struct DetailPage: View {
         var metaPadding: CGFloat { isCompact ? 16 : 20 }
         var heroViewportHeight: CGFloat { max(size.height, isCompact ? 520 : 600) }
         var overlayHorizontalPadding: CGFloat { isCompact ? 16 : 28 }
-        var overlayBottomPadding: CGFloat { isCompact ? 78 : 96 }
-        var overlayTopPadding: CGFloat { isCompact ? 18 : 24 }
+        var overlayBottomPadding: CGFloat { isCompact ? 50 : 64 }
+        var topControlsHorizontalPadding: CGFloat { isCompact ? 22 : 46 }
+        var topControlsTopPadding: CGFloat { isCompact ? 22 : 30 }
         var toolbarMaxWidth: CGFloat {
-            max(320, min(isCompact ? 620 : 820, size.width - overlayHorizontalPadding * 2))
+            max(320, min(isCompact ? 620 : 1120, size.width - overlayHorizontalPadding * 2))
+        }
+        var actionBarWidth: CGFloat {
+            min(toolbarMaxWidth, max(320, size.width - overlayHorizontalPadding * 2))
         }
 
         var heroMaxHeight: CGFloat {
@@ -127,7 +131,7 @@ struct DetailPage: View {
     var body: some View {
         GeometryReader { proxy in
             let layout = DetailLayout(size: proxy.size, isModal: onClose != nil)
-            ZStack {
+            ZStack(alignment: .top) {
                 detailAmbientBackground(size: proxy.size)
                     .ignoresSafeArea()
                 ScrollView(.vertical, showsIndicators: false) {
@@ -143,6 +147,11 @@ struct DetailPage: View {
                     .frame(minHeight: proxy.size.height, alignment: .top)
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
+
+                detailTopControls(detail: detail, layout: layout)
+                    .padding(.horizontal, layout.topControlsHorizontalPadding)
+                    .padding(.top, layout.topControlsTopPadding)
+                    .zIndex(20)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
@@ -295,11 +304,6 @@ struct DetailPage: View {
                     .padding(.bottom, layout.overlayBottomPadding)
             }
         }
-        .overlay(alignment: .top) {
-            detailTopControls(detail: nil, layout: layout)
-                .padding(.horizontal, layout.overlayHorizontalPadding)
-                .padding(.top, layout.overlayTopPadding)
-        }
         .frame(width: layout.size.width, height: layout.heroViewportHeight)
         .clipped()
     }
@@ -317,21 +321,6 @@ struct DetailPage: View {
             }
             .padding(.horizontal, layout.horizontalPadding)
             .frame(width: layout.pageWidth, alignment: .center)
-
-            HStack {
-                toolbarIconButton(systemName: "chevron.left", help: L10n.shell.back) {
-                    closeOrDismiss()
-                }
-                .keyboardShortcut(.cancelAction)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, layout.overlayHorizontalPadding)
-            .padding(.bottom, layout.overlayBottomPadding)
-        }
-        .overlay(alignment: .top) {
-            detailTopControls(detail: nil, layout: layout)
-                .padding(.horizontal, layout.overlayHorizontalPadding)
-                .padding(.top, layout.overlayTopPadding)
         }
         .frame(width: layout.size.width, height: layout.heroViewportHeight)
     }
@@ -341,12 +330,12 @@ struct DetailPage: View {
             immersiveHeroMedia(detail: d, layout: layout)
             heroVignette
 
-            VStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) {
                 downloadProgressBar(detail: d)
 
                 if showingWallpaperPicker {
                     wallpaperPicker(detail: d)
-                        .frame(maxWidth: min(760, layout.size.width - layout.overlayHorizontalPadding * 2))
+                        .frame(width: layout.actionBarWidth, alignment: .leading)
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
 
@@ -354,15 +343,10 @@ struct DetailPage: View {
 
                 downloadNoticeView(detail: d)
             }
+            .frame(width: layout.actionBarWidth, alignment: .leading)
             .padding(.horizontal, layout.overlayHorizontalPadding)
             .padding(.bottom, layout.overlayBottomPadding)
             .zIndex(2)
-        }
-        .overlay(alignment: .top) {
-            detailTopControls(detail: d, layout: layout)
-                .padding(.horizontal, layout.overlayHorizontalPadding)
-                .padding(.top, layout.overlayTopPadding)
-                .zIndex(4)
         }
         .frame(width: layout.size.width, height: layout.heroViewportHeight)
         .clipped()
@@ -1307,7 +1291,7 @@ struct DetailPage: View {
         .shadow(color: .black.opacity(0.46), radius: 34, y: 18)
         .shadow(color: Color.accent.opacity(0.16), radius: 30, y: 8)
         .frame(
-            maxWidth: min(layout.toolbarMaxWidth, layout.size.width - layout.overlayHorizontalPadding * 2),
+            width: layout.actionBarWidth,
             alignment: .leading
         )
     }
