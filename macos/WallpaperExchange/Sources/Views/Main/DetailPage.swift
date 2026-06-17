@@ -45,7 +45,6 @@ struct DetailPage: View {
     @State private var applyingWallpaper = false
     @State private var videoDuration: Double?
     @State private var videoDurationTask: Task<Void, Never>?
-    @State private var recommendationsTopY: CGFloat = .infinity
     @Environment(\.dismiss) private var dismiss
 
     // Raw values are stable identifiers (ForEach ids) — display labels are
@@ -162,25 +161,11 @@ struct DetailPage: View {
                 .id(detailRequestKey)
                 .frame(width: proxy.size.width, height: proxy.size.height)
 
-                if isShowingDetailActionPopup && shouldShowDetailActionOverlay(layout: layout) {
-                    actionPopupDismissLayer(layout: layout)
-                        .transition(.opacity)
-                        .zIndex(10)
-                }
-
-                if let detail {
-                    detailActionOverlay(detail: detail, layout: layout)
-                        .opacity(shouldShowDetailActionOverlay(layout: layout) ? 1 : 0)
-                        .allowsHitTesting(shouldShowDetailActionOverlay(layout: layout))
-                        .zIndex(15)
-                }
-
                 detailTopControls(detail: detail, layout: layout)
                     .padding(.horizontal, layout.topControlsHorizontalPadding)
                     .padding(.top, layout.topControlsTopPadding)
                     .zIndex(20)
             }
-            .coordinateSpace(name: "detail-root")
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
             .task(id: "\(slug)-\(detail?.id ?? 0)-\(layout.recommendationLimit)") {
@@ -191,9 +176,6 @@ struct DetailPage: View {
         .onPreferenceChange(ActionBarWidthPreferenceKey.self) { width in
             guard width > 0 else { return }
             measuredActionBarWidth = width
-        }
-        .onPreferenceChange(RecommendationsTopPreferenceKey.self) { topY in
-            recommendationsTopY = topY
         }
         .confirmationDialog(
             L10n.detail.deleteConfirmTitle,
@@ -332,12 +314,6 @@ struct DetailPage: View {
             }
 
             heroVignette
-
-            if let wallpaper = initialWallpaper {
-                provisionalActionBar(wallpaper: wallpaper, layout: layout)
-                    .padding(.horizontal, layout.overlayHorizontalPadding)
-                    .padding(.bottom, layout.overlayBottomPadding)
-            }
         }
         .frame(width: layout.size.width, height: layout.heroViewportHeight)
         .clipped()
@@ -365,13 +341,6 @@ struct DetailPage: View {
             }
             .padding(.horizontal, layout.horizontalPadding)
             .frame(width: layout.pageWidth, alignment: .center)
-
-            if let wallpaper = initialWallpaper {
-                provisionalActionBar(wallpaper: wallpaper, layout: layout)
-                    .padding(.horizontal, layout.overlayHorizontalPadding)
-                    .padding(.bottom, layout.overlayBottomPadding)
-                    .zIndex(2)
-            }
         }
         .frame(width: layout.size.width, height: layout.heroViewportHeight)
     }
@@ -380,6 +349,15 @@ struct DetailPage: View {
         ZStack(alignment: .bottom) {
             immersiveHeroMedia(detail: d, layout: layout)
             heroVignette
+
+            if isShowingDetailActionPopup {
+                actionPopupDismissLayer(layout: layout)
+                    .transition(.opacity)
+                    .zIndex(2)
+            }
+
+            detailActionOverlay(detail: d, layout: layout)
+                .zIndex(3)
         }
         .frame(width: layout.size.width, height: layout.heroViewportHeight)
         .clipped()
@@ -448,43 +426,6 @@ struct DetailPage: View {
             )
         }
         .allowsHitTesting(false)
-    }
-
-    private func provisionalActionBar(wallpaper: Wallpaper, layout: DetailLayout) -> some View {
-        HStack(spacing: layout.isCompact ? 10 : 14) {
-            toolbarIconButton(systemName: "chevron.left", help: L10n.shell.back) {
-                closeOrDismiss()
-            }
-            .keyboardShortcut(.cancelAction)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(displayTitle(wallpaper.title))
-                    .font(.system(size: layout.isCompact ? 15 : 16, weight: .semibold))
-                    .foregroundStyle(Color.white)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Text(metaSpecText(wallpaper: wallpaper))
-                    .font(.mono10)
-                    .tracking(0.35)
-                    .foregroundStyle(Color.white.opacity(0.76))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            ProgressView()
-                .controlSize(.small)
-                .tint(.white)
-                .scaleEffect(0.78)
-        }
-        .padding(.leading, 8)
-        .padding(.trailing, 16)
-        .padding(.vertical, 8)
-        .frame(maxWidth: layout.toolbarMaxWidth)
-        .background(.ultraThinMaterial, in: Capsule())
-        .background(Capsule().fill(Color.black.opacity(0.56)))
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
-        .shadow(color: Color.black.opacity(0.34), radius: 24, x: 0, y: 12)
     }
 
     private func immersiveActionBar(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
@@ -825,15 +766,6 @@ struct DetailPage: View {
             .frame(width: layout.pageWidth, alignment: .leading)
             .frame(width: layout.size.width, alignment: .center)
             .background(recommendationsBackground(detail: d))
-            .overlay(alignment: .top) {
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: RecommendationsTopPreferenceKey.self,
-                        value: proxy.frame(in: .named("detail-root")).minY
-                    )
-                }
-                .frame(height: 0)
-            }
     }
 
     private func recommendationsBackground(detail d: WallpaperDetail) -> some View {
@@ -886,12 +818,6 @@ struct DetailPage: View {
     private func displayTitle(_ title: String) -> String {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? L10n.detail.wallpaperTitle : trimmed
-    }
-
-    private func metaSpecText(wallpaper: Wallpaper) -> String {
-        [wallpaper.resolutionLabel, wallpaper.fileType.uppercased(), byteString(wallpaper.fileSize)]
-            .filter { !$0.isEmpty }
-            .joined(separator: " · ")
     }
 
     private func shareWallpaper(_ detail: WallpaperDetail) {
@@ -1702,14 +1628,6 @@ struct DetailPage: View {
         showingWallpaperPicker || showingCollectionPicker
     }
 
-    private func shouldShowDetailActionOverlay(layout: DetailLayout) -> Bool {
-        let overlayBottomY = layout.size.height - layout.overlayBottomPadding
-        let estimatedOverlayHeight: CGFloat = isShowingDetailActionPopup ? 320 : 92
-        let overlayTopY = overlayBottomY - estimatedOverlayHeight
-        guard recommendationsTopY.isFinite else { return true }
-        return recommendationsTopY > overlayTopY + 8
-    }
-
     private var collectionTitleField: some View {
         ZStack(alignment: .leading) {
             if newCollectionTitle.isEmpty && !collectionTitleFocused {
@@ -2227,7 +2145,6 @@ struct DetailPage: View {
         loadError = nil
         downloadNotice = nil
         infoActionMessage = nil
-        recommendationsTopY = .infinity
         videoDurationTask?.cancel()
         videoDuration = nil
         do {
@@ -2471,14 +2388,6 @@ private struct ActionBarWidthPreferenceKey: PreferenceKey {
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
-    }
-}
-
-private struct RecommendationsTopPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = .infinity
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }
 
