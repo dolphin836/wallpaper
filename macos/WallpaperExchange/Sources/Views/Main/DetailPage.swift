@@ -207,18 +207,10 @@ struct DetailPage: View {
 
             VStack(spacing: 12) {
                 downloadProgressBar(detail: d)
-                    .frame(maxWidth: layout.toolbarMaxWidth)
 
-                if showingWallpaperPicker {
-                    wallpaperPicker(detail: d)
-                        .frame(maxWidth: min(760, layout.size.width - layout.overlayHorizontalPadding * 2))
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
-                }
+                actionBar(detail: d, layout: layout)
 
                 downloadNoticeView(detail: d)
-                    .frame(maxWidth: min(760, layout.size.width - layout.overlayHorizontalPadding * 2))
-
-                immersiveActionBar(detail: d, layout: layout)
             }
             .padding(.horizontal, layout.overlayHorizontalPadding)
             .padding(.bottom, layout.overlayBottomPadding)
@@ -943,9 +935,6 @@ struct DetailPage: View {
         HStack(spacing: 12) {
             socialActions(detail: detail)
                 .fixedSize(horizontal: true, vertical: false)
-            divider
-            previewModePicker
-                .fixedSize(horizontal: true, vertical: false)
             Spacer(minLength: 16)
             downloadActions(detail: detail)
                 .fixedSize(horizontal: true, vertical: false)
@@ -957,9 +946,6 @@ struct DetailPage: View {
             HStack(spacing: 12) {
                 socialActions(detail: detail)
                     .fixedSize(horizontal: true, vertical: false)
-                divider
-                previewModePicker
-                    .fixedSize(horizontal: true, vertical: false)
                 Spacer(minLength: 0)
             }
             downloadActions(detail: detail)
@@ -970,7 +956,6 @@ struct DetailPage: View {
     private func actionRowsCompact(detail: WallpaperDetail) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             socialActions(detail: detail)
-            previewModePicker
             downloadActions(detail: detail)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
