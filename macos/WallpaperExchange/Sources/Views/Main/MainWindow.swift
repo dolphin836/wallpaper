@@ -843,6 +843,71 @@ struct DetailTarget: Identifiable, Equatable {
     }
 }
 
+private struct WindowTrafficLightVisibility: NSViewRepresentable {
+    let hidden: Bool
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        apply(from: view, coordinator: context.coordinator)
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        apply(from: view, coordinator: context.coordinator)
+    }
+
+    private func apply(from view: NSView, coordinator: Coordinator) {
+        DispatchQueue.main.async {
+            coordinator.attach(to: view.window)
+            coordinator.setHidden(hidden)
+        }
+    }
+
+    final class Coordinator {
+        private weak var window: NSWindow?
+        private var originalHidden: [NSWindow.ButtonType: Bool] = [:]
+        private let buttonTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+
+        deinit {
+            restore()
+        }
+
+        func attach(to window: NSWindow?) {
+            guard self.window !== window else { return }
+            restore()
+            self.window = window
+            originalHidden.removeAll()
+        }
+
+        func setHidden(_ hidden: Bool) {
+            guard let window else { return }
+            if hidden {
+                for type in buttonTypes {
+                    guard let button = window.standardWindowButton(type) else { continue }
+                    if originalHidden[type] == nil {
+                        originalHidden[type] = button.isHidden
+                    }
+                    button.isHidden = true
+                }
+            } else {
+                restore()
+            }
+        }
+
+        private func restore() {
+            guard let window else { return }
+            for (type, wasHidden) in originalHidden {
+                window.standardWindowButton(type)?.isHidden = wasHidden
+            }
+            originalHidden.removeAll()
+        }
+    }
+}
+
 // Detail modal: a dim scrim under a full-window DetailPage. It remains
 // an overlay so the underlying grid/list scroll position is preserved.
 struct DetailModalOverlay: View {
@@ -852,6 +917,9 @@ struct DetailModalOverlay: View {
     var onUploader: (String) -> Void
     var body: some View {
         ZStack {
+            WindowTrafficLightVisibility(hidden: true)
+                .frame(width: 0, height: 0)
+
             Rectangle()
                 .fill(Color.black.opacity(0.66))
                 .ignoresSafeArea()

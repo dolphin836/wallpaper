@@ -161,10 +161,33 @@ extension APIClient {
     func unfavorite(wallpaperID: Int) async throws {
         let _: APIResponse<EmptyData> = try await request("/wallpapers/\(wallpaperID)/favorite", method: "DELETE")
     }
+
+    func reportWallpaper(wallpaperID: Int, reason: String = "other", note: String = "") async throws {
+        let payload = ReportWallpaperRequest(reason: reason, note: note)
+        let data = try JSONEncoder().encode(payload)
+        let _: APIResponse<EmptyData> = try await request(
+            "/wallpapers/\(wallpaperID)/report",
+            method: "POST",
+            body: data,
+            contentType: "application/json"
+        )
+    }
+
+    func deleteWallpaper(wallpaperID: Int) async throws {
+        let _: APIResponse<EmptyData> = try await request("/wallpapers/\(wallpaperID)", method: "DELETE")
+    }
 }
 
 // Empty response body for write actions that only signal success/fail
 // via HTTP status. We still expect the envelope so re-using the same
 // `request<T>` helper means we don't have to special-case auth/error
 // handling for these paths.
-struct EmptyData: Decodable {}
+private struct ReportWallpaperRequest: Encodable {
+    let reason: String
+    let note: String
+}
+
+struct EmptyData: Decodable {
+    init() {}
+    init(from decoder: Decoder) throws {}
+}

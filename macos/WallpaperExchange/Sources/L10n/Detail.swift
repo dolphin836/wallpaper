@@ -56,6 +56,18 @@ struct DetailStrings {
     let palette: String
     let paletteColors: (Int) -> String                     // (color count)
     let dominant: (String) -> String                       // (hex code)
+    let info: String
+    let category: String
+    let color: String
+    let report: String
+    let reporting: String
+    let reported: String
+    let reportFailed: String
+    let deleteWallpaper: String
+    let deleteConfirmTitle: String
+    let deleteConfirmMessage: String
+    let deleteSucceeded: String
+    let deleteFailed: String
 
     // Recommendations
     let relatedArchive: String
@@ -139,6 +151,18 @@ private let detailEN = DetailStrings(
     palette: "Palette",
     paletteColors: { n in "Palette · \(n) colors" },
     dominant: { hex in "DOMINANT · \(hex)" },
+    info: "Info",
+    category: "Category",
+    color: "Color",
+    report: "Report",
+    reporting: "Reporting",
+    reported: "Report submitted",
+    reportFailed: "Could not submit report",
+    deleteWallpaper: "Delete",
+    deleteConfirmTitle: "Delete wallpaper?",
+    deleteConfirmMessage: "This removes the wallpaper from the public archive.",
+    deleteSucceeded: "Wallpaper deleted",
+    deleteFailed: "Could not delete wallpaper",
     relatedArchive: "Related archive",
     moreLikeThis: "More like this",
     picksCount: { n in "\(n) PICKS" },
@@ -214,6 +238,18 @@ private let detailZhCN = DetailStrings(
     palette: "调色板",
     paletteColors: { n in "调色板 · \(n) 色" },
     dominant: { hex in "主色 · \(hex)" },
+    info: "信息",
+    category: "分类",
+    color: "颜色",
+    report: "举报",
+    reporting: "提交中",
+    reported: "举报已提交",
+    reportFailed: "举报提交失败",
+    deleteWallpaper: "删除",
+    deleteConfirmTitle: "删除这张壁纸？",
+    deleteConfirmMessage: "删除后这张壁纸将从公开图库移除。",
+    deleteSucceeded: "壁纸已删除",
+    deleteFailed: "删除壁纸失败",
     relatedArchive: "相关档案",
     moreLikeThis: "更多相似壁纸",
     picksCount: { n in "精选 \(n) 张" },
@@ -289,6 +325,18 @@ private let detailZhTW = DetailStrings(
     palette: "調色盤",
     paletteColors: { n in "調色盤 · \(n) 色" },
     dominant: { hex in "主色 · \(hex)" },
+    info: "資訊",
+    category: "分類",
+    color: "顏色",
+    report: "檢舉",
+    reporting: "送出中",
+    reported: "檢舉已送出",
+    reportFailed: "檢舉送出失敗",
+    deleteWallpaper: "刪除",
+    deleteConfirmTitle: "刪除這張桌布？",
+    deleteConfirmMessage: "刪除後這張桌布會從公開圖庫移除。",
+    deleteSucceeded: "桌布已刪除",
+    deleteFailed: "刪除桌布失敗",
     relatedArchive: "相關檔案",
     moreLikeThis: "更多相似桌布",
     picksCount: { n in "精選 \(n) 張" },
@@ -364,6 +412,18 @@ private let detailJA = DetailStrings(
     palette: "パレット",
     paletteColors: { n in "パレット · \(n)色" },
     dominant: { hex in "メインカラー · \(hex)" },
+    info: "情報",
+    category: "カテゴリ",
+    color: "カラー",
+    report: "報告",
+    reporting: "送信中",
+    reported: "報告を送信しました",
+    reportFailed: "報告を送信できませんでした",
+    deleteWallpaper: "削除",
+    deleteConfirmTitle: "この壁紙を削除しますか？",
+    deleteConfirmMessage: "削除すると、この壁紙は公開アーカイブから取り除かれます。",
+    deleteSucceeded: "壁紙を削除しました",
+    deleteFailed: "壁紙を削除できませんでした",
     relatedArchive: "関連アーカイブ",
     moreLikeThis: "似ている壁紙",
     picksCount: { n in "おすすめ \(n) 件" },

@@ -95,7 +95,13 @@ actor APIClient {
     // Internal (not private) so extensions in sibling files can route
     // their endpoints through the same request plumbing — token attach,
     // 401/402 mapping, decoding. See APIClient+Main.swift.
-    func request<T: Decodable>(_ path: String, method: String = "GET", queryItems: [URLQueryItem]? = nil) async throws -> T {
+    func request<T: Decodable>(
+        _ path: String,
+        method: String = "GET",
+        queryItems: [URLQueryItem]? = nil,
+        body: Data? = nil,
+        contentType: String? = nil
+    ) async throws -> T {
         guard var components = URLComponents(string: baseURL + path) else {
             throw APIError.invalidURL
         }
@@ -108,6 +114,10 @@ actor APIClient {
 
         var req = URLRequest(url: url)
         req.httpMethod = method
+        if let body {
+            req.httpBody = body
+            req.setValue(contentType ?? "application/json", forHTTPHeaderField: "Content-Type")
+        }
         // Backend localizes content fields (category/tag names, collection
         // titles) from this header; falls back to the original text.
         req.setValue(L10n.lang.rawValue, forHTTPHeaderField: "Accept-Language")

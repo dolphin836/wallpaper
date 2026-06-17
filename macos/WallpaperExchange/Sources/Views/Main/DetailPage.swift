@@ -24,7 +24,13 @@ struct DetailPage: View {
     @State private var isLiked: Bool = false
     @State private var isFavorited: Bool = false
     @State private var myCollections: [CollectionBrief] = []
+    @State private var categories: [Category] = []
     @State private var downloadNotice: DownloadNotice?
+    @State private var infoActionMessage: String?
+    @State private var infoPanelHover = false
+    @State private var reportingWallpaper = false
+    @State private var deletingWallpaper = false
+    @State private var showingDeleteConfirm = false
     @State private var showingWallpaperPicker = false
     @State private var selectedWallpaperSurface: WallpaperApplySurface = .desktop
     @State private var selectedDisplayTargetID = WallpaperDisplayTarget.allID
@@ -83,7 +89,8 @@ struct DetailPage: View {
         var metaPadding: CGFloat { isCompact ? 16 : 20 }
         var heroViewportHeight: CGFloat { max(size.height, isCompact ? 520 : 600) }
         var overlayHorizontalPadding: CGFloat { isCompact ? 16 : 28 }
-        var overlayBottomPadding: CGFloat { isCompact ? 20 : 28 }
+        var overlayBottomPadding: CGFloat { isCompact ? 78 : 96 }
+        var overlayTopPadding: CGFloat { isCompact ? 18 : 24 }
         var toolbarMaxWidth: CGFloat {
             max(320, min(isCompact ? 620 : 820, size.width - overlayHorizontalPadding * 2))
         }
@@ -108,7 +115,7 @@ struct DetailPage: View {
         GeometryReader { proxy in
             let layout = DetailLayout(size: proxy.size, isModal: onClose != nil)
             ZStack {
-                Color.black
+                detailAmbientBackground(size: proxy.size)
                     .ignoresSafeArea()
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 0) {
@@ -131,6 +138,20 @@ struct DetailPage: View {
             }
         }
         .task(id: slug) { await load() }
+        .confirmationDialog(
+            L10n.detail.deleteConfirmTitle,
+            isPresented: $showingDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(L10n.detail.deleteWallpaper, role: .destructive) {
+                if let detail {
+                    Task { await deleteWallpaper(detail) }
+                }
+            }
+            Button(L10n.common.cancel, role: .cancel) {}
+        } message: {
+            Text(L10n.detail.deleteConfirmMessage)
+        }
     }
 
     private func immersiveDetail(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
@@ -140,6 +161,91 @@ struct DetailPage: View {
                 recommendationsBand(detail: d, layout: layout)
             }
         }
+    }
+
+    private func detailAmbientBackground(size: CGSize) -> some View {
+        let colors = ambientColors()
+        let c1 = colors.indices.contains(0) ? colors[0] : Color.brandPaletteC1
+        let c2 = colors.indices.contains(1) ? colors[1] : c1
+        let c3 = colors.indices.contains(2) ? colors[2] : c2
+        let r = max(size.width, size.height)
+
+        return ZStack {
+            LinearGradient(
+                colors: [
+                    Color.paper.blended(with: c1, fraction: 0.36),
+                    Color.paper.blended(with: c2, fraction: 0.24),
+                    Color.paper.blended(with: c3, fraction: 0.32),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            ZStack {
+                RadialGradient(colors: [c1.opacity(0.72), .clear],
+                               center: UnitPoint(x: 0.18, y: 0.22),
+                               startRadius: 0,
+                               endRadius: r * 0.50)
+                RadialGradient(colors: [c2.opacity(0.56), .clear],
+                               center: UnitPoint(x: 0.88, y: 0.16),
+                               startRadius: 0,
+                               endRadius: r * 0.52)
+                RadialGradient(colors: [c3.opacity(0.62), .clear],
+                               center: UnitPoint(x: 0.42, y: 0.86),
+                               startRadius: 0,
+                               endRadius: r * 0.58)
+            }
+            .blur(radius: 74)
+            .saturation(1.28)
+            .opacity(0.64)
+
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.20),
+                    Color.paper.opacity(0.08),
+                    Color.black.opacity(0.10),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+        .frame(width: size.width, height: size.height)
+    }
+
+    private func ambientColors() -> [Color] {
+        let hexes = ambientHexes()
+        return hexes.map { Color(hex: $0) }
+    }
+
+    private func ambientHexes() -> [String] {
+        if let detail {
+            let palette = detail.paletteList
+            if palette.count >= 3 {
+                return [palette[palette.count - 2], palette[1], palette[palette.count - 1]]
+            }
+            if let dominant = detail.dominantColor, !dominant.isEmpty {
+                return [dominant, dominant, dominant]
+            }
+        }
+
+        if let wallpaper = initialWallpaper {
+            let palette = wallpaperPaletteList(wallpaper)
+            if palette.count >= 3 {
+                return [palette[palette.count - 2], palette[1], palette[palette.count - 1]]
+            }
+            if let dominant = wallpaper.dominantColor, !dominant.isEmpty {
+                return [dominant, dominant, dominant]
+            }
+        }
+
+        return ["#E9B982", "#DFA089", "#F0CA90"]
+    }
+
+    private func wallpaperPaletteList(_ wallpaper: Wallpaper) -> [String] {
+        (wallpaper.colorPalette ?? "")
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
     }
 
     private func immersiveLoading(layout: DetailLayout) -> some View {
@@ -169,6 +275,11 @@ struct DetailPage: View {
                     .padding(.bottom, layout.overlayBottomPadding)
             }
         }
+        .overlay(alignment: .top) {
+            detailTopControls(detail: nil, layout: layout)
+                .padding(.horizontal, layout.overlayHorizontalPadding)
+                .padding(.top, layout.overlayTopPadding)
+        }
         .frame(width: layout.size.width, height: layout.heroViewportHeight)
         .clipped()
     }
@@ -197,6 +308,11 @@ struct DetailPage: View {
             .padding(.horizontal, layout.overlayHorizontalPadding)
             .padding(.bottom, layout.overlayBottomPadding)
         }
+        .overlay(alignment: .top) {
+            detailTopControls(detail: nil, layout: layout)
+                .padding(.horizontal, layout.overlayHorizontalPadding)
+                .padding(.top, layout.overlayTopPadding)
+        }
         .frame(width: layout.size.width, height: layout.heroViewportHeight)
     }
 
@@ -214,6 +330,13 @@ struct DetailPage: View {
             }
             .padding(.horizontal, layout.overlayHorizontalPadding)
             .padding(.bottom, layout.overlayBottomPadding)
+            .zIndex(2)
+        }
+        .overlay(alignment: .top) {
+            detailTopControls(detail: d, layout: layout)
+                .padding(.horizontal, layout.overlayHorizontalPadding)
+                .padding(.top, layout.overlayTopPadding)
+                .zIndex(4)
         }
         .frame(width: layout.size.width, height: layout.heroViewportHeight)
         .clipped()
@@ -429,6 +552,215 @@ struct DetailPage: View {
         .help(help)
     }
 
+    private func detailTopControls(detail d: WallpaperDetail?, layout: DetailLayout) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            detailTopButton(systemName: "chevron.left", help: L10n.shell.back) {
+                closeOrDismiss()
+            }
+            .keyboardShortcut(.cancelAction)
+
+            Spacer(minLength: 0)
+
+            if let d {
+                detailInfoHoverButton(detail: d)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func detailTopButton(
+        systemName: String,
+        help: String,
+        prominent: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: prominent ? 17 : 15, weight: .semibold))
+                .foregroundStyle(prominent ? Color.ink : Color.white.opacity(0.94))
+                .frame(width: prominent ? 42 : 38, height: prominent ? 42 : 38)
+                .background(
+                    Circle().fill(prominent ? Color.white.opacity(0.90) : Color.black.opacity(0.46))
+                )
+                .overlay(
+                    Circle().strokeBorder(prominent ? Color.accent.opacity(0.42) : Color.white.opacity(0.16), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(prominent ? 0.28 : 0.36), radius: 18, y: 8)
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+
+    private func detailInfoHoverButton(detail d: WallpaperDetail) -> some View {
+        VStack(alignment: .trailing, spacing: 10) {
+            detailTopButton(systemName: "info.circle.fill", help: L10n.detail.info, prominent: true) {
+                withAnimation(.easeOut(duration: 0.16)) {
+                    infoPanelHover = true
+                }
+            }
+
+            if infoPanelHover {
+                detailInfoPanel(detail: d)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.14)) {
+                infoPanelHover = hovering
+            }
+        }
+    }
+
+    private func detailInfoPanel(detail d: WallpaperDetail) -> some View {
+        VStack(alignment: .leading, spacing: 11) {
+            infoPanelRow(icon: "person.crop.circle", label: L10n.detail.uploadedBy, value: uploaderName(d))
+            infoPanelRow(icon: "folder", label: L10n.detail.category, value: categoryName(for: d))
+            infoPanelRow(icon: "textformat", label: L10n.detail.wallpaperTitle, value: displayTitle(d.title))
+            infoColorRow(detail: d)
+
+            Rectangle()
+                .fill(Color.white.opacity(0.14))
+                .frame(height: 1)
+
+            HStack(spacing: 8) {
+                infoStat(icon: "arrow.down.circle", value: "\(d.downloadCount)", label: L10n.detail.statDownloads)
+                infoStat(icon: "heart", value: "\(d.likeCount)", label: L10n.detail.statLikes)
+                infoStat(icon: "star", value: "\(d.favoriteCount)", label: L10n.detail.statFavorited)
+            }
+
+            HStack(spacing: 8) {
+                if isOwner(d) {
+                    weakInfoAction(icon: "trash", title: L10n.detail.deleteWallpaper, destructive: true) {
+                        showingDeleteConfirm = true
+                    }
+                    .disabled(deletingWallpaper)
+                } else {
+                    weakInfoAction(icon: "flag", title: reportingWallpaper ? L10n.detail.reporting : L10n.detail.report, destructive: false) {
+                        Task { await reportWallpaper(d) }
+                    }
+                    .disabled(reportingWallpaper)
+                }
+                Spacer(minLength: 0)
+                if let infoActionMessage {
+                    Text(infoActionMessage)
+                        .font(.mono10)
+                        .tracking(0.4)
+                        .foregroundStyle(Color.white.opacity(0.68))
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(14)
+        .frame(width: 306, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.black.opacity(0.44))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.38), radius: 28, y: 16)
+    }
+
+    private func infoPanelRow(icon: String, label: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 9) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.white.opacity(0.54))
+                .frame(width: 14)
+            Text(label)
+                .font(.mono10)
+                .tracking(0.6)
+                .foregroundStyle(Color.white.opacity(0.50))
+                .frame(width: 72, alignment: .leading)
+            Text(value)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.white.opacity(0.90))
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+    }
+
+    private func infoColorRow(detail d: WallpaperDetail) -> some View {
+        let hex = (d.dominantColor ?? "#888888").uppercased()
+        return HStack(alignment: .center, spacing: 9) {
+            Image(systemName: "paintpalette")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.white.opacity(0.54))
+                .frame(width: 14)
+            Text(L10n.detail.color)
+                .font(.mono10)
+                .tracking(0.6)
+                .foregroundStyle(Color.white.opacity(0.50))
+                .frame(width: 72, alignment: .leading)
+            HStack(spacing: 7) {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Color(hex: hex))
+                    .frame(width: 18, height: 14)
+                    .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).stroke(Color.white.opacity(0.34), lineWidth: 1))
+                Text(hex)
+                    .font(.mono10)
+                    .tracking(0.6)
+                    .foregroundStyle(Color.white.opacity(0.86))
+            }
+        }
+    }
+
+    private func infoStat(icon: String, value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .semibold))
+                Text(value)
+                    .font(.mono10)
+                    .monospacedDigit()
+            }
+            Text(label)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(Color.white.opacity(0.48))
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .foregroundStyle(Color.white.opacity(0.82))
+        .help(label)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.09)))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.white.opacity(0.10), lineWidth: 1))
+    }
+
+    private func weakInfoAction(icon: String, title: String, destructive: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .foregroundStyle(destructive ? Color.red.opacity(0.78) : Color.white.opacity(0.62))
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(Color.white.opacity(0.07)))
+            .overlay(Capsule().stroke(Color.white.opacity(0.09), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func uploaderName(_ detail: WallpaperDetail) -> String {
+        guard let uploader = detail.uploader else { return L10n.detail.unknownUploader }
+        if let nickname = uploader.nickname?.trimmingCharacters(in: .whitespacesAndNewlines), !nickname.isEmpty {
+            return "\(nickname) · @\(uploader.username)"
+        }
+        return "@\(uploader.username)"
+    }
+
+    private func categoryName(for detail: WallpaperDetail) -> String {
+        guard let id = detail.categoryID else { return "—" }
+        return categories.first { $0.id == id }?.name ?? "#\(id)"
+    }
+
     private func addToListToolbarMenu(_ detail: WallpaperDetail) -> some View {
         Menu {
             if myCollections.isEmpty {
@@ -464,7 +796,7 @@ struct DetailPage: View {
     }
 
     private func recommendationsBand(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
-        moreLikeThis(layout: layout, dark: true)
+        moreLikeThis(layout: layout, dark: false)
             .padding(.horizontal, layout.horizontalPadding)
             .padding(.top, layout.isCompact ? 34 : 46)
             .padding(.bottom, layout.bottomPadding)
@@ -479,18 +811,17 @@ struct DetailPage: View {
     private func recommendationsBackground(detail d: WallpaperDetail) -> some View {
         let tint = Color(hex: d.dominantColor ?? "#888888")
         return ZStack {
-            Color.black
             LinearGradient(
                 colors: [
-                    tint.opacity(0.22),
-                    Color.black.opacity(0.92),
-                    Color.black
+                    Color.paper.opacity(0.04),
+                    tint.opacity(0.08),
+                    Color.paper.opacity(0.02)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
             RadialGradient(
-                colors: [tint.opacity(0.24), .clear],
+                colors: [tint.opacity(0.10), .clear],
                 center: .topLeading,
                 startRadius: 0,
                 endRadius: 520
@@ -501,16 +832,16 @@ struct DetailPage: View {
     private var recommendationsTransitionShadow: some View {
         LinearGradient(
             colors: [
-                Color.black.opacity(0.62),
-                Color.black.opacity(0.36),
-                Color.black.opacity(0.14),
+                Color.black.opacity(0.56),
+                Color.black.opacity(0.30),
+                Color.black.opacity(0.10),
                 Color.clear,
             ],
             startPoint: .top,
             endPoint: .bottom
         )
-        .frame(height: 120)
-        .offset(y: -72)
+        .frame(height: 142)
+        .offset(y: -92)
         .allowsHitTesting(false)
     }
 
@@ -955,6 +1286,7 @@ struct DetailPage: View {
                 actionRowsWide(detail: detail)
                 actionRowsMedium(detail: detail)
                 actionRowsCompact(detail: detail)
+                actionRowsMinimal(detail: detail)
             }
             if showingWallpaperPicker {
                 wallpaperPicker(detail: detail)
@@ -973,8 +1305,12 @@ struct DetailPage: View {
         )
         .shadow(color: .black.opacity(0.46), radius: 34, y: 18)
         .shadow(color: Color.accent.opacity(0.16), radius: 30, y: 8)
-        .frame(maxWidth: showingWallpaperPicker ? min(760, layout.size.width - layout.overlayHorizontalPadding * 2) : nil)
-        .fixedSize(horizontal: !showingWallpaperPicker, vertical: false)
+        .frame(
+            maxWidth: showingWallpaperPicker
+                ? min(760, layout.size.width - layout.overlayHorizontalPadding * 2)
+                : min(layout.toolbarMaxWidth, layout.size.width - layout.overlayHorizontalPadding * 2),
+            alignment: .leading
+        )
     }
 
     private func actionRowsWide(detail: WallpaperDetail) -> some View {
@@ -1009,6 +1345,14 @@ struct DetailPage: View {
                 socialActions(detail: detail)
                 toolbarMeta(detail: detail)
             }
+            downloadActions(detail: detail)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func actionRowsMinimal(detail: WallpaperDetail) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            toolbarMeta(detail: detail)
             downloadActions(detail: detail)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1661,6 +2005,7 @@ struct DetailPage: View {
     private func load() async {
         loadError = nil
         downloadNotice = nil
+        infoActionMessage = nil
         videoDurationTask?.cancel()
         videoDuration = nil
         do {
@@ -1672,6 +2017,7 @@ struct DetailPage: View {
                 selectedWallpaperSurface = .desktop
             }
             loadVideoDurationIfNeeded(detail: d)
+            await loadCategoriesIfNeeded()
             await loadCollections(wallpaperID: d.id)
         } catch {
             loadError = error.localizedDescription
@@ -1725,6 +2071,13 @@ struct DetailPage: View {
         }
     }
 
+    private func loadCategoriesIfNeeded() async {
+        guard categories.isEmpty else { return }
+        if let list = try? await APIClient.shared.fetchCategories() {
+            categories = list
+        }
+    }
+
     private func toggleLike(_ d: WallpaperDetail) async {
         guard auth.isLoggedIn else { auth.login(); return }
         let prev = isLiked
@@ -1751,6 +2104,52 @@ struct DetailPage: View {
             }
         } catch {
             isFavorited = prev
+        }
+    }
+
+    private func reportWallpaper(_ d: WallpaperDetail) async {
+        guard auth.isLoggedIn else {
+            auth.login()
+            return
+        }
+        guard !reportingWallpaper else { return }
+        reportingWallpaper = true
+        infoActionMessage = nil
+        defer { reportingWallpaper = false }
+        do {
+            try await APIClient.shared.reportWallpaper(wallpaperID: d.id, reason: "other", note: "Reported from macOS client.")
+            infoActionMessage = L10n.detail.reported
+        } catch let error as APIError {
+            if case .unauthorized = error {
+                auth.login()
+            }
+            infoActionMessage = L10n.detail.reportFailed
+        } catch {
+            infoActionMessage = L10n.detail.reportFailed
+        }
+    }
+
+    private func deleteWallpaper(_ d: WallpaperDetail) async {
+        guard auth.isLoggedIn else {
+            auth.login()
+            return
+        }
+        guard isOwner(d), !deletingWallpaper else { return }
+        deletingWallpaper = true
+        infoActionMessage = nil
+        defer { deletingWallpaper = false }
+        do {
+            try await APIClient.shared.deleteWallpaper(wallpaperID: d.id)
+            manager.deleteLocal(d.id)
+            infoActionMessage = L10n.detail.deleteSucceeded
+            closeOrDismiss()
+        } catch let error as APIError {
+            if case .unauthorized = error {
+                auth.login()
+            }
+            infoActionMessage = L10n.detail.deleteFailed
+        } catch {
+            infoActionMessage = L10n.detail.deleteFailed
         }
     }
 
