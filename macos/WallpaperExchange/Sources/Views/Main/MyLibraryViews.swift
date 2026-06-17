@@ -119,7 +119,7 @@ struct MyLibraryCollectionsView: View {
                 if !auth.isLoggedIn {
                     SignedOutInline(message: L10n.browse.signInPrompt(L10n.browse.libCollections))
                 } else if loading && items.isEmpty {
-                    WallpaperGridSkeleton(columns: gridColumns, count: 12, spacing: 12, aspectRatio: 3.0 / 2.0, cornerRadius: 12)
+                    CollectionGridSkeleton(columns: gridColumns, count: 12, spacing: 12)
                 } else if let err = loadError {
                     RemoteLoadErrorView(message: err) {
                         Task { await load() }
