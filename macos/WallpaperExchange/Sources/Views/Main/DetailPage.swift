@@ -464,7 +464,7 @@ struct DetailPage: View {
     }
 
     private func recommendationsBand(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
-        moreLikeThis(layout: layout)
+        moreLikeThis(layout: layout, dark: true)
             .padding(.horizontal, layout.horizontalPadding)
             .padding(.top, layout.isCompact ? 34 : 46)
             .padding(.bottom, layout.bottomPadding)
@@ -479,18 +479,18 @@ struct DetailPage: View {
     private func recommendationsBackground(detail d: WallpaperDetail) -> some View {
         let tint = Color(hex: d.dominantColor ?? "#888888")
         return ZStack {
-            Color.paper
+            Color.black
             LinearGradient(
                 colors: [
-                    tint.opacity(0.18),
-                    Color.paper.opacity(0.94),
-                    Color.paper
+                    tint.opacity(0.22),
+                    Color.black.opacity(0.92),
+                    Color.black
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
             RadialGradient(
-                colors: [tint.opacity(0.20), .clear],
+                colors: [tint.opacity(0.24), .clear],
                 center: .topLeading,
                 startRadius: 0,
                 endRadius: 520
@@ -501,16 +501,16 @@ struct DetailPage: View {
     private var recommendationsTransitionShadow: some View {
         LinearGradient(
             colors: [
-                Color.black.opacity(0.34),
-                Color.black.opacity(0.16),
-                Color.black.opacity(0.05),
+                Color.black.opacity(0.62),
+                Color.black.opacity(0.36),
+                Color.black.opacity(0.14),
                 Color.clear,
             ],
             startPoint: .top,
             endPoint: .bottom
         )
-        .frame(height: 96)
-        .offset(y: -58)
+        .frame(height: 120)
+        .offset(y: -72)
         .allowsHitTesting(false)
     }
 
@@ -963,17 +963,18 @@ struct DetailPage: View {
         }
         .animation(.easeOut(duration: 0.16), value: showingWallpaperPicker)
         .padding(layout.actionPadding)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color.paper.opacity(0.36))
+                .fill(Color.black.opacity(0.48))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.42), lineWidth: 1)
+                .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.24), radius: 28, y: 14)
-        .frame(maxWidth: .infinity)
+        .shadow(color: .black.opacity(0.46), radius: 34, y: 18)
+        .shadow(color: Color.accent.opacity(0.16), radius: 30, y: 8)
+        .frame(maxWidth: showingWallpaperPicker ? min(760, layout.size.width - layout.overlayHorizontalPadding * 2) : nil)
+        .fixedSize(horizontal: !showingWallpaperPicker, vertical: false)
     }
 
     private func actionRowsWide(detail: WallpaperDetail) -> some View {
@@ -983,7 +984,6 @@ struct DetailPage: View {
             divider.opacity(0.42)
             toolbarMeta(detail: detail)
                 .fixedSize(horizontal: true, vertical: false)
-            Spacer(minLength: 16)
             downloadActions(detail: detail)
                 .fixedSize(horizontal: true, vertical: false)
         }
@@ -997,7 +997,6 @@ struct DetailPage: View {
                 divider.opacity(0.42)
                 toolbarMeta(detail: detail)
                     .fixedSize(horizontal: true, vertical: false)
-                Spacer(minLength: 0)
             }
             downloadActions(detail: detail)
                 .fixedSize(horizontal: true, vertical: false)
@@ -1016,20 +1015,26 @@ struct DetailPage: View {
     }
 
     private func toolbarMeta(detail d: WallpaperDetail) -> some View {
-        Text(toolbarMetaText(detail: d))
-            .font(.mono10)
-            .tracking(0.8)
-            .foregroundStyle(Color.ink2.opacity(0.74))
-            .lineLimit(1)
-            .truncationMode(.tail)
+        HStack(spacing: 10) {
+            toolbarMetaItem(icon: "rectangle", text: "\(d.width.formatted())×\(d.height.formatted())")
+            toolbarMetaItem(icon: "externaldrive", text: byteString(d.fileSize))
+            if isVideo(detail: d), let videoDuration {
+                toolbarMetaItem(icon: "clock", text: formatDuration(videoDuration))
+            }
+        }
     }
 
-    private func toolbarMetaText(detail d: WallpaperDetail) -> String {
-        var parts = ["\(d.width.formatted()) × \(d.height.formatted())", byteString(d.fileSize)]
-        if isVideo(detail: d), let videoDuration {
-            parts.append(formatDuration(videoDuration))
+    private func toolbarMetaItem(icon: String, text: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+            Text(text)
+                .font(.mono10)
+                .tracking(0.4)
+                .monospacedDigit()
         }
-        return parts.joined(separator: " · ")
+        .foregroundStyle(Color.white.opacity(0.72))
+        .lineLimit(1)
     }
 
     private func socialActions(detail: WallpaperDetail) -> some View {
@@ -1509,24 +1514,27 @@ struct DetailPage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func moreLikeThis(layout: DetailLayout) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+    private func moreLikeThis(layout: DetailLayout, dark: Bool = false) -> some View {
+        let titleColor = dark ? Color.lightText : Color.ink
+        let mutedColor = dark ? Color.lightText.opacity(0.54) : Color.muted
+        let dividerColor = dark ? Color.white.opacity(0.12) : Color.hair
+        return VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .bottom, spacing: 18) {
                 VStack(alignment: .leading, spacing: 7) {
-                    Kicker(text: L10n.detail.relatedArchive)
+                    Kicker(text: L10n.detail.relatedArchive, tint: mutedColor)
                     Text(L10n.detail.moreLikeThis)
                         .font(.system(size: 32, weight: .regular, design: .serif))
-                        .foregroundStyle(Color.ink)
+                        .foregroundStyle(titleColor)
                         .tracking(-0.3)
                 }
                 Spacer()
                 Text(L10n.detail.picksCount(similar.count))
                     .font(.mono10)
                     .tracking(1.4)
-                    .foregroundStyle(Color.muted)
+                    .foregroundStyle(mutedColor)
                     .lineLimit(1)
             }
-            Rectangle().fill(Color.hair).frame(height: 1)
+            Rectangle().fill(dividerColor).frame(height: 1)
             LazyVGrid(
                 columns: Array(
                     repeating: GridItem(.flexible(), spacing: 14, alignment: .top),
