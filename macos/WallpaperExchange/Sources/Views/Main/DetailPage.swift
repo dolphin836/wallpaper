@@ -357,7 +357,18 @@ struct DetailPage: View {
             .frame(width: layout.size.width, height: layout.heroViewportHeight)
             .clipped()
         } else if let d = detail {
-            progressivePosterImage(detail: d, layout: layout)
+            let frames = dynamicFrameURLs(detail: d)
+            if frames.count > 1 {
+                DynamicFramePreview(
+                    frameURLs: frames,
+                    posterURL: detailPreviewPosterURL(d),
+                    dominantColor: d.dominantColor ?? initialWallpaper?.dominantColor
+                )
+                .frame(width: layout.size.width, height: layout.heroViewportHeight)
+                .clipped()
+            } else {
+                progressivePosterImage(detail: d, layout: layout)
+            }
         } else if let wallpaper = initialWallpaper {
             posterImage(
                 url: URL(string: wallpaper.displayURL),
@@ -824,13 +835,22 @@ struct DetailPage: View {
     }
 
     private func detailHeroImageURL(_ d: WallpaperDetail) -> URL? {
-        if !isVideo(detail: d) {
+        if !isVideo(detail: d), !d.isDynamic {
             let originalURL = d.originalURL.trimmingCharacters(in: .whitespacesAndNewlines)
             if !originalURL.isEmpty {
                 return URL(string: originalURL)
             }
         }
         return detailPreviewPosterURL(d)
+    }
+
+    private func dynamicFrameURLs(detail d: WallpaperDetail) -> [URL] {
+        guard d.isDynamic, !isVideo(detail: d), let raw = d.frameURLs else { return [] }
+        return raw
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .compactMap(URL.init(string:))
     }
 
     private func detailPreviewPosterURL(_ d: WallpaperDetail) -> URL? {
@@ -1015,7 +1035,7 @@ struct DetailPage: View {
     }
 
     private func livePreviewVideoURL(detail d: WallpaperDetail) -> URL? {
-        guard isLive(detail: d),
+        guard isVideo(detail: d),
               let value = d.previewVideoURL?.trimmingCharacters(in: .whitespacesAndNewlines),
               !value.isEmpty else { return nil }
         return URL(string: value)
@@ -2512,6 +2532,127 @@ private struct ActionBarWidthPreferenceKey: PreferenceKey {
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
+    }
+}
+
+private struct DynamicFramePreview: View {
+    let frameURLs: [URL]
+    let posterURL: URL?
+    let dominantColor: String?
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var frameIndex = 0
+    @State private var playing = true
+    @State private var hover = false
+
+    var body: some View {
+        ZStack {
+            Color(hex: dominantColor ?? "#111")
+
+            CachedAsyncImage(url: posterURL, maxPixelDimension: 1400) { img in
+                img.resizable().aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Color(hex: dominantColor ?? "#111")
+            }
+            .clipped()
+
+            ForEach(Array(frameURLs.enumerated()), id: \.offset) { index, url in
+                CachedAsyncImage(url: url, maxPixelDimension: 1800) { img in
+                    img.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color.clear
+                }
+                .opacity(index == visibleFrameIndex ? 1 : 0)
+                .clipped()
+            }
+
+            LinearGradient(
+                colors: [.clear, Color.black.opacity(0.34)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+            .allowsHitTesting(false)
+
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    playbackControl
+                }
+                .padding(.trailing, 22)
+                .padding(.bottom, 18)
+            }
+        }
+        .animation(.easeInOut(duration: 0.55), value: visibleFrameIndex)
+        .contentShape(Rectangle())
+        .onHover { hover = $0 }
+        .onAppear {
+            if reduceMotion {
+                playing = false
+            }
+            clampFrameIndex()
+        }
+        .onChange(of: frameURLs) { _, _ in
+            clampFrameIndex()
+        }
+        .task(id: playbackTaskID) {
+            await runPlaybackLoop()
+        }
+    }
+
+    private var visibleFrameIndex: Int {
+        guard !frameURLs.isEmpty else { return 0 }
+        return min(max(frameIndex, 0), frameURLs.count - 1)
+    }
+
+    private var playbackTaskID: String {
+        "\(playing)-\(reduceMotion)-\(frameURLs.map(\.absoluteString).joined(separator: "|"))"
+    }
+
+    private var playbackControl: some View {
+        Button {
+            playing.toggle()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: playing ? "pause.fill" : "play.fill")
+                    .font(.system(size: 9, weight: .bold))
+                    .frame(width: 10)
+                Text("\(L10n.detail.chipLive) · \(visibleFrameIndex + 1)/\(max(frameURLs.count, 1))")
+                    .font(.mono10)
+                    .tracking(0.7)
+                    .monospacedDigit()
+            }
+            .foregroundStyle(Color.white.opacity(0.94))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                Capsule()
+                    .fill(Color.black.opacity(hover || !playing ? 0.70 : 0.52))
+            )
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+            .shadow(color: Color.black.opacity(0.25), radius: 12, x: 0, y: 4)
+        }
+        .buttonStyle(.plain)
+        .help(playing ? L10n.detail.pausePreview : L10n.detail.playPreview)
+    }
+
+    private func runPlaybackLoop() async {
+        guard playing, !reduceMotion, frameURLs.count > 1 else { return }
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                frameIndex = (visibleFrameIndex + 1) % frameURLs.count
+            }
+        }
+    }
+
+    private func clampFrameIndex() {
+        guard !frameURLs.isEmpty else {
+            frameIndex = 0
+            return
+        }
+        frameIndex = min(max(frameIndex, 0), frameURLs.count - 1)
     }
 }
 
