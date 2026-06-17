@@ -153,6 +153,7 @@ struct DetailPage: View {
                     }
                     .frame(minHeight: proxy.size.height, alignment: .top)
                 }
+                .id(detailRequestKey)
                 .frame(width: proxy.size.width, height: proxy.size.height)
 
                 detailTopControls(detail: detail, layout: layout)
@@ -321,17 +322,33 @@ struct DetailPage: View {
 
     private func immersiveError(message: String, layout: DetailLayout) -> some View {
         ZStack(alignment: .bottom) {
-            LinearGradient(
-                colors: [Color.black, Color.paper2.blended(with: Color.black, fraction: 0.74)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+            if let wallpaper = initialWallpaper {
+                posterImage(
+                    url: URL(string: wallpaper.displayURL),
+                    dominantColor: wallpaper.dominantColor,
+                    maxPixelDimension: 1100
+                )
+                heroVignette
+            } else {
+                LinearGradient(
+                    colors: [Color.black, Color.paper2.blended(with: Color.black, fraction: 0.74)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
 
             RemoteLoadErrorView(message: message) {
                 Task { await load() }
             }
             .padding(.horizontal, layout.horizontalPadding)
             .frame(width: layout.pageWidth, alignment: .center)
+
+            if let wallpaper = initialWallpaper {
+                provisionalActionBar(wallpaper: wallpaper, layout: layout)
+                    .padding(.horizontal, layout.overlayHorizontalPadding)
+                    .padding(.bottom, layout.overlayBottomPadding)
+                    .zIndex(2)
+            }
         }
         .frame(width: layout.size.width, height: layout.heroViewportHeight)
     }
@@ -342,7 +359,7 @@ struct DetailPage: View {
             heroVignette
 
             VStack(alignment: .center, spacing: 12) {
-                downloadProgressBar(detail: d)
+                downloadProgressBar(detail: d, layout: layout)
 
                 if showingWallpaperPicker {
                     wallpaperPicker(detail: d, layout: layout)
@@ -351,7 +368,7 @@ struct DetailPage: View {
 
                 actionBar(detail: d, layout: layout)
 
-                downloadNoticeView(detail: d)
+                downloadNoticeView(detail: d, layout: layout)
             }
             .frame(maxWidth: layout.actionBarAvailableWidth, alignment: .center)
             .padding(.horizontal, layout.overlayHorizontalPadding)
@@ -977,9 +994,9 @@ struct DetailPage: View {
         let tint = Color(hex: d.dominantColor ?? "#888")
         return VStack(spacing: layout.stageSpacing) {
             hero(detail: d, layout: layout)
-            downloadProgressBar(detail: d)
+            downloadProgressBar(detail: d, layout: layout)
             actionBar(detail: d, layout: layout)
-            downloadNoticeView(detail: d)
+            downloadNoticeView(detail: d, layout: layout)
         }
         .padding(layout.stagePadding)
         .background(
@@ -1025,7 +1042,7 @@ struct DetailPage: View {
     }
 
     @ViewBuilder
-    private func downloadProgressBar(detail d: WallpaperDetail) -> some View {
+    private func downloadProgressBar(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
         if manager.downloading.contains(d.id) {
             let progress = max(0, min(manager.downloadProgress[d.id] ?? 0, 1))
             VStack(alignment: .leading, spacing: 7) {
@@ -1057,6 +1074,7 @@ struct DetailPage: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
+            .frame(width: resolvedActionBarWidth(layout: layout), alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.accentSoft.opacity(0.92)))
             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.accent.opacity(0.24), lineWidth: 1))
             .transition(.opacity.combined(with: .move(edge: .top)))
@@ -1064,7 +1082,7 @@ struct DetailPage: View {
     }
 
     @ViewBuilder
-    private func downloadNoticeView(detail d: WallpaperDetail) -> some View {
+    private func downloadNoticeView(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
         if let downloadNotice {
             let tone = noticeTone(downloadNotice)
             HStack(alignment: .center, spacing: 14) {
@@ -1110,6 +1128,7 @@ struct DetailPage: View {
                 .buttonStyle(.plain)
             }
             .padding(14)
+            .frame(width: resolvedActionBarWidth(layout: layout), alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(tone.background))
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(tone.border, lineWidth: 1))
             .transition(.opacity.combined(with: .move(edge: .top)))
