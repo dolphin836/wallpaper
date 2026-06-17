@@ -47,6 +47,24 @@ struct DetailPage: View {
     @State private var videoDurationTask: Task<Void, Never>?
     @Environment(\.dismiss) private var dismiss
 
+    init(
+        slug: String,
+        initialWallpaper: Wallpaper? = nil,
+        onUploader: @escaping (String) -> Void,
+        onWallpaper: @escaping (Wallpaper) -> Void,
+        onClose: (() -> Void)? = nil,
+        isWindowFullScreen: Bool = false
+    ) {
+        self.slug = slug
+        self.initialWallpaper = initialWallpaper
+        self.onUploader = onUploader
+        self.onWallpaper = onWallpaper
+        self.onClose = onClose
+        self.isWindowFullScreen = isWindowFullScreen
+        _isLiked = State(initialValue: initialWallpaper?.isLiked ?? false)
+        _isFavorited = State(initialValue: initialWallpaper?.isFavorited ?? false)
+    }
+
     // Raw values are stable identifiers (ForEach ids) — display labels are
     // localized via previewModeLabel(_:).
     enum PreviewMode: String { case off = "Wallpaper", plain = "Plain", home = "Home", lock = "Lock" }
@@ -148,13 +166,7 @@ struct DetailPage: View {
                     .ignoresSafeArea()
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 0) {
-                        if let d = detail {
-                            immersiveDetail(detail: d, layout: layout)
-                        } else if let err = loadError {
-                            immersiveError(message: err, layout: layout)
-                        } else {
-                            immersiveLoading(layout: layout)
-                        }
+                        immersivePage(layout: layout)
                     }
                     .frame(minHeight: proxy.size.height, alignment: .top)
                 }
@@ -193,10 +205,10 @@ struct DetailPage: View {
         }
     }
 
-    private func immersiveDetail(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
+    private func immersivePage(layout: DetailLayout) -> some View {
         VStack(spacing: 0) {
-            immersiveHero(detail: d, layout: layout)
-            if !similar.isEmpty {
+            immersiveHero(layout: layout)
+            if let d = detail, !similar.isEmpty {
                 recommendationsBand(detail: d, layout: layout)
             }
         }
@@ -294,69 +306,27 @@ struct DetailPage: View {
             .filter { !$0.isEmpty }
     }
 
-    private func immersiveLoading(layout: DetailLayout) -> some View {
+    private func immersiveHero(layout: DetailLayout) -> some View {
         ZStack(alignment: .bottom) {
-            if let wallpaper = initialWallpaper {
-                posterImage(
-                    url: URL(string: wallpaper.displayURL),
-                    dominantColor: wallpaper.dominantColor,
-                    maxPixelDimension: 1100
-                )
-            } else {
-                LinearGradient(
-                    colors: [Color.black, Color.paper2.blended(with: Color.black, fraction: 0.72)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                ProgressView()
-                    .controlSize(.large)
-                    .tint(.white)
-            }
-
-            heroVignette
-        }
-        .frame(width: layout.size.width, height: layout.heroViewportHeight)
-        .clipped()
-    }
-
-    private func immersiveError(message: String, layout: DetailLayout) -> some View {
-        ZStack(alignment: .bottom) {
-            if let wallpaper = initialWallpaper {
-                posterImage(
-                    url: URL(string: wallpaper.displayURL),
-                    dominantColor: wallpaper.dominantColor,
-                    maxPixelDimension: 1100
-                )
-                heroVignette
-            } else {
-                LinearGradient(
-                    colors: [Color.black, Color.paper2.blended(with: Color.black, fraction: 0.74)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            }
-
-            RemoteLoadErrorView(message: message) {
-                Task { await load() }
-            }
-            .padding(.horizontal, layout.horizontalPadding)
-            .frame(width: layout.pageWidth, alignment: .center)
-        }
-        .frame(width: layout.size.width, height: layout.heroViewportHeight)
-    }
-
-    private func immersiveHero(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
-        ZStack(alignment: .bottom) {
-            immersiveHeroMedia(detail: d, layout: layout)
+            immersiveHeroMedia(layout: layout)
             heroVignette
 
-            if isShowingDetailActionPopup {
+            if detail != nil, isShowingDetailActionPopup {
                 actionPopupDismissLayer(layout: layout)
                     .transition(.opacity)
                     .zIndex(2)
             }
 
-            detailActionOverlay(detail: d, layout: layout)
+            if let loadError, detail == nil {
+                RemoteLoadErrorView(message: loadError) {
+                    Task { await load() }
+                }
+                .padding(.horizontal, layout.horizontalPadding)
+                .frame(width: layout.pageWidth, alignment: .center)
+                .zIndex(2)
+            }
+
+            detailActionOverlay(detail: detail, layout: layout)
                 .zIndex(3)
         }
         .frame(width: layout.size.width, height: layout.heroViewportHeight)
@@ -364,8 +334,8 @@ struct DetailPage: View {
     }
 
     @ViewBuilder
-    private func immersiveHeroMedia(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
-        if let videoURL = livePreviewVideoURL(detail: d) {
+    private func immersiveHeroMedia(layout: DetailLayout) -> some View {
+        if let d = detail, let videoURL = livePreviewVideoURL(detail: d) {
             LiveVideoPreview(
                 sourceURL: videoURL,
                 posterURL: detailPreviewPosterURL(d),
@@ -373,8 +343,23 @@ struct DetailPage: View {
             )
             .frame(width: layout.size.width, height: layout.heroViewportHeight)
             .clipped()
-        } else {
+        } else if let d = detail {
             progressivePosterImage(detail: d, layout: layout)
+        } else if let wallpaper = initialWallpaper {
+            posterImage(
+                url: URL(string: wallpaper.displayURL),
+                dominantColor: wallpaper.dominantColor,
+                maxPixelDimension: 1100
+            )
+        } else {
+            LinearGradient(
+                colors: [Color.black, Color.paper2.blended(with: Color.black, fraction: 0.72)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            ProgressView()
+                .controlSize(.large)
+                .tint(.white)
         }
     }
 
@@ -942,7 +927,7 @@ struct DetailPage: View {
             if showingWallpaperPicker {
                 wallpaperPicker(detail: d, layout: layout)
             }
-            actionBar(detail: d, layout: layout)
+            actionBar(detail: d, wallpaper: initialWallpaper, layout: layout)
         }
         .padding(layout.stagePadding)
         .background(
@@ -1244,22 +1229,24 @@ struct DetailPage: View {
 
     private static let previewOptions: [PreviewMode] = [.off, .plain, .home, .lock]
 
-    private func detailActionOverlay(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
+    private func detailActionOverlay(detail d: WallpaperDetail?, layout: DetailLayout) -> some View {
         VStack(alignment: .center, spacing: 12) {
-            downloadProgressBar(detail: d, layout: layout)
-            downloadNoticeView(detail: d, layout: layout)
+            if let d {
+                downloadProgressBar(detail: d, layout: layout)
+                downloadNoticeView(detail: d, layout: layout)
 
-            if showingCollectionPicker {
-                collectionPicker(detail: d, layout: layout)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                if showingCollectionPicker {
+                    collectionPicker(detail: d, layout: layout)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
+
+                if showingWallpaperPicker {
+                    wallpaperPicker(detail: d, layout: layout)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
             }
 
-            if showingWallpaperPicker {
-                wallpaperPicker(detail: d, layout: layout)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
-
-            actionBar(detail: d, layout: layout)
+            actionBar(detail: d, wallpaper: initialWallpaper, layout: layout)
         }
         .frame(maxWidth: layout.actionBarAvailableWidth, alignment: .center)
         .padding(.horizontal, layout.overlayHorizontalPadding)
@@ -1267,13 +1254,13 @@ struct DetailPage: View {
         .frame(width: layout.size.width, height: layout.size.height, alignment: .bottom)
     }
 
-    private func actionBar(detail: WallpaperDetail, layout: DetailLayout) -> some View {
+    private func actionBar(detail: WallpaperDetail?, wallpaper: Wallpaper?, layout: DetailLayout) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             ViewThatFits(in: .horizontal) {
-                actionRowsWide(detail: detail)
-                actionRowsMedium(detail: detail)
-                actionRowsCompact(detail: detail)
-                actionRowsMinimal(detail: detail)
+                actionRowsWide(detail: detail, wallpaper: wallpaper)
+                actionRowsMedium(detail: detail, wallpaper: wallpaper)
+                actionRowsCompact(detail: detail, wallpaper: wallpaper)
+                actionRowsMinimal(detail: detail, wallpaper: wallpaper)
             }
         }
         .animation(.easeOut(duration: 0.16), value: showingWallpaperPicker)
@@ -1297,57 +1284,73 @@ struct DetailPage: View {
         )
     }
 
-    private func actionRowsWide(detail: WallpaperDetail) -> some View {
+    private func actionRowsWide(detail: WallpaperDetail?, wallpaper: Wallpaper?) -> some View {
         HStack(spacing: 12) {
-            socialActions(detail: detail)
+            socialActions(detail: detail, wallpaper: wallpaper)
                 .fixedSize(horizontal: true, vertical: false)
             divider.opacity(0.42)
-            toolbarMeta(detail: detail)
+            toolbarMeta(detail: detail, wallpaper: wallpaper)
                 .fixedSize(horizontal: true, vertical: false)
-            downloadActions(detail: detail)
+            downloadActions(detail: detail, wallpaper: wallpaper)
                 .fixedSize(horizontal: true, vertical: false)
         }
     }
 
-    private func actionRowsMedium(detail: WallpaperDetail) -> some View {
+    private func actionRowsMedium(detail: WallpaperDetail?, wallpaper: Wallpaper?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
-                socialActions(detail: detail)
+                socialActions(detail: detail, wallpaper: wallpaper)
                     .fixedSize(horizontal: true, vertical: false)
                 divider.opacity(0.42)
-                toolbarMeta(detail: detail)
+                toolbarMeta(detail: detail, wallpaper: wallpaper)
                     .fixedSize(horizontal: true, vertical: false)
             }
-            downloadActions(detail: detail)
+            downloadActions(detail: detail, wallpaper: wallpaper)
                 .fixedSize(horizontal: true, vertical: false)
         }
     }
 
-    private func actionRowsCompact(detail: WallpaperDetail) -> some View {
+    private func actionRowsCompact(detail: WallpaperDetail?, wallpaper: Wallpaper?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                socialActions(detail: detail)
-                toolbarMeta(detail: detail)
+                socialActions(detail: detail, wallpaper: wallpaper)
+                toolbarMeta(detail: detail, wallpaper: wallpaper)
             }
-            downloadActions(detail: detail)
+            downloadActions(detail: detail, wallpaper: wallpaper)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func actionRowsMinimal(detail: WallpaperDetail) -> some View {
+    private func actionRowsMinimal(detail: WallpaperDetail?, wallpaper: Wallpaper?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            toolbarMeta(detail: detail)
-            downloadActions(detail: detail)
+            toolbarMeta(detail: detail, wallpaper: wallpaper)
+            downloadActions(detail: detail, wallpaper: wallpaper)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func toolbarMeta(detail d: WallpaperDetail) -> some View {
+    private func toolbarMeta(detail d: WallpaperDetail?, wallpaper: Wallpaper?) -> some View {
         HStack(spacing: 10) {
-            toolbarMetaItem(icon: "rectangle", text: "\(d.width.formatted())×\(d.height.formatted())")
-            toolbarMetaItem(icon: "externaldrive", text: byteString(d.fileSize))
-            if isVideo(detail: d), let videoDuration {
-                toolbarMetaItem(icon: "clock", text: formatDuration(videoDuration))
+            if let d {
+                toolbarMetaItem(icon: "rectangle", text: "\(d.width.formatted())×\(d.height.formatted())")
+                toolbarMetaItem(icon: "externaldrive", text: byteString(d.fileSize))
+                if isVideo(detail: d), let videoDuration {
+                    toolbarMetaItem(icon: "clock", text: formatDuration(videoDuration))
+                }
+            } else if let wallpaper {
+                if wallpaper.width > 0, wallpaper.height > 0 {
+                    toolbarMetaItem(icon: "rectangle", text: "\(wallpaper.width.formatted())×\(wallpaper.height.formatted())")
+                } else {
+                    toolbarMetaSkeletonItem(icon: "rectangle", width: 64)
+                }
+                if wallpaper.fileSize > 0 {
+                    toolbarMetaItem(icon: "externaldrive", text: byteString(wallpaper.fileSize))
+                } else {
+                    toolbarMetaSkeletonItem(icon: "externaldrive", width: 48)
+                }
+            } else {
+                toolbarMetaSkeletonItem(icon: "rectangle", width: 64)
+                toolbarMetaSkeletonItem(icon: "externaldrive", width: 48)
             }
         }
     }
@@ -1365,14 +1368,34 @@ struct DetailPage: View {
         .lineLimit(1)
     }
 
-    private func socialActions(detail: WallpaperDetail) -> some View {
-        HStack(spacing: 6) {
-            actionPill(icon: isLiked ? "heart.fill" : "heart", label: isLiked ? L10n.detail.liked : L10n.detail.like, count: "\(detail.likeCount)", on: isLiked) {
-                Task { await toggleLike(detail) }
+    private func toolbarMetaSkeletonItem(icon: String, width: CGFloat) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(Color.white.opacity(0.22))
+                .frame(width: width, height: 9)
+        }
+        .foregroundStyle(Color.white.opacity(0.58))
+        .lineLimit(1)
+    }
+
+    private func socialActions(detail: WallpaperDetail?, wallpaper: Wallpaper?) -> some View {
+        let likeCount = detail?.likeCount ?? wallpaper?.likeCount
+        let hasDetail = detail != nil
+        return HStack(spacing: 6) {
+            actionPill(icon: isLiked ? "heart.fill" : "heart", label: isLiked ? L10n.detail.liked : L10n.detail.like, count: likeCount.map { "\($0)" }, on: isLiked) {
+                if let detail {
+                    Task { await toggleLike(detail) }
+                }
             }
+            .allowsHitTesting(hasDetail)
             actionPill(icon: isFavorited ? "star.fill" : "star", label: isFavorited ? L10n.detail.saved : L10n.detail.favorite, count: nil, on: isFavorited) {
-                Task { await toggleFavorite(detail) }
+                if let detail {
+                    Task { await toggleFavorite(detail) }
+                }
             }
+            .allowsHitTesting(hasDetail)
             addToListMenu(detail)
         }
     }
@@ -1397,18 +1420,24 @@ struct DetailPage: View {
         .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
     }
 
-    private func downloadActions(detail: WallpaperDetail) -> some View {
-        let downloading = manager.downloading.contains(detail.id)
-        let downloaded = isLocalDownloaded(detail)
+    private func downloadActions(detail: WallpaperDetail?, wallpaper: Wallpaper?) -> some View {
+        let downloading = detail.map { manager.downloading.contains($0.id) } ?? false
+        let downloaded = detail.map { isLocalDownloaded($0) } ?? isLocalDownloaded(wallpaper)
+        let hasDetail = detail != nil
         return HStack(spacing: 6) {
-            Button(action: { Task { await downloadOriginal(detail) } }) {
+            Button(action: {
+                if let detail {
+                    Task { await downloadOriginal(detail) }
+                }
+            }) {
                 downloadLabel(icon: downloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
                               text: downloadButtonText(detail: detail, downloaded: downloaded, downloading: downloading),
                               emphasized: true)
             }
-            .disabled(downloading || downloaded)
+            .allowsHitTesting(hasDetail && !downloading && !downloaded)
             .buttonStyle(.plain)
             Button(action: {
+                guard detail != nil else { return }
                 withAnimation(.easeOut(duration: 0.16)) {
                     showingCollectionPicker = false
                     showingWallpaperPicker.toggle()
@@ -1418,7 +1447,7 @@ struct DetailPage: View {
                               text: downloadAndSetButtonText(detail: detail, downloaded: downloaded),
                               emphasized: true)
             }
-            .disabled(downloading || applyingWallpaper)
+            .allowsHitTesting(hasDetail && !downloading && !applyingWallpaper)
             .buttonStyle(.plain)
             .keyboardShortcut("d", modifiers: .command)
         }
@@ -2050,13 +2079,35 @@ struct DetailPage: View {
         return requiresTrade(detail) ? L10n.detail.tradeForOne : L10n.detail.download
     }
 
+    private func downloadButtonText(detail: WallpaperDetail?, downloaded: Bool, downloading: Bool) -> String {
+        if let detail {
+            return downloadButtonText(detail: detail, downloaded: downloaded, downloading: downloading)
+        }
+        if downloaded { return L10n.detail.gotIt }
+        if downloading { return L10n.detail.downloading }
+        return L10n.detail.download
+    }
+
     private func downloadAndSetButtonText(detail: WallpaperDetail, downloaded: Bool) -> String {
         if downloaded { return L10n.detail.setAsWallpaper }
         return requiresTrade(detail) ? L10n.detail.downloadAndSetCoin : L10n.detail.downloadAndSet
     }
 
+    private func downloadAndSetButtonText(detail: WallpaperDetail?, downloaded: Bool) -> String {
+        if let detail {
+            return downloadAndSetButtonText(detail: detail, downloaded: downloaded)
+        }
+        if downloaded { return L10n.detail.setAsWallpaper }
+        return L10n.detail.downloadAndSet
+    }
+
     private func isLocalDownloaded(_ detail: WallpaperDetail) -> Bool {
         manager.localURL(for: detail.id) != nil
+    }
+
+    private func isLocalDownloaded(_ wallpaper: Wallpaper?) -> Bool {
+        guard let wallpaper else { return false }
+        return manager.localURL(for: wallpaper.id) != nil
     }
 
     private func refreshCoinsIfTradeRequired(_ detail: WallpaperDetail) async {
@@ -2297,9 +2348,11 @@ struct DetailPage: View {
     // "Add to list" — a menu of the user's collections (checkmark on the
     // ones already containing this wallpaper). Mirrors the web's
     // AddToCollectionModal entry point.
-    private func addToListMenu(_ detail: WallpaperDetail) -> some View {
+    private func addToListMenu(_ detail: WallpaperDetail?) -> some View {
         Button {
-            toggleCollectionPicker(detail)
+            if let detail {
+                toggleCollectionPicker(detail)
+            }
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "plus").font(.system(size: 11, weight: .medium))
@@ -2312,6 +2365,7 @@ struct DetailPage: View {
         }
         .buttonStyle(.plain)
         .fixedSize()
+        .allowsHitTesting(detail != nil)
     }
 
     private func toggleCollectionPicker(_ detail: WallpaperDetail) {
