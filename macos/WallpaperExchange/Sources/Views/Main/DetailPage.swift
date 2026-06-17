@@ -678,25 +678,6 @@ struct DetailPage: View {
         let cannotApply = applyingWallpaper || manager.downloading.contains(d.id) || surfaceUnavailable(selectedWallpaperSurface, detail: d)
 
         return VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(L10n.detail.wallpaperPickerTitle)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.ink)
-                Spacer(minLength: 0)
-                Button {
-                    withAnimation(.easeOut(duration: 0.16)) {
-                        showingWallpaperPicker = false
-                    }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color.muted)
-                        .frame(width: 24, height: 24)
-                        .background(Circle().fill(Color.paper2))
-                }
-                .buttonStyle(.plain)
-            }
-
             if Self.wallpaperSurfaceOptions.count > 1 {
                 HStack(spacing: 6) {
                     ForEach(Self.wallpaperSurfaceOptions) { surface in
@@ -732,9 +713,24 @@ struct DetailPage: View {
 
             if selectedWallpaperSurface != .lockScreen {
                 VStack(alignment: .leading, spacing: 9) {
-                    Text(L10n.detail.wallpaperChooseDisplay)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.ink2)
+                    HStack(alignment: .center, spacing: 10) {
+                        Text(L10n.detail.wallpaperChooseDisplay)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.ink2)
+                        Spacer(minLength: 0)
+                        Button {
+                            withAnimation(.easeOut(duration: 0.16)) {
+                                showingWallpaperPicker = false
+                            }
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(Color.muted)
+                                .frame(width: 24, height: 24)
+                                .background(Circle().fill(Color.paper2))
+                        }
+                        .buttonStyle(.plain)
+                    }
                     LazyVGrid(
                         columns: [GridItem(.adaptive(minimum: 170, maximum: 260), spacing: 10, alignment: .top)],
                         alignment: .leading,
@@ -748,11 +744,6 @@ struct DetailPage: View {
             }
 
             HStack(alignment: .center, spacing: 12) {
-                Text(L10n.detail.wallpaperPanelHint)
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color.muted)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)
                 Button {
                     Task { await applySelectedWallpaper(d) }
@@ -859,7 +850,7 @@ struct DetailPage: View {
         case .desktop:
             return L10n.detail.wallpaperApply
         case .lockScreen, .both:
-            return L10n.detail.wallpaperPanelHint
+            return L10n.detail.lockScreenUnavailable
         }
     }
 

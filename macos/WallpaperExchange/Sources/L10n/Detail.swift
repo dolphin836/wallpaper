@@ -81,7 +81,6 @@ struct DetailStrings {
     let wallpaperSecondaryDisplay: String
     let wallpaperApply: String
     let wallpaperApplying: String
-    let wallpaperPanelHint: String
     let wallpaperVideoLockUnavailable: String
     let lockScreenUnavailable: String
     let lockScreenConversionUnavailable: String
@@ -161,7 +160,6 @@ private let detailEN = DetailStrings(
     wallpaperSecondaryDisplay: "Display",
     wallpaperApply: "Apply",
     wallpaperApplying: "Applying",
-    wallpaperPanelHint: "Wallpaper Exchange sets the desktop only. The macOS lock screen follows the desktop image; live lock screen playback is disabled until it is reliable.",
     wallpaperVideoLockUnavailable: "Lock screen wallpaper will use the selected wallpaper image.",
     lockScreenUnavailable: "Lock screen wallpaper is managed by macOS. Set the desktop wallpaper instead.",
     lockScreenConversionUnavailable: "This video cannot be converted for lock screen wallpaper.",
@@ -237,7 +235,6 @@ private let detailZhCN = DetailStrings(
     wallpaperSecondaryDisplay: "显示器",
     wallpaperApply: "应用",
     wallpaperApplying: "应用中",
-    wallpaperPanelHint: "Wallpaper Exchange 只设置桌面壁纸；macOS 锁屏会跟随桌面静态图。动态锁屏在稳定前先关闭。",
     wallpaperVideoLockUnavailable: "锁屏壁纸会使用当前选择的壁纸图片。",
     lockScreenUnavailable: "锁屏壁纸由 macOS 跟随桌面管理，请设置桌面壁纸。",
     lockScreenConversionUnavailable: "这个视频无法转换成锁屏壁纸格式。",
@@ -313,7 +310,6 @@ private let detailZhTW = DetailStrings(
     wallpaperSecondaryDisplay: "顯示器",
     wallpaperApply: "套用",
     wallpaperApplying: "套用中",
-    wallpaperPanelHint: "Wallpaper Exchange 只設定桌面桌布；macOS 鎖定畫面會跟隨桌面靜態圖。動態鎖定畫面在穩定前先關閉。",
     wallpaperVideoLockUnavailable: "鎖定畫面桌布會使用目前選擇的桌布圖片。",
     lockScreenUnavailable: "鎖定畫面桌布由 macOS 跟隨桌面管理，請設定桌面桌布。",
     lockScreenConversionUnavailable: "此影片無法轉換為鎖定畫面桌布格式。",
@@ -389,7 +385,6 @@ private let detailJA = DetailStrings(
     wallpaperSecondaryDisplay: "ディスプレイ",
     wallpaperApply: "適用",
     wallpaperApplying: "適用中",
-    wallpaperPanelHint: "Wallpaper Exchange はデスクトップのみを設定します。macOS のロック画面はデスクトップ画像に追従します。ライブロック画面は安定するまで無効です。",
     wallpaperVideoLockUnavailable: "ロック画面壁紙には選択中の壁紙画像を使用します。",
     lockScreenUnavailable: "ロック画面壁紙は macOS がデスクトップに追従して管理します。デスクトップ壁紙を設定してください。",
     lockScreenConversionUnavailable: "このビデオはロック画面壁紙形式に変換できません。",

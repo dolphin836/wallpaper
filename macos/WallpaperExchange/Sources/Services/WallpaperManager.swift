@@ -637,9 +637,6 @@ final class WallpaperManager {
 
             if surface == .desktop || surface == .both {
                 applyVideoDesktopWallpaper(wallpaper, videoURL: videoURL, poster: poster, target: target)
-                if target.isAll, let poster {
-                    try? AerialLockScreenService.shared.applyStaticImage(imageURL: poster)
-                }
             }
             return
         }
@@ -660,9 +657,6 @@ final class WallpaperManager {
                 screens: targetScreens,
                 markAsCurrent: target.isAll
             )
-            if target.isAll {
-                try? AerialLockScreenService.shared.applyStaticImage(imageURL: url)
-            }
         }
 
     }
