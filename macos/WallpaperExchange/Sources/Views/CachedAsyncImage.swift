@@ -402,28 +402,28 @@ struct ImageLoadingBeam: View {
         var baseOpacity: Double {
             switch self {
             case .image: return 0.06
-            case .skeleton: return 0.10
+            case .skeleton: return 0.055
             }
         }
 
         var softOpacity: Double {
             switch self {
             case .image: return 0.22
-            case .skeleton: return 0.34
+            case .skeleton: return 0.18
             }
         }
 
         var coreOpacity: Double {
             switch self {
             case .image: return 0.82
-            case .skeleton: return 1.0
+            case .skeleton: return 0.72
             }
         }
 
         var bandWidthRatio: CGFloat {
             switch self {
             case .image: return 0.72
-            case .skeleton: return 0.42
+            case .skeleton: return 0.50
             }
         }
 
@@ -451,9 +451,9 @@ struct ImageLoadingBeam: View {
                 ]
             case .skeleton:
                 return [
-                    Color.accent.opacity(0.10),
-                    Color.white.opacity(0.34),
-                    Color.accent.opacity(0.14),
+                    Color.white.opacity(baseOpacity),
+                    Color.accent.opacity(0.08),
+                    Color.white.opacity(baseOpacity),
                 ]
             }
         }
@@ -461,7 +461,7 @@ struct ImageLoadingBeam: View {
         var sweepSoftColor: Color {
             switch self {
             case .image: return Color.white.opacity(softOpacity)
-            case .skeleton: return Color.accent.opacity(0.48)
+            case .skeleton: return Color.accent.opacity(0.18)
             }
         }
 
