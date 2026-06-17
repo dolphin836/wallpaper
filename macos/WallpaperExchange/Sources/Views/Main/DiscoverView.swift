@@ -24,7 +24,7 @@ struct DiscoverView: View {
     @State private var items: [Wallpaper] = []
     @State private var cursor: Int?
     @State private var hasMore = false
-    @State private var loading = false
+    @State private var loading = true
     @State private var loadError: String?
     @State private var filter: Filter = .latest
     @State private var sizeMode: SizeMode = .lg
@@ -84,30 +84,47 @@ struct DiscoverView: View {
         featuredHover ?? items.first
     }
 
+    private var gridSpacing: CGFloat {
+        switch sizeMode {
+        case .lg: 14
+        case .md: 12
+        }
+    }
+
+    private var gridMinimumWidth: CGFloat {
+        switch sizeMode {
+        case .lg: 300
+        case .md: 200
+        }
+    }
+
     private var gridColumns: [GridItem] {
         switch sizeMode {
-        case .lg: [GridItem(.adaptive(minimum: 300, maximum: 460), spacing: 14, alignment: .top)]
-        case .md: [GridItem(.adaptive(minimum: 200, maximum: 300), spacing: 12, alignment: .top)]
+        case .lg: [GridItem(.adaptive(minimum: gridMinimumWidth, maximum: 460), spacing: gridSpacing, alignment: .top)]
+        case .md: [GridItem(.adaptive(minimum: gridMinimumWidth, maximum: 300), spacing: gridSpacing, alignment: .top)]
         }
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            discoverHeader
+        GeometryReader { proxy in
+            let feedWidth = max(1, proxy.size.width - 80)
+            VStack(spacing: 0) {
+                discoverHeader
 
-            ScrollView(.vertical, showsIndicators: false) {
-                feed
-                    .padding(.horizontal, 40)
-                    .padding(.top, 14)
-                    .padding(.bottom, 40)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                ScrollView(.vertical, showsIndicators: false) {
+                    feed(availableWidth: feedWidth)
+                        .padding(.horizontal, 40)
+                        .padding(.top, 14)
+                        .padding(.bottom, 40)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
+                .zIndex(0)
             }
-            .scrollContentBackground(.hidden)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Color.clear)
-            .zIndex(0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.clear)
         .task(id: "discover-init") {
             if let initialFilter { filter = initialFilter }
             else if deviceMatch { filter = .myDevice }
@@ -143,12 +160,12 @@ struct DiscoverView: View {
     // ── Feed: the scrolling grid + loading / empty / error states.
     // Hovering a tile lifts it into the pinned device mockup above. ──
     @ViewBuilder
-    private var feed: some View {
+    private func feed(availableWidth: CGFloat) -> some View {
         if loading && items.isEmpty {
             WallpaperGridSkeleton(
                 columns: gridColumns,
-                count: sizeMode == .lg ? 12 : 16,
-                spacing: sizeMode == .lg ? 14 : 12
+                count: skeletonCardCount(for: availableWidth),
+                spacing: gridSpacing
             )
         } else if let err = loadError, items.isEmpty {
             errorBanner(err)
@@ -161,7 +178,7 @@ struct DiscoverView: View {
                 symbol: search.isEmpty ? "photo.on.rectangle" : "magnifyingglass"
             )
         } else {
-            LazyVGrid(columns: gridColumns, spacing: sizeMode == .lg ? 14 : 12) {
+            LazyVGrid(columns: gridColumns, spacing: gridSpacing) {
                 ForEach(items) { wp in
                     Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
                         .buttonStyle(.plain)
@@ -171,6 +188,11 @@ struct DiscoverView: View {
             }
             feedFooter
         }
+    }
+
+    private func skeletonCardCount(for availableWidth: CGFloat) -> Int {
+        let columns = max(1, Int(floor((availableWidth + gridSpacing) / (gridMinimumWidth + gridSpacing))))
+        return columns * 3
     }
 
     // Infinite-scroll footer — loading spinner, a manual "Load more"
@@ -348,20 +370,19 @@ struct DiscoverView: View {
 
     private func reload() async {
         items = []; cursor = nil; hasMore = false; loadError = nil; featuredHover = nil
+        loading = true
+        defer { loading = false }
         if filter == .forYou {
-            await loadForYou()
+            await loadForYouPage()
         } else {
-            await loadMore()
+            await loadWallpaperPage()
         }
     }
 
     // For You is a single-shot top-N feed. On empty (cold-start users)
     // fall back to Latest so the page still shows content — the filter
     // change re-triggers reload via onChange.
-    private func loadForYou() async {
-        guard !loading else { return }
-        loading = true
-        defer { loading = false }
+    private func loadForYouPage() async {
         do {
             let list = try await APIClient.shared.fetchForYou(limit: 30)
             if list.isEmpty {
@@ -380,6 +401,10 @@ struct DiscoverView: View {
         guard !loading else { return }
         loading = true
         defer { loading = false }
+        await loadWallpaperPage()
+    }
+
+    private func loadWallpaperPage() async {
         do {
             let data = try await APIClient.shared.fetchWallpapers(
                 cursor: cursor,

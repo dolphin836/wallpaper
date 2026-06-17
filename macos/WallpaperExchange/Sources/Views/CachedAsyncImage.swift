@@ -394,7 +394,7 @@ struct ProgressiveCachedAsyncImage<Content: View, Placeholder: View>: View {
     }
 }
 
-private struct ImageLoadingBeam: View {
+struct ImageLoadingBeam: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var sweep = false
 
