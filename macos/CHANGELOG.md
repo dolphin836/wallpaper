@@ -10,6 +10,23 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.12] - 2026-06-18
+
+### Added
+
+- **Collections can now drive auto-shuffle.** On My Collections, you can set a
+  collection as the auto-play source; it takes priority over the full My
+  Downloads library.
+
+### Changed
+
+- **Collection auto-play prepares local files first.** If a selected collection
+  contains wallpapers that are not downloaded on this Mac, the app warns you and
+  can download every missing wallpaper before enabling the collection.
+- **The collection auto-play control stays out of the way.** The button is only
+  shown while hovering a collection card, with more breathing room from the
+  card edge.
+
 ## [2.0.11] - 2026-06-18
 
 ### Added

@@ -1,8 +1,34 @@
 {
-  "current_version": "2.0.11",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.11.dmg",
+  "current_version": "2.0.12",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.12.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.12",
+      "released_at": "2026-06-18",
+      "notes": [
+        "New: collections can now be set as the auto-shuffle source, taking priority over the full My Downloads library.",
+        "Changed: when enabling collection auto-play, the Mac client checks for missing local files and can download every wallpaper in that collection first.",
+        "Changed: the collection auto-play button now appears only while hovering a collection card and sits farther from the card edge."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "新增：我的合集现在可以设置为自动轮换来源，并且优先级高于整个「我的下载」列表。",
+          "变更：启用合集自动播放时，Mac 客户端会检查合集内哪些壁纸还没有下载到本地，并可先自动下载全部缺失壁纸。",
+          "变更：合集卡片上的自动播放按钮现在只在鼠标悬停时显示，并且离卡片边缘更远。"
+        ],
+        "zh-TW": [
+          "新增：我的合輯現在可以設為自動輪換來源，並且優先級高於整個「我的下載」清單。",
+          "變更：啟用合輯自動播放時，Mac 用戶端會檢查合輯內哪些桌布尚未下載到本機，並可先自動下載全部缺失桌布。",
+          "變更：合輯卡片上的自動播放按鈕現在只在滑鼠懸停時顯示，並且離卡片邊緣更遠。"
+        ],
+        "ja": [
+          "新機能：マイコレクションを自動シャッフルのソースに設定できるようになり、マイダウンロード全体より優先されます。",
+          "変更：コレクションの自動再生を有効にするとき、Mac クライアントはローカルにない壁紙を確認し、不足分を先にまとめてダウンロードできます。",
+          "変更：コレクションカードの自動再生ボタンはホバー時だけ表示され、カード端から少し離して配置されるようになりました。"
+        ]
+      }
+    },
     {
       "version": "2.0.11",
       "released_at": "2026-06-18",
