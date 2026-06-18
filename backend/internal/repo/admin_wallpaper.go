@@ -22,9 +22,10 @@ type AdminWallpaperListOpts struct {
 	CategoryID int64
 	UserID     int64
 	// QualityFlag accepts the literal flag values stored in wallpapers
-	// (`ok`, `low_aesthetic`, `watermark`, ...) plus three synthetic
-	// values: `""` = no filter, `"unassessed"` = empty string,
-	// `"flagged"` = anything that isn't `''` or `'ok'`.
+	// (`ok`, `low_aesthetic`, `watermark`, ...) plus synthetic values:
+	// `""` = no filter, `"unassessed"` = empty string, `"flagged"` =
+	// anything that isn't `''` or `'ok'`, and `"weekly_eligible"` =
+	// rows that may be manually added to a weekly slate.
 	QualityFlag string
 	Offset      int
 	Limit       int
@@ -60,6 +61,9 @@ func (r *WallpaperRepo) AdminList(ctx context.Context, opts AdminWallpaperListOp
 	case "unassessed":
 		q = q.Where("wallpapers.quality_flag = ''")
 		cq = cq.Where("quality_flag = ''")
+	case "weekly_eligible":
+		q = q.Where("wallpapers.quality_flag IN ('', 'ok')")
+		cq = cq.Where("quality_flag IN ('', 'ok')")
 	case "flagged":
 		q = q.Where("wallpapers.quality_flag NOT IN ('', 'ok')")
 		cq = cq.Where("quality_flag NOT IN ('', 'ok')")

@@ -245,32 +245,65 @@ function AddWallpaperModal({
   onPick: (id: number) => void;
   onClose: () => void;
 }) {
+  const PAGE_SIZE = 24;
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<AdminWallpaperRow[]>([]);
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const debounceRef = useRef<number | undefined>(undefined);
+  const requestSeqRef = useRef(0);
   const existing = new Set(existingIds);
 
-  const search = useCallback((q: string) => {
-    setLoading(true);
+  const fetchPage = useCallback((q: string, nextPage: number, mode: 'replace' | 'append') => {
+    const seq = requestSeqRef.current + 1;
+    requestSeqRef.current = seq;
+    if (mode === 'replace') {
+      setLoading(true);
+      setLoadingMore(false);
+    } else {
+      setLoadingMore(true);
+    }
     admin.listAdminWallpapers({
+      page: nextPage,
       search: q || undefined,
-      status: 1,    // Published only — can't pick unreviewed.
-      limit: 24,
+      status: 1,    // Published only; failed quality flags are filtered out below.
+      quality_flag: 'weekly_eligible',
+      limit: PAGE_SIZE,
       sort: 'newest',
     })
-      .then((r) => setResults(r.data.data.items || []))
+      .then((r) => {
+        if (requestSeqRef.current !== seq) return;
+        const data = r.data.data;
+        const items = data.items || [];
+        setPage(data.page || nextPage);
+        setTotal(data.total || 0);
+        setResults((prev) => {
+          if (mode === 'replace') return items;
+          const seen = new Set(prev.map((item) => item.id));
+          return [...prev, ...items.filter((item) => !seen.has(item.id))];
+        });
+      })
       .catch((e) => toast.error(e?.response?.data?.message || 'Search failed'))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (requestSeqRef.current !== seq) return;
+        setLoading(false);
+        setLoadingMore(false);
+      });
   }, []);
 
-  useEffect(() => { search(''); }, [search]);
+  const loadMore = useCallback(() => {
+    if (loading || loadingMore) return;
+    if (total > 0 && results.length >= total) return;
+    fetchPage(query.trim(), page + 1, 'append');
+  }, [fetchPage, loading, loadingMore, page, query, results.length, total]);
 
   useEffect(() => {
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    debounceRef.current = window.setTimeout(() => search(query.trim()), 280);
+    debounceRef.current = window.setTimeout(() => fetchPage(query.trim(), 1, 'replace'), 280);
     return () => { if (debounceRef.current) window.clearTimeout(debounceRef.current); };
-  }, [query, search]);
+  }, [fetchPage, query]);
 
   // ESC closes
   useEffect(() => {
@@ -301,46 +334,73 @@ function AddWallpaperModal({
             Cancel
           </button>
         </div>
-        <div className="p-4 min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div
+          className="p-4 min-h-0 flex-1 overflow-y-auto overscroll-contain"
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            if (el.scrollHeight - el.scrollTop - el.clientHeight < 260) {
+              loadMore();
+            }
+          }}
+        >
           {loading && results.length === 0 ? <Spinner />
             : results.length === 0 ? <Empty>No wallpapers match.</Empty>
             : (
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                {results.map((w) => {
-                  const inSlate = existing.has(w.id);
-                  return (
-                    <button
-                      key={w.id}
-                      disabled={inSlate}
-                      onClick={() => onPick(w.id)}
-                      className={`group relative aspect-[4/5] overflow-hidden rounded-lg border-2 transition-all ${
-                        inSlate
-                          ? 'border-hair opacity-40 cursor-not-allowed'
-                          : 'border-hair hover:border-ink cursor-pointer'
-                      }`}
-                      title={inSlate ? 'Already in this week' : w.title || `Wallpaper ${w.id}`}
-                    >
-                      <img
-                        src={w.thumb_url || w.preview_url}
-                        alt=""
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
-                      {inSlate && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                          <span className="text-[10px] mono uppercase tracking-wider font-bold text-white bg-black/60 px-2 py-0.5 rounded">
-                            In slate
+              <>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {results.map((w) => {
+                    const inSlate = existing.has(w.id);
+                    return (
+                      <button
+                        key={w.id}
+                        disabled={inSlate}
+                        onClick={() => onPick(w.id)}
+                        className={`group relative aspect-[4/5] overflow-hidden rounded-lg border-2 transition-all ${
+                          inSlate
+                            ? 'border-hair opacity-40 cursor-not-allowed'
+                            : 'border-hair hover:border-ink cursor-pointer'
+                        }`}
+                        title={inSlate ? 'Already in this week' : w.title || `Wallpaper ${w.id}`}
+                      >
+                        <img
+                          src={w.thumb_url || w.preview_url}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                        {inSlate && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                            <span className="text-[10px] mono uppercase tracking-wider font-bold text-white bg-black/60 px-2 py-0.5 rounded">
+                              In slate
+                            </span>
+                          </div>
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 px-2 py-1 bg-gradient-to-t from-black/70 to-transparent">
+                          <span className="text-[10px] text-white/85 truncate block">
+                            №{w.id} · {w.width}×{w.height}
                           </span>
                         </div>
-                      )}
-                      <div className="absolute inset-x-0 bottom-0 px-2 py-1 bg-gradient-to-t from-black/70 to-transparent">
-                        <span className="text-[10px] text-white/85 truncate block">
-                          №{w.id} · {w.width}×{w.height}
-                        </span>
-                      </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="py-4 text-center">
+                  {loadingMore ? (
+                    <Spinner />
+                  ) : total > 0 && results.length < total ? (
+                    <button
+                      type="button"
+                      onClick={loadMore}
+                      className="px-4 py-2 rounded-full border border-hair text-[12px] font-medium text-muted hover:text-ink hover:border-ink transition-colors"
+                    >
+                      Load more
                     </button>
-                  );
-                })}
-              </div>
+                  ) : (
+                    <span className="text-[11px] mono uppercase tracking-wider text-muted">
+                      End · {results.length} wallpapers
+                    </span>
+                  )}
+                </div>
+              </>
             )}
         </div>
       </div>

@@ -1087,7 +1087,7 @@ func (h *AdminHandler) AddWeeklyPick(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, &errcode.ErrCode{Code: 40010, Message: "wallpaper is not published"})
 		return
 	}
-	if wp.QualityFlag != "ok" {
+	if wp.QualityFlag != "" && wp.QualityFlag != "ok" {
 		response.Error(w, http.StatusBadRequest, &errcode.ErrCode{Code: 40011, Message: "wallpaper has not passed quality review"})
 		return
 	}
