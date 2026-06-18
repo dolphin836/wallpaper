@@ -71,7 +71,15 @@ export default function IntegrationsPage() {
       setLastPin(res.data.data);
       toast.success(res.data.data.already_posted ? '这张壁纸之前已经发过 Pin' : '测试 Pin 发布成功');
     } catch (err) {
-      const message = err instanceof Error ? err.message : '测试 Pin 发布失败';
+      const apiError = err as {
+        response?: { data?: { data?: { error?: string }; message?: string } };
+        message?: string;
+      };
+      const message =
+        apiError.response?.data?.data?.error ||
+        apiError.response?.data?.message ||
+        apiError.message ||
+        '测试 Pin 发布失败';
       toast.error(message);
     } finally {
       setPosting(false);

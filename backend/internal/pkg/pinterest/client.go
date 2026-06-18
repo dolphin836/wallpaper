@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,6 +31,31 @@ var DefaultScopes = []string{
 	ScopePinsRead,
 	ScopePinsWrite,
 	ScopeUserRead,
+}
+
+type APIError struct {
+	StatusCode int
+	Code       int
+	Message    string
+	Body       string
+}
+
+func (e *APIError) Error() string {
+	if e.Message != "" {
+		return e.Message
+	}
+	if e.Body != "" {
+		return e.Body
+	}
+	return fmt.Sprintf("pinterest api returned %d", e.StatusCode)
+}
+
+func IsAPIError(err error) (*APIError, bool) {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr, true
+	}
+	return nil, false
 }
 
 type Client struct {
@@ -247,7 +273,19 @@ func (c *Client) do(req *http.Request, out any) error {
 		return err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("pinterest api %s %s returned %d: %s", req.Method, req.URL.Path, resp.StatusCode, strings.TrimSpace(string(data)))
+		apiErr := &APIError{
+			StatusCode: resp.StatusCode,
+			Body:       strings.TrimSpace(string(data)),
+		}
+		var parsed struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		}
+		if err := json.Unmarshal(data, &parsed); err == nil {
+			apiErr.Code = parsed.Code
+			apiErr.Message = parsed.Message
+		}
+		return apiErr
 	}
 	if out == nil || len(data) == 0 {
 		return nil

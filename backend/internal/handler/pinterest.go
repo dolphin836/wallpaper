@@ -225,7 +225,18 @@ func (h *PinterestHandler) TestPin(w http.ResponseWriter, r *http.Request) {
 
 	post, err := h.pinWallpaper(r.Context(), wallpaper)
 	if err != nil {
-		response.JSON(w, http.StatusBadGateway, errcode.ErrInternal, map[string]string{"error": err.Error()})
+		status := http.StatusBadGateway
+		ec := errcode.ErrInternal
+		if apiErr, ok := pinterest.IsAPIError(err); ok {
+			status = apiErr.StatusCode
+			if status == http.StatusForbidden {
+				ec = errcode.ErrForbidden
+			} else if status >= 400 && status < 500 {
+				ec = errcode.ErrBadRequest
+			}
+		}
+		slog.Warn("pinterest pin failed", slog.String("error", err.Error()))
+		response.JSON(w, status, ec, map[string]string{"error": err.Error()})
 		return
 	}
 	response.OK(w, pinterestPinResponse{
