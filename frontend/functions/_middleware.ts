@@ -5,6 +5,8 @@
 // What we proxy
 //   /api/*               → ${API_ORIGIN}/api/*
 //   /__pinterest/v5/*    → https://api.pinterest.com/v5/* (API egress proxy)
+//   /__reddit/oauth/*     → https://oauth.reddit.com/* (API egress proxy)
+//   /__reddit/token       → https://www.reddit.com/api/v1/access_token
 //   /sitemap.xml         → ${API_ORIGIN}/sitemap.xml
 //   /robots.txt          → ${API_ORIGIN}/robots.txt
 //   /feed.xml            → ${API_ORIGIN}/feed.xml          (RSS)
@@ -36,6 +38,8 @@ const BOT_UA_RE =
 
 const WALLPAPER_DETAIL_RE = /^\/wallpaper\/([^/]+)\/?$/;
 const PINTEREST_PROXY_RE = /^\/__pinterest\/v5(\/.*)?$/;
+const REDDIT_OAUTH_PROXY_RE = /^\/__reddit\/oauth(\/.*)?$/;
+const REDDIT_TOKEN_PROXY_RE = /^\/__reddit\/token$/;
 
 async function proxyPinterestAPI(context: EventContext<unknown, string, unknown>, url: URL) {
   const upstreamPath = url.pathname.replace(/^\/__pinterest/, '');
@@ -68,12 +72,53 @@ async function proxyPinterestAPI(context: EventContext<unknown, string, unknown>
   });
 }
 
+async function proxyRedditAPI(context: EventContext<unknown, string, unknown>, url: URL) {
+  let upstreamURL = '';
+  let allowed = false;
+
+  if (REDDIT_TOKEN_PROXY_RE.test(url.pathname)) {
+    allowed = context.request.method === 'POST';
+    upstreamURL = 'https://www.reddit.com/api/v1/access_token';
+  } else {
+    const upstreamPath = url.pathname.replace(/^\/__reddit\/oauth/, '');
+    allowed =
+      (upstreamPath === '/api/v1/me' && context.request.method === 'GET') ||
+      (upstreamPath === '/api/submit' && context.request.method === 'POST');
+    upstreamURL = 'https://oauth.reddit.com' + upstreamPath + url.search;
+  }
+
+  if (!allowed) {
+    return new Response('Not found', { status: 404 });
+  }
+
+  const headers = new Headers(context.request.headers);
+  headers.delete('host');
+
+  const upstream = await fetch(upstreamURL, {
+    method: context.request.method,
+    headers,
+    body: context.request.method === 'GET' ? undefined : context.request.body,
+    redirect: 'manual',
+  });
+
+  const respHeaders = new Headers(upstream.headers);
+  respHeaders.set('x-proxied-by', 'pages-reddit-proxy');
+  return new Response(upstream.body, {
+    status: upstream.status,
+    statusText: upstream.statusText,
+    headers: respHeaders,
+  });
+}
+
 export const onRequest: PagesFunction = async (context) => {
   const url = new URL(context.request.url);
   const path = url.pathname;
 
   if (PINTEREST_PROXY_RE.test(path)) {
     return proxyPinterestAPI(context, url);
+  }
+  if (REDDIT_OAUTH_PROXY_RE.test(path) || REDDIT_TOKEN_PROXY_RE.test(path)) {
+    return proxyRedditAPI(context, url);
   }
 
   // IndexNow key file: 16+ hex chars then ".txt" at the root. We pattern-

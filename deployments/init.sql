@@ -285,6 +285,24 @@ CREATE TABLE IF NOT EXISTS pinterest_pin_posts (
 );
 CREATE INDEX IF NOT EXISTS idx_pinterest_pin_posts_created ON pinterest_pin_posts(created_at DESC);
 
+CREATE TABLE IF NOT EXISTS reddit_weekly_posts (
+    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    year          SMALLINT     NOT NULL,
+    week          SMALLINT     NOT NULL,
+    collection_id BIGINT       NOT NULL DEFAULT 0,
+    subreddit     VARCHAR(128) NOT NULL DEFAULT '',
+    post_id       VARCHAR(128) NOT NULL DEFAULT '',
+    post_url      VARCHAR(512) NOT NULL DEFAULT '',
+    title         VARCHAR(300) NOT NULL DEFAULT '',
+    body          TEXT         NOT NULL DEFAULT '',
+    status        VARCHAR(32)  NOT NULL DEFAULT 'posted',
+    message       TEXT         NOT NULL DEFAULT '',
+    created_at    TIMESTAMPTZ(6) NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ(6) NOT NULL DEFAULT NOW(),
+    UNIQUE (year, week)
+);
+CREATE INDEX IF NOT EXISTS idx_reddit_weekly_posts_created ON reddit_weekly_posts(created_at DESC);
+
 CREATE TABLE IF NOT EXISTS analytics_events (
     id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     session_id VARCHAR(64)  NOT NULL,

@@ -89,3 +89,44 @@ func (r *PinterestPostRepo) Upsert(ctx context.Context, post *model.PinterestPin
 		}).
 		Create(post).Error
 }
+
+type RedditPostRepo struct {
+	db *gorm.DB
+}
+
+func NewRedditPostRepo(db *gorm.DB) *RedditPostRepo {
+	return &RedditPostRepo{db: db}
+}
+
+func (r *RedditPostRepo) GetByWeek(ctx context.Context, year, week int16) (*model.RedditWeeklyPost, error) {
+	var post model.RedditWeeklyPost
+	err := r.db.WithContext(ctx).
+		Where("year = ? AND week = ?", year, week).
+		First(&post).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &post, nil
+}
+
+func (r *RedditPostRepo) Upsert(ctx context.Context, post *model.RedditWeeklyPost) error {
+	return r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "year"}, {Name: "week"}},
+			DoUpdates: clause.AssignmentColumns([]string{
+				"collection_id",
+				"subreddit",
+				"post_id",
+				"post_url",
+				"title",
+				"body",
+				"status",
+				"message",
+				"updated_at",
+			}),
+		}).
+		Create(post).Error
+}

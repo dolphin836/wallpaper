@@ -2,7 +2,10 @@ package model
 
 import "time"
 
-const IntegrationProviderPinterest = "pinterest"
+const (
+	IntegrationProviderPinterest = "pinterest"
+	IntegrationProviderReddit    = "reddit"
+)
 
 type ExternalIntegration struct {
 	ID           int64      `gorm:"primaryKey" json:"id"`
@@ -38,4 +41,24 @@ type PinterestPinPost struct {
 
 func (PinterestPinPost) TableName() string {
 	return "pinterest_pin_posts"
+}
+
+type RedditWeeklyPost struct {
+	ID           int64     `gorm:"primaryKey" json:"id"`
+	Year         int16     `gorm:"not null;uniqueIndex:idx_reddit_weekly_posts_week" json:"year"`
+	Week         int16     `gorm:"not null;uniqueIndex:idx_reddit_weekly_posts_week" json:"week"`
+	CollectionID int64     `gorm:"not null;default:0" json:"collection_id"`
+	Subreddit    string    `gorm:"size:128;not null;default:''" json:"subreddit"`
+	PostID       string    `gorm:"size:128;not null;default:''" json:"post_id"`
+	PostURL      string    `gorm:"size:512;not null;default:''" json:"post_url"`
+	Title        string    `gorm:"size:300;not null;default:''" json:"title"`
+	Body         string    `gorm:"type:text;not null;default:''" json:"body"`
+	Status       string    `gorm:"size:32;not null;default:'posted'" json:"status"`
+	Message      string    `gorm:"type:text;not null;default:''" json:"message"`
+	CreatedAt    time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
+	UpdatedAt    time.Time `gorm:"not null;autoUpdateTime" json:"updated_at"`
+}
+
+func (RedditWeeklyPost) TableName() string {
+	return "reddit_weekly_posts"
 }

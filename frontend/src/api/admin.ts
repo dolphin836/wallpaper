@@ -355,3 +355,76 @@ export const getPinterestAuthURL = () =>
 
 export const testPinterestPin = (data: { wallpaper_id?: number; force?: boolean }) =>
   client.post<ApiResponse<PinterestPinResult>>('/admin/integrations/pinterest/test-pin', data);
+
+export interface RedditStatus {
+  configured: boolean;
+  connected: boolean;
+  provider: string;
+  account_id: string;
+  account_name: string;
+  scopes: string[];
+  expires_at?: string | null;
+  redirect_url: string;
+  default_subreddit: string;
+}
+
+export interface RedditPostWallpaper {
+  id: number;
+  slug: string;
+  title: string;
+  thumb_url: string;
+  preview_url: string;
+  width: number;
+  height: number;
+}
+
+export interface RedditCollectionSummary {
+  id: number;
+  slug: string;
+  title: string;
+  description: string;
+  cover_url: string;
+  wallpaper_count: number;
+}
+
+export interface RedditWeeklyPostResult {
+  year: number;
+  week: number;
+  subreddit: string;
+  post_id: string;
+  post_url: string;
+  already_posted: boolean;
+}
+
+export interface RedditWeeklyPreview {
+  year: number;
+  week: number;
+  source: string;
+  subreddit: string;
+  title: string;
+  text: string;
+  collection?: RedditCollectionSummary;
+  wallpapers: RedditPostWallpaper[];
+  already_posted: boolean;
+  existing_post?: RedditWeeklyPostResult;
+}
+
+export const getRedditStatus = () =>
+  client.get<ApiResponse<RedditStatus>>('/admin/integrations/reddit/status');
+
+export const getRedditAuthURL = () =>
+  client.get<ApiResponse<{ auth_url: string }>>('/admin/integrations/reddit/connect', {
+    params: { format: 'json' },
+  });
+
+export const getRedditWeeklyPreview = (params?: { year?: number; week?: number; subreddit?: string }) =>
+  client.get<ApiResponse<RedditWeeklyPreview>>('/admin/integrations/reddit/weekly-preview', { params });
+
+export const postRedditWeekly = (data: {
+  year?: number;
+  week?: number;
+  subreddit: string;
+  title: string;
+  text: string;
+  force?: boolean;
+}) => client.post<ApiResponse<RedditWeeklyPostResult>>('/admin/integrations/reddit/weekly-post', data);

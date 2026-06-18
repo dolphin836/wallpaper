@@ -481,3 +481,33 @@ func (r *CollectionRepo) ListThemeCollections(ctx context.Context, limit int) ([
 	}
 	return cols, nil
 }
+
+func (r *CollectionRepo) LatestThemeCollection(ctx context.Context) (*model.Collection, error) {
+	var col model.Collection
+	err := r.db.WithContext(ctx).
+		Where("kind = ? AND is_public = ?", 1, true).
+		Order("year DESC, week DESC, created_at DESC").
+		First(&col).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &col, nil
+}
+
+func (r *CollectionRepo) GetThemeCollectionByWeek(ctx context.Context, year, week int16) (*model.Collection, error) {
+	var col model.Collection
+	err := r.db.WithContext(ctx).
+		Where("kind = ? AND is_public = ? AND year = ? AND week = ?", 1, true, year, week).
+		Order("created_at DESC").
+		First(&col).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &col, nil
+}

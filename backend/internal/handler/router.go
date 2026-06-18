@@ -29,6 +29,7 @@ type Deps struct {
 	StatsHandler      *StatsHandler
 	AdminHandler      *AdminHandler
 	PinterestHandler  *PinterestHandler
+	RedditHandler     *RedditHandler
 	TusHandler        *TusHandler
 	UserRepo          *repo.UserRepo
 	JWTSecret         string
@@ -181,6 +182,12 @@ func NewRouter(deps Deps) *chi.Mux {
 			// from forged callbacks.
 			r.Get("/admin/integrations/pinterest/callback", deps.PinterestHandler.Callback)
 		}
+		if deps.RedditHandler != nil {
+			// Reddit redirects here without our JWT, so the callback must
+			// sit outside AdminAuth. The signed OAuth state still protects it
+			// from forged callbacks.
+			r.Get("/admin/integrations/reddit/callback", deps.RedditHandler.Callback)
+		}
 
 		// ── Admin console ──
 		r.Route("/admin", func(r chi.Router) {
@@ -231,6 +238,12 @@ func NewRouter(deps Deps) *chi.Mux {
 				r.Get("/integrations/pinterest/status", deps.PinterestHandler.Status)
 				r.Get("/integrations/pinterest/connect", deps.PinterestHandler.Connect)
 				r.Post("/integrations/pinterest/test-pin", deps.PinterestHandler.TestPin)
+			}
+			if deps.RedditHandler != nil {
+				r.Get("/integrations/reddit/status", deps.RedditHandler.Status)
+				r.Get("/integrations/reddit/connect", deps.RedditHandler.Connect)
+				r.Get("/integrations/reddit/weekly-preview", deps.RedditHandler.WeeklyPreview)
+				r.Post("/integrations/reddit/weekly-post", deps.RedditHandler.PostWeekly)
 			}
 		})
 	})

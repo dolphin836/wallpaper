@@ -16,6 +16,7 @@ type Config struct {
 	Anthropic AnthropicConfig
 	IndexNow  IndexNowConfig
 	Pinterest PinterestConfig
+	Reddit    RedditConfig
 	Tus       TusConfig
 	Transcode TranscodeConfig
 }
@@ -60,6 +61,20 @@ type PinterestConfig struct {
 	SiteURL     string `env:"PINTEREST_SITE_URL" envDefault:"https://wallpaperexchange.com"`
 	APIBaseURL  string `env:"PINTEREST_API_BASE_URL" envDefault:"https://api.pinterest.com/v5"`
 	TokenURL    string `env:"PINTEREST_TOKEN_URL" envDefault:"https://api.pinterest.com/v5/oauth/token"`
+}
+
+// RedditConfig powers the admin-only weekly promotion flow. It uses one
+// official Reddit account and publishes manually reviewed weekly collection
+// posts, one post per ISO week by default.
+type RedditConfig struct {
+	ClientID         string `env:"REDDIT_CLIENT_ID" envDefault:""`
+	ClientSecret     string `env:"REDDIT_CLIENT_SECRET" envDefault:""`
+	RedirectURL      string `env:"REDDIT_REDIRECT_URL" envDefault:"https://wallpaperexchange.com/api/v1/admin/integrations/reddit/callback"`
+	SiteURL          string `env:"REDDIT_SITE_URL" envDefault:"https://wallpaperexchange.com"`
+	APIBaseURL       string `env:"REDDIT_API_BASE_URL" envDefault:"https://oauth.reddit.com"`
+	TokenURL         string `env:"REDDIT_TOKEN_URL" envDefault:"https://www.reddit.com/api/v1/access_token"`
+	UserAgent        string `env:"REDDIT_USER_AGENT" envDefault:"WallpaperExchange/1.0 by wallpaperexchange"`
+	DefaultSubreddit string `env:"REDDIT_DEFAULT_SUBREDDIT" envDefault:"wallpapers"`
 }
 
 type ServerConfig struct {
