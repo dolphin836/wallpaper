@@ -9,6 +9,7 @@ const NAV = [
   { to: '/admin/wallpapers', label: '壁纸' },
   { to: '/admin/collections', label: '合集' },
   { to: '/admin/weekly-picks', label: '每周推荐' },
+  { to: '/admin/integrations', label: '推广集成' },
   { to: '/admin/users', label: '用户' },
   { to: '/admin/reports', label: '举报' },
   { to: '/admin/workers', label: 'Worker' },

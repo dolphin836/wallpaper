@@ -363,7 +363,7 @@ ssh root@139.224.49.94 'cd /opt/app/wallpaper && ./wallctl.sh restart api'
 | `OPENAI_API_KEY` | aigen 调 gpt-image-2 | [platform.openai.com](https://platform.openai.com/) → API Keys |
 | `ANTHROPIC_API_KEY` | aigen prompt 扩写、autotag、weekly-drop | 跟 prod 的一致；`ssh root@139.224.49.94 'grep ANTHROPIC /opt/app/wallpaper/.env'` |
 | `INDEXNOW_KEY` | IndexNow 验证字符串 | 自动生成的，无需重置 |
-| `PINTEREST_APP_ID` / `PINTEREST_APP_SECRET` | Pinterest API（**等审批**）| [developers.pinterest.com](https://developers.pinterest.com/apps/) |
+| `PINTEREST_APP_ID` / `PINTEREST_APP_SECRET` | Pinterest API OAuth + 发 Pin | [developers.pinterest.com](https://developers.pinterest.com/apps/) |
 
 ### 8.2 服务器 `/opt/app/wallpaper/.env`
 
@@ -394,7 +394,7 @@ OpenAI 没账户余额公开 API。**消费**可以在我们 dashboard 看；**�
 
 | 事项 | 状态 | 审过来要做什么 |
 |---|---|---|
-| Pinterest API Trial Access | 等审批 | 给我 client_id + secret，我接入自动 Pin（按 category 分 board，每天 ~20 张限流）|
+| Pinterest Standard Access | 录制演示视频后提交升级 | 后台 `/admin/integrations` 可授权官方账号并测试发 Pin；回调地址是 `https://wallpaperexchange.com/api/v1/admin/integrations/pinterest/callback` |
 | DeviantArt Developer App | 没注册 | 见 `docs/promotion/tumblr-deviantart-setup.md`，注册后给 client_id / secret |
 | Tumblr Developer App | 没注册 | 同上，**Tumblr 不需要审批，注册当天就能跑** |
 | ICP 备案 wallpaperexchange.com | 没办 | 备完案可以接 Cloudflare China Network / 阿里云 CDN，国内访问主域不再卡 |

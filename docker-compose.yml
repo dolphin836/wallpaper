@@ -166,6 +166,10 @@ services:
       ANTHROPIC_ADMIN_API_KEY: ${ANTHROPIC_ADMIN_API_KEY:-}
       INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       INDEXNOW_SITE_URL: ${INDEXNOW_SITE_URL:-https://wallpaperexchange.com}
+      PINTEREST_APP_ID: ${PINTEREST_APP_ID:-}
+      PINTEREST_APP_SECRET: ${PINTEREST_APP_SECRET:-}
+      PINTEREST_REDIRECT_URL: ${PINTEREST_REDIRECT_URL:-https://wallpaperexchange.com/api/v1/admin/integrations/pinterest/callback}
+      PINTEREST_SITE_URL: ${PINTEREST_SITE_URL:-https://wallpaperexchange.com}
       TUS_TMP_DIR: "/var/lib/wpe/tus"
     volumes:
       # Resumable video uploads stage chunks here. Volume so an

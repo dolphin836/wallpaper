@@ -15,6 +15,7 @@ type Config struct {
 	JWT       JWTConfig
 	Anthropic AnthropicConfig
 	IndexNow  IndexNowConfig
+	Pinterest PinterestConfig
 	Tus       TusConfig
 	Transcode TranscodeConfig
 }
@@ -48,6 +49,15 @@ type AnthropicConfig struct {
 type IndexNowConfig struct {
 	Key     string `env:"INDEXNOW_KEY" envDefault:""`
 	SiteURL string `env:"INDEXNOW_SITE_URL" envDefault:"https://wallpaperexchange.com"`
+}
+
+// PinterestConfig is used by the admin-only marketing integration. RedirectURL
+// must be registered in the Pinterest app dashboard exactly as configured here.
+type PinterestConfig struct {
+	AppID       string `env:"PINTEREST_APP_ID" envDefault:""`
+	AppSecret   string `env:"PINTEREST_APP_SECRET" envDefault:""`
+	RedirectURL string `env:"PINTEREST_REDIRECT_URL" envDefault:"https://wallpaperexchange.com/api/v1/admin/integrations/pinterest/callback"`
+	SiteURL     string `env:"PINTEREST_SITE_URL" envDefault:"https://wallpaperexchange.com"`
 }
 
 type ServerConfig struct {

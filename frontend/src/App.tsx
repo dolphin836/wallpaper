@@ -37,6 +37,7 @@ const AdminAnalytics = lazy(() => import('./pages/admin/AnalyticsPage'));
 const AdminWallpapers = lazy(() => import('./pages/admin/WallpapersPage'));
 const AdminCollections = lazy(() => import('./pages/admin/CollectionsPage'));
 const AdminWeeklyPicks = lazy(() => import('./pages/admin/WeeklyPicksPage'));
+const AdminIntegrations = lazy(() => import('./pages/admin/IntegrationsPage'));
 const AdminUsers = lazy(() => import('./pages/admin/UsersPage'));
 const AdminReports = lazy(() => import('./pages/admin/ReportsPage'));
 const AdminWorkers = lazy(() => import('./pages/admin/WorkersPage'));
@@ -139,6 +140,7 @@ function AppRoutes() {
             <Route path="review-queue" element={<Navigate to="/admin/wallpapers?status=5" replace />} />
             <Route path="collections" element={<AdminCollections />} />
             <Route path="weekly-picks" element={<AdminWeeklyPicks />} />
+            <Route path="integrations" element={<AdminIntegrations />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="reports" element={<AdminReports />} />
             <Route path="workers" element={<AdminWorkers />} />

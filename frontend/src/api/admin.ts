@@ -322,3 +322,36 @@ export const adminRemoveWeeklyPick = (year: number, week: number, wallpaperId: n
   client.delete<ApiResponse<{ ok: boolean }>>(
     `/admin/weekly-picks/${year}/${week}/picks/${wallpaperId}`,
   );
+
+// ─── Marketing integrations ─────────────────────────────────────────
+
+export interface PinterestStatus {
+  configured: boolean;
+  connected: boolean;
+  provider: string;
+  account_id: string;
+  account_name: string;
+  scopes: string[];
+  expires_at?: string | null;
+  redirect_url: string;
+}
+
+export interface PinterestPinResult {
+  wallpaper_id: number;
+  board_id: string;
+  board_name: string;
+  pin_id: string;
+  pin_url: string;
+  already_posted: boolean;
+}
+
+export const getPinterestStatus = () =>
+  client.get<ApiResponse<PinterestStatus>>('/admin/integrations/pinterest/status');
+
+export const getPinterestAuthURL = () =>
+  client.get<ApiResponse<{ auth_url: string }>>('/admin/integrations/pinterest/connect', {
+    params: { format: 'json' },
+  });
+
+export const testPinterestPin = (data: { wallpaper_id?: number; force?: boolean }) =>
+  client.post<ApiResponse<PinterestPinResult>>('/admin/integrations/pinterest/test-pin', data);

@@ -251,6 +251,40 @@ CREATE TABLE IF NOT EXISTS reports (
 CREATE INDEX IF NOT EXISTS idx_reports_wallpaper ON reports(wallpaper_id);
 CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, created_at);
 
+-- External marketing integrations. Tokens are stored server-side and never
+-- exposed through the admin API; provider is unique because each provider is
+-- represented by one official account for now.
+CREATE TABLE IF NOT EXISTS external_integrations (
+    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    provider      VARCHAR(32)  NOT NULL UNIQUE,
+    account_id    VARCHAR(128) NOT NULL DEFAULT '',
+    account_name  VARCHAR(256) NOT NULL DEFAULT '',
+    access_token  TEXT         NOT NULL DEFAULT '',
+    refresh_token TEXT         NOT NULL DEFAULT '',
+    scopes        TEXT         NOT NULL DEFAULT '',
+    token_type    VARCHAR(32)  NOT NULL DEFAULT '',
+    expires_at    TIMESTAMPTZ(6),
+    metadata      TEXT         NOT NULL DEFAULT '{}',
+    created_at    TIMESTAMPTZ(6) NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ(6) NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_external_integrations_provider ON external_integrations(provider);
+
+CREATE TABLE IF NOT EXISTS pinterest_pin_posts (
+    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    wallpaper_id BIGINT       NOT NULL,
+    board_id     VARCHAR(128) NOT NULL DEFAULT '',
+    board_name   VARCHAR(256) NOT NULL DEFAULT '',
+    pin_id       VARCHAR(128) NOT NULL DEFAULT '',
+    pin_url      VARCHAR(512) NOT NULL DEFAULT '',
+    status       VARCHAR(32)  NOT NULL DEFAULT 'posted',
+    message      TEXT         NOT NULL DEFAULT '',
+    created_at   TIMESTAMPTZ(6) NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ(6) NOT NULL DEFAULT NOW(),
+    UNIQUE (wallpaper_id)
+);
+CREATE INDEX IF NOT EXISTS idx_pinterest_pin_posts_created ON pinterest_pin_posts(created_at DESC);
+
 CREATE TABLE IF NOT EXISTS analytics_events (
     id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     session_id VARCHAR(64)  NOT NULL,

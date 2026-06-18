@@ -87,6 +87,8 @@ func main() {
 	analyticsRepo := repo.NewAnalyticsRepo(db)
 	adminRepo := repo.NewAdminRepo(db)
 	workerJobRepo := repo.NewWorkerJobRepo(db)
+	integrationRepo := repo.NewIntegrationRepo(db)
+	pinterestPostRepo := repo.NewPinterestPostRepo(db)
 
 	authSvc := service.NewAuthService(userRepo, coinRepo, cfg.JWT.Secret, cfg.JWT.ExpireHour)
 	wallpaperSvc := service.NewWallpaperService(wallpaperRepo, tagRepo, interactionRepo, userRepo, eventRepo, coinRepo, collectionRepo, deviceRepo, store, kafkaWriter)
@@ -109,6 +111,7 @@ func main() {
 	statsHandler := handler.NewStatsHandler(wallpaperRepo, collectionRepo)
 	llmUsageRepo := repo.NewLLMUsageRepo(db)
 	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, coinRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo, analyticsRepo, llmUsageRepo, weeklyPickRepo, store, wallpaperSvc)
+	pinterestHandler := handler.NewPinterestHandler(cfg.Pinterest, cfg.JWT.Secret, integrationRepo, pinterestPostRepo, wallpaperRepo, categoryRepo)
 
 	// Resumable video uploads. Failure to set up the tus handler is
 	// non-fatal — the rest of the API stays up and the upload endpoint
@@ -135,6 +138,7 @@ func main() {
 		WeeklyPickHandler: weeklyPickHandler,
 		StatsHandler:      statsHandler,
 		AdminHandler:      adminHandler,
+		PinterestHandler:  pinterestHandler,
 		TusHandler:        tusHandler,
 		UserRepo:          userRepo,
 		IndexNowKey:       cfg.IndexNow.Key,

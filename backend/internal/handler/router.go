@@ -28,6 +28,7 @@ type Deps struct {
 	WeeklyPickHandler *WeeklyPickHandler
 	StatsHandler      *StatsHandler
 	AdminHandler      *AdminHandler
+	PinterestHandler  *PinterestHandler
 	TusHandler        *TusHandler
 	UserRepo          *repo.UserRepo
 	JWTSecret         string
@@ -174,6 +175,13 @@ func NewRouter(deps Deps) *chi.Mux {
 
 		r.Get("/users/{id}", deps.UserHandler.GetProfile)
 
+		if deps.PinterestHandler != nil {
+			// Pinterest redirects here without our JWT, so the callback must
+			// sit outside AdminAuth. The signed OAuth state still protects it
+			// from forged callbacks.
+			r.Get("/admin/integrations/pinterest/callback", deps.PinterestHandler.Callback)
+		}
+
 		// ── Admin console ──
 		r.Route("/admin", func(r chi.Router) {
 			r.Use(middleware.AdminAuth(deps.JWTSecret, deps.UserRepo))
@@ -218,6 +226,12 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Get("/workers/jobs", deps.AdminHandler.WorkerJobs)
 
 			r.Get("/storage", deps.AdminHandler.GetStorage)
+
+			if deps.PinterestHandler != nil {
+				r.Get("/integrations/pinterest/status", deps.PinterestHandler.Status)
+				r.Get("/integrations/pinterest/connect", deps.PinterestHandler.Connect)
+				r.Post("/integrations/pinterest/test-pin", deps.PinterestHandler.TestPin)
+			}
 		})
 	})
 

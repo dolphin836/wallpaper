@@ -23,7 +23,7 @@
 | Application Website | `https://wallpaperexchange.com` |
 | Application Description | `Auto-publishes hand-picked wallpapers from wallpaperexchange.com to our Tumblr blog.` |
 | Administrative contact email | 你的邮箱 |
-| **Default callback URL** | `https://api.wallpaperexchange.com/api/v1/admin/integrations/tumblr/callback` |
+| **Default callback URL** | `https://wallpaperexchange.com/api/v1/admin/integrations/tumblr/callback` |
 | OAuth2 redirect URLs | 同上 |
 
 提交后立即拿到：
@@ -58,7 +58,7 @@
 | Application Name | `WallpaperExchange Sync` |
 | Application Description | `Sync curated wallpapers from wallpaperexchange.com to our DeviantArt gallery.` |
 | Website | `https://wallpaperexchange.com` |
-| **OAuth2 Redirect URI Whitelist** | `https://api.wallpaperexchange.com/api/v1/admin/integrations/deviantart/callback` |
+| **OAuth2 Redirect URI Whitelist** | `https://wallpaperexchange.com/api/v1/admin/integrations/deviantart/callback` |
 | Grant types | 勾选 `Authorization Code` 即可，其它默认 |
 
 提交后等审批：**DeviantArt 的 dev app 默认是 trial 状态**，需要他们手动审。一般 1-3 个工作日。
