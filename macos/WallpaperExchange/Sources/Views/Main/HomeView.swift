@@ -355,112 +355,112 @@ struct HeroCard: View {
     }
 
     var body: some View {
-        Button(action: onTap) {
-            ZStack(alignment: .bottomLeading) {
-                // Image fills whatever frame the OUTER aspect modifier
-                // gives the ZStack. Putting .aspectRatio on the image
-                // here didn't constrain the ZStack — image's natural
-                // aspect leaked through, making the hero too tall and
-                // pushing the bottom overlay off-screen.
-                ProgressiveCachedAsyncImage(
-                    lowURL: URL(string: pick.thumbURL),
-                    highURL: URL(string: pick.previewURL),
-                    lowMaxPixelDimension: 640,
-                    highMaxPixelDimension: 2200
-                ) { img in
-                    img.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Color(hex: pick.dominantColor ?? "#bbb").opacity(0.5)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
+        GeometryReader { proxy in
+            let heroWidth = proxy.size.width
+            let heroHeight = heroWidth * 9.0 / 16.0
 
-                // Bottom gradient — web uses linear-gradient(180deg,
-                // transparent, rgba(0,0,0,0.4))
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.4)],
-                    startPoint: .top, endPoint: .bottom
-                )
-                .allowsHitTesting(false)
+            Button(action: onTap) {
+                ZStack(alignment: .bottomLeading) {
+                    ProgressiveCachedAsyncImage(
+                        lowURL: URL(string: pick.thumbURL),
+                        highURL: URL(string: pick.previewURL),
+                        lowMaxPixelDimension: 640,
+                        highMaxPixelDimension: 2200
+                    ) { img in
+                        img.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Color(hex: pick.dominantColor ?? "#bbb").opacity(0.5)
+                    }
+                    .frame(width: heroWidth, height: heroHeight)
+                    .clipped()
 
-                // Top-right resolution chip — web .h3-hero .h3-res-chip
-                //   top: 16px; right: 16px
-                //   padding: 2px 8px
-                //   font-size: 10px (mono, weight 600, letter-spacing 0.04em)
-                //   background: oklch(98% 0.005 240 / 0.75)  ← LIGHT pill
-                //   color: oklch(36% 0.012 240)              ← DARK text
-                if let res = resolutionLabel {
-                    VStack {
-                        HStack {
+                    // Bottom gradient — web uses linear-gradient(180deg,
+                    // transparent, rgba(0,0,0,0.4))
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.4)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                    .allowsHitTesting(false)
+
+                    // Top-right resolution chip — web .h3-hero .h3-res-chip
+                    //   top: 16px; right: 16px
+                    //   padding: 2px 8px
+                    //   font-size: 10px (mono, weight 600, letter-spacing 0.04em)
+                    //   background: oklch(98% 0.005 240 / 0.75)  ← LIGHT pill
+                    //   color: oklch(36% 0.012 240)              ← DARK text
+                    if let res = resolutionLabel {
+                        VStack {
+                            HStack {
+                                Spacer()
+                                Text(res)
+                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                    .tracking(0.4)
+                                    .foregroundStyle(Color(hex: "#54585f"))
+                                    .padding(.horizontal, 8).padding(.vertical, 2)
+                                    .background(
+                                        Capsule().fill(Color.white.opacity(0.75))
+                                    )
+                                    .padding(.top, 16).padding(.trailing, 16)
+                            }
                             Spacer()
-                            Text(res)
-                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                .tracking(0.4)
-                                .foregroundStyle(Color(hex: "#54585f"))
-                                .padding(.horizontal, 8).padding(.vertical, 2)
-                                .background(
-                                    Capsule().fill(Color.white.opacity(0.75))
-                                )
-                                .padding(.top, 16).padding(.trailing, 16)
                         }
-                        Spacer()
                     }
-                }
 
-                // Bottom overlay — web .h3-hero-overlay
-                //   padding: 26px 30px 24px (top right/left bottom)
-                //   display: flex, align-items: end, justify-content: space-between, gap: 24px
-                HStack(alignment: .bottom, spacing: 24) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        // .h3-kicker — mono 10px, letter-spacing 0.16em,
-                        // uppercase, color rgba(255,255,255,0.85)
-                        Text(L10n.home.heroKicker(week, year))
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .tracking(1.6)
-                            .foregroundStyle(Color.white.opacity(0.85))
-                        // .h3-meta — mono 12.5px, opacity 0.78
-                        Text("\(pick.width)×\(pick.height) · \(fileSizeLabel)")
-                            .font(.system(size: 12.5, weight: .regular, design: .monospaced))
-                            .foregroundStyle(Color.white.opacity(0.78))
-                    }
-                    Spacer(minLength: 0)
-                    // .h3-cta — padding 13px 22px, font 13.5/600.
-                    // Uses the shared coin surface tokens so the CTA stays
-                    // warm and legible in both light and dark mode.
-                    HStack(spacing: 10) {
-                        CoinDisc(size: 12)
-                        Text(L10n.home.tradeForOne)
-                            .font(.system(size: 13.5, weight: .semibold))
-                            .foregroundStyle(Color.coinValue)
-                    }
-                    .padding(.horizontal, 22).padding(.vertical, 13)
-                    .background(
-                        Capsule().fill(
-                            LinearGradient(
-                                colors: [.coinSurfaceStart, .coinSurfaceEnd],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                    // Bottom overlay — web .h3-hero-overlay
+                    //   padding: 26px 30px 24px (top right/left bottom)
+                    //   display: flex, align-items: end, justify-content: space-between, gap: 24px
+                    HStack(alignment: .bottom, spacing: 24) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            // .h3-kicker — mono 10px, letter-spacing 0.16em,
+                            // uppercase, color rgba(255,255,255,0.85)
+                            Text(L10n.home.heroKicker(week, year))
+                                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                .tracking(1.6)
+                                .foregroundStyle(Color.white.opacity(0.85))
+                            // .h3-meta — mono 12.5px, opacity 0.78
+                            Text("\(pick.width)×\(pick.height) · \(fileSizeLabel)")
+                                .font(.system(size: 12.5, weight: .regular, design: .monospaced))
+                                .foregroundStyle(Color.white.opacity(0.78))
+                        }
+                        Spacer(minLength: 0)
+                        // .h3-cta — padding 13px 22px, font 13.5/600.
+                        // Uses the shared coin surface tokens so the CTA stays
+                        // warm and legible in both light and dark mode.
+                        HStack(spacing: 10) {
+                            CoinDisc(size: 12)
+                            Text(L10n.home.tradeForOne)
+                                .font(.system(size: 13.5, weight: .semibold))
+                                .foregroundStyle(Color.coinValue)
+                        }
+                        .padding(.horizontal, 22).padding(.vertical, 13)
+                        .background(
+                            Capsule().fill(
+                                LinearGradient(
+                                    colors: [.coinSurfaceStart, .coinSurfaceEnd],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                             )
                         )
-                    )
-                    .overlay(Capsule().strokeBorder(Color.coinBorder, lineWidth: 1))
-                    .shadow(color: hover ? Color.coinGlow : Color.black.opacity(0.22),
-                            radius: hover ? 14 : 10,
-                            x: 0,
-                            y: hover ? 8 : 4)
+                        .overlay(Capsule().strokeBorder(Color.coinBorder, lineWidth: 1))
+                        .shadow(color: hover ? Color.coinGlow : Color.black.opacity(0.22),
+                                radius: hover ? 14 : 10,
+                                x: 0,
+                                y: hover ? 8 : 4)
+                    }
+                    .padding(.top, 26)
+                    .padding(.horizontal, 30)
+                    .padding(.bottom, 24)
+                    .frame(width: heroWidth, height: heroHeight, alignment: .bottomLeading)
                 }
-                .padding(.top, 26)
-                .padding(.horizontal, 30)
-                .padding(.bottom, 24)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: heroWidth, height: heroHeight)
+                .clipShape(RoundedRectangle(cornerRadius: 24))
+                .contentShape(RoundedRectangle(cornerRadius: 24))
             }
-            // Constrain the WHOLE ZStack to 16:9 so the image,
-            // gradient, and bottom overlay all share the same bounds.
-            // Putting aspect on the image alone let it overgrow.
-            .aspectRatio(16.0 / 9.0, contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .buttonStyle(.plain)
+            .frame(width: heroWidth, height: heroHeight)
         }
-        .buttonStyle(.plain)
+        .aspectRatio(16.0 / 9.0, contentMode: .fit)
         // Keep the hero attached to the mesh. A large soft shadow reads
         // like a separate rounded background card in the desktop window.
         .scaleEffect(hover ? 1.005 : 1.0)
