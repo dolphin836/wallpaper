@@ -4,6 +4,7 @@
 //
 // What we proxy
 //   /api/*               → ${API_ORIGIN}/api/*
+//   /__pinterest/v5/*    → https://api.pinterest.com/v5/* (API egress proxy)
 //   /sitemap.xml         → ${API_ORIGIN}/sitemap.xml
 //   /robots.txt          → ${API_ORIGIN}/robots.txt
 //   /feed.xml            → ${API_ORIGIN}/feed.xml          (RSS)
@@ -34,10 +35,46 @@ const BOT_UA_RE =
   /(facebookexternalhit|Facebot|Twitterbot|WhatsApp|TelegramBot|LinkedInBot|Discordbot|Slackbot|Pinterest|Applebot|WeChat|MicroMessenger|Weibo|Bytespider|Bingbot|Googlebot|Google-InspectionTool|AdsBot-Google|DuckDuckBot|YandexBot|Baiduspider)/i;
 
 const WALLPAPER_DETAIL_RE = /^\/wallpaper\/([^/]+)\/?$/;
+const PINTEREST_PROXY_RE = /^\/__pinterest\/v5(\/.*)?$/;
+
+async function proxyPinterestAPI(context: EventContext<unknown, string, unknown>, url: URL) {
+  const upstreamPath = url.pathname.replace(/^\/__pinterest/, '');
+  const allowed =
+    upstreamPath === '/v5/oauth/token' ||
+    upstreamPath === '/v5/user_account' ||
+    upstreamPath === '/v5/boards' ||
+    upstreamPath === '/v5/pins';
+
+  if (!allowed || !['GET', 'POST'].includes(context.request.method)) {
+    return new Response('Not found', { status: 404 });
+  }
+
+  const headers = new Headers(context.request.headers);
+  headers.delete('host');
+
+  const upstream = await fetch('https://api.pinterest.com' + upstreamPath + url.search, {
+    method: context.request.method,
+    headers,
+    body: context.request.method === 'GET' ? undefined : context.request.body,
+    redirect: 'manual',
+  });
+
+  const respHeaders = new Headers(upstream.headers);
+  respHeaders.set('x-proxied-by', 'pages-pinterest-proxy');
+  return new Response(upstream.body, {
+    status: upstream.status,
+    statusText: upstream.statusText,
+    headers: respHeaders,
+  });
+}
 
 export const onRequest: PagesFunction = async (context) => {
   const url = new URL(context.request.url);
   const path = url.pathname;
+
+  if (PINTEREST_PROXY_RE.test(path)) {
+    return proxyPinterestAPI(context, url);
+  }
 
   // IndexNow key file: 16+ hex chars then ".txt" at the root. We pattern-
   // match instead of hardcoding the key so we don't have to redeploy the

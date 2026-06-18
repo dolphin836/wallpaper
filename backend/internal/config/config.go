@@ -58,6 +58,8 @@ type PinterestConfig struct {
 	AppSecret   string `env:"PINTEREST_APP_SECRET" envDefault:""`
 	RedirectURL string `env:"PINTEREST_REDIRECT_URL" envDefault:"https://wallpaperexchange.com/api/v1/admin/integrations/pinterest/callback"`
 	SiteURL     string `env:"PINTEREST_SITE_URL" envDefault:"https://wallpaperexchange.com"`
+	APIBaseURL  string `env:"PINTEREST_API_BASE_URL" envDefault:"https://api.pinterest.com/v5"`
+	TokenURL    string `env:"PINTEREST_TOKEN_URL" envDefault:"https://api.pinterest.com/v5/oauth/token"`
 }
 
 type ServerConfig struct {

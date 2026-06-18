@@ -15,9 +15,7 @@ import (
 )
 
 const (
-	authURL  = "https://www.pinterest.com/oauth/"
-	tokenURL = "https://api.pinterest.com/v5/oauth/token"
-	apiBase  = "https://api.pinterest.com/v5"
+	authURL = "https://www.pinterest.com/oauth/"
 
 	ScopeBoardsRead  = "boards:read"
 	ScopeBoardsWrite = "boards:write"
@@ -38,6 +36,8 @@ type Client struct {
 	appID       string
 	appSecret   string
 	redirectURL string
+	apiBaseURL  string
+	tokenURL    string
 	httpClient  *http.Client
 }
 
@@ -46,6 +46,8 @@ func NewClient(cfg config.PinterestConfig) *Client {
 		appID:       cfg.AppID,
 		appSecret:   cfg.AppSecret,
 		redirectURL: cfg.RedirectURL,
+		apiBaseURL:  strings.TrimRight(cfg.APIBaseURL, "/"),
+		tokenURL:    cfg.TokenURL,
 		httpClient:  &http.Client{Timeout: 25 * time.Second},
 	}
 }
@@ -94,7 +96,7 @@ func (c *Client) RefreshToken(ctx context.Context, refreshToken string) (*TokenR
 }
 
 func (c *Client) tokenRequest(ctx context.Context, form url.Values) (*TokenResponse, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +213,7 @@ func (c *Client) CreatePin(ctx context.Context, accessToken string, reqBody Crea
 }
 
 func (c *Client) get(ctx context.Context, accessToken, path string, out any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiBase+path, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.apiBaseURL+path, nil)
 	if err != nil {
 		return err
 	}
@@ -224,7 +226,7 @@ func (c *Client) post(ctx context.Context, accessToken, path string, body any, o
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiBase+path, bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.apiBaseURL+path, bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}

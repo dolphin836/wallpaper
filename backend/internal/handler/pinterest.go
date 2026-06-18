@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -124,6 +125,7 @@ func (h *PinterestHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.client.ExchangeCode(r.Context(), code)
 	if err != nil {
+		slog.Error("pinterest oauth token exchange failed", slog.String("error", err.Error()))
 		h.writeCallbackHTML(w, false, "Failed to exchange Pinterest authorization code.")
 		return
 	}
@@ -160,6 +162,7 @@ func (h *PinterestHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		integration.Scopes = strings.Join(pinterest.DefaultScopes, ",")
 	}
 	if err := h.integrationRepo.Upsert(r.Context(), integration); err != nil {
+		slog.Error("save pinterest integration failed", slog.String("error", err.Error()))
 		h.writeCallbackHTML(w, false, "Failed to save Pinterest authorization.")
 		return
 	}
