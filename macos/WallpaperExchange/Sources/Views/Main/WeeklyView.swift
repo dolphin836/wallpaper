@@ -10,10 +10,13 @@ struct WeeklyArchiveView: View {
     @State private var entries: [WeeklyArchiveEntry] = []
     @State private var loading = false
     @State private var loadError: String?
-    @State private var selectedIdx = 0
+    @State private var selectedID: String?
 
     private var selected: WeeklyArchiveEntry? {
-        entries.indices.contains(selectedIdx) ? entries[selectedIdx] : entries.first
+        if let selectedID, let entry = entries.first(where: { $0.id == selectedID }) {
+            return entry
+        }
+        return entries.first
     }
 
     var body: some View {
@@ -45,7 +48,7 @@ struct WeeklyArchiveView: View {
             .frame(maxWidth: 1280).frame(maxWidth: .infinity, alignment: .center)
         }
         .task { await load() }
-        .onChange(of: selectedIdx) { _, _ in applySelectedPalette() }
+        .onChange(of: selectedID) { _, _ in applySelectedPalette() }
         .onDisappear { PaletteEnv.shared.resetToDefaults() }
     }
 
@@ -96,29 +99,18 @@ struct WeeklyArchiveView: View {
 
     private var timeline: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(entries.enumerated()), id: \.element.id) { i, e in
-                let on = i == selectedIdx
-                HStack(spacing: 12) {
-                    Circle()
-                        .fill(on ? Color.accent : Color.hair)
-                        .frame(width: 7, height: 7)
-                    Text("№ \(String(format: "%02d", e.week))")
-                        .font(.system(size: 13, weight: on ? .semibold : .medium, design: .monospaced))
-                        .foregroundStyle(on ? Color.ink : Color.ink2)
-                    Spacer(minLength: 0)
-                    Text("\(Self.fmtDate(e.year, e.week)) · \(String(e.year))")
-                        .font(.mono10).tracking(0.4).foregroundStyle(Color.muted)
-                }
-                .padding(.horizontal, 10).padding(.vertical, 10)
-                .frame(maxWidth: .infinity)
-                .background(RoundedRectangle(cornerRadius: 8).fill(on ? Color.accent.opacity(0.10) : .clear))
-                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .onTapGesture {
+            ForEach(entries) { e in
+                let on = e.id == selected?.id
+                Button {
                     withAnimation(.easeOut(duration: 0.18)) {
-                        selectedIdx = i
+                        selectedID = e.id
                     }
                     PaletteEnv.shared.apply(palette: e.colorPalette, dominant: e.dominantColor)
+                } label: {
+                    WeeklyTimelineRow(entry: e, selected: on, dateText: Self.fmtDate(e.year, e.week))
                 }
+                .buttonStyle(.plain)
+                .pointerCursor()
                 .onHover { h in
                     if h { PaletteEnv.shared.apply(palette: e.colorPalette, dominant: e.dominantColor) }
                     else { applySelectedPalette() }
@@ -167,6 +159,7 @@ struct WeeklyArchiveView: View {
                             }
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.hair, lineWidth: 1))
+                            .id(s.id)
 
                         HStack(spacing: 8) {
                             Text(L10n.home.viewAllPicks(s.count))
@@ -185,7 +178,13 @@ struct WeeklyArchiveView: View {
         loadError = nil
         loading = true; defer { loading = false }
         do {
-            entries = try await APIClient.shared.fetchWeeklyArchive(limit: 100)
+            let loaded = try await APIClient.shared.fetchWeeklyArchive(limit: 100)
+            entries = loaded
+            if let selectedID, loaded.contains(where: { $0.id == selectedID }) == false {
+                self.selectedID = loaded.first?.id
+            } else if selectedID == nil {
+                selectedID = loaded.first?.id
+            }
             applySelectedPalette()
         } catch {
             loadError = error.localizedDescription
@@ -213,6 +212,36 @@ struct WeeklyArchiveView: View {
         f.dateFormat = "MMM dd"
         f.locale = Locale(identifier: "en_US")
         return f.string(from: date).uppercased()
+    }
+}
+
+private struct WeeklyTimelineRow: View {
+    let entry: WeeklyArchiveEntry
+    let selected: Bool
+    let dateText: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(selected ? Color.accent : Color.hair)
+                .frame(width: 7, height: 7)
+            Text("№ \(String(format: "%02d", entry.week))")
+                .font(.system(size: 13, weight: selected ? .semibold : .medium, design: .monospaced))
+                .foregroundStyle(selected ? Color.ink : Color.ink2)
+            Spacer(minLength: 0)
+            Text("\(dateText) · \(String(entry.year))")
+                .font(.mono10)
+                .tracking(0.4)
+                .foregroundStyle(Color.muted)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(selected ? Color.accent.opacity(0.10) : Color.clear)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
