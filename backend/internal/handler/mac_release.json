@@ -1,8 +1,38 @@
 {
-  "current_version": "2.0.12",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.12.dmg",
+  "current_version": "2.0.13",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.13.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.13",
+      "released_at": "2026-06-21",
+      "notes": [
+        "New: the status-bar menu now shows Wallpaper Exchange's current CPU and memory usage.",
+        "New: Mac app launches now report into the shared client analytics stream for admin client breakdowns.",
+        "Changed: idle resource usage is lighter by removing the persistent resource sampler timer and reducing decoded image cache limits.",
+        "Fixed: high-resolution homepage recommendation images no longer break the home layout."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "新增：系统菜单栏下拉里现在会显示 Wallpaper Exchange 当前的 CPU 和内存占用。",
+          "新增：Mac 客户端启动现在会接入统一的客户端统计，后台可以和 Web、Android 等客户端一起分析。",
+          "变更：空闲资源占用更轻，移除了常驻资源采样定时器，并降低了解码图片缓存上限。",
+          "修复：首页每周推荐遇到高分辨率大图时不再撑坏布局。"
+        ],
+        "zh-TW": [
+          "新增：系統選單列下拉裡現在會顯示 Wallpaper Exchange 目前的 CPU 和記憶體占用。",
+          "新增：Mac 用戶端啟動現在會接入統一的用戶端統計，後台可以和 Web、Android 等用戶端一起分析。",
+          "變更：閒置資源占用更輕，移除了常駐資源取樣計時器，並降低了解碼圖片快取上限。",
+          "修復：首頁每週推薦遇到高解析度大圖時不再撐壞版面。"
+        ],
+        "ja": [
+          "新機能：メニューバーのドロップダウンに Wallpaper Exchange の現在の CPU とメモリ使用量を表示するようになりました。",
+          "新機能：Mac クライアントの起動が共通のクライアント分析に記録され、管理画面で Web や Android などと比較できるようになりました。",
+          "変更：常駐のリソースサンプラータイマーをなくし、デコード済み画像キャッシュの上限を下げることで、アイドル時のリソース使用量を軽くしました。",
+          "修正：高解像度のホームおすすめ画像でも、ホーム画面のレイアウトが崩れないようにしました。"
+        ]
+      }
+    },
     {
       "version": "2.0.12",
       "released_at": "2026-06-18",

@@ -10,6 +10,26 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.13] - 2026-06-21
+
+### Added
+
+- **The status-bar menu now shows current app resource usage.** The menu-bar
+  dropdown includes Wallpaper Exchange's current CPU and memory footprint.
+- **Mac app launches now report into the shared client analytics stream.** This
+  lets the admin dashboard compare Web, Mac, Android, and future clients from
+  the same analytics table.
+
+### Changed
+
+- **Idle resource usage is lighter.** The resource sampler no longer runs a
+  persistent timer, and decoded image cache limits were reduced.
+
+### Fixed
+
+- **High-resolution homepage recommendations no longer break the layout.**
+  Large hero images are constrained to the card's intended aspect ratio.
+
 ## [2.0.12] - 2026-06-18
 
 ### Added
