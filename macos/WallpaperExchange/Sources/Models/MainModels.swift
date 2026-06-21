@@ -231,6 +231,7 @@ struct WeeklyArchiveEntry: Decodable, Identifiable, Hashable {
     let week: Int
     let count: Int
     let coverURL: String
+    let originalURL: String?
     let accentColor: String?
     let dominantColor: String?
     let colorPalette: String?
@@ -238,6 +239,7 @@ struct WeeklyArchiveEntry: Decodable, Identifiable, Hashable {
     enum CodingKeys: String, CodingKey {
         case year, week, count
         case coverURL = "cover_url"
+        case originalURL = "original_url"
         case accentColor = "accent_color"
         case dominantColor = "dominant_color"
         case colorPalette = "color_palette"

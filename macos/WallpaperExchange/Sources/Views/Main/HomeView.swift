@@ -354,6 +354,15 @@ struct HeroCard: View {
         return mb >= 10 ? String(format: "%.0f MB", mb) : String(format: "%.1f MB", mb)
     }
 
+    private var highImageURL: URL? {
+        let original = pick.originalURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !original.isEmpty {
+            return URL(string: original)
+        }
+        let preview = pick.previewURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        return preview.isEmpty ? nil : URL(string: preview)
+    }
+
     var body: some View {
         GeometryReader { proxy in
             let heroWidth = proxy.size.width
@@ -363,9 +372,9 @@ struct HeroCard: View {
                 ZStack(alignment: .bottomLeading) {
                     ProgressiveCachedAsyncImage(
                         lowURL: URL(string: pick.thumbURL),
-                        highURL: URL(string: pick.previewURL),
+                        highURL: highImageURL,
                         lowMaxPixelDimension: 640,
-                        highMaxPixelDimension: 2200
+                        highMaxPixelDimension: 4200
                     ) { img in
                         img.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {

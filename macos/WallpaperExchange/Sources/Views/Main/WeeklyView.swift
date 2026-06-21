@@ -98,24 +98,27 @@ struct WeeklyArchiveView: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(entries.enumerated()), id: \.element.id) { i, e in
                 let on = i == selectedIdx
-                Button { selectedIdx = i } label: {
-                    HStack(spacing: 12) {
-                        Circle()
-                            .fill(on ? Color.accent : Color.hair)
-                            .frame(width: 7, height: 7)
-                        Text("№ \(String(format: "%02d", e.week))")
-                            .font(.system(size: 13, weight: on ? .semibold : .medium, design: .monospaced))
-                            .foregroundStyle(on ? Color.ink : Color.ink2)
-                        Spacer(minLength: 0)
-                        Text("\(Self.fmtDate(e.year, e.week)) · \(String(e.year))")
-                            .font(.mono10).tracking(0.4).foregroundStyle(Color.muted)
-                    }
-                    .padding(.horizontal, 10).padding(.vertical, 10)
-                    .frame(maxWidth: .infinity)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(on ? Color.accent.opacity(0.10) : .clear))
-                    .contentShape(Rectangle())
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(on ? Color.accent : Color.hair)
+                        .frame(width: 7, height: 7)
+                    Text("№ \(String(format: "%02d", e.week))")
+                        .font(.system(size: 13, weight: on ? .semibold : .medium, design: .monospaced))
+                        .foregroundStyle(on ? Color.ink : Color.ink2)
+                    Spacer(minLength: 0)
+                    Text("\(Self.fmtDate(e.year, e.week)) · \(String(e.year))")
+                        .font(.mono10).tracking(0.4).foregroundStyle(Color.muted)
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 10).padding(.vertical, 10)
+                .frame(maxWidth: .infinity)
+                .background(RoundedRectangle(cornerRadius: 8).fill(on ? Color.accent.opacity(0.10) : .clear))
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .onTapGesture {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        selectedIdx = i
+                    }
+                    PaletteEnv.shared.apply(palette: e.colorPalette, dominant: e.dominantColor)
+                }
                 .onHover { h in
                     if h { PaletteEnv.shared.apply(palette: e.colorPalette, dominant: e.dominantColor) }
                     else { applySelectedPalette() }
@@ -135,7 +138,12 @@ struct WeeklyArchiveView: View {
                         Color.clear
                             .aspectRatio(16.0 / 10.0, contentMode: .fit)
                             .overlay {
-                                CachedAsyncImage(url: URL(string: s.coverURL)) { img in
+                                ProgressiveCachedAsyncImage(
+                                    lowURL: cleanURL(s.coverURL),
+                                    highURL: cleanURL(s.originalURL),
+                                    lowMaxPixelDimension: 1400,
+                                    highMaxPixelDimension: 4200
+                                ) { img in
                                     img.resizable().aspectRatio(contentMode: .fill)
                                 } placeholder: {
                                     Color(hex: s.dominantColor ?? "#bbb").opacity(0.5)
@@ -182,6 +190,13 @@ struct WeeklyArchiveView: View {
         } catch {
             loadError = error.localizedDescription
         }
+    }
+
+    private func cleanURL(_ raw: String?) -> URL? {
+        guard let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        return URL(string: trimmed)
     }
 
     // ISO-week → that week's Friday (weeklies drop Fridays), UTC. → "JUN 05".
@@ -274,7 +289,12 @@ struct WeeklyWeekView: View {
             Color.clear
                 .aspectRatio(16.0 / 9.0, contentMode: .fit)
                 .overlay {
-                    CachedAsyncImage(url: URL(string: h.previewURL.isEmpty ? h.originalURL : h.previewURL)) { img in
+                    ProgressiveCachedAsyncImage(
+                        lowURL: cleanURL(h.previewURL.isEmpty ? h.thumbURL : h.previewURL),
+                        highURL: cleanURL(h.originalURL),
+                        lowMaxPixelDimension: 1400,
+                        highMaxPixelDimension: 4200
+                    ) { img in
                         img.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: { Color(hex: h.dominantColor ?? "#bbb").opacity(0.5) }
                 }
@@ -311,6 +331,13 @@ struct WeeklyWeekView: View {
         else { PaletteEnv.shared.resetToDefaults() }
     }
     private func mb(_ b: Int) -> String { String(format: "%.1f MB", Double(b) / 1024 / 1024) }
+
+    private func cleanURL(_ raw: String?) -> URL? {
+        guard let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        return URL(string: trimmed)
+    }
 
     private func load() async {
         loadError = nil

@@ -316,6 +316,7 @@ type ArchiveEntry struct {
 	Week        int16  `json:"week"`
 	Count       int    `json:"count"`
 	CoverURL    string `json:"cover_url"`
+	OriginalURL string `json:"original_url,omitempty"`
 	AccentColor string `json:"accent_color,omitempty"`
 	// Cover wallpaper's extracted palette + dominant colour. The
 	// SPA archive page sets these on its root as --w-c1/c2/c3 when
@@ -353,6 +354,7 @@ func (r *WeeklyPickRepo) Archive(ctx context.Context, limit int) ([]ArchiveEntry
 		SELECT DISTINCT ON (slate.year, slate.week)
 		       slate.year, slate.week, slate.cnt AS count,
 		       COALESCE(w.preview_url, w.thumb_url, '') AS cover_url,
+		       COALESCE(w.original_url, '') AS original_url,
 		       COALESCE(tc.accent_color, '') AS accent_color,
 		       COALESCE(w.dominant_color, '') AS dominant_color,
 		       COALESCE(w.color_palette, '') AS color_palette

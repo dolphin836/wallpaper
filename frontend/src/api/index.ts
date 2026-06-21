@@ -82,6 +82,7 @@ export interface WeeklyArchiveEntry {
   week: number;
   count: number;
   cover_url: string;
+  original_url?: string;
   accent_color?: string;
   // Cover wallpaper's extracted palette + dominant colour, used by
   // the archive page to tint its mesh when the user selects an
