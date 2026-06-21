@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import { getAndroidRelease, getMacRelease } from "../api";
 import type { AndroidRelease, MacRelease, MacReleaseEntry } from "../types";
 import PageMeta from "../components/PageMeta";
+import { track } from "../lib/track";
 
 const DEFAULT_MACOS_VERSION = "14.0";
 
@@ -86,6 +87,21 @@ export default function DownloadMacPage() {
     () => localizedAndroidNotes(androidRelease, i18n.language),
     [androidRelease, i18n.language],
   );
+  const trackClientDownload = (
+    targetClient: "mac" | "android",
+    artifact: "dmg" | "apk",
+    version: string | undefined,
+    url: string | undefined,
+    surface: "client_card" | "release_panel",
+  ) => {
+    track("client_download", {
+      target_client: targetClient,
+      artifact,
+      version: version ?? "",
+      url: url ?? "",
+      surface,
+    });
+  };
 
   return (
     <main className="min-h-full bg-paper text-ink">
@@ -148,6 +164,7 @@ export default function DownloadMacPage() {
                   updated={formatReleaseDate(currentMacRelease?.released_at, t("release.latest"))}
                   href={macRelease?.current_dmg_url}
                   actionLabel={t("actions.downloadMac")}
+                  onDownload={() => trackClientDownload("mac", "dmg", macVersion, macRelease?.current_dmg_url, "client_card")}
                   tone="accent"
                 />
 
@@ -161,6 +178,7 @@ export default function DownloadMacPage() {
                   updated={formatReleaseDate(androidRelease?.released_at, t("release.latest"))}
                   href={androidRelease?.current_apk_url}
                   actionLabel={t("actions.downloadAndroid")}
+                  onDownload={() => trackClientDownload("android", "apk", androidRelease?.current_version, androidRelease?.current_apk_url, "client_card")}
                   tone="ink"
                 />
 
@@ -194,6 +212,7 @@ export default function DownloadMacPage() {
                 emptyText={t("release.noNotes")}
                 href={macRelease?.current_dmg_url}
                 actionLabel={t("actions.downloadMac")}
+                onDownload={() => trackClientDownload("mac", "dmg", macVersion, macRelease?.current_dmg_url, "release_panel")}
               />
 
               <ReleasePanel
@@ -205,6 +224,7 @@ export default function DownloadMacPage() {
                 emptyText={t("release.noNotes")}
                 href={androidRelease?.current_apk_url}
                 actionLabel={t("actions.downloadAndroid")}
+                onDownload={() => trackClientDownload("android", "apk", androidRelease?.current_version, androidRelease?.current_apk_url, "release_panel")}
                 footer={androidRelease?.apk_sha256 ? t("release.apkHash", { hash: androidRelease.apk_sha256.slice(0, 12) }) : undefined}
               />
             </div>
@@ -272,6 +292,7 @@ function ClientCard({
   updated,
   href,
   actionLabel,
+  onDownload,
   tone,
 }: {
   icon: ReactNode;
@@ -283,6 +304,7 @@ function ClientCard({
   updated: string;
   href?: string;
   actionLabel: string;
+  onDownload?: () => void;
   tone: "accent" | "ink";
 }) {
   const { t } = useTranslation("mac");
@@ -324,6 +346,7 @@ function ClientCard({
           <a
             href={href}
             download
+            onClick={onDownload}
             className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-accent/45 ${actionClass}`}
           >
             <AiOutlineDownload className="text-lg" />
@@ -384,6 +407,7 @@ function ReleasePanel({
   emptyText,
   href,
   actionLabel,
+  onDownload,
   footer,
 }: {
   icon: ReactNode;
@@ -394,6 +418,7 @@ function ReleasePanel({
   emptyText: string;
   href?: string;
   actionLabel: string;
+  onDownload?: () => void;
   footer?: string;
 }) {
   return (
@@ -432,6 +457,7 @@ function ReleasePanel({
           <a
             href={href}
             download
+            onClick={onDownload}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-paper transition hover:bg-accent"
           >
             <AiOutlineDownload className="text-lg" />

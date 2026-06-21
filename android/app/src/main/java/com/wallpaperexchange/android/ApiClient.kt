@@ -1,5 +1,6 @@
 package com.wallpaperexchange.android
 
+import android.os.Build
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -10,11 +11,13 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.util.Locale
+import java.util.UUID
 
 class ApiException(message: String, val status: Int = 0) : Exception(message)
 
 object ApiClient {
     private const val BASE_URL = "https://wallpaperexchange.com/api/v1"
+    private val analyticsSessionId = UUID.randomUUID().toString()
 
     suspend fun fetchWallpapers(
         cursor: Int? = null,
@@ -161,6 +164,28 @@ object ApiClient {
     suspend fun register(username: String, email: String, password: String): AuthPayload =
         auth("/auth/register", JSONObject().put("username", username).put("email", email).put("password", password))
 
+    suspend fun trackEvent(type: String, path: String, props: JSONObject = JSONObject()) {
+        try {
+            val eventProps = JSONObject(props.toString())
+                .put("client", "android")
+                .put("platform", "android")
+                .put("version", BuildConfig.VERSION_NAME)
+                .put("sdk", Build.VERSION.SDK_INT.toString())
+            request(
+                "/events",
+                method = "POST",
+                body = JSONObject()
+                    .put("session_id", analyticsSessionId)
+                    .put("type", type)
+                    .put("path", path)
+                    .put("referrer", "")
+                    .put("props", eventProps),
+            )
+        } catch (_: Exception) {
+            // Telemetry must never block the native client.
+        }
+    }
+
     suspend fun like(id: Int, token: String) {
         request("/wallpapers/$id/like", method = "POST", token = token)
     }
@@ -232,6 +257,7 @@ object ApiClient {
             readTimeout = 30000
             setRequestProperty("Accept", "application/json")
             setRequestProperty("Accept-Language", Locale.getDefault().toLanguageTag())
+            setRequestProperty("User-Agent", "WallpaperExchange/android ${BuildConfig.VERSION_NAME}")
             token?.let { setRequestProperty("Authorization", "Bearer $it") }
             if (body != null) {
                 doOutput = true

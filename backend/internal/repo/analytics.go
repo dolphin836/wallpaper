@@ -32,10 +32,10 @@ const botUAClause = `user_agent !~* '(bot|spider|crawler|scrape|preview|monitor|
 // DayBucket is one row of the per-day aggregation. Day is in UTC and
 // truncated to the day boundary.
 type DayBucket struct {
-	Day        time.Time `gorm:"column:day" json:"day"`
-	PageViews  int64     `gorm:"column:page_views" json:"page_views"`
-	Sessions   int64     `gorm:"column:sessions" json:"sessions"`
-	UniqueIPs  int64     `gorm:"column:unique_ips" json:"unique_ips"`
+	Day       time.Time `gorm:"column:day" json:"day"`
+	PageViews int64     `gorm:"column:page_views" json:"page_views"`
+	Sessions  int64     `gorm:"column:sessions" json:"sessions"`
+	UniqueIPs int64     `gorm:"column:unique_ips" json:"unique_ips"`
 }
 
 // DailyTimeseries returns one row per UTC day for the given window,
@@ -138,6 +138,63 @@ func (r *AnalyticsRepo) TopPaths(ctx context.Context, days, limit int) ([]LabelC
 		  AND path <> ''
 		  AND `+botUAClause+`
 		GROUP BY path
+		ORDER BY count DESC
+		LIMIT ?
+	`, since, limit).Scan(&rows).Error
+	return rows, err
+}
+
+// ClientDownloads counts official website clicks for Mac / Android
+// client packages. New events write target_client; the fallback keeps
+// old or ad-hoc events grouped if they used client directly.
+func (r *AnalyticsRepo) ClientDownloads(ctx context.Context, days, limit int) ([]LabelCount, error) {
+	since := time.Now().UTC().AddDate(0, 0, -days)
+	if limit <= 0 {
+		limit = 10
+	}
+	rows := []LabelCount{}
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT
+			COALESCE(
+				NULLIF(lower(props->>'target_client'), ''),
+				NULLIF(lower(props->>'client'), ''),
+				'unknown'
+			) AS label,
+			COUNT(*) AS count
+		FROM analytics_events
+		WHERE event_type = 'client_download'
+		  AND created_at >= ?
+		  AND `+botUAClause+`
+		GROUP BY label
+		ORDER BY count DESC
+		LIMIT ?
+	`, since, limit).Scan(&rows).Error
+	return rows, err
+}
+
+// ClientBreakdown groups analytics events by the client that emitted
+// them. Web events now set props.client explicitly; native clients can
+// reuse the same /events endpoint with mac/android/ios/windows later.
+func (r *AnalyticsRepo) ClientBreakdown(ctx context.Context, days, limit int) ([]LabelCount, error) {
+	since := time.Now().UTC().AddDate(0, 0, -days)
+	if limit <= 0 {
+		limit = 10
+	}
+	rows := []LabelCount{}
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT label, COUNT(*) AS count
+		FROM (
+			SELECT
+				CASE
+					WHEN lower(props->>'client') IN ('web', 'mac', 'android', 'ios', 'windows') THEN lower(props->>'client')
+					WHEN user_agent ~* 'WallpaperExchange/(mac|android|ios|windows)' THEN lower(substring(user_agent from 'WallpaperExchange/([A-Za-z]+)'))
+					ELSE 'web'
+				END AS label
+			FROM analytics_events
+			WHERE created_at >= ?
+			  AND `+botUAClause+`
+		) e
+		GROUP BY label
 		ORDER BY count DESC
 		LIMIT ?
 	`, since, limit).Scan(&rows).Error

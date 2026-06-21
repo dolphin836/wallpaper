@@ -65,6 +65,9 @@ actor APIClient {
 
     private let session: URLSession
     private let decoder: JSONDecoder
+    private let analyticsSessionKey = "wpe_analytics_session_id"
+    private let analyticsStampKey = "wpe_analytics_session_stamp"
+    private let analyticsSessionTTL: TimeInterval = 30 * 60
 
     private init() {
         let config = URLSessionConfiguration.default
@@ -90,6 +93,40 @@ actor APIClient {
 
         let resp: APIResponse<PaginatedData<Wallpaper>> = try await request(path, queryItems: items)
         return resp.data
+    }
+
+    func trackEvent(_ type: String, path: String, props: [String: String] = [:]) async {
+        guard let url = URL(string: baseURL + "/events") else { return }
+        var eventProps = props
+        eventProps["client"] = "mac"
+        eventProps["platform"] = "macos"
+        eventProps["version"] = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+
+        let payload: [String: Any] = [
+            "session_id": analyticsSessionID(),
+            "type": type,
+            "path": path,
+            "referrer": "",
+            "props": eventProps,
+        ]
+        guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.httpBody = body
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue(L10n.lang.rawValue, forHTTPHeaderField: "Accept-Language")
+        req.setValue(appUserAgent, forHTTPHeaderField: "User-Agent")
+        if let token = await AuthService.shared.token {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        do {
+            _ = try await session.data(for: req)
+        } catch {
+            // Telemetry must never block the native client.
+        }
     }
 
     // Internal (not private) so extensions in sibling files can route
@@ -121,6 +158,7 @@ actor APIClient {
         // Backend localizes content fields (category/tag names, collection
         // titles) from this header; falls back to the original text.
         req.setValue(L10n.lang.rawValue, forHTTPHeaderField: "Accept-Language")
+        req.setValue(appUserAgent, forHTTPHeaderField: "User-Agent")
 
         if let token = await AuthService.shared.token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -149,6 +187,29 @@ actor APIClient {
         } catch {
             throw APIError.decodingError(error)
         }
+    }
+
+    private var appUserAgent: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
+        return "WallpaperExchange/mac \(version)"
+    }
+
+    private func analyticsSessionID() -> String {
+        let defaults = UserDefaults.standard
+        let now = Date().timeIntervalSince1970
+        let last = defaults.double(forKey: analyticsStampKey)
+        if let existing = defaults.string(forKey: analyticsSessionKey),
+           !existing.isEmpty,
+           last > 0,
+           now - last < analyticsSessionTTL {
+            defaults.set(now, forKey: analyticsStampKey)
+            return existing
+        }
+
+        let fresh = UUID().uuidString
+        defaults.set(fresh, forKey: analyticsSessionKey)
+        defaults.set(now, forKey: analyticsStampKey)
+        return fresh
     }
 
     func fetchWallpapers(

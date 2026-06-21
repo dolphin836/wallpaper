@@ -16,13 +16,15 @@ import (
 // the current + previous period (the dashboard uses the previous-period
 // number to render delta-vs-last-week arrows).
 type AnalyticsOverview struct {
-	Days       int               `json:"days"`
-	Daily      []repo.DayBucket  `json:"daily"`
-	Totals     repo.Totals       `json:"totals"`
-	Previous   repo.Totals       `json:"previous"`
-	Countries  []repo.LabelCount `json:"countries"`
-	Sources    []sourceCount     `json:"sources"`
-	Paths      []repo.LabelCount `json:"paths"`
+	Days            int               `json:"days"`
+	Daily           []repo.DayBucket  `json:"daily"`
+	Totals          repo.Totals       `json:"totals"`
+	Previous        repo.Totals       `json:"previous"`
+	Countries       []repo.LabelCount `json:"countries"`
+	Sources         []sourceCount     `json:"sources"`
+	Paths           []repo.LabelCount `json:"paths"`
+	Clients         []repo.LabelCount `json:"clients"`
+	ClientDownloads []repo.LabelCount `json:"client_downloads"`
 }
 
 // sourceCount groups one or more referrer hostnames under a friendly
@@ -155,6 +157,18 @@ func (h *AdminHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
+	clients, err := h.analyticsRepo.ClientBreakdown(ctx, days, 10)
+	if err != nil {
+		slog.ErrorContext(ctx, "analytics: clients failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	clientDownloads, err := h.analyticsRepo.ClientDownloads(ctx, days, 10)
+	if err != nil {
+		slog.ErrorContext(ctx, "analytics: client downloads failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
 	// Pull a generous referrer pool; classification collapses many hosts
 	// into a single bucket so we want headroom.
 	refs, err := h.analyticsRepo.TopReferrerHosts(ctx, days, 100, ownHosts)
@@ -198,13 +212,15 @@ func (h *AdminHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.OK(w, AnalyticsOverview{
-		Days:      days,
-		Daily:     daily,
-		Totals:    totals,
-		Previous:  prev,
-		Countries: countries,
-		Sources:   sources,
-		Paths:     paths,
+		Days:            days,
+		Daily:           daily,
+		Totals:          totals,
+		Previous:        prev,
+		Countries:       countries,
+		Sources:         sources,
+		Paths:           paths,
+		Clients:         clients,
+		ClientDownloads: clientDownloads,
 	})
 }
 

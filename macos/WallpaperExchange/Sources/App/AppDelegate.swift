@@ -26,6 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         configureMainWindow()
         UpdateService.shared.checkAtLaunch()
+        Task {
+            await APIClient.shared.trackEvent("app_launch", path: "/mac")
+        }
     }
 
     // Make the window:

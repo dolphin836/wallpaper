@@ -31,6 +31,19 @@ function countryLabel(code: string): string {
   return COUNTRY_NAMES[code.toUpperCase()] || code || '—';
 }
 
+const CLIENT_NAMES: Record<string, string> = {
+  web: 'Web',
+  mac: 'macOS',
+  android: 'Android',
+  ios: 'iOS',
+  windows: 'Windows',
+  unknown: 'Unknown',
+};
+
+function clientLabel(value: string): string {
+  return CLIENT_NAMES[value.toLowerCase()] || value || '—';
+}
+
 function TimeseriesChart({ data }: { data: AnalyticsDay[] }) {
   if (!data || data.length === 0) {
     return <div className="text-xs text-slate-400 px-5 py-6">暂无数据</div>;
@@ -189,6 +202,8 @@ export default function AnalyticsPage() {
           countries: d.countries ?? [],
           sources:   d.sources   ?? [],
           paths:     d.paths     ?? [],
+          clients:   d.clients   ?? [],
+          client_downloads: d.client_downloads ?? [],
         });
       })
       .catch(() => { toast.error('加载流量数据失败'); })
@@ -199,12 +214,13 @@ export default function AnalyticsPage() {
   const pvDelta   = data && deltaText(data.totals.page_views, data.previous.page_views);
   const sessDelta = data && deltaText(data.totals.sessions, data.previous.sessions);
   const ipDelta   = data && deltaText(data.totals.unique_ips, data.previous.unique_ips);
+  const clientDownloadTotal = data?.client_downloads.reduce((sum, item) => sum + item.count, 0) ?? 0;
 
   return (
     <div className="px-6 py-6 max-w-[1400px] mx-auto">
       <PageHeader
         title="流量"
-        subtitle="过去 7/30 天的页面浏览、独立访客、来源国家与渠道。bot UA 已过滤。"
+        subtitle="过去 7/30 天的页面浏览、独立访客、官网下载与客户端分布。bot UA 已过滤。"
         action={
           <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden text-sm">
             {[7, 14, 30].map((d) => (
@@ -229,7 +245,7 @@ export default function AnalyticsPage() {
       ) : (
         <>
           {/* KPI tiles */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
             <StatCard
               label="页面浏览"
               value={fmtNumber(data.totals.page_views)}
@@ -248,6 +264,12 @@ export default function AnalyticsPage() {
               hint={ipDelta?.text}
               tone={ipDelta?.up ? 'good' : 'bad'}
             />
+            <StatCard
+              label="客户端下载"
+              value={fmtNumber(clientDownloadTotal)}
+              hint="官网 Mac / Android 安装包"
+              tone="info"
+            />
           </div>
 
           {/* Timeseries */}
@@ -255,6 +277,21 @@ export default function AnalyticsPage() {
             <Card title="每日趋势">
               <TimeseriesChart data={data.daily} />
             </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            <RankedTable
+              title="官网下载"
+              rows={data.client_downloads.map((c) => ({ label: c.label, count: c.count }))}
+              rightLabel="下载"
+              fmt={clientLabel}
+            />
+            <RankedTable
+              title="客户端分布"
+              rows={data.clients.map((c) => ({ label: c.label, count: c.count }))}
+              rightLabel="事件"
+              fmt={clientLabel}
+            />
           </div>
 
           {/* Top breakdowns */}

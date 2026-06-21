@@ -256,6 +256,8 @@ export interface AnalyticsOverview {
   countries: AnalyticsLabel[];
   sources: AnalyticsSource[];
   paths: AnalyticsLabel[];
+  clients: AnalyticsLabel[];
+  client_downloads: AnalyticsLabel[];
 }
 
 export const getAnalytics = (days: number) =>

@@ -36,7 +36,7 @@ export function track(type: string, props?: Record<string, unknown>) {
       type,
       path: window.location.pathname + window.location.search,
       referrer: document.referrer,
-      props: props ?? {},
+      props: { client: 'web', ...(props ?? {}) },
     })
     .catch(() => {
       // telemetry must never break user flows
