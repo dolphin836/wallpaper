@@ -392,13 +392,19 @@ struct MainWindow: View {
     }
 }
 
+private final class MouseTransparentView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
+    }
+}
+
 private struct TransparentAppKitBackground: NSViewRepresentable {
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
 
     func makeNSView(context: Context) -> NSView {
-        let view = NSView(frame: .zero)
+        let view = MouseTransparentView(frame: .zero)
         clearAround(view, coordinator: context.coordinator)
         return view
     }
@@ -642,7 +648,7 @@ private struct WindowFullScreenReader: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSView {
-        let view = NSView(frame: .zero)
+        let view = MouseTransparentView(frame: .zero)
         DispatchQueue.main.async {
             context.coordinator.attach(to: view.window)
         }
@@ -705,7 +711,7 @@ private struct WindowBackdropClearer: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSView {
-        let view = NSView(frame: .zero)
+        let view = MouseTransparentView(frame: .zero)
         clear(from: view, coordinator: context.coordinator)
         return view
     }
@@ -853,7 +859,7 @@ private struct WindowTrafficLightVisibility: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSView {
-        let view = NSView(frame: .zero)
+        let view = MouseTransparentView(frame: .zero)
         apply(from: view, coordinator: context.coordinator)
         return view
     }

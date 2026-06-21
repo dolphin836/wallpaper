@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // Weekly Picks archive — mirrors the web: an editorial header, a
@@ -38,8 +39,11 @@ struct WeeklyArchiveView: View {
                     )
                 } else {
                     HStack(alignment: .top, spacing: 36) {
-                        timeline.frame(width: 240)
+                        timeline
+                            .frame(width: 240)
+                            .zIndex(2)
                         coverPanel
+                            .zIndex(1)
                     }
                     .padding(.top, 36)
                 }
@@ -101,22 +105,33 @@ struct WeeklyArchiveView: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(entries) { e in
                 let on = e.id == selected?.id
-                Button {
-                    withAnimation(.easeOut(duration: 0.18)) {
-                        selectedID = e.id
+                WeeklyTimelineRow(entry: e, selected: on, dateText: Self.fmtDate(e.year, e.week))
+                    .frame(width: 240, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .background(Color.black.opacity(0.001))
+                    .highPriorityGesture(
+                        TapGesture().onEnded {
+                            select(e)
+                        }
+                    )
+                    .onHover { h in
+                        if h {
+                            NSCursor.pointingHand.push()
+                            PaletteEnv.shared.apply(palette: e.colorPalette, dominant: e.dominantColor)
+                        } else {
+                            NSCursor.pop()
+                            applySelectedPalette()
+                        }
                     }
-                    PaletteEnv.shared.apply(palette: e.colorPalette, dominant: e.dominantColor)
-                } label: {
-                    WeeklyTimelineRow(entry: e, selected: on, dateText: Self.fmtDate(e.year, e.week))
                 }
-                .buttonStyle(.plain)
-                .pointerCursor()
-                .onHover { h in
-                    if h { PaletteEnv.shared.apply(palette: e.colorPalette, dominant: e.dominantColor) }
-                    else { applySelectedPalette() }
-                }
-            }
         }
+    }
+
+    private func select(_ entry: WeeklyArchiveEntry) {
+        withAnimation(.easeOut(duration: 0.18)) {
+            selectedID = entry.id
+        }
+        PaletteEnv.shared.apply(palette: entry.colorPalette, dominant: entry.dominantColor)
     }
 
     private var coverPanel: some View {
