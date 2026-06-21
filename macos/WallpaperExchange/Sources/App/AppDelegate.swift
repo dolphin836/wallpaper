@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var openMainWindowHandler: (() -> Void)?
     private var configuredWindowIDs = Set<ObjectIdentifier>()
+    private let resourceSampler = ProcessResourceSampler()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Force Dock-visible regular app. LSUIElement was removed from
@@ -23,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.applicationIconImage = icon
         }
         setupStatusItem()
+        resourceSampler.start()
         configureMainWindow()
         UpdateService.shared.checkAtLaunch()
     }
@@ -188,6 +190,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         versionItem.isEnabled = false
         menu.addItem(versionItem)
 
+        resourceSampler.sample()
+        let resource = resourceSampler.snapshot
+        let resourceTitle = NSMenuItem(
+            title: "\(L10n.shell.resourceUsage) · \(L10n.shell.currentProcess)",
+            action: nil,
+            keyEquivalent: ""
+        )
+        resourceTitle.isEnabled = false
+        menu.addItem(resourceTitle)
+
+        let cpuItem = NSMenuItem(
+            title: "\(L10n.shell.cpuUsage): \(formatCPU(resource.cpuPercent))",
+            action: nil,
+            keyEquivalent: ""
+        )
+        cpuItem.isEnabled = false
+        menu.addItem(cpuItem)
+
+        let memoryItem = NSMenuItem(
+            title: "\(L10n.shell.memoryUsage): \(formatMemory(resource.memoryBytes))",
+            action: nil,
+            keyEquivalent: ""
+        )
+        memoryItem.isEnabled = false
+        menu.addItem(memoryItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let openItem = NSMenuItem(title: L10n.shell.openApp, action: #selector(menuOpenMainWindow), keyEquivalent: "")
@@ -221,6 +249,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(quitItem)
 
         return menu
+    }
+
+    private func formatCPU(_ value: Double) -> String {
+        if value < 10 {
+            return String(format: "%.1f%%", value)
+        }
+        return String(format: "%.0f%%", value)
+    }
+
+    private func formatMemory(_ bytes: UInt64) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .memory)
     }
 
     @objc private func menuOpenMainWindow() {

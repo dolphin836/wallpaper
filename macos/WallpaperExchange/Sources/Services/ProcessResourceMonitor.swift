@@ -1,4 +1,3 @@
-import Combine
 import Darwin
 import Foundation
 
@@ -8,10 +7,8 @@ struct ProcessResourceSnapshot {
     var sampledAt: Date = .now
 }
 
-@MainActor
-final class ProcessResourceMonitor: ObservableObject {
-    @Published private(set) var snapshot = ProcessResourceSnapshot()
-
+final class ProcessResourceSampler {
+    private(set) var snapshot = ProcessResourceSnapshot()
     private var timer: Timer?
     private var lastCPUSeconds: TimeInterval?
     private var lastWallTime: TimeInterval?
@@ -20,9 +17,7 @@ final class ProcessResourceMonitor: ObservableObject {
         guard timer == nil else { return }
         sample()
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.sample()
-            }
+            self?.sample()
         }
     }
 
@@ -33,7 +28,7 @@ final class ProcessResourceMonitor: ObservableObject {
         lastWallTime = nil
     }
 
-    private func sample() {
+    func sample() {
         let now = ProcessInfo.processInfo.systemUptime
         let cpuSeconds = Self.processCPUSeconds()
         let memoryBytes = Self.residentMemoryBytes()
