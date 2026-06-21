@@ -10,6 +10,19 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.14] - 2026-06-21
+
+### Fixed
+
+- **Weekly recommendation images now upgrade to the original file.** The Home
+  weekly hero, weekly archive cover, and weekly detail hero no longer stop at a
+  soft preview when an original image URL is available.
+- **The weekly archive timeline now switches issues reliably.** Selecting a
+  past week keeps a stable week ID and refreshes the cover panel immediately.
+- **Timeline hover and click hit-testing is fixed.** Transparent AppKit helper
+  views no longer intercept mouse events, so the weekly timeline shows the
+  pointer cursor and responds to clicks.
+
 ## [2.0.13] - 2026-06-21
 
 ### Added

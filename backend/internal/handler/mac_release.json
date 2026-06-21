@@ -1,8 +1,34 @@
 {
-  "current_version": "2.0.13",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.13.dmg",
+  "current_version": "2.0.14",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.14.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.14",
+      "released_at": "2026-06-21",
+      "notes": [
+        "Fixed: weekly recommendation images now upgrade from preview assets to the original image on Home, the weekly archive, and weekly detail pages.",
+        "Fixed: the weekly archive timeline now switches selected issues reliably and refreshes the cover panel immediately.",
+        "Fixed: timeline hover and click hit-testing now works even with the transparent AppKit helper layers used by the Mac window."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "修复：首页每周推荐、每周推荐列表和每周推荐详情的大图现在会从预览图升级到原图，不再停留在模糊预览。",
+          "修复：每周推荐列表的时间轴现在可以可靠切换不同期数，并立即刷新右侧封面。",
+          "修复：时间轴的悬停和点击命中已修复；Mac 窗口中的透明 AppKit 辅助层不会再拦截鼠标事件。"
+        ],
+        "zh-TW": [
+          "修復：首頁每週推薦、每週推薦清單和每週推薦詳細頁的大圖現在會從預覽圖升級到原圖，不再停留在模糊預覽。",
+          "修復：每週推薦清單的時間軸現在可以可靠切換不同期數，並立即刷新右側封面。",
+          "修復：時間軸的懸停和點擊命中已修復；Mac 視窗中的透明 AppKit 輔助層不會再攔截滑鼠事件。"
+        ],
+        "ja": [
+          "修正：ホームの週間おすすめ、週間アーカイブ、週間詳細の大きな画像がプレビューから元画像へ正しく切り替わるようになり、ぼやけたプレビューで止まらなくなりました。",
+          "修正：週間アーカイブのタイムラインで別の号を確実に選択でき、カバーパネルもすぐに更新されるようになりました。",
+          "修正：タイムラインのホバーとクリック判定を修正しました。Mac ウインドウの透明な AppKit 補助レイヤーがマウスイベントを遮らなくなりました。"
+        ]
+      }
+    },
     {
       "version": "2.0.13",
       "released_at": "2026-06-21",
