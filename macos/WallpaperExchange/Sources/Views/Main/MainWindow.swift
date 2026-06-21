@@ -238,6 +238,7 @@ struct MainWindow: View {
                         role: .utility,
                         action: refreshCurrentPage
                     )
+                    ProcessUsageToolbarButton()
                     ChromeToolbarButton(
                         icon: themeToolbarIcon,
                         help: themeToolbarHelp,
@@ -631,6 +632,117 @@ private struct ChromeToolbarButton: View {
         }
         .animation(.easeOut(duration: 0.12), value: hover)
         .animation(.easeOut(duration: 0.12), value: active)
+    }
+}
+
+private struct ProcessUsageToolbarButton: View {
+    @StateObject private var monitor = ProcessResourceMonitor()
+    @State private var isPresented = false
+
+    var body: some View {
+        ChromeToolbarButton(
+            icon: "waveform.path.ecg",
+            help: L10n.shell.resourceUsage,
+            role: .utility,
+            active: isPresented,
+            action: { isPresented.toggle() }
+        )
+        .popover(isPresented: $isPresented, arrowEdge: .top) {
+            ProcessUsagePanel(snapshot: monitor.snapshot)
+                .onAppear { monitor.start() }
+                .onDisappear { monitor.stop() }
+        }
+        .onChange(of: isPresented) { _, shown in
+            if shown {
+                monitor.start()
+            } else {
+                monitor.stop()
+            }
+        }
+    }
+}
+
+private struct ProcessUsagePanel: View {
+    let snapshot: ProcessResourceSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 9) {
+                Image(systemName: "waveform.path.ecg")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.accent)
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(Color.accent.opacity(0.12)))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.shell.resourceUsage)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.ink)
+                    Text(L10n.shell.currentProcess)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .tracking(0.5)
+                        .foregroundStyle(Color.muted)
+                }
+            }
+
+            VStack(spacing: 8) {
+                ProcessUsageMetricRow(
+                    icon: "cpu",
+                    title: L10n.shell.cpuUsage,
+                    value: cpuLabel
+                )
+                ProcessUsageMetricRow(
+                    icon: "memorychip",
+                    title: L10n.shell.memoryUsage,
+                    value: memoryLabel
+                )
+            }
+        }
+        .padding(14)
+        .frame(width: 220)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+        )
+    }
+
+    private var cpuLabel: String {
+        if snapshot.cpuPercent < 10 {
+            return String(format: "%.1f%%", snapshot.cpuPercent)
+        }
+        return String(format: "%.0f%%", snapshot.cpuPercent)
+    }
+
+    private var memoryLabel: String {
+        ByteCountFormatter.string(fromByteCount: Int64(snapshot.memoryBytes), countStyle: .memory)
+    }
+}
+
+private struct ProcessUsageMetricRow: View {
+    let icon: String
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.ink2)
+                .frame(width: 20)
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.ink2)
+            Spacer(minLength: 12)
+            Text(value)
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Color.ink)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.paper.opacity(0.48))
+        )
     }
 }
 

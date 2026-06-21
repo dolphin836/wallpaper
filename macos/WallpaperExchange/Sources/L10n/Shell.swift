@@ -39,6 +39,10 @@ struct ShellStrings {
     let switchToDark: String
     let expandSidebar: String
     let collapseSidebar: String
+    let resourceUsage: String
+    let currentProcess: String
+    let cpuUsage: String
+    let memoryUsage: String
 
     // Status-bar menu (AppDelegate) + App.swift command.
     let openApp: String
@@ -79,6 +83,10 @@ private let shellEN = ShellStrings(
     switchToDark: "Switch to dark theme",
     expandSidebar: "Expand sidebar",
     collapseSidebar: "Collapse sidebar",
+    resourceUsage: "Resource usage",
+    currentProcess: "Current app process",
+    cpuUsage: "CPU",
+    memoryUsage: "Memory",
     openApp: "Open Wallpaper Exchange",
     launchAtLogin: "Launch at Login",
     launchAtLoginNeedsApproval: "Launch at Login (needs approval in System Settings)",
@@ -115,6 +123,10 @@ private let shellZhCN = ShellStrings(
     switchToDark: "切换到深色主题",
     expandSidebar: "展开侧边栏",
     collapseSidebar: "收起侧边栏",
+    resourceUsage: "资源占用",
+    currentProcess: "当前应用进程",
+    cpuUsage: "CPU",
+    memoryUsage: "内存",
     openApp: "打开 Wallpaper Exchange",
     launchAtLogin: "登录时启动",
     launchAtLoginNeedsApproval: "登录时启动（需在系统设置中批准）",
@@ -151,6 +163,10 @@ private let shellZhTW = ShellStrings(
     switchToDark: "切換至深色主題",
     expandSidebar: "展開側邊欄",
     collapseSidebar: "收合側邊欄",
+    resourceUsage: "資源占用",
+    currentProcess: "目前應用程式程序",
+    cpuUsage: "CPU",
+    memoryUsage: "記憶體",
     openApp: "開啟 Wallpaper Exchange",
     launchAtLogin: "登入時啟動",
     launchAtLoginNeedsApproval: "登入時啟動（需在系統設定中核准）",
@@ -187,6 +203,10 @@ private let shellJA = ShellStrings(
     switchToDark: "ダークテーマに切り替え",
     expandSidebar: "サイドバーを展開",
     collapseSidebar: "サイドバーを折りたたむ",
+    resourceUsage: "リソース使用量",
+    currentProcess: "現在のアプリプロセス",
+    cpuUsage: "CPU",
+    memoryUsage: "メモリ",
     openApp: "Wallpaper Exchange を開く",
     launchAtLogin: "ログイン時に起動",
     launchAtLoginNeedsApproval: "ログイン時に起動（システム設定での承認が必要）",
