@@ -24,7 +24,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.applicationIconImage = icon
         }
         setupStatusItem()
-        resourceSampler.start()
         configureMainWindow()
         UpdateService.shared.checkAtLaunch()
     }

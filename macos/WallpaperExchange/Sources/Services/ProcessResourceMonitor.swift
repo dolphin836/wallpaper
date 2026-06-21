@@ -9,24 +9,8 @@ struct ProcessResourceSnapshot {
 
 final class ProcessResourceSampler {
     private(set) var snapshot = ProcessResourceSnapshot()
-    private var timer: Timer?
     private var lastCPUSeconds: TimeInterval?
     private var lastWallTime: TimeInterval?
-
-    func start() {
-        guard timer == nil else { return }
-        sample()
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            self?.sample()
-        }
-    }
-
-    func stop() {
-        timer?.invalidate()
-        timer = nil
-        lastCPUSeconds = nil
-        lastWallTime = nil
-    }
 
     func sample() {
         let now = ProcessInfo.processInfo.systemUptime

@@ -16,8 +16,8 @@ final class ImageCacheStore {
     private let dataLoader = ImageDataLoader()
 
     private init() {
-        cache.countLimit = 140
-        cache.totalCostLimit = 96 * 1024 * 1024
+        cache.countLimit = 100
+        cache.totalCostLimit = 64 * 1024 * 1024
     }
 
     func get(_ url: URL, maxPixelDimension: Int) -> NSImage? {
@@ -195,7 +195,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
 
     init(
         url: URL?,
-        maxPixelDimension: Int = 1800,
+        maxPixelDimension: Int = 1400,
         onLoad: (() -> Void)? = nil,
         @ViewBuilder content: @escaping (Image) -> Content,
         @ViewBuilder placeholder: @escaping () -> Placeholder
