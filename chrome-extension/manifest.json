@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Wallpaper Exchange New Tab",
+  "description": "A wallpaper-first new tab powered by Weekly Picks, favorites, and collections from Wallpaper Exchange.",
+  "version": "0.1.0",
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://wallpaperexchange.com/*",
+    "https://api.wallpaperexchange.com/*"
+  ],
+  "action": {
+    "default_title": "Wallpaper Exchange"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' https: data:;"
+  }
+}

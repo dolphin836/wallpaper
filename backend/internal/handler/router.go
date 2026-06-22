@@ -52,7 +52,8 @@ func NewRouter(deps Deps) *chi.Mux {
 				"https://wallpaper.haibing.site":
 				return true
 			}
-			return strings.HasPrefix(origin, "http://localhost:")
+			return strings.HasPrefix(origin, "http://localhost:") ||
+				strings.HasPrefix(origin, "chrome-extension://")
 		},
 		// PATCH + HEAD are needed by the tus.io resumable upload
 		// protocol; the rest of the API doesn't use them.

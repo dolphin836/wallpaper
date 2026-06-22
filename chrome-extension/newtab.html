@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
+    <title>Wallpaper Exchange</title>
+    <link rel="stylesheet" href="newtab.css">
+  </head>
+  <body>
+    <main class="stage is-loading" id="stage">
+      <div class="wallpaper-base" id="wallpaperBase"></div>
+      <img class="wallpaper-image" id="wallpaperImage" alt="">
+      <div class="load-beam" id="loadBeam" aria-hidden="true"></div>
+      <div class="scrim scrim-top" aria-hidden="true"></div>
+      <div class="scrim scrim-bottom" aria-hidden="true"></div>
+
+      <header class="topbar" aria-label="Wallpaper Exchange">
+        <a class="brand" href="https://wallpaperexchange.com" target="_blank" rel="noreferrer">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>Wallpaper Exchange</span>
+        </a>
+        <div class="top-actions">
+          <button class="ghost-button" id="refreshButton" type="button">Shuffle</button>
+          <button class="ghost-button" id="settingsButton" type="button" aria-expanded="false" aria-controls="settingsPanel">Sources</button>
+        </div>
+      </header>
+
+      <section class="center-stack" aria-label="Search">
+        <time class="clock" id="clock" datetime=""></time>
+        <form class="search" id="searchForm" autocomplete="off">
+          <label class="sr-only" for="searchInput">Search the web</label>
+          <input id="searchInput" name="q" type="search" placeholder="Search the web" spellcheck="false">
+        </form>
+      </section>
+
+      <section class="wallpaper-meta" aria-live="polite">
+        <p class="source-label" id="sourceLabel">Weekly Picks</p>
+        <h1 id="wallpaperTitle">Wallpaper Exchange</h1>
+        <p class="meta-line" id="wallpaperDetails"></p>
+      </section>
+
+      <nav class="wallpaper-actions" aria-label="Wallpaper actions">
+        <button class="soft-button" id="previousButton" type="button">Previous</button>
+        <a class="primary-button" id="openWallpaperLink" href="https://wallpaperexchange.com" target="_blank" rel="noreferrer">Open</a>
+        <button class="soft-button" id="nextButton" type="button">Next</button>
+      </nav>
+
+      <aside class="settings-panel" id="settingsPanel" aria-label="Wallpaper sources" aria-hidden="true">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Wallpaper source</p>
+            <h2>Keep the image first.</h2>
+          </div>
+          <button class="round-button" id="closeSettingsButton" type="button" aria-label="Close settings">x</button>
+        </div>
+
+        <div class="source-list" role="radiogroup" aria-label="Wallpaper source">
+          <button class="source-option" data-source="weekly" type="button" role="radio" aria-checked="true">
+            <span>Weekly Picks</span>
+            <small>Curated slate</small>
+          </button>
+          <button class="source-option" data-source="favorites" type="button" role="radio" aria-checked="false">
+            <span>My Favorites</span>
+            <small>Requires sign in</small>
+          </button>
+          <button class="source-option" data-source="collection" type="button" role="radio" aria-checked="false">
+            <span>My Collection</span>
+            <small>Choose one collection</small>
+          </button>
+        </div>
+
+        <form class="login-form" id="loginForm">
+          <div class="signed-in" id="signedInRow" hidden>
+            <span id="signedInName"></span>
+            <button class="text-button" id="signOutButton" type="button">Sign out</button>
+          </div>
+          <div class="login-fields" id="loginFields">
+            <label>
+              <span>Email</span>
+              <input id="emailInput" name="email" type="email" autocomplete="email">
+            </label>
+            <label>
+              <span>Password</span>
+              <input id="passwordInput" name="password" type="password" autocomplete="current-password">
+            </label>
+            <button class="primary-button panel-button" type="submit">Sign in</button>
+          </div>
+        </form>
+
+        <div class="collection-block" id="collectionBlock" hidden>
+          <div class="block-title">
+            <span>Collections</span>
+            <button class="text-button" id="reloadCollectionsButton" type="button">Reload</button>
+          </div>
+          <div class="collections" id="collectionsList"></div>
+        </div>
+
+        <div class="thumb-strip" id="thumbStrip" aria-label="Current source wallpapers"></div>
+        <p class="status-line" id="statusLine" aria-live="polite"></p>
+      </aside>
+    </main>
+
+    <script src="newtab.js"></script>
+  </body>
+</html>
