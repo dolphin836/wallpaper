@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -47,9 +47,9 @@ interface Props {
 export default function WallpaperTile({ w, variant, onHover }: Props) {
   const { t } = useTranslation('browse');
   const location = useLocation();
-  const [loaded, setLoaded] = useState(false);
-  const [highLoaded, setHighLoaded] = useState(false);
-  const [highFailed, setHighFailed] = useState(false);
+  const [loadedSrc, setLoadedSrc] = useState('');
+  const [highLoadedSrc, setHighLoadedSrc] = useState('');
+  const [highFailedSrc, setHighFailedSrc] = useState('');
   const [playing, setPlaying] = useState(false);
   const vidRef = useRef<HTMLVideoElement | null>(null);
   useEffect(() => {
@@ -62,13 +62,23 @@ export default function WallpaperTile({ w, variant, onHover }: Props) {
   const highResSrc = w.preview_url || w.thumb_url || '';
   const hasHighResLayer = Boolean(lowResSrc && highResSrc && highResSrc !== lowResSrc);
   const baseSrc = lowResSrc || highResSrc;
+  const loaded = Boolean(baseSrc && loadedSrc === baseSrc);
+  const highLoaded = Boolean(highResSrc && highLoadedSrc === highResSrc);
+  const highFailed = Boolean(highResSrc && highFailedSrc === highResSrc);
   const imageReady = hasHighResLayer ? highLoaded || (highFailed && loaded) : loaded;
 
-  useEffect(() => {
-    setLoaded(false);
-    setHighLoaded(false);
-    setHighFailed(false);
-  }, [w.id, lowResSrc, highResSrc]);
+  const syncBaseImageRef = useCallback((node: HTMLImageElement | null) => {
+    // Cached images can finish before React wires the onLoad handler.
+    // Record the current src from the ref so the opacity class is never
+    // stranded off after a hard refresh or browser-cache hit.
+    if (node?.complete) setLoadedSrc(baseSrc);
+  }, [baseSrc]);
+
+  const syncHighImageRef = useCallback((node: HTMLImageElement | null) => {
+    if (!node?.complete) return;
+    if (node.naturalWidth > 0) setHighLoadedSrc(highResSrc);
+    else setHighFailedSrc(highResSrc);
+  }, [highResSrc]);
 
   const handleEnter = () => {
     onHover?.(w.color_palette, w.dominant_color);
@@ -94,16 +104,18 @@ export default function WallpaperTile({ w, variant, onHover }: Props) {
       className={`h3-tile h3-${variant}${playing ? ' h3-playing' : ''}`}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
+      style={{ backgroundColor: w.dominant_color || undefined }}
     >
       {baseSrc && (
         <img
+          ref={syncBaseImageRef}
           src={baseSrc}
           alt={w.title || t('tile.wallpaperAlt', { id: w.id })}
           loading="lazy"
           decoding="async"
           className={`h3-progressive-img ${loaded ? 'h3-loaded' : ''}`}
-          onLoad={() => setLoaded(true)}
-          onError={() => setLoaded(true)}
+          onLoad={() => setLoadedSrc(baseSrc)}
+          onError={() => setLoadedSrc(baseSrc)}
           style={{
             backgroundColor: w.dominant_color || undefined,
             filter: hasHighResLayer && !highLoaded && !highFailed ? 'blur(12px)' : undefined,
@@ -113,14 +125,15 @@ export default function WallpaperTile({ w, variant, onHover }: Props) {
       )}
       {hasHighResLayer && !highFailed && (
         <img
+          ref={syncHighImageRef}
           src={highResSrc}
           alt=""
           aria-hidden
           loading="lazy"
           decoding="async"
           className={`h3-progressive-img ${highLoaded ? 'h3-loaded' : ''}`}
-          onLoad={() => setHighLoaded(true)}
-          onError={() => setHighFailed(true)}
+          onLoad={() => setHighLoadedSrc(highResSrc)}
+          onError={() => setHighFailedSrc(highResSrc)}
         />
       )}
       {highResSrc && !imageReady && <span className="card-loading-beam" aria-hidden />}
