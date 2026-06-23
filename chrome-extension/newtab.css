@@ -271,10 +271,11 @@ a {
 }
 
 .clock-main {
+  --clock-digit-gap: 8px;
   width: 100%;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  gap: var(--clock-digit-gap);
   perspective: 520px;
   font-variant-numeric: tabular-nums;
 }
@@ -302,6 +303,10 @@ a {
   font-weight: 950;
   line-height: 1;
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.36);
+}
+
+.flip-digit:nth-child(3) {
+  margin-left: var(--clock-digit-gap);
 }
 
 .flip-digit.is-flipping {
@@ -1524,7 +1529,7 @@ input[type="checkbox"]:checked::before {
   }
 
   .clock-main {
-    gap: 6px;
+    --clock-digit-gap: 6px;
   }
 
   .flip-digit {
