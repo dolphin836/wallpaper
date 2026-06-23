@@ -5,13 +5,14 @@ import (
 
 	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/pkg/i18n"
+	"github.com/wallpaper/backend/internal/repo"
 )
 
 // Content localization happens at the HTTP boundary: handlers resolve the
 // response language from Accept-Language and overwrite the user-visible
 // text fields with the stored translation before serialization (original
-// text is the fallback). Owner-only surfaces (the add-to-collection picker,
-// the admin console) intentionally skip this and show the original text.
+// text is the fallback). The admin console intentionally keeps source text,
+// while user-facing owner pickers are localized like the public surfaces.
 
 func requestLang(r *http.Request) string { return i18n.FromRequest(r) }
 
@@ -35,5 +36,11 @@ func localizeCollection(lang string, c *model.Collection) {
 func localizeCollections(lang string, cs []model.Collection) {
 	for i := range cs {
 		localizeCollection(lang, &cs[i])
+	}
+}
+
+func localizeCollectionBriefs(lang string, cs []repo.CollectionBrief) {
+	for i := range cs {
+		cs[i].Title = cs[i].TitleI18n.Pick(lang, cs[i].Title)
 	}
 }

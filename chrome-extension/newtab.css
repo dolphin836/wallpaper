@@ -14,6 +14,10 @@
   --glass-strong: rgba(24, 24, 24, 0.58);
   --accent: #f0783f;
   --accent-soft: rgba(240, 120, 63, 0.14);
+  --like: #e0463a;
+  --favorite: #d8a23a;
+  --downloaded: #4a8a5a;
+  --device-aspect: 16 / 9;
   --radius: 18px;
   --radius-small: 10px;
   --shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
@@ -69,6 +73,7 @@ a {
 
 .wallpaper-base,
 .wallpaper-image,
+.wallpaper-video,
 .load-beam,
 .photo-scrim {
   position: absolute;
@@ -80,7 +85,8 @@ a {
   transition: background-color 360ms ease;
 }
 
-.wallpaper-image {
+.wallpaper-image,
+.wallpaper-video {
   z-index: 1;
   width: 100%;
   height: 100%;
@@ -90,9 +96,14 @@ a {
   transition: opacity 520ms ease, filter 520ms ease, transform 620ms ease;
 }
 
-.wallpaper-image.is-ready {
+.wallpaper-image.is-ready,
+.wallpaper-video.is-ready {
   opacity: 1;
   transform: scale(1);
+}
+
+.wallpaper-video {
+  pointer-events: none;
 }
 
 .wallpaper-image.is-soft {
@@ -286,9 +297,20 @@ a {
 
 .dock-button.is-active {
   color: #fff;
-  background: rgba(240, 120, 63, 0.7);
-  border-color: rgba(255, 255, 255, 0.24);
-  opacity: 0.72;
+  border-color: transparent;
+  opacity: 0.86;
+}
+
+.dock-button.is-liked {
+  background: var(--like);
+}
+
+.dock-button.is-favorited {
+  background: var(--favorite);
+}
+
+.dock-button.is-downloaded {
+  background: var(--downloaded);
 }
 
 .dock-button:disabled {
@@ -488,14 +510,19 @@ a {
 .collection-list,
 .wallpaper-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   max-height: 280px;
   overflow: auto;
   padding-right: 3px;
 }
 
 .collection-list {
-  max-height: 156px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-height: 228px;
+}
+
+.wallpaper-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .collection-item,
@@ -512,15 +539,17 @@ a {
 }
 
 .collection-item {
-  min-height: 54px;
+  min-height: 88px;
   padding: 12px;
+  align-content: space-between;
 }
 
 .wallpaper-item {
-  grid-template-columns: 64px 1fr;
-  min-height: 76px;
-  padding: 8px;
-  align-items: center;
+  aspect-ratio: var(--device-aspect);
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  background: rgba(36, 33, 29, 0.08);
 }
 
 .collection-item:hover,
@@ -534,11 +563,20 @@ a {
   background: var(--accent-soft);
 }
 
+.wallpaper-item img {
+  transition: transform 220ms ease;
+}
+
+.wallpaper-item:hover img,
+.wallpaper-item:focus-visible img {
+  transform: scale(1.035);
+}
+
 .wallpaper-thumb {
-  width: 64px;
-  height: 60px;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: calc(var(--radius-small) - 1px);
   background: rgba(36, 33, 29, 0.08);
 }
 
@@ -562,6 +600,7 @@ a {
 }
 
 .empty-state {
+  grid-column: 1 / -1;
   min-height: 74px;
   display: grid;
   place-items: center;

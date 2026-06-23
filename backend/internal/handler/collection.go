@@ -413,6 +413,7 @@ func (h *CollectionHandler) ListMyCollections(w http.ResponseWriter, r *http.Req
 		response.Error(w, http.StatusInternalServerError, ec)
 		return
 	}
+	localizeCollectionBriefs(requestLang(r), items)
 	response.OK(w, items)
 }
 

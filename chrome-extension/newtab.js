@@ -327,6 +327,7 @@
     stage: document.getElementById("stage"),
     base: document.getElementById("wallpaperBase"),
     image: document.getElementById("wallpaperImage"),
+    video: document.getElementById("wallpaperVideo"),
     widgetLayer: document.getElementById("widgetLayer"),
     clock: document.getElementById("clock"),
     searchForm: document.getElementById("searchForm"),
@@ -397,6 +398,7 @@
     }
     state.sessionId = await getSessionID();
     elements.versionText.textContent = extensionVersion;
+    updateDeviceAspect();
     bindEvents();
     applyLocale();
     renderSettings();
@@ -407,6 +409,7 @@
   }
 
   function bindEvents() {
+    window.addEventListener("resize", updateDeviceAspect);
     elements.searchForm.addEventListener("submit", handleSearch);
     elements.settingsButton.addEventListener("click", () => {
       const open = !elements.panel.classList.contains("is-open");
@@ -463,9 +466,10 @@
       await saveSettings();
       applyLocale();
       renderSettings();
-      renderCollections();
-      renderWallpaperList();
-      renderActionButtons();
+      if (isSignedIn()) {
+        await loadCollections({ force: true });
+      }
+      await loadSource({ force: true });
       track("chrome_language_change", { language: state.settings.language });
     });
 
@@ -636,18 +640,66 @@
   }
 
   function paintWallpaper(wallpaper) {
-    const highSrc = getBestImage(wallpaper);
+    const videoSrc = getVideoSource(wallpaper);
+    const highSrc = getBestStillImage(wallpaper);
     const softSrc = wallpaper.thumb_url || wallpaper.preview_url || highSrc;
     const color = sanitizeColor(wallpaper.dominant_color) || "#101316";
 
     elements.base.style.backgroundColor = color;
     elements.stage.classList.add("is-loading");
+    elements.video.pause();
+    elements.video.classList.remove("is-ready");
+    elements.video.onloadeddata = null;
+    elements.video.onerror = null;
 
     if (softSrc && elements.image.src !== softSrc) {
       elements.image.classList.remove("is-ready");
       elements.image.classList.add("is-soft");
       elements.image.src = softSrc;
       requestAnimationFrame(() => elements.image.classList.add("is-ready"));
+    }
+
+    if (videoSrc) {
+      if (elements.video.currentSrc !== videoSrc && elements.video.src !== videoSrc) {
+        elements.video.src = videoSrc;
+        elements.video.load();
+      }
+
+      const showVideo = () => {
+        if (state.current !== wallpaper) return;
+        elements.stage.classList.remove("is-loading");
+        elements.video.classList.add("is-ready");
+        elements.video.play().catch(() => {
+          if (state.current !== wallpaper) return;
+          elements.video.classList.remove("is-ready");
+          elements.stage.classList.remove("is-loading");
+        });
+      };
+
+      elements.video.onloadeddata = showVideo;
+      elements.video.onerror = () => {
+        if (state.current !== wallpaper) return;
+        elements.image.classList.remove("is-soft");
+        elements.image.classList.add("is-ready");
+        elements.stage.classList.remove("is-loading");
+      };
+
+      if (elements.video.readyState >= 2) {
+        showVideo();
+      } else {
+        elements.video.play().catch(() => {
+          // Chrome may wait for enough media data; onloadeddata handles it.
+        });
+      }
+      return;
+    }
+
+    elements.video.removeAttribute("src");
+    elements.video.load();
+
+    if (!highSrc) {
+      elements.stage.classList.remove("is-loading");
+      return;
     }
 
     const loader = new Image();
@@ -702,12 +754,12 @@
     }
     const selected = state.collections.find((item) => item.id === state.settings.collectionId);
     if (selected) {
-      state.settings.collectionTitle = selected.title || t("sourceCollection");
+      state.settings.collectionTitle = localizedCollectionTitle(selected);
       return;
     }
     const first = state.collections[0];
     state.settings.collectionId = first.id;
-    state.settings.collectionTitle = first.title || t("sourceCollection");
+    state.settings.collectionTitle = localizedCollectionTitle(first);
     saveSettings();
   }
 
@@ -772,8 +824,11 @@
     setDockButton(elements.favoriteButton, wallpaper.is_favorited ? t("favorited") : t("favorite"), wallpaper.is_favorited ? "★" : "☆");
     setDockButton(elements.downloadButton, wallpaper.is_downloaded ? t("downloaded") : t("download"), "⇩");
     elements.likeButton.classList.toggle("is-active", Boolean(wallpaper.is_liked));
+    elements.likeButton.classList.toggle("is-liked", Boolean(wallpaper.is_liked));
     elements.favoriteButton.classList.toggle("is-active", Boolean(wallpaper.is_favorited));
+    elements.favoriteButton.classList.toggle("is-favorited", Boolean(wallpaper.is_favorited));
     elements.downloadButton.classList.toggle("is-active", Boolean(wallpaper.is_downloaded));
+    elements.downloadButton.classList.toggle("is-downloaded", Boolean(wallpaper.is_downloaded));
   }
 
   function renderCollections() {
@@ -785,19 +840,20 @@
     }
 
     state.collections.forEach((collection) => {
+      const collectionTitle = localizedCollectionTitle(collection);
       const button = document.createElement("button");
       button.type = "button";
       button.className = `collection-item${collection.id === state.settings.collectionId ? " is-selected" : ""}`;
       const title = document.createElement("span");
       title.className = "item-title";
-      title.textContent = collection.title || t("sourceCollection");
+      title.textContent = collectionTitle;
       const meta = document.createElement("span");
       meta.className = "item-meta";
       meta.textContent = formatTemplate(t("collectionCount"), { count: collection.wallpaper_count || 0 });
       button.append(title, meta);
       button.addEventListener("click", async () => {
         state.settings.collectionId = collection.id;
-        state.settings.collectionTitle = collection.title || t("sourceCollection");
+        state.settings.collectionTitle = collectionTitle;
         state.settings.wallpaperId = null;
         await saveSettings();
         renderCollections();
@@ -823,25 +879,17 @@
       const button = document.createElement("button");
       button.type = "button";
       button.className = `wallpaper-item${state.current && item.id === state.current.id ? " is-selected" : ""}`;
+      button.setAttribute("aria-label", item.title || "Wallpaper");
       const thumb = document.createElement("div");
       thumb.className = "wallpaper-thumb";
       const img = document.createElement("img");
       img.loading = "lazy";
       img.decoding = "async";
-      img.src = item.thumb_url || item.preview_url || getBestImage(item);
+      img.src = item.thumb_url || item.preview_url || getBestStillImage(item) || getVideoSource(item);
       img.alt = "";
       thumb.appendChild(img);
 
-      const copy = document.createElement("div");
-      const title = document.createElement("div");
-      title.className = "item-title";
-      title.textContent = item.title || "Wallpaper";
-      const meta = document.createElement("div");
-      meta.className = "item-meta";
-      meta.textContent = formatWallpaperDetails(item);
-      copy.append(title, meta);
-
-      button.append(thumb, copy);
+      button.appendChild(thumb);
       button.addEventListener("click", async () => {
         state.settings.randomEnabled = false;
         state.settings.wallpaperId = item.id;
@@ -905,7 +953,10 @@
     elements.downloadButton.disabled = true;
     try {
       const response = await fetch(`${API_BASE}/wallpapers/${state.current.id}/download`, {
-        headers: { Authorization: `Bearer ${state.settings.token}` },
+        headers: {
+          Authorization: `Bearer ${state.settings.token}`,
+          "Accept-Language": currentLocale()
+        },
         credentials: "omit"
       });
       if (response.status === 402) {
@@ -1102,6 +1153,12 @@
     return `${state.settings.source}:${state.settings.collectionId || "all"}`;
   }
 
+  function updateDeviceAspect() {
+    const width = (window.screen && window.screen.width) || window.innerWidth || 16;
+    const height = (window.screen && window.screen.height) || window.innerHeight || 9;
+    document.documentElement.style.setProperty("--device-aspect", `${Math.max(1, width)} / ${Math.max(1, height)}`);
+  }
+
   function normalizeItems(payload) {
     if (Array.isArray(payload)) return payload;
     if (payload && Array.isArray(payload.items)) return payload.items;
@@ -1120,7 +1177,47 @@
   }
 
   function getBestImage(wallpaper) {
+    return getBestStillImage(wallpaper) || getVideoSource(wallpaper);
+  }
+
+  function getBestStillImage(wallpaper) {
+    if (!wallpaper) return "";
+    if (getVideoSource(wallpaper)) {
+      return wallpaper.preview_url || wallpaper.thumb_url || "";
+    }
     return wallpaper.original_url || wallpaper.preview_url || wallpaper.thumb_url || "";
+  }
+
+  function getVideoSource(wallpaper) {
+    if (!wallpaper) return "";
+    const preview = String(wallpaper.preview_video_url || "").trim();
+    if (preview) return preview;
+    const original = String(wallpaper.original_url || "").trim();
+    const fileType = String(wallpaper.file_type || "").toLowerCase();
+    if (original && fileType.startsWith("video/")) return original;
+    if (/\.(mp4|webm|mov)(?:$|\?)/i.test(original)) return original;
+    return "";
+  }
+
+  function localizedCollectionTitle(collection) {
+    if (!collection) return t("sourceCollection");
+    const i18nTitle = pickLocalizedValue(collection.title_i18n || collection.titleI18n);
+    return i18nTitle || collection.title || t("sourceCollection");
+  }
+
+  function pickLocalizedValue(value) {
+    if (!value) return "";
+    let dict = value;
+    if (typeof value === "string") {
+      try {
+        dict = JSON.parse(value);
+      } catch (_error) {
+        return "";
+      }
+    }
+    if (!dict || typeof dict !== "object") return "";
+    const locale = currentLocale();
+    return dict[locale] || dict[locale.toLowerCase()] || dict.en || dict["zh-CN"] || "";
   }
 
   function formatWallpaperDetails(wallpaper) {
@@ -1162,7 +1259,10 @@
   }
 
   async function apiFetch(path, options = {}) {
-    const headers = { Accept: "application/json" };
+    const headers = {
+      Accept: "application/json",
+      "Accept-Language": currentLocale()
+    };
     if (options.body) headers["Content-Type"] = "application/json";
     if (!options.skipAuth && state.settings.token) {
       headers.Authorization = `Bearer ${state.settings.token}`;
@@ -1195,7 +1295,8 @@
     if (!state.sessionId) return;
     const headers = {
       Accept: "application/json",
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "Accept-Language": currentLocale()
     };
     if (state.settings.token) {
       headers.Authorization = `Bearer ${state.settings.token}`;

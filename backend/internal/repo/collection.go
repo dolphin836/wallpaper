@@ -13,9 +13,10 @@ import (
 )
 
 type CollectionBrief struct {
-	ID             int64  `json:"id"`
-	Title          string `json:"title"`
-	WallpaperCount int    `json:"wallpaper_count"`
+	ID             int64      `json:"id"`
+	Title          string     `json:"title"`
+	TitleI18n      model.I18n `gorm:"column:title_i18n" json:"-"`
+	WallpaperCount int        `json:"wallpaper_count"`
 	// ContainsWallpaper is populated by ListUserCollections when called
 	// with a wallpaperID > 0. The frontend Add-to-list picker uses it
 	// to disable + mark the rows the wallpaper is already in.
@@ -393,7 +394,7 @@ func (r *CollectionRepo) ListUserCollections(ctx context.Context, userID int64, 
 	}
 	query := r.db.WithContext(ctx).
 		Model(&model.Collection{}).
-		Select("id, title, wallpaper_count").
+		Select("id, title, title_i18n, wallpaper_count").
 		Where("user_id = ? AND kind = 0", userID).
 		Order("id DESC").
 		Limit(limit)
