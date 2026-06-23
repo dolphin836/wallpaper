@@ -51,6 +51,10 @@ macos/*.zip
 # it's the source-of-truth icon bundled into the .app. If it's not in the
 # repo, build-app.sh silently produces an icon-less .app.
 macos/AppIcon.iconset/
+
+# Chrome extension local upload package. The website copy is tracked under
+# frontend/public/downloads/chrome/.
+chrome-extension/*.zip
 scripts/.qcheck.env
 ai-wallpapers/
 ios/.build/

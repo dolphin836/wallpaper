@@ -3,7 +3,7 @@
 const en = {
   meta: {
     title: 'Download Clients',
-    description: 'Download Wallpaper Exchange clients for macOS and Android, with iOS coming soon.',
+    description: 'Download Wallpaper Exchange clients for macOS, Android, and Chrome, with iOS coming soon.',
   },
   hero: {
     label: 'Wallpaper Exchange',
@@ -12,6 +12,7 @@ const en = {
     subtitle: 'Install the native client for your device and keep the same wallpaper archive, account library, downloads, favorites, and coins close at hand.',
     statMac: 'Mac',
     statAndroid: 'Android',
+    statChrome: 'Chrome',
     statIos: 'iOS',
   },
   status: {
@@ -24,7 +25,7 @@ const en = {
   },
   quick: {
     directLabel: 'Direct downloads',
-    directText: 'The latest DMG and APK are hosted by the website.',
+    directText: 'The latest DMG, APK, and Chrome ZIP are hosted by the website.',
     updateLabel: 'Manifest driven',
     updateText: 'Clients can check the release API for future updates.',
     accountLabel: 'Same account',
@@ -42,6 +43,12 @@ const en = {
       text: 'Install the APK from the official site, browse the same recommendations and collections, then keep updates flowing from the release manifest.',
       requirement: 'Android 8.0+',
     },
+    chrome: {
+      eyebrow: 'Chrome Extension',
+      title: 'Chrome new tab',
+      text: 'Install the packaged extension locally or upload the ZIP to Chrome Web Store. It turns each new tab into a wallpaper-first space powered by Wallpaper Exchange.',
+      requirement: 'Chrome 114+',
+    },
     ios: {
       eyebrow: 'iOS',
       title: 'iPhone client',
@@ -52,18 +59,22 @@ const en = {
   actions: {
     downloadMac: 'Download DMG',
     downloadAndroid: 'Download APK',
+    downloadChrome: 'Download ZIP',
   },
   overview: {
     kicker: 'Release channel',
     title: 'One official download page for every client.',
-    text: 'Mac and Android are available first. iOS is already reserved in the layout so the download page can add the App Store or TestFlight QR code without changing the page structure later.',
+    text: 'Mac, Android, and Chrome are available first. iOS is already reserved in the layout so the download page can add the App Store or TestFlight QR code without changing the page structure later.',
   },
   release: {
     latest: 'Latest',
     macTitle: 'Mac latest build',
     androidTitle: 'Android latest build',
+    chromeTitle: 'Chrome latest package',
     noNotes: 'No release notes were provided for this build.',
     apkHash: 'SHA-256 {{hash}}...',
+    zipHash: 'SHA-256 {{hash}}...',
+    chromeNote: 'Packaged for Chrome extension upload and direct website download.',
     changelog: 'Mac changelog',
     buildCount: '{{num}} builds',
   },
@@ -83,7 +94,7 @@ const en = {
 const zhCN: typeof en = {
   meta: {
     title: '下载客户端',
-    description: '下载 Wallpaper Exchange 的 Mac 和安卓客户端，iOS 入口即将开放。',
+    description: '下载 Wallpaper Exchange 的 Mac、安卓和 Chrome 客户端，iOS 入口即将开放。',
   },
   hero: {
     label: 'Wallpaper Exchange',
@@ -92,6 +103,7 @@ const zhCN: typeof en = {
     subtitle: '为你的设备安装原生客户端，同一个壁纸档案库、账号资料、下载、收藏和金币都可以继续使用。',
     statMac: 'Mac',
     statAndroid: '安卓',
+    statChrome: 'Chrome',
     statIos: 'iOS',
   },
   status: {
@@ -104,7 +116,7 @@ const zhCN: typeof en = {
   },
   quick: {
     directLabel: '官网下载',
-    directText: '最新 DMG 和 APK 都由官网静态资源提供。',
+    directText: '最新 DMG、APK 和 Chrome ZIP 都由官网静态资源提供。',
     updateLabel: 'Manifest 驱动',
     updateText: '客户端后续可以通过 release API 检查更新。',
     accountLabel: '同一个账号',
@@ -122,6 +134,12 @@ const zhCN: typeof en = {
       text: '从官网下载安装 APK，浏览同样的推荐和合集，后续更新也走 release manifest。',
       requirement: 'Android 8.0+',
     },
+    chrome: {
+      eyebrow: 'Chrome 插件',
+      title: 'Chrome 新标签页',
+      text: '可以本地安装这个插件包，也可以把 ZIP 上传到 Chrome Web Store。每个新标签页都会变成以高质量壁纸为核心的空间。',
+      requirement: 'Chrome 114+',
+    },
     ios: {
       eyebrow: 'iOS',
       title: 'iPhone 客户端',
@@ -132,18 +150,22 @@ const zhCN: typeof en = {
   actions: {
     downloadMac: '下载 DMG',
     downloadAndroid: '下载 APK',
+    downloadChrome: '下载 ZIP',
   },
   overview: {
     kicker: '发版通道',
     title: '所有客户端统一放在一个下载页。',
-    text: 'Mac 和安卓先提供下载，iOS 位置已经预留。后面给到 App Store 或 TestFlight 二维码后，可以直接替换，不需要再改页面结构。',
+    text: 'Mac、安卓和 Chrome 先提供下载，iOS 位置已经预留。后面给到 App Store 或 TestFlight 二维码后，可以直接替换，不需要再改页面结构。',
   },
   release: {
     latest: '最新',
     macTitle: 'Mac 最新版本',
     androidTitle: '安卓最新版本',
+    chromeTitle: 'Chrome 最新插件包',
     noNotes: '此构建未提供更新说明。',
     apkHash: 'SHA-256 {{hash}}...',
+    zipHash: 'SHA-256 {{hash}}...',
+    chromeNote: '已打包为可上传 Chrome Web Store、也可从官网直接下载的 ZIP。',
     changelog: 'Mac 更新历史',
     buildCount: '{{num}} 个构建',
   },
@@ -163,7 +185,7 @@ const zhCN: typeof en = {
 const zhTW: typeof en = {
   meta: {
     title: '下載客戶端',
-    description: '下載 Wallpaper Exchange 的 Mac 和 Android 客戶端，iOS 入口即將開放。',
+    description: '下載 Wallpaper Exchange 的 Mac、Android 和 Chrome 客戶端，iOS 入口即將開放。',
   },
   hero: {
     label: 'Wallpaper Exchange',
@@ -172,6 +194,7 @@ const zhTW: typeof en = {
     subtitle: '為你的裝置安裝原生客戶端，同一個桌布檔案庫、帳號資料、下載、收藏和金幣都可以繼續使用。',
     statMac: 'Mac',
     statAndroid: 'Android',
+    statChrome: 'Chrome',
     statIos: 'iOS',
   },
   status: {
@@ -184,7 +207,7 @@ const zhTW: typeof en = {
   },
   quick: {
     directLabel: '官網下載',
-    directText: '最新 DMG 和 APK 都由官網靜態資源提供。',
+    directText: '最新 DMG、APK 和 Chrome ZIP 都由官網靜態資源提供。',
     updateLabel: 'Manifest 驅動',
     updateText: '客戶端後續可以透過 release API 檢查更新。',
     accountLabel: '同一個帳號',
@@ -202,6 +225,12 @@ const zhTW: typeof en = {
       text: '從官網下載安裝 APK，瀏覽同樣的推薦和合輯，後續更新也走 release manifest。',
       requirement: 'Android 8.0+',
     },
+    chrome: {
+      eyebrow: 'Chrome 擴充功能',
+      title: 'Chrome 新分頁',
+      text: '可以在本機安裝這個擴充功能包，也可以把 ZIP 上傳到 Chrome Web Store。每個新分頁都會變成以高品質桌布為核心的空間。',
+      requirement: 'Chrome 114+',
+    },
     ios: {
       eyebrow: 'iOS',
       title: 'iPhone 客戶端',
@@ -212,18 +241,22 @@ const zhTW: typeof en = {
   actions: {
     downloadMac: '下載 DMG',
     downloadAndroid: '下載 APK',
+    downloadChrome: '下載 ZIP',
   },
   overview: {
     kicker: '發版通道',
     title: '所有客戶端統一放在一個下載頁。',
-    text: 'Mac 和 Android 先提供下載，iOS 位置已經預留。後面給到 App Store 或 TestFlight QR Code 後，可以直接替換，不需要再改頁面結構。',
+    text: 'Mac、Android 和 Chrome 先提供下載，iOS 位置已經預留。後面給到 App Store 或 TestFlight QR Code 後，可以直接替換，不需要再改頁面結構。',
   },
   release: {
     latest: '最新',
     macTitle: 'Mac 最新版本',
     androidTitle: 'Android 最新版本',
+    chromeTitle: 'Chrome 最新擴充功能包',
     noNotes: '此版本未提供更新說明。',
     apkHash: 'SHA-256 {{hash}}...',
+    zipHash: 'SHA-256 {{hash}}...',
+    chromeNote: '已打包為可上傳 Chrome Web Store、也可從官網直接下載的 ZIP。',
     changelog: 'Mac 更新紀錄',
     buildCount: '{{num}} 個版本',
   },
@@ -243,7 +276,7 @@ const zhTW: typeof en = {
 const ja: typeof en = {
   meta: {
     title: 'クライアントをダウンロード',
-    description: 'Wallpaper Exchange の Mac / Android クライアントをダウンロード。iOS も近日対応予定です。',
+    description: 'Wallpaper Exchange の Mac / Android / Chrome クライアントをダウンロード。iOS も近日対応予定です。',
   },
   hero: {
     label: 'Wallpaper Exchange',
@@ -252,6 +285,7 @@ const ja: typeof en = {
     subtitle: '端末にネイティブクライアントを入れて、同じ壁紙アーカイブ、アカウント、ダウンロード、お気に入り、コインをそのまま使えます。',
     statMac: 'Mac',
     statAndroid: 'Android',
+    statChrome: 'Chrome',
     statIos: 'iOS',
   },
   status: {
@@ -264,7 +298,7 @@ const ja: typeof en = {
   },
   quick: {
     directLabel: '公式ダウンロード',
-    directText: '最新の DMG と APK は公式サイトで配信します。',
+    directText: '最新の DMG、APK、Chrome ZIP は公式サイトで配信します。',
     updateLabel: 'Manifest 管理',
     updateText: 'クライアントは release API から更新情報を確認できます。',
     accountLabel: '同じアカウント',
@@ -282,6 +316,12 @@ const ja: typeof en = {
       text: '公式サイトから APK をインストールし、同じおすすめとコレクションを閲覧できます。今後の更新も release manifest で配信します。',
       requirement: 'Android 8.0+',
     },
+    chrome: {
+      eyebrow: 'Chrome 拡張機能',
+      title: 'Chrome 新しいタブ',
+      text: 'この拡張機能パッケージをローカルにインストールするか、ZIP を Chrome Web Store にアップロードできます。新しいタブが Wallpaper Exchange の高品質な壁紙空間になります。',
+      requirement: 'Chrome 114+',
+    },
     ios: {
       eyebrow: 'iOS',
       title: 'iPhone クライアント',
@@ -292,18 +332,22 @@ const ja: typeof en = {
   actions: {
     downloadMac: 'DMG をダウンロード',
     downloadAndroid: 'APK をダウンロード',
+    downloadChrome: 'ZIP をダウンロード',
   },
   overview: {
     kicker: 'リリースチャンネル',
     title: 'すべてのクライアントを 1 つのダウンロードページに。',
-    text: 'まず Mac と Android を提供し、iOS の枠も予約済みです。App Store または TestFlight の QR コードが届いたら、ページ構造を変えずに差し替えられます。',
+    text: 'まず Mac、Android、Chrome を提供し、iOS の枠も予約済みです。App Store または TestFlight の QR コードが届いたら、ページ構造を変えずに差し替えられます。',
   },
   release: {
     latest: '最新',
     macTitle: 'Mac 最新ビルド',
     androidTitle: 'Android 最新ビルド',
+    chromeTitle: 'Chrome 最新パッケージ',
     noNotes: 'このビルドにはリリースノートがありません。',
     apkHash: 'SHA-256 {{hash}}...',
+    zipHash: 'SHA-256 {{hash}}...',
+    chromeNote: 'Chrome Web Store へのアップロードと公式サイトからの直接ダウンロードに使える ZIP です。',
     changelog: 'Mac 変更履歴',
     buildCount: '{{num}} 件のビルド',
   },

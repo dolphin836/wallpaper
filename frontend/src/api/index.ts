@@ -1,5 +1,5 @@
 import client, { resolveBaseURL } from './client';
-import type { ApiResponse, AuthResponse, Wallpaper, WallpaperDetail, PaginatedData, Category, Tag, User, UserListItem, DeviceProfile, WallpaperVariant, Collection, CollectionDetail, CollectionBrief, CoinTransaction, Engagements, MacRelease, AndroidRelease } from '../types';
+import type { ApiResponse, AuthResponse, Wallpaper, WallpaperDetail, PaginatedData, Category, Tag, User, UserListItem, DeviceProfile, WallpaperVariant, Collection, CollectionDetail, CollectionBrief, CoinTransaction, Engagements, MacRelease, AndroidRelease, ChromeRelease } from '../types';
 
 export const register = (data: { username: string; email: string; password: string }) =>
   client.post<ApiResponse<AuthResponse>>('/auth/register', data);
@@ -236,6 +236,18 @@ export const getMacRelease = () =>
 
 export const getAndroidRelease = () =>
   client.get<ApiResponse<AndroidRelease>>('/android/release');
+
+export const getChromeRelease = async () => {
+  const response = await fetch('/downloads/chrome/chrome_release.json', {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load Chrome release manifest: ${response.status}`);
+  }
+
+  return response.json() as Promise<ChromeRelease>;
+};
 
 export interface PublicStats { wallpapers: number; collections: number }
 export const getPublicStats = () => client.get<ApiResponse<PublicStats>>('/stats');

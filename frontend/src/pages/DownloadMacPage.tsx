@@ -9,10 +9,11 @@ import {
   AiOutlineSafetyCertificate,
   AiOutlineSync,
 } from "react-icons/ai";
+import { FiChrome } from "react-icons/fi";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { getAndroidRelease, getMacRelease } from "../api";
-import type { AndroidRelease, MacRelease, MacReleaseEntry } from "../types";
+import { getAndroidRelease, getChromeRelease, getMacRelease } from "../api";
+import type { AndroidRelease, ChromeRelease, MacRelease, MacReleaseEntry } from "../types";
 import PageMeta from "../components/PageMeta";
 import { track } from "../lib/track";
 
@@ -47,6 +48,7 @@ export default function DownloadMacPage() {
   const { t, i18n } = useTranslation("mac");
   const [macRelease, setMacRelease] = useState<MacRelease | null>(null);
   const [androidRelease, setAndroidRelease] = useState<AndroidRelease | null>(null);
+  const [chromeRelease, setChromeRelease] = useState<ChromeRelease | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,18 +56,21 @@ export default function DownloadMacPage() {
     let cancelled = false;
     setLoading(true);
 
-    Promise.allSettled([getMacRelease(), getAndroidRelease()])
-      .then(([macResult, androidResult]) => {
+    Promise.allSettled([getMacRelease(), getAndroidRelease(), getChromeRelease()])
+      .then(([macResult, androidResult, chromeResult]) => {
         if (cancelled) return;
 
         const nextMac =
           macResult.status === "fulfilled" ? macResult.value.data.data : null;
         const nextAndroid =
           androidResult.status === "fulfilled" ? androidResult.value.data.data : null;
+        const nextChrome =
+          chromeResult.status === "fulfilled" ? chromeResult.value : null;
 
         setMacRelease(nextMac);
         setAndroidRelease(nextAndroid);
-        setError(nextMac || nextAndroid ? null : t("error.loadFailed"));
+        setChromeRelease(nextChrome);
+        setError(nextMac || nextAndroid || nextChrome ? null : t("error.loadFailed"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -87,9 +92,10 @@ export default function DownloadMacPage() {
     () => localizedAndroidNotes(androidRelease, i18n.language),
     [androidRelease, i18n.language],
   );
+  const chromeNotes = useMemo(() => [t("release.chromeNote")], [t]);
   const trackClientDownload = (
-    targetClient: "mac" | "android",
-    artifact: "dmg" | "apk",
+    targetClient: "mac" | "android" | "chrome",
+    artifact: "dmg" | "apk" | "zip",
     version: string | undefined,
     url: string | undefined,
     surface: "client_card" | "release_panel",
@@ -133,9 +139,10 @@ export default function DownloadMacPage() {
                 </p>
               </div>
 
-              <div className="mt-8 grid max-w-2xl gap-px overflow-hidden rounded-[14px] border border-hair bg-hair sm:grid-cols-3">
+              <div className="mt-8 grid max-w-2xl gap-px overflow-hidden rounded-[14px] border border-hair bg-hair sm:grid-cols-4">
                 <DownloadStat label={t("hero.statMac")} value={macRelease ? `v${macVersion}` : t("status.unavailable")} />
                 <DownloadStat label={t("hero.statAndroid")} value={androidRelease ? `v${androidRelease.current_version}` : t("status.unavailable")} />
+                <DownloadStat label={t("hero.statChrome")} value={chromeRelease ? `v${chromeRelease.current_version}` : t("status.unavailable")} />
                 <DownloadStat label={t("hero.statIos")} value={t("status.comingSoon")} />
               </div>
             </div>
@@ -153,7 +160,7 @@ export default function DownloadMacPage() {
             ) : error ? (
               <DownloadError message={error} />
             ) : (
-              <div className="grid gap-4 xl:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <ClientCard
                   icon={<AiOutlineApple />}
                   eyebrow={t("platforms.mac.eyebrow")}
@@ -182,6 +189,20 @@ export default function DownloadMacPage() {
                   tone="ink"
                 />
 
+                <ClientCard
+                  icon={<FiChrome />}
+                  eyebrow={t("platforms.chrome.eyebrow")}
+                  title={t("platforms.chrome.title")}
+                  text={t("platforms.chrome.text")}
+                  version={chromeRelease ? `v${chromeRelease.current_version}` : t("status.unavailable")}
+                  requirement={t("platforms.chrome.requirement")}
+                  updated={formatReleaseDate(chromeRelease?.released_at, t("release.latest"))}
+                  href={chromeRelease?.current_zip_url}
+                  actionLabel={t("actions.downloadChrome")}
+                  onDownload={() => trackClientDownload("chrome", "zip", chromeRelease?.current_version, chromeRelease?.current_zip_url, "client_card")}
+                  tone="ink"
+                />
+
                 <IOSCard />
               </div>
             )}
@@ -202,7 +223,7 @@ export default function DownloadMacPage() {
               </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-3">
               <ReleasePanel
                 icon={<AiOutlineApple />}
                 title={t("release.macTitle")}
@@ -226,6 +247,19 @@ export default function DownloadMacPage() {
                 actionLabel={t("actions.downloadAndroid")}
                 onDownload={() => trackClientDownload("android", "apk", androidRelease?.current_version, androidRelease?.current_apk_url, "release_panel")}
                 footer={androidRelease?.apk_sha256 ? t("release.apkHash", { hash: androidRelease.apk_sha256.slice(0, 12) }) : undefined}
+              />
+
+              <ReleasePanel
+                icon={<FiChrome />}
+                title={t("release.chromeTitle")}
+                version={chromeRelease ? `v${chromeRelease.current_version}` : t("status.unavailable")}
+                date={formatReleaseDate(chromeRelease?.released_at, t("release.latest"))}
+                notes={chromeNotes}
+                emptyText={t("release.noNotes")}
+                href={chromeRelease?.current_zip_url}
+                actionLabel={t("actions.downloadChrome")}
+                onDownload={() => trackClientDownload("chrome", "zip", chromeRelease?.current_version, chromeRelease?.current_zip_url, "release_panel")}
+                footer={chromeRelease?.zip_sha256 ? t("release.zipHash", { hash: chromeRelease.zip_sha256.slice(0, 12) }) : undefined}
               />
             </div>
           </section>
@@ -501,8 +535,8 @@ function ReleaseHistory({ releases }: { releases: MacReleaseEntry[] }) {
 
 function DownloadSkeleton() {
   return (
-    <div className="grid gap-4 xl:grid-cols-3">
-      {[0, 1, 2].map((item) => (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {[0, 1, 2, 3].map((item) => (
         <div key={item} className="min-h-[410px] animate-pulse rounded-[18px] border border-hair bg-paper p-5">
           <div className="flex justify-between">
             <div className="h-12 w-12 rounded-[14px] bg-hair/70" />

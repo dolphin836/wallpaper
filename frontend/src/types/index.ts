@@ -213,3 +213,10 @@ export interface AndroidRelease {
   notes: string[];
   notes_i18n?: Record<string, string[]>;
 }
+
+export interface ChromeRelease {
+  current_version: string;
+  current_zip_url: string;
+  zip_sha256: string;
+  released_at: string;
+}

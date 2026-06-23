@@ -9,6 +9,18 @@ First installable version of the Wallpaper Exchange new tab extension.
 3. Click `Load unpacked`.
 4. Select this `chrome-extension` folder.
 
+## Release package
+
+Run this from the repository root:
+
+```bash
+./release-chrome.sh
+```
+
+The script creates a versioned ZIP in this folder for Chrome Web Store upload
+and copies the same ZIP into `frontend/public/downloads/chrome` for the website
+download page.
+
 ## What this version does
 
 - Replaces the Chrome new tab page with a wallpaper-first experience.
