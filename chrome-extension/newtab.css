@@ -244,19 +244,19 @@ a {
   right: 26px;
   bottom: 24px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
   justify-items: end;
 }
 
 .auth-actions {
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
 .dock-button {
   position: relative;
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
   border-radius: 999px;
@@ -275,7 +275,7 @@ a {
   cursor: pointer;
   opacity: 0.36;
   transition: opacity 160ms ease, transform 160ms ease, background 160ms ease, border-color 160ms ease;
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 800;
   letter-spacing: 0;
 }
@@ -294,10 +294,10 @@ a {
   position: absolute;
   top: 50%;
   right: calc(100% + 10px);
-  min-height: 30px;
+  min-height: 28px;
   display: inline-flex;
   align-items: center;
-  padding: 0 11px;
+  padding: 0 10px;
   border-radius: 999px;
   color: rgba(255, 255, 255, 0.92);
   background:
@@ -314,7 +314,7 @@ a {
   pointer-events: none;
   transform: translate(8px, -50%);
   transition: opacity 160ms ease, transform 160ms ease;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
 }
 
@@ -371,6 +371,10 @@ a {
 }
 
 .settings-panel {
+  --panel-ink: rgba(255, 255, 255, 0.94);
+  --panel-muted: rgba(255, 255, 255, 0.66);
+  --panel-faint: rgba(255, 255, 255, 0.42);
+  --line: rgba(255, 255, 255, 0.14);
   top: 18px;
   right: 18px;
   bottom: 18px;
@@ -378,19 +382,19 @@ a {
   display: none;
   overflow: auto;
   padding: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.30);
   border-radius: 28px;
   color: var(--panel-ink);
   background:
-    radial-gradient(circle at 16% 0%, rgba(255, 255, 255, 0.86), transparent 34%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.70), rgba(255, 255, 255, 0.36)),
-    rgba(246, 242, 235, 0.56);
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.34), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05)),
+    rgba(17, 18, 20, 0.42);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.20),
-    var(--liquid-shadow);
-  backdrop-filter: blur(36px) saturate(1.8) contrast(1.04);
-  -webkit-backdrop-filter: blur(36px) saturate(1.8) contrast(1.04);
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.10),
+    0 24px 82px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(34px) saturate(1.85) contrast(1.04);
+  -webkit-backdrop-filter: blur(34px) saturate(1.85) contrast(1.04);
   isolation: isolate;
 }
 
@@ -407,14 +411,64 @@ a {
   border-radius: inherit;
   pointer-events: none;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.20), transparent 36%, rgba(255, 255, 255, 0.16)),
-    radial-gradient(circle at 72% 12%, rgba(255, 255, 255, 0.28), transparent 30%);
+    linear-gradient(90deg, rgba(255, 255, 255, 0.12), transparent 36%, rgba(255, 255, 255, 0.10)),
+    radial-gradient(circle at 72% 12%, rgba(255, 255, 255, 0.16), transparent 30%);
 }
 
 .settings-panel > *,
 .auth-dialog > * {
   position: relative;
   z-index: 1;
+}
+
+.settings-panel .round-button,
+.settings-panel .source-card,
+.settings-panel .collection-item,
+.settings-panel .wallpaper-item,
+.settings-panel .account-card,
+.settings-panel select {
+  color: var(--panel-ink);
+  border-color: rgba(255, 255, 255, 0.24);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.24), transparent 38%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)),
+    rgba(18, 18, 18, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 10px 26px rgba(0, 0, 0, 0.12);
+}
+
+.settings-panel .source-card small,
+.settings-panel .item-meta,
+.settings-panel .account-copy span,
+.settings-panel .info-list dt,
+.settings-panel .account-prompt p,
+.settings-panel .legal-note,
+.settings-panel .status-line {
+  color: var(--panel-muted);
+}
+
+.settings-panel .info-list dd {
+  color: var(--panel-ink);
+}
+
+.settings-panel .source-card[aria-checked="true"],
+.settings-panel .collection-item.is-selected,
+.settings-panel .wallpaper-item.is-selected {
+  border-color: rgba(240, 120, 63, 0.74);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.28), transparent 38%),
+    linear-gradient(135deg, rgba(240, 120, 63, 0.24), rgba(255, 255, 255, 0.06)),
+    rgba(18, 18, 18, 0.28);
+}
+
+.settings-panel .source-card:hover,
+.settings-panel .collection-item:hover,
+.settings-panel .wallpaper-item:hover {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.30), transparent 38%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06)),
+    rgba(18, 18, 18, 0.30);
 }
 
 .settings-panel,
@@ -1095,7 +1149,10 @@ input[type="checkbox"]:checked::before {
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .settings-panel,
+  .settings-panel {
+    background: rgba(18, 18, 18, 0.92);
+  }
+
   .auth-dialog {
     background: rgba(250, 247, 240, 0.96);
   }
@@ -1118,7 +1175,12 @@ input[type="checkbox"]:checked::before {
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .settings-panel,
+  .settings-panel {
+    background: rgba(18, 18, 18, 0.92);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
   .auth-dialog {
     background: rgba(250, 247, 240, 0.96);
     backdrop-filter: none;
@@ -1157,5 +1219,14 @@ input[type="checkbox"]:checked::before {
     background: rgba(255, 255, 255, 0.82);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+
+  .settings-panel .source-card,
+  .settings-panel .collection-item,
+  .settings-panel .wallpaper-item,
+  .settings-panel .round-button,
+  .settings-panel select,
+  .settings-panel .account-card {
+    background: rgba(18, 18, 18, 0.72);
   }
 }
