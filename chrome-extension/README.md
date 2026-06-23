@@ -18,8 +18,8 @@ First installable version of the Wallpaper Exchange new tab extension.
 - After sign in, supports My Favorites and one selected My Collection.
 - Lets users pick a specific wallpaper from the active source.
 - Supports random rotation from the active source, with an optional interval.
-- Supports browser-following language, English, and Chinese.
-- Supports clock and search widgets, both enabled by default.
+- Supports browser-following language, Simplified Chinese, Traditional Chinese, English, and Japanese.
+- Supports clock, search, and user-managed quick link widgets, all enabled by default.
 - Reports Chrome extension analytics events through the existing `/events` API.
 
 ## Notes

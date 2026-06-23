@@ -21,6 +21,7 @@
           <label class="sr-only" for="searchInput" data-i18n="searchLabel">Search the web</label>
           <input id="searchInput" name="q" type="search" spellcheck="false">
         </form>
+        <div class="quick-links" id="quickLinks" aria-label="Quick links"></div>
       </section>
 
       <div class="corner-dock" aria-label="Wallpaper controls">
@@ -126,6 +127,27 @@
             </span>
             <input id="searchToggle" type="checkbox">
           </label>
+          <label class="switch-row">
+            <span>
+              <strong data-i18n="quickLinksWidget">Quick links</strong>
+              <small data-i18n="quickLinksHint">Add your favorite sites below search.</small>
+            </span>
+            <input id="quickLinksToggle" type="checkbox">
+          </label>
+          <div class="quick-link-settings" id="quickLinkSettings">
+            <form class="quick-link-form" id="quickLinkForm" autocomplete="off">
+              <label>
+                <span data-i18n="quickLinkName">Name</span>
+                <input id="quickLinkNameInput" name="title" type="text" maxlength="28">
+              </label>
+              <label>
+                <span data-i18n="quickLinkUrl">URL</span>
+                <input id="quickLinkUrlInput" name="url" type="text" inputmode="url" spellcheck="false" required>
+              </label>
+              <button class="primary-button" id="addQuickLinkButton" type="submit" data-i18n="addQuickLink">Add</button>
+            </form>
+            <div class="quick-link-manager" id="quickLinkManager"></div>
+          </div>
         </section>
 
         <section class="panel-section">
@@ -149,7 +171,7 @@
           <dl class="info-list">
             <div>
               <dt data-i18n="versionLabel">Version</dt>
-              <dd id="versionText">0.1.2</dd>
+              <dd id="versionText">0.1.3</dd>
             </div>
           </dl>
           <div class="link-list">

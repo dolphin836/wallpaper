@@ -240,6 +240,92 @@ a {
     rgba(12, 13, 14, 0.44);
 }
 
+.quick-links {
+  width: min(560px, 100%);
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  pointer-events: auto;
+}
+
+.quick-links[hidden] {
+  display: none;
+}
+
+.quick-link-tile {
+  width: 72px;
+  min-height: 70px;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 7px;
+  padding: 5px 4px;
+  border-radius: 16px;
+  color: rgba(255, 255, 255, 0.88);
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: opacity 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.quick-link-tile:hover,
+.quick-link-tile:focus-visible {
+  opacity: 1;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04)),
+    rgba(12, 13, 14, 0.18);
+  transform: translateY(-1px);
+}
+
+.quick-link-icon {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.92);
+  background:
+    radial-gradient(circle at 28% 12%, rgba(255, 255, 255, 0.44), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.06)),
+    rgba(14, 15, 16, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    0 12px 32px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(18px) saturate(1.55);
+  -webkit-backdrop-filter: blur(18px) saturate(1.55);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.quick-link-icon img {
+  position: absolute;
+  inset: 8px;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+  object-fit: contain;
+}
+
+.quick-link-label {
+  max-width: 100%;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-shadow: 0 8px 22px rgba(0, 0, 0, 0.44);
+  white-space: nowrap;
+}
+
+.quick-link-add .quick-link-icon {
+  font-size: 22px;
+}
+
 .corner-dock {
   right: 26px;
   bottom: 24px;
@@ -423,6 +509,7 @@ a {
 .settings-panel .collection-item,
 .settings-panel .wallpaper-item,
 .settings-panel .account-card,
+.settings-panel .quick-link-row,
 .settings-panel select {
   color: var(--panel-ink);
   border-color: rgba(255, 255, 255, 0.24);
@@ -438,6 +525,7 @@ a {
 .settings-panel .source-card small,
 .settings-panel .item-meta,
 .settings-panel .account-copy span,
+.settings-panel .quick-link-copy span,
 .settings-panel .info-list dt,
 .settings-panel .account-prompt p,
 .settings-panel .legal-note,
@@ -461,7 +549,8 @@ a {
 
 .settings-panel .source-card:hover,
 .settings-panel .collection-item:hover,
-.settings-panel .wallpaper-item:hover {
+.settings-panel .wallpaper-item:hover,
+.settings-panel .quick-link-row:hover {
   background:
     radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.30), transparent 38%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06)),
@@ -799,6 +888,7 @@ a {
 }
 
 select,
+.quick-link-form input,
 .auth-form input {
   height: 38px;
   border: 1px solid rgba(255, 255, 255, 0.38);
@@ -815,6 +905,7 @@ select,
 }
 
 select:focus,
+.quick-link-form input:focus,
 .auth-form input:focus {
   border-color: rgba(240, 120, 63, 0.76);
   box-shadow: 0 0 0 3px rgba(240, 120, 63, 0.14);
@@ -859,6 +950,106 @@ input[type="checkbox"]:checked {
 
 input[type="checkbox"]:checked::before {
   transform: translateX(18px);
+}
+
+.quick-link-settings {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.quick-link-settings[hidden] {
+  display: none;
+}
+
+.quick-link-form {
+  display: grid;
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.quick-link-form label {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  color: var(--panel-muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.quick-link-manager {
+  display: grid;
+  gap: 8px;
+}
+
+.quick-link-row {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--radius-small);
+}
+
+.quick-link-row-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.92);
+  background:
+    radial-gradient(circle at 28% 14%, rgba(255, 255, 255, 0.42), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06)),
+    rgba(18, 18, 18, 0.26);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.quick-link-copy {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+
+.quick-link-copy strong,
+.quick-link-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-link-copy strong {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.quick-link-copy span {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.quick-link-remove {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--panel-muted);
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.quick-link-remove:hover {
+  color: #fff;
+  background: rgba(240, 120, 63, 0.80);
 }
 
 .account-prompt {
@@ -1124,6 +1315,10 @@ input[type="checkbox"]:checked::before {
     grid-template-columns: 1fr;
   }
 
+  .quick-link-form {
+    grid-template-columns: 1fr;
+  }
+
   .widget-layer {
     top: 32%;
   }
@@ -1157,11 +1352,14 @@ input[type="checkbox"]:checked::before {
   .dock-button,
   .dock-button::after,
   .search input,
+  .quick-link-icon,
   .source-card,
   .collection-item,
   .wallpaper-item,
+  .quick-link-row,
   .round-button,
   select,
+  .quick-link-form input,
   .auth-form input,
   .primary-button,
   .account-card,
@@ -1207,8 +1405,10 @@ input[type="checkbox"]:checked::before {
   .source-card,
   .collection-item,
   .wallpaper-item,
+  .quick-link-row,
   .round-button,
   select,
+  .quick-link-form input,
   .auth-form input,
   .account-card,
   .auth-tabs,
@@ -1221,8 +1421,10 @@ input[type="checkbox"]:checked::before {
   .settings-panel .source-card,
   .settings-panel .collection-item,
   .settings-panel .wallpaper-item,
+  .settings-panel .quick-link-row,
   .settings-panel .round-button,
   .settings-panel select,
+  .settings-panel .quick-link-form input,
   .settings-panel .account-card {
     background: rgba(18, 18, 18, 0.72);
   }

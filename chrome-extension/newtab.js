@@ -6,6 +6,7 @@
   const SESSION_KEY = "wallpaperExchangeChromeSession";
   const SESSION_STAMP_KEY = "wallpaperExchangeChromeSessionStamp";
   const SESSION_TTL_MS = 30 * 60 * 1000;
+  const MAX_QUICK_LINKS = 10;
 
   const extensionVersion = getExtensionVersion();
 
@@ -20,7 +21,9 @@
     randomEnabled: false,
     randomIntervalMinutes: 15,
     showClock: true,
-    showSearch: true
+    showSearch: true,
+    showQuickLinks: true,
+    quickLinks: []
   };
 
   const COPY = {
@@ -61,6 +64,19 @@
       clockHint: "Uses your browser format.",
       searchWidget: "Search",
       searchHint: "Search or enter a website.",
+      quickLinksWidget: "Quick links",
+      quickLinksHint: "Add your favorite sites below search.",
+      quickLinksTitle: "Quick links",
+      quickLinkName: "Name",
+      quickLinkUrl: "URL",
+      quickLinkNamePlaceholder: "Wallpaper Exchange",
+      quickLinkUrlPlaceholder: "wallpaperexchange.com",
+      addQuickLink: "Add",
+      addShortcut: "Add shortcut",
+      deleteQuickLink: "Remove",
+      noQuickLinks: "No quick links yet.",
+      quickLinkInvalid: "Enter a valid website.",
+      quickLinkLimit: "You can add up to {count} links.",
       accountTitle: "Account",
       accountPrompt: "Sign in to use favorites, collections, likes, and downloads.",
       openAuth: "Sign in or create account",
@@ -141,6 +157,19 @@
       clockHint: "使用浏览器默认格式。",
       searchWidget: "搜索",
       searchHint: "搜索或输入网址。",
+      quickLinksWidget: "常用网址",
+      quickLinksHint: "在搜索框下面展示你添加的网址。",
+      quickLinksTitle: "常用网址",
+      quickLinkName: "名称",
+      quickLinkUrl: "网址",
+      quickLinkNamePlaceholder: "Wallpaper Exchange",
+      quickLinkUrlPlaceholder: "wallpaperexchange.com",
+      addQuickLink: "添加",
+      addShortcut: "添加网址",
+      deleteQuickLink: "删除",
+      noQuickLinks: "还没有常用网址。",
+      quickLinkInvalid: "请输入有效的网址。",
+      quickLinkLimit: "最多可以添加 {count} 个网址。",
       accountTitle: "登录/注册",
       accountPrompt: "登录后可以使用收藏、合集、点赞和下载。",
       openAuth: "登录或注册",
@@ -214,6 +243,19 @@
     widgetsTitle: "小工具",
     clockHint: "使用瀏覽器預設格式。",
     searchHint: "搜尋或輸入網址。",
+    quickLinksWidget: "常用網址",
+    quickLinksHint: "在搜尋框下方顯示你加入的網址。",
+    quickLinksTitle: "常用網址",
+    quickLinkName: "名稱",
+    quickLinkUrl: "網址",
+    quickLinkNamePlaceholder: "Wallpaper Exchange",
+    quickLinkUrlPlaceholder: "wallpaperexchange.com",
+    addQuickLink: "加入",
+    addShortcut: "加入網址",
+    deleteQuickLink: "刪除",
+    noQuickLinks: "還沒有常用網址。",
+    quickLinkInvalid: "請輸入有效的網址。",
+    quickLinkLimit: "最多可以加入 {count} 個網址。",
     accountTitle: "登入/註冊",
     accountPrompt: "登入後可以使用收藏、合集、按讚和下載。",
     openAuth: "登入或註冊",
@@ -281,6 +323,19 @@
     clockHint: "ブラウザの形式を使用します。",
     searchWidget: "検索",
     searchHint: "検索またはURLを入力します。",
+    quickLinksWidget: "よく使うサイト",
+    quickLinksHint: "検索欄の下にお気に入りのサイトを表示します。",
+    quickLinksTitle: "よく使うサイト",
+    quickLinkName: "名前",
+    quickLinkUrl: "URL",
+    quickLinkNamePlaceholder: "Wallpaper Exchange",
+    quickLinkUrlPlaceholder: "wallpaperexchange.com",
+    addQuickLink: "追加",
+    addShortcut: "ショートカットを追加",
+    deleteQuickLink: "削除",
+    noQuickLinks: "まだショートカットはありません。",
+    quickLinkInvalid: "有効なURLを入力してください。",
+    quickLinkLimit: "{count} 件まで追加できます。",
     accountTitle: "アカウント",
     accountPrompt: "ログインすると、お気に入り、コレクション、いいね、ダウンロードを使えます。",
     openAuth: "ログインまたは登録",
@@ -332,6 +387,7 @@
     clock: document.getElementById("clock"),
     searchForm: document.getElementById("searchForm"),
     searchInput: document.getElementById("searchInput"),
+    quickLinks: document.getElementById("quickLinks"),
     settingsButton: document.getElementById("settingsButton"),
     authActions: document.getElementById("authActions"),
     likeButton: document.getElementById("likeButton"),
@@ -350,6 +406,13 @@
     languageSelect: document.getElementById("languageSelect"),
     clockToggle: document.getElementById("clockToggle"),
     searchToggle: document.getElementById("searchToggle"),
+    quickLinksToggle: document.getElementById("quickLinksToggle"),
+    quickLinkSettings: document.getElementById("quickLinkSettings"),
+    quickLinkForm: document.getElementById("quickLinkForm"),
+    quickLinkNameInput: document.getElementById("quickLinkNameInput"),
+    quickLinkUrlInput: document.getElementById("quickLinkUrlInput"),
+    addQuickLinkButton: document.getElementById("addQuickLinkButton"),
+    quickLinkManager: document.getElementById("quickLinkManager"),
     accountPrompt: document.getElementById("accountPrompt"),
     openAuthButton: document.getElementById("openAuthButton"),
     accountCard: document.getElementById("accountCard"),
@@ -386,7 +449,7 @@
   document.addEventListener("DOMContentLoaded", init);
 
   async function init() {
-    state.settings = { ...DEFAULT_SETTINGS, ...(await getStored(SETTINGS_KEY)) };
+    state.settings = normalizeSettings(await getStored(SETTINGS_KEY));
     if (state.settings.language === "zh") {
       state.settings.language = "zh-CN";
     }
@@ -475,6 +538,8 @@
 
     elements.clockToggle.addEventListener("change", () => updateWidgetSetting("showClock", elements.clockToggle.checked));
     elements.searchToggle.addEventListener("change", () => updateWidgetSetting("showSearch", elements.searchToggle.checked));
+    elements.quickLinksToggle.addEventListener("change", () => updateWidgetSetting("showQuickLinks", elements.quickLinksToggle.checked));
+    elements.quickLinkForm.addEventListener("submit", handleQuickLinkSubmit);
 
     elements.authTabs.forEach((button) => {
       button.addEventListener("click", () => setAuthMode(button.dataset.mode || "login"));
@@ -503,6 +568,10 @@
     state.settings[key] = value;
     await saveSettings();
     renderWidgets();
+    if (key === "showQuickLinks") {
+      elements.quickLinkSettings.hidden = !value;
+      renderQuickLinkSettings();
+    }
     track("chrome_widget_toggle", { key, value });
   }
 
@@ -780,7 +849,10 @@
     elements.languageSelect.value = state.settings.language || "auto";
     elements.clockToggle.checked = Boolean(state.settings.showClock);
     elements.searchToggle.checked = Boolean(state.settings.showSearch);
+    elements.quickLinksToggle.checked = Boolean(state.settings.showQuickLinks);
+    elements.quickLinkSettings.hidden = !state.settings.showQuickLinks;
     renderWidgets();
+    renderQuickLinkSettings();
     renderAccount();
     renderActionButtons();
     renderCollections();
@@ -789,7 +861,107 @@
   function renderWidgets() {
     elements.clock.hidden = !state.settings.showClock;
     elements.searchForm.hidden = !state.settings.showSearch;
-    elements.widgetLayer.classList.toggle("is-empty", !state.settings.showClock && !state.settings.showSearch);
+    renderQuickLinks();
+    elements.widgetLayer.classList.toggle(
+      "is-empty",
+      !state.settings.showClock && !state.settings.showSearch && !state.settings.showQuickLinks
+    );
+  }
+
+  function renderQuickLinks() {
+    elements.quickLinks.hidden = !state.settings.showQuickLinks;
+    elements.quickLinks.replaceChildren();
+    if (!state.settings.showQuickLinks) return;
+
+    state.settings.quickLinks.forEach((link) => {
+      const tile = document.createElement("button");
+      tile.type = "button";
+      tile.className = "quick-link-tile";
+      tile.setAttribute("aria-label", link.title);
+      tile.title = link.title;
+
+      const icon = document.createElement("span");
+      icon.className = "quick-link-icon";
+      const favicon = document.createElement("img");
+      favicon.src = faviconURL(link.url);
+      favicon.alt = "";
+      favicon.loading = "lazy";
+      favicon.decoding = "async";
+      favicon.onerror = () => favicon.remove();
+      icon.textContent = initialsFor(link.title || link.url);
+      icon.appendChild(favicon);
+
+      const label = document.createElement("span");
+      label.className = "quick-link-label";
+      label.textContent = link.title;
+
+      tile.append(icon, label);
+      tile.addEventListener("click", () => {
+        track("chrome_quick_link_open", { url_host: hostFor(link.url) });
+        window.location.href = link.url;
+      });
+      elements.quickLinks.appendChild(tile);
+    });
+
+    if (state.settings.quickLinks.length < MAX_QUICK_LINKS) {
+      const addTile = document.createElement("button");
+      addTile.type = "button";
+      addTile.className = "quick-link-tile quick-link-add";
+      addTile.setAttribute("aria-label", t("addShortcut"));
+      addTile.title = t("addShortcut");
+      const icon = document.createElement("span");
+      icon.className = "quick-link-icon";
+      icon.textContent = "+";
+      const label = document.createElement("span");
+      label.className = "quick-link-label";
+      label.textContent = t("addShortcut");
+      addTile.append(icon, label);
+      addTile.addEventListener("click", () => {
+        setPanelOpen(true);
+        elements.quickLinksToggle.checked = true;
+        elements.quickLinkSettings.hidden = false;
+        requestAnimationFrame(() => elements.quickLinkUrlInput.focus());
+        track("chrome_quick_link_add_open");
+      });
+      elements.quickLinks.appendChild(addTile);
+    }
+  }
+
+  function renderQuickLinkSettings() {
+    elements.quickLinkManager.replaceChildren();
+    if (!state.settings.showQuickLinks) return;
+    if (!state.settings.quickLinks.length) {
+      elements.quickLinkManager.appendChild(emptyNode(t("noQuickLinks")));
+      return;
+    }
+
+    state.settings.quickLinks.forEach((link) => {
+      const row = document.createElement("div");
+      row.className = "quick-link-row";
+
+      const icon = document.createElement("span");
+      icon.className = "quick-link-row-icon";
+      icon.textContent = initialsFor(link.title || link.url);
+
+      const copy = document.createElement("div");
+      copy.className = "quick-link-copy";
+      const title = document.createElement("strong");
+      title.textContent = link.title;
+      const url = document.createElement("span");
+      url.textContent = displayURL(link.url);
+      copy.append(title, url);
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "quick-link-remove";
+      remove.textContent = "x";
+      remove.setAttribute("aria-label", `${t("deleteQuickLink")} ${link.title}`);
+      remove.title = t("deleteQuickLink");
+      remove.addEventListener("click", () => removeQuickLink(link.id));
+
+      row.append(icon, copy, remove);
+      elements.quickLinkManager.appendChild(row);
+    });
   }
 
   function renderAccount() {
@@ -908,6 +1080,52 @@
     div.className = "empty-state";
     div.textContent = text;
     return div;
+  }
+
+  async function handleQuickLinkSubmit(event) {
+    event.preventDefault();
+    const url = normalizeURL(elements.quickLinkUrlInput.value);
+    if (!url) {
+      setStatus(t("quickLinkInvalid"));
+      elements.quickLinkUrlInput.focus();
+      return;
+    }
+
+    const existingIndex = state.settings.quickLinks.findIndex((link) => link.url === url);
+    if (existingIndex < 0 && state.settings.quickLinks.length >= MAX_QUICK_LINKS) {
+      setStatus(formatTemplate(t("quickLinkLimit"), { count: MAX_QUICK_LINKS }));
+      return;
+    }
+
+    const fallbackTitle = displayURL(url);
+    const title = (elements.quickLinkNameInput.value.trim() || fallbackTitle).slice(0, 28);
+    const nextLink = {
+      id: existingIndex >= 0 ? state.settings.quickLinks[existingIndex].id : newID(),
+      title,
+      url
+    };
+
+    if (existingIndex >= 0) {
+      state.settings.quickLinks.splice(existingIndex, 1, nextLink);
+    } else {
+      state.settings.quickLinks.push(nextLink);
+    }
+
+    await saveSettings();
+    elements.quickLinkForm.reset();
+    renderQuickLinks();
+    renderQuickLinkSettings();
+    setStatus("");
+    track(existingIndex >= 0 ? "chrome_quick_link_update" : "chrome_quick_link_add", { url_host: hostFor(url) });
+  }
+
+  async function removeQuickLink(id) {
+    const link = state.settings.quickLinks.find((item) => item.id === id);
+    state.settings.quickLinks = state.settings.quickLinks.filter((item) => item.id !== id);
+    await saveSettings();
+    renderQuickLinks();
+    renderQuickLinkSettings();
+    track("chrome_quick_link_remove", { url_host: link ? hostFor(link.url) : "" });
   }
 
   async function toggleEngagement(type) {
@@ -1133,7 +1351,12 @@
     });
     setDockButton(elements.settingsButton, t("settings"), "⚙");
     elements.searchInput.placeholder = t("searchPlaceholder");
+    elements.quickLinks.setAttribute("aria-label", t("quickLinksTitle"));
+    elements.quickLinkNameInput.placeholder = t("quickLinkNamePlaceholder");
+    elements.quickLinkUrlInput.placeholder = t("quickLinkUrlPlaceholder");
     setAuthMode(state.authMode);
+    renderQuickLinks();
+    renderQuickLinkSettings();
     renderActionButtons();
   }
 
@@ -1163,6 +1386,31 @@
     if (Array.isArray(payload)) return payload;
     if (payload && Array.isArray(payload.items)) return payload.items;
     return [];
+  }
+
+  function normalizeSettings(stored) {
+    const settings = { ...DEFAULT_SETTINGS, ...(stored || {}) };
+    settings.showQuickLinks = settings.showQuickLinks !== false;
+    settings.quickLinks = sanitizeQuickLinks(settings.quickLinks);
+    return settings;
+  }
+
+  function sanitizeQuickLinks(value) {
+    if (!Array.isArray(value)) return [];
+    const seen = new Set();
+    const links = [];
+    value.forEach((item) => {
+      const url = normalizeURL(item && item.url);
+      if (!url || seen.has(url) || links.length >= MAX_QUICK_LINKS) return;
+      seen.add(url);
+      const title = String((item && item.title) || displayURL(url)).trim().slice(0, 28) || displayURL(url);
+      links.push({
+        id: String((item && item.id) || newID()),
+        title,
+        url
+      });
+    });
+    return links;
   }
 
   function requireSignIn() {
@@ -1240,6 +1488,49 @@
       unit += 1;
     }
     return `${size >= 10 || unit === 0 ? Math.round(size) : size.toFixed(1)} ${units[unit]}`;
+  }
+
+  function normalizeURL(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const withProtocol = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+    try {
+      const url = new URL(withProtocol);
+      if (url.protocol !== "http:" && url.protocol !== "https:") return "";
+      if (!url.hostname || !url.hostname.includes(".")) return "";
+      url.hash = "";
+      return url.href;
+    } catch (_error) {
+      return "";
+    }
+  }
+
+  function displayURL(value) {
+    try {
+      const url = new URL(value);
+      return url.hostname.replace(/^www\./i, "");
+    } catch (_error) {
+      return String(value || "");
+    }
+  }
+
+  function hostFor(value) {
+    try {
+      return new URL(value).hostname;
+    } catch (_error) {
+      return "";
+    }
+  }
+
+  function faviconURL(value) {
+    return `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(value)}&sz=64`;
+  }
+
+  function initialsFor(value) {
+    const text = String(value || "").trim();
+    if (!text) return "+";
+    const first = Array.from(text.replace(/^https?:\/\//i, "").replace(/^www\./i, ""))[0];
+    return (first || "+").toUpperCase();
   }
 
   function extensionFor(wallpaper) {
