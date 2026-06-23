@@ -12,6 +12,12 @@
   --line: rgba(36, 33, 29, 0.12);
   --glass: rgba(24, 24, 24, 0.36);
   --glass-strong: rgba(24, 24, 24, 0.58);
+  --liquid-surface: rgba(255, 255, 255, 0.48);
+  --liquid-surface-strong: rgba(255, 255, 255, 0.62);
+  --liquid-ink-surface: rgba(17, 18, 20, 0.36);
+  --liquid-border: rgba(255, 255, 255, 0.38);
+  --liquid-inner: rgba(255, 255, 255, 0.48);
+  --liquid-shadow: 0 24px 82px rgba(0, 0, 0, 0.30);
   --accent: #f0783f;
   --accent-soft: rgba(240, 120, 63, 0.14);
   --like: #e0463a;
@@ -126,6 +132,9 @@ a {
   overflow: hidden;
 }
 
+/* Liquid Glass web approximation: Apple exposes the real material on Apple
+   platforms; the extension uses layered transparency, blur, and highlights. */
+
 .stage.is-loading .load-beam {
   opacity: 1;
 }
@@ -203,13 +212,20 @@ a {
   width: 100%;
   height: 46px;
   padding: 0 18px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.32);
   border-radius: 999px;
   outline: none;
   color: rgba(255, 255, 255, 0.94);
-  background: rgba(12, 13, 14, 0.38);
-  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(22px) saturate(1.25);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.36), transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.06)),
+    rgba(12, 13, 14, 0.30);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.10),
+    0 18px 54px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(26px) saturate(1.7) contrast(1.04);
+  -webkit-backdrop-filter: blur(26px) saturate(1.7) contrast(1.04);
 }
 
 .search input::placeholder {
@@ -218,7 +234,10 @@ a {
 
 .search input:focus {
   border-color: rgba(255, 255, 255, 0.42);
-  background: rgba(12, 13, 14, 0.52);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.42), transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08)),
+    rgba(12, 13, 14, 0.44);
 }
 
 .corner-dock {
@@ -242,16 +261,32 @@ a {
   place-items: center;
   border-radius: 999px;
   color: rgba(255, 255, 255, 0.86);
-  background: rgba(18, 18, 18, 0.26);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(18px) saturate(1.2);
+  background:
+    radial-gradient(circle at 28% 14%, rgba(255, 255, 255, 0.40), transparent 30%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04)),
+    var(--liquid-ink-surface);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.10),
+    0 14px 40px rgba(0, 0, 0, 0.20);
+  backdrop-filter: blur(24px) saturate(1.75) contrast(1.05);
+  -webkit-backdrop-filter: blur(24px) saturate(1.75) contrast(1.05);
   cursor: pointer;
   opacity: 0.36;
   transition: opacity 160ms ease, transform 160ms ease, background 160ms ease, border-color 160ms ease;
   font-size: 19px;
   font-weight: 800;
   letter-spacing: 0;
+}
+
+.dock-button::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  pointer-events: none;
 }
 
 .dock-button::after {
@@ -265,10 +300,15 @@ a {
   padding: 0 11px;
   border-radius: 999px;
   color: rgba(255, 255, 255, 0.92);
-  background: rgba(18, 18, 18, 0.58);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(18px) saturate(1.2);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06)),
+    rgba(18, 18, 18, 0.50);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 12px 32px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(22px) saturate(1.6);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
@@ -281,8 +321,11 @@ a {
 .dock-button:hover,
 .dock-button:focus-visible {
   opacity: 1;
-  background: rgba(18, 18, 18, 0.56);
-  border-color: rgba(255, 255, 255, 0.32);
+  background:
+    radial-gradient(circle at 28% 14%, rgba(255, 255, 255, 0.50), transparent 32%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08)),
+    rgba(18, 18, 18, 0.48);
+  border-color: rgba(255, 255, 255, 0.38);
 }
 
 .dock-button:hover::after,
@@ -297,20 +340,29 @@ a {
 
 .dock-button.is-active {
   color: #fff;
-  border-color: transparent;
+  border-color: rgba(255, 255, 255, 0.34);
   opacity: 0.86;
 }
 
 .dock-button.is-liked {
-  background: var(--like);
+  background:
+    radial-gradient(circle at 26% 12%, rgba(255, 255, 255, 0.42), transparent 30%),
+    linear-gradient(145deg, color-mix(in srgb, var(--like) 82%, transparent), color-mix(in srgb, var(--like) 48%, transparent)),
+    rgba(18, 18, 18, 0.26);
 }
 
 .dock-button.is-favorited {
-  background: var(--favorite);
+  background:
+    radial-gradient(circle at 26% 12%, rgba(255, 255, 255, 0.42), transparent 30%),
+    linear-gradient(145deg, color-mix(in srgb, var(--favorite) 82%, transparent), color-mix(in srgb, var(--favorite) 48%, transparent)),
+    rgba(18, 18, 18, 0.26);
 }
 
 .dock-button.is-downloaded {
-  background: var(--downloaded);
+  background:
+    radial-gradient(circle at 26% 12%, rgba(255, 255, 255, 0.42), transparent 30%),
+    linear-gradient(145deg, color-mix(in srgb, var(--downloaded) 82%, transparent), color-mix(in srgb, var(--downloaded) 48%, transparent)),
+    rgba(18, 18, 18, 0.26);
 }
 
 .dock-button:disabled {
@@ -326,16 +378,43 @@ a {
   display: none;
   overflow: auto;
   padding: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.52);
   border-radius: 28px;
   color: var(--panel-ink);
-  background: var(--panel);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(28px) saturate(1.25);
+  background:
+    radial-gradient(circle at 16% 0%, rgba(255, 255, 255, 0.86), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.70), rgba(255, 255, 255, 0.36)),
+    rgba(246, 242, 235, 0.56);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.20),
+    var(--liquid-shadow);
+  backdrop-filter: blur(36px) saturate(1.8) contrast(1.04);
+  -webkit-backdrop-filter: blur(36px) saturate(1.8) contrast(1.04);
+  isolation: isolate;
 }
 
 .settings-panel.is-open {
   display: block;
+}
+
+.settings-panel::before,
+.auth-dialog::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.20), transparent 36%, rgba(255, 255, 255, 0.16)),
+    radial-gradient(circle at 72% 12%, rgba(255, 255, 255, 0.28), transparent 30%);
+}
+
+.settings-panel > *,
+.auth-dialog > * {
+  position: relative;
+  z-index: 1;
 }
 
 .settings-panel,
@@ -409,18 +488,31 @@ a {
 }
 
 .round-button {
+  position: relative;
   width: 36px;
   height: 36px;
   flex: 0 0 auto;
   border-radius: 50%;
-  color: rgba(36, 33, 29, 0.78);
-  background: rgba(36, 33, 29, 0.08);
+  color: rgba(36, 33, 29, 0.82);
+  background:
+    radial-gradient(circle at 28% 16%, rgba(255, 255, 255, 0.62), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.10)),
+    rgba(36, 33, 29, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.56),
+    0 10px 26px rgba(36, 33, 29, 0.10);
+  backdrop-filter: blur(18px) saturate(1.55);
+  -webkit-backdrop-filter: blur(18px) saturate(1.55);
   cursor: pointer;
   font-weight: 900;
 }
 
 .round-button:hover {
-  background: rgba(36, 33, 29, 0.14);
+  background:
+    radial-gradient(circle at 28% 16%, rgba(255, 255, 255, 0.72), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.16)),
+    rgba(36, 33, 29, 0.12);
 }
 
 .panel-section {
@@ -442,15 +534,25 @@ a {
 }
 
 .source-card {
+  position: relative;
+  overflow: hidden;
   min-height: 84px;
   display: grid;
   align-content: space-between;
   gap: 8px;
   padding: 12px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.40);
   border-radius: var(--radius-small);
   color: var(--panel-ink);
-  background: rgba(255, 255, 255, 0.44);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.58), transparent 38%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.14)),
+    rgba(255, 255, 255, 0.20);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    0 10px 26px rgba(36, 33, 29, 0.06);
+  backdrop-filter: blur(18px) saturate(1.45);
+  -webkit-backdrop-filter: blur(18px) saturate(1.45);
   text-align: left;
   cursor: pointer;
   transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, opacity 160ms ease;
@@ -470,7 +572,10 @@ a {
 
 .source-card[aria-checked="true"] {
   border-color: rgba(240, 120, 63, 0.72);
-  background: var(--accent-soft);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.62), transparent 38%),
+    linear-gradient(135deg, rgba(240, 120, 63, 0.22), rgba(255, 255, 255, 0.18)),
+    rgba(255, 255, 255, 0.24);
 }
 
 .source-card:hover {
@@ -530,10 +635,17 @@ a {
   width: 100%;
   display: grid;
   gap: 4px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.38);
   border-radius: var(--radius-small);
   color: var(--panel-ink);
-  background: rgba(255, 255, 255, 0.46);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.40), rgba(255, 255, 255, 0.14)),
+    rgba(255, 255, 255, 0.20);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    0 9px 22px rgba(36, 33, 29, 0.06);
+  backdrop-filter: blur(14px) saturate(1.35);
+  -webkit-backdrop-filter: blur(14px) saturate(1.35);
   cursor: pointer;
   text-align: left;
 }
@@ -554,13 +666,17 @@ a {
 
 .collection-item:hover,
 .wallpaper-item:hover {
-  background: rgba(255, 255, 255, 0.7);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.54), rgba(255, 255, 255, 0.22)),
+    rgba(255, 255, 255, 0.28);
 }
 
 .collection-item.is-selected,
 .wallpaper-item.is-selected {
   border-color: rgba(240, 120, 63, 0.72);
-  background: var(--accent-soft);
+  background:
+    linear-gradient(135deg, rgba(240, 120, 63, 0.22), rgba(255, 255, 255, 0.18)),
+    rgba(255, 255, 255, 0.26);
 }
 
 .wallpaper-item img {
@@ -634,12 +750,17 @@ a {
 select,
 .auth-form input {
   height: 38px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.38);
   border-radius: 999px;
   padding: 0 12px;
   outline: none;
   color: var(--panel-ink);
-  background: rgba(255, 255, 255, 0.72);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.26)),
+    rgba(255, 255, 255, 0.34);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.52);
+  backdrop-filter: blur(16px) saturate(1.35);
+  -webkit-backdrop-filter: blur(16px) saturate(1.35);
 }
 
 select:focus,
@@ -653,7 +774,14 @@ input[type="checkbox"] {
   height: 24px;
   appearance: none;
   border-radius: 999px;
-  background: rgba(36, 33, 29, 0.18);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.12)),
+    rgba(36, 33, 29, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.46),
+    0 8px 20px rgba(36, 33, 29, 0.08);
+  backdrop-filter: blur(14px) saturate(1.35);
+  -webkit-backdrop-filter: blur(14px) saturate(1.35);
   cursor: pointer;
   position: relative;
   transition: background 160ms ease;
@@ -673,7 +801,9 @@ input[type="checkbox"]::before {
 }
 
 input[type="checkbox"]:checked {
-  background: var(--accent);
+  background:
+    radial-gradient(circle at 22% 12%, rgba(255, 255, 255, 0.52), transparent 34%),
+    linear-gradient(135deg, rgba(240, 120, 63, 0.88), rgba(240, 120, 63, 0.62));
 }
 
 input[type="checkbox"]:checked::before {
@@ -694,6 +824,8 @@ input[type="checkbox"]:checked::before {
 }
 
 .primary-button {
+  position: relative;
+  overflow: hidden;
   min-height: 40px;
   display: inline-flex;
   align-items: center;
@@ -701,23 +833,41 @@ input[type="checkbox"]:checked::before {
   border-radius: 999px;
   padding: 0 16px;
   color: #fff;
-  background: var(--accent);
-  box-shadow: 0 14px 30px rgba(240, 120, 63, 0.22);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.46), transparent 36%),
+    linear-gradient(135deg, rgba(240, 120, 63, 0.92), rgba(240, 120, 63, 0.70)),
+    var(--accent);
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.46),
+    0 14px 30px rgba(240, 120, 63, 0.22);
+  backdrop-filter: blur(18px) saturate(1.45);
+  -webkit-backdrop-filter: blur(18px) saturate(1.45);
   cursor: pointer;
   font-weight: 900;
   white-space: nowrap;
 }
 
 .primary-button:hover {
-  background: #de6830;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.52), transparent 36%),
+    linear-gradient(135deg, rgba(240, 120, 63, 1), rgba(222, 104, 48, 0.74)),
+    #de6830;
 }
 
 .account-card {
   min-height: 58px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.38);
   border-radius: var(--radius-small);
   padding: 10px;
-  background: rgba(255, 255, 255, 0.46);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.16)),
+    rgba(255, 255, 255, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.44),
+    0 8px 22px rgba(36, 33, 29, 0.06);
+  backdrop-filter: blur(14px) saturate(1.35);
+  -webkit-backdrop-filter: blur(14px) saturate(1.35);
 }
 
 .avatar {
@@ -810,8 +960,9 @@ input[type="checkbox"]:checked::before {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(0, 0, 0, 0.34);
-  backdrop-filter: blur(18px);
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
 }
 
 .modal-backdrop[hidden] {
@@ -819,13 +970,24 @@ input[type="checkbox"]:checked::before {
 }
 
 .auth-dialog {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   width: min(440px, calc(100vw - 32px));
-  border: 1px solid rgba(255, 255, 255, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.52);
   border-radius: 28px;
   padding: 22px;
   color: var(--panel-ink);
-  background: var(--panel-strong);
-  box-shadow: var(--shadow);
+  background:
+    radial-gradient(circle at 16% 0%, rgba(255, 255, 255, 0.88), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.40)),
+    rgba(250, 247, 240, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.20),
+    var(--liquid-shadow);
+  backdrop-filter: blur(36px) saturate(1.8) contrast(1.04);
+  -webkit-backdrop-filter: blur(36px) saturate(1.8) contrast(1.04);
 }
 
 .auth-tabs {
@@ -835,7 +997,13 @@ input[type="checkbox"]:checked::before {
   margin-bottom: 16px;
   padding: 4px;
   border-radius: 999px;
-  background: rgba(36, 33, 29, 0.08);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.10)),
+    rgba(36, 33, 29, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.40);
+  backdrop-filter: blur(14px) saturate(1.35);
+  -webkit-backdrop-filter: blur(14px) saturate(1.35);
 }
 
 .auth-tab {
@@ -849,7 +1017,13 @@ input[type="checkbox"]:checked::before {
 
 .auth-tab.is-active {
   color: var(--panel-ink);
-  background: rgba(255, 255, 255, 0.78);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.68), transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.34)),
+    rgba(255, 255, 255, 0.50);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.54),
+    0 8px 18px rgba(36, 33, 29, 0.08);
 }
 
 .auth-form {
@@ -917,5 +1091,71 @@ input[type="checkbox"]:checked::before {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 1ms !important;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .settings-panel,
+  .auth-dialog {
+    background: rgba(250, 247, 240, 0.96);
+  }
+
+  .dock-button,
+  .dock-button::after,
+  .search input,
+  .source-card,
+  .collection-item,
+  .wallpaper-item,
+  .round-button,
+  select,
+  .auth-form input,
+  .primary-button,
+  .account-card,
+  .auth-tabs {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .settings-panel,
+  .auth-dialog {
+    background: rgba(250, 247, 240, 0.96);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .dock-button,
+  .dock-button::after,
+  .search input {
+    background: rgba(18, 18, 18, 0.72);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .dock-button.is-liked {
+    background: var(--like);
+  }
+
+  .dock-button.is-favorited {
+    background: var(--favorite);
+  }
+
+  .dock-button.is-downloaded {
+    background: var(--downloaded);
+  }
+
+  .source-card,
+  .collection-item,
+  .wallpaper-item,
+  .round-button,
+  select,
+  .auth-form input,
+  .account-card,
+  .auth-tabs,
+  .auth-tab.is-active {
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }
