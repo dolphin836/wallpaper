@@ -395,14 +395,12 @@ a {
     0 24px 82px rgba(0, 0, 0, 0.38);
   backdrop-filter: blur(34px) saturate(1.85) contrast(1.04);
   -webkit-backdrop-filter: blur(34px) saturate(1.85) contrast(1.04);
-  isolation: isolate;
 }
 
 .settings-panel.is-open {
   display: block;
 }
 
-.settings-panel::before,
 .auth-dialog::before {
   content: "";
   position: absolute;
@@ -415,7 +413,6 @@ a {
     radial-gradient(circle at 72% 12%, rgba(255, 255, 255, 0.16), transparent 30%);
 }
 
-.settings-panel > *,
 .auth-dialog > * {
   position: relative;
   z-index: 1;
