@@ -65,7 +65,7 @@
       searchWidget: "Search",
       searchHint: "Search or enter a website.",
       quickLinksWidget: "Quick links",
-      quickLinksHint: "Add your favorite sites below search.",
+      quickLinksHint: "Show shortcuts below search.",
       quickLinksTitle: "Quick links",
       quickLinkName: "Name",
       quickLinkUrl: "URL",
@@ -158,7 +158,7 @@
       searchWidget: "搜索",
       searchHint: "搜索或输入网址。",
       quickLinksWidget: "常用网址",
-      quickLinksHint: "在搜索框下面展示你添加的网址。",
+      quickLinksHint: "在搜索框下面显示常用网址。",
       quickLinksTitle: "常用网址",
       quickLinkName: "名称",
       quickLinkUrl: "网址",
@@ -244,7 +244,7 @@
     clockHint: "使用瀏覽器預設格式。",
     searchHint: "搜尋或輸入網址。",
     quickLinksWidget: "常用網址",
-    quickLinksHint: "在搜尋框下方顯示你加入的網址。",
+    quickLinksHint: "在搜尋框下方顯示常用網址。",
     quickLinksTitle: "常用網址",
     quickLinkName: "名稱",
     quickLinkUrl: "網址",
@@ -324,7 +324,7 @@
     searchWidget: "検索",
     searchHint: "検索またはURLを入力します。",
     quickLinksWidget: "よく使うサイト",
-    quickLinksHint: "検索欄の下にお気に入りのサイトを表示します。",
+    quickLinksHint: "検索欄の下にショートカットを表示します。",
     quickLinksTitle: "よく使うサイト",
     quickLinkName: "名前",
     quickLinkUrl: "URL",
@@ -407,12 +407,13 @@
     clockToggle: document.getElementById("clockToggle"),
     searchToggle: document.getElementById("searchToggle"),
     quickLinksToggle: document.getElementById("quickLinksToggle"),
-    quickLinkSettings: document.getElementById("quickLinkSettings"),
+    quickLinkModal: document.getElementById("quickLinkModal"),
+    closeQuickLinkButton: document.getElementById("closeQuickLinkButton"),
     quickLinkForm: document.getElementById("quickLinkForm"),
     quickLinkNameInput: document.getElementById("quickLinkNameInput"),
     quickLinkUrlInput: document.getElementById("quickLinkUrlInput"),
     addQuickLinkButton: document.getElementById("addQuickLinkButton"),
-    quickLinkManager: document.getElementById("quickLinkManager"),
+    quickLinkStatusLine: document.getElementById("quickLinkStatusLine"),
     accountPrompt: document.getElementById("accountPrompt"),
     openAuthButton: document.getElementById("openAuthButton"),
     accountCard: document.getElementById("accountCard"),
@@ -540,6 +541,7 @@
     elements.searchToggle.addEventListener("change", () => updateWidgetSetting("showSearch", elements.searchToggle.checked));
     elements.quickLinksToggle.addEventListener("change", () => updateWidgetSetting("showQuickLinks", elements.quickLinksToggle.checked));
     elements.quickLinkForm.addEventListener("submit", handleQuickLinkSubmit);
+    elements.closeQuickLinkButton.addEventListener("click", closeQuickLinkModal);
 
     elements.authTabs.forEach((button) => {
       button.addEventListener("click", () => setAuthMode(button.dataset.mode || "login"));
@@ -547,16 +549,21 @@
 
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
-        if (!elements.authModal.hidden) closeAuthModal();
+        if (!elements.quickLinkModal.hidden) closeQuickLinkModal();
+        else if (!elements.authModal.hidden) closeAuthModal();
         else setPanelOpen(false);
       }
     });
 
     document.addEventListener("pointerdown", (event) => {
-      if (!elements.panel.classList.contains("is-open") || !elements.authModal.hidden) return;
+      if (!elements.panel.classList.contains("is-open") || !elements.authModal.hidden || !elements.quickLinkModal.hidden) return;
       const target = event.target;
       if (elements.panel.contains(target) || elements.settingsButton.contains(target)) return;
       setPanelOpen(false);
+    });
+
+    elements.quickLinkModal.addEventListener("pointerdown", (event) => {
+      if (event.target === elements.quickLinkModal) closeQuickLinkModal();
     });
 
     elements.authModal.addEventListener("pointerdown", (event) => {
@@ -568,10 +575,6 @@
     state.settings[key] = value;
     await saveSettings();
     renderWidgets();
-    if (key === "showQuickLinks") {
-      elements.quickLinkSettings.hidden = !value;
-      renderQuickLinkSettings();
-    }
     track("chrome_widget_toggle", { key, value });
   }
 
@@ -850,9 +853,7 @@
     elements.clockToggle.checked = Boolean(state.settings.showClock);
     elements.searchToggle.checked = Boolean(state.settings.showSearch);
     elements.quickLinksToggle.checked = Boolean(state.settings.showQuickLinks);
-    elements.quickLinkSettings.hidden = !state.settings.showQuickLinks;
     renderWidgets();
-    renderQuickLinkSettings();
     renderAccount();
     renderActionButtons();
     renderCollections();
@@ -874,10 +875,11 @@
     if (!state.settings.showQuickLinks) return;
 
     state.settings.quickLinks.forEach((link) => {
-      const tile = document.createElement("button");
-      tile.type = "button";
+      const tile = document.createElement("div");
       tile.className = "quick-link-tile";
+      tile.setAttribute("role", "button");
       tile.setAttribute("aria-label", link.title);
+      tile.tabIndex = 0;
       tile.title = link.title;
 
       const icon = document.createElement("span");
@@ -896,18 +898,40 @@
       label.textContent = link.title;
 
       tile.append(icon, label);
-      tile.addEventListener("click", () => {
+      const openLink = () => {
         track("chrome_quick_link_open", { url_host: hostFor(link.url) });
         window.location.href = link.url;
+      };
+      tile.addEventListener("click", openLink);
+      tile.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        openLink();
       });
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "quick-link-delete";
+      remove.textContent = "x";
+      remove.setAttribute("aria-label", `${t("deleteQuickLink")} ${link.title}`);
+      remove.title = t("deleteQuickLink");
+      remove.addEventListener("click", (event) => {
+        event.stopPropagation();
+        removeQuickLink(link.id);
+      });
+      remove.addEventListener("keydown", (event) => {
+        event.stopPropagation();
+      });
+      tile.appendChild(remove);
       elements.quickLinks.appendChild(tile);
     });
 
     if (state.settings.quickLinks.length < MAX_QUICK_LINKS) {
-      const addTile = document.createElement("button");
-      addTile.type = "button";
+      const addTile = document.createElement("div");
       addTile.className = "quick-link-tile quick-link-add";
+      addTile.setAttribute("role", "button");
       addTile.setAttribute("aria-label", t("addShortcut"));
+      addTile.tabIndex = 0;
       addTile.title = t("addShortcut");
       const icon = document.createElement("span");
       icon.className = "quick-link-icon";
@@ -916,52 +940,18 @@
       label.className = "quick-link-label";
       label.textContent = t("addShortcut");
       addTile.append(icon, label);
-      addTile.addEventListener("click", () => {
-        setPanelOpen(true);
-        elements.quickLinksToggle.checked = true;
-        elements.quickLinkSettings.hidden = false;
-        requestAnimationFrame(() => elements.quickLinkUrlInput.focus());
+      const openAdd = () => {
+        openQuickLinkModal();
         track("chrome_quick_link_add_open");
+      };
+      addTile.addEventListener("click", openAdd);
+      addTile.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        openAdd();
       });
       elements.quickLinks.appendChild(addTile);
     }
-  }
-
-  function renderQuickLinkSettings() {
-    elements.quickLinkManager.replaceChildren();
-    if (!state.settings.showQuickLinks) return;
-    if (!state.settings.quickLinks.length) {
-      elements.quickLinkManager.appendChild(emptyNode(t("noQuickLinks")));
-      return;
-    }
-
-    state.settings.quickLinks.forEach((link) => {
-      const row = document.createElement("div");
-      row.className = "quick-link-row";
-
-      const icon = document.createElement("span");
-      icon.className = "quick-link-row-icon";
-      icon.textContent = initialsFor(link.title || link.url);
-
-      const copy = document.createElement("div");
-      copy.className = "quick-link-copy";
-      const title = document.createElement("strong");
-      title.textContent = link.title;
-      const url = document.createElement("span");
-      url.textContent = displayURL(link.url);
-      copy.append(title, url);
-
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "quick-link-remove";
-      remove.textContent = "x";
-      remove.setAttribute("aria-label", `${t("deleteQuickLink")} ${link.title}`);
-      remove.title = t("deleteQuickLink");
-      remove.addEventListener("click", () => removeQuickLink(link.id));
-
-      row.append(icon, copy, remove);
-      elements.quickLinkManager.appendChild(row);
-    });
   }
 
   function renderAccount() {
@@ -1086,14 +1076,14 @@
     event.preventDefault();
     const url = normalizeURL(elements.quickLinkUrlInput.value);
     if (!url) {
-      setStatus(t("quickLinkInvalid"));
+      elements.quickLinkStatusLine.textContent = t("quickLinkInvalid");
       elements.quickLinkUrlInput.focus();
       return;
     }
 
     const existingIndex = state.settings.quickLinks.findIndex((link) => link.url === url);
     if (existingIndex < 0 && state.settings.quickLinks.length >= MAX_QUICK_LINKS) {
-      setStatus(formatTemplate(t("quickLinkLimit"), { count: MAX_QUICK_LINKS }));
+      elements.quickLinkStatusLine.textContent = formatTemplate(t("quickLinkLimit"), { count: MAX_QUICK_LINKS });
       return;
     }
 
@@ -1114,7 +1104,7 @@
     await saveSettings();
     elements.quickLinkForm.reset();
     renderQuickLinks();
-    renderQuickLinkSettings();
+    closeQuickLinkModal();
     setStatus("");
     track(existingIndex >= 0 ? "chrome_quick_link_update" : "chrome_quick_link_add", { url_host: hostFor(url) });
   }
@@ -1124,7 +1114,6 @@
     state.settings.quickLinks = state.settings.quickLinks.filter((item) => item.id !== id);
     await saveSettings();
     renderQuickLinks();
-    renderQuickLinkSettings();
     track("chrome_quick_link_remove", { url_host: link ? hostFor(link.url) : "" });
   }
 
@@ -1237,6 +1226,23 @@
     elements.authModal.hidden = true;
     elements.authForm.reset();
     elements.authStatusLine.textContent = "";
+  }
+
+  function openQuickLinkModal() {
+    if (state.settings.quickLinks.length >= MAX_QUICK_LINKS) {
+      setStatus(formatTemplate(t("quickLinkLimit"), { count: MAX_QUICK_LINKS }));
+      return;
+    }
+    setPanelOpen(false);
+    elements.quickLinkModal.hidden = false;
+    elements.quickLinkStatusLine.textContent = "";
+    requestAnimationFrame(() => elements.quickLinkUrlInput.focus());
+  }
+
+  function closeQuickLinkModal() {
+    elements.quickLinkModal.hidden = true;
+    elements.quickLinkForm.reset();
+    elements.quickLinkStatusLine.textContent = "";
   }
 
   function setAuthMode(mode) {
@@ -1356,7 +1362,6 @@
     elements.quickLinkUrlInput.placeholder = t("quickLinkUrlPlaceholder");
     setAuthMode(state.authMode);
     renderQuickLinks();
-    renderQuickLinkSettings();
     renderActionButtons();
   }
 

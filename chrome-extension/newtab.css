@@ -254,6 +254,7 @@ a {
 }
 
 .quick-link-tile {
+  position: relative;
   width: 72px;
   min-height: 70px;
   display: grid;
@@ -324,6 +325,39 @@ a {
 
 .quick-link-add .quick-link-icon {
   font-size: 22px;
+}
+
+.quick-link-delete {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.88);
+  background: rgba(18, 18, 18, 0.64);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px) scale(0.92);
+  transition: opacity 140ms ease, transform 140ms ease, background 140ms ease;
+}
+
+.quick-link-delete:hover {
+  background: rgba(240, 120, 63, 0.92);
+}
+
+.quick-link-tile:hover .quick-link-delete,
+.quick-link-tile:focus-within .quick-link-delete {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
 }
 
 .corner-dock {
@@ -509,7 +543,6 @@ a {
 .settings-panel .collection-item,
 .settings-panel .wallpaper-item,
 .settings-panel .account-card,
-.settings-panel .quick-link-row,
 .settings-panel select {
   color: var(--panel-ink);
   border-color: rgba(255, 255, 255, 0.24);
@@ -525,7 +558,6 @@ a {
 .settings-panel .source-card small,
 .settings-panel .item-meta,
 .settings-panel .account-copy span,
-.settings-panel .quick-link-copy span,
 .settings-panel .info-list dt,
 .settings-panel .account-prompt p,
 .settings-panel .legal-note,
@@ -549,8 +581,7 @@ a {
 
 .settings-panel .source-card:hover,
 .settings-panel .collection-item:hover,
-.settings-panel .wallpaper-item:hover,
-.settings-panel .quick-link-row:hover {
+.settings-panel .wallpaper-item:hover {
   background:
     radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.30), transparent 38%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06)),
@@ -952,16 +983,6 @@ input[type="checkbox"]:checked::before {
   transform: translateX(18px);
 }
 
-.quick-link-settings {
-  display: grid;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.quick-link-settings[hidden] {
-  display: none;
-}
-
 .quick-link-form {
   display: grid;
   grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr) auto;
@@ -978,78 +999,8 @@ input[type="checkbox"]:checked::before {
   font-weight: 900;
 }
 
-.quick-link-manager {
-  display: grid;
-  gap: 8px;
-}
-
-.quick-link-row {
-  min-height: 58px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: var(--radius-small);
-}
-
-.quick-link-row-icon {
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  color: rgba(255, 255, 255, 0.92);
-  background:
-    radial-gradient(circle at 28% 14%, rgba(255, 255, 255, 0.42), transparent 34%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06)),
-    rgba(18, 18, 18, 0.26);
-  border: 1px solid rgba(255, 255, 255, 0.20);
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.quick-link-copy {
-  min-width: 0;
-  flex: 1;
-  display: grid;
-  gap: 2px;
-}
-
-.quick-link-copy strong,
-.quick-link-copy span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.quick-link-copy strong {
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.quick-link-copy span {
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.quick-link-remove {
-  width: 30px;
-  height: 30px;
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  color: var(--panel-muted);
-  background: rgba(255, 255, 255, 0.08);
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: 900;
-}
-
-.quick-link-remove:hover {
-  color: #fff;
-  background: rgba(240, 120, 63, 0.80);
+.quick-link-dialog {
+  width: min(540px, calc(100vw - 32px));
 }
 
 .account-prompt {
@@ -1356,7 +1307,6 @@ input[type="checkbox"]:checked::before {
   .source-card,
   .collection-item,
   .wallpaper-item,
-  .quick-link-row,
   .round-button,
   select,
   .quick-link-form input,
@@ -1405,7 +1355,6 @@ input[type="checkbox"]:checked::before {
   .source-card,
   .collection-item,
   .wallpaper-item,
-  .quick-link-row,
   .round-button,
   select,
   .quick-link-form input,
@@ -1421,10 +1370,8 @@ input[type="checkbox"]:checked::before {
   .settings-panel .source-card,
   .settings-panel .collection-item,
   .settings-panel .wallpaper-item,
-  .settings-panel .quick-link-row,
   .settings-panel .round-button,
   .settings-panel select,
-  .settings-panel .quick-link-form input,
   .settings-panel .account-card {
     background: rgba(18, 18, 18, 0.72);
   }
