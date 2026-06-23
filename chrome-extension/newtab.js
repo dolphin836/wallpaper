@@ -61,7 +61,7 @@
       languageAuto: "Follow browser",
       widgetsTitle: "Widgets",
       clockWidget: "Clock",
-      clockHint: "Shows local time with seconds.",
+      clockHint: "Shows local date and time.",
       searchWidget: "Search",
       searchHint: "Search or enter a website.",
       quickLinksWidget: "Quick links",
@@ -155,7 +155,7 @@
       languageAuto: "跟随浏览器",
       widgetsTitle: "小组件",
       clockWidget: "时钟",
-      clockHint: "显示本地时间，精确到秒。",
+      clockHint: "显示本地日期和时间。",
       searchWidget: "搜索",
       searchHint: "搜索或输入网址。",
       quickLinksWidget: "常用网址",
@@ -243,7 +243,7 @@
     languageTitle: "語言",
     languageAuto: "跟隨瀏覽器",
     widgetsTitle: "小工具",
-    clockHint: "顯示本地時間，精確到秒。",
+    clockHint: "顯示本地日期和時間。",
     searchHint: "搜尋或輸入網址。",
     quickLinksWidget: "常用網址",
     quickLinksHint: "在搜尋框下方顯示常用網址。",
@@ -323,7 +323,7 @@
     languageAuto: "ブラウザに合わせる",
     widgetsTitle: "ウィジェット",
     clockWidget: "時計",
-    clockHint: "現地時刻を秒まで表示します。",
+    clockHint: "現地の日付と時刻を表示します。",
     searchWidget: "検索",
     searchHint: "検索またはURLを入力します。",
     quickLinksWidget: "よく使うサイト",
@@ -394,7 +394,6 @@
     clockHourOnes: document.getElementById("clockHourOnes"),
     clockMinuteTens: document.getElementById("clockMinuteTens"),
     clockMinuteOnes: document.getElementById("clockMinuteOnes"),
-    clockSecond: document.getElementById("clockSecond"),
     searchForm: document.getElementById("searchForm"),
     searchInput: document.getElementById("searchInput"),
     quickLinks: document.getElementById("quickLinks"),
@@ -1410,47 +1409,46 @@
     const now = new Date();
     const hours = pad2(now.getHours());
     const minutes = pad2(now.getMinutes());
-    const seconds = pad2(now.getSeconds());
-    const month = clockMonthLabel(now);
-    elements.clockDate.textContent = clockDateLabel(now, month);
-    elements.clockHourTens.textContent = hours[0];
-    elements.clockHourOnes.textContent = hours[1];
-    elements.clockMinuteTens.textContent = minutes[0];
-    elements.clockMinuteOnes.textContent = minutes[1];
-    elements.clockSecond.textContent = seconds;
+    elements.clockDate.textContent = clockDateLabel(now);
+    setClockDigit(elements.clockHourTens, hours[0]);
+    setClockDigit(elements.clockHourOnes, hours[1]);
+    setClockDigit(elements.clockMinuteTens, minutes[0]);
+    setClockDigit(elements.clockMinuteOnes, minutes[1]);
     elements.clock.dateTime = now.toISOString();
     elements.clock.setAttribute("aria-label", now.toLocaleString(currentLocale(), {
       dateStyle: "medium",
-      timeStyle: "medium"
+      timeStyle: "short"
     }));
+  }
+
+  function setClockDigit(element, value) {
+    if (!element || element.textContent === value) return;
+    const shouldAnimate = element.textContent !== "" && !prefersReducedMotion();
+    element.textContent = value;
+    if (!shouldAnimate) return;
+    element.classList.remove("is-flipping");
+    void element.offsetWidth;
+    element.classList.add("is-flipping");
+    window.setTimeout(() => element.classList.remove("is-flipping"), 560);
+  }
+
+  function prefersReducedMotion() {
+    return Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   }
 
   function pad2(value) {
     return String(value).padStart(2, "0");
   }
 
-  function clockMonthLabel(date) {
+  function clockDateLabel(date) {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
     const locale = currentLocale();
-    if (locale === "en") {
-      return ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][date.getMonth()];
+    if (locale === "zh-CN" || locale === "zh-TW" || locale === "ja") {
+      return `${year}年${month}月${day}日`;
     }
-    return `${date.getMonth() + 1}月`;
-  }
-
-  function clockDateLabel(date, month) {
-    const day = pad2(date.getDate());
-    const weekday = clockWeekdayLabel(date);
-    if (currentLocale() === "en") return `${month} ${day} ${weekday}`;
-    return `${month}${day}日 ${weekday}`;
-  }
-
-  function clockWeekdayLabel(date) {
-    const day = date.getDay();
-    const locale = currentLocale();
-    if (locale === "ja") return ["日", "月", "火", "水", "木", "金", "土"][day];
-    if (locale === "zh-TW") return ["週日", "週一", "週二", "週三", "週四", "週五", "週六"][day];
-    if (locale === "zh-CN") return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][day];
-    return ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][day];
+    return `${year}.${pad2(month)}.${pad2(day)}`;
   }
 
   function sourceName() {

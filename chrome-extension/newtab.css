@@ -190,27 +190,28 @@ a {
 }
 
 .clock {
+  --panel-ink: rgba(255, 255, 255, 0.94);
+  --panel-muted: rgba(255, 255, 255, 0.66);
   position: relative;
   width: min(424px, 100%);
   min-height: 164px;
   display: grid;
   place-items: center;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.20);
+  border: 1px solid rgba(255, 255, 255, 0.30);
   border-radius: 28px;
   padding: 26px 32px 30px;
-  color: rgba(255, 255, 255, 0.96);
+  color: var(--panel-ink);
   background:
-    radial-gradient(circle at 68% 36%, rgba(255, 255, 255, 0.20), transparent 22%),
-    radial-gradient(circle at 92% 0%, rgba(255, 150, 216, 0.34), transparent 34%),
-    linear-gradient(135deg, rgba(197, 23, 132, 0.62), rgba(116, 4, 84, 0.48)),
-    rgba(86, 8, 70, 0.38);
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.34), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05)),
+    rgba(17, 18, 20, 0.42);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.26),
-    inset 0 -18px 42px rgba(55, 2, 45, 0.20),
-    0 22px 68px rgba(0, 0, 0, 0.36);
-  backdrop-filter: blur(28px) saturate(1.75);
-  -webkit-backdrop-filter: blur(28px) saturate(1.75);
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.10),
+    0 24px 82px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(34px) saturate(1.85) contrast(1.04);
+  -webkit-backdrop-filter: blur(34px) saturate(1.85) contrast(1.04);
   text-shadow: 0 10px 34px rgba(0, 0, 0, 0.38);
 }
 
@@ -222,21 +223,21 @@ a {
 }
 
 .clock::before {
-  inset: 0;
+  inset: 1px;
+  border-radius: inherit;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 38%),
-    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
-  mix-blend-mode: screen;
+    linear-gradient(90deg, rgba(255, 255, 255, 0.12), transparent 36%, rgba(255, 255, 255, 0.10)),
+    radial-gradient(circle at 72% 12%, rgba(255, 255, 255, 0.16), transparent 30%);
 }
 
 .clock::after {
-  top: 50%;
-  right: -18%;
-  width: 66%;
-  height: 34%;
-  background: rgba(255, 255, 255, 0.11);
-  filter: blur(18px);
-  transform: rotate(-10deg);
+  top: -18%;
+  right: -24%;
+  width: 58%;
+  height: 46%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.10);
+  filter: blur(20px);
 }
 
 .clock-face {
@@ -257,7 +258,7 @@ a {
 }
 
 .clock-date {
-  max-width: calc(100% - 54px);
+  max-width: 100%;
   overflow: hidden;
   color: rgba(255, 255, 255, 0.88);
   font-size: 12px;
@@ -274,6 +275,7 @@ a {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
+  perspective: 520px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -281,6 +283,8 @@ a {
   position: relative;
   min-width: 0;
   height: 76px;
+  transform-style: preserve-3d;
+  transform-origin: center center;
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -298,6 +302,29 @@ a {
   font-weight: 950;
   line-height: 1;
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.36);
+}
+
+.flip-digit.is-flipping {
+  animation: flip-page 520ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes flip-page {
+  0% {
+    transform: rotateX(0deg);
+    filter: brightness(1);
+  }
+  42% {
+    transform: rotateX(-74deg);
+    filter: brightness(0.72);
+  }
+  58% {
+    transform: rotateX(16deg);
+    filter: brightness(1.12);
+  }
+  100% {
+    transform: rotateX(0deg);
+    filter: brightness(1);
+  }
 }
 
 .flip-digit::before,
@@ -321,16 +348,6 @@ a {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.09), transparent 45%),
     linear-gradient(0deg, rgba(0, 0, 0, 0.18), transparent 48%);
-}
-
-.clock-second {
-  min-width: 2ch;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 950;
-  line-height: 1;
-  letter-spacing: 0;
 }
 
 .clock[hidden],
@@ -1361,6 +1378,48 @@ input[type="checkbox"]:checked::before {
   -webkit-backdrop-filter: blur(36px) saturate(1.8) contrast(1.04);
 }
 
+.quick-link-dialog {
+  --panel-ink: rgba(255, 255, 255, 0.94);
+  --panel-muted: rgba(255, 255, 255, 0.66);
+  --panel-faint: rgba(255, 255, 255, 0.42);
+  --line: rgba(255, 255, 255, 0.14);
+  color: var(--panel-ink);
+  border-color: rgba(255, 255, 255, 0.30);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.34), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05)),
+    rgba(17, 18, 20, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.10),
+    0 24px 82px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(34px) saturate(1.85) contrast(1.04);
+  -webkit-backdrop-filter: blur(34px) saturate(1.85) contrast(1.04);
+}
+
+.quick-link-dialog .round-button,
+.quick-link-dialog .quick-link-form input {
+  color: var(--panel-ink);
+  border-color: rgba(255, 255, 255, 0.24);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.24), transparent 38%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)),
+    rgba(18, 18, 18, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 10px 26px rgba(0, 0, 0, 0.12);
+}
+
+.quick-link-dialog .panel-kicker,
+.quick-link-dialog .quick-link-form label,
+.quick-link-dialog .status-line {
+  color: var(--panel-muted);
+}
+
+.quick-link-dialog .dialog-head h2 {
+  color: var(--panel-ink);
+}
+
 .auth-tabs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1474,10 +1533,6 @@ input[type="checkbox"]:checked::before {
     font-size: 44px;
   }
 
-  .clock-second {
-    font-size: 10px;
-  }
-
   .corner-dock {
     right: 16px;
     bottom: 16px;
@@ -1502,6 +1557,10 @@ input[type="checkbox"]:checked::before {
 
   .auth-dialog {
     background: rgba(250, 247, 240, 0.96);
+  }
+
+  .quick-link-dialog {
+    background: rgba(18, 18, 18, 0.92);
   }
 
   .dock-button,
@@ -1536,6 +1595,10 @@ input[type="checkbox"]:checked::before {
     background: rgba(250, 247, 240, 0.96);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+
+  .quick-link-dialog {
+    background: rgba(18, 18, 18, 0.92);
   }
 
   .dock-button,

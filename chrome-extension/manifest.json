@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Wallpaper Exchange New Tab",
   "description": "A wallpaper-first new tab powered by Weekly Picks, favorites, and collections from Wallpaper Exchange.",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "chrome_url_overrides": {
     "newtab": "newtab.html"
   },
