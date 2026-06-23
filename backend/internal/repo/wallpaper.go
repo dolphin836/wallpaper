@@ -188,7 +188,7 @@ func (r *WallpaperRepo) applyListFilters(query *gorm.DB, opts ListOptions) *gorm
 
 func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wallpaper, error) {
 	query := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, rejection_reason, created_at")
+		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, preview_video_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, rejection_reason, created_at")
 	query = r.applyListFilters(query, opts)
 	if opts.Cursor > 0 {
 		query = query.Where("id < ?", opts.Cursor)
@@ -224,7 +224,7 @@ func (r *WallpaperRepo) GetByIDs(ctx context.Context, ids []int64) ([]model.Wall
 	}
 	var wallpapers []model.Wallpaper
 	err := r.db.WithContext(ctx).
-		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, rejection_reason, created_at").
+		Select("id, slug, user_id, title, description, category_id, thumb_url, preview_url, preview_video_url, width, height, file_size, file_type, dominant_color, color_palette, status, view_count, like_count, download_count, favorite_count, is_dynamic, dynamic_type, frame_urls, is_ai_generated, rejection_reason, created_at").
 		Where("id IN ? AND status = ?", ids, model.WallpaperStatusPublished).
 		Find(&wallpapers).Error
 	return wallpapers, err

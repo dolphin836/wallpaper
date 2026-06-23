@@ -87,7 +87,7 @@ func (r *WeeklyPickRepo) ListByWeek(ctx context.Context, year, week int16) ([]We
 	err := r.db.WithContext(ctx).
 		Table("weekly_picks AS wp").
 		Select(`w.id, w.slug, w.user_id, w.category_id, w.title, w.description,
-		        w.original_url, w.thumb_url, w.preview_url, w.width, w.height,
+		        w.original_url, w.thumb_url, w.preview_url, w.preview_video_url, w.width, w.height,
 		        w.file_size, w.file_type, w.dominant_color, w.color_palette,
 		        w.status, w.view_count, w.like_count, w.download_count,
 		        w.favorite_count, w.is_dynamic, w.dynamic_type, w.frame_urls,

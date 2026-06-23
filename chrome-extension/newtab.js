@@ -726,7 +726,13 @@
     elements.video.pause();
     elements.video.classList.remove("is-ready");
     elements.video.onloadeddata = null;
+    elements.video.oncanplay = null;
+    elements.video.oncanplaythrough = null;
     elements.video.onerror = null;
+    elements.video.loop = true;
+    elements.video.muted = true;
+    elements.video.autoplay = true;
+    elements.video.playsInline = true;
 
     if (softSrc && elements.image.src !== softSrc) {
       elements.image.classList.remove("is-ready");
@@ -745,6 +751,7 @@
         if (state.current !== wallpaper) return;
         elements.stage.classList.remove("is-loading");
         elements.video.classList.add("is-ready");
+        elements.image.classList.remove("is-soft");
         elements.video.play().catch(() => {
           if (state.current !== wallpaper) return;
           elements.video.classList.remove("is-ready");
@@ -753,6 +760,8 @@
       };
 
       elements.video.onloadeddata = showVideo;
+      elements.video.oncanplay = showVideo;
+      elements.video.oncanplaythrough = showVideo;
       elements.video.onerror = () => {
         if (state.current !== wallpaper) return;
         elements.image.classList.remove("is-soft");
