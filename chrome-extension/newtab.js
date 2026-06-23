@@ -390,6 +390,7 @@
     widgetLayer: document.getElementById("widgetLayer"),
     clock: document.getElementById("clock"),
     clockDate: document.getElementById("clockDate"),
+    clockWeekday: document.getElementById("clockWeekday"),
     clockHourTens: document.getElementById("clockHourTens"),
     clockHourOnes: document.getElementById("clockHourOnes"),
     clockMinuteTens: document.getElementById("clockMinuteTens"),
@@ -1410,6 +1411,7 @@
     const hours = pad2(now.getHours());
     const minutes = pad2(now.getMinutes());
     elements.clockDate.textContent = clockDateLabel(now);
+    elements.clockWeekday.textContent = clockWeekdayLabel(now);
     setClockDigit(elements.clockHourTens, hours[0]);
     setClockDigit(elements.clockHourOnes, hours[1]);
     setClockDigit(elements.clockMinuteTens, minutes[0]);
@@ -1449,6 +1451,15 @@
       return `${year}年${month}月${day}日`;
     }
     return `${year}.${pad2(month)}.${pad2(day)}`;
+  }
+
+  function clockWeekdayLabel(date) {
+    const day = date.getDay();
+    const locale = currentLocale();
+    if (locale === "ja") return ["日", "月", "火", "水", "木", "金", "土"][day];
+    if (locale === "zh-TW") return ["週日", "週一", "週二", "週三", "週四", "週五", "週六"][day];
+    if (locale === "zh-CN") return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][day];
+    return ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][day];
   }
 
   function sourceName() {

@@ -254,10 +254,11 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 18px;
 }
 
-.clock-date {
+.clock-date,
+.clock-weekday {
   max-width: 100%;
   overflow: hidden;
   color: rgba(255, 255, 255, 0.88);
@@ -1526,6 +1527,10 @@ input[type="checkbox"]:checked::before {
   .clock-date {
     font-size: 10px;
     letter-spacing: 0;
+  }
+
+  .clock-weekday {
+    font-size: 10px;
   }
 
   .clock-main {
