@@ -467,7 +467,7 @@
     applyLocale();
     renderSettings();
     updateClock();
-    setInterval(updateClock, 1000 * 30);
+    setInterval(updateClock, 1000);
     track("chrome_newtab_open");
     await loadSource({ preferCached: true });
   }
@@ -1367,7 +1367,11 @@
 
   function updateClock() {
     const now = new Date();
-    elements.clock.textContent = now.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    elements.clock.textContent = now.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
     elements.clock.dateTime = now.toISOString();
   }
 
