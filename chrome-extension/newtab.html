@@ -16,7 +16,20 @@
       <div class="photo-scrim" aria-hidden="true"></div>
 
       <section class="widget-layer" id="widgetLayer" aria-label="Widgets">
-        <time class="clock" id="clock" datetime=""></time>
+        <time class="clock" id="clock" datetime="">
+          <span class="clock-face">
+            <span class="clock-meta">
+              <span class="clock-date" id="clockDate"></span>
+              <span class="clock-second" id="clockSecond" aria-hidden="true"></span>
+            </span>
+            <span class="clock-main" id="clockMain" aria-hidden="true">
+              <span class="flip-digit" id="clockHourTens"></span>
+              <span class="flip-digit" id="clockHourOnes"></span>
+              <span class="flip-digit" id="clockMinuteTens"></span>
+              <span class="flip-digit" id="clockMinuteOnes"></span>
+            </span>
+          </span>
+        </time>
         <form class="search" id="searchForm" autocomplete="off">
           <label class="sr-only" for="searchInput" data-i18n="searchLabel">Search the web</label>
           <input id="searchInput" name="q" type="search" spellcheck="false">
@@ -157,7 +170,7 @@
           <dl class="info-list">
             <div>
               <dt data-i18n="versionLabel">Version</dt>
-              <dd id="versionText">0.1.5</dd>
+              <dd id="versionText">0.1.6</dd>
             </div>
           </dl>
           <div class="link-list">

@@ -61,7 +61,7 @@
       languageAuto: "Follow browser",
       widgetsTitle: "Widgets",
       clockWidget: "Clock",
-      clockHint: "Uses your browser format.",
+      clockHint: "Shows local time with seconds.",
       searchWidget: "Search",
       searchHint: "Search or enter a website.",
       quickLinksWidget: "Quick links",
@@ -155,7 +155,7 @@
       languageAuto: "跟随浏览器",
       widgetsTitle: "小组件",
       clockWidget: "时钟",
-      clockHint: "使用浏览器默认格式。",
+      clockHint: "显示本地时间，精确到秒。",
       searchWidget: "搜索",
       searchHint: "搜索或输入网址。",
       quickLinksWidget: "常用网址",
@@ -243,7 +243,7 @@
     languageTitle: "語言",
     languageAuto: "跟隨瀏覽器",
     widgetsTitle: "小工具",
-    clockHint: "使用瀏覽器預設格式。",
+    clockHint: "顯示本地時間，精確到秒。",
     searchHint: "搜尋或輸入網址。",
     quickLinksWidget: "常用網址",
     quickLinksHint: "在搜尋框下方顯示常用網址。",
@@ -323,7 +323,7 @@
     languageAuto: "ブラウザに合わせる",
     widgetsTitle: "ウィジェット",
     clockWidget: "時計",
-    clockHint: "ブラウザの形式を使用します。",
+    clockHint: "現地時刻を秒まで表示します。",
     searchWidget: "検索",
     searchHint: "検索またはURLを入力します。",
     quickLinksWidget: "よく使うサイト",
@@ -389,6 +389,12 @@
     video: document.getElementById("wallpaperVideo"),
     widgetLayer: document.getElementById("widgetLayer"),
     clock: document.getElementById("clock"),
+    clockDate: document.getElementById("clockDate"),
+    clockHourTens: document.getElementById("clockHourTens"),
+    clockHourOnes: document.getElementById("clockHourOnes"),
+    clockMinuteTens: document.getElementById("clockMinuteTens"),
+    clockMinuteOnes: document.getElementById("clockMinuteOnes"),
+    clockSecond: document.getElementById("clockSecond"),
     searchForm: document.getElementById("searchForm"),
     searchInput: document.getElementById("searchInput"),
     quickLinks: document.getElementById("quickLinks"),
@@ -1402,12 +1408,49 @@
 
   function updateClock() {
     const now = new Date();
-    elements.clock.textContent = now.toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit"
-    });
+    const hours = pad2(now.getHours());
+    const minutes = pad2(now.getMinutes());
+    const seconds = pad2(now.getSeconds());
+    const month = clockMonthLabel(now);
+    elements.clockDate.textContent = clockDateLabel(now, month);
+    elements.clockHourTens.textContent = hours[0];
+    elements.clockHourOnes.textContent = hours[1];
+    elements.clockMinuteTens.textContent = minutes[0];
+    elements.clockMinuteOnes.textContent = minutes[1];
+    elements.clockSecond.textContent = seconds;
     elements.clock.dateTime = now.toISOString();
+    elements.clock.setAttribute("aria-label", now.toLocaleString(currentLocale(), {
+      dateStyle: "medium",
+      timeStyle: "medium"
+    }));
+  }
+
+  function pad2(value) {
+    return String(value).padStart(2, "0");
+  }
+
+  function clockMonthLabel(date) {
+    const locale = currentLocale();
+    if (locale === "en") {
+      return ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][date.getMonth()];
+    }
+    return `${date.getMonth() + 1}月`;
+  }
+
+  function clockDateLabel(date, month) {
+    const day = pad2(date.getDate());
+    const weekday = clockWeekdayLabel(date);
+    if (currentLocale() === "en") return `${month} ${day} ${weekday}`;
+    return `${month}${day}日 ${weekday}`;
+  }
+
+  function clockWeekdayLabel(date) {
+    const day = date.getDay();
+    const locale = currentLocale();
+    if (locale === "ja") return ["日", "月", "火", "水", "木", "金", "土"][day];
+    if (locale === "zh-TW") return ["週日", "週一", "週二", "週三", "週四", "週五", "週六"][day];
+    if (locale === "zh-CN") return ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][day];
+    return ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][day];
   }
 
   function sourceName() {
