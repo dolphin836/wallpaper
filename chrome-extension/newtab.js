@@ -117,6 +117,7 @@
       actionFailed: "Action failed.",
       collectionCount: "{count} wallpapers",
       coins: "{count} coins",
+      live: "Live",
       dynamic: "Dynamic",
       video: "Video"
     },
@@ -210,6 +211,7 @@
       actionFailed: "操作失败。",
       collectionCount: "{count} 张壁纸",
       coins: "{count} 金币",
+      live: "动态",
       dynamic: "动态",
       video: "视频"
     }
@@ -285,7 +287,8 @@
     signedOut: "已登出。",
     downloadDone: "已開始下載。",
     collectionCount: "{count} 張桌布",
-    coins: "{count} 金幣"
+    coins: "{count} 金幣",
+    live: "動態"
   };
   COPY.ja = {
     ...COPY.en,
@@ -374,6 +377,7 @@
     actionFailed: "操作に失敗しました。",
     collectionCount: "{count} 枚の壁紙",
     coins: "{count} コイン",
+    live: "ライブ",
     dynamic: "ダイナミック",
     video: "動画"
   };
@@ -1051,7 +1055,8 @@
       img.alt = "";
       thumb.appendChild(img);
 
-      button.appendChild(thumb);
+      const chips = wallpaperChipStrip(item);
+      button.append(thumb, chips);
       button.addEventListener("click", async () => {
         state.settings.randomEnabled = false;
         state.settings.wallpaperId = item.id;
@@ -1063,6 +1068,27 @@
       });
       elements.wallpaperList.appendChild(button);
     });
+  }
+
+  function wallpaperChipStrip(wallpaper) {
+    const strip = document.createElement("div");
+    strip.className = "wallpaper-chip-strip";
+
+    const resolution = resolutionLabel(wallpaper);
+    if (resolution) {
+      strip.appendChild(wallpaperChip(resolution));
+    }
+    if (isLiveWallpaper(wallpaper)) {
+      strip.appendChild(wallpaperChip(t("live"), "is-live"));
+    }
+    return strip;
+  }
+
+  function wallpaperChip(label, tone = "") {
+    const chip = document.createElement("span");
+    chip.className = `wallpaper-chip${tone ? ` ${tone}` : ""}`;
+    chip.textContent = label;
+    return chip;
   }
 
   function emptyNode(text) {
@@ -1453,6 +1479,21 @@
     const fileType = String(wallpaper.file_type || "").toLowerCase();
     if (original && fileType.startsWith("video/")) return original;
     if (/\.(mp4|webm|mov)(?:$|\?)/i.test(original)) return original;
+    return "";
+  }
+
+  function isLiveWallpaper(wallpaper) {
+    return Boolean(getVideoSource(wallpaper) || (wallpaper && wallpaper.is_dynamic));
+  }
+
+  function resolutionLabel(wallpaper) {
+    if (!wallpaper) return "";
+    const px = Math.max(Number(wallpaper.width) || 0, Number(wallpaper.height) || 0);
+    if (px >= 7680) return "8K";
+    if (px >= 3840) return "4K";
+    if (px >= 2560) return "2K";
+    if (px >= 1920) return "1080P";
+    if (px >= 1280) return "720P";
     return "";
   }
 

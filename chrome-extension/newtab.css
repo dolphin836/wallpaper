@@ -828,6 +828,7 @@ a {
 }
 
 .wallpaper-item {
+  position: relative;
   aspect-ratio: var(--device-aspect);
   min-height: 0;
   padding: 0;
@@ -872,6 +873,43 @@ a {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.wallpaper-chip-strip {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  z-index: 1;
+  max-width: calc(100% - 14px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.wallpaper-chip {
+  min-height: 18px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 6px;
+  color: rgba(30, 30, 30, 0.78);
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+  backdrop-filter: blur(12px) saturate(1.35);
+  -webkit-backdrop-filter: blur(12px) saturate(1.35);
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.wallpaper-chip.is-live {
+  color: #fff;
+  background:
+    radial-gradient(circle at 22% 12%, rgba(255, 255, 255, 0.42), transparent 34%),
+    linear-gradient(135deg, rgba(240, 120, 63, 0.94), rgba(240, 120, 63, 0.70));
+  border-color: rgba(255, 255, 255, 0.34);
 }
 
 .item-title {
@@ -1309,6 +1347,7 @@ input[type="checkbox"]:checked::before {
   .dock-button::after,
   .search input,
   .quick-link-icon,
+  .wallpaper-chip,
   .source-card,
   .collection-item,
   .wallpaper-item,
@@ -1360,6 +1399,7 @@ input[type="checkbox"]:checked::before {
   .source-card,
   .collection-item,
   .wallpaper-item,
+  .wallpaper-chip,
   .round-button,
   select,
   .quick-link-form input,
