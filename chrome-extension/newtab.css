@@ -985,9 +985,9 @@ input[type="checkbox"]:checked::before {
 
 .quick-link-form {
   display: grid;
-  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr) auto;
-  gap: 8px;
-  align-items: end;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  align-items: stretch;
 }
 
 .quick-link-form label {
@@ -1001,6 +1001,11 @@ input[type="checkbox"]:checked::before {
 
 .quick-link-dialog {
   width: min(540px, calc(100vw - 32px));
+}
+
+.quick-link-dialog-form .primary-button {
+  justify-self: end;
+  min-width: 112px;
 }
 
 .account-prompt {
