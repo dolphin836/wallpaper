@@ -3,44 +3,371 @@
   const SITE_BASE = "https://wallpaperexchange.com";
   const SETTINGS_KEY = "wallpaperExchangeNewTabSettings";
   const CACHE_KEY = "wallpaperExchangeNewTabCache";
+  const SESSION_KEY = "wallpaperExchangeChromeSession";
+  const SESSION_STAMP_KEY = "wallpaperExchangeChromeSessionStamp";
+  const SESSION_TTL_MS = 30 * 60 * 1000;
+
+  const extensionVersion = getExtensionVersion();
 
   const DEFAULT_SETTINGS = {
     source: "weekly",
     collectionId: null,
     collectionTitle: "",
+    wallpaperId: null,
     token: "",
     user: null,
-    currentIndex: 0
+    language: "auto",
+    randomEnabled: false,
+    randomIntervalMinutes: 15,
+    showClock: true,
+    showSearch: true
+  };
+
+  const COPY = {
+    en: {
+      title: "Wallpaper Exchange",
+      settings: "Settings",
+      like: "Like",
+      liked: "Liked",
+      favorite: "Save",
+      favorited: "Saved",
+      download: "Download",
+      downloaded: "Got it",
+      searchLabel: "Search the web",
+      searchPlaceholder: "Search the web or enter a website",
+      panelKicker: "Wallpaper Exchange",
+      panelTitle: "New tab settings",
+      sourceTitle: "Wallpaper source",
+      sourceWeekly: "Weekly Picks",
+      sourceWeeklyHint: "Curated every week",
+      sourceFavorites: "My Favorites",
+      sourceAuthHint: "Sign in required",
+      sourceCollection: "My Collection",
+      sourceCollectionHint: "Choose one collection",
+      collectionLabel: "Collection",
+      reload: "Reload",
+      refresh: "Refresh",
+      wallpaperListTitle: "Wallpapers",
+      randomTitle: "Random wallpaper",
+      randomEnable: "Enable random",
+      randomHint: "Randomly picks from the current source.",
+      randomInterval: "Interval",
+      intervalNewTab: "Every new tab",
+      languageTitle: "Language",
+      languageLabel: "Interface language",
+      languageAuto: "Follow browser",
+      widgetsTitle: "Widgets",
+      clockWidget: "Clock",
+      clockHint: "Uses your browser format.",
+      searchWidget: "Search",
+      searchHint: "Search or enter a website.",
+      accountTitle: "Account",
+      accountPrompt: "Sign in to use favorites, collections, likes, and downloads.",
+      openAuth: "Sign in or create account",
+      signOut: "Sign out",
+      aboutTitle: "About",
+      versionLabel: "Version",
+      openWebsite: "Open website",
+      terms: "Terms",
+      privacy: "Privacy",
+      dmca: "DMCA",
+      authKicker: "Wallpaper Exchange",
+      authTitle: "Account",
+      login: "Sign in",
+      register: "Register",
+      username: "Username",
+      email: "Email",
+      password: "Password",
+      legalNote: "By creating an account you agree to the site terms and privacy policy.",
+      loading: "Loading wallpapers...",
+      loadingCollections: "Loading collections...",
+      noWallpapers: "No wallpapers here yet.",
+      noCollections: "No collections yet.",
+      chooseCollection: "Choose a collection first.",
+      signInToUse: "Sign in to use this source.",
+      usingCache: "Using the last loaded wallpaper set.",
+      highQualityFailed: "The high quality image did not load. Showing the preview.",
+      authRequired: "Sign in first.",
+      emailPasswordRequired: "Enter your email and password.",
+      usernameRequired: "Enter a username.",
+      signingIn: "Signing in...",
+      creatingAccount: "Creating account...",
+      authFailed: "Account request failed.",
+      signedIn: "Signed in.",
+      signedOut: "Signed out.",
+      insufficientCoins: "Not enough coins.",
+      downloadFailed: "Download failed.",
+      downloadDone: "Download started.",
+      actionFailed: "Action failed.",
+      collectionCount: "{count} wallpapers",
+      coins: "{count} coins",
+      dynamic: "Dynamic",
+      video: "Video"
+    },
+    zh: {
+      title: "Wallpaper Exchange",
+      settings: "设置",
+      like: "点赞",
+      liked: "已点赞",
+      favorite: "收藏",
+      favorited: "已收藏",
+      download: "下载",
+      downloaded: "已获取",
+      searchLabel: "搜索网页",
+      searchPlaceholder: "搜索网页或输入网址",
+      panelKicker: "Wallpaper Exchange",
+      panelTitle: "新标签页设置",
+      sourceTitle: "壁纸来源",
+      sourceWeekly: "每周推荐",
+      sourceWeeklyHint: "每周精选",
+      sourceFavorites: "我的收藏",
+      sourceAuthHint: "需要登录",
+      sourceCollection: "我的合集",
+      sourceCollectionHint: "选择一个合集",
+      collectionLabel: "合集",
+      reload: "重新加载",
+      refresh: "刷新",
+      wallpaperListTitle: "壁纸列表",
+      randomTitle: "随机壁纸",
+      randomEnable: "启用随机",
+      randomHint: "从当前来源里随机选择壁纸。",
+      randomInterval: "切换时间",
+      intervalNewTab: "每次新标签页",
+      languageTitle: "语言",
+      languageLabel: "界面语言",
+      languageAuto: "跟随浏览器",
+      widgetsTitle: "小组件",
+      clockWidget: "时钟",
+      clockHint: "使用浏览器默认格式。",
+      searchWidget: "搜索",
+      searchHint: "搜索或输入网址。",
+      accountTitle: "登录/注册",
+      accountPrompt: "登录后可以使用收藏、合集、点赞和下载。",
+      openAuth: "登录或注册",
+      signOut: "退出登录",
+      aboutTitle: "其他信息",
+      versionLabel: "当前版本",
+      openWebsite: "打开官网",
+      terms: "服务条款",
+      privacy: "隐私政策",
+      dmca: "DMCA",
+      authKicker: "Wallpaper Exchange",
+      authTitle: "账号",
+      login: "登录",
+      register: "注册",
+      username: "用户名",
+      email: "邮箱",
+      password: "密码",
+      legalNote: "创建账号即表示你同意官网的服务条款和隐私政策。",
+      loading: "正在加载壁纸...",
+      loadingCollections: "正在加载合集...",
+      noWallpapers: "这里还没有壁纸。",
+      noCollections: "还没有合集。",
+      chooseCollection: "请先选择一个合集。",
+      signInToUse: "登录后才能使用这个来源。",
+      usingCache: "正在使用上一次加载的壁纸列表。",
+      highQualityFailed: "高清图片加载失败，当前显示预览图。",
+      authRequired: "请先登录。",
+      emailPasswordRequired: "请输入邮箱和密码。",
+      usernameRequired: "请输入用户名。",
+      signingIn: "正在登录...",
+      creatingAccount: "正在创建账号...",
+      authFailed: "账号请求失败。",
+      signedIn: "已登录。",
+      signedOut: "已退出登录。",
+      insufficientCoins: "金币不足。",
+      downloadFailed: "下载失败。",
+      downloadDone: "已开始下载。",
+      actionFailed: "操作失败。",
+      collectionCount: "{count} 张壁纸",
+      coins: "{count} 金币",
+      dynamic: "动态",
+      video: "视频"
+    }
+  };
+
+  COPY["zh-CN"] = COPY.zh;
+  COPY["zh-TW"] = {
+    ...COPY.zh,
+    settings: "設定",
+    liked: "已按讚",
+    searchLabel: "搜尋網頁",
+    searchPlaceholder: "搜尋網頁或輸入網址",
+    panelTitle: "新分頁設定",
+    sourceTitle: "桌布來源",
+    sourceWeekly: "每週推薦",
+    sourceWeeklyHint: "每週精選",
+    sourceFavorites: "我的收藏",
+    sourceAuthHint: "需要登入",
+    sourceCollection: "我的合集",
+    sourceCollectionHint: "選擇一個合集",
+    collectionLabel: "合集",
+    reload: "重新載入",
+    wallpaperListTitle: "桌布列表",
+    randomTitle: "隨機桌布",
+    randomEnable: "啟用隨機",
+    randomHint: "從目前來源隨機選擇桌布。",
+    randomInterval: "切換時間",
+    intervalNewTab: "每次新分頁",
+    languageTitle: "語言",
+    languageAuto: "跟隨瀏覽器",
+    widgetsTitle: "小工具",
+    clockHint: "使用瀏覽器預設格式。",
+    searchHint: "搜尋或輸入網址。",
+    accountTitle: "登入/註冊",
+    accountPrompt: "登入後可以使用收藏、合集、按讚和下載。",
+    openAuth: "登入或註冊",
+    signOut: "登出",
+    aboutTitle: "其他資訊",
+    versionLabel: "目前版本",
+    openWebsite: "開啟官網",
+    terms: "服務條款",
+    privacy: "隱私政策",
+    authTitle: "帳號",
+    login: "登入",
+    username: "使用者名稱",
+    password: "密碼",
+    legalNote: "建立帳號即表示你同意官網的服務條款和隱私政策。",
+    loading: "正在載入桌布...",
+    loadingCollections: "正在載入合集...",
+    noWallpapers: "這裡還沒有桌布。",
+    noCollections: "還沒有合集。",
+    chooseCollection: "請先選擇一個合集。",
+    signInToUse: "登入後才能使用這個來源。",
+    usingCache: "正在使用上一次載入的桌布列表。",
+    highQualityFailed: "高清圖片載入失敗，目前顯示預覽圖。",
+    authRequired: "請先登入。",
+    emailPasswordRequired: "請輸入信箱和密碼。",
+    signingIn: "正在登入...",
+    signedIn: "已登入。",
+    signedOut: "已登出。",
+    downloadDone: "已開始下載。",
+    collectionCount: "{count} 張桌布",
+    coins: "{count} 金幣"
+  };
+  COPY.ja = {
+    ...COPY.en,
+    settings: "設定",
+    like: "いいね",
+    liked: "いいね済み",
+    favorite: "保存",
+    favorited: "保存済み",
+    download: "ダウンロード",
+    downloaded: "取得済み",
+    searchLabel: "ウェブを検索",
+    searchPlaceholder: "検索またはURLを入力",
+    panelTitle: "新しいタブの設定",
+    sourceTitle: "壁紙ソース",
+    sourceWeekly: "週間おすすめ",
+    sourceWeeklyHint: "毎週のセレクト",
+    sourceFavorites: "お気に入り",
+    sourceAuthHint: "ログインが必要",
+    sourceCollection: "マイコレクション",
+    sourceCollectionHint: "コレクションを選択",
+    collectionLabel: "コレクション",
+    reload: "再読み込み",
+    refresh: "更新",
+    wallpaperListTitle: "壁紙一覧",
+    randomTitle: "ランダム壁紙",
+    randomEnable: "ランダムを有効化",
+    randomHint: "現在のソースからランダムに選びます。",
+    randomInterval: "間隔",
+    intervalNewTab: "新しいタブごと",
+    languageTitle: "言語",
+    languageLabel: "表示言語",
+    languageAuto: "ブラウザに合わせる",
+    widgetsTitle: "ウィジェット",
+    clockWidget: "時計",
+    clockHint: "ブラウザの形式を使用します。",
+    searchWidget: "検索",
+    searchHint: "検索またはURLを入力します。",
+    accountTitle: "アカウント",
+    accountPrompt: "ログインすると、お気に入り、コレクション、いいね、ダウンロードを使えます。",
+    openAuth: "ログインまたは登録",
+    signOut: "ログアウト",
+    aboutTitle: "情報",
+    versionLabel: "バージョン",
+    openWebsite: "Webサイトを開く",
+    terms: "利用規約",
+    privacy: "プライバシー",
+    authTitle: "アカウント",
+    login: "ログイン",
+    register: "登録",
+    username: "ユーザー名",
+    email: "メール",
+    password: "パスワード",
+    legalNote: "アカウントを作成すると、サイトの利用規約とプライバシーポリシーに同意したものとします。",
+    loading: "壁紙を読み込み中...",
+    loadingCollections: "コレクションを読み込み中...",
+    noWallpapers: "まだ壁紙がありません。",
+    noCollections: "まだコレクションがありません。",
+    chooseCollection: "先にコレクションを選択してください。",
+    signInToUse: "このソースを使うにはログインしてください。",
+    usingCache: "前回読み込んだ壁紙セットを表示しています。",
+    highQualityFailed: "高画質画像を読み込めませんでした。プレビューを表示しています。",
+    authRequired: "先にログインしてください。",
+    emailPasswordRequired: "メールとパスワードを入力してください。",
+    usernameRequired: "ユーザー名を入力してください。",
+    signingIn: "ログイン中...",
+    creatingAccount: "アカウント作成中...",
+    authFailed: "アカウント処理に失敗しました。",
+    signedIn: "ログインしました。",
+    signedOut: "ログアウトしました。",
+    insufficientCoins: "コインが足りません。",
+    downloadFailed: "ダウンロードに失敗しました。",
+    downloadDone: "ダウンロードを開始しました。",
+    actionFailed: "操作に失敗しました。",
+    collectionCount: "{count} 枚の壁紙",
+    coins: "{count} コイン",
+    dynamic: "ダイナミック",
+    video: "動画"
   };
 
   const elements = {
     stage: document.getElementById("stage"),
     base: document.getElementById("wallpaperBase"),
     image: document.getElementById("wallpaperImage"),
+    widgetLayer: document.getElementById("widgetLayer"),
     clock: document.getElementById("clock"),
     searchForm: document.getElementById("searchForm"),
     searchInput: document.getElementById("searchInput"),
-    title: document.getElementById("wallpaperTitle"),
-    details: document.getElementById("wallpaperDetails"),
-    sourceLabel: document.getElementById("sourceLabel"),
-    openLink: document.getElementById("openWallpaperLink"),
-    previousButton: document.getElementById("previousButton"),
-    nextButton: document.getElementById("nextButton"),
-    refreshButton: document.getElementById("refreshButton"),
     settingsButton: document.getElementById("settingsButton"),
+    authActions: document.getElementById("authActions"),
+    likeButton: document.getElementById("likeButton"),
+    favoriteButton: document.getElementById("favoriteButton"),
+    downloadButton: document.getElementById("downloadButton"),
     panel: document.getElementById("settingsPanel"),
     closeSettingsButton: document.getElementById("closeSettingsButton"),
-    sourceOptions: Array.from(document.querySelectorAll(".source-option")),
-    loginForm: document.getElementById("loginForm"),
-    loginFields: document.getElementById("loginFields"),
-    signedInRow: document.getElementById("signedInRow"),
-    signedInName: document.getElementById("signedInName"),
-    signOutButton: document.getElementById("signOutButton"),
-    collectionBlock: document.getElementById("collectionBlock"),
+    sourceCards: Array.from(document.querySelectorAll(".source-card")),
+    collectionPicker: document.getElementById("collectionPicker"),
     collectionsList: document.getElementById("collectionsList"),
     reloadCollectionsButton: document.getElementById("reloadCollectionsButton"),
-    thumbStrip: document.getElementById("thumbStrip"),
-    statusLine: document.getElementById("statusLine")
+    reloadSourceButton: document.getElementById("reloadSourceButton"),
+    wallpaperList: document.getElementById("wallpaperList"),
+    randomToggle: document.getElementById("randomToggle"),
+    randomIntervalSelect: document.getElementById("randomIntervalSelect"),
+    languageSelect: document.getElementById("languageSelect"),
+    clockToggle: document.getElementById("clockToggle"),
+    searchToggle: document.getElementById("searchToggle"),
+    accountPrompt: document.getElementById("accountPrompt"),
+    openAuthButton: document.getElementById("openAuthButton"),
+    accountCard: document.getElementById("accountCard"),
+    accountAvatar: document.getElementById("accountAvatar"),
+    accountName: document.getElementById("accountName"),
+    accountCoins: document.getElementById("accountCoins"),
+    signOutButton: document.getElementById("signOutButton"),
+    versionText: document.getElementById("versionText"),
+    statusLine: document.getElementById("statusLine"),
+    authModal: document.getElementById("authModal"),
+    closeAuthButton: document.getElementById("closeAuthButton"),
+    authForm: document.getElementById("authForm"),
+    authTabs: Array.from(document.querySelectorAll(".auth-tab")),
+    usernameLabel: document.getElementById("usernameLabel"),
+    usernameInput: document.getElementById("usernameInput"),
+    emailInput: document.getElementById("emailInput"),
+    passwordInput: document.getElementById("passwordInput"),
+    authSubmitButton: document.getElementById("authSubmitButton"),
+    authStatusLine: document.getElementById("authStatusLine")
   };
 
   const state = {
@@ -48,195 +375,272 @@
     items: [],
     collections: [],
     current: null,
-    loadingToken: 0
+    sourceLabel: "",
+    loadingToken: 0,
+    randomTimer: null,
+    authMode: "login",
+    sessionId: ""
   };
 
   document.addEventListener("DOMContentLoaded", init);
 
   async function init() {
     state.settings = { ...DEFAULT_SETTINGS, ...(await getStored(SETTINGS_KEY)) };
-    renderAuthState();
-    renderSourceOptions();
+    if (state.settings.language === "zh") {
+      state.settings.language = "zh-CN";
+    }
+    if (!isSignedIn() && state.settings.source !== "weekly") {
+      state.settings.source = "weekly";
+      state.settings.collectionId = null;
+      state.settings.collectionTitle = "";
+      state.settings.wallpaperId = null;
+    }
+    state.sessionId = await getSessionID();
+    elements.versionText.textContent = extensionVersion;
     bindEvents();
+    applyLocale();
+    renderSettings();
     updateClock();
     setInterval(updateClock, 1000 * 30);
+    track("chrome_newtab_open");
     await loadSource({ preferCached: true });
   }
 
   function bindEvents() {
     elements.searchForm.addEventListener("submit", handleSearch);
-    elements.previousButton.addEventListener("click", () => move(-1));
-    elements.nextButton.addEventListener("click", () => move(1));
-    elements.refreshButton.addEventListener("click", () => shuffleWallpaper());
-    elements.settingsButton.addEventListener("click", () => setPanelOpen(!elements.panel.classList.contains("is-open")));
+    elements.settingsButton.addEventListener("click", () => {
+      const open = !elements.panel.classList.contains("is-open");
+      setPanelOpen(open);
+      if (open) track("chrome_settings_open");
+    });
     elements.closeSettingsButton.addEventListener("click", () => setPanelOpen(false));
-    elements.loginForm.addEventListener("submit", handleLogin);
-    elements.signOutButton.addEventListener("click", handleSignOut);
+    elements.likeButton.addEventListener("click", () => toggleEngagement("like"));
+    elements.favoriteButton.addEventListener("click", () => toggleEngagement("favorite"));
+    elements.downloadButton.addEventListener("click", downloadCurrentWallpaper);
     elements.reloadCollectionsButton.addEventListener("click", () => loadCollections({ force: true }));
+    elements.reloadSourceButton.addEventListener("click", () => loadSource({ force: true }));
+    elements.openAuthButton.addEventListener("click", () => openAuthModal("login"));
+    elements.signOutButton.addEventListener("click", signOut);
+    elements.closeAuthButton.addEventListener("click", closeAuthModal);
+    elements.authForm.addEventListener("submit", handleAuthSubmit);
 
-    elements.sourceOptions.forEach((button) => {
+    elements.sourceCards.forEach((button) => {
       button.addEventListener("click", async () => {
         const source = button.dataset.source;
-        if (!source || source === state.settings.source) return;
+        if (!source || button.disabled || source === state.settings.source) return;
         state.settings.source = source;
-        state.settings.currentIndex = 0;
+        state.settings.wallpaperId = null;
+        if (source !== "collection") {
+          state.settings.collectionId = null;
+          state.settings.collectionTitle = "";
+        }
         await saveSettings();
-        renderSourceOptions();
+        renderSettings();
+        track("chrome_source_change", { source });
         await loadSource();
       });
     });
 
+    elements.randomToggle.addEventListener("change", async () => {
+      state.settings.randomEnabled = elements.randomToggle.checked;
+      await saveSettings();
+      scheduleRandomTimer();
+      if (state.settings.randomEnabled) {
+        shuffleWallpaper({ trackEvent: true });
+      }
+      renderSettings();
+    });
+
+    elements.randomIntervalSelect.addEventListener("change", async () => {
+      state.settings.randomIntervalMinutes = Number(elements.randomIntervalSelect.value) || 0;
+      await saveSettings();
+      scheduleRandomTimer();
+      track("chrome_random_interval_change", { minutes: state.settings.randomIntervalMinutes });
+    });
+
+    elements.languageSelect.addEventListener("change", async () => {
+      state.settings.language = elements.languageSelect.value;
+      await saveSettings();
+      applyLocale();
+      renderSettings();
+      renderCollections();
+      renderWallpaperList();
+      renderActionButtons();
+      track("chrome_language_change", { language: state.settings.language });
+    });
+
+    elements.clockToggle.addEventListener("change", () => updateWidgetSetting("showClock", elements.clockToggle.checked));
+    elements.searchToggle.addEventListener("change", () => updateWidgetSetting("showSearch", elements.searchToggle.checked));
+
+    elements.authTabs.forEach((button) => {
+      button.addEventListener("click", () => setAuthMode(button.dataset.mode || "login"));
+    });
+
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") setPanelOpen(false);
-      if (event.key === "ArrowRight" && !isTextFieldFocused()) move(1);
-      if (event.key === "ArrowLeft" && !isTextFieldFocused()) move(-1);
+      if (event.key === "Escape") {
+        if (!elements.authModal.hidden) closeAuthModal();
+        else setPanelOpen(false);
+      }
     });
 
     document.addEventListener("pointerdown", (event) => {
-      if (!elements.panel.classList.contains("is-open")) return;
+      if (!elements.panel.classList.contains("is-open") || !elements.authModal.hidden) return;
       const target = event.target;
       if (elements.panel.contains(target) || elements.settingsButton.contains(target)) return;
       setPanelOpen(false);
     });
+
+    elements.authModal.addEventListener("pointerdown", (event) => {
+      if (event.target === elements.authModal) closeAuthModal();
+    });
   }
 
-  function isTextFieldFocused() {
-    const active = document.activeElement;
-    return active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement;
+  async function updateWidgetSetting(key, value) {
+    state.settings[key] = value;
+    await saveSettings();
+    renderWidgets();
+    track("chrome_widget_toggle", { key, value });
   }
 
-  async function loadSource({ preferCached = false } = {}) {
+  async function loadSource({ preferCached = false, force = false } = {}) {
     const token = ++state.loadingToken;
-    setStatus("Loading wallpapers...");
+    setStatus(t("loading"));
+    renderWallpaperList({ loading: true });
     elements.stage.classList.add("is-loading");
 
+    const cacheKey = sourceCacheKey();
     if (preferCached) {
-      const cached = await getStored(CACHE_KEY);
-      if (cached && cached.source === state.settings.source && Array.isArray(cached.items) && cached.items.length > 0) {
-        setItems(cached.items, { fromCache: true });
+      const cache = await getStored(CACHE_KEY);
+      const cached = cache && cache[cacheKey];
+      if (cached && Array.isArray(cached.items) && cached.items.length > 0) {
+        setItems(cached.items, { label: cached.label, fromCache: true });
       }
     }
 
     try {
-      const loaded = await fetchItemsForSource();
+      const loaded = await fetchItemsForCurrentSource({ force });
       if (token !== state.loadingToken) return;
-      if (!loaded.items.length) throw new Error("No wallpapers found for this source.");
+      if (!loaded.items.length) throw new Error(t("noWallpapers"));
       setItems(loaded.items, { label: loaded.label });
-      await setStored(CACHE_KEY, {
-        source: state.settings.source,
+      const cache = (await getStored(CACHE_KEY)) || {};
+      cache[sourceCacheKey()] = {
         label: loaded.label,
         items: loaded.items,
         savedAt: Date.now()
-      });
+      };
+      await setStored(CACHE_KEY, cache);
       setStatus("");
     } catch (error) {
       if (token !== state.loadingToken) return;
-      const cached = await getStored(CACHE_KEY);
+      const cache = await getStored(CACHE_KEY);
+      const cached = cache && cache[cacheKey];
       if (cached && Array.isArray(cached.items) && cached.items.length > 0) {
         setItems(cached.items, { label: cached.label || sourceName(), fromCache: true });
-        setStatus("Using the last loaded wallpaper set.");
+        setStatus(t("usingCache"));
       } else {
-        setStatus(error.message || "Unable to load wallpapers.");
+        state.items = [];
+        renderWallpaperList();
+        setStatus(error.message || t("noWallpapers"));
         elements.stage.classList.remove("is-loading");
       }
     }
   }
 
-  async function fetchItemsForSource() {
+  async function fetchItemsForCurrentSource() {
+    if (!isSignedIn() && state.settings.source !== "weekly") {
+      state.settings.source = "weekly";
+      await saveSettings();
+      renderSettings();
+    }
+
     if (state.settings.source === "favorites") {
       requireSignIn();
       const page = await apiFetch("/users/me/favorites?limit=80");
-      return { label: "My Favorites", items: normalizeItems(page) };
+      return { label: t("sourceFavorites"), items: normalizeItems(page) };
     }
 
     if (state.settings.source === "collection") {
       requireSignIn();
-      if (!state.settings.collectionId) {
-        await loadCollections();
-        throw new Error("Choose a collection first.");
-      }
+      await loadCollections();
+      if (!state.settings.collectionId) throw new Error(t("chooseCollection"));
       const page = await apiFetch(`/collections/${state.settings.collectionId}/wallpapers?limit=80`);
       return {
-        label: state.settings.collectionTitle || "My Collection",
+        label: state.settings.collectionTitle || t("sourceCollection"),
         items: normalizeItems(page)
       };
     }
 
     const weekly = await apiFetch("/weekly-picks/current");
-    const label = weekly && weekly.week ? `Weekly Picks W${weekly.week}` : "Weekly Picks";
-    return { label, items: Array.isArray(weekly && weekly.picks) ? weekly.picks : [] };
-  }
-
-  function requireSignIn() {
-    if (!state.settings.token) {
-      setPanelOpen(true);
-      throw new Error("Sign in to use this source.");
-    }
-  }
-
-  function normalizeItems(payload) {
-    if (Array.isArray(payload)) return payload;
-    if (payload && Array.isArray(payload.items)) return payload.items;
-    return [];
+    const week = weekly && weekly.week ? ` W${weekly.week}` : "";
+    return {
+      label: `${t("sourceWeekly")}${week}`,
+      items: Array.isArray(weekly && weekly.picks) ? weekly.picks : []
+    };
   }
 
   function setItems(items, options = {}) {
     state.items = items.filter((item) => item && item.id && getBestImage(item));
+    state.sourceLabel = options.label || sourceName();
+
     if (!state.items.length) {
-      setStatus("This source has no displayable wallpapers yet.");
+      renderWallpaperList();
+      setStatus(t("noWallpapers"));
       elements.stage.classList.remove("is-loading");
       return;
     }
 
-    const maxIndex = state.items.length - 1;
-    state.settings.currentIndex = clamp(Number(state.settings.currentIndex) || 0, 0, maxIndex);
-    renderThumbStrip();
-    showWallpaperAt(state.settings.currentIndex);
-    elements.sourceLabel.textContent = options.label || sourceName();
+    let index = 0;
+    if (state.settings.randomEnabled) {
+      index = randomIndex();
+    } else if (state.settings.wallpaperId) {
+      const found = state.items.findIndex((item) => item.id === state.settings.wallpaperId);
+      index = found >= 0 ? found : 0;
+    }
+    showWallpaperAt(index, { persistSelection: !state.settings.randomEnabled, trackView: true });
+    renderWallpaperList();
+    scheduleRandomTimer();
   }
 
-  function showWallpaperAt(index) {
+  function showWallpaperAt(index, options = {}) {
     if (!state.items.length) return;
-    state.settings.currentIndex = wrap(index, state.items.length);
-    state.current = state.items[state.settings.currentIndex];
-    saveSettings();
-    renderThumbStrip();
+    const safeIndex = wrap(index, state.items.length);
+    state.current = state.items[safeIndex];
+    if (options.persistSelection) {
+      state.settings.wallpaperId = state.current.id;
+      saveSettings();
+    }
     paintWallpaper(state.current);
+    renderWallpaperList();
+    renderActionButtons();
+    if (options.trackView) {
+      track("chrome_wallpaper_view", {
+        wallpaper_id: state.current.id,
+        source: state.settings.source,
+        collection_id: state.settings.collectionId || null
+      });
+    }
   }
 
-  function move(delta) {
-    showWallpaperAt(state.settings.currentIndex + delta);
-  }
-
-  function shuffleWallpaper() {
-    if (!state.items.length) {
-      loadSource();
-      return;
+  function shuffleWallpaper(options = {}) {
+    if (state.items.length <= 1) return;
+    let next = randomIndex();
+    if (state.current) {
+      while (state.items[next] && state.items[next].id === state.current.id) {
+        next = randomIndex();
+      }
     }
-    if (state.items.length === 1) {
-      showWallpaperAt(0);
-      return;
+    showWallpaperAt(next, { trackView: true });
+    if (options.trackEvent) {
+      track("chrome_random_shuffle", { source: state.settings.source });
     }
-    let next = state.settings.currentIndex;
-    while (next === state.settings.currentIndex) {
-      next = Math.floor(Math.random() * state.items.length);
-    }
-    showWallpaperAt(next);
   }
 
   function paintWallpaper(wallpaper) {
-    const title = wallpaper.title || "Untitled wallpaper";
-    const detail = formatWallpaperDetails(wallpaper);
-    const slug = wallpaper.slug || wallpaper.id;
     const highSrc = getBestImage(wallpaper);
     const softSrc = wallpaper.thumb_url || wallpaper.preview_url || highSrc;
     const color = sanitizeColor(wallpaper.dominant_color) || "#101316";
 
     elements.base.style.backgroundColor = color;
-    elements.title.textContent = title;
-    elements.details.textContent = detail;
-    elements.openLink.href = `${SITE_BASE}/wallpaper/${slug}`;
-    elements.openLink.setAttribute("aria-label", `Open ${title}`);
     elements.stage.classList.add("is-loading");
 
     if (softSrc && elements.image.src !== softSrc) {
@@ -260,173 +664,383 @@
       elements.image.classList.remove("is-soft");
       elements.image.classList.add("is-ready");
       elements.stage.classList.remove("is-loading");
-      setStatus("The high quality image did not load. Showing the preview.");
+      setStatus(t("highQualityFailed"));
     };
     loader.src = highSrc;
   }
 
-  function getBestImage(wallpaper) {
-    return wallpaper.original_url || wallpaper.preview_url || wallpaper.thumb_url || "";
-  }
-
-  function formatWallpaperDetails(wallpaper) {
-    const parts = [];
-    if (wallpaper.width && wallpaper.height) parts.push(`${wallpaper.width} x ${wallpaper.height}`);
-    if (wallpaper.file_size) parts.push(formatBytes(wallpaper.file_size));
-    if (wallpaper.is_dynamic) {
-      const type = wallpaper.dynamic_type ? wallpaper.dynamic_type.toUpperCase() : "DYNAMIC";
-      parts.push(type);
-    }
-    return parts.join("  ");
-  }
-
-  function formatBytes(value) {
-    const bytes = Number(value) || 0;
-    if (bytes <= 0) return "";
-    const units = ["B", "KB", "MB", "GB"];
-    let size = bytes;
-    let unit = 0;
-    while (size >= 1024 && unit < units.length - 1) {
-      size /= 1024;
-      unit += 1;
-    }
-    return `${size >= 10 || unit === 0 ? Math.round(size) : size.toFixed(1)} ${units[unit]}`;
-  }
-
-  function renderThumbStrip() {
-    const previewItems = state.items.slice(0, 10);
-    elements.thumbStrip.replaceChildren();
-    previewItems.forEach((item, index) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = `thumb-button${index === state.settings.currentIndex ? " is-active" : ""}`;
-      button.setAttribute("aria-label", item.title || `Wallpaper ${index + 1}`);
-      const img = document.createElement("img");
-      img.loading = "lazy";
-      img.decoding = "async";
-      img.src = item.thumb_url || item.preview_url || getBestImage(item);
-      img.alt = "";
-      button.appendChild(img);
-      button.addEventListener("click", () => showWallpaperAt(index));
-      elements.thumbStrip.appendChild(button);
-    });
-  }
-
   async function loadCollections({ force = false } = {}) {
-    if (!state.settings.token) {
-      elements.collectionBlock.hidden = true;
+    if (!isSignedIn()) {
+      state.collections = [];
+      renderCollections();
       return;
     }
     if (!force && state.collections.length) {
+      ensureSelectedCollection();
       renderCollections();
       return;
     }
-    setStatus("Loading collections...");
+    setStatus(t("loadingCollections"));
     try {
       const collections = await apiFetch("/users/me/collections?limit=80");
       state.collections = Array.isArray(collections) ? collections : [];
+      ensureSelectedCollection();
       renderCollections();
       setStatus("");
     } catch (error) {
-      setStatus(error.message || "Unable to load collections.");
+      state.collections = [];
+      renderCollections();
+      setStatus(error.message || t("noCollections"));
     }
   }
 
+  function ensureSelectedCollection() {
+    if (!state.collections.length) {
+      state.settings.collectionId = null;
+      state.settings.collectionTitle = "";
+      return;
+    }
+    const selected = state.collections.find((item) => item.id === state.settings.collectionId);
+    if (selected) {
+      state.settings.collectionTitle = selected.title || t("sourceCollection");
+      return;
+    }
+    const first = state.collections[0];
+    state.settings.collectionId = first.id;
+    state.settings.collectionTitle = first.title || t("sourceCollection");
+    saveSettings();
+  }
+
+  function renderSettings() {
+    const signedIn = isSignedIn();
+    elements.sourceCards.forEach((button) => {
+      const source = button.dataset.source;
+      const needsAuth = source === "favorites" || source === "collection";
+      const active = source === state.settings.source;
+      button.disabled = needsAuth && !signedIn;
+      button.setAttribute("aria-checked", active ? "true" : "false");
+      button.setAttribute("aria-disabled", button.disabled ? "true" : "false");
+    });
+
+    elements.collectionPicker.hidden = state.settings.source !== "collection" || !signedIn;
+    elements.randomToggle.checked = Boolean(state.settings.randomEnabled);
+    elements.randomIntervalSelect.value = String(state.settings.randomIntervalMinutes);
+    elements.languageSelect.value = state.settings.language || "auto";
+    elements.clockToggle.checked = Boolean(state.settings.showClock);
+    elements.searchToggle.checked = Boolean(state.settings.showSearch);
+    renderWidgets();
+    renderAccount();
+    renderActionButtons();
+    renderCollections();
+  }
+
+  function renderWidgets() {
+    elements.clock.hidden = !state.settings.showClock;
+    elements.searchForm.hidden = !state.settings.showSearch;
+    elements.widgetLayer.classList.toggle("is-empty", !state.settings.showClock && !state.settings.showSearch);
+  }
+
+  function renderAccount() {
+    const user = state.settings.user;
+    const signedIn = isSignedIn();
+    elements.accountPrompt.hidden = signedIn;
+    elements.accountCard.hidden = !signedIn;
+    if (!signedIn || !user) return;
+
+    const name = user.nickname || user.username || "Wallpaper Exchange";
+    elements.accountName.textContent = name;
+    elements.accountCoins.textContent = formatTemplate(t("coins"), { count: user.coins || 0 });
+    elements.accountAvatar.replaceChildren();
+    if (user.avatar_url) {
+      const img = document.createElement("img");
+      img.src = user.avatar_url;
+      img.alt = "";
+      img.decoding = "async";
+      elements.accountAvatar.appendChild(img);
+    } else {
+      elements.accountAvatar.textContent = name.charAt(0).toUpperCase();
+    }
+  }
+
+  function renderActionButtons() {
+    const signedIn = isSignedIn();
+    elements.authActions.hidden = !signedIn;
+    if (!signedIn) return;
+
+    const wallpaper = state.current || {};
+    setDockButton(elements.likeButton, wallpaper.is_liked ? t("liked") : t("like"), wallpaper.is_liked ? "♥" : "♡");
+    setDockButton(elements.favoriteButton, wallpaper.is_favorited ? t("favorited") : t("favorite"), wallpaper.is_favorited ? "★" : "☆");
+    setDockButton(elements.downloadButton, wallpaper.is_downloaded ? t("downloaded") : t("download"), "⇩");
+    elements.likeButton.classList.toggle("is-active", Boolean(wallpaper.is_liked));
+    elements.favoriteButton.classList.toggle("is-active", Boolean(wallpaper.is_favorited));
+    elements.downloadButton.classList.toggle("is-active", Boolean(wallpaper.is_downloaded));
+  }
+
   function renderCollections() {
-    elements.collectionBlock.hidden = state.settings.source !== "collection" || !state.settings.token;
     elements.collectionsList.replaceChildren();
+    if (state.settings.source !== "collection" || !isSignedIn()) return;
+    if (!state.collections.length) {
+      elements.collectionsList.appendChild(emptyNode(t("noCollections")));
+      return;
+    }
 
     state.collections.forEach((collection) => {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = `collection-button${collection.id === state.settings.collectionId ? " is-selected" : ""}`;
+      button.className = `collection-item${collection.id === state.settings.collectionId ? " is-selected" : ""}`;
       const title = document.createElement("span");
-      title.textContent = collection.title || "Untitled collection";
-      const count = document.createElement("small");
-      count.textContent = `${collection.wallpaper_count || 0} wallpapers`;
-      button.append(title, count);
+      title.className = "item-title";
+      title.textContent = collection.title || t("sourceCollection");
+      const meta = document.createElement("span");
+      meta.className = "item-meta";
+      meta.textContent = formatTemplate(t("collectionCount"), { count: collection.wallpaper_count || 0 });
+      button.append(title, meta);
       button.addEventListener("click", async () => {
         state.settings.collectionId = collection.id;
-        state.settings.collectionTitle = collection.title || "My Collection";
-        state.settings.currentIndex = 0;
+        state.settings.collectionTitle = collection.title || t("sourceCollection");
+        state.settings.wallpaperId = null;
         await saveSettings();
         renderCollections();
+        track("chrome_collection_select", { collection_id: collection.id });
         await loadSource();
       });
       elements.collectionsList.appendChild(button);
     });
   }
 
-  async function handleLogin(event) {
-    event.preventDefault();
-    const form = new FormData(elements.loginForm);
-    const email = String(form.get("email") || "").trim();
-    const password = String(form.get("password") || "");
-    if (!email || !password) {
-      setStatus("Enter your email and password.");
+  function renderWallpaperList(options = {}) {
+    elements.wallpaperList.replaceChildren();
+    if (options.loading) {
+      elements.wallpaperList.appendChild(emptyNode(t("loading")));
       return;
     }
-    setStatus("Signing in...");
+    if (!state.items.length) {
+      elements.wallpaperList.appendChild(emptyNode(t("noWallpapers")));
+      return;
+    }
+
+    state.items.forEach((item, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `wallpaper-item${state.current && item.id === state.current.id ? " is-selected" : ""}`;
+      const thumb = document.createElement("div");
+      thumb.className = "wallpaper-thumb";
+      const img = document.createElement("img");
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.src = item.thumb_url || item.preview_url || getBestImage(item);
+      img.alt = "";
+      thumb.appendChild(img);
+
+      const copy = document.createElement("div");
+      const title = document.createElement("div");
+      title.className = "item-title";
+      title.textContent = item.title || "Wallpaper";
+      const meta = document.createElement("div");
+      meta.className = "item-meta";
+      meta.textContent = formatWallpaperDetails(item);
+      copy.append(title, meta);
+
+      button.append(thumb, copy);
+      button.addEventListener("click", async () => {
+        state.settings.randomEnabled = false;
+        state.settings.wallpaperId = item.id;
+        await saveSettings();
+        renderSettings();
+        scheduleRandomTimer();
+        showWallpaperAt(index, { persistSelection: true, trackView: true });
+        track("chrome_wallpaper_select", { wallpaper_id: item.id, source: state.settings.source });
+      });
+      elements.wallpaperList.appendChild(button);
+    });
+  }
+
+  function emptyNode(text) {
+    const div = document.createElement("div");
+    div.className = "empty-state";
+    div.textContent = text;
+    return div;
+  }
+
+  async function toggleEngagement(type) {
+    if (!state.current) return;
+    if (!isSignedIn()) {
+      openAuthModal("login");
+      setStatus(t("authRequired"));
+      return;
+    }
+
+    const isLike = type === "like";
+    const key = isLike ? "is_liked" : "is_favorited";
+    const button = isLike ? elements.likeButton : elements.favoriteButton;
+    const active = Boolean(state.current[key]);
+    button.disabled = true;
     try {
-      const data = await apiFetch("/auth/login", {
+      await apiFetch(`/wallpapers/${state.current.id}/${isLike ? "like" : "favorite"}`, {
+        method: active ? "DELETE" : "POST"
+      });
+      state.current[key] = !active;
+      const existing = state.items.find((item) => item.id === state.current.id);
+      if (existing) existing[key] = state.current[key];
+      renderActionButtons();
+      track(isLike ? "chrome_wallpaper_like" : "chrome_wallpaper_favorite", {
+        wallpaper_id: state.current.id,
+        active: state.current[key]
+      });
+    } catch (error) {
+      setStatus(error.message || t("actionFailed"));
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function downloadCurrentWallpaper() {
+    if (!state.current) return;
+    if (!isSignedIn()) {
+      openAuthModal("login");
+      setStatus(t("authRequired"));
+      return;
+    }
+
+    elements.downloadButton.disabled = true;
+    try {
+      const response = await fetch(`${API_BASE}/wallpapers/${state.current.id}/download`, {
+        headers: { Authorization: `Bearer ${state.settings.token}` },
+        credentials: "omit"
+      });
+      if (response.status === 402) {
+        setStatus(t("insufficientCoins"));
+        return;
+      }
+      if (!response.ok) {
+        setStatus(t("downloadFailed"));
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `wallpaper_${state.current.id}.${extensionFor(state.current)}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+
+      state.current.is_downloaded = true;
+      const existing = state.items.find((item) => item.id === state.current.id);
+      if (existing) existing.is_downloaded = true;
+      renderActionButtons();
+      await refreshCoins();
+      setStatus(t("downloadDone"));
+      track("chrome_wallpaper_download", { wallpaper_id: state.current.id });
+    } catch (_error) {
+      setStatus(t("downloadFailed"));
+    } finally {
+      elements.downloadButton.disabled = false;
+    }
+  }
+
+  async function refreshCoins() {
+    if (!isSignedIn()) return;
+    try {
+      const data = await apiFetch("/users/me/coins");
+      state.settings.user = { ...state.settings.user, coins: data.coins || 0 };
+      await saveSettings();
+      renderAccount();
+    } catch (_error) {
+      // Coin refresh is helpful, not required for the action to succeed.
+    }
+  }
+
+  function openAuthModal(mode) {
+    setAuthMode(mode || "login");
+    elements.authModal.hidden = false;
+    elements.authStatusLine.textContent = "";
+    setTimeout(() => {
+      if (state.authMode === "register") elements.usernameInput.focus();
+      else elements.emailInput.focus();
+    }, 0);
+    track("chrome_auth_modal_open", { mode: state.authMode });
+  }
+
+  function closeAuthModal() {
+    elements.authModal.hidden = true;
+    elements.authForm.reset();
+    elements.authStatusLine.textContent = "";
+  }
+
+  function setAuthMode(mode) {
+    state.authMode = mode === "register" ? "register" : "login";
+    elements.authTabs.forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.mode === state.authMode);
+    });
+    elements.usernameLabel.hidden = state.authMode !== "register";
+    elements.authSubmitButton.textContent = state.authMode === "register" ? t("register") : t("login");
+  }
+
+  async function handleAuthSubmit(event) {
+    event.preventDefault();
+    const email = elements.emailInput.value.trim();
+    const password = elements.passwordInput.value;
+    const username = elements.usernameInput.value.trim();
+
+    if (!email || !password) {
+      elements.authStatusLine.textContent = t("emailPasswordRequired");
+      return;
+    }
+    if (state.authMode === "register" && !username) {
+      elements.authStatusLine.textContent = t("usernameRequired");
+      return;
+    }
+
+    elements.authSubmitButton.disabled = true;
+    elements.authStatusLine.textContent = state.authMode === "register" ? t("creatingAccount") : t("signingIn");
+    try {
+      const body = state.authMode === "register"
+        ? { username, email, password }
+        : { email, password };
+      const data = await apiFetch(state.authMode === "register" ? "/auth/register" : "/auth/login", {
         method: "POST",
-        body: { email, password },
+        body,
         skipAuth: true
       });
       state.settings.token = data.token || "";
       state.settings.user = data.user || null;
       await saveSettings();
-      elements.loginForm.reset();
-      renderAuthState();
+      closeAuthModal();
+      renderSettings();
       await loadCollections({ force: true });
       await loadSource();
-      setStatus("");
+      setStatus(t("signedIn"));
+      track(state.authMode === "register" ? "chrome_register_success" : "chrome_login_success");
     } catch (error) {
-      setStatus(error.message || "Sign in failed.");
+      elements.authStatusLine.textContent = error.message || t("authFailed");
+    } finally {
+      elements.authSubmitButton.disabled = false;
     }
   }
 
-  async function handleSignOut() {
+  async function signOut() {
     state.settings.token = "";
     state.settings.user = null;
     state.settings.collectionId = null;
     state.settings.collectionTitle = "";
-    if (state.settings.source !== "weekly") state.settings.source = "weekly";
+    state.settings.wallpaperId = null;
+    state.settings.source = "weekly";
+    state.collections = [];
     await saveSettings();
-    renderAuthState();
-    renderSourceOptions();
-    renderCollections();
+    renderSettings();
     await loadSource();
-  }
-
-  function renderAuthState() {
-    const user = state.settings.user;
-    const signedIn = Boolean(state.settings.token && user);
-    elements.signedInRow.hidden = !signedIn;
-    elements.loginFields.hidden = signedIn;
-    elements.signedInName.textContent = signedIn ? (user.nickname || user.username || "Signed in") : "";
-    if (signedIn) loadCollections();
-  }
-
-  function renderSourceOptions() {
-    elements.sourceOptions.forEach((button) => {
-      const active = button.dataset.source === state.settings.source;
-      button.setAttribute("aria-checked", active ? "true" : "false");
-    });
-    elements.collectionBlock.hidden = state.settings.source !== "collection" || !state.settings.token;
-    if (state.settings.source === "collection" && state.settings.token) loadCollections();
-  }
-
-  function sourceName() {
-    if (state.settings.source === "favorites") return "My Favorites";
-    if (state.settings.source === "collection") return state.settings.collectionTitle || "My Collection";
-    return "Weekly Picks";
+    setStatus(t("signedOut"));
+    track("chrome_logout");
   }
 
   function handleSearch(event) {
     event.preventDefault();
     const query = elements.searchInput.value.trim();
     if (!query) return;
+    track("chrome_search", { has_query: true });
 
     const hasProtocol = /^[a-z][a-z0-9+.-]*:\/\//i.test(query);
     const looksLikeDomain = /^[^\s]+\.[^\s]{2,}$/.test(query);
@@ -447,21 +1061,108 @@
     elements.settingsButton.setAttribute("aria-expanded", open ? "true" : "false");
   }
 
-  function setStatus(message) {
-    elements.statusLine.textContent = message || "";
+  function scheduleRandomTimer() {
+    if (state.randomTimer) {
+      clearInterval(state.randomTimer);
+      state.randomTimer = null;
+    }
+    if (!state.settings.randomEnabled || !state.settings.randomIntervalMinutes) return;
+    state.randomTimer = setInterval(() => {
+      shuffleWallpaper({ trackEvent: true });
+    }, state.settings.randomIntervalMinutes * 60 * 1000);
+  }
+
+  function applyLocale() {
+    const locale = currentLocale();
+    document.documentElement.lang = locale;
+    document.title = t("title");
+    document.querySelectorAll("[data-i18n]").forEach((node) => {
+      const key = node.getAttribute("data-i18n");
+      if (key) node.textContent = t(key);
+    });
+    setDockButton(elements.settingsButton, t("settings"), "⚙");
+    elements.searchInput.placeholder = t("searchPlaceholder");
+    setAuthMode(state.authMode);
+    renderActionButtons();
   }
 
   function updateClock() {
     const now = new Date();
-    const display = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    elements.clock.textContent = display;
+    elements.clock.textContent = now.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
     elements.clock.dateTime = now.toISOString();
   }
 
+  function sourceName() {
+    if (state.settings.source === "favorites") return t("sourceFavorites");
+    if (state.settings.source === "collection") return state.settings.collectionTitle || t("sourceCollection");
+    return t("sourceWeekly");
+  }
+
+  function sourceCacheKey() {
+    return `${state.settings.source}:${state.settings.collectionId || "all"}`;
+  }
+
+  function normalizeItems(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.items)) return payload.items;
+    return [];
+  }
+
+  function requireSignIn() {
+    if (!isSignedIn()) {
+      openAuthModal("login");
+      throw new Error(t("signInToUse"));
+    }
+  }
+
+  function isSignedIn() {
+    return Boolean(state.settings.token && state.settings.user);
+  }
+
+  function getBestImage(wallpaper) {
+    return wallpaper.original_url || wallpaper.preview_url || wallpaper.thumb_url || "";
+  }
+
+  function formatWallpaperDetails(wallpaper) {
+    const parts = [];
+    if (wallpaper.width && wallpaper.height) parts.push(`${wallpaper.width} x ${wallpaper.height}`);
+    if (wallpaper.file_size) parts.push(formatBytes(wallpaper.file_size));
+    if (wallpaper.preview_video_url || String(wallpaper.file_type || "").startsWith("video/")) parts.push(t("video"));
+    else if (wallpaper.is_dynamic) parts.push(t("dynamic"));
+    return parts.filter(Boolean).join("  ");
+  }
+
+  function formatBytes(value) {
+    const bytes = Number(value) || 0;
+    if (bytes <= 0) return "";
+    const units = ["B", "KB", "MB", "GB"];
+    let size = bytes;
+    let unit = 0;
+    while (size >= 1024 && unit < units.length - 1) {
+      size /= 1024;
+      unit += 1;
+    }
+    return `${size >= 10 || unit === 0 ? Math.round(size) : size.toFixed(1)} ${units[unit]}`;
+  }
+
+  function extensionFor(wallpaper) {
+    const fromURL = String(wallpaper.original_url || wallpaper.preview_url || "").split("?")[0].split(".").pop();
+    if (fromURL && fromURL.length <= 5) return fromURL;
+    if (String(wallpaper.file_type || "").includes("png")) return "png";
+    if (String(wallpaper.file_type || "").includes("webp")) return "webp";
+    return "jpg";
+  }
+
+  function randomIndex() {
+    return Math.floor(Math.random() * state.items.length);
+  }
+
+  function setStatus(message) {
+    elements.statusLine.textContent = message || "";
+  }
+
   async function apiFetch(path, options = {}) {
-    const headers = {
-      Accept: "application/json"
-    };
+    const headers = { Accept: "application/json" };
     if (options.body) headers["Content-Type"] = "application/json";
     if (!options.skipAuth && state.settings.token) {
       headers.Authorization = `Bearer ${state.settings.token}`;
@@ -488,6 +1189,57 @@
       throw new Error(payload.message || "Request failed.");
     }
     return payload ? payload.data : null;
+  }
+
+  function track(type, props) {
+    if (!state.sessionId) return;
+    const headers = {
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    };
+    if (state.settings.token) {
+      headers.Authorization = `Bearer ${state.settings.token}`;
+    }
+    fetch(`${API_BASE}/events`, {
+      method: "POST",
+      headers,
+      credentials: "omit",
+      body: JSON.stringify({
+        session_id: state.sessionId,
+        type,
+        path: "chrome-extension://newtab",
+        referrer: "",
+        props: {
+          client: "chrome_extension",
+          version: extensionVersion,
+          source: state.settings.source,
+          ...(props || {})
+        }
+      })
+    }).catch(() => {
+      // Telemetry must never affect the new tab page.
+    });
+  }
+
+  async function getSessionID() {
+    const now = Date.now();
+    const stored = await getStored(SESSION_KEY);
+    const stamp = Number(await getStored(SESSION_STAMP_KEY) || 0);
+    if (stored && stamp && now - stamp < SESSION_TTL_MS) {
+      await setStored(SESSION_STAMP_KEY, now);
+      return stored;
+    }
+    const fresh = newID();
+    await setStored(SESSION_KEY, fresh);
+    await setStored(SESSION_STAMP_KEY, now);
+    return fresh;
+  }
+
+  function newID() {
+    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
+      return globalThis.crypto.randomUUID();
+    }
+    return `sid-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
   }
 
   async function saveSettings() {
@@ -526,8 +1278,36 @@
     });
   }
 
-  function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
+  function currentLocale() {
+    if (state.settings.language === "zh") return "zh-CN";
+    if (["zh-CN", "zh-TW", "en", "ja"].includes(state.settings.language)) {
+      return state.settings.language;
+    }
+    const browser = navigator.language || "";
+    const lang = browser.toLowerCase();
+    if (lang.startsWith("ja")) return "ja";
+    if (lang.startsWith("zh")) {
+      return lang.includes("tw") || lang.includes("hk") || lang.includes("mo") || lang.includes("hant")
+        ? "zh-TW"
+        : "zh-CN";
+    }
+    return "en";
+  }
+
+  function t(key) {
+    const dict = COPY[currentLocale()] || COPY.en;
+    return dict[key] || COPY.en[key] || key;
+  }
+
+  function formatTemplate(template, values) {
+    return template.replace(/\{(\w+)\}/g, (_match, key) => String(values[key] ?? ""));
+  }
+
+  function setDockButton(button, label, icon) {
+    button.textContent = icon;
+    button.dataset.label = label;
+    button.setAttribute("aria-label", label);
+    button.title = label;
   }
 
   function wrap(value, length) {
@@ -537,5 +1317,13 @@
   function sanitizeColor(value) {
     if (typeof value !== "string") return "";
     return /^#[0-9a-f]{6}$/i.test(value.trim()) ? value.trim() : "";
+  }
+
+  function getExtensionVersion() {
+    const runtime = globalThis.chrome && globalThis.chrome.runtime;
+    if (runtime && typeof runtime.getManifest === "function") {
+      return runtime.getManifest().version || "0.1.0";
+    }
+    return "0.1.0";
   }
 })();

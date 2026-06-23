@@ -12,10 +12,15 @@ First installable version of the Wallpaper Exchange new tab extension.
 ## What this version does
 
 - Replaces the Chrome new tab page with a wallpaper-first experience.
-- Uses Weekly Picks by default.
-- Supports sign in with the existing Wallpaper Exchange account.
+- Keeps the canvas clean. Only the bottom-right settings button is always visible.
+- Supports Weekly Picks by default.
+- Supports sign in or registration in a modal.
 - After sign in, supports My Favorites and one selected My Collection.
-- Keeps controls quiet so the wallpaper stays the main focus.
+- Lets users pick a specific wallpaper from the active source.
+- Supports random rotation from the active source, with an optional interval.
+- Supports browser-following language, English, and Chinese.
+- Supports clock and search widgets, both enabled by default.
+- Reports Chrome extension analytics events through the existing `/events` API.
 
 ## Notes
 

@@ -11,94 +11,194 @@
     <main class="stage is-loading" id="stage">
       <div class="wallpaper-base" id="wallpaperBase"></div>
       <img class="wallpaper-image" id="wallpaperImage" alt="">
-      <div class="load-beam" id="loadBeam" aria-hidden="true"></div>
-      <div class="scrim scrim-top" aria-hidden="true"></div>
-      <div class="scrim scrim-bottom" aria-hidden="true"></div>
+      <div class="load-beam" aria-hidden="true"></div>
+      <div class="photo-scrim" aria-hidden="true"></div>
 
-      <header class="topbar" aria-label="Wallpaper Exchange">
-        <a class="brand" href="https://wallpaperexchange.com" target="_blank" rel="noreferrer">
-          <span class="brand-mark" aria-hidden="true"></span>
-          <span>Wallpaper Exchange</span>
-        </a>
-        <div class="top-actions">
-          <button class="ghost-button" id="refreshButton" type="button">Shuffle</button>
-          <button class="ghost-button" id="settingsButton" type="button" aria-expanded="false" aria-controls="settingsPanel">Sources</button>
-        </div>
-      </header>
-
-      <section class="center-stack" aria-label="Search">
+      <section class="widget-layer" id="widgetLayer" aria-label="Widgets">
         <time class="clock" id="clock" datetime=""></time>
         <form class="search" id="searchForm" autocomplete="off">
-          <label class="sr-only" for="searchInput">Search the web</label>
-          <input id="searchInput" name="q" type="search" placeholder="Search the web" spellcheck="false">
+          <label class="sr-only" for="searchInput" data-i18n="searchLabel">Search the web</label>
+          <input id="searchInput" name="q" type="search" spellcheck="false">
         </form>
       </section>
 
-      <section class="wallpaper-meta" aria-live="polite">
-        <p class="source-label" id="sourceLabel">Weekly Picks</p>
-        <h1 id="wallpaperTitle">Wallpaper Exchange</h1>
-        <p class="meta-line" id="wallpaperDetails"></p>
-      </section>
+      <div class="corner-dock" aria-label="Wallpaper controls">
+        <div class="auth-actions" id="authActions" hidden>
+          <button class="dock-button" id="likeButton" type="button"></button>
+          <button class="dock-button" id="favoriteButton" type="button"></button>
+          <button class="dock-button" id="downloadButton" type="button"></button>
+        </div>
+        <button class="dock-button settings-fab" id="settingsButton" type="button" aria-expanded="false" aria-controls="settingsPanel"></button>
+      </div>
 
-      <nav class="wallpaper-actions" aria-label="Wallpaper actions">
-        <button class="soft-button" id="previousButton" type="button">Previous</button>
-        <a class="primary-button" id="openWallpaperLink" href="https://wallpaperexchange.com" target="_blank" rel="noreferrer">Open</a>
-        <button class="soft-button" id="nextButton" type="button">Next</button>
-      </nav>
-
-      <aside class="settings-panel" id="settingsPanel" aria-label="Wallpaper sources" aria-hidden="true">
+      <aside class="settings-panel" id="settingsPanel" aria-label="Settings" aria-hidden="true">
         <div class="panel-head">
           <div>
-            <p class="panel-kicker">Wallpaper source</p>
-            <h2>Keep the image first.</h2>
+            <p class="panel-kicker" data-i18n="panelKicker">Wallpaper Exchange</p>
+            <h1 data-i18n="panelTitle">New tab settings</h1>
           </div>
-          <button class="round-button" id="closeSettingsButton" type="button" aria-label="Close settings">x</button>
+          <button class="round-button" id="closeSettingsButton" type="button" aria-label="Close">x</button>
         </div>
 
-        <div class="source-list" role="radiogroup" aria-label="Wallpaper source">
-          <button class="source-option" data-source="weekly" type="button" role="radio" aria-checked="true">
-            <span>Weekly Picks</span>
-            <small>Curated slate</small>
-          </button>
-          <button class="source-option" data-source="favorites" type="button" role="radio" aria-checked="false">
-            <span>My Favorites</span>
-            <small>Requires sign in</small>
-          </button>
-          <button class="source-option" data-source="collection" type="button" role="radio" aria-checked="false">
-            <span>My Collection</span>
-            <small>Choose one collection</small>
-          </button>
-        </div>
-
-        <form class="login-form" id="loginForm">
-          <div class="signed-in" id="signedInRow" hidden>
-            <span id="signedInName"></span>
-            <button class="text-button" id="signOutButton" type="button">Sign out</button>
+        <section class="panel-section">
+          <h2 data-i18n="sourceTitle">Wallpaper source</h2>
+          <div class="source-list" role="radiogroup" aria-label="Wallpaper source">
+            <button class="source-card" data-source="weekly" type="button" role="radio" aria-checked="true">
+              <span data-i18n="sourceWeekly">Weekly Picks</span>
+              <small data-i18n="sourceWeeklyHint">Curated every week</small>
+            </button>
+            <button class="source-card" data-source="favorites" type="button" role="radio" aria-checked="false">
+              <span data-i18n="sourceFavorites">My Favorites</span>
+              <small data-i18n="sourceAuthHint">Sign in required</small>
+            </button>
+            <button class="source-card" data-source="collection" type="button" role="radio" aria-checked="false">
+              <span data-i18n="sourceCollection">My Collection</span>
+              <small data-i18n="sourceCollectionHint">Choose one collection</small>
+            </button>
           </div>
-          <div class="login-fields" id="loginFields">
-            <label>
-              <span>Email</span>
-              <input id="emailInput" name="email" type="email" autocomplete="email">
-            </label>
-            <label>
-              <span>Password</span>
-              <input id="passwordInput" name="password" type="password" autocomplete="current-password">
-            </label>
-            <button class="primary-button panel-button" type="submit">Sign in</button>
-          </div>
-        </form>
 
-        <div class="collection-block" id="collectionBlock" hidden>
-          <div class="block-title">
-            <span>Collections</span>
-            <button class="text-button" id="reloadCollectionsButton" type="button">Reload</button>
-          </div>
-          <div class="collections" id="collectionsList"></div>
-        </div>
+          <div class="source-expansion" id="sourceExpansion">
+            <div class="collection-picker" id="collectionPicker" hidden>
+              <div class="section-row">
+                <span data-i18n="collectionLabel">Collection</span>
+                <button class="text-button" id="reloadCollectionsButton" type="button" data-i18n="reload">Reload</button>
+              </div>
+              <div class="collection-list" id="collectionsList"></div>
+            </div>
 
-        <div class="thumb-strip" id="thumbStrip" aria-label="Current source wallpapers"></div>
+            <div class="section-row">
+              <span data-i18n="wallpaperListTitle">Wallpapers</span>
+              <button class="text-button" id="reloadSourceButton" type="button" data-i18n="refresh">Refresh</button>
+            </div>
+            <div class="wallpaper-list" id="wallpaperList"></div>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2 data-i18n="randomTitle">Random wallpaper</h2>
+          <label class="switch-row">
+            <span>
+              <strong data-i18n="randomEnable">Enable random</strong>
+              <small data-i18n="randomHint">Randomly picks from the current source.</small>
+            </span>
+            <input id="randomToggle" type="checkbox">
+          </label>
+          <label class="field-row">
+            <span data-i18n="randomInterval">Interval</span>
+            <select id="randomIntervalSelect">
+              <option value="0" data-i18n="intervalNewTab">Every new tab</option>
+              <option value="5">5 min</option>
+              <option value="15">15 min</option>
+              <option value="30">30 min</option>
+              <option value="60">60 min</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="panel-section">
+          <h2 data-i18n="languageTitle">Language</h2>
+          <label class="field-row">
+            <span data-i18n="languageLabel">Interface language</span>
+            <select id="languageSelect">
+              <option value="auto" data-i18n="languageAuto">Follow browser</option>
+              <option value="zh-CN">简体中文</option>
+              <option value="zh-TW">繁體中文</option>
+              <option value="en">English</option>
+              <option value="ja">日本語</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="panel-section">
+          <h2 data-i18n="widgetsTitle">Widgets</h2>
+          <label class="switch-row">
+            <span>
+              <strong data-i18n="clockWidget">Clock</strong>
+              <small data-i18n="clockHint">Uses your browser format.</small>
+            </span>
+            <input id="clockToggle" type="checkbox">
+          </label>
+          <label class="switch-row">
+            <span>
+              <strong data-i18n="searchWidget">Search</strong>
+              <small data-i18n="searchHint">Search or enter a website.</small>
+            </span>
+            <input id="searchToggle" type="checkbox">
+          </label>
+        </section>
+
+        <section class="panel-section">
+          <h2 data-i18n="accountTitle">Account</h2>
+          <div class="account-prompt" id="accountPrompt">
+            <p data-i18n="accountPrompt">Sign in to use favorites, collections, likes, and downloads.</p>
+            <button class="primary-button" id="openAuthButton" type="button" data-i18n="openAuth">Sign in or create account</button>
+          </div>
+          <div class="account-card" id="accountCard" hidden>
+            <div class="avatar" id="accountAvatar"></div>
+            <div class="account-copy">
+              <strong id="accountName"></strong>
+              <span id="accountCoins"></span>
+            </div>
+            <button class="text-button" id="signOutButton" type="button" data-i18n="signOut">Sign out</button>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2 data-i18n="aboutTitle">About</h2>
+          <dl class="info-list">
+            <div>
+              <dt data-i18n="versionLabel">Version</dt>
+              <dd id="versionText">0.1.1</dd>
+            </div>
+          </dl>
+          <div class="link-list">
+            <a href="https://wallpaperexchange.com" target="_blank" rel="noreferrer" data-i18n="openWebsite">Open website</a>
+            <a href="https://wallpaperexchange.com/terms" target="_blank" rel="noreferrer" data-i18n="terms">Terms</a>
+            <a href="https://wallpaperexchange.com/privacy" target="_blank" rel="noreferrer" data-i18n="privacy">Privacy</a>
+            <a href="https://wallpaperexchange.com/legal/dmca" target="_blank" rel="noreferrer" data-i18n="dmca">DMCA</a>
+          </div>
+        </section>
+
         <p class="status-line" id="statusLine" aria-live="polite"></p>
       </aside>
+
+      <div class="modal-backdrop" id="authModal" hidden>
+        <section class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+          <div class="dialog-head">
+            <div>
+              <p class="panel-kicker" data-i18n="authKicker">Wallpaper Exchange</p>
+              <h2 id="authTitle" data-i18n="authTitle">Account</h2>
+            </div>
+            <button class="round-button" id="closeAuthButton" type="button" aria-label="Close">x</button>
+          </div>
+
+          <div class="auth-tabs" role="tablist">
+            <button class="auth-tab is-active" id="loginTab" type="button" data-mode="login" data-i18n="login">Sign in</button>
+            <button class="auth-tab" id="registerTab" type="button" data-mode="register" data-i18n="register">Register</button>
+          </div>
+
+          <form class="auth-form" id="authForm">
+            <label class="register-only" id="usernameLabel">
+              <span data-i18n="username">Username</span>
+              <input id="usernameInput" name="username" type="text" autocomplete="username">
+            </label>
+            <label>
+              <span data-i18n="email">Email</span>
+              <input id="emailInput" name="email" type="email" autocomplete="email" required>
+            </label>
+            <label>
+              <span data-i18n="password">Password</span>
+              <input id="passwordInput" name="password" type="password" autocomplete="current-password" required>
+            </label>
+            <button class="primary-button auth-submit" id="authSubmitButton" type="submit" data-i18n="login">Sign in</button>
+          </form>
+
+          <p class="legal-note">
+            <span data-i18n="legalNote">By creating an account you agree to the site terms and privacy policy.</span>
+          </p>
+          <p class="status-line" id="authStatusLine" aria-live="polite"></p>
+        </section>
+      </div>
     </main>
 
     <script src="newtab.js"></script>
