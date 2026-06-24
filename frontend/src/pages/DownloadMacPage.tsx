@@ -18,11 +18,13 @@ import PageMeta from "../components/PageMeta";
 import { track } from "../lib/track";
 
 const DEFAULT_MACOS_VERSION = "14.0";
+const CHROME_WEB_STORE_URL =
+  "https://chromewebstore.google.com/detail/wallpaper-exchange-new-ta/ekphhfbnkncfgapidbghnahmogmhkdhk";
 const CLIENT_KEYS = ["mac", "android", "chrome", "ios"] as const;
 
 type ClientKey = (typeof CLIENT_KEYS)[number];
 type DownloadTarget = "mac" | "android" | "chrome";
-type DownloadArtifact = "dmg" | "apk" | "zip";
+type DownloadArtifact = "dmg" | "apk" | "zip" | "web_store";
 type DownloadSurface = "client_card" | "release_panel";
 
 interface ClientEntry {
@@ -38,6 +40,9 @@ interface ClientEntry {
   actionLabel: string;
   targetClient?: DownloadTarget;
   artifact?: DownloadArtifact;
+  secondaryHref?: string;
+  secondaryActionLabel?: string;
+  secondaryArtifact?: DownloadArtifact;
   notes: string[];
   footer?: string;
   comingSoon?: boolean;
@@ -66,6 +71,16 @@ function latestMacNotes(release: MacRelease | null, lang: string) {
 function localizedAndroidNotes(release: AndroidRelease | null, lang: string): string[] {
   if (!release) return [];
   return (release.notes_i18n?.[lang] ?? release.notes ?? []).filter(Boolean).slice(0, 4);
+}
+
+function actionLinkProps(href: string | undefined, artifact: DownloadArtifact | undefined) {
+  if (!href) return {};
+  const isExternal = /^https?:\/\//i.test(href);
+  return {
+    target: isExternal ? "_blank" : undefined,
+    rel: isExternal ? "noreferrer" : undefined,
+    download: artifact && artifact !== "web_store" ? true : undefined,
+  };
 }
 
 export default function DownloadMacPage() {
@@ -176,10 +191,13 @@ export default function DownloadMacPage() {
       version: chromeRelease ? `v${chromeRelease.current_version}` : t("status.unavailable"),
       requirement: t("platforms.chrome.requirement"),
       updated: formatReleaseDate(chromeRelease?.released_at, t("release.latest")),
-      href: chromeRelease?.current_zip_url,
+      href: CHROME_WEB_STORE_URL,
       actionLabel: t("actions.downloadChrome"),
       targetClient: "chrome",
-      artifact: "zip",
+      artifact: "web_store",
+      secondaryHref: chromeRelease?.current_zip_url,
+      secondaryActionLabel: t("actions.downloadChromeZip"),
+      secondaryArtifact: "zip",
       notes: chromeNotes,
       footer: chromeRelease?.zip_sha256 ? t("release.zipHash", { hash: chromeRelease.zip_sha256.slice(0, 12) }) : undefined,
     },
@@ -214,6 +232,17 @@ export default function DownloadMacPage() {
   const handleDownload = (client: ClientEntry, surface: DownloadSurface) => {
     if (!client.targetClient || !client.artifact) return;
     trackClientDownload(client.targetClient, client.artifact, client.version, client.href, surface);
+  };
+
+  const handleSecondaryDownload = (client: ClientEntry, surface: DownloadSurface) => {
+    if (!client.targetClient || !client.secondaryArtifact) return;
+    trackClientDownload(
+      client.targetClient,
+      client.secondaryArtifact,
+      client.version,
+      client.secondaryHref,
+      surface,
+    );
   };
 
   return (
@@ -261,6 +290,7 @@ export default function DownloadMacPage() {
               <FeaturedClient
                 client={activeClient}
                 onDownload={() => handleDownload(activeClient, "client_card")}
+                onSecondaryDownload={() => handleSecondaryDownload(activeClient, "client_card")}
               />
             )}
           </div>
@@ -336,6 +366,7 @@ export default function DownloadMacPage() {
               client={activeClient}
               macReleases={macRelease?.releases ?? []}
               onDownload={() => handleDownload(activeClient, "release_panel")}
+              onSecondaryDownload={() => handleSecondaryDownload(activeClient, "release_panel")}
             />
           </section>
 
@@ -376,9 +407,11 @@ function QuickPoint({ icon, label, text }: { icon: ReactNode; label: string; tex
 function FeaturedClient({
   client,
   onDownload,
+  onSecondaryDownload,
 }: {
   client: ClientEntry;
   onDownload: () => void;
+  onSecondaryDownload: () => void;
 }) {
   const { t } = useTranslation("mac");
 
@@ -418,11 +451,15 @@ function FeaturedClient({
           {client.href ? (
             <a
               href={client.href}
-              download
+              {...actionLinkProps(client.href, client.artifact)}
               onClick={onDownload}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-accent px-6 text-sm font-semibold text-white shadow-[0_18px_48px_rgba(238,122,74,0.28)] transition hover:-translate-y-0.5 hover:bg-accent-strong focus:outline-none focus:ring-2 focus:ring-white/40"
             >
-              <AiOutlineDownload className="text-lg" />
+              {client.artifact === "web_store" ? (
+                <FiChrome className="text-lg" />
+              ) : (
+                <AiOutlineDownload className="text-lg" />
+              )}
               {client.actionLabel}
             </a>
           ) : (
@@ -439,8 +476,23 @@ function FeaturedClient({
             <div className="grid h-20 w-20 place-items-center rounded-[18px] border border-dashed border-paper/20 text-paper/64">
               <AiOutlineQrcode className="text-4xl" />
             </div>
-          ) : client.footer ? (
-            <p className="font-mono text-xs text-paper/48">{client.footer}</p>
+          ) : client.footer || client.secondaryHref ? (
+            <div className="flex flex-col items-start gap-2 sm:items-end">
+              {client.footer ? (
+                <p className="font-mono text-xs text-paper/48">{client.footer}</p>
+              ) : null}
+              {client.secondaryHref && client.secondaryActionLabel ? (
+                <a
+                  href={client.secondaryHref}
+                  {...actionLinkProps(client.secondaryHref, client.secondaryArtifact)}
+                  onClick={onSecondaryDownload}
+                  className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-paper/10 px-4 text-xs font-semibold text-paper/76 transition hover:-translate-y-0.5 hover:bg-paper/16 focus:outline-none focus:ring-2 focus:ring-white/30"
+                >
+                  <AiOutlineDownload className="text-base" />
+                  {client.secondaryActionLabel}
+                </a>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>
@@ -511,10 +563,12 @@ function ReleaseWorkspace({
   client,
   macReleases,
   onDownload,
+  onSecondaryDownload,
 }: {
   client: ClientEntry;
   macReleases: MacReleaseEntry[];
   onDownload: () => void;
+  onSecondaryDownload: () => void;
 }) {
   const { t, i18n } = useTranslation("mac");
   const showMacHistory = client.key === "mac" && macReleases.length > 0;
@@ -564,11 +618,15 @@ function ReleaseWorkspace({
             {client.href ? (
               <a
                 href={client.href}
-                download
+                {...actionLinkProps(client.href, client.artifact)}
                 onClick={onDownload}
                 className="mt-2 inline-flex h-10 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-paper transition hover:-translate-y-0.5 hover:bg-accent focus:outline-none focus:ring-2 focus:ring-accent/40"
               >
-                <AiOutlineDownload className="text-lg" />
+                {client.artifact === "web_store" ? (
+                  <FiChrome className="text-lg" />
+                ) : (
+                  <AiOutlineDownload className="text-lg" />
+                )}
                 {client.actionLabel}
               </a>
             ) : (
@@ -576,6 +634,17 @@ function ReleaseWorkspace({
                 <AiOutlineQrcode className="text-5xl" />
               </div>
             )}
+            {client.secondaryHref && client.secondaryActionLabel ? (
+              <a
+                href={client.secondaryHref}
+                {...actionLinkProps(client.secondaryHref, client.secondaryArtifact)}
+                onClick={onSecondaryDownload}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-paper px-4 text-sm font-semibold text-ink ring-1 ring-hair transition hover:-translate-y-0.5 hover:bg-white focus:outline-none focus:ring-2 focus:ring-accent/40"
+              >
+                <AiOutlineDownload className="text-lg" />
+                {client.secondaryActionLabel}
+              </a>
+            ) : null}
           </div>
         </div>
       </article>

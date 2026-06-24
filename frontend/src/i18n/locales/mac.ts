@@ -53,7 +53,7 @@ const en = {
     chrome: {
       eyebrow: 'Chrome Extension',
       title: 'Chrome new tab',
-      text: 'Install the packaged extension locally or upload the ZIP to Chrome Web Store. It turns each new tab into a wallpaper-first space powered by Wallpaper Exchange.',
+      text: 'Install from Chrome Web Store for the easiest setup. The extension turns each new tab into a wallpaper-first space powered by Wallpaper Exchange.',
       requirement: 'Chrome 114+',
     },
     ios: {
@@ -66,7 +66,8 @@ const en = {
   actions: {
     downloadMac: 'Download DMG',
     downloadAndroid: 'Download APK',
-    downloadChrome: 'Download ZIP',
+    downloadChrome: 'Install from Chrome Web Store',
+    downloadChromeZip: 'Download ZIP',
   },
   overview: {
     kicker: 'Release channel',
@@ -85,7 +86,7 @@ const en = {
     noNotes: 'No release notes were provided for this build.',
     apkHash: 'SHA-256 {{hash}}...',
     zipHash: 'SHA-256 {{hash}}...',
-    chromeNote: 'Packaged for Chrome extension upload and direct website download.',
+    chromeNote: 'Available on Chrome Web Store, with the ZIP kept on the website for manual installation or review.',
     iosPending: 'The iOS entry is reserved for the future App Store or TestFlight QR code.',
     historyUnavailable: 'Detailed changelog history will appear here after this client has release entries.',
     changelog: 'Mac changelog',
@@ -157,7 +158,7 @@ const zhCN: typeof en = {
     chrome: {
       eyebrow: 'Chrome 插件',
       title: 'Chrome 新标签页',
-      text: '可以本地安装这个插件包，也可以把 ZIP 上传到 Chrome Web Store。每个新标签页都会变成以高质量壁纸为核心的空间。',
+      text: '优先从 Chrome Web Store 安装，流程最简单。插件会把每个新标签页变成以高质量壁纸为核心的空间。',
       requirement: 'Chrome 114+',
     },
     ios: {
@@ -170,7 +171,8 @@ const zhCN: typeof en = {
   actions: {
     downloadMac: '下载 DMG',
     downloadAndroid: '下载 APK',
-    downloadChrome: '下载 ZIP',
+    downloadChrome: '从 Chrome Web Store 安装',
+    downloadChromeZip: '下载 ZIP',
   },
   overview: {
     kicker: '发版通道',
@@ -189,7 +191,7 @@ const zhCN: typeof en = {
     noNotes: '此构建未提供更新说明。',
     apkHash: 'SHA-256 {{hash}}...',
     zipHash: 'SHA-256 {{hash}}...',
-    chromeNote: '已打包为可上传 Chrome Web Store、也可从官网直接下载的 ZIP。',
+    chromeNote: '已上架 Chrome Web Store，同时官网保留 ZIP 供手动安装或审核使用。',
     iosPending: 'iOS 入口已预留，后续可以放 App Store 或 TestFlight 二维码。',
     historyUnavailable: '这个客户端有详细版本记录后，会在这里展示对应的更新历史。',
     changelog: 'Mac 更新历史',
@@ -261,7 +263,7 @@ const zhTW: typeof en = {
     chrome: {
       eyebrow: 'Chrome 擴充功能',
       title: 'Chrome 新分頁',
-      text: '可以在本機安裝這個擴充功能包，也可以把 ZIP 上傳到 Chrome Web Store。每個新分頁都會變成以高品質桌布為核心的空間。',
+      text: '優先從 Chrome Web Store 安裝，流程最簡單。擴充功能會把每個新分頁變成以高品質桌布為核心的空間。',
       requirement: 'Chrome 114+',
     },
     ios: {
@@ -274,7 +276,8 @@ const zhTW: typeof en = {
   actions: {
     downloadMac: '下載 DMG',
     downloadAndroid: '下載 APK',
-    downloadChrome: '下載 ZIP',
+    downloadChrome: '從 Chrome Web Store 安裝',
+    downloadChromeZip: '下載 ZIP',
   },
   overview: {
     kicker: '發版通道',
@@ -293,7 +296,7 @@ const zhTW: typeof en = {
     noNotes: '此版本未提供更新說明。',
     apkHash: 'SHA-256 {{hash}}...',
     zipHash: 'SHA-256 {{hash}}...',
-    chromeNote: '已打包為可上傳 Chrome Web Store、也可從官網直接下載的 ZIP。',
+    chromeNote: '已上架 Chrome Web Store，同時官網保留 ZIP 供手動安裝或審核使用。',
     iosPending: 'iOS 入口已預留，後續可以放 App Store 或 TestFlight QR Code。',
     historyUnavailable: '這個客戶端有詳細版本紀錄後，會在這裡展示對應的更新歷史。',
     changelog: 'Mac 更新紀錄',
@@ -365,7 +368,7 @@ const ja: typeof en = {
     chrome: {
       eyebrow: 'Chrome 拡張機能',
       title: 'Chrome 新しいタブ',
-      text: 'この拡張機能パッケージをローカルにインストールするか、ZIP を Chrome Web Store にアップロードできます。新しいタブが Wallpaper Exchange の高品質な壁紙空間になります。',
+      text: 'Chrome Web Store からのインストールがいちばん簡単です。新しいタブが Wallpaper Exchange の高品質な壁紙空間になります。',
       requirement: 'Chrome 114+',
     },
     ios: {
@@ -378,7 +381,8 @@ const ja: typeof en = {
   actions: {
     downloadMac: 'DMG をダウンロード',
     downloadAndroid: 'APK をダウンロード',
-    downloadChrome: 'ZIP をダウンロード',
+    downloadChrome: 'Chrome Web Store でインストール',
+    downloadChromeZip: 'ZIP をダウンロード',
   },
   overview: {
     kicker: 'リリースチャンネル',
@@ -397,7 +401,7 @@ const ja: typeof en = {
     noNotes: 'このビルドにはリリースノートがありません。',
     apkHash: 'SHA-256 {{hash}}...',
     zipHash: 'SHA-256 {{hash}}...',
-    chromeNote: 'Chrome Web Store へのアップロードと公式サイトからの直接ダウンロードに使える ZIP です。',
+    chromeNote: 'Chrome Web Store で公開済みです。手動インストールや審査用に ZIP も公式サイトで配信します。',
     iosPending: 'iOS 入口は、今後 App Store または TestFlight の QR コードを置けるよう予約済みです。',
     historyUnavailable: 'このクライアントに詳細なリリース履歴が追加されると、ここに表示されます。',
     changelog: 'Mac 変更履歴',
