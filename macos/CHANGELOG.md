@@ -10,6 +10,14 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.15] - 2026-06-25
+
+### Fixed
+
+- **Clicking the Dock icon no longer opens two main windows.** The Mac client
+  now treats the main window as a single instance and fully handles Dock reopen
+  events itself.
+
 ## [2.0.14] - 2026-06-21
 
 ### Fixed

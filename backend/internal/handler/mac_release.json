@@ -1,8 +1,26 @@
 {
-  "current_version": "2.0.14",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.14.dmg",
+  "current_version": "2.0.15",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.15.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.15",
+      "released_at": "2026-06-25",
+      "notes": [
+        "Fixed: clicking the Dock icon no longer opens two main windows. The Mac client now treats the main window as a single instance and fully handles Dock reopen events itself."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "修复：点击 Dock 图标时不再同时打开两个主界面。Mac 客户端现在会把主窗口作为单例处理，并自行接管 Dock 重开事件。"
+        ],
+        "zh-TW": [
+          "修復：點擊 Dock 圖示時不再同時開啟兩個主視窗。Mac 用戶端現在會將主視窗作為單一實例處理，並自行接管 Dock 重新開啟事件。"
+        ],
+        "ja": [
+          "修正：Dock アイコンをクリックしてもメインウインドウが 2 つ開かなくなりました。Mac クライアントはメインウインドウを単一インスタンスとして扱い、Dock からの再表示イベントを自前で処理します。"
+        ]
+      }
+    },
     {
       "version": "2.0.14",
       "released_at": "2026-06-21",
