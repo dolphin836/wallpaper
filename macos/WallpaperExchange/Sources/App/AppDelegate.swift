@@ -144,7 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         openMainWindow()
-        return true
+        return false
     }
 
     // Bridge so the SwiftUI command menu can open the main window

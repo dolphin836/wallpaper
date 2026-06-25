@@ -14,7 +14,7 @@ struct WallpaperExchangeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
-        WindowGroup("Wallpaper Exchange", id: "main") {
+        Window("Wallpaper Exchange", id: "main") {
             MainWindowRoot(delegate: delegate)
         }
         // Hidden title bar lets content extend up to the very top of
