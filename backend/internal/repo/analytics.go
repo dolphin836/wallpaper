@@ -186,7 +186,8 @@ func (r *AnalyticsRepo) ClientBreakdown(ctx context.Context, days, limit int) ([
 		FROM (
 			SELECT
 				CASE
-					WHEN lower(props->>'client') IN ('web', 'mac', 'android', 'ios', 'windows') THEN lower(props->>'client')
+					WHEN lower(props->>'client') = 'chrome_extension' THEN 'chrome'
+					WHEN lower(props->>'client') IN ('web', 'mac', 'android', 'ios', 'windows', 'chrome') THEN lower(props->>'client')
 					WHEN user_agent ~* 'WallpaperExchange/(mac|android|ios|windows)' THEN lower(substring(user_agent from 'WallpaperExchange/([A-Za-z]+)'))
 					ELSE 'web'
 				END AS label

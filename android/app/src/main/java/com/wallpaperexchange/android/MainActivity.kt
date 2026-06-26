@@ -3127,6 +3127,8 @@ fun startDownload(context: Context, wallpaper: Wallpaper, token: String) {
     runCatching {
         val request = DownloadManager.Request(Uri.parse(ApiClient.downloadEndpoint(wallpaper.id)))
             .addRequestHeader("Authorization", "Bearer $token")
+            .addRequestHeader("X-Wallpaper-Client", "android")
+            .addRequestHeader("User-Agent", "WallpaperExchange/android ${BuildConfig.VERSION_NAME}")
             .setTitle(wallpaper.title)
             .setDescription("Wallpaper Exchange")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
@@ -3214,6 +3216,8 @@ suspend fun setAsWallpaper(context: Context, wallpaper: Wallpaper, token: String
             instanceFollowRedirects = true
             setRequestProperty("Authorization", "Bearer $token")
             setRequestProperty("Accept", "image/*,*/*")
+            setRequestProperty("X-Wallpaper-Client", "android")
+            setRequestProperty("User-Agent", "WallpaperExchange/android ${BuildConfig.VERSION_NAME}")
         }
         if (connection.responseCode >= 400) {
             throw ApiException("Wallpaper download failed", connection.responseCode)

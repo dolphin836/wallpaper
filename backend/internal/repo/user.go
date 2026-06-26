@@ -247,7 +247,10 @@ func (r *UserRepo) AdminListUsers(ctx context.Context, search string, status int
 
 	var items []UserListItem
 	err := q.Select(`users.id, users.username, users.email, users.nickname, users.avatar_url, users.bio,
-                     users.coins, users.status, users.is_admin, users.created_at,
+                     users.coins, users.status, users.is_admin,
+                     users.register_client, users.register_source, users.register_referrer,
+                     users.register_path, users.register_ip, users.register_user_agent, users.register_country,
+                     users.created_at,
                      COUNT(w.id) AS wallpaper_count`).
 		Order("users.created_at DESC, users.id DESC").
 		Offset(offset).Limit(limit).Find(&items).Error

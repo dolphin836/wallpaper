@@ -159,10 +159,18 @@ object ApiClient {
     }
 
     suspend fun login(email: String, password: String): AuthPayload =
-        auth("/auth/login", JSONObject().put("email", email).put("password", password))
+        auth("/auth/login", JSONObject().put("email", email).put("password", password).put("client", "android"))
 
     suspend fun register(username: String, email: String, password: String): AuthPayload =
-        auth("/auth/register", JSONObject().put("username", username).put("email", email).put("password", password))
+        auth(
+            "/auth/register",
+            JSONObject()
+                .put("username", username)
+                .put("email", email)
+                .put("password", password)
+                .put("client", "android")
+                .put("source", "android_app")
+        )
 
     suspend fun trackEvent(type: String, path: String, props: JSONObject = JSONObject()) {
         try {
@@ -258,6 +266,7 @@ object ApiClient {
             setRequestProperty("Accept", "application/json")
             setRequestProperty("Accept-Language", Locale.getDefault().toLanguageTag())
             setRequestProperty("User-Agent", "WallpaperExchange/android ${BuildConfig.VERSION_NAME}")
+            setRequestProperty("X-Wallpaper-Client", "android")
             token?.let { setRequestProperty("Authorization", "Bearer $it") }
             if (body != null) {
                 doOutput = true

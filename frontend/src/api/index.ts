@@ -1,11 +1,48 @@
 import client, { resolveBaseURL } from './client';
 import type { ApiResponse, AuthResponse, Wallpaper, WallpaperDetail, PaginatedData, Category, Tag, User, UserListItem, DeviceProfile, WallpaperVariant, Collection, CollectionDetail, CollectionBrief, CoinTransaction, Engagements, MacRelease, AndroidRelease, ChromeRelease } from '../types';
 
+const LANDING_KEY = 'wpe_landing_path';
+const REFERRER_KEY = 'wpe_initial_referrer';
+const SOURCE_KEY = 'wpe_initial_source';
+
+function authAttribution() {
+  if (typeof window === 'undefined') {
+    return { client: 'web' };
+  }
+  let landing = '';
+  try {
+    landing = sessionStorage.getItem(LANDING_KEY) || '';
+    if (!landing) {
+      landing = window.location.pathname + window.location.search;
+      sessionStorage.setItem(LANDING_KEY, landing);
+    }
+  } catch {
+    landing = window.location.pathname + window.location.search;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  let storedSource = '';
+  let storedReferrer = '';
+  try {
+    storedSource = sessionStorage.getItem(SOURCE_KEY) || '';
+    storedReferrer = sessionStorage.getItem(REFERRER_KEY) || '';
+  } catch {
+    storedSource = '';
+    storedReferrer = '';
+  }
+  return {
+    client: 'web',
+    source: storedSource || params.get('utm_source') || params.get('source') || params.get('ref') || '',
+    referrer: storedReferrer || document.referrer || '',
+    landing_path: landing,
+  };
+}
+
 export const register = (data: { username: string; email: string; password: string }) =>
-  client.post<ApiResponse<AuthResponse>>('/auth/register', data);
+  client.post<ApiResponse<AuthResponse>>('/auth/register', { ...authAttribution(), ...data });
 
 export const login = (data: { email: string; password: string }) =>
-  client.post<ApiResponse<AuthResponse>>('/auth/login', data);
+  client.post<ApiResponse<AuthResponse>>('/auth/login', { client: 'web', ...data });
 
 // Verify the current token + return the latest user payload. Called on app
 // boot so we can detect a server-expired session (the client otherwise

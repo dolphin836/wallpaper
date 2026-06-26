@@ -118,6 +118,7 @@ actor APIClient {
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         req.setValue(L10n.lang.rawValue, forHTTPHeaderField: "Accept-Language")
         req.setValue(appUserAgent, forHTTPHeaderField: "User-Agent")
+        req.setValue("mac", forHTTPHeaderField: "X-Wallpaper-Client")
         if let token = await AuthService.shared.token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
@@ -159,6 +160,7 @@ actor APIClient {
         // titles) from this header; falls back to the original text.
         req.setValue(L10n.lang.rawValue, forHTTPHeaderField: "Accept-Language")
         req.setValue(appUserAgent, forHTTPHeaderField: "User-Agent")
+        req.setValue("mac", forHTTPHeaderField: "X-Wallpaper-Client")
 
         if let token = await AuthService.shared.token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -268,6 +270,8 @@ actor APIClient {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(L10n.lang.rawValue, forHTTPHeaderField: "Accept-Language")
+        req.setValue(appUserAgent, forHTTPHeaderField: "User-Agent")
+        req.setValue("mac", forHTTPHeaderField: "X-Wallpaper-Client")
         if let token = await AuthService.shared.token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
@@ -295,6 +299,8 @@ actor APIClient {
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(L10n.lang.rawValue, forHTTPHeaderField: "Accept-Language")
+        req.setValue(appUserAgent, forHTTPHeaderField: "User-Agent")
+        req.setValue("mac", forHTTPHeaderField: "X-Wallpaper-Client")
         if let token = await AuthService.shared.token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
@@ -319,6 +325,9 @@ actor APIClient {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(L10n.lang.rawValue, forHTTPHeaderField: "Accept-Language")
+        req.setValue(appUserAgent, forHTTPHeaderField: "User-Agent")
+        req.setValue("mac", forHTTPHeaderField: "X-Wallpaper-Client")
         req.httpBody = try JSONEncoder().encode(body)
 
         let (data, response): (Data, URLResponse)
@@ -342,13 +351,13 @@ actor APIClient {
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
-        struct Body: Encodable { let email: String; let password: String }
-        return try await sendAuthJSON("/auth/login", body: Body(email: email, password: password))
+        struct Body: Encodable { let email: String; let password: String; let client: String }
+        return try await sendAuthJSON("/auth/login", body: Body(email: email, password: password, client: "mac"))
     }
 
     func register(username: String, email: String, password: String) async throws -> AuthResponse {
-        struct Body: Encodable { let username: String; let email: String; let password: String }
-        return try await sendAuthJSON("/auth/register", body: Body(username: username, email: email, password: password))
+        struct Body: Encodable { let username: String; let email: String; let password: String; let client: String; let source: String }
+        return try await sendAuthJSON("/auth/register", body: Body(username: username, email: email, password: password, client: "mac", source: "mac_app"))
     }
 
     // Edit a collection's title / description / visibility (owner only;
@@ -614,6 +623,9 @@ actor APIClient {
 
         var req = URLRequest(url: url)
         req.httpMethod = "GET"
+        req.setValue(L10n.lang.rawValue, forHTTPHeaderField: "Accept-Language")
+        req.setValue(appUserAgent, forHTTPHeaderField: "User-Agent")
+        req.setValue("mac", forHTTPHeaderField: "X-Wallpaper-Client")
         if let token = await AuthService.shared.token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }

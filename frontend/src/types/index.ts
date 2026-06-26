@@ -11,6 +11,12 @@ export interface User {
   likes_public?: boolean;
   favorites_public?: boolean;
   downloads_public?: boolean;
+  register_client?: string;
+  register_source?: string;
+  register_referrer?: string;
+  register_path?: string;
+  register_ip?: string;
+  register_country?: string;
   created_at: string;
 }
 

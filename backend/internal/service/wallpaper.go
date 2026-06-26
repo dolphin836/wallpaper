@@ -112,6 +112,11 @@ type WallpaperStatsEvent struct {
 	WallpaperID int64  `json:"wallpaper_id"`
 	EventType   string `json:"event_type"`
 	UserID      int64  `json:"user_id"`
+	Client      string `json:"client,omitempty"`
+	IP          string `json:"ip,omitempty"`
+	UserAgent   string `json:"user_agent,omitempty"`
+	Referrer    string `json:"referrer,omitempty"`
+	SessionID   string `json:"session_id,omitempty"`
 	Timestamp   string `json:"timestamp"`
 }
 
@@ -175,7 +180,7 @@ func (s *WallpaperService) Upload(ctx context.Context, userID int64, req UploadR
 	return w, nil
 }
 
-func (s *WallpaperService) GetBySlug(ctx context.Context, idOrSlug string, currentUserID int64) (*WallpaperDetail, *errcode.ErrCode) {
+func (s *WallpaperService) GetBySlug(ctx context.Context, idOrSlug string, currentUserID int64, meta repo.EventMeta) (*WallpaperDetail, *errcode.ErrCode) {
 	var w *model.Wallpaper
 	var err error
 	if id, parseErr := strconv.ParseInt(idOrSlug, 10, 64); parseErr == nil {
@@ -192,7 +197,7 @@ func (s *WallpaperService) GetBySlug(ctx context.Context, idOrSlug string, curre
 		return nil, errcode.ErrNotFound
 	}
 
-	s.publishStatsEvent(ctx, w.ID, "view", currentUserID)
+	s.publishStatsEvent(ctx, w.ID, "view", currentUserID, meta)
 
 	tags, err := s.tagRepo.GetByWallpaperID(ctx, w.ID)
 	if err != nil {
@@ -423,7 +428,7 @@ func (s *WallpaperService) Delete(ctx context.Context, id int64, userID int64) *
 	return nil
 }
 
-func (s *WallpaperService) Like(ctx context.Context, userID, wallpaperID int64) *errcode.ErrCode {
+func (s *WallpaperService) Like(ctx context.Context, userID, wallpaperID int64, meta repo.EventMeta) *errcode.ErrCode {
 	w, err := s.wallpaperRepo.GetByID(ctx, wallpaperID)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get wallpaper",
@@ -447,7 +452,7 @@ func (s *WallpaperService) Like(ctx context.Context, userID, wallpaperID int64) 
 		return errcode.ErrInternal
 	}
 
-	if err := s.eventRepo.Record(ctx, wallpaperID, "like", userID, nil); err != nil {
+	if err := s.eventRepo.RecordWithMeta(ctx, wallpaperID, "like", userID, nil, meta); err != nil {
 		slog.ErrorContext(ctx, "failed to record like event", "error", err, "wallpaper_id", wallpaperID)
 	}
 
@@ -480,7 +485,7 @@ func (s *WallpaperService) Unlike(ctx context.Context, userID, wallpaperID int64
 	return nil
 }
 
-func (s *WallpaperService) Favorite(ctx context.Context, userID, wallpaperID int64) *errcode.ErrCode {
+func (s *WallpaperService) Favorite(ctx context.Context, userID, wallpaperID int64, meta repo.EventMeta) *errcode.ErrCode {
 	w, err := s.wallpaperRepo.GetByID(ctx, wallpaperID)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get wallpaper",
@@ -502,6 +507,9 @@ func (s *WallpaperService) Favorite(ctx context.Context, userID, wallpaperID int
 	if err := s.wallpaperRepo.IncrementCounter(ctx, wallpaperID, "favorite_count", 1); err != nil {
 		slog.ErrorContext(ctx, "failed to increment favorite count", "error", err)
 		return errcode.ErrInternal
+	}
+	if err := s.eventRepo.RecordWithMeta(ctx, wallpaperID, "favorite", userID, nil, meta); err != nil {
+		slog.ErrorContext(ctx, "failed to record favorite event", "error", err, "wallpaper_id", wallpaperID)
 	}
 	return nil
 }
@@ -542,7 +550,7 @@ type DownloadTarget struct {
 	Height int
 }
 
-func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, userID int64, target DownloadTarget) (string, *errcode.ErrCode) {
+func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, userID int64, target DownloadTarget, meta repo.EventMeta) (string, *errcode.ErrCode) {
 	w, err := s.wallpaperRepo.GetByID(ctx, wallpaperID)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get wallpaper",
@@ -553,7 +561,7 @@ func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, user
 		return "", errcode.ErrNotFound
 	}
 
-	if ec := s.chargeAndRecordDownload(ctx, w, userID); ec != nil {
+	if ec := s.chargeAndRecordDownload(ctx, w, userID, meta); ec != nil {
 		return "", ec
 	}
 
@@ -577,7 +585,7 @@ func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, user
 // exempt), records the user's download history, and emits async stats.
 // Shared by the legacy width/height Download path and the device-id
 // DownloadForDevice path.
-func (s *WallpaperService) chargeAndRecordDownload(ctx context.Context, w *model.Wallpaper, userID int64) *errcode.ErrCode {
+func (s *WallpaperService) chargeAndRecordDownload(ctx context.Context, w *model.Wallpaper, userID int64, meta repo.EventMeta) *errcode.ErrCode {
 	if w.UserID != userID {
 		alreadyPaid, err := s.interactionRepo.HasDownloaded(ctx, userID, w.ID)
 		if err != nil {
@@ -597,7 +605,7 @@ func (s *WallpaperService) chargeAndRecordDownload(ctx context.Context, w *model
 	if _, err := s.interactionRepo.RecordDownload(ctx, userID, w.ID); err != nil {
 		slog.ErrorContext(ctx, "failed to record download", "error", err)
 	}
-	s.publishStatsEvent(ctx, w.ID, "download", userID)
+	s.publishStatsEvent(ctx, w.ID, "download", userID, meta)
 	return nil
 }
 
@@ -760,7 +768,7 @@ func (s *WallpaperService) publishUploadedEvent(ctx context.Context, w *model.Wa
 	}
 }
 
-func (s *WallpaperService) publishStatsEvent(ctx context.Context, wallpaperID int64, eventType string, userID int64) {
+func (s *WallpaperService) publishStatsEvent(ctx context.Context, wallpaperID int64, eventType string, userID int64, meta repo.EventMeta) {
 	if s.kafkaWriter == nil {
 		return
 	}
@@ -768,6 +776,11 @@ func (s *WallpaperService) publishStatsEvent(ctx context.Context, wallpaperID in
 		WallpaperID: wallpaperID,
 		EventType:   eventType,
 		UserID:      userID,
+		Client:      meta.Client,
+		IP:          meta.IP,
+		UserAgent:   meta.UserAgent,
+		Referrer:    meta.Referrer,
+		SessionID:   meta.SessionID,
 		Timestamp:   time.Now().UTC().Format(time.RFC3339),
 	}
 	data, err := json.Marshal(event)

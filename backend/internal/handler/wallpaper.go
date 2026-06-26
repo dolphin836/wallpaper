@@ -187,7 +187,7 @@ func (h *WallpaperHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	userID := middleware.GetUserID(r.Context())
 
-	detail, ec := h.wallpaperSvc.GetBySlug(r.Context(), idOrSlug, userID)
+	detail, ec := h.wallpaperSvc.GetBySlug(r.Context(), idOrSlug, userID, requestEventMeta(r, "", ""))
 	if ec != nil {
 		status := http.StatusInternalServerError
 		if ec.Code == errcode.ErrNotFound.Code {
@@ -246,7 +246,7 @@ func (h *WallpaperHandler) Like(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if ec := h.wallpaperSvc.Like(r.Context(), userID, id); ec != nil {
+	if ec := h.wallpaperSvc.Like(r.Context(), userID, id, requestEventMeta(r, "", "")); ec != nil {
 		status := http.StatusInternalServerError
 		if ec.Code == errcode.ErrNotFound.Code {
 			status = http.StatusNotFound
@@ -284,7 +284,7 @@ func (h *WallpaperHandler) Favorite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if ec := h.wallpaperSvc.Favorite(r.Context(), userID, id); ec != nil {
+	if ec := h.wallpaperSvc.Favorite(r.Context(), userID, id, requestEventMeta(r, "", "")); ec != nil {
 		status := http.StatusInternalServerError
 		if ec.Code == errcode.ErrNotFound.Code {
 			status = http.StatusNotFound
@@ -330,7 +330,7 @@ func (h *WallpaperHandler) Download(w http.ResponseWriter, r *http.Request) {
 	// service treats as "no preference."
 	width, _ := strconv.Atoi(r.URL.Query().Get("width"))
 	height, _ := strconv.Atoi(r.URL.Query().Get("height"))
-	url, ec := h.wallpaperSvc.Download(r.Context(), id, userID, service.DownloadTarget{Width: width, Height: height})
+	url, ec := h.wallpaperSvc.Download(r.Context(), id, userID, service.DownloadTarget{Width: width, Height: height}, requestEventMeta(r, "", ""))
 	if ec != nil {
 		status := http.StatusInternalServerError
 		switch ec.Code {
@@ -381,7 +381,7 @@ func (h *WallpaperHandler) DownloadForDevice(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
-	url, ec := h.wallpaperSvc.DownloadForDevice(r.Context(), id, deviceID, userID)
+	url, ec := h.wallpaperSvc.DownloadForDevice(r.Context(), id, deviceID, userID, requestEventMeta(r, "", ""))
 	if ec != nil {
 		status := http.StatusInternalServerError
 		switch ec.Code {

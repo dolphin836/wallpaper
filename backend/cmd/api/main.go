@@ -85,6 +85,7 @@ func main() {
 	coinRepo := repo.NewCoinRepo(db)
 	reportRepo := repo.NewReportRepo(db)
 	analyticsRepo := repo.NewAnalyticsRepo(db)
+	loginLogRepo := repo.NewLoginLogRepo(db)
 	adminRepo := repo.NewAdminRepo(db)
 	workerJobRepo := repo.NewWorkerJobRepo(db)
 	integrationRepo := repo.NewIntegrationRepo(db)
@@ -95,7 +96,7 @@ func main() {
 	wallpaperSvc := service.NewWallpaperService(wallpaperRepo, tagRepo, interactionRepo, userRepo, eventRepo, coinRepo, collectionRepo, deviceRepo, store, kafkaWriter)
 	collectionSvc := service.NewCollectionService(collectionRepo, interactionRepo)
 
-	authHandler := handler.NewAuthHandler(authSvc)
+	authHandler := handler.NewAuthHandler(authSvc, loginLogRepo)
 	wallpaperHandler := handler.NewWallpaperHandler(wallpaperSvc)
 	categoryHandler := handler.NewCategoryHandler(categoryRepo, cacheClient)
 	tagHandler := handler.NewTagHandler(tagRepo, cacheClient)
@@ -111,7 +112,7 @@ func main() {
 	weeklyPickHandler := handler.NewWeeklyPickHandler(weeklyPickRepo, collectionRepo)
 	statsHandler := handler.NewStatsHandler(wallpaperRepo, collectionRepo)
 	llmUsageRepo := repo.NewLLMUsageRepo(db)
-	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, coinRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo, analyticsRepo, llmUsageRepo, weeklyPickRepo, store, wallpaperSvc)
+	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, coinRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo, analyticsRepo, loginLogRepo, llmUsageRepo, weeklyPickRepo, eventRepo, store, wallpaperSvc)
 	pinterestHandler := handler.NewPinterestHandler(cfg.Pinterest, cfg.JWT.Secret, integrationRepo, pinterestPostRepo, wallpaperRepo, categoryRepo)
 	redditHandler := handler.NewRedditHandler(cfg.Reddit, cfg.JWT.Secret, integrationRepo, redditPostRepo, collectionRepo, weeklyPickRepo)
 

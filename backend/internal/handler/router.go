@@ -59,7 +59,7 @@ func NewRouter(deps Deps) *chi.Mux {
 		// protocol; the rest of the API doesn't use them.
 		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowedHeaders: []string{
-			"Accept", "Authorization", "Content-Type",
+			"Accept", "Authorization", "Content-Type", "X-Wallpaper-Client",
 			// tus.io protocol headers — required for browser pre-flight
 			// to succeed on POST/PATCH/HEAD against the tus endpoint.
 			"Tus-Resumable", "Upload-Length", "Upload-Offset",
@@ -198,10 +198,12 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Get("/series", deps.AdminHandler.GetSeries)
 			r.Get("/tops", deps.AdminHandler.GetTops)
 			r.Get("/analytics", deps.AdminHandler.GetAnalytics)
+			r.Get("/login-logs", deps.AdminHandler.ListLoginLogs)
 			r.Get("/llm-cost", deps.AdminHandler.GetLLMCost)
 			r.Post("/wallpapers/ai-upload", deps.AdminHandler.UploadAIWallpaper)
 
 			r.Get("/wallpapers", deps.AdminHandler.ListWallpapers)
+			r.Get("/wallpapers/{id}/traffic", deps.AdminHandler.GetWallpaperTraffic)
 			r.Post("/wallpapers/batch", deps.AdminHandler.BatchWallpapers)
 			r.Get("/wallpapers/review-queue", deps.AdminHandler.ListReviewQueue)
 			r.Post("/wallpapers/{id}/approve-review", deps.AdminHandler.ApproveReview)

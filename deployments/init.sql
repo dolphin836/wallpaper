@@ -11,6 +11,16 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at    TIMESTAMPTZ(6) NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS register_client     VARCHAR(32)  NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS register_source     VARCHAR(128) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS register_referrer   VARCHAR(512) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS register_path       VARCHAR(512) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS register_ip         VARCHAR(64)  NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS register_user_agent VARCHAR(512) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS register_country    VARCHAR(8)   NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_users_register_client ON users(register_client) WHERE register_client <> '';
+CREATE INDEX IF NOT EXISTS idx_users_register_source ON users(register_source) WHERE register_source <> '';
+
 CREATE TABLE IF NOT EXISTS categories (
     id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name       VARCHAR(64)  NOT NULL UNIQUE,
@@ -162,11 +172,37 @@ CREATE TABLE IF NOT EXISTS wallpaper_events (
     event_type   VARCHAR(20)  NOT NULL,
     variant_id   BIGINT,
     user_id      BIGINT       NOT NULL DEFAULT 0,
+    client       VARCHAR(32)  NOT NULL DEFAULT '',
+    ip           VARCHAR(64)  NOT NULL DEFAULT '',
+    user_agent   VARCHAR(512) NOT NULL DEFAULT '',
+    referrer     VARCHAR(512) NOT NULL DEFAULT '',
+    session_id   VARCHAR(64)  NOT NULL DEFAULT '',
     created_at   TIMESTAMPTZ(6) NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE wallpaper_events ADD COLUMN IF NOT EXISTS client     VARCHAR(32)  NOT NULL DEFAULT '';
+ALTER TABLE wallpaper_events ADD COLUMN IF NOT EXISTS ip         VARCHAR(64)  NOT NULL DEFAULT '';
+ALTER TABLE wallpaper_events ADD COLUMN IF NOT EXISTS user_agent VARCHAR(512) NOT NULL DEFAULT '';
+ALTER TABLE wallpaper_events ADD COLUMN IF NOT EXISTS referrer   VARCHAR(512) NOT NULL DEFAULT '';
+ALTER TABLE wallpaper_events ADD COLUMN IF NOT EXISTS session_id VARCHAR(64)  NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS idx_we_wallpaper_type ON wallpaper_events(wallpaper_id, event_type);
 CREATE INDEX IF NOT EXISTS idx_we_created ON wallpaper_events(created_at);
+CREATE INDEX IF NOT EXISTS idx_we_wallpaper_created ON wallpaper_events(wallpaper_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_we_user ON wallpaper_events(user_id) WHERE user_id <> 0;
+CREATE INDEX IF NOT EXISTS idx_we_client ON wallpaper_events(client) WHERE client <> '';
+
+CREATE TABLE IF NOT EXISTS login_logs (
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id    BIGINT       NOT NULL,
+    client     VARCHAR(32)  NOT NULL DEFAULT '',
+    ip         VARCHAR(64)  NOT NULL DEFAULT '',
+    user_agent VARCHAR(512) NOT NULL DEFAULT '',
+    country    VARCHAR(8)   NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ(6) NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_login_logs_created ON login_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_login_logs_user ON login_logs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_login_logs_client ON login_logs(client) WHERE client <> '';
 
 ALTER TABLE wallpaper_variants ADD COLUMN IF NOT EXISTS download_count BIGINT NOT NULL DEFAULT 0;
 -- Lazy variants are materialized on first download and reclaimed by cmd/variantgc

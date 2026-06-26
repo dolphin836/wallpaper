@@ -2,6 +2,9 @@ import client from '../api/client';
 
 const SESSION_KEY = 'wpe_session_id';
 const STAMP_KEY = 'wpe_session_stamp';
+const LANDING_KEY = 'wpe_landing_path';
+const REFERRER_KEY = 'wpe_initial_referrer';
+const SOURCE_KEY = 'wpe_initial_source';
 const SESSION_TTL_MS = 30 * 60 * 1000; // refresh window — 30 min idle ends the session
 
 function newID(): string {
@@ -30,6 +33,22 @@ function getSessionID(): string {
 }
 
 export function track(type: string, props?: Record<string, unknown>) {
+  try {
+    if (!sessionStorage.getItem(LANDING_KEY)) {
+      sessionStorage.setItem(LANDING_KEY, window.location.pathname + window.location.search);
+    }
+    if (!sessionStorage.getItem(REFERRER_KEY)) {
+      sessionStorage.setItem(REFERRER_KEY, document.referrer || '');
+    }
+    const params = new URLSearchParams(window.location.search);
+    const source = params.get('utm_source') || params.get('source') || params.get('ref') || '';
+    if (source && !sessionStorage.getItem(SOURCE_KEY)) {
+      sessionStorage.setItem(SOURCE_KEY, source);
+    }
+  } catch {
+    // Attribution is best-effort; analytics itself can still proceed.
+  }
+
   client
     .post('/events', {
       session_id: getSessionID(),

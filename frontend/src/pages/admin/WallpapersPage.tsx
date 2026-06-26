@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import * as admin from '../../api/admin';
-import type { AdminWallpaperRow } from '../../api/admin';
+import type { AdminWallpaperRow, AdminWallpaperTrafficRow, AdminWallpaperTrafficSummary } from '../../api/admin';
 import type { Category } from '../../types';
 import { useCategories } from '../../hooks/useCategories';
 import {
@@ -16,6 +16,28 @@ import {
   fmtNumber,
   WALLPAPER_STATUS,
 } from './components';
+
+const CLIENT_NAMES: Record<string, string> = {
+  web: 'Web',
+  mac: 'macOS',
+  android: 'Android',
+  ios: 'iOS',
+  windows: 'Windows',
+  chrome: 'Chrome 插件',
+  unknown: 'Unknown',
+};
+
+const EVENT_NAMES: Record<string, string> = {
+  view: '浏览',
+  like: '喜欢',
+  favorite: '收藏',
+  download: '下载',
+};
+
+function clientLabel(value?: string): string {
+  if (!value) return '—';
+  return CLIENT_NAMES[value.toLowerCase()] || value;
+}
 
 export default function WallpapersPage() {
   const [items, setItems] = useState<AdminWallpaperRow[]>([]);
@@ -32,6 +54,7 @@ export default function WallpapersPage() {
   const [loading, setLoading] = useState(false);
   const { categories } = useCategories();
   const [editing, setEditing] = useState<AdminWallpaperRow | null>(null);
+  const [trafficTarget, setTrafficTarget] = useState<AdminWallpaperRow | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [batchBusy, setBatchBusy] = useState(false);
 
@@ -313,9 +336,10 @@ export default function WallpapersPage() {
                           <div>{fmtNumber(w.view_count)} 浏览</div>
                           <div>{fmtNumber(w.like_count)} 赞 · {fmtNumber(w.download_count)} 下载</div>
                         </td>
-                        <td className="px-4 py-2 text-xs text-slate-500 whitespace-nowrap">{fmtDate(w.created_at)}</td>
-                        <td className="px-4 py-2 text-right whitespace-nowrap">
-                          <button onClick={() => setEditing(w)} className="text-xs text-purple-600 hover:underline mr-3">编辑</button>
+	                        <td className="px-4 py-2 text-xs text-slate-500 whitespace-nowrap">{fmtDate(w.created_at)}</td>
+	                        <td className="px-4 py-2 text-right whitespace-nowrap">
+	                          <button onClick={() => setTrafficTarget(w)} className="text-xs text-sky-600 hover:underline mr-3">流量详情</button>
+	                          <button onClick={() => setEditing(w)} className="text-xs text-purple-600 hover:underline mr-3">编辑</button>
                           {/* Reprocess: re-queue the wallpaper through the
                               image worker. Available for failed (2) and
                               stuck processing (0) rows. */}
@@ -366,7 +390,126 @@ export default function WallpapersPage() {
           onSaved={() => { setEditing(null); fetchList(); }}
         />
       )}
+      {trafficTarget && (
+        <TrafficModal wallpaper={trafficTarget} onClose={() => setTrafficTarget(null)} />
+      )}
     </>
+  );
+}
+
+function TrafficModal({ wallpaper, onClose }: { wallpaper: AdminWallpaperRow; onClose: () => void }) {
+  const [eventType, setEventType] = useState('');
+  const [page, setPage] = useState(1);
+  const [items, setItems] = useState<AdminWallpaperTrafficRow[]>([]);
+  const [summary, setSummary] = useState<AdminWallpaperTrafficSummary[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const limit = 50;
+
+  const summaryMap = summary.reduce<Record<string, number>>((acc, item) => {
+    acc[item.event_type] = item.count;
+    return acc;
+  }, {});
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    admin.getAdminWallpaperTraffic(wallpaper.id, {
+      page,
+      limit,
+      event_type: eventType || undefined,
+    })
+      .then((r) => {
+        if (!alive) return;
+        setItems(r.data.data.items ?? []);
+        setTotal(r.data.data.total);
+        setSummary(r.data.data.summary ?? []);
+      })
+      .catch((e) => toast.error(e?.response?.data?.message || '加载流量详情失败'))
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [wallpaper.id, page, eventType]);
+
+  const switchType = (next: string) => {
+    setEventType(next);
+    setPage(1);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-xl w-full max-w-5xl max-h-[86vh] overflow-hidden shadow-2xl flex flex-col">
+        <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+          <div>
+            <h3 className="font-semibold">流量详情 · #{wallpaper.id}</h3>
+            <p className="text-xs text-slate-500 mt-0.5 truncate max-w-2xl">{wallpaper.title || wallpaper.slug}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">×</button>
+        </div>
+
+        <div className="px-5 py-3 flex flex-wrap gap-2 border-b border-slate-100 dark:border-slate-800">
+          {[['', '全部'], ['view', '浏览'], ['like', '喜欢'], ['favorite', '收藏'], ['download', '下载']].map(([key, label]) => (
+            <button
+              key={key || 'all'}
+              onClick={() => switchType(key)}
+              className={`px-3 py-1.5 rounded-full text-xs border ${
+                eventType === key
+                  ? 'bg-slate-900 text-white border-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-100'
+                  : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+            >
+              {label}
+              {key ? <span className="ml-1 opacity-70">{fmtNumber(summaryMap[key] || 0)}</span> : null}
+            </button>
+          ))}
+        </div>
+
+        <div className="overflow-auto flex-1">
+          {loading ? <Spinner /> : items.length === 0 ? <Empty>暂无记录</Empty> : (
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 text-slate-500 text-xs uppercase tracking-wide">
+                <tr>
+                  <th className="text-left px-5 py-2 font-medium">事件</th>
+                  <th className="text-left px-5 py-2 font-medium">用户 / IP</th>
+                  <th className="text-left px-5 py-2 font-medium">客户端</th>
+                  <th className="text-left px-5 py-2 font-medium">时间</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {items.map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                    <td className="px-5 py-2">
+                      <span className="inline-flex px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-xs">
+                        {EVENT_NAMES[row.event_type] || row.event_type}
+                      </span>
+                    </td>
+                    <td className="px-5 py-2">
+                      {row.user_id > 0 ? (
+                        <>
+                          <div className="font-medium">{row.nickname || row.username || `#${row.user_id}`}</div>
+                          <div className="text-xs text-slate-400">@{row.username || '?'} · #{row.user_id}</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="font-medium">匿名访客</div>
+                          <div className="text-xs text-slate-400">{row.ip || '无 IP'}</div>
+                        </>
+                      )}
+                    </td>
+                    <td className="px-5 py-2 text-slate-600 dark:text-slate-300">{clientLabel(row.client)}</td>
+                    <td className="px-5 py-2 text-xs text-slate-500 whitespace-nowrap">{fmtDate(row.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
+          <span>共 {fmtNumber(total)} 条记录</span>
+          <Pagination page={page} limit={limit} total={total} onChange={setPage} />
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -1203,7 +1203,8 @@
       const response = await fetch(`${API_BASE}/wallpapers/${state.current.id}/download`, {
         headers: {
           Authorization: `Bearer ${state.settings.token}`,
-          "Accept-Language": currentLocale()
+          "Accept-Language": currentLocale(),
+          "X-Wallpaper-Client": "chrome_extension"
         },
         credentials: "omit"
       });
@@ -1314,8 +1315,8 @@
     elements.authStatusLine.textContent = state.authMode === "register" ? t("creatingAccount") : t("signingIn");
     try {
       const body = state.authMode === "register"
-        ? { username, email, password }
-        : { email, password };
+        ? { username, email, password, client: "chrome_extension", source: "chrome_extension", referrer: "chrome-extension://newtab", landing_path: "chrome-extension://newtab" }
+        : { email, password, client: "chrome_extension" };
       const data = await apiFetch(state.authMode === "register" ? "/auth/register" : "/auth/login", {
         method: "POST",
         body,
@@ -1663,7 +1664,8 @@
   async function apiFetch(path, options = {}) {
     const headers = {
       Accept: "application/json",
-      "Accept-Language": currentLocale()
+      "Accept-Language": currentLocale(),
+      "X-Wallpaper-Client": "chrome_extension"
     };
     if (options.body) headers["Content-Type"] = "application/json";
     if (!options.skipAuth && state.settings.token) {
@@ -1698,7 +1700,8 @@
     const headers = {
       Accept: "application/json",
       "Content-Type": "application/json",
-      "Accept-Language": currentLocale()
+      "Accept-Language": currentLocale(),
+      "X-Wallpaper-Client": "chrome_extension"
     };
     if (state.settings.token) {
       headers.Authorization = `Bearer ${state.settings.token}`;

@@ -24,7 +24,28 @@ type Row = {
   is_admin: boolean;
   created_at: string;
   wallpaper_count: number;
+  register_client?: string;
+  register_source?: string;
+  register_referrer?: string;
+  register_path?: string;
+  register_ip?: string;
+  register_country?: string;
 };
+
+const CLIENT_NAMES: Record<string, string> = {
+  web: 'Web',
+  mac: 'macOS',
+  android: 'Android',
+  ios: 'iOS',
+  windows: 'Windows',
+  chrome: 'Chrome 插件',
+  unknown: 'Unknown',
+};
+
+function clientLabel(value?: string): string {
+  if (!value) return '—';
+  return CLIENT_NAMES[value.toLowerCase()] || value;
+}
 
 export default function UsersPage() {
   const [items, setItems] = useState<Row[]>([]);
@@ -112,6 +133,7 @@ export default function UsersPage() {
                     <th className="text-left px-4 py-2 font-medium">邮箱</th>
                     <th className="text-left px-4 py-2 font-medium">权限</th>
                     <th className="text-left px-4 py-2 font-medium">状态</th>
+                    <th className="text-left px-4 py-2 font-medium">注册来源</th>
                     <th className="text-right px-4 py-2 font-medium">数据</th>
                     <th className="text-left px-4 py-2 font-medium">注册时间</th>
                     <th className="text-right px-4 py-2 font-medium">操作</th>
@@ -137,6 +159,16 @@ export default function UsersPage() {
                       </td>
                       <td className="px-4 py-2">
                         {u.status === 1 ? <StatusBadge label="正常" tone="good" /> : <StatusBadge label="禁用" tone="bad" />}
+                      </td>
+                      <td className="px-4 py-2 text-xs text-slate-500 max-w-[220px]">
+                        <div className="font-medium text-slate-600 dark:text-slate-300">
+                          {clientLabel(u.register_client)}
+                          {u.register_country ? <span className="ml-1 text-slate-400">{u.register_country}</span> : null}
+                        </div>
+                        <div className="truncate" title={u.register_referrer || u.register_path || ''}>
+                          {u.register_source || 'direct'}
+                          {u.register_ip ? ` · ${u.register_ip}` : ''}
+                        </div>
                       </td>
                       <td className="px-4 py-2 text-right text-xs text-slate-500 whitespace-nowrap">
                         <div>上传 {u.wallpaper_count}</div>

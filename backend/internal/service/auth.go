@@ -30,14 +30,22 @@ func NewAuthService(userRepo *repo.UserRepo, coinRepo *repo.CoinRepo, jwtSecret 
 }
 
 type RegisterRequest struct {
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Username    string `json:"username"`
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	Client      string `json:"client"`
+	Source      string `json:"source"`
+	Referrer    string `json:"referrer"`
+	LandingPath string `json:"landing_path"`
+	IP          string `json:"-"`
+	UserAgent   string `json:"-"`
+	Country     string `json:"-"`
 }
 
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	Client   string `json:"client"`
 }
 
 type AuthResponse struct {
@@ -81,9 +89,16 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (*AuthR
 	}
 
 	user := &model.User{
-		Username:     req.Username,
-		Email:        req.Email,
-		PasswordHash: string(hash),
+		Username:          req.Username,
+		Email:             req.Email,
+		PasswordHash:      string(hash),
+		RegisterClient:    req.Client,
+		RegisterSource:    req.Source,
+		RegisterReferrer:  req.Referrer,
+		RegisterPath:      req.LandingPath,
+		RegisterIP:        req.IP,
+		RegisterUserAgent: req.UserAgent,
+		RegisterCountry:   req.Country,
 	}
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		slog.ErrorContext(ctx, "failed to create user", "error", err)
@@ -107,6 +122,13 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (*AuthR
 	}
 
 	user.PasswordHash = ""
+	user.RegisterClient = ""
+	user.RegisterSource = ""
+	user.RegisterReferrer = ""
+	user.RegisterPath = ""
+	user.RegisterIP = ""
+	user.RegisterUserAgent = ""
+	user.RegisterCountry = ""
 
 	return &AuthResponse{
 		Token: token,

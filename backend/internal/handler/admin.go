@@ -36,8 +36,10 @@ type AdminHandler struct {
 	workerJobRepo  *repo.WorkerJobRepo
 	categoryRepo   *repo.CategoryRepo
 	analyticsRepo  *repo.AnalyticsRepo
+	loginLogRepo   *repo.LoginLogRepo
 	llmUsageRepo   *repo.LLMUsageRepo
 	weeklyPickRepo *repo.WeeklyPickRepo
+	eventRepo      *repo.EventRepo
 	storage        *storage.Storage
 	wallpaperSvc   *service.WallpaperService // needed for Reprocess (Kafka re-publish)
 
@@ -56,8 +58,10 @@ func NewAdminHandler(
 	workerJobRepo *repo.WorkerJobRepo,
 	categoryRepo *repo.CategoryRepo,
 	analyticsRepo *repo.AnalyticsRepo,
+	loginLogRepo *repo.LoginLogRepo,
 	llmUsageRepo *repo.LLMUsageRepo,
 	weeklyPickRepo *repo.WeeklyPickRepo,
+	eventRepo *repo.EventRepo,
 	store *storage.Storage,
 	wallpaperSvc *service.WallpaperService,
 ) *AdminHandler {
@@ -71,8 +75,10 @@ func NewAdminHandler(
 		workerJobRepo:  workerJobRepo,
 		categoryRepo:   categoryRepo,
 		analyticsRepo:  analyticsRepo,
+		loginLogRepo:   loginLogRepo,
 		llmUsageRepo:   llmUsageRepo,
 		weeklyPickRepo: weeklyPickRepo,
+		eventRepo:      eventRepo,
 		storage:        store,
 		wallpaperSvc:   wallpaperSvc,
 	}

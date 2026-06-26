@@ -36,6 +36,11 @@ type WallpaperStatsEvent struct {
 	WallpaperID int64  `json:"wallpaper_id"`
 	EventType   string `json:"event_type"`
 	UserID      int64  `json:"user_id"`
+	Client      string `json:"client"`
+	IP          string `json:"ip"`
+	UserAgent   string `json:"user_agent"`
+	Referrer    string `json:"referrer"`
+	SessionID   string `json:"session_id"`
 	Timestamp   string `json:"timestamp"`
 }
 
@@ -104,7 +109,13 @@ func (w *StatsWorker) Run(ctx context.Context) error {
 		}
 
 		if w.eventRepo != nil {
-			if err := w.eventRepo.Record(ctx, event.WallpaperID, event.EventType, event.UserID, nil); err != nil {
+			if err := w.eventRepo.RecordWithMeta(ctx, event.WallpaperID, event.EventType, event.UserID, nil, repo.EventMeta{
+				Client:    event.Client,
+				IP:        event.IP,
+				UserAgent: event.UserAgent,
+				Referrer:  event.Referrer,
+				SessionID: event.SessionID,
+			}); err != nil {
 				slog.Error("record stats event failed",
 					"wallpaper_id", event.WallpaperID,
 					"event_type", event.EventType,

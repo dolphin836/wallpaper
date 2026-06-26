@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { getAnalytics, type AnalyticsOverview, type AnalyticsDay } from '../../api/admin';
-import { Card, PageHeader, Spinner, StatCard, fmtNumber } from './components';
+import { getAnalytics, listAdminLoginLogs, type AnalyticsOverview, type AnalyticsDay, type AdminLoginLogRow } from '../../api/admin';
+import { Card, PageHeader, Spinner, StatCard, fmtDate, fmtNumber } from './components';
 
 // Common country code → friendly label. Falls back to the raw code so
 // rare countries still show *something* readable. Add codes opportunistically
@@ -37,6 +37,7 @@ const CLIENT_NAMES: Record<string, string> = {
   android: 'Android',
   ios: 'iOS',
   windows: 'Windows',
+  chrome: 'Chrome Extension',
   unknown: 'Unknown',
 };
 
@@ -183,13 +184,17 @@ function RankedTable({
 export default function AnalyticsPage() {
   const [days, setDays] = useState(7);
   const [data, setData] = useState<AnalyticsOverview | null>(null);
+  const [loginLogs, setLoginLogs] = useState<AdminLoginLogRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    getAnalytics(days)
-      .then((r) => {
+    Promise.all([
+      getAnalytics(days),
+      listAdminLoginLogs({ page: 1, limit: 20 }),
+    ])
+      .then(([r, logs]) => {
         if (!alive) return;
         // Defensive coalesce — backend may return null for any of these
         // slices when a query happens to return zero rows (Go nil slice
@@ -205,6 +210,7 @@ export default function AnalyticsPage() {
           clients:   d.clients   ?? [],
           client_downloads: d.client_downloads ?? [],
         });
+        setLoginLogs(logs.data.data.items ?? []);
       })
       .catch(() => { toast.error('加载流量数据失败'); })
       .finally(() => { if (alive) setLoading(false); });
@@ -313,6 +319,42 @@ export default function AnalyticsPage() {
               title="热门页面"
               rows={data.paths.map((p) => ({ label: p.label, count: p.count }))}
             />
+          </div>
+
+          <div className="mt-6">
+            <Card title="最近登录" action={<span className="text-[11px] text-slate-400">最近 20 条</span>}>
+              {loginLogs.length === 0 ? (
+                <div className="text-xs text-slate-400 px-5 py-6">暂无登录记录</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 text-xs uppercase tracking-wide">
+                      <tr>
+                        <th className="text-left px-5 py-2 font-medium">用户</th>
+                        <th className="text-left px-5 py-2 font-medium">客户端</th>
+                        <th className="text-left px-5 py-2 font-medium">IP / 地区</th>
+                        <th className="text-left px-5 py-2 font-medium">时间</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {loginLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                          <td className="px-5 py-2">
+                            <div className="font-medium">{log.nickname || log.username || `#${log.user_id}`}</div>
+                            <div className="text-xs text-slate-400">@{log.username || '?'} · {log.email || '-'}</div>
+                          </td>
+                          <td className="px-5 py-2 text-slate-600 dark:text-slate-300">{clientLabel(log.client)}</td>
+                          <td className="px-5 py-2 text-xs text-slate-500">
+                            {log.ip || '—'}{log.country ? ` · ${countryLabel(log.country)}` : ''}
+                          </td>
+                          <td className="px-5 py-2 text-xs text-slate-500 whitespace-nowrap">{fmtDate(log.created_at)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
           </div>
         </>
       )}

@@ -28,6 +28,7 @@ client.interceptors.request.use((config) => {
   // titles) from this header; react-query caches are invalidated on
   // language change (see main.tsx) so responses refetch in the new language.
   config.headers['Accept-Language'] = i18n.language;
+  config.headers['X-Wallpaper-Client'] = 'web';
   requestStarted(config.url);
   return config;
 });

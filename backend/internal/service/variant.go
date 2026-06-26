@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"image/jpeg" // decode + encode JPEG (pure Go — no cgo in the api binary)
+	"image/jpeg"  // decode + encode JPEG (pure Go — no cgo in the api binary)
 	_ "image/png" // register PNG decoder
 	"log/slog"
 	"strings"
@@ -16,6 +16,7 @@ import (
 	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/pkg/errcode"
 	"github.com/wallpaper/backend/internal/pkg/variant"
+	"github.com/wallpaper/backend/internal/repo"
 )
 
 // variantGenTimeout caps a single on-demand resize+upload so a slow MinIO
@@ -86,7 +87,7 @@ func (s *WallpaperService) ListSupportedDevices(ctx context.Context, wallpaperID
 // returns a URL sized for the given device, materializing the variant on first
 // request. Falls back to the original when the wallpaper has no device variant
 // (dynamic/video) or the original can't cover the device.
-func (s *WallpaperService) DownloadForDevice(ctx context.Context, wallpaperID, deviceID, userID int64) (string, *errcode.ErrCode) {
+func (s *WallpaperService) DownloadForDevice(ctx context.Context, wallpaperID, deviceID, userID int64, meta repo.EventMeta) (string, *errcode.ErrCode) {
 	w, err := s.wallpaperRepo.GetByID(ctx, wallpaperID)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get wallpaper", "error", err, "wallpaper_id", wallpaperID)
@@ -105,7 +106,7 @@ func (s *WallpaperService) DownloadForDevice(ctx context.Context, wallpaperID, d
 		return "", errcode.ErrNotFound
 	}
 
-	if ec := s.chargeAndRecordDownload(ctx, w, userID); ec != nil {
+	if ec := s.chargeAndRecordDownload(ctx, w, userID, meta); ec != nil {
 		return "", ec
 	}
 

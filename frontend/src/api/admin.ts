@@ -65,6 +65,39 @@ export interface AdminWallpaperRow extends Wallpaper {
   category_name: string;
 }
 
+export interface AdminWallpaperTrafficRow {
+  id: number;
+  wallpaper_id: number;
+  event_type: 'view' | 'like' | 'favorite' | 'download' | string;
+  user_id: number;
+  client: string;
+  ip: string;
+  created_at: string;
+  username: string;
+  nickname: string;
+  avatar_url: string;
+  email: string;
+}
+
+export interface AdminWallpaperTrafficSummary {
+  event_type: string;
+  count: number;
+}
+
+export interface AdminLoginLogRow {
+  id: number;
+  user_id: number;
+  client: string;
+  ip: string;
+  user_agent: string;
+  country: string;
+  created_at: string;
+  username: string;
+  nickname: string;
+  avatar_url: string;
+  email: string;
+}
+
 export interface AdminCollectionRow extends Collection {
   owner_username: string;
 }
@@ -115,6 +148,13 @@ export const listAdminWallpapers = (params: {
   status?: number; category_id?: number; user_id?: number; sort?: string;
   quality_flag?: '' | 'unassessed' | 'flagged' | 'weekly_eligible' | string;
 }) => client.get<ApiResponse<PaginatedAdmin<AdminWallpaperRow>>>('/admin/wallpapers', { params });
+
+export const getAdminWallpaperTraffic = (id: number, params: {
+  page?: number; limit?: number; event_type?: string;
+}) => client.get<ApiResponse<PaginatedAdmin<AdminWallpaperTrafficRow> & { summary: AdminWallpaperTrafficSummary[] }>>(
+  `/admin/wallpapers/${id}/traffic`,
+  { params },
+);
 
 export const updateAdminWallpaper = (id: number, data: {
   title?: string; description?: string; category_id?: number; status?: number;
@@ -171,6 +211,10 @@ export const deleteAdminCollection = (id: number) =>
 export const listAdminUsers = (params: {
   page?: number; limit?: number; search?: string; status?: number;
 }) => client.get<ApiResponse<PaginatedAdmin<UserListItem & { is_admin: boolean; email: string }>>>('/admin/users', { params });
+
+export const listAdminLoginLogs = (params: {
+  page?: number; limit?: number; client?: string;
+}) => client.get<ApiResponse<PaginatedAdmin<AdminLoginLogRow>>>('/admin/login-logs', { params });
 
 export const setAdminUserAdmin = (id: number, isAdmin: boolean) =>
   client.put<ApiResponse<null>>(`/admin/users/${id}/admin`, { is_admin: isAdmin });
