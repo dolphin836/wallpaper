@@ -1,8 +1,26 @@
 {
-  "current_version": "2.0.15",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.15.dmg",
+  "current_version": "2.0.16",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.16.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.16",
+      "released_at": "2026-06-26",
+      "notes": [
+        "New: Mac client activity now joins the shared traffic analytics. Login, wallpaper view, favorite, like, and download records include the Mac client source so the admin dashboard can break traffic down by platform."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "新增：Mac 客户端行为现在接入统一流量统计。登录、壁纸浏览、收藏、点赞和下载记录都会带上 Mac 客户端来源，后台可以按平台拆分查看流量。"
+        ],
+        "zh-TW": [
+          "新增：Mac 用戶端行為現在接入統一流量統計。登入、桌布瀏覽、收藏、按讚和下載記錄都會帶上 Mac 用戶端來源，後台可以按平台拆分查看流量。"
+        ],
+        "ja": [
+          "新機能：Mac クライアントの行動が共通のトラフィック分析に入るようになりました。ログイン、壁紙閲覧、お気に入り、いいね、ダウンロードの記録に Mac クライアントのソースが付き、管理画面でプラットフォーム別に確認できます。"
+        ]
+      }
+    },
     {
       "version": "2.0.15",
       "released_at": "2026-06-25",

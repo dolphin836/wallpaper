@@ -10,6 +10,14 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.16] - 2026-06-26
+
+### Added
+
+- **Mac client activity now joins the shared traffic analytics.** Login,
+  wallpaper view, favorite, like, and download records include the Mac client
+  source so the admin dashboard can break traffic down by platform.
+
 ## [2.0.15] - 2026-06-25
 
 ### Fixed
