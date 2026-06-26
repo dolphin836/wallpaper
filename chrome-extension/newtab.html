@@ -111,6 +111,54 @@
         </section>
 
         <section class="panel-section">
+          <div class="section-title-copy">
+            <h2 data-i18n="appearanceTitle">Wallpaper look</h2>
+            <p data-i18n="appearanceHint">Tune how the wallpaper sits behind your widgets.</p>
+          </div>
+          <div class="appearance-preset-list" role="group" aria-label="Wallpaper look presets">
+            <button class="appearance-preset" data-appearance-preset="original" type="button" aria-pressed="true">
+              <span data-i18n="appearanceOriginal">Original</span>
+              <small data-i18n="appearanceOriginalHint">Closest to the source image.</small>
+            </button>
+            <button class="appearance-preset" data-appearance-preset="clean" type="button" aria-pressed="false">
+              <span data-i18n="appearanceClean">Clean</span>
+              <small data-i18n="appearanceCleanHint">A soft readable layer.</small>
+            </button>
+            <button class="appearance-preset" data-appearance-preset="focus" type="button" aria-pressed="false">
+              <span data-i18n="appearanceFocus">Focus</span>
+              <small data-i18n="appearanceFocusHint">Calmer behind widgets.</small>
+            </button>
+            <button class="appearance-preset" data-appearance-preset="night" type="button" aria-pressed="false">
+              <span data-i18n="appearanceNight">Night</span>
+              <small data-i18n="appearanceNightHint">Lower glare at night.</small>
+            </button>
+          </div>
+          <details class="appearance-advanced">
+            <summary data-i18n="appearanceAdvanced">Advanced controls</summary>
+            <label class="range-row">
+              <span data-i18n="appearanceBrightness">Brightness</span>
+              <input id="appearanceBrightnessInput" type="range" min="60" max="115" step="1">
+              <output id="appearanceBrightnessValue">100%</output>
+            </label>
+            <label class="range-row">
+              <span data-i18n="appearanceBlur">Blur</span>
+              <input id="appearanceBlurInput" type="range" min="0" max="12" step="1">
+              <output id="appearanceBlurValue">0px</output>
+            </label>
+            <label class="range-row">
+              <span data-i18n="appearanceVignette">Edge shadow</span>
+              <input id="appearanceVignetteInput" type="range" min="0" max="40" step="1">
+              <output id="appearanceVignetteValue">4%</output>
+            </label>
+            <label class="range-row">
+              <span data-i18n="appearanceSaturation">Saturation</span>
+              <input id="appearanceSaturationInput" type="range" min="70" max="120" step="1">
+              <output id="appearanceSaturationValue">100%</output>
+            </label>
+          </details>
+        </section>
+
+        <section class="panel-section">
           <h2 data-i18n="languageTitle">Language</h2>
           <label class="field-row">
             <span data-i18n="languageLabel">Interface language</span>

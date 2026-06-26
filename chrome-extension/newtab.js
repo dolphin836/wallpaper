@@ -7,6 +7,48 @@
   const SESSION_STAMP_KEY = "wallpaperExchangeChromeSessionStamp";
   const SESSION_TTL_MS = 30 * 60 * 1000;
   const MAX_QUICK_LINKS = 10;
+  const APPEARANCE_PRESETS = {
+    original: {
+      preset: "original",
+      brightness: 1,
+      blur: 0,
+      saturation: 1,
+      contrast: 1,
+      scrimTop: 0.06,
+      scrimBottom: 0.22,
+      vignette: 0.04
+    },
+    clean: {
+      preset: "clean",
+      brightness: 0.96,
+      blur: 0,
+      saturation: 1.04,
+      contrast: 1,
+      scrimTop: 0.10,
+      scrimBottom: 0.32,
+      vignette: 0.10
+    },
+    focus: {
+      preset: "focus",
+      brightness: 0.82,
+      blur: 2,
+      saturation: 0.94,
+      contrast: 0.98,
+      scrimTop: 0.18,
+      scrimBottom: 0.48,
+      vignette: 0.18
+    },
+    night: {
+      preset: "night",
+      brightness: 0.68,
+      blur: 0,
+      saturation: 0.86,
+      contrast: 0.92,
+      scrimTop: 0.28,
+      scrimBottom: 0.56,
+      vignette: 0.24
+    }
+  };
 
   const extensionVersion = getExtensionVersion();
 
@@ -20,6 +62,7 @@
     language: "auto",
     randomEnabled: false,
     randomIntervalMinutes: 15,
+    appearance: { ...APPEARANCE_PRESETS.original },
     showClock: true,
     showSearch: true,
     showQuickLinks: true,
@@ -56,6 +99,21 @@
       randomHint: "Randomly picks from the current source.",
       randomInterval: "Interval",
       intervalNewTab: "Every new tab",
+      appearanceTitle: "Wallpaper look",
+      appearanceHint: "Tune how the wallpaper sits behind your widgets.",
+      appearanceOriginal: "Original",
+      appearanceOriginalHint: "Closest to the source image.",
+      appearanceClean: "Clean",
+      appearanceCleanHint: "A soft readable layer.",
+      appearanceFocus: "Focus",
+      appearanceFocusHint: "Calmer behind widgets.",
+      appearanceNight: "Night",
+      appearanceNightHint: "Lower glare at night.",
+      appearanceAdvanced: "Advanced controls",
+      appearanceBrightness: "Brightness",
+      appearanceBlur: "Blur",
+      appearanceVignette: "Edge shadow",
+      appearanceSaturation: "Saturation",
       languageTitle: "Language",
       languageLabel: "Interface language",
       languageAuto: "Follow browser",
@@ -150,6 +208,21 @@
       randomHint: "从当前来源里随机选择壁纸。",
       randomInterval: "切换时间",
       intervalNewTab: "每次新标签页",
+      appearanceTitle: "壁纸显示效果",
+      appearanceHint: "调整壁纸在小组件后面的观感。",
+      appearanceOriginal: "原图",
+      appearanceOriginalHint: "尽量保持原始效果。",
+      appearanceClean: "清爽",
+      appearanceCleanHint: "轻微增强可读性。",
+      appearanceFocus: "专注",
+      appearanceFocusHint: "小组件背后更安静。",
+      appearanceNight: "夜间",
+      appearanceNightHint: "降低夜间刺眼感。",
+      appearanceAdvanced: "高级调节",
+      appearanceBrightness: "亮度",
+      appearanceBlur: "模糊",
+      appearanceVignette: "边缘阴影",
+      appearanceSaturation: "饱和度",
       languageTitle: "语言",
       languageLabel: "界面语言",
       languageAuto: "跟随浏览器",
@@ -240,6 +313,21 @@
     randomHint: "從目前來源隨機選擇桌布。",
     randomInterval: "切換時間",
     intervalNewTab: "每次新分頁",
+    appearanceTitle: "桌布顯示效果",
+    appearanceHint: "調整桌布在小工具後方的觀感。",
+    appearanceOriginal: "原圖",
+    appearanceOriginalHint: "盡量保持原始效果。",
+    appearanceClean: "清爽",
+    appearanceCleanHint: "輕微提升可讀性。",
+    appearanceFocus: "專注",
+    appearanceFocusHint: "小工具後方更安靜。",
+    appearanceNight: "夜間",
+    appearanceNightHint: "降低夜間刺眼感。",
+    appearanceAdvanced: "進階調整",
+    appearanceBrightness: "亮度",
+    appearanceBlur: "模糊",
+    appearanceVignette: "邊緣陰影",
+    appearanceSaturation: "飽和度",
     languageTitle: "語言",
     languageAuto: "跟隨瀏覽器",
     widgetsTitle: "小工具",
@@ -318,6 +406,21 @@
     randomHint: "現在のソースからランダムに選びます。",
     randomInterval: "間隔",
     intervalNewTab: "新しいタブごと",
+    appearanceTitle: "壁紙の見え方",
+    appearanceHint: "ウィジェットの背後での壁紙表示を調整します。",
+    appearanceOriginal: "オリジナル",
+    appearanceOriginalHint: "元画像に最も近い表示。",
+    appearanceClean: "クリーン",
+    appearanceCleanHint: "読みやすさを少し向上。",
+    appearanceFocus: "フォーカス",
+    appearanceFocusHint: "ウィジェットの背後を穏やかに。",
+    appearanceNight: "ナイト",
+    appearanceNightHint: "夜間の眩しさを抑えます。",
+    appearanceAdvanced: "詳細調整",
+    appearanceBrightness: "明るさ",
+    appearanceBlur: "ぼかし",
+    appearanceVignette: "エッジシャドウ",
+    appearanceSaturation: "彩度",
     languageTitle: "言語",
     languageLabel: "表示言語",
     languageAuto: "ブラウザに合わせる",
@@ -413,6 +516,15 @@
     wallpaperList: document.getElementById("wallpaperList"),
     randomToggle: document.getElementById("randomToggle"),
     randomIntervalSelect: document.getElementById("randomIntervalSelect"),
+    appearancePresetButtons: Array.from(document.querySelectorAll(".appearance-preset")),
+    appearanceBrightnessInput: document.getElementById("appearanceBrightnessInput"),
+    appearanceBlurInput: document.getElementById("appearanceBlurInput"),
+    appearanceVignetteInput: document.getElementById("appearanceVignetteInput"),
+    appearanceSaturationInput: document.getElementById("appearanceSaturationInput"),
+    appearanceBrightnessValue: document.getElementById("appearanceBrightnessValue"),
+    appearanceBlurValue: document.getElementById("appearanceBlurValue"),
+    appearanceVignetteValue: document.getElementById("appearanceVignetteValue"),
+    appearanceSaturationValue: document.getElementById("appearanceSaturationValue"),
     languageSelect: document.getElementById("languageSelect"),
     clockToggle: document.getElementById("clockToggle"),
     searchToggle: document.getElementById("searchToggle"),
@@ -476,6 +588,7 @@
     bindEvents();
     applyLocale();
     renderSettings();
+    applyAppearanceSettings();
     updateClock();
     setInterval(updateClock, 1000);
     track("chrome_newtab_open");
@@ -533,6 +646,38 @@
       await saveSettings();
       scheduleRandomTimer();
       track("chrome_random_interval_change", { minutes: state.settings.randomIntervalMinutes });
+    });
+
+    elements.appearancePresetButtons.forEach((button) => {
+      button.addEventListener("click", async () => {
+        const preset = button.dataset.appearancePreset;
+        if (!preset || !APPEARANCE_PRESETS[preset]) return;
+        state.settings.appearance = { ...APPEARANCE_PRESETS[preset] };
+        applyAppearanceSettings();
+        renderAppearanceSettings();
+        await saveSettings();
+        track("chrome_appearance_change", { preset });
+      });
+    });
+
+    [
+      elements.appearanceBrightnessInput,
+      elements.appearanceBlurInput,
+      elements.appearanceVignetteInput,
+      elements.appearanceSaturationInput
+    ].forEach((input) => {
+      input.addEventListener("input", () => updateAppearanceFromInputs());
+      input.addEventListener("change", async () => {
+        updateAppearanceFromInputs();
+        await saveSettings();
+        track("chrome_appearance_change", {
+          preset: "custom",
+          brightness: state.settings.appearance.brightness,
+          blur: state.settings.appearance.blur,
+          saturation: state.settings.appearance.saturation,
+          vignette: state.settings.appearance.vignette
+        });
+      });
     });
 
     elements.languageSelect.addEventListener("change", async () => {
@@ -868,6 +1013,7 @@
     elements.collectionPicker.hidden = state.settings.source !== "collection" || !signedIn;
     elements.randomToggle.checked = Boolean(state.settings.randomEnabled);
     elements.randomIntervalSelect.value = String(state.settings.randomIntervalMinutes);
+    renderAppearanceSettings();
     elements.languageSelect.value = state.settings.language || "auto";
     elements.clockToggle.checked = Boolean(state.settings.showClock);
     elements.searchToggle.checked = Boolean(state.settings.showSearch);
@@ -876,6 +1022,65 @@
     renderAccount();
     renderActionButtons();
     renderCollections();
+  }
+
+  function renderAppearanceSettings() {
+    const appearance = normalizeAppearance(state.settings.appearance);
+    state.settings.appearance = appearance;
+
+    elements.appearancePresetButtons.forEach((button) => {
+      const active = button.dataset.appearancePreset === appearance.preset;
+      button.classList.toggle("is-selected", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+
+    elements.appearanceBrightnessInput.value = String(Math.round(appearance.brightness * 100));
+    elements.appearanceBlurInput.value = String(Math.round(appearance.blur));
+    elements.appearanceVignetteInput.value = String(Math.round(appearance.vignette * 100));
+    elements.appearanceSaturationInput.value = String(Math.round(appearance.saturation * 100));
+    renderAppearanceValues(appearance);
+  }
+
+  function renderAppearanceValues(appearance) {
+    elements.appearanceBrightnessValue.textContent = `${Math.round(appearance.brightness * 100)}%`;
+    elements.appearanceBlurValue.textContent = `${Math.round(appearance.blur)}px`;
+    elements.appearanceVignetteValue.textContent = `${Math.round(appearance.vignette * 100)}%`;
+    elements.appearanceSaturationValue.textContent = `${Math.round(appearance.saturation * 100)}%`;
+  }
+
+  function updateAppearanceFromInputs() {
+    const vignette = clamp(Number(elements.appearanceVignetteInput.value) / 100, 0, 0.4);
+    const appearance = {
+      preset: "custom",
+      brightness: clamp(Number(elements.appearanceBrightnessInput.value) / 100, 0.6, 1.15),
+      blur: clamp(Number(elements.appearanceBlurInput.value), 0, 12),
+      saturation: clamp(Number(elements.appearanceSaturationInput.value) / 100, 0.7, 1.2),
+      contrast: 1,
+      scrimTop: clamp(vignette * 0.7, 0, 0.34),
+      scrimBottom: clamp(vignette * 1.45, 0, 0.62),
+      vignette
+    };
+    state.settings.appearance = appearance;
+    applyAppearanceSettings();
+    renderAppearanceValues(appearance);
+    elements.appearancePresetButtons.forEach((button) => {
+      button.classList.remove("is-selected");
+      button.setAttribute("aria-pressed", "false");
+    });
+  }
+
+  function applyAppearanceSettings() {
+    const appearance = normalizeAppearance(state.settings.appearance);
+    state.settings.appearance = appearance;
+    const style = elements.stage.style;
+    style.setProperty("--wallpaper-brightness", String(appearance.brightness));
+    style.setProperty("--wallpaper-blur", `${appearance.blur}px`);
+    style.setProperty("--wallpaper-saturation", String(appearance.saturation));
+    style.setProperty("--wallpaper-contrast", String(appearance.contrast));
+    style.setProperty("--wallpaper-scale", String(1 + appearance.blur * 0.003));
+    style.setProperty("--wallpaper-scrim-top", String(appearance.scrimTop));
+    style.setProperty("--wallpaper-scrim-bottom", String(appearance.scrimBottom));
+    style.setProperty("--wallpaper-vignette", String(appearance.vignette));
   }
 
   function renderWidgets() {
@@ -1487,9 +1692,31 @@
 
   function normalizeSettings(stored) {
     const settings = { ...DEFAULT_SETTINGS, ...(stored || {}) };
+    settings.appearance = normalizeAppearance(settings.appearance);
     settings.showQuickLinks = settings.showQuickLinks !== false;
     settings.quickLinks = sanitizeQuickLinks(settings.quickLinks);
     return settings;
+  }
+
+  function normalizeAppearance(value) {
+    const presetName = value && APPEARANCE_PRESETS[value.preset] ? value.preset : "original";
+    const base = APPEARANCE_PRESETS[presetName] || APPEARANCE_PRESETS.original;
+    const raw = value && typeof value === "object" ? value : {};
+    const brightness = clamp(Number(raw.brightness ?? base.brightness), 0.6, 1.15);
+    const blur = clamp(Number(raw.blur ?? base.blur), 0, 12);
+    const saturation = clamp(Number(raw.saturation ?? base.saturation), 0.7, 1.2);
+    const contrast = clamp(Number(raw.contrast ?? base.contrast), 0.85, 1.1);
+    const vignette = clamp(Number(raw.vignette ?? base.vignette), 0, 0.4);
+    return {
+      preset: raw.preset === "custom" ? "custom" : presetName,
+      brightness,
+      blur,
+      saturation,
+      contrast,
+      scrimTop: clamp(Number(raw.scrimTop ?? base.scrimTop), 0, 0.45),
+      scrimBottom: clamp(Number(raw.scrimBottom ?? base.scrimBottom), 0, 0.7),
+      vignette
+    };
   }
 
   function sanitizeQuickLinks(value) {
@@ -1818,6 +2045,11 @@
 
   function wrap(value, length) {
     return ((value % length) + length) % length;
+  }
+
+  function clamp(value, min, max) {
+    if (!Number.isFinite(value)) return min;
+    return Math.min(max, Math.max(min, value));
   }
 
   function sanitizeColor(value) {

@@ -30,6 +30,7 @@ download page.
 - After sign in, supports My Favorites and one selected My Collection.
 - Lets users pick a specific wallpaper from the active source.
 - Supports random rotation from the active source, with an optional interval.
+- Supports wallpaper look presets and advanced display tuning for brightness, blur, edge shadow, and saturation.
 - Supports browser-following language, Simplified Chinese, Traditional Chinese, English, and Japanese.
 - Supports clock, search, and user-managed quick link widgets, all enabled by default.
 - Reports Chrome extension analytics events through the existing `/events` API.
