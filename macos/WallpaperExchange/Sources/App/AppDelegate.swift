@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         setupStatusItem()
         configureMainWindow()
+        ParticleWallpaperController.shared.restoreIfNeeded()
         UpdateService.shared.checkAtLaunch()
         Task {
             await APIClient.shared.trackEvent("app_launch", path: "/mac")

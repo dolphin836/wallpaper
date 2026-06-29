@@ -25,6 +25,25 @@ struct SettingsStrings {
     let themeLight: String
     let themeDark: String
 
+    // Particle wallpapers
+    let particleWallpapers: String
+    let particleDesc: String
+    let particleRunning: String
+    let particleStopped: String
+    let particlePreset: String
+    let particleDisplay: String
+    let particleDensity: String
+    let particleSpeed: String
+    let particleBrightness: String
+    let particleApply: String
+    let particleStop: String
+    let particleStarfield: String
+    let particleSnow: String
+    let particleRain: String
+    let particleFireflies: String
+    let particleAurora: String
+    let particleEmbers: String
+
     // Storage
     let storage: String
     let downloadsFolder: String
@@ -65,6 +84,23 @@ private let settingsEN = SettingsStrings(
     themeSystem: "System",
     themeLight: "Light",
     themeDark: "Dark",
+    particleWallpapers: "Particle wallpapers",
+    particleDesc: "Local real-time effects for a lightweight animated desktop. They only affect the desktop wallpaper, not the lock screen.",
+    particleRunning: "Running",
+    particleStopped: "Stopped",
+    particlePreset: "Preset",
+    particleDisplay: "Display",
+    particleDensity: "Density",
+    particleSpeed: "Speed",
+    particleBrightness: "Brightness",
+    particleApply: "Apply effect",
+    particleStop: "Stop effect",
+    particleStarfield: "Starfield",
+    particleSnow: "Snow",
+    particleRain: "Rain",
+    particleFireflies: "Fireflies",
+    particleAurora: "Aurora",
+    particleEmbers: "Embers",
     storage: "Storage",
     downloadsFolder: "Downloads folder",
     revealInFinder: "Reveal in Finder",
@@ -100,6 +136,23 @@ private let settingsZhCN = SettingsStrings(
     themeSystem: "跟随系统",
     themeLight: "浅色",
     themeDark: "深色",
+    particleWallpapers: "粒子壁纸",
+    particleDesc: "本地实时生成的轻量动态桌面效果，只设置桌面，不处理锁屏。",
+    particleRunning: "运行中",
+    particleStopped: "已停止",
+    particlePreset: "效果",
+    particleDisplay: "显示器",
+    particleDensity: "密度",
+    particleSpeed: "速度",
+    particleBrightness: "亮度",
+    particleApply: "应用效果",
+    particleStop: "停止效果",
+    particleStarfield: "星空",
+    particleSnow: "飘雪",
+    particleRain: "雨幕",
+    particleFireflies: "萤火",
+    particleAurora: "极光",
+    particleEmbers: "余烬",
     storage: "存储",
     downloadsFolder: "下载目录",
     revealInFinder: "在访达中显示",
@@ -135,6 +188,23 @@ private let settingsZhTW = SettingsStrings(
     themeSystem: "跟隨系統",
     themeLight: "淺色",
     themeDark: "深色",
+    particleWallpapers: "粒子桌布",
+    particleDesc: "本機即時生成的輕量動態桌面效果，只設定桌面，不處理鎖定畫面。",
+    particleRunning: "執行中",
+    particleStopped: "已停止",
+    particlePreset: "效果",
+    particleDisplay: "顯示器",
+    particleDensity: "密度",
+    particleSpeed: "速度",
+    particleBrightness: "亮度",
+    particleApply: "套用效果",
+    particleStop: "停止效果",
+    particleStarfield: "星空",
+    particleSnow: "飄雪",
+    particleRain: "雨幕",
+    particleFireflies: "螢火",
+    particleAurora: "極光",
+    particleEmbers: "餘燼",
     storage: "儲存空間",
     downloadsFolder: "下載資料夾",
     revealInFinder: "在 Finder 中顯示",
@@ -170,6 +240,23 @@ private let settingsJA = SettingsStrings(
     themeSystem: "システム",
     themeLight: "ライト",
     themeDark: "ダーク",
+    particleWallpapers: "パーティクル壁紙",
+    particleDesc: "ローカルでリアルタイム生成する軽量な動くデスクトップ効果です。デスクトップのみ対象で、ロック画面は変更しません。",
+    particleRunning: "実行中",
+    particleStopped: "停止中",
+    particlePreset: "プリセット",
+    particleDisplay: "ディスプレイ",
+    particleDensity: "密度",
+    particleSpeed: "速度",
+    particleBrightness: "明るさ",
+    particleApply: "効果を適用",
+    particleStop: "効果を停止",
+    particleStarfield: "星空",
+    particleSnow: "雪",
+    particleRain: "雨",
+    particleFireflies: "蛍",
+    particleAurora: "オーロラ",
+    particleEmbers: "残り火",
     storage: "ストレージ",
     downloadsFolder: "ダウンロードフォルダ",
     revealInFinder: "Finderで表示",
