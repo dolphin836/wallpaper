@@ -3,7 +3,6 @@ import SwiftUI
 // Auto-shuffle cadence controls. The rotation source can be all local
 // downloads, or a prioritized collection whose wallpapers are local.
 private struct AutoShufflePreset: Identifiable {
-    let label: String
     let seconds: TimeInterval
     var id: TimeInterval { seconds }
 }
@@ -12,13 +11,13 @@ struct AutoShuffleSettings: View {
     @State private var manager = WallpaperManager.shared
 
     private let presets: [AutoShufflePreset] = [
-        .init(label: "30 min", seconds: 30 * 60),
-        .init(label: "1 hour", seconds: 1 * 3600),
-        .init(label: "2 hours", seconds: 2 * 3600),
-        .init(label: "4 hours", seconds: 4 * 3600),
-        .init(label: "8 hours", seconds: 8 * 3600),
-        .init(label: "12 hours", seconds: 12 * 3600),
-        .init(label: "1 day", seconds: 24 * 3600),
+        .init(seconds: 30 * 60),
+        .init(seconds: 1 * 3600),
+        .init(seconds: 2 * 3600),
+        .init(seconds: 4 * 3600),
+        .init(seconds: 8 * 3600),
+        .init(seconds: 12 * 3600),
+        .init(seconds: 24 * 3600),
     ]
 
     private var minuteBinding: Binding<Double> {
@@ -32,7 +31,7 @@ struct AutoShuffleSettings: View {
         if let title = manager.autoRotateCollectionTitle {
             return L10n.account.collectionAutoPlayStatus(title)
         }
-        return "Switch to a random downloaded wallpaper every \(manager.autoRotateIntervalLabel)"
+        return L10n.account.autoShuffleLocalStatus(manager.autoRotateIntervalLabel)
     }
 
     var body: some View {
@@ -42,7 +41,7 @@ struct AutoShuffleSettings: View {
                 set: { manager.setAutoRotate($0) }
             )) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Auto-shuffle").font(.system(size: 13)).foregroundStyle(Color.ink)
+                    Text(L10n.account.autoShuffleTitle).font(.system(size: 13)).foregroundStyle(Color.ink)
                     Text(sourceDescription)
                         .font(.system(size: 11)).foregroundStyle(Color.muted)
                 }
@@ -54,7 +53,7 @@ struct AutoShuffleSettings: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("Interval")
+                    Text(L10n.account.autoShuffleInterval)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Color.ink2)
                     Spacer()
@@ -83,10 +82,10 @@ struct AutoShuffleSettings: View {
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(Color.accent)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Custom")
+                            Text(L10n.account.autoShuffleCustom)
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(Color.ink)
-                            Text("15-minute steps")
+                            Text(L10n.account.autoShuffleStepDetail)
                                 .font(.system(size: 10))
                                 .foregroundStyle(Color.muted)
                         }
@@ -100,7 +99,7 @@ struct AutoShuffleSettings: View {
     private func intervalChip(_ preset: AutoShufflePreset) -> some View {
         let isOn = abs(manager.autoRotateInterval - preset.seconds) < 1
         return Button(action: { manager.setAutoRotateInterval(preset.seconds) }) {
-            Text(preset.label)
+            Text(WallpaperManager.formatAutoRotateInterval(preset.seconds))
                 .font(.system(size: 11, weight: isOn ? .semibold : .medium))
                 .foregroundStyle(isOn ? Color.paper : Color.ink2)
                 .frame(maxWidth: .infinity)

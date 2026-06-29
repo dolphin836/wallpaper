@@ -61,6 +61,11 @@ struct AccountStrings {
 
     // ── Auto-shuffle panel ──
     let autoShuffleKicker: String
+    let autoShuffleTitle: String
+    let autoShuffleLocalStatus: (String) -> String
+    let autoShuffleInterval: String
+    let autoShuffleCustom: String
+    let autoShuffleStepDetail: String
     let collectionAutoPlay: String
     let collectionAutoPlayActive: String
     let collectionAutoPlayPreparing: String
@@ -162,6 +167,11 @@ private let accountEN = AccountStrings(
     emptyCollectionsTitle: "No collections yet.",
     emptyCollectionsMessage: "Collections will appear here when this user starts grouping wallpapers into sets.",
     autoShuffleKicker: "AUTO-SHUFFLE",
+    autoShuffleTitle: "Auto-shuffle",
+    autoShuffleLocalStatus: { "Switch to a random downloaded wallpaper every \($0)" },
+    autoShuffleInterval: "Interval",
+    autoShuffleCustom: "Custom",
+    autoShuffleStepDetail: "15-minute steps",
     collectionAutoPlay: "Auto-play",
     collectionAutoPlayActive: "Playing",
     collectionAutoPlayPreparing: "Preparing…",
@@ -257,6 +267,11 @@ private let accountZhCN = AccountStrings(
     emptyCollectionsTitle: "还没有合集。",
     emptyCollectionsMessage: "当该用户开始把壁纸整理成合集时，就会显示在这里。",
     autoShuffleKicker: "自动轮换",
+    autoShuffleTitle: "自动轮换",
+    autoShuffleLocalStatus: { "每 \($0) 随机切换一张已下载壁纸" },
+    autoShuffleInterval: "间隔",
+    autoShuffleCustom: "自定义",
+    autoShuffleStepDetail: "每次调整 15 分钟",
     collectionAutoPlay: "自动播放",
     collectionAutoPlayActive: "播放中",
     collectionAutoPlayPreparing: "准备中…",
@@ -348,6 +363,11 @@ private let accountZhTW = AccountStrings(
     emptyCollectionsTitle: "還沒有合輯。",
     emptyCollectionsMessage: "當這位使用者開始把桌布整理成合輯時，就會顯示在這裡。",
     autoShuffleKicker: "自動輪換",
+    autoShuffleTitle: "自動輪換",
+    autoShuffleLocalStatus: { "每 \($0) 隨機切換一張已下載桌布" },
+    autoShuffleInterval: "間隔",
+    autoShuffleCustom: "自訂",
+    autoShuffleStepDetail: "每次調整 15 分鐘",
     collectionAutoPlay: "自動播放",
     collectionAutoPlayActive: "播放中",
     collectionAutoPlayPreparing: "準備中…",
@@ -439,6 +459,11 @@ private let accountJA = AccountStrings(
     emptyCollectionsTitle: "コレクションはまだありません。",
     emptyCollectionsMessage: "このユーザーが壁紙をコレクションにまとめると、ここに表示されます。",
     autoShuffleKicker: "自動シャッフル",
+    autoShuffleTitle: "自動シャッフル",
+    autoShuffleLocalStatus: { "\($0)ごとにダウンロード済み壁紙をランダムに切り替えます" },
+    autoShuffleInterval: "間隔",
+    autoShuffleCustom: "カスタム",
+    autoShuffleStepDetail: "15分単位で調整",
     collectionAutoPlay: "自動再生",
     collectionAutoPlayActive: "再生中",
     collectionAutoPlayPreparing: "準備中…",
