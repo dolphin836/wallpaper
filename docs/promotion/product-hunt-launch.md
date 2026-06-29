@@ -24,7 +24,7 @@ A wallpaper community made for macOS dynamic wallpapers
 
 **Description** (260 chars max — 卡片展开时显示):
 ```
-The first wallpaper platform that treats macOS dynamic wallpapers as first-class — preserves HEIC metadata, extracts frames, picks per-display variants automatically. Plus a clean menu-bar Mac app, weekly AI-curated themes, and no ads ever.
+The first wallpaper platform that treats macOS dynamic wallpapers as first-class — preserves HEIC metadata, extracts frames, picks per-display variants automatically. Plus a clean menu-bar Mac app, editor-curated weekly themes, and no ads ever.
 ```
 (255 chars — 在限额内)
 
@@ -56,8 +56,8 @@ What I think is genuinely new here:
     resolution; the server picks the smallest variant that still
     covers your display. Less bandwidth, sharper result, automatic.
 
-🧙  **AI-curated weekly drops** — every Friday, 10 hand-picked
-    wallpapers + a Claude-curated themed collection. Each wallpaper
+🧙  **Editor-curated weekly drops** — every Friday, 10 hand-picked
+    wallpapers + a themed collection. Each wallpaper
     is featured at most once, ever. No "same 10 trending images"
     forever.
 

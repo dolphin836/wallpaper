@@ -4,23 +4,36 @@ import * as admin from '../../api/admin';
 import type { AdminWeekSummary, AdminWeeklyPick, AdminWallpaperRow } from '../../api/admin';
 import { Card, PageHeader, Spinner, Empty } from './components';
 
+const PAGE_SIZE = 24;
+
+function currentISOWeek() {
+  const d = new Date();
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return { year: date.getUTCFullYear(), week };
+}
+
 /**
- * Weekly Picks management. Three operations on each week's slate:
- *   • Set hero (click any tile)
- *   • Remove pick (× button on tile, confirm)
- *   • Add pick (toolbar "+" opens a search modal)
+ * Manual Weekly Picks management.
  *
- * Server enforces "exactly one hero per week" via a partial unique index
- * and "no duplicate (year, week, wallpaper_id)" via the existing UNIQUE
- * constraint, so the UI doesn't have to do those checks.
+ * This page is the source of truth for creating and editing a weekly slate.
+ * Admins choose the target ISO week, add published wallpapers, set the hero,
+ * reorder locally, then save the full ordered slate in one request.
  */
 export default function WeeklyPicksPage() {
+  const now = currentISOWeek();
   const [weeks, setWeeks] = useState<AdminWeekSummary[]>([]);
   const [weeksLoading, setWeeksLoading] = useState(false);
   const [selected, setSelected] = useState<{ year: number; week: number } | null>(null);
+  const [yearInput, setYearInput] = useState(String(now.year));
+  const [weekInput, setWeekInput] = useState(String(now.week));
   const [picks, setPicks] = useState<AdminWeeklyPick[]>([]);
   const [picksLoading, setPicksLoading] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
 
   const fetchWeeks = useCallback(() => {
@@ -31,9 +44,11 @@ export default function WeeklyPicksPage() {
         setWeeks(list);
         if (!selected && list.length > 0) {
           setSelected({ year: list[0].year, week: list[0].week });
+          setYearInput(String(list[0].year));
+          setWeekInput(String(list[0].week));
         }
       })
-      .catch((e) => toast.error(e?.response?.data?.message || 'Failed to load weeks'))
+      .catch((e) => toast.error(e?.response?.data?.message || '加载周列表失败'))
       .finally(() => setWeeksLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -42,8 +57,8 @@ export default function WeeklyPicksPage() {
     setPicksLoading(true);
     setPicks([]);
     admin.adminGetWeeklyPickWeek(year, week)
-      .then((r) => setPicks(r.data.data.picks || []))
-      .catch((e) => toast.error(e?.response?.data?.message || 'Failed to load picks'))
+      .then((r) => setPicks((r.data.data.picks || []).sort((a, b) => a.sort_order - b.sort_order)))
+      .catch((e) => toast.error(e?.response?.data?.message || '加载推荐失败'))
       .finally(() => setPicksLoading(false));
   }, []);
 
@@ -52,6 +67,22 @@ export default function WeeklyPicksPage() {
     if (selected) fetchPicks(selected.year, selected.week);
   }, [selected, fetchPicks]);
 
+  const openWeek = () => {
+    const year = Number(yearInput);
+    const week = Number(weekInput);
+    if (!Number.isInteger(year) || !Number.isInteger(week) || year <= 0 || week < 1 || week > 53) {
+      toast.error('请输入有效的 ISO 年份和周数');
+      return;
+    }
+    setSelected({ year, week });
+  };
+
+  const selectWeek = (w: AdminWeekSummary) => {
+    setSelected({ year: w.year, week: w.week });
+    setYearInput(String(w.year));
+    setWeekInput(String(w.week));
+  };
+
   const setHero = (p: AdminWeeklyPick) => {
     if (!selected || p.is_hero || busyId !== null) return;
     setBusyId(p.id);
@@ -59,25 +90,23 @@ export default function WeeklyPicksPage() {
       .then(() => {
         setPicks((rows) => rows.map((r) => ({ ...r, is_hero: r.id === p.id })));
         fetchWeeks();
-        toast.success('Hero updated');
+        toast.success('Hero 已更新');
       })
-      .catch((e) => toast.error(e?.response?.data?.message || 'Failed to set hero'))
+      .catch((e) => toast.error(e?.response?.data?.message || '设置 hero 失败'))
       .finally(() => setBusyId(null));
   };
 
   const removePick = (p: AdminWeeklyPick) => {
     if (!selected || busyId !== null) return;
-    if (!confirm(`Remove this wallpaper from Week ${selected.week}?`)) return;
+    if (!confirm(`从 ${selected.year} W${selected.week} 移除这张壁纸？`)) return;
     setBusyId(p.id);
     admin.adminRemoveWeeklyPick(selected.year, selected.week, p.id)
       .then(() => {
-        // Refresh both the picks list and the weeks index (hero may have
-        // auto-promoted to another tile if the removed one was hero).
         fetchPicks(selected.year, selected.week);
         fetchWeeks();
-        toast.success('Removed');
+        toast.success('已移除');
       })
-      .catch((e) => toast.error(e?.response?.data?.message || 'Failed to remove'))
+      .catch((e) => toast.error(e?.response?.data?.message || '移除失败'))
       .finally(() => setBusyId(null));
   };
 
@@ -88,46 +117,102 @@ export default function WeeklyPicksPage() {
         fetchPicks(selected.year, selected.week);
         fetchWeeks();
         setShowAdd(false);
-        toast.success('Added');
+        toast.success('已添加');
       })
-      .catch((e) => toast.error(e?.response?.data?.message || 'Failed to add'));
+      .catch((e) => toast.error(e?.response?.data?.message || '添加失败'));
+  };
+
+  const movePick = (index: number, dir: -1 | 1) => {
+    setPicks((rows) => {
+      const next = [...rows];
+      const target = index + dir;
+      if (target < 0 || target >= next.length) return rows;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next.map((p, i) => ({ ...p, sort_order: i }));
+    });
+  };
+
+  const saveSlate = () => {
+    if (!selected || picks.length === 0 || saving) return;
+    if (picks.length !== 10 && !confirm(`当前是 ${picks.length} 张，不是 10 张。仍然保存这一期？`)) return;
+    const hero = picks.find((p) => p.is_hero) || picks[0];
+    setSaving(true);
+    admin.adminSaveWeeklyPickWeek(selected.year, selected.week, picks.map((p) => p.id), hero.id)
+      .then(() => {
+        toast.success('每周推荐已保存');
+        fetchPicks(selected.year, selected.week);
+        fetchWeeks();
+      })
+      .catch((e) => toast.error(e?.response?.data?.message || '保存失败'))
+      .finally(() => setSaving(false));
   };
 
   return (
     <div>
       <PageHeader
-        title="Weekly Picks"
-        subtitle="Curate this week's slate. Click any tile to set it as the hero; × removes; + adds."
+        title="每周推荐"
+        subtitle="手动创建和维护每一期推荐。建议每期 10 张，Hero 会用于首页大图。"
       />
-      <div className="grid grid-cols-12 gap-4">
-        {/* Left: weeks index */}
-        <div className="col-span-4">
-          <Card>
-            <div className="px-3 py-2 border-b border-hair text-[11px] uppercase tracking-wider text-muted">
-              All weeks · {weeks.length}
+      <div className="px-8 pb-8 grid grid-cols-12 gap-4">
+        <div className="col-span-4 space-y-4">
+          <Card title="打开 / 新建一期">
+            <div className="p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-xs text-slate-500">
+                  年份
+                  <input
+                    value={yearInput}
+                    onChange={(e) => setYearInput(e.target.value)}
+                    className="mt-1 w-full px-3 py-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm"
+                  />
+                </label>
+                <label className="text-xs text-slate-500">
+                  ISO 周
+                  <input
+                    value={weekInput}
+                    onChange={(e) => setWeekInput(e.target.value)}
+                    className="mt-1 w-full px-3 py-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm"
+                  />
+                </label>
+              </div>
+              <button
+                onClick={openWeek}
+                className="w-full px-3 py-2 rounded-lg text-sm font-medium bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:opacity-90"
+              >
+                打开这一期
+              </button>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                如果这一期还不存在，右侧会显示空白状态，添加第一张壁纸后自动创建。
+              </p>
             </div>
-            <div className="max-h-[70vh] overflow-y-auto">
+          </Card>
+
+          <Card>
+            <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-500">
+              已创建 · {weeks.length}
+            </div>
+            <div className="max-h-[58vh] overflow-y-auto">
               {weeksLoading && weeks.length === 0 ? <Spinner />
-                : weeks.length === 0 ? <Empty>No weekly slates yet. Generate one with weekly-drop.</Empty>
+                : weeks.length === 0 ? <Empty>还没有每周推荐。用上方表单创建第一期。</Empty>
                 : weeks.map((w) => {
                     const isActive = selected && selected.year === w.year && selected.week === w.week;
                     return (
                       <button
                         key={`${w.year}-${w.week}`}
-                        onClick={() => setSelected({ year: w.year, week: w.week })}
-                        className={`w-full text-left px-3 py-2.5 flex items-center gap-3 border-b border-hair-soft transition-colors ${
-                          isActive ? 'bg-paper-2' : 'hover:bg-paper-2/60'
+                        onClick={() => selectWeek(w)}
+                        className={`w-full text-left px-3 py-2.5 flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 transition-colors ${
+                          isActive ? 'bg-purple-50 dark:bg-purple-500/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
                         }`}
                       >
                         {w.hero_thumb
                           ? <img src={w.hero_thumb} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
-                          : <div className="w-10 h-10 rounded bg-paper-3 flex-shrink-0" />}
+                          : <div className="w-10 h-10 rounded bg-slate-100 dark:bg-slate-800 flex-shrink-0" />}
                         <div className="min-w-0 flex-1">
-                          <div className="text-[13px] font-medium text-ink truncate">
-                            Week {w.week} · {w.year}
+                          <div className="text-[13px] font-medium truncate">
+                            {w.year} · W{String(w.week).padStart(2, '0')}
                           </div>
-                          <div className="text-[11px] text-muted truncate">
-                            {w.count} picks{w.hero_title ? ` · ${w.hero_title}` : ''}
+                          <div className="text-[11px] text-slate-500 truncate">
+                            {w.count} 张{w.hero_title ? ` · ${w.hero_title}` : ''}
                           </div>
                         </div>
                       </button>
@@ -137,52 +222,54 @@ export default function WeeklyPicksPage() {
           </Card>
         </div>
 
-        {/* Right: picks of selected week */}
         <div className="col-span-8">
           <Card>
             {!selected ? (
-              <Empty>Pick a week on the left to see its slate.</Empty>
+              <Empty>选择或创建一个周数后开始编辑。</Empty>
             ) : (
               <>
-                <div className="px-4 py-2.5 border-b border-hair flex items-center justify-between gap-3">
+                <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-[15px] font-semibold text-ink">
-                      Week {selected.week} · {selected.year}
+                    <div className="text-[15px] font-semibold">
+                      {selected.year} · W{String(selected.week).padStart(2, '0')}
                     </div>
-                    <div className="text-[11px] text-muted mt-0.5">
-                      {picks.length} picks · click tile = set hero · × removes · + adds
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      {picks.length} 张 · 点击图片设为 Hero · 上下按钮调整顺序
                     </div>
                   </div>
-                  <button
-                    onClick={() => setShowAdd(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium bg-ink text-paper hover:bg-ink-2 transition-colors"
-                  >
-                    <span className="text-[14px] leading-none">＋</span>
-                    <span>Add wallpaper</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowAdd(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                      ＋ 添加壁纸
+                    </button>
+                    <button
+                      onClick={saveSlate}
+                      disabled={saving || picks.length === 0}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
+                    >
+                      {saving ? '保存中…' : '保存这一期'}
+                    </button>
+                  </div>
                 </div>
                 <div className="p-4">
                   {picksLoading ? <Spinner />
-                    : picks.length === 0 ? <Empty>No picks for this week. Use "+ Add wallpaper" above.</Empty>
+                    : picks.length === 0 ? <Empty>这一期还没有壁纸，点击右上角“添加壁纸”。</Empty>
                     : (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                        {picks.map((p) => (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                        {picks.map((p, index) => (
                           <div
                             key={p.id}
                             className={`group relative aspect-[4/5] overflow-hidden rounded-lg border-2 transition-all ${
-                              p.is_hero
-                                ? 'border-accent ring-2 ring-accent/40'
-                                : 'border-hair'
+                              p.is_hero ? 'border-purple-500 ring-2 ring-purple-500/30' : 'border-slate-200 dark:border-slate-700'
                             } ${busyId === p.id ? 'opacity-60' : ''}`}
                           >
-                            {/* Click-anywhere-but-the-X-button to set hero. */}
                             <button
                               onClick={() => setHero(p)}
                               disabled={busyId !== null || p.is_hero}
-                              className={`absolute inset-0 w-full h-full text-left ${
-                                p.is_hero ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
-                              }`}
-                              title={p.is_hero ? 'Current hero' : 'Click to set as hero'}
+                              className={`absolute inset-0 w-full h-full text-left ${p.is_hero ? 'cursor-default' : 'cursor-pointer hover:opacity-90'}`}
+                              title={p.is_hero ? '当前 Hero' : '设为 Hero'}
                             >
                               <img
                                 src={p.thumb_url || p.preview_url}
@@ -190,22 +277,32 @@ export default function WeeklyPicksPage() {
                                 className="absolute inset-0 w-full h-full object-cover"
                               />
                             </button>
-                            {/* Remove button — small × top-right, only visible on hover. */}
-                            <button
-                              onClick={(e) => { e.stopPropagation(); removePick(p); }}
-                              disabled={busyId !== null}
-                              title="Remove from week"
-                              className="absolute top-1.5 right-1.5 z-10 w-6 h-6 flex items-center justify-center rounded-full bg-black/55 hover:bg-red-500 text-white text-[14px] leading-none opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-30"
-                            >
-                              ×
-                            </button>
-                            {/* Bottom strip — sort_order + hero chip */}
-                            <div className="absolute inset-x-0 bottom-0 px-2 py-1.5 bg-gradient-to-t from-black/70 to-transparent flex items-end justify-between gap-2 pointer-events-none">
-                              <span className="text-[10px] mono uppercase tracking-wider text-white/85">
-                                №{String(p.sort_order + 1).padStart(2, '0')}
+                            <div className="absolute top-1.5 right-1.5 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); movePick(index, -1); }}
+                                disabled={index === 0}
+                                className="w-6 h-6 rounded-full bg-black/55 hover:bg-black/75 text-white text-xs disabled:opacity-30"
+                                title="上移"
+                              >↑</button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); movePick(index, 1); }}
+                                disabled={index === picks.length - 1}
+                                className="w-6 h-6 rounded-full bg-black/55 hover:bg-black/75 text-white text-xs disabled:opacity-30"
+                                title="下移"
+                              >↓</button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); removePick(p); }}
+                                disabled={busyId !== null}
+                                className="w-6 h-6 rounded-full bg-black/55 hover:bg-rose-500 text-white text-sm leading-none disabled:opacity-30"
+                                title="移除"
+                              >×</button>
+                            </div>
+                            <div className="absolute inset-x-0 bottom-0 px-2 py-1.5 bg-gradient-to-t from-black/75 to-transparent flex items-end justify-between gap-2 pointer-events-none">
+                              <span className="text-[10px] font-mono uppercase tracking-wider text-white/85">
+                                #{String(index + 1).padStart(2, '0')}
                               </span>
                               {p.is_hero && (
-                                <span className="text-[10px] mono uppercase tracking-wider font-bold text-white bg-accent px-1.5 py-0.5 rounded">
+                                <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-white bg-purple-500 px-1.5 py-0.5 rounded">
                                   HERO
                                 </span>
                               )}
@@ -224,7 +321,7 @@ export default function WeeklyPicksPage() {
       {showAdd && selected && (
         <AddWallpaperModal
           existingIds={picks.map((p) => p.id)}
-          onPick={(id) => addPick(id)}
+          onPick={addPick}
           onClose={() => setShowAdd(false)}
         />
       )}
@@ -232,20 +329,17 @@ export default function WeeklyPicksPage() {
   );
 }
 
-/**
- * Modal: search published wallpapers and click one to add to the current
- * week. Hides wallpapers already in the slate to avoid the 409 duplicate
- * error. Debounced search; first render auto-fetches a recent page so
- * admin sees something even before typing.
- */
-function AddWallpaperModal({
-  existingIds, onPick, onClose,
+export function AddWallpaperModal({
+  existingIds,
+  onPick,
+  onClose,
+  qualityFilter = 'weekly_eligible',
 }: {
   existingIds: number[];
-  onPick: (id: number) => void;
+  onPick: (id: number, wallpaper?: AdminWallpaperRow) => void;
   onClose: () => void;
+  qualityFilter?: string;
 }) {
-  const PAGE_SIZE = 24;
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<AdminWallpaperRow[]>([]);
   const [page, setPage] = useState(0);
@@ -268,8 +362,8 @@ function AddWallpaperModal({
     admin.listAdminWallpapers({
       page: nextPage,
       search: q || undefined,
-      status: 1,    // Published only; failed quality flags are filtered out below.
-      quality_flag: 'weekly_eligible',
+      status: 1,
+      quality_flag: qualityFilter || undefined,
       limit: PAGE_SIZE,
       sort: 'newest',
     })
@@ -285,13 +379,13 @@ function AddWallpaperModal({
           return [...prev, ...items.filter((item) => !seen.has(item.id))];
         });
       })
-      .catch((e) => toast.error(e?.response?.data?.message || 'Search failed'))
+      .catch((e) => toast.error(e?.response?.data?.message || '搜索失败'))
       .finally(() => {
         if (requestSeqRef.current !== seq) return;
         setLoading(false);
         setLoadingMore(false);
       });
-  }, []);
+  }, [qualityFilter]);
 
   const loadMore = useCallback(() => {
     if (loading || loadingMore) return;
@@ -305,7 +399,6 @@ function AddWallpaperModal({
     return () => { if (debounceRef.current) window.clearTimeout(debounceRef.current); };
   }, [fetchPage, query]);
 
-  // ESC closes
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', fn);
@@ -315,36 +408,34 @@ function AddWallpaperModal({
   return (
     <div
       className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-      onClick={onClose}
+      onClick={(e) => { e.stopPropagation(); onClose(); }}
     >
       <div
-        className="w-full max-w-3xl max-h-[calc(100vh-2rem)] bg-paper border border-hair rounded-xl shadow-2xl flex flex-col overflow-hidden"
+        className="w-full max-w-3xl max-h-[calc(100vh-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-4 py-3 border-b border-hair flex items-center gap-3 flex-shrink-0">
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3 flex-shrink-0">
           <input
             type="text"
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search title…  (empty = newest published)"
-            className="flex-1 px-3 py-2 text-[14px] bg-paper-2 border border-hair rounded-lg outline-none focus:border-ink-2"
+            placeholder="搜索标题，留空显示最新已发布"
+            className="flex-1 px-3 py-2 text-[14px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-purple-500"
           />
-          <button onClick={onClose} className="px-3 py-2 text-[13px] text-muted hover:text-ink transition-colors">
-            Cancel
+          <button onClick={onClose} className="px-3 py-2 text-[13px] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
+            关闭
           </button>
         </div>
         <div
           className="p-4 min-h-0 flex-1 overflow-y-auto overscroll-contain"
           onScroll={(e) => {
             const el = e.currentTarget;
-            if (el.scrollHeight - el.scrollTop - el.clientHeight < 260) {
-              loadMore();
-            }
+            if (el.scrollHeight - el.scrollTop - el.clientHeight < 260) loadMore();
           }}
         >
           {loading && results.length === 0 ? <Spinner />
-            : results.length === 0 ? <Empty>No wallpapers match.</Empty>
+            : results.length === 0 ? <Empty>没有找到可选壁纸。</Empty>
             : (
               <>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
@@ -354,29 +445,25 @@ function AddWallpaperModal({
                       <button
                         key={w.id}
                         disabled={inSlate}
-                        onClick={() => onPick(w.id)}
+                        onClick={() => onPick(w.id, w)}
                         className={`group relative aspect-[4/5] overflow-hidden rounded-lg border-2 transition-all ${
                           inSlate
-                            ? 'border-hair opacity-40 cursor-not-allowed'
-                            : 'border-hair hover:border-ink cursor-pointer'
+                            ? 'border-slate-200 dark:border-slate-700 opacity-40 cursor-not-allowed'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-purple-500 cursor-pointer'
                         }`}
-                        title={inSlate ? 'Already in this week' : w.title || `Wallpaper ${w.id}`}
+                        title={inSlate ? '已在当前列表中' : w.title || `Wallpaper ${w.id}`}
                       >
-                        <img
-                          src={w.thumb_url || w.preview_url}
-                          alt=""
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
+                        <img src={w.thumb_url || w.preview_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
                         {inSlate && (
                           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                            <span className="text-[10px] mono uppercase tracking-wider font-bold text-white bg-black/60 px-2 py-0.5 rounded">
-                              In slate
+                            <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-white bg-black/60 px-2 py-0.5 rounded">
+                              已添加
                             </span>
                           </div>
                         )}
                         <div className="absolute inset-x-0 bottom-0 px-2 py-1 bg-gradient-to-t from-black/70 to-transparent">
                           <span className="text-[10px] text-white/85 truncate block">
-                            №{w.id} · {w.width}×{w.height}
+                            #{w.id} · {w.width}×{w.height}
                           </span>
                         </div>
                       </button>
@@ -390,12 +477,12 @@ function AddWallpaperModal({
                     <button
                       type="button"
                       onClick={loadMore}
-                      className="px-4 py-2 rounded-full border border-hair text-[12px] font-medium text-muted hover:text-ink hover:border-ink transition-colors"
+                      className="px-4 py-2 rounded-full border border-slate-200 dark:border-slate-700 text-[12px] font-medium text-slate-500 hover:text-slate-900 dark:hover:text-white hover:border-purple-500 transition-colors"
                     >
-                      Load more
+                      加载更多
                     </button>
                   ) : (
-                    <span className="text-[11px] mono uppercase tracking-wider text-muted">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
                       End · {results.length} wallpapers
                     </span>
                   )}

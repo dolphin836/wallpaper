@@ -307,7 +307,7 @@ export default function IntegrationsPage() {
                 </div>
                 <div>
                   <h2 className="text-xl font-semibold text-slate-950 dark:text-white">Reddit</h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">一周一篇，发布当前 weekly-drop 生成的合集。</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">一周一篇，发布后台人工精选的每周推荐和推荐合集。</p>
                 </div>
               </div>
               <StatusPill configured={redditStatus?.configured} connected={redditStatus?.connected} />

@@ -40,11 +40,11 @@ WallpaperExchange 给每张壁纸**自动生成多个尺寸变体**（按主流�
 
 下载入口：[wallpaper.haibing.site/download/mac](https://wallpaper.haibing.site/download/mac)
 
-### 4. 每周编辑精选 + AI 主题合集
+### 4. 每周编辑精选 + 主题合集
 
 很多壁纸站的"热门"算法只看下载数，越流行越靠前，结果首页永远是那几张。
 
-我做了一个 **Weekly Drop** 机制：每周（按 ISO 周）从近期上传里挑出 10 张做精选；与此同时，让 Anthropic 的 Claude 看完一个候选池后挑出一个**有共同主题的子集**，组成一个有名字的合集。比如本周（2026 W21）是 *Moody Mountain Solitude*（雾气山脉孤独感）—— 不是随机挑十张山，而是确实有共同的氛围、构图、色调。
+我做了一个 **Weekly Drop** 机制：每周（按 ISO 周）人工从近期上传里挑出 10 张做精选；同时整理一个**有共同主题的合集**。比如本周（2026 W21）是 *Moody Mountain Solitude*（雾气山脉孤独感）—— 不是随机挑十张山，而是确实有共同的氛围、构图、色调。
 
 每张壁纸**只会被精选一次**，所以你每周看到的都是新的。历史精选都归档在 [/weekly-picks](https://wallpaper.haibing.site/weekly-picks)，可以慢慢翻。
 

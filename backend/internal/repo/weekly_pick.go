@@ -171,7 +171,7 @@ func (r *WeeklyPickRepo) AddPick(ctx context.Context, year, week int16, wallpape
 			Week:        week,
 			WallpaperID: wallpaperID,
 			SortOrder:   next,
-			IsHero:      false,
+			IsHero:      next == 0,
 		}
 		if err := tx.Create(&row).Error; err != nil {
 			// Duplicate (year, week, wallpaper_id) → friendly error.
@@ -370,51 +370,6 @@ func (r *WeeklyPickRepo) Archive(ctx context.Context, limit int) ([]ArchiveEntry
 		LIMIT ?
 	`, model.WallpaperStatusPublished, limit).Scan(&rows).Error
 	return rows, err
-}
-
-// CandidatePool returns published wallpapers with quality_flag='ok',
-// joined with their engagement counts, ordered by a weighted "hot
-// score" — favorites/likes/downloads weigh more than views, with a
-// small resolution bonus. It also enforces the curation floor shared by
-// weekly-drop so under-sized or not-yet-previewed rows never reach the
-// LLM picker.
-// Optionally filter to wallpapers uploaded since `since`; when the
-// recent pool is empty the picker calls again with a zero time to
-// fall back to the historical pool.
-type Candidate struct {
-	ID    int64
-	Score float64
-}
-
-func (r *WeeklyPickRepo) CandidatePool(ctx context.Context, sinceUnix int64, excludeIDs []int64) ([]Candidate, error) {
-	q := r.db.WithContext(ctx).
-		Table("wallpapers").
-		Select(`id,
-		        (
-		          4.0 * favorite_count +
-		          3.0 * like_count +
-		          2.0 * download_count +
-		          0.05 * view_count +
-		          LEAST((width::float * height::float) / 8000000.0, 1.0)
-		        ) AS score`).
-		Where("status = ?", model.WallpaperStatusPublished).
-		Where("quality_flag = ?", "ok").
-		Where("thumb_url <> '' AND preview_url <> ''").
-		Where("width > 0 AND height > 0").
-		Where("(width::bigint * height::bigint) >= ?", 2000000).
-		Where("LEAST(width, height) >= ?", 900).
-		Order("score DESC, created_at DESC")
-	if sinceUnix > 0 {
-		q = q.Where("created_at >= to_timestamp(?)", sinceUnix)
-	}
-	if len(excludeIDs) > 0 {
-		q = q.Where("id NOT IN ?", excludeIDs)
-	}
-	var rows []Candidate
-	if err := q.Limit(200).Scan(&rows).Error; err != nil {
-		return nil, err
-	}
-	return rows, nil
 }
 
 // IsNotFound is a tiny convenience so handler code doesn't have to

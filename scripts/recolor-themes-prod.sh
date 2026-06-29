@@ -5,7 +5,7 @@
 #
 # Why local: Claude is offshore-blocked from prod's IP, so the LLM call
 # has to originate from a developer's machine. Same SSH-tunneled DB
-# pattern as autotag-prod.sh / weekly-drop-prod.sh.
+# pattern as autotag-prod.sh.
 #
 # No flags. ANTHROPIC_API_KEY auto-loads from repo .env.
 set -euo pipefail

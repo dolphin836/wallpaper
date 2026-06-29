@@ -101,6 +101,9 @@ export interface AdminLoginLogRow {
 export interface AdminCollectionRow extends Collection {
   owner_username: string;
 }
+export interface AdminCollectionDetail extends AdminCollectionRow {
+  wallpapers: Wallpaper[];
+}
 
 export interface AdminReportRow {
   id: number;
@@ -198,11 +201,20 @@ export const rejectAdminReview = (id: number, reason: string) =>
   client.post<ApiResponse<null>>(`/admin/wallpapers/${id}/reject-review`, { reason });
 
 export const listAdminCollections = (params: {
-  page?: number; limit?: number; search?: string; is_public?: boolean; sort?: string;
+  page?: number; limit?: number; search?: string; is_public?: boolean; kind?: number; sort?: string;
 }) => client.get<ApiResponse<PaginatedAdmin<AdminCollectionRow>>>('/admin/collections', { params });
 
+export const getAdminCollection = (id: number) =>
+  client.get<ApiResponse<AdminCollectionDetail>>(`/admin/collections/${id}`);
+
+export const createAdminCollection = (data: {
+  title: string; description?: string; is_public?: boolean; kind?: number; year?: number; week?: number;
+  accent_color?: string; wallpaper_ids?: number[];
+}) => client.post<ApiResponse<Collection>>('/admin/collections', data);
+
 export const updateAdminCollection = (id: number, data: {
-  title?: string; description?: string; is_public?: boolean;
+  title?: string; description?: string; is_public?: boolean; kind?: number; year?: number; week?: number;
+  accent_color?: string; wallpaper_ids?: number[];
 }) => client.put<ApiResponse<null>>(`/admin/collections/${id}`, data);
 
 export const deleteAdminCollection = (id: number) =>
@@ -350,6 +362,17 @@ export const adminListWeeklyPickWeeks = () =>
 export const adminGetWeeklyPickWeek = (year: number, week: number) =>
   client.get<ApiResponse<{ year: number; week: number; picks: AdminWeeklyPick[] }>>(
     `/admin/weekly-picks/${year}/${week}`,
+  );
+
+export const adminSaveWeeklyPickWeek = (
+  year: number,
+  week: number,
+  wallpaperIds: number[],
+  heroWallpaperId: number,
+) =>
+  client.put<ApiResponse<{ ok: boolean }>>(
+    `/admin/weekly-picks/${year}/${week}`,
+    { wallpaper_ids: wallpaperIds, hero_wallpaper_id: heroWallpaperId },
   );
 
 export const adminSetWeeklyPickHero = (year: number, week: number, wallpaperId: number) =>

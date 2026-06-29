@@ -25,7 +25,7 @@
 | 频率 | 事项 | 命令 |
 |---|---|---|
 | 每天（建议） | 看一眼 admin dashboard 的流量 + LLM 消费 | 浏览器开 [/admin](https://wallpaperexchange.com/admin) → "流量" / "总览" |
-| 每周一次 | 生成一期 Weekly Drop | 见 [§5.3](#5-部署后端--前端) |
+| 每周一次 | 手动创建一期每周推荐 / 首页推荐合集 | 浏览器开 [/admin/weekly-picks](https://wallpaperexchange.com/admin/weekly-picks) 和 [/admin/collections](https://wallpaperexchange.com/admin/collections) |
 | 每 1-2 周 | 给新上传壁纸跑质量审核 | 见 [§3](#3-壁纸质量审核qcheck) |
 | 临时 | AI 生成一张壁纸入站 | 见 [§2](#2-ai-壁纸生成流程) |
 
@@ -229,14 +229,10 @@ ssh root@139.224.49.94 'cd /opt/app/wallpaper && ./wallctl.sh db-migrate'
 
 | 脚本 | 干什么 | 触发条件 | 详细说明 |
 |---|---|---|---|
-| `weekly-drop --commit` | 选 10 张 + AI 主题合集 | 每周五人工触发 | 见 §5.3 |
 | `./scripts/qcheck-local.sh` | 把低质量壁纸标 flag 进队列 | 1-2 周一次 | 见 [§3](#3-壁纸质量审核qcheck) |
 | `./scripts/sweep-orphan-variants.sh` | 清理 MinIO 上没有 DB 引用的孤儿文件 | 几个月一次，看存储占用 | — |
 
-> Weekly Drop 目前需要手动跑：
-> ```bash
-> ssh root@139.224.49.94 'docker compose -f /opt/app/wallpaper/docker-compose.yml exec -T api /bin/weekly-drop --commit'
-> ```
+> Weekly Drop 现在完全走人工运营。到后台的"每周推荐"手动选 10 张并保存；首页推荐合集到"合集"里创建 `首页推荐合集`。
 
 ---
 
@@ -299,7 +295,7 @@ ssh root@139.224.49.94 'docker compose -f /opt/app/wallpaper/docker-compose.yml 
 
 ### 7.1 SSH 隧道（开 / 关）
 
-很多本地脚本（aigen / autotag / qcheck / weekly-drop）需要连 prod Postgres 记录 `llm_usage`。开一次隧道之后可以一直用。
+很多本地脚本（aigen / autotag / qcheck）需要连 prod Postgres 记录 `llm_usage`。开一次隧道之后可以一直用。
 
 ```bash
 # 开（后台跑）
@@ -361,7 +357,7 @@ ssh root@139.224.49.94 'cd /opt/app/wallpaper && ./wallctl.sh restart api'
 | 变量 | 用途 | 哪里拿 |
 |---|---|---|
 | `OPENAI_API_KEY` | aigen 调 gpt-image-2 | [platform.openai.com](https://platform.openai.com/) → API Keys |
-| `ANTHROPIC_API_KEY` | aigen prompt 扩写、autotag、weekly-drop | 跟 prod 的一致；`ssh root@139.224.49.94 'grep ANTHROPIC /opt/app/wallpaper/.env'` |
+| `ANTHROPIC_API_KEY` | aigen prompt 扩写、autotag、qcheck | 跟 prod 的一致；`ssh root@139.224.49.94 'grep ANTHROPIC /opt/app/wallpaper/.env'` |
 | `INDEXNOW_KEY` | IndexNow 验证字符串 | 自动生成的，无需重置 |
 | `PINTEREST_APP_ID` / `PINTEREST_APP_SECRET` | Pinterest API OAuth + 发 Pin | [developers.pinterest.com](https://developers.pinterest.com/apps/) |
 
@@ -420,7 +416,7 @@ OpenAI 没账户余额公开 API。**消费**可以在我们 dashboard 看；**�
 
 ### LLM 消费突然飙升
 
-去 admin dashboard 的"LLM 消费 · 按用途"看哪个 purpose 在烧钱。最常见嫌疑：autotag 在 reprocess 一大批；weekly-drop 跑了多次。看 `llm_usage` 表的 `created_at` 找时间点。
+去 admin dashboard 的"LLM 消费 · 按用途"看哪个 purpose 在烧钱。最常见嫌疑：autotag 或 qcheck 在 reprocess 一大批。看 `llm_usage` 表的 `created_at` 找时间点。
 
 ```bash
 ssh root@139.224.49.94 'docker compose -f /opt/app/wallpaper/docker-compose.yml exec -T postgres psql -U wallpaper -d wallpaper -c "

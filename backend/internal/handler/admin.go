@@ -559,11 +559,19 @@ func (h *AdminHandler) ListCollections(w http.ResponseWriter, r *http.Request) {
 		b := v == "true" || v == "1"
 		isPublic = &b
 	}
+	var kind *int
+	if v := q.Get("kind"); v != "" {
+		k := parseIntDefault(v, -1)
+		if k >= 0 {
+			kind = &k
+		}
+	}
 
 	rows, total, err := h.collectionRepo.AdminList(r.Context(), repo.AdminCollectionListOpts{
 		Search:   q.Get("search"),
 		OwnerID:  parseInt64Default(q.Get("user_id"), 0),
 		IsPublic: isPublic,
+		Kind:     kind,
 		Offset:   (page - 1) * limit,
 		Limit:    limit,
 		Sort:     q.Get("sort"),
@@ -579,9 +587,26 @@ func (h *AdminHandler) ListCollections(w http.ResponseWriter, r *http.Request) {
 }
 
 type adminUpdateCollectionReq struct {
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
-	IsPublic    *bool   `json:"is_public"`
+	Title        *string  `json:"title"`
+	Description  *string  `json:"description"`
+	IsPublic     *bool    `json:"is_public"`
+	Kind         *int16   `json:"kind"`
+	Year         *int16   `json:"year"`
+	Week         *int16   `json:"week"`
+	AccentColor  *string  `json:"accent_color"`
+	WallpaperIDs *[]int64 `json:"wallpaper_ids"`
+}
+
+type adminCreateCollectionReq struct {
+	Title        string  `json:"title"`
+	Description  string  `json:"description"`
+	IsPublic     *bool   `json:"is_public"`
+	Kind         int16   `json:"kind"`
+	Year         int16   `json:"year"`
+	Week         int16   `json:"week"`
+	AccentColor  string  `json:"accent_color"`
+	OwnerID      int64   `json:"owner_id"`
+	WallpaperIDs []int64 `json:"wallpaper_ids"`
 }
 
 func (h *AdminHandler) UpdateCollection(w http.ResponseWriter, r *http.Request) {
@@ -595,16 +620,106 @@ func (h *AdminHandler) UpdateCollection(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
+	if req.Kind != nil {
+		if *req.Kind < 0 || *req.Kind > 1 {
+			response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+			return
+		}
+		if *req.Kind == 1 && req.Week != nil && (*req.Week < 1 || *req.Week > 53) {
+			response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+			return
+		}
+	}
+	if req.WallpaperIDs != nil {
+		strict := req.Kind != nil && *req.Kind == 1
+		if ec := h.validateCollectionWallpaperIDs(r.Context(), *req.WallpaperIDs, strict); ec != nil {
+			response.Error(w, http.StatusBadRequest, ec)
+			return
+		}
+	}
 	if err := h.collectionRepo.AdminUpdate(r.Context(), id, repo.AdminCollectionUpdate{
-		Title:       req.Title,
-		Description: req.Description,
-		IsPublic:    req.IsPublic,
+		Title:        req.Title,
+		Description:  req.Description,
+		IsPublic:     req.IsPublic,
+		Kind:         req.Kind,
+		Year:         req.Year,
+		Week:         req.Week,
+		AccentColor:  req.AccentColor,
+		WallpaperIDs: req.WallpaperIDs,
 	}); err != nil {
 		slog.ErrorContext(r.Context(), "admin collection update failed", "id", id, "error", err)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
 	response.OK(w, nil)
+}
+
+func (h *AdminHandler) GetCollection(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	detail, err := h.collectionRepo.AdminGet(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+			return
+		}
+		slog.ErrorContext(r.Context(), "admin collection get failed", "id", id, "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, detail)
+}
+
+func (h *AdminHandler) CreateCollection(w http.ResponseWriter, r *http.Request) {
+	var req adminCreateCollectionReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	title := strings.TrimSpace(req.Title)
+	if title == "" || len([]rune(title)) > 100 || req.Kind < 0 || req.Kind > 1 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	if req.Kind == 1 && (req.Week < 1 || req.Week > 53 || req.Year <= 0) {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	isPublic := true
+	if req.IsPublic != nil {
+		isPublic = *req.IsPublic
+	}
+	ownerID := req.OwnerID
+	if ownerID <= 0 {
+		ownerID = middleware.GetUserID(r.Context())
+	}
+	if ownerID <= 0 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	if ec := h.validateCollectionWallpaperIDs(r.Context(), req.WallpaperIDs, req.Kind == 1); ec != nil {
+		response.Error(w, http.StatusBadRequest, ec)
+		return
+	}
+	col := &model.Collection{
+		UserID:      ownerID,
+		Title:       title,
+		Description: strings.TrimSpace(req.Description),
+		IsPublic:    isPublic,
+		Kind:        req.Kind,
+		Year:        req.Year,
+		Week:        req.Week,
+		AccentColor: strings.TrimSpace(req.AccentColor),
+	}
+	if err := h.collectionRepo.AdminCreate(r.Context(), col, req.WallpaperIDs); err != nil {
+		slog.ErrorContext(r.Context(), "admin collection create failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.JSON(w, http.StatusCreated, errcode.Success, col)
 }
 
 func (h *AdminHandler) DeleteCollection(w http.ResponseWriter, r *http.Request) {
@@ -619,6 +734,30 @@ func (h *AdminHandler) DeleteCollection(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	response.OK(w, nil)
+}
+
+func (h *AdminHandler) validateCollectionWallpaperIDs(ctx context.Context, ids []int64, strictQuality bool) *errcode.ErrCode {
+	seen := map[int64]bool{}
+	for _, id := range ids {
+		if id <= 0 || seen[id] {
+			continue
+		}
+		seen[id] = true
+		wp, err := h.wallpaperRepo.GetByIDAnyStatus(ctx, id)
+		if err != nil || wp == nil {
+			return errcode.ErrNotFound
+		}
+		if wp.Status != model.WallpaperStatusPublished {
+			return &errcode.ErrCode{Code: 40010, Message: "wallpaper is not published"}
+		}
+		if strictQuality && wp.QualityFlag != "" && wp.QualityFlag != "ok" {
+			return &errcode.ErrCode{Code: 40011, Message: "wallpaper has not passed quality review"}
+		}
+		if strictQuality && (wp.ThumbURL == "" || wp.PreviewURL == "") {
+			return &errcode.ErrCode{Code: 40012, Message: "wallpaper is not suitable for a featured collection"}
+		}
+	}
+	return nil
 }
 
 // ─── users ───────────────────────────────────────────────────────────────
@@ -992,6 +1131,18 @@ func (h *AdminHandler) UploadAIWallpaper(w http.ResponseWriter, r *http.Request)
 
 // ─── Weekly picks ─────────────────────────────────────────────────────
 
+func parseWeeklyRoute(r *http.Request) (int16, int16, bool) {
+	year, err := strconv.Atoi(chi.URLParam(r, "year"))
+	if err != nil || year <= 0 || year > 9999 {
+		return 0, 0, false
+	}
+	week, err := strconv.Atoi(chi.URLParam(r, "week"))
+	if err != nil || week < 1 || week > 53 {
+		return 0, 0, false
+	}
+	return int16(year), int16(week), true
+}
+
 // ListWeeklyPickWeeks returns every (year, week) that has a slate, newest
 // first, with the hero thumb / title attached. Drives the admin Weekly
 // Picks index.
@@ -1008,17 +1159,12 @@ func (h *AdminHandler) ListWeeklyPickWeeks(w http.ResponseWriter, r *http.Reques
 // GetWeeklyPickWeek returns the 10 picks for a specific (year, week),
 // including is_hero markers. Used to render the admin edit view.
 func (h *AdminHandler) GetWeeklyPickWeek(w http.ResponseWriter, r *http.Request) {
-	year, err := strconv.Atoi(chi.URLParam(r, "year"))
-	if err != nil {
+	year, week, ok := parseWeeklyRoute(r)
+	if !ok {
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
-	week, err := strconv.Atoi(chi.URLParam(r, "week"))
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
-		return
-	}
-	picks, err := h.weeklyPickRepo.ListByWeek(r.Context(), int16(year), int16(week))
+	picks, err := h.weeklyPickRepo.ListByWeek(r.Context(), year, week)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "list weekly", "error", err)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
@@ -1027,17 +1173,69 @@ func (h *AdminHandler) GetWeeklyPickWeek(w http.ResponseWriter, r *http.Request)
 	response.OK(w, map[string]any{"year": year, "week": week, "picks": picks})
 }
 
+type adminSaveWeeklyPickWeekReq struct {
+	WallpaperIDs    []int64 `json:"wallpaper_ids"`
+	HeroWallpaperID int64   `json:"hero_wallpaper_id"`
+}
+
+// SaveWeeklyPickWeek replaces one week's full slate in display order.
+// This is the manual curation path: admins choose the exact wallpapers,
+// order, and hero.
+func (h *AdminHandler) SaveWeeklyPickWeek(w http.ResponseWriter, r *http.Request) {
+	year, week, ok := parseWeeklyRoute(r)
+	if !ok {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	var req adminSaveWeeklyPickWeekReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	ids := dedupeInt64(req.WallpaperIDs)
+	if len(ids) == 0 || len(ids) > 20 {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	if req.HeroWallpaperID == 0 {
+		req.HeroWallpaperID = ids[0]
+	}
+	heroInSlate := false
+	for _, id := range ids {
+		if id == req.HeroWallpaperID {
+			heroInSlate = true
+			break
+		}
+	}
+	if !heroInSlate {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	for _, id := range ids {
+		if ec := h.validateWeeklyPickWallpaper(r.Context(), id); ec != nil {
+			response.Error(w, http.StatusBadRequest, ec)
+			return
+		}
+	}
+	if err := h.weeklyPickRepo.Insert(r.Context(), year, week, ids); err != nil {
+		slog.ErrorContext(r.Context(), "save weekly slate", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	if err := h.weeklyPickRepo.SetHero(r.Context(), year, week, req.HeroWallpaperID); err != nil {
+		slog.ErrorContext(r.Context(), "save weekly hero", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, map[string]any{"ok": true})
+}
+
 // SetWeeklyPickHero flips the hero flag for one wallpaper inside a week.
 // Body: {"wallpaper_id": <int64>}. The repo runs the swap in a transaction
 // so the partial unique index can never see two TRUE rows at once.
 func (h *AdminHandler) SetWeeklyPickHero(w http.ResponseWriter, r *http.Request) {
-	year, err := strconv.Atoi(chi.URLParam(r, "year"))
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
-		return
-	}
-	week, err := strconv.Atoi(chi.URLParam(r, "week"))
-	if err != nil {
+	year, week, ok := parseWeeklyRoute(r)
+	if !ok {
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
@@ -1048,7 +1246,7 @@ func (h *AdminHandler) SetWeeklyPickHero(w http.ResponseWriter, r *http.Request)
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
-	if err := h.weeklyPickRepo.SetHero(r.Context(), int16(year), int16(week), body.WallpaperID); err != nil {
+	if err := h.weeklyPickRepo.SetHero(r.Context(), year, week, body.WallpaperID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
 			return
@@ -1065,13 +1263,8 @@ func (h *AdminHandler) SetWeeklyPickHero(w http.ResponseWriter, r *http.Request)
 // the slate (duplicate per the UNIQUE (year, week, wallpaper_id)
 // constraint).
 func (h *AdminHandler) AddWeeklyPick(w http.ResponseWriter, r *http.Request) {
-	year, err := strconv.Atoi(chi.URLParam(r, "year"))
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
-		return
-	}
-	week, err := strconv.Atoi(chi.URLParam(r, "week"))
-	if err != nil {
+	year, week, ok := parseWeeklyRoute(r)
+	if !ok {
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
@@ -1082,27 +1275,15 @@ func (h *AdminHandler) AddWeeklyPick(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
-	// Guard against picking unpublished / removed wallpapers so the
-	// public weekly endpoint never serves a stale row.
-	wp, err := h.wallpaperRepo.GetByIDAnyStatus(r.Context(), body.WallpaperID)
-	if err != nil || wp == nil {
-		response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+	if ec := h.validateWeeklyPickWallpaper(r.Context(), body.WallpaperID); ec != nil {
+		status := http.StatusBadRequest
+		if ec.Code == errcode.ErrNotFound.Code {
+			status = http.StatusNotFound
+		}
+		response.Error(w, status, ec)
 		return
 	}
-	if wp.Status != model.WallpaperStatusPublished {
-		response.Error(w, http.StatusBadRequest, &errcode.ErrCode{Code: 40010, Message: "wallpaper is not published"})
-		return
-	}
-	if wp.QualityFlag != "" && wp.QualityFlag != "ok" {
-		response.Error(w, http.StatusBadRequest, &errcode.ErrCode{Code: 40011, Message: "wallpaper has not passed quality review"})
-		return
-	}
-	if wp.ThumbURL == "" || wp.PreviewURL == "" || wp.Width <= 0 || wp.Height <= 0 ||
-		int64(wp.Width)*int64(wp.Height) < 2000000 || min(wp.Width, wp.Height) < 900 {
-		response.Error(w, http.StatusBadRequest, &errcode.ErrCode{Code: 40012, Message: "wallpaper is not suitable for weekly picks"})
-		return
-	}
-	if err := h.weeklyPickRepo.AddPick(r.Context(), int16(year), int16(week), body.WallpaperID); err != nil {
+	if err := h.weeklyPickRepo.AddPick(r.Context(), year, week, body.WallpaperID); err != nil {
 		if errors.Is(err, repo.ErrAlreadyPicked) {
 			response.Error(w, http.StatusConflict, &errcode.ErrCode{Code: 40902, Message: "wallpaper is already in this week's slate"})
 			return
@@ -1118,13 +1299,8 @@ func (h *AdminHandler) AddWeeklyPick(w http.ResponseWriter, r *http.Request) {
 // removed pick was the hero, the repo promotes the next-lowest sort_order
 // to hero automatically.
 func (h *AdminHandler) RemoveWeeklyPick(w http.ResponseWriter, r *http.Request) {
-	year, err := strconv.Atoi(chi.URLParam(r, "year"))
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
-		return
-	}
-	week, err := strconv.Atoi(chi.URLParam(r, "week"))
-	if err != nil {
+	year, week, ok := parseWeeklyRoute(r)
+	if !ok {
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
@@ -1133,7 +1309,7 @@ func (h *AdminHandler) RemoveWeeklyPick(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
-	if err := h.weeklyPickRepo.RemovePick(r.Context(), int16(year), int16(week), wallpaperID); err != nil {
+	if err := h.weeklyPickRepo.RemovePick(r.Context(), year, week, wallpaperID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
 			return
@@ -1143,4 +1319,35 @@ func (h *AdminHandler) RemoveWeeklyPick(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	response.OK(w, map[string]any{"ok": true})
+}
+
+func (h *AdminHandler) validateWeeklyPickWallpaper(ctx context.Context, id int64) *errcode.ErrCode {
+	wp, err := h.wallpaperRepo.GetByIDAnyStatus(ctx, id)
+	if err != nil || wp == nil {
+		return errcode.ErrNotFound
+	}
+	if wp.Status != model.WallpaperStatusPublished {
+		return &errcode.ErrCode{Code: 40010, Message: "wallpaper is not published"}
+	}
+	if wp.QualityFlag != "" && wp.QualityFlag != "ok" {
+		return &errcode.ErrCode{Code: 40011, Message: "wallpaper has not passed quality review"}
+	}
+	if wp.ThumbURL == "" || wp.PreviewURL == "" || wp.Width <= 0 || wp.Height <= 0 ||
+		int64(wp.Width)*int64(wp.Height) < 2000000 || min(wp.Width, wp.Height) < 900 {
+		return &errcode.ErrCode{Code: 40012, Message: "wallpaper is not suitable for weekly picks"}
+	}
+	return nil
+}
+
+func dedupeInt64(ids []int64) []int64 {
+	out := make([]int64, 0, len(ids))
+	seen := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		if id <= 0 || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out
 }

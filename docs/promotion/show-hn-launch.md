@@ -50,7 +50,7 @@ What's different about this one:
 4. A menu-bar Mac app (no Dock icon, no main window) — browse,
    favorite, apply with one click. Supports per-display wallpapers.
 
-5. Every ISO week, 10 hand-picked + an AI-curated themed collection.
+5. Every ISO week, 10 hand-picked + an editor-curated themed collection.
    Past weeks are permanently archived. No wallpaper is featured twice.
 
 6. AI auto-tagging via Claude vision — search and "related"

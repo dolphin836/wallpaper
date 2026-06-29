@@ -23,7 +23,7 @@ What sets it apart:
 • Auto-detects dynamic type and extracts each frame as a WebP preview, so you can see how a dynamic wallpaper looks "from morning to night" without downloading it.
 • Variant-aware downloads: the dedicated Mac client sends your screen resolution, and the server picks the smallest variant that still covers your display.
 • A native macOS menu-bar client (macOS 14+) with no Dock icon — browse, favorite, and apply wallpapers with one click. Supports per-display wallpapers on multi-monitor setups.
-• Weekly Drops: every ISO week, 10 hand-picked wallpapers plus an AI-curated themed collection. Each wallpaper is featured only once; past drops are permanently archived for browsing.
+• Weekly Drops: every ISO week, 10 editor-picked wallpapers plus a themed collection. Each wallpaper is featured only once; past drops are permanently archived for browsing.
 • AI auto-tagging via Claude vision — every uploaded wallpaper gets categorized and tagged automatically, so search and "related" recommendations actually work.
 • No ads, no tracking, no third-party data sharing. Browse and download without an account.
 
@@ -61,7 +61,7 @@ Multi-resolution variants per wallpaper
 Native macOS menu-bar app
 Per-display wallpaper on multi-monitor
 AI auto-tagging
-AI-curated weekly themed collections
+Editor-curated weekly themed collections
 RSS feed of new wallpapers
 No ads
 No tracking

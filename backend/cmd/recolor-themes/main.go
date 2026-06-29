@@ -5,12 +5,13 @@
 //
 // Background: collections.accent_color was added after the first 21
 // themed weeks were generated, so all of them landed with accent_color
-// = ''. This CLI fills them in once. Newly generated themes already
-// include the color (cmd/weekly-drop hands the field through).
+// = "". This CLI fills them in once. New themed collections are now
+// curated in the admin console and can set the color there.
 //
 // Usage (via scripts/recolor-themes-prod.sh from a developer Mac, since
 // Claude is offshore-blocked from prod):
-//   ./scripts/recolor-themes-prod.sh
+//
+//	./scripts/recolor-themes-prod.sh
 package main
 
 import (

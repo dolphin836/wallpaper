@@ -3,32 +3,32 @@ package model
 import "time"
 
 type Collection struct {
-	ID             int64     `gorm:"primaryKey" json:"id"`
-	Slug           string    `gorm:"size:160;not null;default:'';uniqueIndex" json:"slug"`
-	UserID         int64     `gorm:"not null;index" json:"user_id"`
-	Title          string    `gorm:"size:100;not null" json:"title"`
-	Description    string    `gorm:"type:text;not null;default:''" json:"description"`
+	ID          int64  `gorm:"primaryKey" json:"id"`
+	Slug        string `gorm:"size:160;not null;default:'';uniqueIndex" json:"slug"`
+	UserID      int64  `gorm:"not null;index" json:"user_id"`
+	Title       string `gorm:"size:100;not null" json:"title"`
+	Description string `gorm:"type:text;not null;default:''" json:"description"`
 	// Backfilled offline by cmd/i18nfill; empty until then. Cleared on
 	// owner edits so stale translations never outlive the source text.
-	TitleI18n       I18n `gorm:"column:title_i18n;type:jsonb" json:"-"`
-	DescriptionI18n I18n `gorm:"column:description_i18n;type:jsonb" json:"-"`
-	CoverURL       string    `gorm:"size:512;not null;default:''" json:"cover_url"`
-	IsPublic       bool      `gorm:"not null;default:true" json:"is_public"`
-	WallpaperCount int       `gorm:"not null;default:0" json:"wallpaper_count"`
-	ViewCount      int64     `gorm:"not null;default:0" json:"view_count"`
-	LikeCount      int64     `gorm:"not null;default:0" json:"like_count"`
+	TitleI18n       I18n   `gorm:"column:title_i18n;type:jsonb" json:"-"`
+	DescriptionI18n I18n   `gorm:"column:description_i18n;type:jsonb" json:"-"`
+	CoverURL        string `gorm:"size:512;not null;default:''" json:"cover_url"`
+	IsPublic        bool   `gorm:"not null;default:true" json:"is_public"`
+	WallpaperCount  int    `gorm:"not null;default:0" json:"wallpaper_count"`
+	ViewCount       int64  `gorm:"not null;default:0" json:"view_count"`
+	LikeCount       int64  `gorm:"not null;default:0" json:"like_count"`
 	// Kind discriminates user collections (0) from editor-curated weekly
 	// theme collections (1). Year + Week tag the latter with their ISO
 	// week so the Home page can pull "latest 3 weekly themes" cheaply.
 	Kind int16 `gorm:"not null;default:0" json:"kind"`
 	Year int16 `gorm:"not null;default:0" json:"year,omitempty"`
 	Week int16 `gorm:"not null;default:0" json:"week,omitempty"`
-	// AccentColor is set by cmd/weekly-drop for themed (kind=1) collections.
+	// AccentColor is set from the admin console for themed (kind=1) collections.
 	// Stored as an OKLCH string ("oklch(0.65 0.18 35)") so the frontend can
 	// drop it directly into a CSS var. Empty for user collections.
-	AccentColor string `gorm:"column:accent_color;size:64;not null;default:''" json:"accent_color,omitempty"`
-	CreatedAt      time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
-	UpdatedAt      time.Time `gorm:"not null;autoUpdateTime" json:"updated_at"`
+	AccentColor string    `gorm:"column:accent_color;size:64;not null;default:''" json:"accent_color,omitempty"`
+	CreatedAt   time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
+	UpdatedAt   time.Time `gorm:"not null;autoUpdateTime" json:"updated_at"`
 	// RecentTiles is populated by handlers that need a mini-preview strip for
 	// the collection (currently the public /collections list). Each tile
 	// carries enough data for the frontend to do the same dominant-color +

@@ -215,11 +215,14 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Delete("/wallpapers/{id}/hard", deps.AdminHandler.HardDeleteWallpaper)
 
 			r.Get("/collections", deps.AdminHandler.ListCollections)
+			r.Post("/collections", deps.AdminHandler.CreateCollection)
+			r.Get("/collections/{id}", deps.AdminHandler.GetCollection)
 			r.Put("/collections/{id}", deps.AdminHandler.UpdateCollection)
 			r.Delete("/collections/{id}", deps.AdminHandler.DeleteCollection)
 
 			r.Get("/weekly-picks", deps.AdminHandler.ListWeeklyPickWeeks)
 			r.Get("/weekly-picks/{year}/{week}", deps.AdminHandler.GetWeeklyPickWeek)
+			r.Put("/weekly-picks/{year}/{week}", deps.AdminHandler.SaveWeeklyPickWeek)
 			r.Put("/weekly-picks/{year}/{week}/hero", deps.AdminHandler.SetWeeklyPickHero)
 			r.Post("/weekly-picks/{year}/{week}/picks", deps.AdminHandler.AddWeeklyPick)
 			r.Delete("/weekly-picks/{year}/{week}/picks/{wallpaperId}", deps.AdminHandler.RemoveWeeklyPick)
