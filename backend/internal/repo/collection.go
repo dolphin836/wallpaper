@@ -41,7 +41,15 @@ func (r *CollectionRepo) CountPublic(ctx context.Context) (int64, error) {
 }
 
 func (r *CollectionRepo) Create(ctx context.Context, c *model.Collection) error {
-	return r.db.WithContext(ctx).Create(c).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(c).Error; err != nil {
+			return err
+		}
+		if !c.IsPublic {
+			return tx.Model(&model.Collection{}).Where("id = ?", c.ID).Update("is_public", false).Error
+		}
+		return nil
+	})
 }
 
 func (r *CollectionRepo) GetByID(ctx context.Context, id int64) (*model.Collection, error) {

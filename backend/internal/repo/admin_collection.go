@@ -164,6 +164,11 @@ func (r *CollectionRepo) AdminCreate(ctx context.Context, c *model.Collection, w
 		if err := tx.Create(c).Error; err != nil {
 			return err
 		}
+		if !c.IsPublic {
+			if err := tx.Model(&model.Collection{}).Where("id = ?", c.ID).Update("is_public", false).Error; err != nil {
+				return err
+			}
+		}
 		return replaceCollectionWallpapers(ctx, tx, c.ID, wallpaperIDs)
 	})
 }
