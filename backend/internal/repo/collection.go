@@ -41,12 +41,16 @@ func (r *CollectionRepo) CountPublic(ctx context.Context) (int64, error) {
 }
 
 func (r *CollectionRepo) Create(ctx context.Context, c *model.Collection) error {
+	wantPublic := c.IsPublic
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(c).Error; err != nil {
 			return err
 		}
-		if !c.IsPublic {
-			return tx.Model(&model.Collection{}).Where("id = ?", c.ID).Update("is_public", false).Error
+		if !wantPublic {
+			if err := tx.Model(&model.Collection{}).Where("id = ?", c.ID).Update("is_public", false).Error; err != nil {
+				return err
+			}
+			c.IsPublic = false
 		}
 		return nil
 	})
