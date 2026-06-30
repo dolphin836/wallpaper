@@ -23,7 +23,7 @@ enum ParticleWallpaperPreset: String, CaseIterable, Identifiable {
         case .fireflies: 150
         case .aurora: 260
         case .embers: 180
-        case .audioTerrain: 420
+        case .audioTerrain: 1180
         }
     }
 
@@ -751,30 +751,32 @@ private struct ParticleWallpaperScene: View {
         case .audioTerrain:
             context.fill(rect, with: .linearGradient(
                 Gradient(colors: [
-                    Color(red: 0.004, green: 0.006, blue: 0.014),
-                    Color(red: 0.010, green: 0.020, blue: 0.050),
-                    Color(red: 0.002, green: 0.003, blue: 0.008),
+                    Color(red: 0.002, green: 0.004, blue: 0.010),
+                    Color(red: 0.006, green: 0.010, blue: 0.025),
+                    Color(red: 0.001, green: 0.002, blue: 0.006),
                 ]),
                 startPoint: CGPoint(x: size.width * 0.28, y: 0),
                 endPoint: CGPoint(x: size.width * 0.72, y: size.height)
             ))
             let energy = audioEnergy(time: time)
-            let center = CGPoint(x: size.width * 0.50, y: size.height * 0.52)
+            let stageWidth = min(size.width * 0.72, size.height * 1.30)
+            let stageHeight = stageWidth * 0.50
+            let stageCenter = CGPoint(x: size.width * 0.5, y: size.height * 0.53)
             drawSoftGlow(
                 in: &context,
-                center: center,
-                radius: minSide * (0.35 + CGFloat(energy.level) * 0.18),
-                color: Color(red: 0.35, green: 0.88, blue: 1.0),
-                alpha: (0.10 + energy.level * 0.16) * config.brightness,
-                steps: 10
+                center: CGPoint(x: stageCenter.x, y: stageCenter.y + stageHeight * 0.20),
+                radius: stageWidth * (0.36 + CGFloat(energy.level) * 0.050),
+                color: Color(red: 0.10, green: 0.45, blue: 1.0),
+                alpha: (0.150 + energy.level * 0.120) * config.brightness,
+                steps: 16
             )
             drawSoftGlow(
                 in: &context,
-                center: CGPoint(x: size.width * 0.50, y: size.height * 0.66),
-                radius: minSide * (0.45 + CGFloat(energy.beat) * 0.10),
-                color: Color(red: 0.70, green: 0.18, blue: 1.0),
-                alpha: (0.080 + energy.beat * 0.13) * config.brightness,
-                steps: 9
+                center: CGPoint(x: stageCenter.x, y: stageCenter.y + stageHeight * 0.30),
+                radius: stageWidth * (0.27 + CGFloat(energy.beat) * 0.040),
+                color: Color(red: 0.65, green: 0.14, blue: 1.0),
+                alpha: (0.125 + energy.beat * 0.100) * config.brightness,
+                steps: 14
             )
         }
     }
@@ -1050,58 +1052,84 @@ private struct ParticleWallpaperScene: View {
 
     private func drawAudioTerrain(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
         let energy = audioEnergy(time: time)
+        let stageWidth = Double(min(size.width * 0.72, size.height * 1.30))
+        let stageHeight = stageWidth * 0.50
+        let centerX = Double(size.width) * 0.5
+        let stageTop = Double(size.height) * 0.53 - stageHeight * 0.48
         let depth = particle.y
-        let worldX = (particle.x - 0.5) * (1.45 + depth * 1.35)
-        let centerDistance = sqrt(worldX * worldX + pow(depth - 0.28, 2))
-        let pulseTravel = wrap(centerDistance * 2.2 - time * (0.20 + config.speed * 0.34), 1.0)
-        let ring = pow(1.0 - abs(pulseTravel - 0.50) * 2.0, 5.0)
-        let centerPeak = exp(-pow(worldX / (0.18 + energy.level * 0.10), 2) - pow((depth - 0.28) / (0.16 + energy.beat * 0.08), 2))
-        let sideWave = 0.5 + 0.5 * sin((worldX * 6.0 + depth * 8.5) - time * (0.70 + config.speed * 0.75) + particle.phase)
-        let fineNoise = 0.5 + 0.5 * sin(particle.phase + time * (1.1 + particle.speed * 0.4))
-        let baseLift = 0.10 + energy.level * 0.86 + energy.beat * 0.38
-        let terrainHeight = (
-            centerPeak * (0.42 + baseLift * 0.70)
-            + ring * (0.08 + energy.level * 0.28)
-            + sideWave * fineNoise * 0.035
-        ) * softWindow(depth, low: 0.02, high: 0.98)
+        let u = particle.x * 2 - 1
+        let ovalWidth = 0.98 - abs(depth - 0.56) * 0.34
+        let ovalY = (depth - 0.56) / 0.58
+        let edgeValue = pow(u / max(0.18, ovalWidth), 2) + pow(ovalY, 2)
+        let islandMask = 1 - smoothstep(0.84, 1.12, edgeValue)
+        guard islandMask > 0.010 else { return }
 
-        let horizon = Double(size.height) * 0.28
-        let perspective = pow(depth, 1.55)
-        let groundY = horizon + perspective * Double(size.height) * 0.78
-        let stageWidth = Double(size.width) * (0.14 + depth * 0.74)
-        let x = Double(size.width) * 0.5 + worldX * stageWidth
-        let y = groundY - terrainHeight * Double(size.height) * (0.28 + depth * 0.30)
+        let focus = CGPoint(x: size.width * 0.5, y: size.height * 0.20)
+        let perspective = pow(depth, 1.34)
+        let groundY = stageTop + perspective * stageHeight
+        let rowWidth = stageWidth * (0.26 + depth * 0.62)
+        let x = centerX + u * rowWidth * 0.5
+
+        let radial = sqrt(pow(u * 0.90, 2) + pow((depth - 0.42) * 1.24, 2))
+        let movingRing = exp(-pow((radial - (0.18 + wrap(time * (0.055 + config.speed * 0.075), 0.46))) / 0.055, 2))
+        let peakCenter = exp(-pow(u / (0.34 + energy.level * 0.080), 2) - pow((depth - 0.38) / (0.23 + energy.beat * 0.065), 2))
+        let peakLeft = exp(-pow((u + 0.42) / 0.28, 2) - pow((depth - 0.54) / 0.24, 2))
+        let peakRight = exp(-pow((u - 0.36) / 0.30, 2) - pow((depth - 0.62) / 0.25, 2))
+        let valley = exp(-pow((u + 0.02) / 0.38, 2) - pow((depth - 0.70) / 0.18, 2))
+        let shimmer = (0.5 + 0.5 * sin(u * 12.0 + depth * 10.0 - time * (0.62 + config.speed * 0.70) + particle.phase))
+            * (0.5 + 0.5 * cos(particle.phase + time * (0.80 + particle.speed * 0.36)))
+        let terrainHeight = (
+            peakCenter * (0.34 + energy.level * 0.42 + energy.beat * 0.18)
+            + peakLeft * (0.20 + energy.level * 0.15)
+            + peakRight * (0.18 + energy.beat * 0.16)
+            + movingRing * (0.12 + energy.level * 0.20)
+            + shimmer * 0.045
+            - valley * 0.10
+        ) * islandMask
+
+        let y = groundY - terrainHeight * stageHeight * (0.30 + depth * 0.24)
         let point = CGPoint(x: x, y: y)
         let ground = CGPoint(x: x, y: groundY)
-        let heightRatio = clamp((groundY - y) / max(1, Double(size.height) * 0.22), 0, 1)
-        let cyan = Color(red: 0.10 + heightRatio * 0.46, green: 0.55 + heightRatio * 0.42, blue: 1.0)
-        let violet = Color(red: 0.58 + heightRatio * 0.28, green: 0.18 + heightRatio * 0.24, blue: 1.0)
-        let color = particle.hue > 0.48 ? violet : cyan
+        let heightRatio = clamp((groundY - y) / max(1, stageHeight * 0.30), 0, 1)
+        let cyan = Color(red: 0.08 + heightRatio * 0.48, green: 0.48 + heightRatio * 0.48, blue: 1.0)
+        let violet = Color(red: 0.58 + heightRatio * 0.30, green: 0.16 + heightRatio * 0.30, blue: 1.0)
+        let colorMix = smoothstep(0.16, 0.72, peakCenter + peakRight + particle.hue * 0.28)
+        let color = colorMix > 0.55 ? violet : cyan
         let alpha = clamp(
-            (0.050 + heightRatio * 0.42 + energy.level * 0.15) * config.brightness * (0.55 + depth * 0.70),
+            (0.160 + heightRatio * 0.700 + energy.level * 0.20) * config.brightness * (0.65 + depth * 0.75) * islandMask,
             0,
-            0.82
+            1.0
         )
-        let radius = CGFloat((0.55 + particle.radius * 1.50) * (0.45 + depth * 1.10) * (1.0 + heightRatio * 0.85))
+        let radius = CGFloat((0.82 + particle.radius * 1.60) * (0.50 + depth * 0.92) * (1.0 + heightRatio * 0.62))
 
-        if heightRatio > 0.10 || particle.radius > 0.82 {
+        if heightRatio > 0.08 || particle.radius > 0.86 {
             drawTrail(
                 in: &context,
                 from: ground,
                 to: point,
                 color: color,
-                alpha: alpha * (0.20 + heightRatio * 0.30),
-                lineWidth: max(0.35, radius * 0.28)
+                alpha: alpha * (0.16 + heightRatio * 0.40),
+                lineWidth: max(0.40, radius * 0.32)
             )
         }
-        if heightRatio > 0.42 || centerPeak > 0.64 {
+        if heightRatio > 0.38 || peakCenter > 0.55 || peakLeft > 0.68 {
             drawSoftGlow(
                 in: &context,
                 center: point,
-                radius: radius * (4.0 + CGFloat(heightRatio) * 8.0),
+                radius: radius * (5.0 + CGFloat(heightRatio) * 8.5),
                 color: color,
-                alpha: alpha * 0.18,
-                steps: 5
+                alpha: alpha * 0.32,
+                steps: 8
+            )
+        }
+        if particle.hue > 0.992 && depth > 0.24 && heightRatio > 0.18 {
+            drawTrail(
+                in: &context,
+                from: CGPoint(x: point.x, y: max(focus.y, point.y - CGFloat(stageHeight * (0.16 + heightRatio * 0.20)))),
+                to: point,
+                color: color,
+                alpha: 0.055 * config.brightness * islandMask,
+                lineWidth: max(0.25, radius * 0.20)
             )
         }
         drawDot(in: &context, center: point, radius: radius, color: color, alpha: alpha)
@@ -1215,11 +1243,11 @@ private struct ParticleWallpaperScene: View {
         steps: Int
     ) {
         guard radius > 0, alpha > 0 else { return }
-        let count = max(1, steps)
+        let count = max(1, steps * 3)
         for step in stride(from: count, through: 1, by: -1) {
             let scale = CGFloat(step) / CGFloat(count)
             let currentRadius = radius * scale
-            let opacity = alpha * pow(1.0 - Double(scale) * 0.72, 1.7)
+            let opacity = alpha * pow(1.0 - Double(scale) * 0.86, 2.2) / 2.2
             guard opacity > 0.001 else { continue }
             context.fill(
                 Path(ellipseIn: CGRect(
@@ -1310,7 +1338,8 @@ private struct ParticleSeed {
     let hue: Double
 
     static func makeSeeds(preset: ParticleWallpaperPreset, config: ParticleWallpaperConfig, seed: UInt64) -> [ParticleSeed] {
-        let count = min(480, max(32, Int(Double(preset.baseCount) * (0.38 + config.density * 1.35))))
+        let cap = preset == .audioTerrain ? 1_600 : 480
+        let count = min(cap, max(32, Int(Double(preset.baseCount) * (0.38 + config.density * 1.35))))
         var random = SeededRandom(seed: seed == 0 ? 0x7f4a7c15 : seed)
         return (0..<count).map { _ in
             ParticleSeed(
