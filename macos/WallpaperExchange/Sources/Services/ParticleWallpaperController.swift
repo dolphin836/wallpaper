@@ -13,12 +13,12 @@ enum ParticleWallpaperPreset: String, CaseIterable, Identifiable {
 
     var baseCount: Int {
         switch self {
-        case .starfield: 180
-        case .snow: 130
-        case .rain: 170
-        case .fireflies: 90
-        case .aurora: 70
-        case .embers: 120
+        case .starfield: 260
+        case .snow: 150
+        case .rain: 190
+        case .fireflies: 150
+        case .aurora: 260
+        case .embers: 180
         }
     }
 
@@ -370,17 +370,38 @@ private struct ParticleWallpaperScene: View {
 
     private func drawBackground(in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
         let rect = Path(CGRect(origin: .zero, size: size))
+        let minSide = max(1, min(size.width, size.height))
         switch preset {
         case .starfield:
             context.fill(rect, with: .linearGradient(
                 Gradient(colors: [
-                    Color(red: 0.015, green: 0.020, blue: 0.050),
-                    Color(red: 0.035, green: 0.055, blue: 0.120),
+                    Color(red: 0.008, green: 0.012, blue: 0.034),
+                    Color(red: 0.020, green: 0.050, blue: 0.105),
                     Color(red: 0.005, green: 0.008, blue: 0.020),
                 ]),
                 startPoint: .zero,
                 endPoint: CGPoint(x: size.width, y: size.height)
             ))
+            let center = CGPoint(
+                x: size.width * 0.5,
+                y: size.height * (0.50 + CGFloat(sin(time * 0.28)) * 0.018)
+            )
+            drawSoftGlow(
+                in: &context,
+                center: center,
+                radius: minSide * 0.58,
+                color: Color(red: 0.38, green: 0.90, blue: 1.0),
+                alpha: 0.10 * config.brightness,
+                steps: 10
+            )
+            drawSoftGlow(
+                in: &context,
+                center: center,
+                radius: minSide * 0.34,
+                color: Color(red: 1.0, green: 0.82, blue: 0.45),
+                alpha: 0.055 * config.brightness,
+                steps: 8
+            )
         case .snow:
             context.fill(rect, with: .linearGradient(
                 Gradient(colors: [
@@ -391,6 +412,14 @@ private struct ParticleWallpaperScene: View {
                 startPoint: .zero,
                 endPoint: CGPoint(x: size.width * 0.4, y: size.height)
             ))
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: size.width * 0.72, y: size.height * 0.24),
+                radius: minSide * 0.38,
+                color: Color(red: 0.78, green: 0.92, blue: 1.0),
+                alpha: 0.055 * config.brightness,
+                steps: 7
+            )
         case .rain:
             context.fill(rect, with: .linearGradient(
                 Gradient(colors: [
@@ -401,61 +430,95 @@ private struct ParticleWallpaperScene: View {
                 startPoint: .zero,
                 endPoint: CGPoint(x: size.width * 0.2, y: size.height)
             ))
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: size.width * 0.34, y: size.height * 0.20),
+                radius: minSide * 0.48,
+                color: Color(red: 0.30, green: 0.55, blue: 0.76),
+                alpha: 0.060 * config.brightness,
+                steps: 8
+            )
         case .fireflies:
             context.fill(rect, with: .linearGradient(
                 Gradient(colors: [
-                    Color(red: 0.010, green: 0.045, blue: 0.038),
-                    Color(red: 0.018, green: 0.080, blue: 0.060),
+                    Color(red: 0.006, green: 0.030, blue: 0.028),
+                    Color(red: 0.020, green: 0.085, blue: 0.060),
                     Color(red: 0.003, green: 0.020, blue: 0.018),
                 ]),
                 startPoint: .zero,
                 endPoint: CGPoint(x: size.width, y: size.height)
             ))
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: size.width * 0.50, y: size.height * 0.58),
+                radius: minSide * 0.52,
+                color: Color(red: 0.92, green: 1.0, blue: 0.32),
+                alpha: 0.075 * config.brightness,
+                steps: 9
+            )
         case .aurora:
             context.fill(rect, with: .linearGradient(
                 Gradient(colors: [
-                    Color(red: 0.010, green: 0.020, blue: 0.060),
-                    Color(red: 0.025, green: 0.050, blue: 0.100),
-                    Color(red: 0.003, green: 0.010, blue: 0.030),
+                    Color(red: 0.006, green: 0.014, blue: 0.045),
+                    Color(red: 0.020, green: 0.050, blue: 0.100),
+                    Color(red: 0.004, green: 0.010, blue: 0.028),
                 ]),
                 startPoint: .zero,
                 endPoint: CGPoint(x: size.width, y: size.height)
             ))
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: size.width * 0.52, y: size.height * 0.38),
+                radius: minSide * 0.70,
+                color: Color(red: 0.40, green: 0.95, blue: 0.82),
+                alpha: 0.075 * config.brightness,
+                steps: 10
+            )
             drawAuroraBands(in: &context, size: size, time: time)
         case .embers:
             context.fill(rect, with: .linearGradient(
                 Gradient(colors: [
-                    Color(red: 0.050, green: 0.018, blue: 0.010),
-                    Color(red: 0.090, green: 0.036, blue: 0.020),
+                    Color(red: 0.040, green: 0.014, blue: 0.008),
+                    Color(red: 0.090, green: 0.034, blue: 0.016),
                     Color(red: 0.008, green: 0.004, blue: 0.004),
                 ]),
                 startPoint: CGPoint(x: size.width * 0.1, y: 0),
                 endPoint: CGPoint(x: size.width * 0.9, y: size.height)
             ))
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: size.width * 0.46, y: size.height * 0.92),
+                radius: minSide * 0.50,
+                color: Color(red: 1.0, green: 0.38, blue: 0.10),
+                alpha: 0.12 * config.brightness,
+                steps: 9
+            )
         }
     }
 
     private func drawAuroraBands(in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
-        for index in 0..<4 {
+        for index in 0..<5 {
             var path = Path()
-            let baseY = size.height * (0.22 + CGFloat(index) * 0.075)
-            let amplitude = size.height * (0.035 + CGFloat(index) * 0.008)
-            path.move(to: CGPoint(x: -60, y: baseY))
-            for step in 0...16 {
-                let x = CGFloat(step) / 16 * (size.width + 120) - 60
-                let phase = time * (0.12 + Double(index) * 0.03) + Double(step) * 0.62
-                let y = baseY + sin(phase) * amplitude + cos(phase * 0.7) * amplitude * 0.45
+            let band = CGFloat(index)
+            let baseY = size.height * (0.18 + band * 0.092)
+            let amplitude = size.height * (0.035 + band * 0.010)
+            path.move(to: CGPoint(x: -90, y: baseY))
+            for step in 0...24 {
+                let progress = CGFloat(step) / 24
+                let x = progress * (size.width + 180) - 90
+                let phase = time * (0.070 + Double(index) * 0.018) + Double(progress) * 6.2 + Double(index) * 0.7
+                let y = baseY
+                    + CGFloat(sin(phase)) * amplitude
+                    + CGFloat(cos(phase * 0.63 + Double(index))) * amplitude * 0.55
                 path.addLine(to: CGPoint(x: x, y: y))
             }
+            let color = index.isMultiple(of: 2)
+                ? Color(red: 0.24, green: 1.0, blue: 0.72)
+                : Color(red: 0.54, green: 0.48, blue: 1.0)
             context.stroke(
                 path,
-                with: .color(
-                    (index.isMultiple(of: 2)
-                     ? Color(red: 0.18, green: 1.0, blue: 0.70)
-                     : Color(red: 0.45, green: 0.40, blue: 1.0))
-                        .opacity(0.12 + config.brightness * 0.20)
-                ),
-                lineWidth: 34 + CGFloat(index) * 12
+                with: .color(color.opacity(0.040 + config.brightness * 0.090)),
+                lineWidth: 48 + band * 16
             )
         }
     }
@@ -464,7 +527,7 @@ private struct ParticleWallpaperScene: View {
         for particle in particles {
             switch preset {
             case .starfield:
-                drawStar(particle, in: &context, size: size, time: time)
+                drawGalaxyParticle(particle, in: &context, size: size, time: time)
             case .snow:
                 drawSnow(particle, in: &context, size: size, time: time)
             case .rain:
@@ -472,26 +535,71 @@ private struct ParticleWallpaperScene: View {
             case .fireflies:
                 drawFirefly(particle, in: &context, size: size, time: time)
             case .aurora:
-                drawStar(particle, in: &context, size: size, time: time)
+                drawAuroraParticle(particle, in: &context, size: size, time: time)
             case .embers:
                 drawEmber(particle, in: &context, size: size, time: time)
             }
         }
     }
 
-    private func drawStar(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
-        let speed = 0.008 + config.speed * 0.018 * particle.speed
-        let y = wrap(particle.y + time * speed, 1.0)
-        let pulse = 0.55 + 0.45 * sin(time * (1.4 + particle.speed) + particle.phase)
-        let radius = (0.8 + particle.radius * 1.9) * (preset == .aurora ? 0.75 : 1.0)
-        let alpha = (0.16 + 0.52 * config.brightness) * (0.45 + 0.55 * pulse)
-        let rect = CGRect(
-            x: particle.x * size.width,
-            y: y * size.height,
-            width: radius,
-            height: radius
+    private func drawGalaxyParticle(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
+        let center = CGPoint(
+            x: size.width * 0.5,
+            y: size.height * (0.50 + CGFloat(sin(time * 0.28)) * 0.018)
         )
-        context.fill(Path(ellipseIn: rect), with: .color(Color.white.opacity(alpha)))
+        let rx = Double(size.width * 0.40)
+        let ry = Double(size.height * 0.30)
+        let speed = 0.006 + config.speed * 0.020 * particle.speed
+        let angle = particle.x * Double.pi * 2 + time * speed + sin(time * 0.07 + particle.phase) * 0.14
+        let ring = 0.18 + particle.hue * 0.82
+        let wobble = sin(time * (0.22 + particle.speed * 0.14) + particle.phase) * Double(size.height) * 0.012 * particle.drift
+        let x = center.x + CGFloat(cos(angle) * rx * ring + sin(time * 0.11 + particle.phase) * 24 * particle.drift)
+        let y = center.y + CGFloat(sin(angle * (1.0 + particle.radius * 0.16)) * ry * ring + wobble)
+        let twinkle = pow(0.5 + 0.5 * sin(time * (0.50 + particle.speed * 0.42) + particle.phase), 4)
+        let radius = CGFloat(max(0.8, (0.70 + particle.radius * 2.70) * (0.82 + twinkle * 1.18)))
+        let color: Color
+        if twinkle > 0.74 {
+            color = Color(red: 1.0, green: 0.92, blue: 0.58)
+        } else if particle.y > 0.55 {
+            color = Color(red: 0.50, green: 0.98, blue: 0.86)
+        } else {
+            color = Color(red: 0.72, green: 0.92, blue: 1.0)
+        }
+        let alpha = clamp(0.040 + twinkle * 0.26 + config.brightness * 0.06, 0, 0.42)
+
+        if particle.radius > 0.28 {
+            let previousAngle = angle - speed * 22
+            let previous = CGPoint(
+                x: center.x + CGFloat(cos(previousAngle) * rx * ring + sin(time * 0.11 + particle.phase) * 24 * particle.drift),
+                y: center.y + CGFloat(sin(previousAngle * (1.0 + particle.radius * 0.16)) * ry * ring + wobble)
+            )
+            drawTrail(
+                in: &context,
+                from: previous,
+                to: CGPoint(x: x, y: y),
+                color: color,
+                alpha: alpha * 0.36,
+                lineWidth: max(0.5, radius * 0.42)
+            )
+        }
+
+        if twinkle > 0.66 || particle.radius > 0.86 {
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: x, y: y),
+                radius: radius * (5.5 + CGFloat(twinkle) * 5.0),
+                color: color,
+                alpha: alpha * 0.30,
+                steps: 5
+            )
+        }
+        drawDot(
+            in: &context,
+            center: CGPoint(x: x, y: y),
+            radius: radius,
+            color: color,
+            alpha: alpha
+        )
     }
 
     private func drawSnow(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
@@ -499,11 +607,16 @@ private struct ParticleWallpaperScene: View {
         let drift = sin(time * 0.55 + particle.phase) * 0.035 * particle.drift
         let x = wrap(particle.x + drift, 1.0) * size.width
         let y = wrap(particle.y + time * fall, 1.0) * size.height
-        let radius = 1.6 + particle.radius * 3.8
-        let alpha = 0.18 + config.brightness * 0.42
-        context.fill(
-            Path(ellipseIn: CGRect(x: x, y: y, width: radius, height: radius)),
-            with: .color(Color.white.opacity(alpha))
+        let depth = 0.45 + particle.hue * 0.85
+        let pulse = 0.72 + 0.28 * sin(time * (0.35 + particle.speed * 0.25) + particle.phase)
+        let radius = CGFloat((1.1 + particle.radius * 3.9) * depth)
+        let alpha = clamp((0.12 + config.brightness * 0.36) * pulse / depth, 0, 0.58)
+        drawDot(
+            in: &context,
+            center: CGPoint(x: x, y: y),
+            radius: radius,
+            color: Color(red: 0.86, green: 0.95, blue: 1.0),
+            alpha: alpha
         )
     }
 
@@ -512,42 +625,263 @@ private struct ParticleWallpaperScene: View {
         let x = wrap(particle.x + time * 0.03 * particle.drift, 1.0) * size.width
         let y = wrap(particle.y + time * fall, 1.0) * size.height
         let length = 18 + particle.radius * 44
+        let color = Color(red: 0.66, green: 0.82, blue: 1.0)
         var path = Path()
         path.move(to: CGPoint(x: x, y: y))
         path.addLine(to: CGPoint(x: x - length * 0.18, y: y + length))
         context.stroke(
             path,
-            with: .color(Color(red: 0.66, green: 0.78, blue: 0.92).opacity(0.15 + config.brightness * 0.32)),
+            with: .color(color.opacity(0.10 + config.brightness * 0.28)),
             lineWidth: 0.7 + particle.radius * 1.3
         )
+        if particle.radius > 0.74 {
+            context.stroke(
+                path,
+                with: .color(color.opacity(0.035 + config.brightness * 0.080)),
+                lineWidth: 3.0 + particle.radius * 3.0
+            )
+        }
     }
 
     private func drawFirefly(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
-        let x = wrap(particle.x + sin(time * 0.18 * config.speed + particle.phase) * 0.045 * particle.drift, 1.0) * size.width
-        let y = wrap(particle.y + cos(time * 0.14 * config.speed + particle.phase) * 0.050 * particle.drift, 1.0) * size.height
-        let pulse = 0.4 + 0.6 * max(0, sin(time * (0.9 + particle.speed) + particle.phase))
-        let radius = 2.0 + particle.radius * 6.0
-        let glow = radius * (3.2 + config.brightness * 2.8)
-        context.fill(
-            Path(ellipseIn: CGRect(x: x - glow * 0.5, y: y - glow * 0.5, width: glow, height: glow)),
-            with: .color(Color(red: 0.85, green: 1.0, blue: 0.35).opacity(0.05 + pulse * 0.22 * config.brightness))
+        let orbit = particle.x * Double.pi * 2 + time * (0.035 + config.speed * 0.090 * particle.speed)
+        let pathRadius = Double(min(size.width, size.height)) * (0.12 + particle.y * 0.36)
+        let centerX = Double(size.width) * (0.50 + sin(time * 0.10 + particle.phase) * 0.018)
+        let centerY = Double(size.height) * (0.56 + cos(time * 0.08 + particle.phase) * 0.016)
+        let x = centerX
+            + cos(orbit) * pathRadius
+            + sin(time * 0.16 + particle.phase) * 22 * particle.drift
+        let y = centerY
+            + sin(orbit * 0.72 + particle.phase) * pathRadius * 0.46
+            + cos(time * 0.13 + particle.phase) * 20 * particle.drift
+        let previous = CGPoint(
+            x: centerX + cos(orbit - 0.12) * pathRadius,
+            y: centerY + sin((orbit - 0.12) * 0.72 + particle.phase) * pathRadius * 0.46
         )
-        context.fill(
-            Path(ellipseIn: CGRect(x: x, y: y, width: radius, height: radius)),
-            with: .color(Color(red: 1.0, green: 0.95, blue: 0.45).opacity(0.22 + pulse * 0.52 * config.brightness))
+        let pulse = pow(0.5 + 0.5 * sin(time * (0.85 + particle.speed * 0.30) + particle.phase), 3)
+        let radius = CGFloat(1.7 + particle.radius * 5.8)
+        let color = particle.hue > 0.55
+            ? Color(red: 0.62, green: 1.0, blue: 0.50)
+            : Color(red: 1.0, green: 0.90, blue: 0.38)
+        let alpha = clamp(0.12 + pulse * 0.46 * config.brightness, 0, 0.78)
+        drawTrail(
+            in: &context,
+            from: previous,
+            to: CGPoint(x: x, y: y),
+            color: color,
+            alpha: alpha * 0.24,
+            lineWidth: max(0.7, radius * 0.42)
+        )
+        drawSoftGlow(
+            in: &context,
+            center: CGPoint(x: x, y: y),
+            radius: radius * (5.0 + CGFloat(pulse) * 5.0),
+            color: color,
+            alpha: alpha * 0.34,
+            steps: 5
+        )
+        drawDot(
+            in: &context,
+            center: CGPoint(x: x, y: y),
+            radius: radius,
+            color: color,
+            alpha: alpha
+        )
+    }
+
+    private func drawAuroraParticle(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
+        if particle.y > 0.82 {
+            drawDepthSpark(particle, in: &context, size: size, time: time)
+            return
+        }
+
+        let laneWarp = sin(particle.x * 4.1 + time * 0.035 + particle.phase) * 0.070
+            + cos(particle.x * 7.2 - time * 0.020 + particle.phase) * 0.035
+        let warpedLane = clamp(particle.y + laneWarp, 0, 0.82)
+        let bandCoord = warpedLane / 0.82 * 5.65 + sin(particle.x * 5.0 + time * 0.045 + particle.phase) * 0.48
+        let band = floor(bandCoord)
+        let local = bandCoord - band
+        let bandN = clamp((band + 0.5) / 5.65, 0, 1)
+        let flow = wrap(
+            particle.x + time * (0.0032 + bandN * 0.0039 + particle.speed * 0.0018) * config.speed + particle.hue * 0.53,
+            1.0
+        )
+        let arc = (flow - 0.5) * Double.pi * (1.35 + bandN * 0.72 + particle.hue * 0.24)
+        let centerX = Double(size.width) * 0.5
+        let x = centerX
+            + cos(arc * 0.72 + bandN * 0.92 + particle.phase * 0.18) * Double(size.width) * (0.10 + bandN * 0.12)
+            + (flow - 0.5) * Double(size.width) * (0.38 + bandN * 0.18)
+        let ribbonPhase = flow * Double.pi * 2 * (0.55 + bandN * 0.24 + particle.hue * 0.10)
+            + time * (0.010 + bandN * 0.007)
+            + particle.phase
+        let broadWave = sin(ribbonPhase) * Double(size.height) * 0.048
+        let fineWave = sin(ribbonPhase * (1.36 + particle.hue * 0.62) - time * 0.044 + particle.phase) * Double(size.height) * 0.010
+        let yBase = Double(size.height) * (0.20 + bandN * 0.46)
+            + sin(arc + bandN * 2.2 + particle.phase) * Double(size.height) * (0.030 + bandN * 0.018)
+            + (particle.hue - 0.5) * Double(size.height) * 0.040
+        let ridgeCenter = 0.43 + (particle.hue - 0.5) * 0.18
+        let ridge = exp(-pow((local - ridgeCenter) / (0.25 + particle.hue * 0.04), 2))
+        let softMask = smoothstep(0.020, 0.120, particle.y) * (1 - smoothstep(0.72, 0.82, particle.y))
+        let pulse = 0.5 + 0.5 * sin(ribbonPhase * (1.7 + particle.hue * 0.9) - time * 0.32 + particle.phase)
+        let radius = CGFloat(0.75 + particle.radius * 2.10 + ridge * 1.40)
+        let alpha = clamp((0.030 + ridge * 0.18 + pulse * 0.050) * config.brightness * softMask, 0, 0.34)
+        let color = Color(
+            red: 0.46 + bandN * 0.26 + ridge * 0.14,
+            green: 0.84 - bandN * 0.18 + ridge * 0.12,
+            blue: 1.0 - bandN * 0.10
+        )
+        let point = CGPoint(x: x, y: yBase + broadWave + fineWave)
+        if ridge > 0.42 {
+            drawSoftGlow(
+                in: &context,
+                center: point,
+                radius: radius * (6.0 + CGFloat(ridge) * 8.0),
+                color: color,
+                alpha: alpha * 0.22,
+                steps: 5
+            )
+        }
+        drawDot(in: &context, center: point, radius: radius, color: color, alpha: alpha)
+    }
+
+    private func drawDepthSpark(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
+        let q = (particle.y - 0.82) / 0.18
+        let drift = wrap(particle.x + time * (0.0014 + particle.speed * 0.0048) * config.speed + particle.hue * 0.63, 1.0)
+        let x = (drift - 0.5) * Double(size.width) * (1.02 + particle.hue * 0.38) + Double(size.width) * 0.5
+        let y = (0.12 + q * 0.74) * Double(size.height)
+            + sin(time * (0.018 + particle.speed * 0.028) + particle.phase) * Double(size.height) * 0.018
+        let twinkle = pow(0.5 + 0.5 * sin(time * (0.24 + particle.speed * 0.42) + particle.phase), 5)
+        let dust = smoothstep(0.22, 0.98, particle.hue)
+        let alpha = clamp(dust * (0.050 + twinkle * 0.20) * config.brightness * (1.0 - q * 0.06), 0, 0.28)
+        let radius = CGFloat(0.65 + particle.radius * 1.70)
+        drawDot(
+            in: &context,
+            center: CGPoint(x: x, y: y),
+            radius: radius,
+            color: Color(red: 0.90, green: 0.98, blue: 1.0),
+            alpha: alpha
         )
     }
 
     private func drawEmber(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
         let rise = 0.030 + config.speed * 0.085 * particle.speed
-        let x = wrap(particle.x + sin(time * 0.5 + particle.phase) * 0.018 * particle.drift, 1.0) * size.width
-        let y = wrap(particle.y - time * rise, 1.0) * size.height
-        let radius = 1.4 + particle.radius * 4.4
-        let alpha = 0.18 + config.brightness * 0.48
-        context.fill(
-            Path(ellipseIn: CGRect(x: x, y: y, width: radius, height: radius)),
-            with: .color(Color(red: 1.0, green: 0.46 + particle.hue * 0.24, blue: 0.12).opacity(alpha))
+        let progress = wrap(particle.y - time * rise, 1.0)
+        let x = wrap(particle.x + sin(time * 0.42 + particle.phase) * 0.026 * particle.drift, 1.0) * size.width
+        let y = progress * size.height
+        let radius = CGFloat(1.1 + particle.radius * 4.8)
+        let fade = softWindow(progress, low: 0.08, high: 0.95)
+        let pulse = 0.68 + 0.32 * sin(time * (0.75 + particle.speed * 0.28) + particle.phase)
+        let alpha = clamp((0.15 + config.brightness * 0.46) * fade * pulse, 0, 0.72)
+        let color = Color(red: 1.0, green: 0.35 + particle.hue * 0.34, blue: 0.10)
+        let point = CGPoint(x: x, y: y)
+        let trailEnd = CGPoint(
+            x: x + CGFloat(sin(time * 0.42 + particle.phase)) * 6,
+            y: y + CGFloat(22 + particle.radius * 48)
         )
+        drawTrail(
+            in: &context,
+            from: trailEnd,
+            to: point,
+            color: color,
+            alpha: alpha * 0.26,
+            lineWidth: max(0.7, radius * 0.46)
+        )
+        if particle.radius > 0.58 {
+            drawSoftGlow(
+                in: &context,
+                center: point,
+                radius: radius * 6.2,
+                color: color,
+                alpha: alpha * 0.24,
+                steps: 5
+            )
+        }
+        drawDot(
+            in: &context,
+            center: point,
+            radius: radius,
+            color: color,
+            alpha: alpha
+        )
+    }
+
+    private func drawSoftGlow(
+        in context: inout GraphicsContext,
+        center: CGPoint,
+        radius: CGFloat,
+        color: Color,
+        alpha: Double,
+        steps: Int
+    ) {
+        guard radius > 0, alpha > 0 else { return }
+        let count = max(1, steps)
+        for step in stride(from: count, through: 1, by: -1) {
+            let scale = CGFloat(step) / CGFloat(count)
+            let currentRadius = radius * scale
+            let opacity = alpha * pow(1.0 - Double(scale) * 0.72, 1.7)
+            guard opacity > 0.001 else { continue }
+            context.fill(
+                Path(ellipseIn: CGRect(
+                    x: center.x - currentRadius,
+                    y: center.y - currentRadius,
+                    width: currentRadius * 2,
+                    height: currentRadius * 2
+                )),
+                with: .color(color.opacity(clamp(opacity, 0, 1)))
+            )
+        }
+    }
+
+    private func drawDot(
+        in context: inout GraphicsContext,
+        center: CGPoint,
+        radius: CGFloat,
+        color: Color,
+        alpha: Double
+    ) {
+        guard radius > 0, alpha > 0 else { return }
+        context.fill(
+            Path(ellipseIn: CGRect(
+                x: center.x - radius,
+                y: center.y - radius,
+                width: radius * 2,
+                height: radius * 2
+            )),
+            with: .color(color.opacity(clamp(alpha, 0, 1)))
+        )
+    }
+
+    private func drawTrail(
+        in context: inout GraphicsContext,
+        from start: CGPoint,
+        to end: CGPoint,
+        color: Color,
+        alpha: Double,
+        lineWidth: CGFloat
+    ) {
+        guard alpha > 0, lineWidth > 0 else { return }
+        var path = Path()
+        path.move(to: start)
+        path.addLine(to: end)
+        context.stroke(
+            path,
+            with: .color(color.opacity(clamp(alpha, 0, 1))),
+            lineWidth: lineWidth
+        )
+    }
+
+    private func softWindow(_ value: Double, low: Double, high: Double) -> Double {
+        smoothstep(0, low, value) * (1 - smoothstep(high, 1, value))
+    }
+
+    private func smoothstep(_ edge0: Double, _ edge1: Double, _ value: Double) -> Double {
+        guard edge0 != edge1 else { return value < edge0 ? 0 : 1 }
+        let x = clamp((value - edge0) / (edge1 - edge0), 0, 1)
+        return x * x * (3 - 2 * x)
+    }
+
+    private func clamp(_ value: Double, _ lower: Double, _ upper: Double) -> Double {
+        min(max(value, lower), upper)
     }
 
     private func wrap(_ value: Double, _ limit: Double) -> Double {
