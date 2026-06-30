@@ -1,4 +1,7 @@
 import AppKit
+import AVFoundation
+import CoreMedia
+import ScreenCaptureKit
 import SwiftUI
 
 enum ParticleWallpaperPreset: String, CaseIterable, Identifiable {
@@ -8,6 +11,7 @@ enum ParticleWallpaperPreset: String, CaseIterable, Identifiable {
     case fireflies
     case aurora
     case embers
+    case audioTerrain
 
     var id: String { rawValue }
 
@@ -19,6 +23,7 @@ enum ParticleWallpaperPreset: String, CaseIterable, Identifiable {
         case .fireflies: 150
         case .aurora: 260
         case .embers: 180
+        case .audioTerrain: 420
         }
     }
 
@@ -30,6 +35,7 @@ enum ParticleWallpaperPreset: String, CaseIterable, Identifiable {
         case .fireflies: "lightbulb"
         case .aurora: "waveform.path.ecg"
         case .embers: "flame"
+        case .audioTerrain: "waveform"
         }
     }
 }
@@ -58,6 +64,205 @@ struct ParticleWallpaperConfig: Equatable {
 }
 
 @MainActor
+private final class AudioReactiveMonitor: NSObject, ObservableObject, SCStreamOutput, SCStreamDelegate {
+    static let shared = AudioReactiveMonitor()
+
+    @Published private(set) var level = 0.0
+    @Published private(set) var beat = 0.0
+    @Published private(set) var isCapturing = false
+
+    private let outputQueue = DispatchQueue(label: "com.wallpaperexchange.audio-reactive")
+    private var stream: SCStream?
+    private var startTask: Task<Void, Never>?
+    private var decayTask: Task<Void, Never>?
+    private var lastAudioAt = Date.distantPast
+    private var smoothedLevel = 0.0
+
+    var hasRecentAudio: Bool {
+        isCapturing && Date().timeIntervalSince(lastAudioAt) < 0.75 && level > 0.012
+    }
+
+    func startIfNeeded() {
+        guard stream == nil, startTask == nil else { return }
+        startTask = Task { [weak self] in
+            await self?.startCapture()
+        }
+        startDecayLoop()
+    }
+
+    func stopIfNeeded() {
+        startTask?.cancel()
+        startTask = nil
+        decayTask?.cancel()
+        decayTask = nil
+        let activeStream = stream
+        stream = nil
+        isCapturing = false
+        level = 0
+        beat = 0
+        smoothedLevel = 0
+        guard let activeStream else { return }
+        Task {
+            try? await activeStream.stopCapture()
+        }
+    }
+
+    private func startCapture() async {
+        defer { startTask = nil }
+        do {
+            let content = try await SCShareableContent.current
+            guard let display = content.displays.first else { return }
+
+            let filter = SCContentFilter(display: display, excludingWindows: [])
+            let configuration = SCStreamConfiguration()
+            configuration.width = 2
+            configuration.height = 2
+            configuration.minimumFrameInterval = CMTime(value: 1, timescale: 2)
+            configuration.capturesAudio = true
+            configuration.excludesCurrentProcessAudio = true
+            configuration.sampleRate = 44_100
+            configuration.channelCount = 2
+
+            let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
+            try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: outputQueue)
+            try await stream.startCapture()
+            self.stream = stream
+            isCapturing = true
+        } catch {
+            stream = nil
+            isCapturing = false
+            level = 0
+            beat = 0
+        }
+    }
+
+    private func startDecayLoop() {
+        guard decayTask == nil else { return }
+        decayTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(33))
+                self?.decay()
+            }
+        }
+    }
+
+    private func decay() {
+        if Date().timeIntervalSince(lastAudioAt) > 0.20 {
+            level *= 0.90
+            beat *= 0.78
+            if level < 0.003 { level = 0 }
+            if beat < 0.004 { beat = 0 }
+        }
+    }
+
+    private func update(rawLevel: Double) {
+        let shaped = min(1.0, pow(max(rawLevel, 0), 0.42) * 4.2)
+        let previous = smoothedLevel
+        smoothedLevel = previous * 0.72 + shaped * 0.28
+        level = max(level * 0.70, smoothedLevel)
+        beat = max(beat * 0.66, max(0, shaped - previous * 1.35) * 2.4)
+        lastAudioAt = Date()
+    }
+
+    nonisolated func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
+        guard type == .audio, sampleBuffer.isValid else { return }
+        guard let rawLevel = Self.rmsLevel(from: sampleBuffer), rawLevel > 0 else { return }
+        Task { @MainActor in
+            AudioReactiveMonitor.shared.update(rawLevel: rawLevel)
+        }
+    }
+
+    nonisolated func stream(_ stream: SCStream, didStopWithError error: Error) {
+        Task { @MainActor in
+            guard AudioReactiveMonitor.shared.stream === stream else { return }
+            AudioReactiveMonitor.shared.stopIfNeeded()
+        }
+    }
+
+    private nonisolated static func rmsLevel(from sampleBuffer: CMSampleBuffer) -> Double? {
+        guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer),
+              let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer),
+              let streamDescription = CMAudioFormatDescriptionGetStreamBasicDescription(formatDescription)?.pointee
+        else {
+            return nil
+        }
+
+        var lengthAtOffset = 0
+        var totalLength = 0
+        var dataPointer: UnsafeMutablePointer<Int8>?
+        let status = CMBlockBufferGetDataPointer(
+            blockBuffer,
+            atOffset: 0,
+            lengthAtOffsetOut: &lengthAtOffset,
+            totalLengthOut: &totalLength,
+            dataPointerOut: &dataPointer
+        )
+        guard status == kCMBlockBufferNoErr, let dataPointer, totalLength > 0 else { return nil }
+
+        let flags = streamDescription.mFormatFlags
+        if flags & kAudioFormatFlagIsFloat != 0, streamDescription.mBitsPerChannel == 32 {
+            let count = totalLength / MemoryLayout<Float>.size
+            guard count > 0 else { return nil }
+            let values = UnsafeRawPointer(dataPointer).assumingMemoryBound(to: Float.self)
+            let step = max(1, count / 1_024)
+            var sum = 0.0
+            var samples = 0
+            var index = 0
+            while index < count {
+                let value = Double(values[index])
+                sum += value * value
+                samples += 1
+                index += step
+            }
+            guard samples > 0 else { return nil }
+            return sqrt(sum / Double(samples))
+        }
+
+        if streamDescription.mBitsPerChannel == 16 {
+            let count = totalLength / MemoryLayout<Int16>.size
+            guard count > 0 else { return nil }
+            let values = UnsafeRawPointer(dataPointer).assumingMemoryBound(to: Int16.self)
+            let step = max(1, count / 1_024)
+            var sum = 0.0
+            var samples = 0
+            var index = 0
+            while index < count {
+                let value = Double(values[index]) / Double(Int16.max)
+                sum += value * value
+                samples += 1
+                index += step
+            }
+            guard samples > 0 else { return nil }
+            return sqrt(sum / Double(samples))
+        }
+
+        return nil
+    }
+}
+
+private struct ParticleRipple: Identifiable {
+    let id = UUID()
+    let globalPoint: CGPoint
+    let startTime: TimeInterval
+}
+
+private final class ParticleWallpaperInteractionStore: ObservableObject {
+    static let shared = ParticleWallpaperInteractionStore()
+
+    @Published private(set) var ripples: [ParticleRipple] = []
+
+    @MainActor
+    func recordClick(at globalPoint: CGPoint) {
+        let now = Date.timeIntervalSinceReferenceDate
+        ripples.append(ParticleRipple(globalPoint: globalPoint, startTime: now))
+        ripples.removeAll { now - $0.startTime > 1.65 }
+        if ripples.count > 10 {
+            ripples.removeFirst(ripples.count - 10)
+        }
+    }
+}
+
+@MainActor
 @Observable
 final class ParticleWallpaperController {
     static let shared = ParticleWallpaperController()
@@ -81,6 +286,8 @@ final class ParticleWallpaperController {
     private var activeByScreen: [String: ActiveParticle] = [:]
     private var sessionsByScreen: [String: ParticleWallpaperSession] = [:]
     private var screenObserver: NSObjectProtocol?
+    private var globalClickMonitor: Any?
+    private var localClickMonitor: Any?
 
     private init() {
         screenObserver = NotificationCenter.default.addObserver(
@@ -202,6 +409,48 @@ final class ParticleWallpaperController {
         if !isRunning {
             UserDefaults.standard.set(false, forKey: Self.activeDefaultsKey)
         }
+        updateInteractionMonitors()
+        updateAudioCapture()
+    }
+
+    private func updateInteractionMonitors() {
+        if isRunning {
+            installClickMonitorsIfNeeded()
+        } else {
+            removeClickMonitors()
+        }
+    }
+
+    private func installClickMonitorsIfNeeded() {
+        guard globalClickMonitor == nil, localClickMonitor == nil else { return }
+        globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) { _ in
+            Task { @MainActor in
+                ParticleWallpaperInteractionStore.shared.recordClick(at: NSEvent.mouseLocation)
+            }
+        }
+        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown]) { event in
+            ParticleWallpaperInteractionStore.shared.recordClick(at: NSEvent.mouseLocation)
+            return event
+        }
+    }
+
+    private func removeClickMonitors() {
+        if let globalClickMonitor {
+            NSEvent.removeMonitor(globalClickMonitor)
+            self.globalClickMonitor = nil
+        }
+        if let localClickMonitor {
+            NSEvent.removeMonitor(localClickMonitor)
+            self.localClickMonitor = nil
+        }
+    }
+
+    private func updateAudioCapture() {
+        if activeByScreen.values.contains(where: { $0.preset == .audioTerrain }) {
+            AudioReactiveMonitor.shared.startIfNeeded()
+        } else {
+            AudioReactiveMonitor.shared.stopIfNeeded()
+        }
     }
 
     private func closeSessions() {
@@ -291,7 +540,8 @@ private final class ParticleWallpaperSession {
         let view = NSHostingView(rootView: ParticleWallpaperScene(
             preset: preset,
             config: config,
-            screenKey: screenKey
+            screenKey: screenKey,
+            screenFrame: screen.frame
         ))
         view.frame = NSRect(origin: .zero, size: screen.frame.size)
         view.autoresizingMask = [.width, .height]
@@ -348,10 +598,14 @@ private struct ParticleWallpaperScene: View {
     let preset: ParticleWallpaperPreset
     let config: ParticleWallpaperConfig
     let particles: [ParticleSeed]
+    let screenFrame: CGRect
+    @ObservedObject private var audio = AudioReactiveMonitor.shared
+    @ObservedObject private var interactions = ParticleWallpaperInteractionStore.shared
 
-    init(preset: ParticleWallpaperPreset, config: ParticleWallpaperConfig, screenKey: String) {
+    init(preset: ParticleWallpaperPreset, config: ParticleWallpaperConfig, screenKey: String, screenFrame: CGRect) {
         self.preset = preset
         self.config = config.clamped
+        self.screenFrame = screenFrame
         let seed = Self.stableSeed(screenKey) ^ Self.stableSeed(preset.rawValue)
         particles = ParticleSeed.makeSeeds(preset: preset, config: config.clamped, seed: seed)
     }
@@ -362,6 +616,7 @@ private struct ParticleWallpaperScene: View {
                 let time = timeline.date.timeIntervalSinceReferenceDate
                 drawBackground(in: &context, size: size, time: time)
                 drawParticles(in: &context, size: size, time: time)
+                drawRipples(in: &context, size: size, time: time, ripples: interactions.ripples)
             }
         }
         .ignoresSafeArea()
@@ -493,6 +748,34 @@ private struct ParticleWallpaperScene: View {
                 alpha: 0.12 * config.brightness,
                 steps: 9
             )
+        case .audioTerrain:
+            context.fill(rect, with: .linearGradient(
+                Gradient(colors: [
+                    Color(red: 0.004, green: 0.006, blue: 0.014),
+                    Color(red: 0.010, green: 0.020, blue: 0.050),
+                    Color(red: 0.002, green: 0.003, blue: 0.008),
+                ]),
+                startPoint: CGPoint(x: size.width * 0.28, y: 0),
+                endPoint: CGPoint(x: size.width * 0.72, y: size.height)
+            ))
+            let energy = audioEnergy(time: time)
+            let center = CGPoint(x: size.width * 0.50, y: size.height * 0.52)
+            drawSoftGlow(
+                in: &context,
+                center: center,
+                radius: minSide * (0.35 + CGFloat(energy.level) * 0.18),
+                color: Color(red: 0.35, green: 0.88, blue: 1.0),
+                alpha: (0.10 + energy.level * 0.16) * config.brightness,
+                steps: 10
+            )
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: size.width * 0.50, y: size.height * 0.66),
+                radius: minSide * (0.45 + CGFloat(energy.beat) * 0.10),
+                color: Color(red: 0.70, green: 0.18, blue: 1.0),
+                alpha: (0.080 + energy.beat * 0.13) * config.brightness,
+                steps: 9
+            )
         }
     }
 
@@ -538,6 +821,8 @@ private struct ParticleWallpaperScene: View {
                 drawAuroraParticle(particle, in: &context, size: size, time: time)
             case .embers:
                 drawEmber(particle, in: &context, size: size, time: time)
+            case .audioTerrain:
+                drawAudioTerrain(particle, in: &context, size: size, time: time)
             }
         }
     }
@@ -763,6 +1048,65 @@ private struct ParticleWallpaperScene: View {
         )
     }
 
+    private func drawAudioTerrain(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
+        let energy = audioEnergy(time: time)
+        let depth = particle.y
+        let worldX = (particle.x - 0.5) * (1.45 + depth * 1.35)
+        let centerDistance = sqrt(worldX * worldX + pow(depth - 0.28, 2))
+        let pulseTravel = wrap(centerDistance * 2.2 - time * (0.20 + config.speed * 0.34), 1.0)
+        let ring = pow(1.0 - abs(pulseTravel - 0.50) * 2.0, 5.0)
+        let centerPeak = exp(-pow(worldX / (0.18 + energy.level * 0.10), 2) - pow((depth - 0.28) / (0.16 + energy.beat * 0.08), 2))
+        let sideWave = 0.5 + 0.5 * sin((worldX * 6.0 + depth * 8.5) - time * (0.70 + config.speed * 0.75) + particle.phase)
+        let fineNoise = 0.5 + 0.5 * sin(particle.phase + time * (1.1 + particle.speed * 0.4))
+        let baseLift = 0.10 + energy.level * 0.86 + energy.beat * 0.38
+        let terrainHeight = (
+            centerPeak * (0.42 + baseLift * 0.70)
+            + ring * (0.08 + energy.level * 0.28)
+            + sideWave * fineNoise * 0.035
+        ) * softWindow(depth, low: 0.02, high: 0.98)
+
+        let horizon = Double(size.height) * 0.28
+        let perspective = pow(depth, 1.55)
+        let groundY = horizon + perspective * Double(size.height) * 0.78
+        let stageWidth = Double(size.width) * (0.14 + depth * 0.74)
+        let x = Double(size.width) * 0.5 + worldX * stageWidth
+        let y = groundY - terrainHeight * Double(size.height) * (0.28 + depth * 0.30)
+        let point = CGPoint(x: x, y: y)
+        let ground = CGPoint(x: x, y: groundY)
+        let heightRatio = clamp((groundY - y) / max(1, Double(size.height) * 0.22), 0, 1)
+        let cyan = Color(red: 0.10 + heightRatio * 0.46, green: 0.55 + heightRatio * 0.42, blue: 1.0)
+        let violet = Color(red: 0.58 + heightRatio * 0.28, green: 0.18 + heightRatio * 0.24, blue: 1.0)
+        let color = particle.hue > 0.48 ? violet : cyan
+        let alpha = clamp(
+            (0.050 + heightRatio * 0.42 + energy.level * 0.15) * config.brightness * (0.55 + depth * 0.70),
+            0,
+            0.82
+        )
+        let radius = CGFloat((0.55 + particle.radius * 1.50) * (0.45 + depth * 1.10) * (1.0 + heightRatio * 0.85))
+
+        if heightRatio > 0.10 || particle.radius > 0.82 {
+            drawTrail(
+                in: &context,
+                from: ground,
+                to: point,
+                color: color,
+                alpha: alpha * (0.20 + heightRatio * 0.30),
+                lineWidth: max(0.35, radius * 0.28)
+            )
+        }
+        if heightRatio > 0.42 || centerPeak > 0.64 {
+            drawSoftGlow(
+                in: &context,
+                center: point,
+                radius: radius * (4.0 + CGFloat(heightRatio) * 8.0),
+                color: color,
+                alpha: alpha * 0.18,
+                steps: 5
+            )
+        }
+        drawDot(in: &context, center: point, radius: radius, color: color, alpha: alpha)
+    }
+
     private func drawEmber(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
         let rise = 0.030 + config.speed * 0.085 * particle.speed
         let progress = wrap(particle.y - time * rise, 1.0)
@@ -803,6 +1147,63 @@ private struct ParticleWallpaperScene: View {
             color: color,
             alpha: alpha
         )
+    }
+
+    private func drawRipples(
+        in context: inout GraphicsContext,
+        size: CGSize,
+        time: TimeInterval,
+        ripples: [ParticleRipple]
+    ) {
+        for ripple in ripples {
+            let age = time - ripple.startTime
+            guard age >= 0, age <= 1.55 else { continue }
+            guard screenFrame.contains(ripple.globalPoint) else { continue }
+            let local = CGPoint(
+                x: ripple.globalPoint.x - screenFrame.minX,
+                y: screenFrame.maxY - ripple.globalPoint.y
+            )
+            let maxRadius = max(size.width, size.height) * 0.24
+            let progress = clamp(age / 1.55, 0, 1)
+            let radius = CGFloat(progress) * maxRadius
+            let alpha = pow(1 - progress, 1.7) * (0.18 + config.brightness * 0.18)
+            let color: Color = preset == .embers
+                ? Color(red: 1.0, green: 0.42, blue: 0.16)
+                : preset == .fireflies
+                    ? Color(red: 0.90, green: 1.0, blue: 0.42)
+                    : Color(red: 0.50, green: 0.88, blue: 1.0)
+            context.stroke(
+                Path(ellipseIn: CGRect(
+                    x: local.x - radius,
+                    y: local.y - radius,
+                    width: radius * 2,
+                    height: radius * 2
+                )),
+                with: .color(color.opacity(alpha)),
+                lineWidth: max(1.0, 3.0 * (1 - CGFloat(progress)))
+            )
+            drawSoftGlow(
+                in: &context,
+                center: local,
+                radius: max(1, radius * 0.72),
+                color: color,
+                alpha: alpha * 0.12,
+                steps: 4
+            )
+        }
+    }
+
+    private func audioEnergy(time: TimeInterval) -> (level: Double, beat: Double, live: Bool) {
+        let idleLevel = 0.22 + 0.08 * sin(time * (0.42 + config.speed * 0.20))
+        let idleBeat = pow(0.5 + 0.5 * sin(time * (0.72 + config.speed * 0.32)), 8) * 0.18
+        if audio.hasRecentAudio {
+            return (
+                clamp(max(audio.level, idleLevel * 0.42), 0, 1),
+                clamp(max(audio.beat, idleBeat * 0.35), 0, 1),
+                true
+            )
+        }
+        return (clamp(idleLevel, 0, 1), clamp(idleBeat, 0, 1), false)
     }
 
     private func drawSoftGlow(

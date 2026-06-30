@@ -347,6 +347,7 @@ struct SettingsView: View {
         case .fireflies: L10n.settings.particleFireflies
         case .aurora: L10n.settings.particleAurora
         case .embers: L10n.settings.particleEmbers
+        case .audioTerrain: L10n.settings.particleAudioTerrain
         }
     }
 

@@ -43,6 +43,7 @@ struct SettingsStrings {
     let particleFireflies: String
     let particleAurora: String
     let particleEmbers: String
+    let particleAudioTerrain: String
 
     // Storage
     let storage: String
@@ -112,6 +113,7 @@ private let settingsEN = SettingsStrings(
     particleFireflies: "Fireflies",
     particleAurora: "Aurora",
     particleEmbers: "Embers",
+    particleAudioTerrain: "Audio terrain",
     storage: "Storage",
     downloadsFolder: "Downloads folder",
     revealInFinder: "Reveal in Finder",
@@ -173,6 +175,7 @@ private let settingsZhCN = SettingsStrings(
     particleFireflies: "萤火",
     particleAurora: "极光",
     particleEmbers: "余烬",
+    particleAudioTerrain: "音域地形",
     storage: "存储",
     downloadsFolder: "下载目录",
     revealInFinder: "在访达中显示",
@@ -234,6 +237,7 @@ private let settingsZhTW = SettingsStrings(
     particleFireflies: "螢火",
     particleAurora: "極光",
     particleEmbers: "餘燼",
+    particleAudioTerrain: "音域地形",
     storage: "儲存空間",
     downloadsFolder: "下載資料夾",
     revealInFinder: "在 Finder 中顯示",
@@ -295,6 +299,7 @@ private let settingsJA = SettingsStrings(
     particleFireflies: "蛍",
     particleAurora: "オーロラ",
     particleEmbers: "残り火",
+    particleAudioTerrain: "音域地形",
     storage: "ストレージ",
     downloadsFolder: "ダウンロードフォルダ",
     revealInFinder: "Finderで表示",
