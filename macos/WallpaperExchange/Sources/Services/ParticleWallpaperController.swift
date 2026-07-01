@@ -317,6 +317,12 @@ final class ParticleWallpaperController {
         let targetID = UserDefaults.standard.string(forKey: Self.targetDefaultsKey) ?? WallpaperDisplayTarget.allID
         let target = Self.displayTargets().first { $0.id == targetID } ?? Self.displayTargets().first
         guard let target else { return }
+        if preset == .audioTerrain {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                self?.start(preset: preset, config: config, target: target)
+            }
+            return
+        }
         start(preset: preset, config: config, target: target)
     }
 
@@ -611,7 +617,7 @@ private struct ParticleWallpaperScene: View {
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / config.frameRate, paused: false)) { timeline in
+        TimelineView(.animation(minimumInterval: timelineInterval, paused: false)) { timeline in
             Canvas { context, size in
                 let time = timeline.date.timeIntervalSinceReferenceDate
                 drawBackground(in: &context, size: size, time: time)
@@ -621,6 +627,10 @@ private struct ParticleWallpaperScene: View {
         }
         .ignoresSafeArea()
         .drawingGroup()
+    }
+
+    private var timelineInterval: TimeInterval {
+        preset == .audioTerrain ? max(1 / config.frameRate, 1.0 / 24.0) : 1 / config.frameRate
     }
 
     private func drawBackground(in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
@@ -1161,14 +1171,14 @@ private struct ParticleWallpaperScene: View {
             heightRatio: heightRatio
         )
 
-        if heightRatio > 0.46 || rippleBlend > 0.55 || particle.hue > 0.988 {
+        if rippleBlend > 0.74 || particle.hue > 0.993 {
             drawSoftGlow(
                 in: &context,
                 center: CGPoint(x: x, y: topY),
-                radius: width * (4.0 + CGFloat(heightRatio) * 8.0),
+                radius: width * (3.0 + CGFloat(heightRatio) * 4.0),
                 color: color,
-                alpha: alpha * 0.23,
-                steps: 5
+                alpha: alpha * 0.16,
+                steps: 3
             )
         }
 
@@ -1578,7 +1588,7 @@ private struct ParticleSeed {
 
     static func makeSeeds(preset: ParticleWallpaperPreset, config: ParticleWallpaperConfig, seed: UInt64) -> [ParticleSeed] {
         if preset == .audioTerrain {
-            let side = min(46, max(30, Int((28 + config.density * 20).rounded())))
+            let side = min(28, max(20, Int((18 + config.density * 10).rounded())))
             var random = SeededRandom(seed: seed == 0 ? 0x7f4a7c15 : seed)
             var seeds: [ParticleSeed] = []
             seeds.reserveCapacity(side * side)
