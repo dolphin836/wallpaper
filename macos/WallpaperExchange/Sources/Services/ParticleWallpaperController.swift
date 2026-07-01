@@ -12,6 +12,11 @@ enum ParticleWallpaperPreset: String, CaseIterable, Identifiable {
     case aurora
     case embers
     case audioTerrain
+    case sonicSilk
+    case sonicTunnel
+    case sonicOrbit
+    case vinylPulse
+    case wallpaperPulse
 
     var id: String { rawValue }
 
@@ -24,6 +29,11 @@ enum ParticleWallpaperPreset: String, CaseIterable, Identifiable {
         case .aurora: 260
         case .embers: 180
         case .audioTerrain: 1180
+        case .sonicSilk: 420
+        case .sonicTunnel: 520
+        case .sonicOrbit: 520
+        case .vinylPulse: 360
+        case .wallpaperPulse: 560
         }
     }
 
@@ -36,6 +46,20 @@ enum ParticleWallpaperPreset: String, CaseIterable, Identifiable {
         case .aurora: "waveform.path.ecg"
         case .embers: "flame"
         case .audioTerrain: "waveform"
+        case .sonicSilk: "waveform.path.ecg.rectangle"
+        case .sonicTunnel: "tornado"
+        case .sonicOrbit: "globe"
+        case .vinylPulse: "record.circle"
+        case .wallpaperPulse: "sparkles.rectangle.stack"
+        }
+    }
+
+    var usesAudio: Bool {
+        switch self {
+        case .audioTerrain, .sonicSilk, .sonicTunnel, .sonicOrbit, .vinylPulse, .wallpaperPulse:
+            true
+        case .starfield, .snow, .rain, .fireflies, .aurora, .embers:
+            false
         }
     }
 }
@@ -452,7 +476,7 @@ final class ParticleWallpaperController {
     }
 
     private func updateAudioCapture() {
-        if activeByScreen.values.contains(where: { $0.preset == .audioTerrain }) {
+        if activeByScreen.values.contains(where: { $0.preset.usesAudio }) {
             AudioReactiveMonitor.shared.startIfNeeded()
         } else {
             AudioReactiveMonitor.shared.stopIfNeeded()
@@ -630,7 +654,14 @@ private struct ParticleWallpaperScene: View {
     }
 
     private var timelineInterval: TimeInterval {
-        preset == .audioTerrain ? max(1 / config.frameRate, 1.0 / 24.0) : 1 / config.frameRate
+        switch preset {
+        case .audioTerrain:
+            max(1 / config.frameRate, 1.0 / 24.0)
+        case .sonicSilk, .sonicTunnel, .sonicOrbit, .vinylPulse, .wallpaperPulse:
+            max(1 / config.frameRate, 1.0 / 30.0)
+        case .starfield, .snow, .rain, .fireflies, .aurora, .embers:
+            1 / config.frameRate
+        }
     }
 
     private func drawBackground(in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
@@ -787,6 +818,127 @@ private struct ParticleWallpaperScene: View {
                 alpha: (0.080 + energy.beat * 0.100) * config.brightness,
                 steps: 12
             )
+        case .sonicSilk:
+            let energy = audioEnergy(time: time)
+            context.fill(rect, with: .linearGradient(
+                Gradient(colors: [
+                    Color(red: 0.003, green: 0.004, blue: 0.014),
+                    Color(red: 0.018, green: 0.030, blue: 0.078),
+                    Color(red: 0.006, green: 0.004, blue: 0.020),
+                ]),
+                startPoint: CGPoint(x: size.width * 0.18, y: 0),
+                endPoint: CGPoint(x: size.width * 0.86, y: size.height)
+            ))
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: size.width * 0.50, y: size.height * 0.52),
+                radius: minSide * (0.46 + CGFloat(energy.level) * 0.08),
+                color: Color(red: 0.18, green: 0.58, blue: 1.0),
+                alpha: (0.075 + energy.level * 0.060) * config.brightness,
+                steps: 10
+            )
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: size.width * 0.50, y: size.height * 0.70),
+                radius: minSide * (0.32 + CGFloat(energy.beat) * 0.08),
+                color: Color(red: 0.58, green: 0.18, blue: 0.92),
+                alpha: (0.060 + energy.beat * 0.090) * config.brightness,
+                steps: 9
+            )
+        case .sonicTunnel:
+            let energy = audioEnergy(time: time)
+            context.fill(rect, with: .radialGradient(
+                Gradient(colors: [
+                    Color(red: 0.030, green: 0.055, blue: 0.120),
+                    Color(red: 0.006, green: 0.010, blue: 0.028),
+                    Color(red: 0.001, green: 0.002, blue: 0.008),
+                ]),
+                center: CGPoint(x: size.width * 0.50, y: size.height * 0.50),
+                startRadius: minSide * 0.04,
+                endRadius: minSide * 0.70
+            ))
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: size.width * 0.50, y: size.height * 0.50),
+                radius: minSide * (0.24 + CGFloat(energy.level) * 0.08),
+                color: Color(red: 0.22, green: 0.78, blue: 1.0),
+                alpha: (0.070 + energy.level * 0.070) * config.brightness,
+                steps: 10
+            )
+        case .sonicOrbit:
+            let energy = audioEnergy(time: time)
+            context.fill(rect, with: .linearGradient(
+                Gradient(colors: [
+                    Color(red: 0.002, green: 0.006, blue: 0.018),
+                    Color(red: 0.012, green: 0.030, blue: 0.072),
+                    Color(red: 0.004, green: 0.002, blue: 0.016),
+                ]),
+                startPoint: CGPoint(x: size.width * 0.30, y: 0),
+                endPoint: CGPoint(x: size.width * 0.70, y: size.height)
+            ))
+            let center = CGPoint(x: size.width * 0.50, y: size.height * 0.50)
+            drawSoftGlow(
+                in: &context,
+                center: center,
+                radius: minSide * (0.36 + CGFloat(energy.level) * 0.06),
+                color: Color(red: 0.16, green: 0.42, blue: 0.92),
+                alpha: (0.110 + energy.level * 0.080) * config.brightness,
+                steps: 12
+            )
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: center.x, y: center.y + minSide * 0.12),
+                radius: minSide * (0.18 + CGFloat(energy.beat) * 0.05),
+                color: Color(red: 0.56, green: 0.24, blue: 0.98),
+                alpha: (0.070 + energy.beat * 0.080) * config.brightness,
+                steps: 8
+            )
+        case .vinylPulse:
+            let energy = audioEnergy(time: time)
+            context.fill(rect, with: .linearGradient(
+                Gradient(colors: [
+                    Color(red: 0.006, green: 0.004, blue: 0.010),
+                    Color(red: 0.030, green: 0.018, blue: 0.026),
+                    Color(red: 0.001, green: 0.001, blue: 0.003),
+                ]),
+                startPoint: .zero,
+                endPoint: CGPoint(x: size.width, y: size.height)
+            ))
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: size.width * 0.50, y: size.height * 0.53),
+                radius: minSide * (0.38 + CGFloat(energy.beat) * 0.05),
+                color: Color(red: 1.0, green: 0.46, blue: 0.18),
+                alpha: (0.070 + energy.beat * 0.080) * config.brightness,
+                steps: 10
+            )
+        case .wallpaperPulse:
+            let energy = audioEnergy(time: time)
+            context.fill(rect, with: .linearGradient(
+                Gradient(colors: [
+                    Color(red: 0.003, green: 0.012, blue: 0.024),
+                    Color(red: 0.020, green: 0.048, blue: 0.086),
+                    Color(red: 0.010, green: 0.004, blue: 0.028),
+                ]),
+                startPoint: CGPoint(x: 0, y: size.height * 0.1),
+                endPoint: CGPoint(x: size.width, y: size.height)
+            ))
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: size.width * 0.38, y: size.height * 0.58),
+                radius: minSide * (0.56 + CGFloat(energy.level) * 0.08),
+                color: Color(red: 0.16, green: 0.72, blue: 0.92),
+                alpha: (0.070 + energy.level * 0.070) * config.brightness,
+                steps: 10
+            )
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: size.width * 0.64, y: size.height * 0.42),
+                radius: minSide * (0.42 + CGFloat(energy.beat) * 0.07),
+                color: Color(red: 0.78, green: 0.22, blue: 1.0),
+                alpha: (0.055 + energy.beat * 0.095) * config.brightness,
+                steps: 9
+            )
         }
     }
 
@@ -834,6 +986,16 @@ private struct ParticleWallpaperScene: View {
                 drawEmber(particle, in: &context, size: size, time: time)
             case .audioTerrain:
                 drawAudioTerrain(particle, in: &context, size: size, time: time)
+            case .sonicSilk:
+                drawSonicSilk(particle, in: &context, size: size, time: time)
+            case .sonicTunnel:
+                drawSonicTunnel(particle, in: &context, size: size, time: time)
+            case .sonicOrbit:
+                drawSonicOrbit(particle, in: &context, size: size, time: time)
+            case .vinylPulse:
+                drawVinylPulse(particle, in: &context, size: size, time: time)
+            case .wallpaperPulse:
+                drawWallpaperPulse(particle, in: &context, size: size, time: time)
             }
         }
     }
@@ -1057,6 +1219,281 @@ private struct ParticleWallpaperScene: View {
             color: Color(red: 0.90, green: 0.98, blue: 1.0),
             alpha: alpha
         )
+    }
+
+    private func drawSonicSilk(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
+        let energy = audioEnergy(time: time)
+        let minSide = Double(min(size.width, size.height))
+        let center = CGPoint(x: size.width * 0.50, y: size.height * 0.54)
+        let nx = (particle.x - 0.5) * 2.0
+        let ny = (particle.y - 0.5) * 2.0
+        let radial = sqrt(nx * nx + ny * ny)
+        let falloff = 1.0 - smoothstep(0.72, 1.35, radial)
+        guard falloff > 0.015 else { return }
+
+        let threadPhase = nx * 5.4 + ny * 4.2 + time * (0.36 + config.speed * 0.42) + particle.phase
+        let radialWave = sin(radial * 12.0 - time * (1.15 + config.speed * 1.10) + particle.phase)
+        let crossWave = sin(threadPhase) * cos(ny * 6.0 - time * 0.44)
+        let lift = (
+            radialWave * (0.11 + energy.level * 0.26)
+            + crossWave * (0.06 + energy.level * 0.18)
+            + sin(threadPhase * 1.7) * energy.beat * 0.16
+        ) * falloff
+        let shear = sin(ny * 3.2 + time * 0.25 + particle.phase) * 28.0 * falloff
+        let x = center.x + CGFloat(nx * minSide * 0.33 + lift * 50.0 + shear * 0.35)
+        let y = center.y + CGFloat(ny * minSide * 0.23 - lift * 72.0 + cos(threadPhase) * 12.0 * falloff)
+        let pulse = pow(0.5 + 0.5 * sin(time * (0.74 + particle.speed * 0.38) + particle.phase), 2.1)
+        let radius = CGFloat(0.65 + particle.radius * 2.4 + energy.beat * 1.4) * CGFloat(0.72 + falloff * 0.60)
+        let alpha = clamp((0.040 + falloff * 0.16 + pulse * 0.040 + energy.level * 0.075) * config.brightness, 0, 0.38)
+        let color = Color(
+            red: clamp(0.34 + particle.hue * 0.34 + energy.beat * 0.14, 0, 1),
+            green: clamp(0.58 + falloff * 0.24, 0, 1),
+            blue: 1.0
+        )
+
+        if particle.radius > 0.72 {
+            drawTrail(
+                in: &context,
+                from: CGPoint(x: x - CGFloat(cos(threadPhase) * 14.0), y: y - CGFloat(sin(threadPhase) * 8.0)),
+                to: CGPoint(x: x, y: y),
+                color: color,
+                alpha: alpha * 0.34,
+                lineWidth: max(0.35, radius * 0.42)
+            )
+        }
+        if particle.hue > 0.94 || energy.beat > 0.34 && particle.radius > 0.62 {
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: x, y: y),
+                radius: radius * (4.0 + CGFloat(energy.beat) * 5.0),
+                color: color,
+                alpha: alpha * 0.16,
+                steps: 3
+            )
+        }
+        drawDot(in: &context, center: CGPoint(x: x, y: y), radius: radius, color: color, alpha: alpha)
+    }
+
+    private func drawSonicTunnel(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
+        let energy = audioEnergy(time: time)
+        let minSide = Double(min(size.width, size.height))
+        let flow = wrap(particle.y - time * (0.030 + config.speed * 0.060) * (1.0 + energy.level * 0.45), 1.0)
+        let spin = time * (0.11 + config.speed * 0.15)
+        let angle = particle.x * Double.pi * 2.0 + spin + sin(flow * 10.0 + time * 0.50 + particle.phase) * 0.11
+        let ripple = sin(angle * 5.0 + (flow - 0.5) * 8.0 + time * 2.2) * (0.012 + energy.level * 0.050)
+        let depth = pow(flow, 1.18)
+        let radius = minSide * (0.095 + depth * 0.42 + ripple)
+        let center = CGPoint(
+            x: size.width * 0.50 + CGFloat(sin(time * 0.10) * minSide * 0.012),
+            y: size.height * 0.50 + CGFloat(cos(time * 0.08) * minSide * 0.010)
+        )
+        let x = center.x + CGFloat(cos(angle) * radius)
+        let y = center.y + CGFloat(sin(angle) * radius * 0.58 + (flow - 0.5) * Double(size.height) * 0.10)
+        guard x > -16, x < size.width + 16, y > -16, y < size.height + 16 else { return }
+
+        let fade = smoothstep(0.04, 0.22, flow) * (1.0 - smoothstep(0.94, 1.0, flow))
+        let twinkle = pow(0.5 + 0.5 * sin(time * (0.88 + particle.speed * 0.42) + particle.phase), 2.4)
+        let radiusPoint = CGFloat(0.55 + particle.radius * 2.7 + depth * 1.35)
+        let alpha = clamp((0.030 + depth * 0.17 + twinkle * 0.045 + energy.beat * 0.08) * fade * config.brightness, 0, 0.42)
+        let color = Color(
+            red: clamp(0.20 + particle.hue * 0.55 + energy.beat * 0.18, 0, 1),
+            green: clamp(0.56 + depth * 0.28, 0, 1),
+            blue: clamp(0.92 + twinkle * 0.08, 0, 1)
+        )
+        let previousAngle = angle - (0.050 + flow * 0.040)
+        let previousRadius = minSide * (0.095 + max(0, depth - 0.018) * 0.42 + ripple)
+        let previous = CGPoint(
+            x: center.x + CGFloat(cos(previousAngle) * previousRadius),
+            y: center.y + CGFloat(sin(previousAngle) * previousRadius * 0.58 + (flow - 0.5) * Double(size.height) * 0.10)
+        )
+        drawTrail(
+            in: &context,
+            from: previous,
+            to: CGPoint(x: x, y: y),
+            color: color,
+            alpha: alpha * 0.48,
+            lineWidth: max(0.35, radiusPoint * 0.42)
+        )
+        if particle.hue > 0.95 || energy.beat > 0.42 && particle.radius > 0.66 {
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: x, y: y),
+                radius: radiusPoint * 5.2,
+                color: color,
+                alpha: alpha * 0.18,
+                steps: 3
+            )
+        }
+        drawDot(in: &context, center: CGPoint(x: x, y: y), radius: radiusPoint, color: color, alpha: alpha)
+    }
+
+    private func drawSonicOrbit(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
+        let energy = audioEnergy(time: time)
+        let minSide = Double(min(size.width, size.height))
+        let theta = particle.x * Double.pi * 2.0 + time * (0.10 + config.speed * 0.18)
+        let phi = (particle.y - 0.5) * Double.pi
+        let noise = sin(theta * 3.0 + phi * 2.0 + time * 0.55 + particle.phase)
+        let baseRadius = minSide * (0.22 + energy.level * 0.045 + noise * 0.012)
+        let sx = cos(phi) * cos(theta)
+        let sy = sin(phi)
+        let sz = cos(phi) * sin(theta)
+        let yaw = time * (0.13 + config.speed * 0.10)
+        let rx = sx * cos(yaw) - sz * sin(yaw)
+        let rz = sx * sin(yaw) + sz * cos(yaw)
+        let scale = 0.72 + rz * 0.34
+        guard scale > 0.42 else { return }
+
+        let center = CGPoint(x: size.width * 0.50, y: size.height * 0.50)
+        let x = center.x + CGFloat(rx * baseRadius * scale)
+        let y = center.y + CGFloat(sy * baseRadius * 0.76 * scale + sin(theta + time * 0.34) * energy.beat * minSide * 0.016)
+        let front = smoothstep(-0.42, 0.86, rz)
+        let pulse = pow(0.5 + 0.5 * sin(time * (0.80 + particle.speed * 0.30) + particle.phase), 2.2)
+        let radiusPoint = CGFloat((0.62 + particle.radius * 2.35 + front * 1.10) * (0.86 + energy.beat * 0.34))
+        let alpha = clamp((0.040 + front * 0.22 + pulse * 0.035 + energy.level * 0.060) * config.brightness, 0, 0.44)
+        let color = Color(
+            red: clamp(0.35 + front * 0.32 + particle.hue * 0.20, 0, 1),
+            green: clamp(0.48 + front * 0.24, 0, 1),
+            blue: 1.0
+        )
+        if particle.radius > 0.78 || front > 0.78 && particle.hue > 0.72 {
+            drawTrail(
+                in: &context,
+                from: CGPoint(x: x - CGFloat(sin(theta) * 13.0 * scale), y: y + CGFloat(cos(theta) * 7.0 * scale)),
+                to: CGPoint(x: x, y: y),
+                color: color,
+                alpha: alpha * 0.30,
+                lineWidth: max(0.3, radiusPoint * 0.34)
+            )
+        }
+        if front > 0.78 && particle.hue > 0.90 {
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: x, y: y),
+                radius: radiusPoint * 5.8,
+                color: color,
+                alpha: alpha * 0.16,
+                steps: 3
+            )
+        }
+        drawDot(in: &context, center: CGPoint(x: x, y: y), radius: radiusPoint, color: color, alpha: alpha)
+    }
+
+    private func drawVinylPulse(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
+        let energy = audioEnergy(time: time)
+        let minSide = Double(min(size.width, size.height))
+        let center = CGPoint(x: size.width * 0.50, y: size.height * 0.53)
+        let ring = 0.12 + pow(particle.y, 0.72) * 0.82
+        let recordRadius = minSide * (0.30 + energy.beat * 0.020)
+        let spin = time * (0.25 + config.speed * 0.30)
+        let angle = particle.x * Double.pi * 2.0 + spin * (0.22 + ring * 0.90)
+        let groove = pow(0.5 + 0.5 * sin(ring * 110.0 - time * 1.4 + particle.phase), 2.6)
+        let wobble = sin(angle * 4.0 + time * 0.62 + particle.phase) * energy.level * 0.020
+        let radius = recordRadius * (ring + wobble)
+        let x = center.x + CGFloat(cos(angle) * radius)
+        let y = center.y + CGFloat(sin(angle) * radius * 0.74)
+
+        let centerLabel = smoothstep(0.26, 0.11, ring)
+        let rim = smoothstep(0.78, 0.96, ring)
+        let pulse = max(groove * 0.42, centerLabel * 0.72)
+        let pointRadius = CGFloat(0.60 + particle.radius * 2.20 + centerLabel * 1.20 + rim * 0.70)
+        let alpha = clamp((0.035 + pulse * 0.18 + rim * 0.10 + energy.beat * 0.080) * config.brightness, 0, 0.46)
+        let color = centerLabel > 0.28
+            ? Color(red: 1.0, green: 0.56 + centerLabel * 0.18, blue: 0.24)
+            : Color(
+                red: clamp(0.68 + rim * 0.28, 0, 1),
+                green: clamp(0.72 + groove * 0.18, 0, 1),
+                blue: clamp(0.82 + particle.hue * 0.16, 0, 1)
+            )
+        if particle.radius > 0.48 {
+            let tangent = angle + Double.pi / 2
+            drawTrail(
+                in: &context,
+                from: CGPoint(
+                    x: x - CGFloat(cos(tangent) * (5.0 + ring * 14.0)),
+                    y: y - CGFloat(sin(tangent) * (3.0 + ring * 8.0))
+                ),
+                to: CGPoint(x: x, y: y),
+                color: color,
+                alpha: alpha * (0.28 + rim * 0.20),
+                lineWidth: max(0.28, pointRadius * 0.32)
+            )
+        }
+        if centerLabel > 0.50 && particle.hue > 0.86 || rim > 0.70 && particle.hue > 0.94 {
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: x, y: y),
+                radius: pointRadius * 5.4,
+                color: color,
+                alpha: alpha * 0.16,
+                steps: 3
+            )
+        }
+        drawDot(in: &context, center: CGPoint(x: x, y: y), radius: pointRadius, color: color, alpha: alpha)
+    }
+
+    private func drawWallpaperPulse(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
+        if particle.y > 0.86 {
+            drawDepthSpark(particle, in: &context, size: size, time: time)
+            return
+        }
+
+        let energy = audioEnergy(time: time)
+        let laneWarp = sin(particle.x * 4.8 + time * 0.060 + particle.phase) * (0.055 + energy.level * 0.020)
+            + cos(particle.x * 8.0 - time * 0.035 + particle.phase) * 0.030
+        let warpedLane = clamp(particle.y + laneWarp, 0, 0.86)
+        let bandCoord = warpedLane / 0.86 * 6.4 + sin(particle.x * 5.6 + time * 0.070 + particle.phase) * 0.42
+        let band = floor(bandCoord)
+        let local = bandCoord - band
+        let bandN = clamp((band + 0.5) / 6.4, 0, 1)
+        let flow = wrap(
+            particle.x + time * (0.0042 + bandN * 0.0045 + particle.speed * 0.0022) * config.speed + particle.hue * 0.47 + energy.level * 0.020,
+            1.0
+        )
+        let arc = (flow - 0.5) * Double.pi * (1.55 + bandN * 0.82)
+        let centerX = Double(size.width) * 0.50
+        let x = centerX
+            + cos(arc * 0.64 + particle.phase * 0.10) * Double(size.width) * (0.12 + bandN * 0.13)
+            + (flow - 0.5) * Double(size.width) * (0.30 + bandN * 0.18)
+        let ribbonPhase = flow * Double.pi * 2.0 * (0.68 + bandN * 0.24)
+            + time * (0.040 + config.speed * 0.030)
+            + particle.phase
+        let ridgeCenter = 0.42 + sin(time * 0.18 + bandN * 3.2) * 0.10
+        let ridge = exp(-pow((local - ridgeCenter) / (0.23 + energy.level * 0.05), 2))
+        let y = Double(size.height) * (0.16 + bandN * 0.54)
+            + sin(ribbonPhase) * Double(size.height) * (0.035 + energy.level * 0.025)
+            + sin(arc + bandN * 2.0) * Double(size.height) * 0.035
+            + (particle.hue - 0.5) * Double(size.height) * 0.030
+        let softMask = smoothstep(0.018, 0.120, particle.y) * (1.0 - smoothstep(0.78, 0.86, particle.y))
+        let pulse = pow(0.5 + 0.5 * sin(ribbonPhase * 1.6 - time * 0.24 + particle.phase), 2.0)
+        let radius = CGFloat(0.70 + particle.radius * 2.40 + ridge * 1.80 + energy.beat * 1.20)
+        let alpha = clamp((0.032 + ridge * 0.18 + pulse * 0.046 + energy.level * 0.055) * config.brightness * softMask, 0, 0.42)
+        let color = Color(
+            red: clamp(0.34 + bandN * 0.36 + ridge * 0.14, 0, 1),
+            green: clamp(0.72 - bandN * 0.16 + energy.beat * 0.12, 0, 1),
+            blue: clamp(0.94 + ridge * 0.06, 0, 1)
+        )
+        let point = CGPoint(x: x, y: y)
+        if ridge > 0.50 || particle.hue > 0.95 {
+            drawTrail(
+                in: &context,
+                from: CGPoint(x: x - CGFloat(cos(arc) * 20.0), y: y - CGFloat(sin(ribbonPhase) * 10.0)),
+                to: point,
+                color: color,
+                alpha: alpha * 0.26,
+                lineWidth: max(0.35, radius * 0.36)
+            )
+        }
+        if ridge > 0.72 && particle.hue > 0.80 {
+            drawSoftGlow(
+                in: &context,
+                center: point,
+                radius: radius * (5.0 + CGFloat(energy.beat) * 4.0),
+                color: color,
+                alpha: alpha * 0.15,
+                steps: 3
+            )
+        }
+        drawDot(in: &context, center: point, radius: radius, color: color, alpha: alpha)
     }
 
     private func audioTerrainStage(size: CGSize) -> (width: CGFloat, height: CGFloat, centerX: CGFloat, top: CGFloat, bottom: CGFloat) {
@@ -1614,7 +2051,17 @@ private struct ParticleSeed {
             }
         }
 
-        let cap = preset == .audioTerrain ? 1_600 : 480
+        let cap: Int
+        switch preset {
+        case .audioTerrain:
+            cap = 1_600
+        case .sonicSilk, .vinylPulse:
+            cap = 560
+        case .sonicTunnel, .sonicOrbit, .wallpaperPulse:
+            cap = 620
+        case .starfield, .snow, .rain, .fireflies, .aurora, .embers:
+            cap = 480
+        }
         let count = min(cap, max(32, Int(Double(preset.baseCount) * (0.38 + config.density * 1.35))))
         var random = SeededRandom(seed: seed == 0 ? 0x7f4a7c15 : seed)
         return (0..<count).map { _ in

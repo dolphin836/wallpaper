@@ -348,6 +348,11 @@ struct SettingsView: View {
         case .aurora: L10n.settings.particleAurora
         case .embers: L10n.settings.particleEmbers
         case .audioTerrain: L10n.settings.particleAudioTerrain
+        case .sonicSilk: L10n.settings.particleSonicSilk
+        case .sonicTunnel: L10n.settings.particleSonicTunnel
+        case .sonicOrbit: L10n.settings.particleSonicOrbit
+        case .vinylPulse: L10n.settings.particleVinylPulse
+        case .wallpaperPulse: L10n.settings.particleWallpaperPulse
         }
     }
 

@@ -44,6 +44,11 @@ struct SettingsStrings {
     let particleAurora: String
     let particleEmbers: String
     let particleAudioTerrain: String
+    let particleSonicSilk: String
+    let particleSonicTunnel: String
+    let particleSonicOrbit: String
+    let particleVinylPulse: String
+    let particleWallpaperPulse: String
 
     // Storage
     let storage: String
@@ -114,6 +119,11 @@ private let settingsEN = SettingsStrings(
     particleAurora: "Aurora",
     particleEmbers: "Embers",
     particleAudioTerrain: "Audio terrain",
+    particleSonicSilk: "Sonic silk",
+    particleSonicTunnel: "Neon tunnel",
+    particleSonicOrbit: "Orbit field",
+    particleVinylPulse: "Vinyl pulse",
+    particleWallpaperPulse: "Wallpaper pulse",
     storage: "Storage",
     downloadsFolder: "Downloads folder",
     revealInFinder: "Reveal in Finder",
@@ -176,6 +186,11 @@ private let settingsZhCN = SettingsStrings(
     particleAurora: "极光",
     particleEmbers: "余烬",
     particleAudioTerrain: "音域地形",
+    particleSonicSilk: "声波丝绸",
+    particleSonicTunnel: "霓虹隧道",
+    particleSonicOrbit: "星体轨道",
+    particleVinylPulse: "唱片脉冲",
+    particleWallpaperPulse: "壁纸流光",
     storage: "存储",
     downloadsFolder: "下载目录",
     revealInFinder: "在访达中显示",
@@ -238,6 +253,11 @@ private let settingsZhTW = SettingsStrings(
     particleAurora: "極光",
     particleEmbers: "餘燼",
     particleAudioTerrain: "音域地形",
+    particleSonicSilk: "聲波絲綢",
+    particleSonicTunnel: "霓虹隧道",
+    particleSonicOrbit: "星體軌道",
+    particleVinylPulse: "唱片脈衝",
+    particleWallpaperPulse: "桌布流光",
     storage: "儲存空間",
     downloadsFolder: "下載資料夾",
     revealInFinder: "在 Finder 中顯示",
@@ -300,6 +320,11 @@ private let settingsJA = SettingsStrings(
     particleAurora: "オーロラ",
     particleEmbers: "残り火",
     particleAudioTerrain: "音域地形",
+    particleSonicSilk: "ソニックシルク",
+    particleSonicTunnel: "ネオントンネル",
+    particleSonicOrbit: "軌道フィールド",
+    particleVinylPulse: "レコードパルス",
+    particleWallpaperPulse: "壁紙パルス",
     storage: "ストレージ",
     downloadsFolder: "ダウンロードフォルダ",
     revealInFinder: "Finderで表示",
