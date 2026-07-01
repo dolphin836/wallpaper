@@ -353,6 +353,9 @@ struct SettingsView: View {
         case .sonicOrbit: L10n.settings.particleSonicOrbit
         case .vinylPulse: L10n.settings.particleVinylPulse
         case .wallpaperPulse: L10n.settings.particleWallpaperPulse
+        case .terrainPillars: L10n.settings.particleTerrainPillars
+        case .terrainFoam: L10n.settings.particleTerrainFoam
+        case .terrainIrregular: L10n.settings.particleTerrainIrregular
         }
     }
 

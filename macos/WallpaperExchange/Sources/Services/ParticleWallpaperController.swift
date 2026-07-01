@@ -17,6 +17,9 @@ enum ParticleWallpaperPreset: String, CaseIterable, Identifiable {
     case sonicOrbit
     case vinylPulse
     case wallpaperPulse
+    case terrainPillars
+    case terrainFoam
+    case terrainIrregular
 
     var id: String { rawValue }
 
@@ -34,6 +37,9 @@ enum ParticleWallpaperPreset: String, CaseIterable, Identifiable {
         case .sonicOrbit: 520
         case .vinylPulse: 360
         case .wallpaperPulse: 560
+        case .terrainPillars: 1180
+        case .terrainFoam: 900
+        case .terrainIrregular: 900
         }
     }
 
@@ -51,15 +57,34 @@ enum ParticleWallpaperPreset: String, CaseIterable, Identifiable {
         case .sonicOrbit: "globe"
         case .vinylPulse: "record.circle"
         case .wallpaperPulse: "sparkles.rectangle.stack"
+        case .terrainPillars: "square.grid.3x3.square"
+        case .terrainFoam: "water.waves"
+        case .terrainIrregular: "waveform.path"
         }
     }
 
     var usesAudio: Bool {
         switch self {
-        case .audioTerrain, .sonicSilk, .sonicTunnel, .sonicOrbit, .vinylPulse, .wallpaperPulse:
+        case .audioTerrain, .sonicSilk, .sonicTunnel, .sonicOrbit, .vinylPulse, .wallpaperPulse, .terrainPillars, .terrainFoam, .terrainIrregular:
             true
         case .starfield, .snow, .rain, .fireflies, .aurora, .embers:
             false
+        }
+    }
+
+    var mineradioWebGLPresetIndex: Int? {
+        switch self {
+        case .audioTerrain: 7
+        case .sonicSilk: 0
+        case .sonicTunnel: 1
+        case .sonicOrbit: 2
+        case .vinylPulse: 4
+        case .wallpaperPulse: 5
+        case .terrainPillars: 7
+        case .terrainFoam: 8
+        case .terrainIrregular: 9
+        case .starfield, .snow, .rain, .fireflies, .aurora, .embers:
+            nil
         }
     }
 }
@@ -88,7 +113,7 @@ struct ParticleWallpaperConfig: Equatable {
 }
 
 @MainActor
-private final class AudioReactiveMonitor: NSObject, ObservableObject, SCStreamOutput, SCStreamDelegate {
+final class AudioReactiveMonitor: NSObject, ObservableObject, SCStreamOutput, SCStreamDelegate {
     static let shared = AudioReactiveMonitor()
 
     @Published private(set) var level = 0.0
@@ -279,6 +304,7 @@ private final class ParticleWallpaperInteractionStore: ObservableObject {
     func recordClick(at globalPoint: CGPoint) {
         let now = Date.timeIntervalSinceReferenceDate
         ripples.append(ParticleRipple(globalPoint: globalPoint, startTime: now))
+        MineradioParticleWebGLRegistry.shared.recordClick(at: globalPoint)
         ripples.removeAll { now - $0.startTime > 1.65 }
         if ripples.count > 10 {
             ripples.removeFirst(ripples.count - 10)
@@ -558,6 +584,7 @@ final class ParticleWallpaperController {
 @MainActor
 private final class ParticleWallpaperSession {
     private let window: DesktopParticleWindow
+    private var webGLView: MineradioParticleWebView?
 
     init(screen: NSScreen, screenKey: String, preset: ParticleWallpaperPreset, config: ParticleWallpaperConfig) {
         window = DesktopParticleWindow(
@@ -567,19 +594,34 @@ private final class ParticleWallpaperSession {
             defer: false,
             screen: screen
         )
-        let view = NSHostingView(rootView: ParticleWallpaperScene(
-            preset: preset,
-            config: config,
-            screenKey: screenKey,
-            screenFrame: screen.frame
-        ))
-        view.frame = NSRect(origin: .zero, size: screen.frame.size)
-        view.autoresizingMask = [.width, .height]
-        window.contentView = view
+
+        if let webGLPreset = preset.mineradioWebGLPresetIndex {
+            let view = MineradioParticleWebView(
+                frame: NSRect(origin: .zero, size: screen.frame.size),
+                presetIndex: webGLPreset,
+                config: config,
+                screenFrame: screen.frame
+            )
+            view.autoresizingMask = [.width, .height]
+            webGLView = view
+            window.contentView = view
+        } else {
+            let view = NSHostingView(rootView: ParticleWallpaperScene(
+                preset: preset,
+                config: config,
+                screenKey: screenKey,
+                screenFrame: screen.frame
+            ))
+            view.frame = NSRect(origin: .zero, size: screen.frame.size)
+            view.autoresizingMask = [.width, .height]
+            window.contentView = view
+        }
         window.orderFrontRegardless()
     }
 
     func close() {
+        webGLView?.close()
+        webGLView = nil
         window.orderOut(nil)
         window.close()
     }
@@ -657,7 +699,7 @@ private struct ParticleWallpaperScene: View {
         switch preset {
         case .audioTerrain:
             max(1 / config.frameRate, 1.0 / 24.0)
-        case .sonicSilk, .sonicTunnel, .sonicOrbit, .vinylPulse, .wallpaperPulse:
+        case .sonicSilk, .sonicTunnel, .sonicOrbit, .vinylPulse, .wallpaperPulse, .terrainPillars, .terrainFoam, .terrainIrregular:
             max(1 / config.frameRate, 1.0 / 30.0)
         case .starfield, .snow, .rain, .fireflies, .aurora, .embers:
             1 / config.frameRate
@@ -939,6 +981,8 @@ private struct ParticleWallpaperScene: View {
                 alpha: (0.055 + energy.beat * 0.095) * config.brightness,
                 steps: 9
             )
+        case .terrainPillars, .terrainFoam, .terrainIrregular:
+            context.fill(rect, with: .color(.black))
         }
     }
 
@@ -996,6 +1040,8 @@ private struct ParticleWallpaperScene: View {
                 drawVinylPulse(particle, in: &context, size: size, time: time)
             case .wallpaperPulse:
                 drawWallpaperPulse(particle, in: &context, size: size, time: time)
+            case .terrainPillars, .terrainFoam, .terrainIrregular:
+                break
             }
         }
     }
@@ -2059,6 +2105,8 @@ private struct ParticleSeed {
             cap = 560
         case .sonicTunnel, .sonicOrbit, .wallpaperPulse:
             cap = 620
+        case .terrainPillars, .terrainFoam, .terrainIrregular:
+            cap = 64
         case .starfield, .snow, .rain, .fireflies, .aurora, .embers:
             cap = 480
         }
