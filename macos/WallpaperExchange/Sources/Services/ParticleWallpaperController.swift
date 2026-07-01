@@ -752,31 +752,30 @@ private struct ParticleWallpaperScene: View {
             context.fill(rect, with: .linearGradient(
                 Gradient(colors: [
                     Color(red: 0.002, green: 0.004, blue: 0.010),
-                    Color(red: 0.006, green: 0.010, blue: 0.025),
+                    Color(red: 0.008, green: 0.014, blue: 0.038),
                     Color(red: 0.001, green: 0.002, blue: 0.006),
                 ]),
                 startPoint: CGPoint(x: size.width * 0.28, y: 0),
                 endPoint: CGPoint(x: size.width * 0.72, y: size.height)
             ))
             let energy = audioEnergy(time: time)
-            let stageWidth = min(size.width * 0.72, size.height * 1.30)
-            let stageHeight = stageWidth * 0.50
-            let stageCenter = CGPoint(x: size.width * 0.5, y: size.height * 0.53)
+            let stage = audioTerrainStage(size: size)
+            let stageCenter = CGPoint(x: stage.centerX, y: stage.top + stage.height * 0.56)
             drawSoftGlow(
                 in: &context,
-                center: CGPoint(x: stageCenter.x, y: stageCenter.y + stageHeight * 0.20),
-                radius: stageWidth * (0.36 + CGFloat(energy.level) * 0.050),
-                color: Color(red: 0.10, green: 0.45, blue: 1.0),
-                alpha: (0.150 + energy.level * 0.120) * config.brightness,
-                steps: 16
+                center: CGPoint(x: stageCenter.x, y: stageCenter.y + stage.height * 0.10),
+                radius: stage.width * (0.28 + CGFloat(energy.level) * 0.050),
+                color: Color(red: 0.06, green: 0.18, blue: 0.54),
+                alpha: (0.115 + energy.level * 0.080) * config.brightness,
+                steps: 14
             )
             drawSoftGlow(
                 in: &context,
-                center: CGPoint(x: stageCenter.x, y: stageCenter.y + stageHeight * 0.30),
-                radius: stageWidth * (0.27 + CGFloat(energy.beat) * 0.040),
-                color: Color(red: 0.65, green: 0.14, blue: 1.0),
-                alpha: (0.125 + energy.beat * 0.100) * config.brightness,
-                steps: 14
+                center: CGPoint(x: stageCenter.x, y: stageCenter.y + stage.height * 0.18),
+                radius: stage.width * (0.20 + CGFloat(energy.beat) * 0.050),
+                color: Color(red: 0.42, green: 0.10, blue: 0.90),
+                alpha: (0.080 + energy.beat * 0.100) * config.brightness,
+                steps: 12
             )
         }
     }
@@ -1050,89 +1049,245 @@ private struct ParticleWallpaperScene: View {
         )
     }
 
+    private func audioTerrainStage(size: CGSize) -> (width: CGFloat, height: CGFloat, centerX: CGFloat, top: CGFloat, bottom: CGFloat) {
+        let width = min(size.width * 0.88, size.height * 1.58)
+        let height = width * 0.54
+        let bottom = min(size.height * 0.94, size.height * 0.24 + height)
+        return (
+            width: width,
+            height: bottom - size.height * 0.24,
+            centerX: size.width * 0.5,
+            top: size.height * 0.24,
+            bottom: bottom
+        )
+    }
+
     private func drawAudioTerrain(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
+        let stage = audioTerrainStage(size: size)
         let energy = audioEnergy(time: time)
-        let stageWidth = Double(min(size.width * 0.72, size.height * 1.30))
-        let stageHeight = stageWidth * 0.50
-        let centerX = Double(size.width) * 0.5
-        let stageTop = Double(size.height) * 0.53 - stageHeight * 0.48
+        let halfExtent = 84.0
+        let worldX = (particle.x - 0.5) * halfExtent * 2
+        let worldZ = (particle.y - 0.5) * halfExtent * 2
+        let centerDist = sqrt(worldX * worldX + worldZ * worldZ)
+        let globalFalloff = smoothstep(halfExtent * 0.71, halfExtent * 0.36, centerDist)
+        guard globalFalloff > 0.015 else { return }
+
         let depth = particle.y
         let u = particle.x * 2 - 1
-        let ovalWidth = 0.98 - abs(depth - 0.56) * 0.34
-        let ovalY = (depth - 0.56) / 0.58
-        let edgeValue = pow(u / max(0.18, ovalWidth), 2) + pow(ovalY, 2)
-        let islandMask = 1 - smoothstep(0.84, 1.12, edgeValue)
-        guard islandMask > 0.010 else { return }
+        let perspective = pow(depth, 1.28)
+        let rowWidth = Double(stage.width) * (0.32 + perspective * 0.78)
+        let rowShear = (depth - 0.50) * Double(stage.width) * 0.16
+        let groundY = Double(stage.top) + perspective * Double(stage.height)
+        let x = Double(stage.centerX) + u * rowWidth * 0.50 + rowShear
+        guard x > -12, x < Double(size.width) + 12, groundY > -12, groundY < Double(size.height) + 28 else { return }
 
-        let focus = CGPoint(x: size.width * 0.5, y: size.height * 0.20)
-        let perspective = pow(depth, 1.34)
-        let groundY = stageTop + perspective * stageHeight
-        let rowWidth = stageWidth * (0.26 + depth * 0.62)
-        let x = centerX + u * rowWidth * 0.5
+        let subBass = clamp(max(energy.beat * 0.95, energy.level * 0.58), 0, 1)
+        let bass = clamp(max(energy.level * 0.72, energy.beat * 0.48), 0, 1)
+        let lowMid = clamp(energy.level * (0.42 + 0.18 * sin(time * 0.55)), 0, 1)
+        let mid = clamp(energy.level * (0.30 + 0.28 * cos(time * 0.34 + particle.phase)), 0, 1)
+        let highMid = clamp(max(energy.beat * 0.82, energy.level * 0.30) * (0.75 + particle.hue * 0.40), 0, 1)
 
-        let radial = sqrt(pow(u * 0.90, 2) + pow((depth - 0.42) * 1.24, 2))
-        let movingRing = exp(-pow((radial - (0.18 + wrap(time * (0.055 + config.speed * 0.075), 0.46))) / 0.055, 2))
-        let peakCenter = exp(-pow(u / (0.34 + energy.level * 0.080), 2) - pow((depth - 0.38) / (0.23 + energy.beat * 0.065), 2))
-        let peakLeft = exp(-pow((u + 0.42) / 0.28, 2) - pow((depth - 0.54) / 0.24, 2))
-        let peakRight = exp(-pow((u - 0.36) / 0.30, 2) - pow((depth - 0.62) / 0.25, 2))
-        let valley = exp(-pow((u + 0.02) / 0.38, 2) - pow((depth - 0.70) / 0.18, 2))
-        let shimmer = (0.5 + 0.5 * sin(u * 12.0 + depth * 10.0 - time * (0.62 + config.speed * 0.70) + particle.phase))
-            * (0.5 + 0.5 * cos(particle.phase + time * (0.80 + particle.speed * 0.36)))
-        let terrainHeight = (
-            peakCenter * (0.34 + energy.level * 0.42 + energy.beat * 0.18)
-            + peakLeft * (0.20 + energy.level * 0.15)
-            + peakRight * (0.18 + energy.beat * 0.16)
-            + movingRing * (0.12 + energy.level * 0.20)
-            + shimmer * 0.045
-            - valley * 0.10
-        ) * islandMask
+        let baseNoise = 0.5 + 0.5 * sin(worldX * 0.045 + time * 0.12) * cos(worldZ * 0.040 - time * 0.08)
+        let wave = 0.5 + 0.5 * sin(worldX * 0.15 + worldZ * 0.10 - time * 0.60)
+        let idleElevation = (baseNoise * 0.52 + wave * 0.48) * 0.82 * globalFalloff
 
-        let y = groundY - terrainHeight * stageHeight * (0.30 + depth * 0.24)
-        let point = CGPoint(x: x, y: y)
-        let ground = CGPoint(x: x, y: groundY)
-        let heightRatio = clamp((groundY - y) / max(1, stageHeight * 0.30), 0, 1)
-        let cyan = Color(red: 0.08 + heightRatio * 0.48, green: 0.48 + heightRatio * 0.48, blue: 1.0)
-        let violet = Color(red: 0.58 + heightRatio * 0.30, green: 0.16 + heightRatio * 0.30, blue: 1.0)
-        let colorMix = smoothstep(0.16, 0.72, peakCenter + peakRight + particle.hue * 0.28)
-        let color = colorMix > 0.55 ? violet : cyan
+        let subRegion = smoothstep(halfExtent * 0.30, 0, centerDist)
+        let subLift = easeAudioLift(subBass, maxHeight: 6.0) * subRegion
+
+        let bassNoise = sin(worldX * 0.10 - time * 0.20) * cos(worldZ * 0.10 + particle.phase * 0.15)
+        let bassRegion = smoothstep(halfExtent * 0.42, halfExtent * 0.06, centerDist + bassNoise * 5.0)
+        let bassRnd = smoothstep(0, 1, particle.hue + config.density * 0.5)
+        let bassLift = easeAudioLift(bass, maxHeight: 5.0) * bassRegion * bassRnd
+
+        let lowMidNoise = 0.5 + 0.5 * sin(worldX * 0.052 + time * 0.18 + cos(worldZ * 0.035))
+        let lowMidLift = flowAudioLift(lowMid, maxHeight: 3.0) * lowMidNoise
+
+        let riverFlow = sin(worldX * 0.20 + worldZ * 0.20 + sin(worldX * 0.05 + worldZ * 0.05) * 2.0 - time * 2.0)
+        let midLift = flowAudioLift(mid, maxHeight: 4.0) * max(0, riverFlow)
+
+        let highMidRegion = smoothstep(halfExtent * 0.12, halfExtent * 0.54, centerDist)
+        let highMidTarget = particle.hue > 0.80 || particle.radius > 0.92
+        let highMidLift = highMidTarget
+            ? easeAudioLift(highMid, maxHeight: 3.2) * highMidRegion * (0.35 + particle.radius * 0.65)
+            : 0
+
+        let ambientHillA = 0.5 + 0.5 * sin(worldX * 0.080 + time * 0.16) * cos(worldZ * 0.060 - time * 0.10)
+        let ambientHillB = 0.5 + 0.5 * cos(worldX * 0.055 - time * 0.11 + sin(worldZ * 0.045))
+        let texture = sin(worldX * 0.42 + worldZ * 0.36 + time * 0.30 + particle.phase) * 0.16
+        let idleBlockWave = smoothstep(0.12, 0.88, ambientHillA * 0.48 + ambientHillB * 0.36 + texture + (particle.radius - 0.5) * 0.12)
+            * 2.25
+            * globalFalloff
+
+        let pulseRadius = wrap(time * (0.24 + config.speed * 0.12), 1.12) * halfExtent * 0.92
+        let pulseDelta = centerDist - pulseRadius
+        let autoRipple = exp(-(pulseDelta * pulseDelta) / 48.0) * (0.10 + energy.beat * 0.80) * globalFalloff
+
+        let screenPoint = CGPoint(x: x, y: groundY)
+        let clickRipple = audioTerrainScreenRipple(at: screenPoint, size: size, time: time)
+        let rippleLift = (autoRipple + clickRipple.normal * 1.25 + clickRipple.white * 1.80) * 3.0
+
+        let energySpike = particle.hue > 0.992
+            ? (1.0 - pow(1.0 - clamp(energy.beat + energy.level * 0.45, 0, 1), 1.5)) * 6.0
+            : 0
+        let elevation = max(
+            0,
+            idleElevation + idleBlockWave + (subLift + bassLift + lowMidLift + midLift + highMidLift + energySpike) * 0.88 + rippleLift
+        )
+        let heightScale = Double(stage.height) * (0.018 + depth * 0.018 + config.brightness * 0.010)
+        let topY = groundY - min(Double(stage.height) * 0.42, elevation * heightScale)
+        let heightRatio = clamp((groundY - topY) / max(1, Double(stage.height) * 0.30), 0, 1)
+        let peakBlend = clamp(subLift / 6.0 * 0.72 + energySpike / 6.0 * 0.50, 0, 1)
+        let rippleBlend = clamp(autoRipple + clickRipple.normal + clickRipple.white, 0, 1)
+        let color = audioTerrainColumnColor(
+            heightRatio: heightRatio,
+            peakBlend: peakBlend,
+            rippleBlend: rippleBlend,
+            depth: depth,
+            hue: particle.hue
+        )
         let alpha = clamp(
-            (0.160 + heightRatio * 0.700 + energy.level * 0.20) * config.brightness * (0.65 + depth * 0.75) * islandMask,
+            (0.18 + heightRatio * 0.72 + rippleBlend * 0.34) * config.brightness * (0.42 + depth * 0.78) * globalFalloff,
             0,
             1.0
         )
-        let radius = CGFloat((0.82 + particle.radius * 1.60) * (0.50 + depth * 0.92) * (1.0 + heightRatio * 0.62))
+        let width = CGFloat(max(0.85, min(4.2, Double(stage.width) / 430.0 * (0.65 + depth * 1.45))))
+        drawAudioTerrainColumn(
+            in: &context,
+            ground: CGPoint(x: x, y: groundY),
+            top: CGPoint(x: x, y: topY),
+            width: width,
+            color: color,
+            alpha: alpha,
+            heightRatio: heightRatio
+        )
 
-        if heightRatio > 0.08 || particle.radius > 0.86 {
+        if heightRatio > 0.46 || rippleBlend > 0.55 || particle.hue > 0.988 {
+            drawSoftGlow(
+                in: &context,
+                center: CGPoint(x: x, y: topY),
+                radius: width * (4.0 + CGFloat(heightRatio) * 8.0),
+                color: color,
+                alpha: alpha * 0.23,
+                steps: 5
+            )
+        }
+
+        if particle.hue > 0.992 && heightRatio > 0.16 {
+            drawTrail(
+                in: &context,
+                from: CGPoint(x: x, y: topY - Double(stage.height) * (0.10 + heightRatio * 0.12)),
+                to: CGPoint(x: x, y: topY),
+                color: color,
+                alpha: 0.050 * config.brightness * globalFalloff,
+                lineWidth: max(0.25, width * 0.24)
+            )
+        }
+    }
+
+    private func drawAudioTerrainColumn(
+        in context: inout GraphicsContext,
+        ground: CGPoint,
+        top: CGPoint,
+        width: CGFloat,
+        color: Color,
+        alpha: Double,
+        heightRatio: Double
+    ) {
+        guard alpha > 0.001 else { return }
+        let bodyHeight = max(0.6, ground.y - top.y)
+        let sideWidth = max(0.45, width * 0.56)
+        context.fill(
+            Path(CGRect(
+                x: top.x - sideWidth * 0.5,
+                y: top.y,
+                width: sideWidth,
+                height: bodyHeight
+            )),
+            with: .color(color.opacity(alpha * (0.14 + heightRatio * 0.24)))
+        )
+
+        let capHeight = max(0.65, width * 0.82)
+        context.fill(
+            Path(CGRect(
+                x: top.x - width * 0.50,
+                y: top.y - capHeight * 0.50,
+                width: width,
+                height: capHeight
+            )),
+            with: .color(color.opacity(alpha * (0.62 + heightRatio * 0.34)))
+        )
+
+        if heightRatio > 0.24 {
             drawTrail(
                 in: &context,
                 from: ground,
-                to: point,
+                to: top,
                 color: color,
-                alpha: alpha * (0.16 + heightRatio * 0.40),
-                lineWidth: max(0.40, radius * 0.32)
+                alpha: alpha * (0.08 + heightRatio * 0.16),
+                lineWidth: max(0.25, width * 0.18)
             )
         }
-        if heightRatio > 0.38 || peakCenter > 0.55 || peakLeft > 0.68 {
-            drawSoftGlow(
-                in: &context,
-                center: point,
-                radius: radius * (5.0 + CGFloat(heightRatio) * 8.5),
-                color: color,
-                alpha: alpha * 0.32,
-                steps: 8
+    }
+
+    private func audioTerrainColumnColor(
+        heightRatio: Double,
+        peakBlend: Double,
+        rippleBlend: Double,
+        depth: Double,
+        hue: Double
+    ) -> Color {
+        let glow = clamp(heightRatio * 0.92 + rippleBlend * 0.45, 0, 1)
+        let coolR = mix(0.015, 0.42 + hue * 0.16, glow)
+        let coolG = mix(0.025, 0.14 + depth * 0.16, glow)
+        let coolB = mix(0.075, 0.92, glow)
+        let purple = smoothstep(0.20, 0.95, heightRatio + rippleBlend * 0.40 + hue * 0.20)
+        let peak = clamp(peakBlend * 0.72 + max(0, heightRatio - 0.72), 0, 1)
+        let r = mix(mix(coolR, 0.72, purple), 1.00, peak)
+        let g = mix(mix(coolG, 0.20, purple), 0.55, peak)
+        let b = mix(mix(coolB, 1.00, purple), 0.08, peak)
+        return Color(red: clamp(r, 0, 1), green: clamp(g, 0, 1), blue: clamp(b, 0, 1))
+    }
+
+    private func audioTerrainScreenRipple(at point: CGPoint, size: CGSize, time: TimeInterval) -> (normal: Double, white: Double) {
+        var normal = 0.0
+        var white = 0.0
+        for ripple in interactions.ripples {
+            let age = time - ripple.startTime
+            guard age >= 0, age <= 1.45, screenFrame.contains(ripple.globalPoint) else { continue }
+            let local = CGPoint(
+                x: ripple.globalPoint.x - screenFrame.minX,
+                y: screenFrame.maxY - ripple.globalPoint.y
             )
+            let impact = min(size.width, size.height) * 0.26
+            let radius = CGFloat(age / 1.45) * impact
+            let width = max(12, impact * 0.075)
+            let delta = hypot(local.x - point.x, local.y - point.y) - radius
+            let wave = exp(-Double(delta * delta) / Double(width * width))
+            let fade = pow(1 - age / 1.45, 1.55)
+            normal += wave * fade
+            if age < 0.52 {
+                white += wave * fade * (1 - age / 0.52)
+            }
         }
-        if particle.hue > 0.992 && depth > 0.24 && heightRatio > 0.18 {
-            drawTrail(
-                in: &context,
-                from: CGPoint(x: point.x, y: max(focus.y, point.y - CGFloat(stageHeight * (0.16 + heightRatio * 0.20)))),
-                to: point,
-                color: color,
-                alpha: 0.055 * config.brightness * islandMask,
-                lineWidth: max(0.25, radius * 0.20)
-            )
-        }
-        drawDot(in: &context, center: point, radius: radius, color: color, alpha: alpha)
+        return (clamp(normal, 0, 1), clamp(white, 0, 1))
+    }
+
+    private func easeAudioLift(_ raw: Double, maxHeight: Double) -> Double {
+        let x = clamp(raw, 0, 1)
+        let eased = 1 - pow(1 - x, 2.5)
+        let overshoot = sin(x * Double.pi * 3.0) * exp(-x * 4.0) * 0.15
+        return (eased + overshoot) * maxHeight
+    }
+
+    private func flowAudioLift(_ raw: Double, maxHeight: Double) -> Double {
+        let x = clamp(raw, 0, 1)
+        let eased = pow(x, 0.75)
+        let breathe = sin(x * Double.pi) * 0.12
+        return (eased + breathe) * maxHeight
+    }
+
+    private func mix(_ start: Double, _ end: Double, _ amount: Double) -> Double {
+        start + (end - start) * clamp(amount, 0, 1)
     }
 
     private func drawEmber(_ particle: ParticleSeed, in context: inout GraphicsContext, size: CGSize, time: TimeInterval) {
@@ -1183,6 +1338,11 @@ private struct ParticleWallpaperScene: View {
         time: TimeInterval,
         ripples: [ParticleRipple]
     ) {
+        if preset == .audioTerrain {
+            drawAudioTerrainClickEffects(in: &context, size: size, time: time, ripples: ripples)
+            return
+        }
+
         for ripple in ripples {
             let age = time - ripple.startTime
             guard age >= 0, age <= 1.55 else { continue }
@@ -1218,6 +1378,85 @@ private struct ParticleWallpaperScene: View {
                 alpha: alpha * 0.12,
                 steps: 4
             )
+        }
+    }
+
+    private func drawAudioTerrainClickEffects(
+        in context: inout GraphicsContext,
+        size: CGSize,
+        time: TimeInterval,
+        ripples: [ParticleRipple]
+    ) {
+        let stage = audioTerrainStage(size: size)
+        for ripple in ripples {
+            let age = time - ripple.startTime
+            guard age >= 0, age <= 1.45, screenFrame.contains(ripple.globalPoint) else { continue }
+            let local = CGPoint(
+                x: ripple.globalPoint.x - screenFrame.minX,
+                y: screenFrame.maxY - ripple.globalPoint.y
+            )
+            guard local.y > stage.top - 120, local.y < stage.bottom + 120 else { continue }
+            let progress = clamp(age / 1.45, 0, 1)
+            let color = Color(red: 0.72, green: 0.25, blue: 1.0)
+
+            if age < 0.50 {
+                let fall = clamp(age / 0.50, 0, 1)
+                let start = CGPoint(x: local.x + 180, y: local.y - 360)
+                let current = CGPoint(
+                    x: start.x + (local.x - start.x) * CGFloat(fall),
+                    y: start.y + (local.y - start.y) * CGFloat(fall)
+                )
+                let tail = CGPoint(x: current.x + 48, y: current.y - 96)
+                drawTrail(
+                    in: &context,
+                    from: tail,
+                    to: current,
+                    color: Color(red: 0.95, green: 0.92, blue: 1.0),
+                    alpha: pow(1 - fall, 0.55) * 0.32 * config.brightness,
+                    lineWidth: 1.2
+                )
+                drawSoftGlow(
+                    in: &context,
+                    center: current,
+                    radius: 20 + CGFloat(fall) * 18,
+                    color: color,
+                    alpha: pow(1 - fall, 0.7) * 0.16 * config.brightness,
+                    steps: 4
+                )
+            }
+
+            let radius = CGFloat(progress) * min(size.width, size.height) * 0.26
+            let alpha = pow(1 - progress, 1.55) * 0.18 * config.brightness
+            context.stroke(
+                Path(ellipseIn: CGRect(
+                    x: local.x - radius,
+                    y: local.y - radius * 0.42,
+                    width: radius * 2,
+                    height: radius * 0.84
+                )),
+                with: .color(color.opacity(alpha)),
+                lineWidth: max(0.7, 2.2 * (1 - CGFloat(progress)))
+            )
+            if age > 0.38, age < 0.92 {
+                let burstProgress = clamp((age - 0.38) / 0.54, 0, 1)
+                for index in 0..<9 {
+                    let angle = Double(index) / 9.0 * Double.pi * 2 + Double(index).truncatingRemainder(dividingBy: 3) * 0.18
+                    let distance = CGFloat(18 + burstProgress * 52) * (0.55 + CGFloat(index % 4) * 0.16)
+                    let point = CGPoint(
+                        x: local.x + cos(angle) * distance,
+                        y: local.y + sin(angle) * distance * 0.46
+                    )
+                    drawDot(
+                        in: &context,
+                        center: point,
+                        radius: 1.1 + CGFloat(index % 3) * 0.45,
+                        color: index.isMultiple(of: 3)
+                            ? Color(red: 1.0, green: 0.62, blue: 0.20)
+                            : Color(red: 0.85, green: 0.75, blue: 1.0),
+                        alpha: pow(1 - burstProgress, 1.2) * 0.22 * config.brightness
+                    )
+                }
+            }
         }
     }
 
@@ -1338,6 +1577,33 @@ private struct ParticleSeed {
     let hue: Double
 
     static func makeSeeds(preset: ParticleWallpaperPreset, config: ParticleWallpaperConfig, seed: UInt64) -> [ParticleSeed] {
+        if preset == .audioTerrain {
+            let side = min(46, max(30, Int((28 + config.density * 20).rounded())))
+            var random = SeededRandom(seed: seed == 0 ? 0x7f4a7c15 : seed)
+            var seeds: [ParticleSeed] = []
+            seeds.reserveCapacity(side * side)
+            for row in 0..<side {
+                for column in 0..<side {
+                    let jitterX = (random.next() - 0.5) * 0.16
+                    let jitterY = (random.next() - 0.5) * 0.10
+                    seeds.append(ParticleSeed(
+                        x: clampGridValue((Double(column) + 0.5 + jitterX) / Double(side)),
+                        y: clampGridValue((Double(row) + 0.5 + jitterY) / Double(side)),
+                        radius: random.next(),
+                        speed: 0.45 + random.next() * 1.25,
+                        phase: random.next() * .pi * 2,
+                        drift: 0.35 + random.next() * 1.25,
+                        hue: random.next()
+                    ))
+                }
+            }
+            return seeds.sorted {
+                let leftDepth = pow($0.y, 1.28) + ($0.x - 0.5) * 0.025
+                let rightDepth = pow($1.y, 1.28) + ($1.x - 0.5) * 0.025
+                return leftDepth < rightDepth
+            }
+        }
+
         let cap = preset == .audioTerrain ? 1_600 : 480
         let count = min(cap, max(32, Int(Double(preset.baseCount) * (0.38 + config.density * 1.35))))
         var random = SeededRandom(seed: seed == 0 ? 0x7f4a7c15 : seed)
@@ -1352,6 +1618,10 @@ private struct ParticleSeed {
                 hue: random.next()
             )
         }
+    }
+
+    private static func clampGridValue(_ value: Double) -> Double {
+        min(max(value, 0.001), 0.999)
     }
 }
 
