@@ -10,6 +10,24 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.0.17] - 2026-07-02
+
+### Fixed
+
+- **The main window sometimes failed to appear on launch.** The auth token
+  was read from the Keychain synchronously on the main thread during startup;
+  because the app is ad-hoc signed, that read raises a system consent prompt
+  after every update, which blocked the main thread and kept the SwiftUI
+  window from ever presenting. The Keychain load now happens off the main
+  thread after the window is on screen, so the consent prompt (if any) floats
+  over a visible window instead of freezing launch.
+- **My Uploads / Downloads / Favorites / Likes / Collections** now open with
+  the default page background instead of tinting it from the first card's
+  color. The background still shifts when you hover a tile.
+- **The Weekly Picks archive** no longer switches the background just from
+  hovering an issue in the timeline — it changes only when an issue is
+  selected.
+
 ## [2.0.16] - 2026-06-26
 
 ### Added

@@ -1,8 +1,34 @@
 {
-  "current_version": "2.0.16",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.16.dmg",
+  "current_version": "2.0.17",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.17.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.0.17",
+      "released_at": "2026-07-02",
+      "notes": [
+        "Fixed the main window sometimes not appearing on launch (most likely right after an update).",
+        "My Uploads / Downloads / Favorites / Likes / Collections now open with the default background instead of borrowing the first card's color.",
+        "The Weekly Picks archive no longer changes the background just from hovering an issue in the timeline — only selecting one does."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "修复主界面在启动时（尤其是刚更新后）偶尔打不开的问题。",
+          "我的上传、下载、收藏、点赞、集合页面进入时改用默认背景，不再套用第一张卡片的颜色。",
+          "每周精选归档不再因为鼠标悬停某一期就切换背景，只有选中某一期时才会切换。"
+        ],
+        "zh-TW": [
+          "修復主介面在啟動時（尤其是剛更新後）偶爾打不開的問題。",
+          "我的上傳、下載、收藏、按讚、合輯頁面進入時改用預設背景，不再套用第一張卡片的顏色。",
+          "每週精選封存不再因為滑鼠停在某一期就切換背景，只有選取某一期時才會切換。"
+        ],
+        "ja": [
+          "起動時（特にアップデート直後）にメイン画面がまれに開かない問題を修正しました。",
+          "アップロード / ダウンロード / お気に入り / いいね / コレクションの各ページを、最初のカードの色ではなくデフォルトの背景で開くようにしました。",
+          "今週のピックのアーカイブで、項目にマウスを重ねただけでは背景が変わらないようにしました（選択したときだけ変わります）。"
+        ]
+      }
+    },
     {
       "version": "2.0.16",
       "released_at": "2026-06-26",
