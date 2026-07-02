@@ -114,14 +114,12 @@ struct WeeklyArchiveView: View {
                             select(e)
                         }
                     )
+                    // Hover only changes the cursor. The page mesh follows
+                    // the *selected* issue (see select() / applySelectedPalette),
+                    // not whatever row the pointer is over — tinting on hover
+                    // made the background flicker while scanning the timeline.
                     .onHover { h in
-                        if h {
-                            NSCursor.pointingHand.push()
-                            PaletteEnv.shared.apply(palette: e.colorPalette, dominant: e.dominantColor)
-                        } else {
-                            NSCursor.pop()
-                            applySelectedPalette()
-                        }
+                        if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
                     }
                 }
         }

@@ -612,9 +612,10 @@ struct PagedWallpaperGrid: View {
             }
         }
         .task { if !loaded { await loadPage(1) } }
-        // Re-apply this tab's base mesh tint when it reappears (e.g.
-        // switching back to an already-loaded tab).
-        .onAppear { if loaded { onPalette(items.first?.colorPalette, items.first?.dominantColor) } }
+        // Entering the tab shows the default brand mesh — not the first
+        // card's color. The mesh only shifts when a tile is hovered
+        // (MainGridTile drives PaletteEnv directly).
+        .onAppear { onPalette(nil, nil) }
     }
 
     private func loadPage(_ p: Int) async {
@@ -626,7 +627,6 @@ struct PagedWallpaperGrid: View {
             items = data.items
             total = data.total ?? data.items.count
             onCount(total)
-            onPalette(items.first?.colorPalette, items.first?.dominantColor)
             if data.hasMore, let nc = data.nextCursor, nc > 0 {
                 if cursors.count == p { cursors.append(nc) } else if p < cursors.count { cursors[p] = nc }
             }
@@ -665,7 +665,6 @@ struct PagedCollectionGrid: View {
 
     private let pageSize = 12
     private var totalPages: Int { total > 0 ? Int(ceil(Double(total) / Double(pageSize))) : max(cursors.count, 1) }
-    private var baseTint: String? { items.first?.recentTiles?.first?.dominantColor ?? items.first?.accentColor }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -707,7 +706,8 @@ struct PagedCollectionGrid: View {
             }
         }
         .task { if !loaded { await loadPage(1) } }
-        .onAppear { if loaded { onPalette(nil, baseTint) } }
+        // Default brand mesh on enter; hovering a collection card tints it.
+        .onAppear { onPalette(nil, nil) }
         .confirmationDialog(
             L10n.account.collectionAutoPlayDownloadTitle,
             isPresented: $showAutoPlayDownloadPrompt,
@@ -891,7 +891,6 @@ struct PagedCollectionGrid: View {
             items = data.items
             total = data.total ?? data.items.count
             onCount(total)
-            onPalette(nil, baseTint)
             if data.hasMore, let nc = data.nextCursor, nc > 0 {
                 if cursors.count == p { cursors.append(nc) } else if p < cursors.count { cursors[p] = nc }
             }
