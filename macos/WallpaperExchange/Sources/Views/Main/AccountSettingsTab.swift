@@ -32,7 +32,7 @@ struct AccountSettingsTab: View {
     }
 
     private var appearanceSection: some View {
-        sectionCard(title: "Appearance") {
+        sectionCard(title: L10n.settings.appearance) {
             HStack(spacing: 8) {
                 ForEach(AppearancePref.allCases, id: \.self) { pref in
                     let isOn = appearanceRaw == pref.rawValue
@@ -76,15 +76,15 @@ struct AccountSettingsTab: View {
     }
 
     private var storageSection: some View {
-        sectionCard(title: "Storage") {
+        sectionCard(title: L10n.settings.storage) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Downloads folder").font(.system(size: 13)).foregroundStyle(Color.ink)
+                    Text(L10n.settings.downloadsFolder).font(.system(size: 13)).foregroundStyle(Color.ink)
                     Text(manager.storageDir.path).font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(Color.muted).lineLimit(1).truncationMode(.middle)
                 }
                 Spacer()
-                Button("Reveal in Finder") {
+                Button(L10n.settings.revealInFinder) {
                     try? FileManager.default.createDirectory(at: manager.storageDir, withIntermediateDirectories: true)
                     NSWorkspace.shared.open(manager.storageDir)
                 }
@@ -92,46 +92,46 @@ struct AccountSettingsTab: View {
             Divider().background(Color.hair)
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Local cache").font(.system(size: 13)).foregroundStyle(Color.ink)
-                    Text("\(localSizeText) used by downloaded wallpapers")
+                    Text(L10n.settings.localCache).font(.system(size: 13)).foregroundStyle(Color.ink)
+                    Text(L10n.settings.localCacheUsed(localSizeText))
                         .font(.system(size: 11)).foregroundStyle(Color.muted)
                 }
                 Spacer()
-                Button("Clear downloads", role: .destructive) { showClearConfirm = true }
+                Button(L10n.settings.clearDownloads, role: .destructive) { showClearConfirm = true }
                     .disabled(manager.totalLocalBytes == 0)
             }
         }
-        .confirmationDialog("Clear all downloaded wallpapers?", isPresented: $showClearConfirm, titleVisibility: .visible) {
-            Button("Delete \(localSizeText)", role: .destructive) { manager.clearDownloads() }
-            Button("Cancel", role: .cancel) {}
+        .confirmationDialog(L10n.settings.clearDownloadsConfirmTitle, isPresented: $showClearConfirm, titleVisibility: .visible) {
+            Button(L10n.settings.clearDownloadsDelete(localSizeText), role: .destructive) { manager.clearDownloads() }
+            Button(L10n.common.cancel, role: .cancel) {}
         } message: {
-            Text("Removes every wallpaper file from the local downloads folder. Your download history stays on the server and files can be re-downloaded.")
+            Text(L10n.settings.clearDownloadsConfirmMessage)
         }
     }
 
     private var aboutSection: some View {
-        sectionCard(title: "About") {
+        sectionCard(title: L10n.settings.about) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Wallpaper Exchange").font(.system(size: 13)).foregroundStyle(Color.ink)
-                    Text("Version \(appVersion)").font(.system(size: 11, design: .monospaced)).foregroundStyle(Color.muted)
+                    Text(L10n.settings.version(appVersion)).font(.system(size: 11, design: .monospaced)).foregroundStyle(Color.muted)
                 }
                 Spacer()
-                Button("Check for updates") { UpdateService.shared.checkManually() }
+                Button(L10n.settings.checkForUpdates) { UpdateService.shared.checkManually() }
             }
         }
     }
 
     private var sessionSection: some View {
-        sectionCard(title: "Session") {
+        sectionCard(title: L10n.settings.session) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Sign out").font(.system(size: 13)).foregroundStyle(Color.ink)
-                    Text("Clear local session and return to the sign-in screen")
+                    Text(L10n.settings.signOut).font(.system(size: 13)).foregroundStyle(Color.ink)
+                    Text(L10n.settings.signOutDesc)
                         .font(.system(size: 11)).foregroundStyle(Color.muted)
                 }
                 Spacer()
-                Button("Sign out", role: .destructive) { auth.logout() }
+                Button(L10n.settings.signOut, role: .destructive) { auth.logout() }
             }
         }
     }

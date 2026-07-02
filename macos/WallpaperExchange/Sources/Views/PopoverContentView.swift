@@ -52,7 +52,7 @@ struct PopoverContentView: View {
 
                 HStack(alignment: .top, spacing: 0) {
                     WallpaperColumnView(
-                        title: "Latest",
+                        title: L10n.manager.latest,
                         icon: "bolt.fill",
                         wallpapers: filteredLatest,
                         isLoading: isLoadingLatest,
@@ -66,7 +66,7 @@ struct PopoverContentView: View {
                         onShuffleToggle: nil,
                         shuffleNextAt: nil,
                         onOpenLocalFolder: nil,
-                        emptyTitle: "No wallpapers",
+                        emptyTitle: L10n.manager.noWallpapers,
                         emptySubtitle: nil,
                         onDownload: { wp in Task { await download(wp) } },
                         onRedownload: { _ in },
@@ -76,7 +76,7 @@ struct PopoverContentView: View {
                     Rectangle().fill(Color.hair).frame(width: 1)
 
                     WallpaperColumnView(
-                        title: "Downloaded",
+                        title: L10n.manager.downloaded,
                         icon: "arrow.down.to.line",
                         wallpapers: filteredDownloaded,
                         isLoading: isLoadingDownloaded,
@@ -90,8 +90,8 @@ struct PopoverContentView: View {
                         onShuffleToggle: { manager.setAutoRotate(!manager.autoRotate) },
                         shuffleNextAt: manager.nextRotationAt,
                         onOpenLocalFolder: { revealDownloadsFolder() },
-                        emptyTitle: "No downloads yet",
-                        emptySubtitle: "Try a wallpaper from Latest. Open a wallpaper detail page to set it.",
+                        emptyTitle: L10n.manager.noDownloadsYet,
+                        emptySubtitle: L10n.manager.noDownloadsHint,
                         onDownload: { _ in },
                         onRedownload: { wp in Task { await download(wp) } },
                         onLoadMore: { Task { await loadDownloaded() } }
@@ -131,7 +131,7 @@ struct PopoverContentView: View {
                 .foregroundStyle(Color.ink2)
                 .lineLimit(2)
             Spacer()
-            Button("Retry") { Task { await loadAll() } }
+            Button(L10n.common.retry) { Task { await loadAll() } }
                 .controlSize(.small)
         }
         .padding(.horizontal, 18)

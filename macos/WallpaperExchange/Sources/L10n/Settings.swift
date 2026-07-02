@@ -29,6 +29,17 @@ struct SettingsStrings {
     let storage: String
     let downloadsFolder: String
     let revealInFinder: String
+    let localCache: String
+    let localCacheUsed: (String) -> String
+    let clearDownloads: String
+    let clearDownloadsConfirmTitle: String
+    let clearDownloadsDelete: (String) -> String
+    let clearDownloadsConfirmMessage: String
+
+    // About
+    let about: String
+    let version: (String) -> String
+    let checkForUpdates: String
 
     // Session
     let session: String
@@ -68,6 +79,15 @@ private let settingsEN = SettingsStrings(
     storage: "Storage",
     downloadsFolder: "Downloads folder",
     revealInFinder: "Reveal in Finder",
+    localCache: "Local cache",
+    localCacheUsed: { "\($0) used by downloaded wallpapers" },
+    clearDownloads: "Clear downloads",
+    clearDownloadsConfirmTitle: "Clear all downloaded wallpapers?",
+    clearDownloadsDelete: { "Delete \($0)" },
+    clearDownloadsConfirmMessage: "Removes every wallpaper file from the local downloads folder. Your download history stays on the server and files can be re-downloaded.",
+    about: "About",
+    version: { "Version \($0)" },
+    checkForUpdates: "Check for updates",
     session: "Session",
     signOut: "Sign out",
     signOutDesc: "Clear local session and return to the sign-in screen",
@@ -103,6 +123,15 @@ private let settingsZhCN = SettingsStrings(
     storage: "存储",
     downloadsFolder: "下载目录",
     revealInFinder: "在访达中显示",
+    localCache: "本地缓存",
+    localCacheUsed: { "已使用 \($0) 存储已下载壁纸" },
+    clearDownloads: "清除下载",
+    clearDownloadsConfirmTitle: "清除所有已下载壁纸？",
+    clearDownloadsDelete: { "删除 \($0)" },
+    clearDownloadsConfirmMessage: "会移除本地下载目录中的所有壁纸文件。你的下载记录会保留在服务器上，之后仍可重新下载。",
+    about: "关于",
+    version: { "版本 \($0)" },
+    checkForUpdates: "检查更新",
     session: "会话",
     signOut: "退出登录",
     signOutDesc: "清除本地会话并返回登录界面",
@@ -138,6 +167,15 @@ private let settingsZhTW = SettingsStrings(
     storage: "儲存空間",
     downloadsFolder: "下載資料夾",
     revealInFinder: "在 Finder 中顯示",
+    localCache: "本機快取",
+    localCacheUsed: { "已使用 \($0) 儲存已下載桌布" },
+    clearDownloads: "清除下載",
+    clearDownloadsConfirmTitle: "清除所有已下載桌布？",
+    clearDownloadsDelete: { "刪除 \($0)" },
+    clearDownloadsConfirmMessage: "會移除本機下載資料夾中的所有桌布檔案。你的下載記錄會保留在伺服器上，之後仍可重新下載。",
+    about: "關於",
+    version: { "版本 \($0)" },
+    checkForUpdates: "檢查更新",
     session: "工作階段",
     signOut: "登出",
     signOutDesc: "清除本機工作階段並返回登入畫面",
@@ -173,6 +211,15 @@ private let settingsJA = SettingsStrings(
     storage: "ストレージ",
     downloadsFolder: "ダウンロードフォルダ",
     revealInFinder: "Finderで表示",
+    localCache: "ローカルキャッシュ",
+    localCacheUsed: { "ダウンロード済み壁紙が \($0) 使用中" },
+    clearDownloads: "ダウンロードを削除",
+    clearDownloadsConfirmTitle: "ダウンロード済み壁紙をすべて削除しますか？",
+    clearDownloadsDelete: { "\($0) を削除" },
+    clearDownloadsConfirmMessage: "ローカルのダウンロードフォルダ内にある壁紙ファイルをすべて削除します。ダウンロード履歴はサーバーに残り、後で再ダウンロードできます。",
+    about: "情報",
+    version: { "バージョン \($0)" },
+    checkForUpdates: "アップデートを確認",
     session: "セッション",
     signOut: "ログアウト",
     signOutDesc: "ローカルセッションを消去してサインイン画面に戻ります",

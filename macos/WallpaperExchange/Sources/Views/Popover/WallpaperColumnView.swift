@@ -108,8 +108,8 @@ struct WallpaperColumnView: View {
                     FilterTogglePill(
                         icon: "shuffle",
                         help: shuffleOn
-                            ? "Auto-shuffle on — click to stop"
-                            : "Auto-shuffle every \(manager.autoRotateIntervalLabel)",
+                            ? L10n.manager.autoShuffleTooltipOn
+                            : L10n.manager.autoShuffleTooltipOff(manager.autoRotateIntervalLabel),
                         isOn: shuffleOn,
                         action: onShuffleToggle
                     )
@@ -117,15 +117,15 @@ struct WallpaperColumnView: View {
                 FilterTogglePill(
                     icon: "apple.logo",
                     help: macOnly
-                        ? "Showing only macOS dynamic wallpapers"
-                        : "Show only macOS dynamic wallpapers",
+                        ? L10n.manager.macDynamicShowingOnly
+                        : L10n.manager.macDynamicShowOnly,
                     isOn: macOnly,
                     action: onMacOnlyToggle
                 )
                 if let onOpenLocalFolder {
                     FilterTogglePill(
                         icon: "folder",
-                        help: "Reveal the downloads folder in Finder",
+                        help: L10n.manager.revealDownloadsFolder,
                         isOn: false,
                         action: onOpenLocalFolder
                     )
@@ -158,7 +158,7 @@ struct WallpaperColumnView: View {
         if isLoading && !wallpapers.isEmpty {
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
-                Text("Loading more…")
+                Text(L10n.manager.loadingMore)
                     .font(.sans11)
                     .foregroundStyle(Color.muted)
             }
@@ -166,7 +166,7 @@ struct WallpaperColumnView: View {
             .padding(.vertical, 12)
         } else if hasMore {
             Button(action: onLoadMore) {
-                Text("Load more")
+                Text(L10n.manager.loadMore)
                     .font(.sans11)
                     .foregroundStyle(Color.ink2)
                     .padding(.horizontal, 14)
@@ -179,7 +179,7 @@ struct WallpaperColumnView: View {
         } else if !wallpapers.isEmpty {
             HStack(spacing: 10) {
                 Rectangle().fill(Color.hair).frame(width: 32, height: 1)
-                Text("End")
+                Text(L10n.manager.end)
                     .font(.monoCaps)
                     .tracking(1.4)
                     .foregroundStyle(Color.muted)
