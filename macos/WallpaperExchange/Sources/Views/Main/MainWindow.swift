@@ -166,7 +166,16 @@ struct MainWindow: View {
         .background(Color.clear)
         .background(WindowBackdropClearer())
         .background(WindowFullScreenReader(isFullScreen: $isFullScreen))
-        .task { await auth.refreshProfile() }
+        // Load the persisted JWT only after the window is on screen. The
+        // Keychain read can raise a system-modal consent prompt (ad-hoc
+        // signing re-arms it every update); doing it here — not in
+        // AuthService.init — keeps that prompt from blocking the initial
+        // window presentation. refreshProfile then runs with the token in
+        // place (and again on every remount, e.g. a language change).
+        .task {
+            await auth.loadPersistedToken()
+            await auth.refreshProfile()
+        }
     }
 
     private func openDetail(_ wallpaper: Wallpaper) {

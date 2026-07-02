@@ -22,15 +22,43 @@ final class AuthService {
     // tokens persisted by pre-Keychain builds.
     private let legacyTokenDefaultsKey = "auth.jwt_token"
 
-    private init() {
-        if let legacy = UserDefaults.standard.string(forKey: legacyTokenDefaultsKey) {
-            // One-time migration off the old plain-text defaults storage.
-            KeychainTokenStore.save(legacy)
-            UserDefaults.standard.removeObject(forKey: legacyTokenDefaultsKey)
-            token = legacy
-        } else {
-            token = KeychainTokenStore.load()
-        }
+    private var didLoadPersistedToken = false
+
+    // Keychain access is deliberately kept OUT of init and off the main
+    // thread. Reading the JWT with SecItemCopyMatching blocks until the
+    // keychain consent prompt is answered, and because the app is ad-hoc
+    // signed that prompt reappears after every re-sign (every update /
+    // dev rebuild — see KeychainTokenStore). The consent dialog is a
+    // system-modal window: if it comes up during launch, before the app
+    // has activated, it prevents the SwiftUI `Window` scene from ever
+    // presenting its initial window — the app looks frozen with no main
+    // window ("主界面出不来"). So the singleton starts logged-out and the
+    // main window drives loadPersistedToken() from its .task, once it is
+    // on screen. The consent prompt (if any) then floats over a visible
+    // window and answering it flips the UI to signed-in.
+    private init() {}
+
+    // Called from the main window's .task after it appears. Idempotent.
+    func loadPersistedToken() async {
+        guard !didLoadPersistedToken else { return }
+        didLoadPersistedToken = true
+
+        let legacyKey = legacyTokenDefaultsKey
+        let loaded = await Task.detached(priority: .userInitiated) { () -> String? in
+            if let legacy = UserDefaults.standard.string(forKey: legacyKey) {
+                // One-time migration off the old plain-text defaults storage.
+                KeychainTokenStore.save(legacy)
+                UserDefaults.standard.removeObject(forKey: legacyKey)
+                return legacy
+            }
+            return KeychainTokenStore.load()
+        }.value
+
+        // A sign-in that completed while the Keychain load was pending
+        // owns the newer token; don't clobber it. The caller refreshes
+        // the profile after this returns.
+        guard let loaded, token == nil else { return }
+        token = loaded
     }
 
     func login() {

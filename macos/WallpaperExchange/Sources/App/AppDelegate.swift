@@ -173,19 +173,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 button.image = fallback
             }
             button.imagePosition = .imageOnly
-            button.action = #selector(handleStatusItemClick)
-            button.target = self
-            // Receive both kinds of clicks; either one opens the utility menu.
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
+        // The menu must stay attached permanently. On macOS 26 status
+        // items are hosted out-of-process by Control Center, and the
+        // app-side button lives in an off-screen proxy window — the old
+        // attach → performClick(nil) → detach trick anchored the NSMenu
+        // to that proxy, popping it at off-screen coordinates where the
+        // user sees nothing. With a persistent menu the system pops it
+        // at the item's real on-screen anchor; menuNeedsUpdate keeps
+        // the contents fresh per open.
+        let menu = NSMenu()
+        menu.delegate = self
+        statusItem.menu = menu
     }
 
     // Status menu: surfaces the main-window launcher, launch-at-login,
-    // updates, and Quit. Built lazily on each invocation so the
-    // version label always shows the running app's current version, not
-    // a stale cache.
-    private func buildStatusMenu() -> NSMenu {
-        let menu = NSMenu()
+    // updates, and Quit. Rebuilt on every open (menuNeedsUpdate) so the
+    // version label and CPU/RAM figures always reflect the running
+    // process, not a stale cache.
+    private func populateStatusMenu(_ menu: NSMenu) {
+        menu.removeAllItems()
 
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
         let versionItem = NSMenuItem(title: "Wallpaper Exchange \(version)", action: nil, keyEquivalent: "")
@@ -249,8 +256,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let quitItem = NSMenuItem(title: L10n.shell.quitApp, action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quitItem)
-
-        return menu
     }
 
     private func formatCPU(_ value: Double) -> String {
@@ -304,24 +309,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc private func handleStatusItemClick() {
-        showStatusMenu()
-    }
-
-    private func showStatusMenu() {
-        // Temporarily attach the menu so AppKit pops it from the correct
-        // anchor (right below the status item). Detach immediately after
-        // so single left clicks keep firing the action and not the menu.
-        statusItem.menu = buildStatusMenu()
-        statusItem.button?.performClick(nil)
-        statusItem.menu = nil
-    }
-
     private func openMainWindow(requestNewWindowIfNeeded: Bool = true) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
 
-        if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {
+        // canBecomeMain is false while the window is closed (AppKit ties
+        // it to visibility), so also match the SwiftUI "main" scene
+        // window by identifier — makeKeyAndOrderFront re-orders a closed
+        // window back in.
+        if let window = NSApp.windows.first(where: {
+            $0.canBecomeMain || $0.identifier?.rawValue.hasPrefix("main") == true
+        }) {
             applyWindowChrome(window)
             if window.isMiniaturized {
                 window.deminiaturize(nil)
@@ -333,5 +331,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.openMainWindow(requestNewWindowIfNeeded: false)
             }
         }
+    }
+}
+
+extension AppDelegate: NSMenuDelegate {
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        populateStatusMenu(menu)
     }
 }
