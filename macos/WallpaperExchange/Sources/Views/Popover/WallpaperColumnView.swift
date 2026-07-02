@@ -108,8 +108,8 @@ struct WallpaperColumnView: View {
                     FilterTogglePill(
                         icon: "shuffle",
                         help: shuffleOn
-                            ? L10n.manager.autoShuffleTooltipOn
-                            : L10n.manager.autoShuffleTooltipOff(manager.autoRotateIntervalLabel),
+                            ? "Auto-shuffle on — click to stop"
+                            : "Auto-shuffle every \(manager.autoRotateIntervalLabel)",
                         isOn: shuffleOn,
                         action: onShuffleToggle
                     )
@@ -117,15 +117,15 @@ struct WallpaperColumnView: View {
                 FilterTogglePill(
                     icon: "apple.logo",
                     help: macOnly
-                        ? L10n.manager.macDynamicShowingOnly
-                        : L10n.manager.macDynamicShowOnly,
+                        ? "Showing only macOS dynamic wallpapers"
+                        : "Show only macOS dynamic wallpapers",
                     isOn: macOnly,
                     action: onMacOnlyToggle
                 )
                 if let onOpenLocalFolder {
                     FilterTogglePill(
                         icon: "folder",
-                        help: L10n.manager.revealDownloadsFolder,
+                        help: "Reveal the downloads folder in Finder",
                         isOn: false,
                         action: onOpenLocalFolder
                     )

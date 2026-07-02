@@ -500,7 +500,6 @@ final class WallpaperManager {
         let targetScreens = screens ?? Self.connectedScreens()
         if Self.isVideoFileURL(url) {
             logger.info("applying video wallpaper from \(source, privacy: .public): id=\(id, privacy: .public)")
-            ParticleWallpaperController.shared.stop(screens: targetScreens)
             VideoWallpaperController.shared.start(videoURL: url, wallpaperID: id, screens: targetScreens)
             if markAsCurrent {
                 markCurrent(id, screens: targetScreens)
@@ -508,7 +507,6 @@ final class WallpaperManager {
             return
         }
 
-        ParticleWallpaperController.shared.stop(screens: targetScreens)
         VideoWallpaperController.shared.stop(screens: targetScreens)
         applyToScreens(url: url, screens: targetScreens, source: source, expectedWallpaperID: id)
         if markAsCurrent {
@@ -765,7 +763,6 @@ final class WallpaperManager {
 
     private func applyVideoDesktopWallpaper(_ wallpaper: Wallpaper, videoURL: URL, poster: URL?, target: WallpaperDisplayTarget) {
         let targetScreens = screens(for: target)
-        ParticleWallpaperController.shared.stop(screens: targetScreens)
         if let poster {
             applyToScreens(
                 url: poster,
@@ -811,7 +808,6 @@ final class WallpaperManager {
         let fm = FileManager.default
         var removed = 0
         VideoWallpaperController.shared.stop()
-        ParticleWallpaperController.shared.stop()
         if let contents = try? fm.contentsOfDirectory(at: storageDir, includingPropertiesForKeys: nil) {
             for url in contents where (try? fm.removeItem(at: url)) != nil { removed += 1 }
         }

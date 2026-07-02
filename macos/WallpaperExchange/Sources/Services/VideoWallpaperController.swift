@@ -21,7 +21,6 @@ final class VideoWallpaperController {
         if coversAllConnectedScreens(targetKeys) {
             stopScreens(excluding: targetKeys)
         }
-        ParticleWallpaperController.shared.stop(screens: targetScreens)
 
         for screen in targetScreens {
             guard let key = Self.screenKey(screen) else { continue }

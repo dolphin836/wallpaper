@@ -25,49 +25,10 @@ struct SettingsStrings {
     let themeLight: String
     let themeDark: String
 
-    // Particle wallpapers
-    let particleWallpapers: String
-    let particleDesc: String
-    let particleRunning: String
-    let particleStopped: String
-    let particlePreset: String
-    let particleDisplay: String
-    let particleDensity: String
-    let particleSpeed: String
-    let particleBrightness: String
-    let particleApply: String
-    let particleStop: String
-    let particleStarfield: String
-    let particleSnow: String
-    let particleRain: String
-    let particleFireflies: String
-    let particleAurora: String
-    let particleEmbers: String
-    let particleAudioTerrain: String
-    let particleSonicSilk: String
-    let particleSonicTunnel: String
-    let particleSonicOrbit: String
-    let particleVinylPulse: String
-    let particleWallpaperPulse: String
-    let particleTerrainPillars: String
-    let particleTerrainFoam: String
-    let particleTerrainIrregular: String
-
     // Storage
     let storage: String
     let downloadsFolder: String
     let revealInFinder: String
-    let localCache: String
-    let localCacheUsed: (String) -> String
-    let clearDownloads: String
-    let clearDownloadsConfirmTitle: String
-    let clearDownloadsDelete: (String) -> String
-    let clearDownloadsMessage: String
-
-    // About
-    let about: String
-    let appVersion: (String) -> String
-    let checkForUpdates: String
 
     // Session
     let session: String
@@ -104,44 +65,9 @@ private let settingsEN = SettingsStrings(
     themeSystem: "System",
     themeLight: "Light",
     themeDark: "Dark",
-    particleWallpapers: "Particle wallpapers",
-    particleDesc: "Local real-time effects for a lightweight animated desktop. They only affect the desktop wallpaper, not the lock screen.",
-    particleRunning: "Running",
-    particleStopped: "Stopped",
-    particlePreset: "Preset",
-    particleDisplay: "Display",
-    particleDensity: "Density",
-    particleSpeed: "Speed",
-    particleBrightness: "Brightness",
-    particleApply: "Apply effect",
-    particleStop: "Stop effect",
-    particleStarfield: "Starfield",
-    particleSnow: "Snow",
-    particleRain: "Rain",
-    particleFireflies: "Fireflies",
-    particleAurora: "Aurora",
-    particleEmbers: "Embers",
-    particleAudioTerrain: "Sonic topography",
-    particleSonicSilk: "Sonic silk",
-    particleSonicTunnel: "Neon tunnel",
-    particleSonicOrbit: "Orbit field",
-    particleVinylPulse: "Vinyl pulse",
-    particleWallpaperPulse: "Wallpaper pulse",
-    particleTerrainPillars: "Audio pillars",
-    particleTerrainFoam: "Foam terrain",
-    particleTerrainIrregular: "Irregular terrain",
     storage: "Storage",
     downloadsFolder: "Downloads folder",
     revealInFinder: "Reveal in Finder",
-    localCache: "Local cache",
-    localCacheUsed: { "\($0) used by downloaded wallpapers" },
-    clearDownloads: "Clear downloads",
-    clearDownloadsConfirmTitle: "Clear all downloaded wallpapers?",
-    clearDownloadsDelete: { "Delete \($0)" },
-    clearDownloadsMessage: "Removes every wallpaper file from the local downloads folder. Your download history stays on the server and files can be re-downloaded.",
-    about: "About",
-    appVersion: { "Version \($0)" },
-    checkForUpdates: "Check for updates",
     session: "Session",
     signOut: "Sign out",
     signOutDesc: "Clear local session and return to the sign-in screen",
@@ -174,44 +100,9 @@ private let settingsZhCN = SettingsStrings(
     themeSystem: "跟随系统",
     themeLight: "浅色",
     themeDark: "深色",
-    particleWallpapers: "粒子壁纸",
-    particleDesc: "本地实时生成的轻量动态桌面效果，只设置桌面，不处理锁屏。",
-    particleRunning: "运行中",
-    particleStopped: "已停止",
-    particlePreset: "效果",
-    particleDisplay: "显示器",
-    particleDensity: "密度",
-    particleSpeed: "速度",
-    particleBrightness: "亮度",
-    particleApply: "应用效果",
-    particleStop: "停止效果",
-    particleStarfield: "星空",
-    particleSnow: "飘雪",
-    particleRain: "雨幕",
-    particleFireflies: "萤火",
-    particleAurora: "极光",
-    particleEmbers: "余烬",
-    particleAudioTerrain: "音域回响",
-    particleSonicSilk: "声波丝绸",
-    particleSonicTunnel: "霓虹隧道",
-    particleSonicOrbit: "星体轨道",
-    particleVinylPulse: "唱片脉冲",
-    particleWallpaperPulse: "壁纸流光",
-    particleTerrainPillars: "音域柱形",
-    particleTerrainFoam: "泡沫地形",
-    particleTerrainIrregular: "不规则地形",
     storage: "存储",
     downloadsFolder: "下载目录",
     revealInFinder: "在访达中显示",
-    localCache: "本地缓存",
-    localCacheUsed: { "已下载壁纸占用 \($0)" },
-    clearDownloads: "清空下载",
-    clearDownloadsConfirmTitle: "清空所有已下载壁纸？",
-    clearDownloadsDelete: { "删除 \($0)" },
-    clearDownloadsMessage: "会移除本地下载目录中的所有壁纸文件。你的下载记录仍保留在服务器，之后可以重新下载。",
-    about: "关于",
-    appVersion: { "版本 \($0)" },
-    checkForUpdates: "检查更新",
     session: "会话",
     signOut: "退出登录",
     signOutDesc: "清除本地会话并返回登录界面",
@@ -244,44 +135,9 @@ private let settingsZhTW = SettingsStrings(
     themeSystem: "跟隨系統",
     themeLight: "淺色",
     themeDark: "深色",
-    particleWallpapers: "粒子桌布",
-    particleDesc: "本機即時生成的輕量動態桌面效果，只設定桌面，不處理鎖定畫面。",
-    particleRunning: "執行中",
-    particleStopped: "已停止",
-    particlePreset: "效果",
-    particleDisplay: "顯示器",
-    particleDensity: "密度",
-    particleSpeed: "速度",
-    particleBrightness: "亮度",
-    particleApply: "套用效果",
-    particleStop: "停止效果",
-    particleStarfield: "星空",
-    particleSnow: "飄雪",
-    particleRain: "雨幕",
-    particleFireflies: "螢火",
-    particleAurora: "極光",
-    particleEmbers: "餘燼",
-    particleAudioTerrain: "音域回響",
-    particleSonicSilk: "聲波絲綢",
-    particleSonicTunnel: "霓虹隧道",
-    particleSonicOrbit: "星體軌道",
-    particleVinylPulse: "唱片脈衝",
-    particleWallpaperPulse: "桌布流光",
-    particleTerrainPillars: "音域柱形",
-    particleTerrainFoam: "泡沫地形",
-    particleTerrainIrregular: "不規則地形",
     storage: "儲存空間",
     downloadsFolder: "下載資料夾",
     revealInFinder: "在 Finder 中顯示",
-    localCache: "本機快取",
-    localCacheUsed: { "已下載桌布占用 \($0)" },
-    clearDownloads: "清空下載",
-    clearDownloadsConfirmTitle: "清空所有已下載桌布？",
-    clearDownloadsDelete: { "刪除 \($0)" },
-    clearDownloadsMessage: "會移除本機下載資料夾中的所有桌布檔案。你的下載記錄仍保留在伺服器，之後可以重新下載。",
-    about: "關於",
-    appVersion: { "版本 \($0)" },
-    checkForUpdates: "檢查更新",
     session: "工作階段",
     signOut: "登出",
     signOutDesc: "清除本機工作階段並返回登入畫面",
@@ -314,44 +170,9 @@ private let settingsJA = SettingsStrings(
     themeSystem: "システム",
     themeLight: "ライト",
     themeDark: "ダーク",
-    particleWallpapers: "パーティクル壁紙",
-    particleDesc: "ローカルでリアルタイム生成する軽量な動くデスクトップ効果です。デスクトップのみ対象で、ロック画面は変更しません。",
-    particleRunning: "実行中",
-    particleStopped: "停止中",
-    particlePreset: "プリセット",
-    particleDisplay: "ディスプレイ",
-    particleDensity: "密度",
-    particleSpeed: "速度",
-    particleBrightness: "明るさ",
-    particleApply: "効果を適用",
-    particleStop: "効果を停止",
-    particleStarfield: "星空",
-    particleSnow: "雪",
-    particleRain: "雨",
-    particleFireflies: "蛍",
-    particleAurora: "オーロラ",
-    particleEmbers: "残り火",
-    particleAudioTerrain: "ソニック地形",
-    particleSonicSilk: "ソニックシルク",
-    particleSonicTunnel: "ネオントンネル",
-    particleSonicOrbit: "軌道フィールド",
-    particleVinylPulse: "レコードパルス",
-    particleWallpaperPulse: "壁紙パルス",
-    particleTerrainPillars: "音域ピラー",
-    particleTerrainFoam: "フォーム地形",
-    particleTerrainIrregular: "不規則地形",
     storage: "ストレージ",
     downloadsFolder: "ダウンロードフォルダ",
     revealInFinder: "Finderで表示",
-    localCache: "ローカルキャッシュ",
-    localCacheUsed: { "ダウンロード済み壁紙が \($0) 使用中" },
-    clearDownloads: "ダウンロードを消去",
-    clearDownloadsConfirmTitle: "ダウンロード済み壁紙をすべて消去しますか？",
-    clearDownloadsDelete: { "\($0) を削除" },
-    clearDownloadsMessage: "ローカルのダウンロードフォルダ内の壁紙ファイルをすべて削除します。ダウンロード履歴はサーバーに残り、後で再ダウンロードできます。",
-    about: "情報",
-    appVersion: { "バージョン \($0)" },
-    checkForUpdates: "アップデートを確認",
     session: "セッション",
     signOut: "ログアウト",
     signOutDesc: "ローカルセッションを消去してサインイン画面に戻ります",

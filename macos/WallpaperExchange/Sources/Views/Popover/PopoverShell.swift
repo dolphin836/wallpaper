@@ -23,7 +23,7 @@ struct PopoverHeaderView: View {
                             .foregroundStyle(Color.muted)
                     }
                 } else {
-                    Text(L10n.shell.notSignedIn)
+                    Text("Not signed in")
                         .font(.sans12)
                         .foregroundStyle(Color.muted)
                 }
@@ -34,7 +34,7 @@ struct PopoverHeaderView: View {
             if auth.isLoggedIn, let user = auth.user {
                 coinPill(coins: user.coins)
             } else {
-                Button(L10n.shell.signIn) { auth.login() }
+                Button("Sign in") { auth.login() }
                     .controlSize(.small)
             }
 
@@ -50,7 +50,7 @@ struct PopoverHeaderView: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .help(L10n.settings.signOut)
+                .help("Sign out")
             }
         }
         .padding(.horizontal, 18)
@@ -131,7 +131,7 @@ struct PopoverFooterView: View {
         HStack(alignment: .center, spacing: 16) {
             Button(action: { NSApplication.shared.terminate(nil) }) {
                 Label {
-                    Text(L10n.shell.quitApp).font(.sans12)
+                    Text("Quit").font(.sans12)
                 } icon: {
                     Image(systemName: "power").font(.system(size: 13))
                 }
@@ -142,7 +142,7 @@ struct PopoverFooterView: View {
 
             Button(action: onOpenWeb) {
                 Label {
-                    Text(L10n.manager.openInBrowser).font(.sans12)
+                    Text("Open in browser").font(.sans12)
                 } icon: {
                     Image(systemName: "arrow.up.right.square").font(.system(size: 13))
                 }
@@ -164,7 +164,7 @@ struct PopoverFooterView: View {
                         .font(.monoCaps)
                         .tracking(0.6)
                         .foregroundStyle(Color.muted)
-                        .help(L10n.manager.localDiskUsedHelp)
+                        .help("Local disk used by cached wallpapers")
                 }
                 Rectangle().fill(Color.hair).frame(width: 1, height: 12)
                 Text(versionString)
@@ -275,18 +275,18 @@ struct ShuffleStatusBanner: View {
     }
 
     private var message: AttributedString {
-        var bold = AttributedString(L10n.manager.autoShuffleBannerTitle)
+        var bold = AttributedString("Auto-shuffle is on. ")
         bold.font = .system(size: 12, weight: .semibold)
-        var rest = AttributedString(L10n.manager.autoShuffleBannerMessage(intervalText))
+        var rest = AttributedString("Pulling from your downloads every \(intervalText).")
         rest.font = .sans12
         return bold + rest
     }
 
     private var countdown: String {
-        guard let nextAt else { return L10n.manager.autoShuffleNextUnknown }
+        guard let nextAt else { return "NEXT · —" }
         let secs = max(0, Int(nextAt.timeIntervalSince(now)))
         let h = secs / 3600
         let m = (secs % 3600) / 60
-        return L10n.manager.autoShuffleNext(h, m)
+        return "NEXT · \(h) H \(m) M"
     }
 }
