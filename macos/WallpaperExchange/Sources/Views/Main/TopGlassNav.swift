@@ -32,9 +32,15 @@ struct GlassPill<Content: View>: View {
             // scaling rules, and the default one is too faint over
             // busy wallpaper imagery.
             GlassEffectContainer(spacing: 20) {
-                row.glassEffect(.regular.interactive(), in: Capsule())
+                row
+                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .overlay(GlassLightingOverlay(intensity: 0.8))
             }
-            .shadow(color: Color.black.opacity(0.22), radius: 18, y: 7)
+            // Two shadows: a tight contact shadow and a wide ambient
+            // one. Splitting them is what makes the bar read as
+            // floating at a definite height instead of just "blurry".
+            .shadow(color: Color.black.opacity(0.18), radius: 3, y: 2)
+            .shadow(color: Color.black.opacity(0.20), radius: 22, y: 10)
         } else {
             row
                 .background(.ultraThinMaterial, in: Capsule())
@@ -43,18 +49,9 @@ struct GlassPill<Content: View>: View {
                     // stays legible over bright and dark backdrops.
                     Capsule().fill(Color.paper.opacity(0.28))
                 )
-                .overlay(
-                    Capsule()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.55), Color.white.opacity(0.10)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(color: Color.black.opacity(0.16), radius: 14, y: 5)
+                .overlay(GlassLightingOverlay(intensity: 0.9))
+                .shadow(color: Color.black.opacity(0.18), radius: 3, y: 2)
+                .shadow(color: Color.black.opacity(0.18), radius: 18, y: 8)
         }
     }
 
@@ -63,6 +60,79 @@ struct GlassPill<Content: View>: View {
             content
         }
         .padding(4)
+    }
+}
+
+// Hand-drawn light passes layered over the glass, modelled on the
+// passes aave.com describes in "Building Glass for the Web": a 45°
+// specular sheen where light enters the lens, a bright top rim with a
+// dark counter-rim underneath (reads as physical thickness), and a
+// whisper of chromatic fringe hugging opposite edges. The native
+// glassEffect supplies refraction; these passes supply the sculpted
+// light that makes the surface read as a solid object.
+struct GlassLightingOverlay: View {
+    // Droplets are small lenses and take stronger light than the bar.
+    var intensity: Double = 1.0
+
+    var body: some View {
+        ZStack {
+            // Specular sheen — light entering from the top-leading
+            // corner at ~45°, fading out before the midline.
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.26 * intensity), location: 0),
+                            .init(color: .white.opacity(0.05 * intensity), location: 0.34),
+                            .init(color: .clear, location: 0.58),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .blendMode(.plusLighter)
+
+            // Rim light along the top edge…
+            Capsule()
+                .strokeBorder(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.60 * intensity), location: 0),
+                            .init(color: .white.opacity(0.10 * intensity), location: 0.42),
+                            .init(color: .clear, location: 0.78),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+                .blendMode(.plusLighter)
+
+            // …and a dark counter-rim at the bottom edge, which is
+            // what sells the pane as having thickness.
+            Capsule()
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.15 * intensity)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+
+            // Chromatic fringe: a cool hairline biased to the
+            // top-leading edge and a warm one to the bottom-trailing,
+            // like dispersion at the lens rim.
+            Capsule()
+                .strokeBorder(Color(red: 0.55, green: 0.75, blue: 1.0).opacity(0.10 * intensity), lineWidth: 0.5)
+                .offset(x: -0.4, y: -0.4)
+                .blendMode(.plusLighter)
+            Capsule()
+                .strokeBorder(Color(red: 1.0, green: 0.62, blue: 0.45).opacity(0.10 * intensity), lineWidth: 0.5)
+                .offset(x: 0.4, y: 0.4)
+                .blendMode(.plusLighter)
+        }
+        .allowsHitTesting(false)
     }
 }
 
@@ -298,21 +368,18 @@ private struct GlassNavItem: View {
                 .fill(Color.paper.opacity(0.30))
                 .glassEffect(.regular.interactive(), in: Capsule())
                 .glassEffectID("chrome-nav-droplet-glass", in: dropletNamespace)
-                .shadow(color: Color.black.opacity(0.16), radius: 5, y: 2)
+                // Small lenses take the strongest light of the family —
+                // the sheen + rim pair is what makes the droplet look
+                // convex instead of flat.
+                .overlay(GlassLightingOverlay(intensity: 1.5))
+                .shadow(color: Color.black.opacity(0.12), radius: 1.5, y: 1)
+                .shadow(color: Color.black.opacity(0.18), radius: 6, y: 3)
         } else {
             Capsule()
                 .fill(Color.paper.opacity(0.92))
-                .overlay(
-                    Capsule().strokeBorder(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.75), Color.white.opacity(0.08)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
-                )
-                .shadow(color: Color.black.opacity(0.16), radius: 5, y: 2)
+                .overlay(GlassLightingOverlay(intensity: 1.3))
+                .shadow(color: Color.black.opacity(0.12), radius: 1.5, y: 1)
+                .shadow(color: Color.black.opacity(0.18), radius: 6, y: 3)
         }
     }
 }
