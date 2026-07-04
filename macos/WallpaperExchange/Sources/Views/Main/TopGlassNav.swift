@@ -59,7 +59,7 @@ struct GlassPill<Content: View>: View {
         HStack(spacing: 2) {
             content
         }
-        .padding(4)
+        .padding(5)
     }
 }
 
@@ -152,7 +152,7 @@ struct GlassPillDivider: View {
     var body: some View {
         Capsule()
             .fill(Color.ink.opacity(0.16))
-            .frame(width: 1, height: 16)
+            .frame(width: 1, height: 20)
             .padding(.horizontal, 4)
     }
 }
@@ -236,14 +236,14 @@ private struct GlassNavItem: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: item.icon)
-                    .font(.system(size: 11.5, weight: isSelected ? .semibold : .medium))
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
                 Text(item.label)
-                    .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 13.5, weight: isSelected ? .semibold : .regular))
                     .lineLimit(1)
             }
             .foregroundStyle(fg)
-            .padding(.horizontal, 13)
-            .frame(height: 28)
+            .padding(.horizontal, 17)
+            .frame(height: 34)
             .background {
                 if isSelected {
                     selectionDroplet
@@ -309,20 +309,29 @@ struct ToolbarAvatarButton: View {
     @State private var auth = AuthService.shared
     @State private var hover = false
 
-    private let size: CGFloat = 24
+    private let size: CGFloat = 30
 
     var body: some View {
         Button(action: action) {
             avatarContent
                 .frame(width: size, height: size)
                 .clipShape(Circle())
+                // Always-on ring so the avatar reads as a control even
+                // at rest: a crisp white ring with a dark outer hair
+                // for separation on bright backdrops. Accent when the
+                // account page is open.
                 .overlay(
                     Circle().strokeBorder(
-                        active ? Color.accent.opacity(0.85) : Color.white.opacity(hover ? 0.65 : 0.35),
-                        lineWidth: active ? 1.5 : 1
+                        active ? Color.accent.opacity(0.85) : Color.white.opacity(hover ? 0.95 : 0.75),
+                        lineWidth: 1.5
                     )
                 )
-                .frame(width: 28, height: 28)
+                .background(
+                    Circle()
+                        .stroke(Color.black.opacity(0.18), lineWidth: 0.5)
+                        .padding(-0.5)
+                )
+                .frame(width: 34, height: 34)
                 .scaleEffect(hover ? 1.12 : 1)
                 .contentShape(Circle())
         }
@@ -332,7 +341,7 @@ struct ToolbarAvatarButton: View {
         .overlay(alignment: .top) {
             if hover {
                 HoverTip(text: auth.isLoggedIn ? L10n.shell.settings : L10n.shell.signIn)
-                    .offset(y: 36)
+                    .offset(y: 42)
             }
         }
         .onHover { h in

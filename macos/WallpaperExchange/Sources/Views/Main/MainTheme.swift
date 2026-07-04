@@ -76,9 +76,10 @@ struct ChipFlow: Layout {
 // (inset on all sides, rounded, bordered) next to the full-bleed
 // detail surface (rounded only on its top-leading corner).
 enum WindowChrome {
-    /// Height of the paper top bar the traffic lights float on, above
-    /// the sidebar card and the detail surface.
-    static let topBar: CGFloat = 42
+    /// Height of the chrome row at the window top. The glass nav bar
+    /// centres vertically in it, so a taller row both fits the larger
+    /// pill and floats it lower, clear of the traffic lights.
+    static let topBar: CGFloat = 72
     /// Breathing room between the toolbar row and the sidebar/detail
     /// surfaces. Keeps the custom chrome from feeling glued to content.
     static let toolbarGap: CGFloat = 8
