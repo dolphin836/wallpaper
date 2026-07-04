@@ -157,56 +157,6 @@ struct GlassPillDivider: View {
     }
 }
 
-// Icon-only action button sized to match GlassNavItem's height, so an
-// icon toolbar pill and the nav pill line up exactly. Hover shows an
-// instant custom tip capsule right below the button (instead of the
-// delayed native tooltip).
-struct GlassIconButton: View {
-    let icon: String
-    let help: String
-    var active: Bool = false
-    let action: () -> Void
-
-    @State private var hover = false
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(active ? Color.accent : (hover ? Color.ink : Color.ink2))
-                .frame(width: 28, height: 28)
-                .background {
-                    if active {
-                        Circle().fill(Color.accent.opacity(0.13))
-                    } else if hover {
-                        Circle().fill(Color.ink.opacity(0.09))
-                    }
-                }
-                // Droplet pop: the whole control swells slightly under
-                // the cursor and springs back, instead of a flat tint.
-                .scaleEffect(hover ? 1.12 : 1)
-                .contentShape(Circle())
-        }
-        .buttonStyle(GlassBounceButtonStyle())
-        .focusEffectDisabled()
-        .focusable(false)
-        .overlay(alignment: .top) {
-            if hover {
-                HoverTip(text: help)
-                    // Button is 28pt tall; anchor the tip's top 8pt
-                    // below its bottom edge.
-                    .offset(y: 36)
-            }
-        }
-        .onHover { h in
-            hover = h
-            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-        }
-        .animation(.spring(response: 0.32, dampingFraction: 0.6), value: hover)
-        .animation(.easeOut(duration: 0.14), value: active)
-    }
-}
-
 // Small dark capsule label shown under chrome buttons on hover — same
 // treatment the old collapsed sidebar used for its fly-out labels.
 struct HoverTip: View {
@@ -230,23 +180,14 @@ struct HoverTip: View {
 }
 
 // The single liquid-glass chrome bar fixed at the window's top-centre.
-// One shared container, three functional groups separated by hairline
-// dividers so they read as distinct clusters:
+// Two groups separated by a hairline divider:
 //   1. Navigation — icon + label segments for the browse destinations
-//      (the only group with a selected-capsule state).
-//   2. Actions — icon-only buttons (upload, settings, refresh, theme).
-//   3. Identity — the avatar chip.
+//      (with the liquid selection droplet).
+//   2. Identity — the avatar chip (account/settings, or sign-in).
 struct GlassChromeBar: View {
     let selection: MainWindow.SidebarItem?
     let onSelect: (MainWindow.SidebarItem) -> Void
-    let showUpload: Bool
-    let uploadActive: Bool
     let avatarActive: Bool
-    let themeIcon: String
-    let themeHelp: String
-    let onUpload: () -> Void
-    let onRefresh: () -> Void
-    let onTheme: () -> Void
     let onAvatar: () -> Void
 
     // Shared geometry space for the selection droplet, so it slides
@@ -266,32 +207,6 @@ struct GlassChromeBar: View {
                     action: { onSelect(item) }
                 )
             }
-
-            GlassPillDivider()
-
-            // Upload needs an account, so the icon only shows once
-            // signed in. Settings lives behind the avatar instead of
-            // its own icon.
-            if showUpload {
-                // tray.and.arrow.up reads as "upload"; the previous
-                // square.and.arrow.up is macOS's share glyph.
-                GlassIconButton(
-                    icon: "tray.and.arrow.up",
-                    help: L10n.shell.upload,
-                    active: uploadActive,
-                    action: onUpload
-                )
-            }
-            GlassIconButton(
-                icon: "arrow.clockwise",
-                help: L10n.shell.refreshPage,
-                action: onRefresh
-            )
-            GlassIconButton(
-                icon: themeIcon,
-                help: themeHelp,
-                action: onTheme
-            )
 
             GlassPillDivider()
 

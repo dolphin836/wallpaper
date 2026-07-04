@@ -8,7 +8,6 @@ import AppKit
 struct MainWindow: View {
     @State private var auth = AuthService.shared
     @State private var manager = WallpaperManager.shared
-    @AppStorage(AppearancePref.storageKey) private var appearanceRaw: String = AppearancePref.system.rawValue
 
     @State private var sidebar: SidebarItem = .home
     // Set when a Home "browse more" CTA jumps to Discover with a filter
@@ -21,7 +20,6 @@ struct MainWindow: View {
     // push. The overlay now fills the window visually so list scroll
     // position stays intact while the detail feels immersive.
     @State private var detailTarget: DetailTarget?
-    @State private var refreshToken = UUID()
     @State private var forwardPath: [MainRoute] = []
     @State private var isRestoringForward = false
     @State private var isFullScreen = false
@@ -178,14 +176,7 @@ struct MainWindow: View {
         GlassChromeBar(
             selection: navSelection,
             onSelect: { selectTopLevel($0) },
-            showUpload: auth.isLoggedIn,
-            uploadActive: sidebar == .upload,
             avatarActive: sidebar.isMine || sidebar == .settings,
-            themeIcon: themeToolbarIcon,
-            themeHelp: themeToolbarHelp,
-            onUpload: { selectTopLevel(.upload) },
-            onRefresh: refreshCurrentPage,
-            onTheme: toggleTheme,
             onAvatar: {
                 if auth.isLoggedIn {
                     // Account home = the settings tab of the profile page.
@@ -211,14 +202,6 @@ struct MainWindow: View {
         }
     }
 
-    private var themeToolbarIcon: String {
-        AppearancePref.fromStorage(appearanceRaw) == .dark ? "sun.max" : "moon"
-    }
-
-    private var themeToolbarHelp: String {
-        AppearancePref.fromStorage(appearanceRaw) == .dark ? L10n.shell.switchToLight : L10n.shell.switchToDark
-    }
-
     private func selectTopLevel(_ item: SidebarItem) {
         sidebar = item
     }
@@ -239,22 +222,12 @@ struct MainWindow: View {
         path.append(route)
     }
 
-    private func refreshCurrentPage() {
-        refreshToken = UUID()
-    }
-
-    private func toggleTheme() {
-        let current = AppearancePref.fromStorage(appearanceRaw)
-        appearanceRaw = current == .dark ? AppearancePref.light.rawValue : AppearancePref.dark.rawValue
-    }
-
     // Detail surface: routed content and full-page pushes. The palette mesh
     // now lives at the root window layer so it can continue underneath the
     // toolbar and sidebar as well.
     private var detailPane: some View {
         ZStack {
             routedContent
-                .id(refreshToken)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .scrollContentBackground(.hidden)
