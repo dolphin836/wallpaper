@@ -1,35 +1,54 @@
 import SwiftUI
 import AppKit
 
-// Shared liquid-glass capsule chrome — iOS-style floating glass pill.
-// Used by both the centre nav bar and the right icon toolbar so the
-// two read as the same family (same height, material, stroke, shadow).
+// Shared liquid-glass capsule chrome.
+//
+// On macOS 26+ this uses the real Liquid Glass material introduced at
+// WWDC25 (.glassEffect) — the system material brings edge lensing,
+// dynamic highlights, automatic legibility adaptation over bright/dark
+// backdrops, and accessibility integration (Reduced Transparency /
+// Increased Contrast) for free. Per the design guidance the bar is ONE
+// glass surface; the controls inside use plain tint highlights instead
+// of nested glass (no glass-on-glass stacking).
+//
+// Below macOS 26 it falls back to the hand-rolled approximation
+// (ultraThinMaterial + paper tint + gradient hairline + shadow).
 struct GlassPill<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
+        if #available(macOS 26.0, *) {
+            // .interactive() adds the under-surface illumination
+            // feedback when the user clicks controls on the glass.
+            row.glassEffect(.regular.interactive(), in: Capsule())
+        } else {
+            row
+                .background(.ultraThinMaterial, in: Capsule())
+                .background(
+                    // Soft paper tint under the material so the glass
+                    // stays legible over bright and dark backdrops.
+                    Capsule().fill(Color.paper.opacity(0.28))
+                )
+                .overlay(
+                    Capsule()
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.55), Color.white.opacity(0.10)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: Color.black.opacity(0.16), radius: 14, y: 5)
+        }
+    }
+
+    private var row: some View {
         HStack(spacing: 2) {
             content
         }
         .padding(4)
-        .background(.ultraThinMaterial, in: Capsule())
-        .background(
-            // Soft paper tint under the material so the glass stays
-            // legible over both bright and dark wallpaper backdrops.
-            Capsule().fill(Color.paper.opacity(0.28))
-        )
-        .overlay(
-            Capsule()
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.55), Color.white.opacity(0.10)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: Color.black.opacity(0.16), radius: 14, y: 5)
     }
 }
 
