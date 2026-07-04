@@ -44,7 +44,9 @@ struct GlassPillDivider: View {
 }
 
 // Icon-only action button sized to match GlassNavItem's height, so an
-// icon toolbar pill and the nav pill line up exactly.
+// icon toolbar pill and the nav pill line up exactly. Hover shows an
+// instant custom tip capsule right below the button (instead of the
+// delayed native tooltip).
 struct GlassIconButton: View {
     let icon: String
     let help: String
@@ -71,13 +73,42 @@ struct GlassIconButton: View {
         .buttonStyle(.plain)
         .focusEffectDisabled()
         .focusable(false)
-        .help(help)
+        .overlay(alignment: .top) {
+            if hover {
+                HoverTip(text: help)
+                    // Button is 28pt tall; anchor the tip's top 8pt
+                    // below its bottom edge.
+                    .offset(y: 36)
+            }
+        }
         .onHover { h in
             hover = h
             if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
         .animation(.easeOut(duration: 0.14), value: hover)
         .animation(.easeOut(duration: 0.14), value: active)
+    }
+}
+
+// Small dark capsule label shown under chrome buttons on hover — same
+// treatment the old collapsed sidebar used for its fly-out labels.
+struct HoverTip: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(Color(red: 15.0 / 255, green: 12.0 / 255, blue: 8.0 / 255).opacity(0.92)))
+            .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
+            .shadow(color: Color.black.opacity(0.22), radius: 6, y: 2)
+            .allowsHitTesting(false)
+            .transition(.opacity)
+            .zIndex(10)
     }
 }
 
@@ -119,8 +150,10 @@ struct GlassChromeBar: View {
             // signed in. Settings lives behind the avatar instead of
             // its own icon.
             if showUpload {
+                // tray.and.arrow.up reads as "upload"; the previous
+                // square.and.arrow.up is macOS's share glyph.
                 GlassIconButton(
-                    icon: "square.and.arrow.up",
+                    icon: "tray.and.arrow.up",
                     help: L10n.shell.upload,
                     active: uploadActive,
                     action: onUpload
