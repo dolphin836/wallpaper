@@ -18,9 +18,23 @@ struct GlassPill<Content: View>: View {
 
     var body: some View {
         if #available(macOS 26.0, *) {
+            // GlassEffectContainer is required whenever more than one
+            // glass surface renders together (the bar + the selection
+            // droplet riding on it): glass cannot sample other glass,
+            // so the container gives them one shared sampling region
+            // and lets nearby shapes blend/morph like liquid instead
+            // of stacking with artifacts.
+            //
             // .interactive() adds the under-surface illumination
             // feedback when the user clicks controls on the glass.
-            row.glassEffect(.regular.interactive(), in: Capsule())
+            // The extra drop shadow lifts the bar off the backdrop —
+            // bigger elements cast deeper shadows per the material's
+            // scaling rules, and the default one is too faint over
+            // busy wallpaper imagery.
+            GlassEffectContainer(spacing: 20) {
+                row.glassEffect(.regular.interactive(), in: Capsule())
+            }
+            .shadow(color: Color.black.opacity(0.22), radius: 18, y: 7)
         } else {
             row
                 .background(.ultraThinMaterial, in: Capsule())
@@ -49,6 +63,17 @@ struct GlassPill<Content: View>: View {
             content
         }
         .padding(4)
+    }
+}
+
+// Press feedback for controls sitting on glass: a quick squish with a
+// springy release, so clicks feel like pressing into the material
+// rather than a flat state swap.
+struct GlassBounceButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.90 : 1)
+            .animation(.spring(response: 0.26, dampingFraction: 0.55), value: configuration.isPressed)
     }
 }
 
@@ -84,12 +109,15 @@ struct GlassIconButton: View {
                     if active {
                         Circle().fill(Color.accent.opacity(0.13))
                     } else if hover {
-                        Circle().fill(Color.ink.opacity(0.07))
+                        Circle().fill(Color.ink.opacity(0.09))
                     }
                 }
+                // Droplet pop: the whole control swells slightly under
+                // the cursor and springs back, instead of a flat tint.
+                .scaleEffect(hover ? 1.12 : 1)
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GlassBounceButtonStyle())
         .focusEffectDisabled()
         .focusable(false)
         .overlay(alignment: .top) {
@@ -104,7 +132,7 @@ struct GlassIconButton: View {
             hover = h
             if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
-        .animation(.easeOut(duration: 0.14), value: hover)
+        .animation(.spring(response: 0.32, dampingFraction: 0.6), value: hover)
         .animation(.easeOut(duration: 0.14), value: active)
     }
 }
@@ -151,6 +179,11 @@ struct GlassChromeBar: View {
     let onTheme: () -> Void
     let onAvatar: () -> Void
 
+    // Shared geometry space for the selection droplet, so it slides
+    // and stretches between nav segments like a bead of water instead
+    // of blinking from one to the other.
+    @Namespace private var dropletNS
+
     private static let navItems: [MainWindow.SidebarItem] = [.home, .discover, .weekly, .collections]
 
     var body: some View {
@@ -159,6 +192,7 @@ struct GlassChromeBar: View {
                 GlassNavItem(
                     item: item,
                     isSelected: item == selection,
+                    dropletNamespace: dropletNS,
                     action: { onSelect(item) }
                 )
             }
@@ -193,12 +227,17 @@ struct GlassChromeBar: View {
 
             ToolbarAvatarButton(active: avatarActive, action: onAvatar)
         }
+        // Drives the droplet's matched-geometry slide. The low damping
+        // gives the overshoot-and-settle wobble that makes it read as
+        // liquid rather than a sliding rectangle.
+        .animation(.spring(response: 0.42, dampingFraction: 0.68), value: selection)
     }
 }
 
 private struct GlassNavItem: View {
     let item: MainWindow.SidebarItem
     let isSelected: Bool
+    let dropletNamespace: Namespace.ID
     let action: () -> Void
 
     @State private var hover = false
@@ -222,25 +261,59 @@ private struct GlassNavItem: View {
             .frame(height: 28)
             .background {
                 if isSelected {
-                    Capsule()
-                        .fill(Color.paper.opacity(0.92))
-                        .shadow(color: Color.black.opacity(0.14), radius: 5, y: 2)
+                    selectionDroplet
+                        .matchedGeometryEffect(id: "chrome-nav-droplet", in: dropletNamespace)
                 } else if hover {
-                    Capsule().fill(Color.ink.opacity(0.07))
+                    Capsule().fill(Color.ink.opacity(0.08))
                 }
             }
+            .scaleEffect(hover && !isSelected ? 1.05 : 1)
             .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GlassBounceButtonStyle())
         .focusEffectDisabled()
         .focusable(false)
-        .help(item.label)
         .onHover { h in
             hover = h
             if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
-        .animation(.easeOut(duration: 0.14), value: hover)
+        .animation(.spring(response: 0.32, dampingFraction: 0.6), value: hover)
         .animation(.easeOut(duration: 0.14), value: isSelected)
+    }
+
+    // The selected segment is itself a small Liquid Glass lens riding
+    // on the bar — a raised droplet with real edge refraction on
+    // macOS 26, approximated with a highlight-edged capsule on older
+    // systems. Both variants carry a contact shadow for lift.
+    //
+    // glassEffectID ties the droplet into the chrome bar's
+    // GlassEffectContainer: when the selection moves, the glass system
+    // morphs the lens between segments (stretch-and-settle) instead of
+    // fading it out and in — matchedGeometryEffect at the call site
+    // carries the tint layer along the same path.
+    @ViewBuilder
+    private var selectionDroplet: some View {
+        if #available(macOS 26.0, *) {
+            Capsule()
+                .fill(Color.paper.opacity(0.30))
+                .glassEffect(.regular.interactive(), in: Capsule())
+                .glassEffectID("chrome-nav-droplet-glass", in: dropletNamespace)
+                .shadow(color: Color.black.opacity(0.16), radius: 5, y: 2)
+        } else {
+            Capsule()
+                .fill(Color.paper.opacity(0.92))
+                .overlay(
+                    Capsule().strokeBorder(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.75), Color.white.opacity(0.08)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+                )
+                .shadow(color: Color.black.opacity(0.16), radius: 5, y: 2)
+        }
     }
 }
 
@@ -268,17 +341,23 @@ struct ToolbarAvatarButton: View {
                     )
                 )
                 .frame(width: 28, height: 28)
+                .scaleEffect(hover ? 1.12 : 1)
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GlassBounceButtonStyle())
         .focusEffectDisabled()
         .focusable(false)
-        .help(auth.isLoggedIn ? L10n.shell.myLibrarySection : L10n.shell.signIn)
+        .overlay(alignment: .top) {
+            if hover {
+                HoverTip(text: auth.isLoggedIn ? L10n.shell.settings : L10n.shell.signIn)
+                    .offset(y: 36)
+            }
+        }
         .onHover { h in
             hover = h
             if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
-        .animation(.easeOut(duration: 0.14), value: hover)
+        .animation(.spring(response: 0.32, dampingFraction: 0.6), value: hover)
     }
 
     @ViewBuilder
