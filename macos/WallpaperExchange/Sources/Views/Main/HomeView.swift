@@ -35,8 +35,12 @@ struct HomeView: View {
         GeometryReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
-                    heroBand(viewport: proxy.size)
-                    contentPanel
+                    // Empty band at the top: the first screenful leads
+                    // with the backdrop wallpaper itself — no meta, no
+                    // CTA. The hero opens from the weekly grid below.
+                    Color.clear
+                        .frame(height: max(280, proxy.size.height * 0.52))
+                    content
                 }
             }
             .scrollContentBackground(.hidden)
@@ -45,94 +49,13 @@ struct HomeView: View {
         .task { await loadAll() }
     }
 
-    // ─── Hero band ─────────────────────────────────────────────
-
     private var heroPick: WeeklyPicked? {
         weekly?.picks.first(where: { $0.isHero }) ?? weekly?.picks.first
     }
 
-    // Transparent band over the full-window backdrop. Carries the hero
-    // pick's kicker / title / meta on the left and the trade CTA on the
-    // right; the whole band opens the pick.
-    private func heroBand(viewport: CGSize) -> some View {
-        let height = max(300, viewport.height * 0.52)
-        return ZStack(alignment: .bottomLeading) {
-            Color.clear
-
-            if let hero = heroPick, let weekly {
-                Button(action: { onPick(weeklyToWallpaper(hero)) }) {
-                    HStack(alignment: .bottom, spacing: 24) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(L10n.home.heroKicker(weekly.week, weekly.year))
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                                .tracking(1.8)
-                                .foregroundStyle(Color.white.opacity(0.85))
-                            if !hero.title.isEmpty {
-                                Text(hero.title)
-                                    .font(.system(size: 38, weight: .medium, design: .serif))
-                                    .tracking(-0.4)
-                                    .foregroundStyle(.white)
-                                    .lineLimit(2)
-                            }
-                            Text(heroMeta(hero))
-                                .font(.system(size: 12.5, weight: .regular, design: .monospaced))
-                                .foregroundStyle(Color.white.opacity(0.78))
-                        }
-                        .shadow(color: .black.opacity(0.45), radius: 10, y: 2)
-
-                        Spacer(minLength: 0)
-
-                        HStack(spacing: 10) {
-                            CoinDisc(size: 12)
-                            Text(L10n.home.tradeForOne)
-                                .font(.system(size: 13.5, weight: .semibold))
-                                .foregroundStyle(Color.coinValue)
-                        }
-                        .padding(.horizontal, 22).padding(.vertical, 13)
-                        .background(
-                            Capsule().fill(
-                                LinearGradient(
-                                    colors: [.coinSurfaceStart, .coinSurfaceEnd],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                        )
-                        .overlay(Capsule().strokeBorder(Color.coinBorder, lineWidth: 1))
-                        .shadow(color: Color.black.opacity(0.22), radius: 10, y: 4)
-                    }
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 30)
-                    .frame(maxWidth: 1280)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .pointerCursor()
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: height)
-    }
-
-    // Web format: "4K · 1920×1080 · 2.3 MB".
-    private func heroMeta(_ pick: WeeklyPicked) -> String {
-        var parts: [String] = []
-        let px = max(pick.width, pick.height)
-        if px >= 7680 { parts.append("8K") }
-        else if px >= 3840 { parts.append("4K") }
-        else if px >= 2560 { parts.append("2K") }
-        else if px >= 1920 { parts.append("1080P") }
-        parts.append("\(pick.width)×\(pick.height)")
-        let mb = Double(pick.fileSize) / 1024.0 / 1024.0
-        parts.append(mb >= 10 ? String(format: "%.0f MB", mb) : String(format: "%.1f MB", mb))
-        return parts.joined(separator: " · ")
-    }
-
-    // ─── Content panel ─────────────────────────────────────────
-
-    // The four rows sit on a rounded glass panel that scrolls up over
-    // the wallpaper backdrop, keeping the ink text tokens legible.
-    private var contentPanel: some View {
+    // Content rows scroll directly over the wallpaper backdrop — no
+    // panel surface behind them.
+    private var content: some View {
         VStack(alignment: .leading, spacing: 100) {
             if allFailed {
                 RemoteLoadErrorView(message: L10n.home.homeFeedError) {
@@ -146,31 +69,17 @@ struct HomeView: View {
             }
         }
         .padding(.horizontal, 32)
-        .padding(.top, 56)
         .padding(.bottom, 60)
         .frame(maxWidth: 1280)
         .frame(maxWidth: .infinity, alignment: .center)
-        .background(
-            panelShape.fill(.ultraThinMaterial)
-        )
-        .background(
-            panelShape.fill(Color.paper.opacity(0.62))
-        )
-        .overlay(alignment: .top) {
-            panelShape
-                .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
-                .allowsHitTesting(false)
-        }
-    }
-
-    private var panelShape: UnevenRoundedRectangle {
-        UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28, style: .continuous)
     }
 
     // ─── Sections ──────────────────────────────────────────────
 
     private var weeklySection: some View {
-        let restPicks = (weekly?.picks ?? []).filter { p in p.id != heroID } .prefix(5)
+        // All picks including the hero — the hero image is the page
+        // backdrop now, so its tile is the way to open it.
+        let picks = weekly?.picks ?? []
         return VStack(alignment: .leading, spacing: 14) {
             sectionHeader(
                 kicker: weekly.map { L10n.home.weeklyKicker($0.week) } ?? L10n.home.weeklyKickerFallback,
@@ -180,10 +89,10 @@ struct HomeView: View {
                 ctaEnabled: true,
                 onCTA: { onOpenWeeklyArchive() }
             )
-            if !restPicks.isEmpty {
+            if !picks.isEmpty {
                 // Web .h3-weekly: aspect-ratio 4/5 (portrait editorial)
                 LazyVGrid(columns: fixedCols(5), spacing: 16) {
-                    ForEach(restPicks) { p in
+                    ForEach(picks) { p in
                         let wp = weeklyToWallpaper(p)
                         Button(action: { onPick(wp) }) {
                             MainGridTile(wallpaper: wp, aspectRatio: 4.0 / 5.0)
@@ -296,10 +205,6 @@ struct HomeView: View {
     }
 
     // ─── Helpers ────────────────────────────────────────────────
-
-    private var heroID: Int? {
-        (weekly?.picks.first(where: { $0.isHero }) ?? weekly?.picks.first)?.id
-    }
 
     // Web .h3-row-head:
     //   align-items: end (NOT first-text-baseline); margin-bottom 22

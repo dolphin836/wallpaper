@@ -170,67 +170,47 @@ struct MainWindow: View {
         !forwardPath.isEmpty
     }
 
-    // Top chrome row: brand + back/forward on the left, the liquid-glass
-    // nav pill centred on the window, and the icon toolbar (upload,
-    // settings, refresh, theme, avatar) on the right. No bottom divider.
+    // Top chrome row: the liquid-glass nav pill centred on the window
+    // and a matching glass icon toolbar (upload, settings, refresh,
+    // theme | avatar) on the right. Back/forward and the brand mark are
+    // hidden for now; no bottom divider.
     private var topToolbar: some View {
         ZStack {
             HStack(spacing: 12) {
-                brandMark
-
-                ToolbarButtonGroup(style: .navigation) {
-                    ChromeToolbarButton(
-                        icon: "chevron.left",
-                        help: L10n.shell.back,
-                        role: .navigation,
-                        disabled: !canGoBack,
-                        action: goBack
-                    )
-                    ChromeToolbarButton(
-                        icon: "chevron.right",
-                        help: L10n.shell.forward,
-                        role: .navigation,
-                        disabled: !canGoForward,
-                        action: goForward
-                    )
-                }
-
                 Spacer(minLength: 16)
 
-                ToolbarButtonGroup(style: .utility) {
-                    ChromeToolbarButton(
+                GlassPill {
+                    GlassIconButton(
                         icon: "square.and.arrow.up",
                         help: L10n.shell.upload,
-                        role: .utility,
                         active: sidebar == .upload,
                         action: { selectTopLevel(.upload) }
                     )
-                    ChromeToolbarButton(
+                    GlassIconButton(
                         icon: "gearshape",
                         help: L10n.shell.settings,
-                        role: .utility,
                         active: sidebar == .settings,
                         action: { selectTopLevel(.settings) }
                     )
-                    ChromeToolbarButton(
+                    GlassIconButton(
                         icon: "arrow.clockwise",
                         help: L10n.shell.refreshPage,
-                        role: .utility,
                         action: refreshCurrentPage
                     )
-                    ChromeToolbarButton(
+                    GlassIconButton(
                         icon: themeToolbarIcon,
                         help: themeToolbarHelp,
-                        role: .utility,
                         action: toggleTheme
                     )
-                }
 
-                ToolbarAvatarButton(active: sidebar.isMine) {
-                    if auth.isLoggedIn {
-                        selectTopLevel(.myUploads)
-                    } else {
-                        auth.login()
+                    GlassPillDivider()
+
+                    ToolbarAvatarButton(active: sidebar.isMine) {
+                        if auth.isLoggedIn {
+                            selectTopLevel(.myUploads)
+                        } else {
+                            auth.login()
+                        }
                     }
                 }
             }
@@ -254,17 +234,6 @@ struct MainWindow: View {
         switch sidebar {
         case .home, .discover, .weekly, .collections: sidebar
         default: nil
-        }
-    }
-
-    @ViewBuilder
-    private var brandMark: some View {
-        if let nsImg = BrandAsset.logo {
-            Image(nsImage: nsImg)
-                .resizable()
-                .interpolation(.high)
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 22, height: 22)
         }
     }
 
@@ -452,199 +421,6 @@ private struct TransparentAppKitBackground: NSViewRepresentable {
     final class Coordinator {
         var didClear = false
         var shouldSchedule = true
-    }
-}
-
-private enum ToolbarGroupStyle {
-    case navigation, primary, utility
-
-    var horizontalPadding: CGFloat {
-        switch self {
-        case .primary: 0
-        case .navigation, .utility: 3
-        }
-    }
-
-    var fill: Color {
-        switch self {
-        case .navigation: Color.chromeControl
-        case .primary: .clear
-        case .utility: Color.chromeControl
-        }
-    }
-
-    @MainActor
-    func stroke(for palette: PaletteEnv) -> Color {
-        switch self {
-        case .navigation: ChromeLine.softBorder(for: palette)
-        case .primary: .clear
-        case .utility: ChromeLine.border(for: palette)
-        }
-    }
-
-    var shadow: Color {
-        switch self {
-        case .navigation, .utility: Color.chromeShadow
-        default: .clear
-        }
-    }
-}
-
-private enum ToolbarButtonRole {
-    case navigation, primary, utility
-}
-
-private struct ToolbarButtonGroup<Content: View>: View {
-    var style: ToolbarGroupStyle = .utility
-    let content: Content
-    @State private var palette = PaletteEnv.shared
-
-    init(style: ToolbarGroupStyle = .utility, @ViewBuilder content: () -> Content) {
-        self.style = style
-        self.content = content()
-    }
-
-    var body: some View {
-        HStack(spacing: 2) {
-            content
-        }
-        .padding(style.horizontalPadding)
-        .background(
-            Capsule().fill(style.fill)
-        )
-        .overlay(
-            Capsule().stroke(style.stroke(for: palette), lineWidth: 1)
-        )
-        .shadow(color: style.shadow, radius: 7, y: 2)
-        .animation(.easeOut(duration: 0.42), value: palette.c2)
-    }
-}
-
-private struct ChromeToolbarButton: View {
-    let icon: String
-    var label: String? = nil
-    let help: String
-    var role: ToolbarButtonRole = .utility
-    var active: Bool = false
-    var disabled: Bool = false
-    var action: () -> Void
-
-    @State private var hover = false
-
-    private var size: CGSize {
-        switch role {
-        case .primary: CGSize(width: label == nil ? 34 : 86, height: 28)
-        case .navigation, .utility: CGSize(width: 28, height: 24)
-        }
-    }
-
-    private var cornerRadius: CGFloat {
-        role == .primary ? 14 : 7
-    }
-
-    private var usesCircularUtilityHighlight: Bool {
-        !disabled && (active || hover) && role == .utility && label == nil
-    }
-
-    private var activeHighlightDiameter: CGFloat {
-        min(size.width, size.height)
-    }
-
-    private var iconColor: Color {
-        if disabled { return Color.muted.opacity(0.55) }
-        switch role {
-        case .primary:
-            return .white
-        case .navigation:
-            return hover || active ? Color.ink : Color.ink2
-        case .utility:
-            if active { return Color.accent }
-            return hover ? Color.ink : Color.ink2
-        }
-    }
-
-    private var fill: Color {
-        if disabled { return .clear }
-        switch role {
-        case .primary:
-            return hover || active ? Color.accent.blended(with: Color.ink, fraction: 0.12) : Color.accent
-        case .navigation:
-            if active { return Color.ink.opacity(0.08) }
-            return hover ? Color.ink.opacity(0.06) : .clear
-        case .utility:
-            if active { return Color.accent.opacity(0.13) }
-            return hover ? Color.ink.opacity(0.06) : .clear
-        }
-    }
-
-    private var stroke: Color {
-        if disabled { return .clear }
-        switch role {
-        case .primary:
-            return Color.white.opacity(0.24)
-        case .navigation, .utility:
-            return active ? Color.accent.opacity(0.22) : .clear
-        }
-    }
-
-    private var shadowColor: Color {
-        if role == .primary && !disabled {
-            return Color.accent.opacity(hover || active ? 0.34 : 0.24)
-        }
-        return .clear
-    }
-
-    var body: some View {
-        Button(action: {
-            guard !disabled else { return }
-            action()
-        }) {
-            HStack(spacing: label == nil ? 0 : 6) {
-                Image(systemName: icon)
-                    .font(.system(size: role == .primary ? 13 : 12, weight: .semibold))
-                if let label {
-                    Text(label)
-                        .font(.system(size: 12, weight: .semibold))
-                        .lineLimit(1)
-                }
-            }
-            .foregroundStyle(iconColor)
-            .frame(width: size.width, height: size.height)
-            .background {
-                if usesCircularUtilityHighlight {
-                    Circle()
-                        .fill(fill)
-                        .frame(width: activeHighlightDiameter, height: activeHighlightDiameter)
-                } else {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(fill)
-                }
-            }
-            .overlay {
-                if usesCircularUtilityHighlight {
-                    Circle()
-                        .stroke(stroke, lineWidth: 1)
-                        .frame(width: activeHighlightDiameter, height: activeHighlightDiameter)
-                } else {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .stroke(stroke, lineWidth: 1)
-                }
-            }
-            .shadow(color: shadowColor, radius: role == .primary ? 10 : 0, y: role == .primary ? 4 : 0)
-            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .disabled(disabled)
-        .focusEffectDisabled()
-        .focusable(false)
-        .help(help)
-        .onHover { h in
-            hover = h
-            guard !disabled else { return }
-            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-        }
-        .animation(.easeOut(duration: 0.12), value: hover)
-        .animation(.easeOut(duration: 0.12), value: active)
     }
 }
 

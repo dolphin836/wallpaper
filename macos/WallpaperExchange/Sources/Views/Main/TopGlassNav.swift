@@ -1,25 +1,15 @@
 import SwiftUI
 import AppKit
 
-// Liquid-glass navigation pill fixed at the window's top-centre —
-// iOS-style floating glass capsule. Only the four browse destinations
-// live here; actions (upload / settings / avatar) stay in the icon
-// toolbar on the right side of the chrome row.
-struct GlassNavBar: View {
-    let selection: MainWindow.SidebarItem?
-    let onSelect: (MainWindow.SidebarItem) -> Void
-
-    private static let items: [MainWindow.SidebarItem] = [.home, .discover, .weekly, .collections]
+// Shared liquid-glass capsule chrome — iOS-style floating glass pill.
+// Used by both the centre nav bar and the right icon toolbar so the
+// two read as the same family (same height, material, stroke, shadow).
+struct GlassPill<Content: View>: View {
+    @ViewBuilder var content: Content
 
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(Self.items, id: \.self) { item in
-                GlassNavItem(
-                    item: item,
-                    isSelected: item == selection,
-                    action: { onSelect(item) }
-                )
-            }
+            content
         }
         .padding(4)
         .background(.ultraThinMaterial, in: Capsule())
@@ -40,6 +30,76 @@ struct GlassNavBar: View {
                 )
         )
         .shadow(color: Color.black.opacity(0.16), radius: 14, y: 5)
+    }
+}
+
+// Hairline separator between groups inside a GlassPill.
+struct GlassPillDivider: View {
+    var body: some View {
+        Capsule()
+            .fill(Color.ink.opacity(0.16))
+            .frame(width: 1, height: 16)
+            .padding(.horizontal, 4)
+    }
+}
+
+// Icon-only action button sized to match GlassNavItem's height, so an
+// icon toolbar pill and the nav pill line up exactly.
+struct GlassIconButton: View {
+    let icon: String
+    let help: String
+    var active: Bool = false
+    let action: () -> Void
+
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(active ? Color.accent : (hover ? Color.ink : Color.ink2))
+                .frame(width: 28, height: 28)
+                .background {
+                    if active {
+                        Circle().fill(Color.accent.opacity(0.13))
+                    } else if hover {
+                        Circle().fill(Color.ink.opacity(0.07))
+                    }
+                }
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .focusEffectDisabled()
+        .focusable(false)
+        .help(help)
+        .onHover { h in
+            hover = h
+            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .animation(.easeOut(duration: 0.14), value: hover)
+        .animation(.easeOut(duration: 0.14), value: active)
+    }
+}
+
+// Liquid-glass navigation pill fixed at the window's top-centre. Only
+// the four browse destinations live here; actions (upload / settings /
+// avatar) stay in the icon toolbar pill on the right.
+struct GlassNavBar: View {
+    let selection: MainWindow.SidebarItem?
+    let onSelect: (MainWindow.SidebarItem) -> Void
+
+    private static let items: [MainWindow.SidebarItem] = [.home, .discover, .weekly, .collections]
+
+    var body: some View {
+        GlassPill {
+            ForEach(Self.items, id: \.self) { item in
+                GlassNavItem(
+                    item: item,
+                    isSelected: item == selection,
+                    action: { onSelect(item) }
+                )
+            }
+        }
     }
 }
 
@@ -66,7 +126,7 @@ private struct GlassNavItem: View {
             }
             .foregroundStyle(fg)
             .padding(.horizontal, 13)
-            .padding(.vertical, 6)
+            .frame(height: 28)
             .background {
                 if isSelected {
                     Capsule()
@@ -91,8 +151,8 @@ private struct GlassNavItem: View {
     }
 }
 
-// Avatar chip at the right end of the chrome row. Signed-in shows the
-// user's avatar (initial fallback); signed-out shows a person glyph and
+// Avatar chip inside the toolbar pill. Signed-in shows the user's
+// avatar (initial fallback); signed-out shows a person glyph and
 // starts the login flow on click.
 struct ToolbarAvatarButton: View {
     var active: Bool = false
@@ -101,7 +161,7 @@ struct ToolbarAvatarButton: View {
     @State private var auth = AuthService.shared
     @State private var hover = false
 
-    private let size: CGFloat = 26
+    private let size: CGFloat = 24
 
     var body: some View {
         Button(action: action) {
@@ -114,7 +174,7 @@ struct ToolbarAvatarButton: View {
                         lineWidth: active ? 1.5 : 1
                     )
                 )
-                .shadow(color: Color.black.opacity(0.18), radius: 4, y: 1)
+                .frame(width: 28, height: 28)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
@@ -144,7 +204,7 @@ struct ToolbarAvatarButton: View {
             ZStack {
                 Circle().fill(Color.paper2)
                 Image(systemName: "person")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color.muted)
             }
         }
@@ -154,7 +214,7 @@ struct ToolbarAvatarButton: View {
         ZStack {
             Circle().fill(Color.paper2)
             Text(String((user.nickname.isEmpty ? user.username : user.nickname).prefix(1)).uppercased())
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Color.ink)
         }
     }
