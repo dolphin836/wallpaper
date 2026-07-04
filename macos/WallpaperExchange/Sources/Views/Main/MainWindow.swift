@@ -178,18 +178,18 @@ struct MainWindow: View {
         GlassChromeBar(
             selection: navSelection,
             onSelect: { selectTopLevel($0) },
+            showUpload: auth.isLoggedIn,
             uploadActive: sidebar == .upload,
-            settingsActive: sidebar == .settings,
-            avatarActive: sidebar.isMine,
+            avatarActive: sidebar.isMine || sidebar == .settings,
             themeIcon: themeToolbarIcon,
             themeHelp: themeToolbarHelp,
             onUpload: { selectTopLevel(.upload) },
-            onSettings: { selectTopLevel(.settings) },
             onRefresh: refreshCurrentPage,
             onTheme: toggleTheme,
             onAvatar: {
                 if auth.isLoggedIn {
-                    selectTopLevel(.myUploads)
+                    // Account home = the settings tab of the profile page.
+                    selectTopLevel(.settings)
                 } else {
                     auth.login()
                 }

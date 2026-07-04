@@ -91,13 +91,12 @@ struct GlassIconButton: View {
 struct GlassChromeBar: View {
     let selection: MainWindow.SidebarItem?
     let onSelect: (MainWindow.SidebarItem) -> Void
+    let showUpload: Bool
     let uploadActive: Bool
-    let settingsActive: Bool
     let avatarActive: Bool
     let themeIcon: String
     let themeHelp: String
     let onUpload: () -> Void
-    let onSettings: () -> Void
     let onRefresh: () -> Void
     let onTheme: () -> Void
     let onAvatar: () -> Void
@@ -116,18 +115,17 @@ struct GlassChromeBar: View {
 
             GlassPillDivider()
 
-            GlassIconButton(
-                icon: "square.and.arrow.up",
-                help: L10n.shell.upload,
-                active: uploadActive,
-                action: onUpload
-            )
-            GlassIconButton(
-                icon: "gearshape",
-                help: L10n.shell.settings,
-                active: settingsActive,
-                action: onSettings
-            )
+            // Upload needs an account, so the icon only shows once
+            // signed in. Settings lives behind the avatar instead of
+            // its own icon.
+            if showUpload {
+                GlassIconButton(
+                    icon: "square.and.arrow.up",
+                    help: L10n.shell.upload,
+                    active: uploadActive,
+                    action: onUpload
+                )
+            }
             GlassIconButton(
                 icon: "arrow.clockwise",
                 help: L10n.shell.refreshPage,
