@@ -5,39 +5,29 @@ import SwiftUI
 //     HomeBackdropEnv and rendered full-window by MainWindow with the
 //     detail-page loading order (default mesh → dominant → thumb →
 //     original).
-//   • A transparent hero band at the top lets the backdrop breathe and
-//     carries the pick's kicker / title / CTA; tapping opens the pick.
-//   • The four content rows (weekly picks, Live, AI Lab, collections)
-//     scroll up over the backdrop on a rounded glass panel.
+//   • A transparent band at the top lets the backdrop breathe.
+//   • One content row: this week's picks, on home-only landscape cards
+//     (golden ratio) with generous spacing.
 struct HomeView: View {
     var onPick: (Wallpaper) -> Void
     var onOpenWeek: (Int, Int) -> Void
-    // "Browse more" CTAs route to the matching top-level view.
+    // Retained for the ContentRouter call site; the home page currently
+    // surfaces only the weekly slate.
     var onOpenDiscover: (DiscoverView.Filter) -> Void = { _ in }
     var onOpenCollections: () -> Void = {}
     var onOpenWeeklyArchive: () -> Void = {}
     var onCollection: (CollectionItem) -> Void = { _ in }
 
     @State private var weekly: WeeklyCurrent?
-    @State private var liveWalls: [Wallpaper] = []
-    @State private var aiWalls: [Wallpaper] = []
-    @State private var collections: [CollectionItem] = []
-    // Per-section loading flags so each row can show its own skeletons
-    // and one slow endpoint doesn't blank the entire page. Matches the
-    // web HomePage's independent useState pattern.
     @State private var weeklyLoading = true
-    @State private var liveLoading = true
-    @State private var aiLoading = true
-    @State private var collectionsLoading = true
-    @State private var allFailed = false
+    @State private var failed = false
 
     var body: some View {
         GeometryReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
                     // Empty band at the top: the first screenful leads
-                    // with the backdrop wallpaper itself — no meta, no
-                    // CTA. The hero opens from the weekly grid below.
+                    // with the backdrop wallpaper itself.
                     Color.clear
                         .frame(height: max(280, proxy.size.height * 0.52))
                     content
@@ -46,275 +36,86 @@ struct HomeView: View {
             .scrollContentBackground(.hidden)
             .background(Color.clear)
         }
-        .task { await loadAll() }
+        .task { await load() }
     }
 
     private var heroPick: WeeklyPicked? {
         weekly?.picks.first(where: { $0.isHero }) ?? weekly?.picks.first
     }
 
-    // Content rows scroll directly over the wallpaper backdrop — no
-    // panel surface behind them.
     private var content: some View {
-        VStack(alignment: .leading, spacing: 100) {
-            if allFailed {
+        VStack(alignment: .leading, spacing: 0) {
+            if failed {
                 RemoteLoadErrorView(message: L10n.home.homeFeedError) {
-                    Task { await loadAll() }
+                    Task { await load() }
                 }
             } else {
                 weeklySection
-                liveSection
-                aiSection
-                collectionsSection
             }
         }
         .padding(.horizontal, 32)
-        .padding(.bottom, 60)
+        .padding(.bottom, 72)
         .frame(maxWidth: 1280)
         .frame(maxWidth: .infinity, alignment: .center)
     }
 
-    // ─── Sections ──────────────────────────────────────────────
+    // ─── Weekly picks ──────────────────────────────────────────
 
     private var weeklySection: some View {
-        // All picks including the hero — the hero image is the page
-        // backdrop now, so its tile is the way to open it.
         let picks = weekly?.picks ?? []
-        return VStack(alignment: .leading, spacing: 14) {
-            sectionHeader(
-                kicker: weekly.map { L10n.home.weeklyKicker($0.week) } ?? L10n.home.weeklyKickerFallback,
-                title: L10n.home.weeklyTitleRest,
-                accent: L10n.home.weeklyTitleAccent,
-                ctaLabel: L10n.home.viewArchive,
-                ctaEnabled: true,
-                onCTA: { onOpenWeeklyArchive() }
-            )
+        return VStack(alignment: .leading, spacing: 28) {
+            weeklyTitle
             if !picks.isEmpty {
-                // Web .h3-weekly: aspect-ratio 4/5 (portrait editorial)
-                LazyVGrid(columns: fixedCols(5), spacing: 16) {
+                LazyVGrid(columns: gridCols, spacing: 28) {
                     ForEach(picks) { p in
                         let wp = weeklyToWallpaper(p)
                         Button(action: { onPick(wp) }) {
-                            MainGridTile(wallpaper: wp, aspectRatio: 4.0 / 5.0)
+                            HomeWeeklyCard(wallpaper: wp)
                         }
                         .buttonStyle(.plain)
                     }
                 }
             } else if weeklyLoading {
-                LazyVGrid(columns: fixedCols(5), spacing: 16) {
-                    ForEach(0..<5, id: \.self) { _ in
-                        SkeletonTile(variant: .weekly)
+                LazyVGrid(columns: gridCols, spacing: 28) {
+                    ForEach(0..<6, id: \.self) { _ in
+                        HomeWeeklyCardSkeleton()
                     }
                 }
             }
         }
     }
 
-    private var liveSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeader(
-                kicker: L10n.home.liveKicker,
-                title: L10n.home.liveTitleRest,
-                accent: L10n.home.liveTitleAccent,
-                ctaLabel: L10n.home.allLive,
-                ctaEnabled: true,
-                onCTA: { onOpenDiscover(.live) }
-            )
-            if liveWalls.isEmpty {
-                if liveLoading {
-                    LazyVGrid(columns: fixedCols(4), spacing: 14) {
-                        ForEach(0..<4, id: \.self) { _ in
-                            SkeletonTile(variant: .live)
-                        }
-                    }
-                }
-            } else {
-                LazyVGrid(columns: fixedCols(4), spacing: 14) {
-                    ForEach(liveWalls.prefix(4)) { wp in
-                        Button(action: { onPick(wp) }) {
-                            MainGridTile(wallpaper: wp, aspectRatio: 16.0 / 10.0)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
+    // Just the big display title, drawn in white over the wallpaper
+    // backdrop (the ink/accent pair belongs to the paper pages). The
+    // accent word keeps its weight for rhythm, the rest sits slightly
+    // dimmer.
+    private var weeklyTitle: some View {
+        (
+            Text(L10n.home.weeklyTitleAccent)
+                .font(.system(size: 34, weight: .semibold, design: .serif))
+                .foregroundColor(.white)
+            +
+            Text(L10n.home.weeklyTitleRest)
+                .font(.system(size: 34, weight: .regular, design: .serif))
+                .foregroundColor(.white.opacity(0.82))
+        )
+        .tracking(-0.3)
+        .shadow(color: .black.opacity(0.45), radius: 8, y: 2)
     }
 
-    private var aiSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeader(
-                kicker: L10n.home.aiKicker,
-                title: L10n.home.aiTitleRest,
-                accent: L10n.home.aiTitleAccent,
-                ctaLabel: L10n.home.allAI,
-                ctaEnabled: true,
-                onCTA: { onOpenDiscover(.ai) }
-            )
-            if aiWalls.isEmpty {
-                if aiLoading {
-                    LazyVGrid(columns: fixedCols(5), spacing: 16) {
-                        ForEach(0..<5, id: \.self) { _ in
-                            SkeletonTile(variant: .ai)
-                        }
-                    }
-                }
-            } else {
-                // Web .h3-ai: aspect-ratio 1/1 (square with foil sweep)
-                LazyVGrid(columns: fixedCols(5), spacing: 16) {
-                    ForEach(aiWalls.prefix(5)) { wp in
-                        Button(action: { onPick(wp) }) {
-                            MainGridTile(wallpaper: wp, aspectRatio: 1.0)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
+    private var gridCols: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 28, alignment: .top), count: 3)
     }
 
-    private var collectionsSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeader(
-                kicker: L10n.home.collectionsKicker,
-                title: L10n.home.collectionsTitleRest,
-                accent: L10n.home.collectionsTitleAccent,
-                ctaLabel: L10n.home.allCollections,
-                ctaEnabled: true,
-                onCTA: { onOpenCollections() }
-            )
-            if collections.isEmpty {
-                if collectionsLoading {
-                    LazyVGrid(columns: fixedCols(4), spacing: 14) {
-                        ForEach(0..<4, id: \.self) { _ in
-                            SkeletonTile(variant: .collection)
-                        }
-                    }
-                }
-            } else {
-                LazyVGrid(columns: fixedCols(4), spacing: 14) {
-                    ForEach(collections.prefix(4)) { c in
-                        Button(action: { onCollection(c) }) {
-                            CollectionTileCard(item: c)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
-    }
-
-    // ─── Helpers ────────────────────────────────────────────────
-
-    // Web .h3-row-head:
-    //   align-items: end (NOT first-text-baseline); margin-bottom 22
-    //   .h3-sub:   mono 11px / tracking 0.14em / caps / muted / mb 12
-    //   h2:        display 32 / weight 400 / line-height 1 / -0.01em tracking
-    //   h2 em:     weight 500 / accent color / NO italic
-    //   .h3-more:  13px / ink / 1px bottom border ink2 / pad-bottom 2
-    private func sectionHeader(kicker: String,
-                               title: String,
-                               accent: String? = nil,
-                               ctaLabel: String? = nil,
-                               ctaEnabled: Bool = true,
-                               onCTA: (() -> Void)? = nil) -> some View {
-        HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(kicker.uppercased())
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .tracking(1.5)
-                    .foregroundStyle(Color.muted)
-                titleText(title: title, accent: accent)
-            }
-            Spacer()
-            if let label = ctaLabel {
-                Button(action: { onCTA?() }) {
-                    Text(label)
-                        .font(.system(size: 13, weight: .regular))
-                        .foregroundStyle(ctaEnabled ? Color.ink : Color.muted)
-                        .padding(.bottom, 2)
-                        .overlay(alignment: .bottom) {
-                            Rectangle()
-                                .fill(ctaEnabled ? Color.ink2 : Color.muted)
-                                .frame(height: 1)
-                        }
-                }
-                .buttonStyle(.plain)
-                .disabled(!ctaEnabled)
-            }
-        }
-        .padding(.bottom, 10)
-    }
-
-    // Render the section title with an inline accent word. Web pattern
-    // is `<em>Word</em> rest.`, where em = weight 500 + accent color.
-    // The localized "rest" strings carry their own leading space (EN)
-    // or join directly (CJK), so no separator is inserted here.
-    @ViewBuilder
-    private func titleText(title: String, accent: String?) -> some View {
-        if let a = accent, !a.isEmpty {
-            (
-                Text(a)
-                    .font(.system(size: 32, weight: .medium, design: .serif))
-                    .foregroundColor(Color.accent)
-                +
-                Text(title)
-                    .font(.system(size: 32, weight: .regular, design: .serif))
-                    .foregroundColor(Color.ink)
-            )
-            .tracking(-0.3)
-        } else {
-            Text(title)
-                .font(.system(size: 32, weight: .regular, design: .serif))
-                .tracking(-0.3)
-                .foregroundStyle(Color.ink)
-        }
-    }
-
-    // GridItem(.flexible()) without a minimum gives every column an
-    // equal share of the container width — was using .flexible(minimum:
-    // 140) which can produce uneven widths when the container narrows.
-    // `.top` alignment + matching column spacing 14 (same value as the
-    // LazyVGrid's row spacing) keeps cells flush and prevents the
-    // shadow-bleed-into-next-row look.
-    private func fixedCols(_ count: Int) -> [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 14, alignment: .top), count: count)
-    }
-
-    // Four independent fetches in parallel; each section flips its own
-    // loading flag off as soon as its endpoint returns. This is the
-    // pattern web HomePage uses — one slow row doesn't stall the
-    // skeleton swap for the others.
-    private func loadAll() async {
+    private func load() async {
         weeklyLoading = true
-        liveLoading = true
-        aiLoading = true
-        collectionsLoading = true
-        allFailed = false
+        failed = false
 
-        async let weeklyTask: WeeklyCurrent? = try? await APIClient.shared.fetchWeeklyCurrent()
-        async let liveTask:   PaginatedData<Wallpaper>? = try? await APIClient.shared.fetchWallpapers(limit: 12, dynamicOnly: true)
-        async let aiTask:     PaginatedData<Wallpaper>? = try? await APIClient.shared.fetchWallpapers(limit: 12, aiOnly: true)
-        async let colsTask:   PaginatedData<CollectionItem>? = try? await APIClient.shared.fetchPublicCollections(limit: 12)
-
-        let w = await weeklyTask
+        let w = try? await APIClient.shared.fetchWeeklyCurrent()
         weekly = w
         weeklyLoading = false
+        failed = w == nil
         publishBackdrop()
-
-        let l = await liveTask
-        liveWalls = l?.items ?? []
-        liveLoading = false
-
-        let a = await aiTask
-        aiWalls = a?.items ?? []
-        aiLoading = false
-
-        let c = await colsTask
-        collections = c?.items ?? []
-        collectionsLoading = false
-
-        allFailed = w == nil && l == nil && a == nil && c == nil
     }
 
     // Push the hero pick into the shared backdrop env so MainWindow can
@@ -343,78 +144,76 @@ struct HomeView: View {
     }
 }
 
-// Live tile — strict same-shape as MainGridTile so LazyVGrid row
-// math is identical. The only visual difference is the chip
-// treatment: a single accent "LIVE" pill (play-triangle icon),
-// shown when the wallpaper is either a Mac dynamic (.heic
-// solar/h24) or a video. Matches the web's unified Live concept.
-struct MacDynamicTile: View {
+// Home-only weekly card. Landscape, golden ratio (φ ≈ 1.618:1), large
+// corner radius, floating over the photo backdrop: a bright hairline
+// on top of a split contact + ambient shadow, hover lifts the card and
+// reveals the title on a bottom scrim. Deliberately separate from
+// MainGridTile — the browse pages keep their own tile.
+private let goldenRatio: CGFloat = 1.618
+
+struct HomeWeeklyCard: View {
     let wallpaper: Wallpaper
     @State private var hover = false
 
-    // GeometryReader-driven sizing — the previous attempts all relied on
-    // .aspectRatio modifiers, which can fall through to a child view's
-    // intrinsic size when the parent doesn't propose enough constraint.
-    // Inside a LazyVGrid cell that produced tiles whose height tracked
-    // the underlying wallpaper image's aspect — portrait Big Sur became
-    // a tall portrait tile while landscape Sonoma stayed wide.
-    //
-    // GeometryReader fills the cell's proposed width; we then frame the
-    // ZStack to width × (width * 10/16) and pin the GeometryReader to
-    // that height too via `.frame(height:)` on the outer container.
-    // Every Mac Dynamic tile is now exactly the same height regardless
-    // of the source image's orientation.
     var body: some View {
         GeometryReader { proxy in
-            let h = proxy.size.width * 10.0 / 16.0
-            ZStack(alignment: .topLeading) {
-                Color(hex: wallpaper.dominantColor ?? "#bbb").opacity(0.55)
+            let w = proxy.size.width
+            let h = w / goldenRatio
+            ZStack(alignment: .bottomLeading) {
+                Color(hex: wallpaper.dominantColor ?? "#999").opacity(0.45)
+
                 ProgressiveCachedAsyncImage(
                     lowURL: URL(string: wallpaper.thumbURL),
-                    highURL: URL(string: wallpaper.previewURL),
-                    lowMaxPixelDimension: 520,
-                    highMaxPixelDimension: 1100
+                    highURL: URL(string: wallpaper.previewURL.isEmpty ? wallpaper.thumbURL : wallpaper.previewURL),
+                    lowMaxPixelDimension: 560,
+                    highMaxPixelDimension: 1200
                 ) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Color.clear
                 }
-                .frame(width: proxy.size.width, height: h)
+                .frame(width: w, height: h)
                 .clipped()
 
+                // Bottom scrim + title, revealed on hover.
                 LinearGradient(
-                    colors: [Color.black.opacity(0.18), .clear, .clear, Color.black.opacity(0.30)],
-                    startPoint: .top, endPoint: .bottom
+                    colors: [.clear, .black.opacity(0.55)],
+                    startPoint: .center, endPoint: .bottom
                 )
-                .opacity(hover ? 1 : 0.65)
+                .opacity(hover ? 1 : 0)
                 .allowsHitTesting(false)
 
-                // .tile-chip family — light translucent pill, dark text
-                HStack(spacing: 4) {
-                    Image(systemName: "play.fill").font(.system(size: 8, weight: .semibold))
-                    Text(L10n.home.liveBadge)
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                        .tracking(0.4)
+                if !wallpaper.title.isEmpty {
+                    Text(wallpaper.title)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 13)
+                        .opacity(hover ? 1 : 0)
+                        .offset(y: hover ? 0 : 6)
+                        .allowsHitTesting(false)
                 }
-                .foregroundStyle(Color(red: 0.20, green: 0.21, blue: 0.23))
-                .padding(.horizontal, 7).padding(.vertical, 2)
-                .background(Capsule().fill(Color.white.opacity(0.78)))
-                .padding(10)
             }
-            .frame(width: proxy.size.width, height: h)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.hair, lineWidth: 1).allowsHitTesting(false))
-            .shadow(color: Color.accent.opacity(hover ? 0.22 : 0.04),
-                    radius: hover ? 8 : 3,
-                    x: 0, y: hover ? 4 : 1)
+            .frame(width: w, height: h)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(hover ? 0.55 : 0.35), .white.opacity(0.08)],
+                            startPoint: .top, endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+                    .allowsHitTesting(false)
+            )
         }
-        // Match the GeometryReader's internal height. SwiftUI's
-        // GeometryReader doesn't propose a size of its own — the
-        // outer container has to know it. Aspect-ratio modifier on
-        // the GeometryReader gives the LazyVGrid the right cell
-        // height to allocate.
-        .aspectRatio(16.0 / 10.0, contentMode: .fit)
-        .animation(.easeOut(duration: 0.18), value: hover)
+        .aspectRatio(goldenRatio, contentMode: .fit)
+        .shadow(color: .black.opacity(0.20), radius: 3, y: 2)
+        .shadow(color: .black.opacity(hover ? 0.34 : 0.22), radius: hover ? 22 : 14, y: hover ? 12 : 7)
+        .scaleEffect(hover ? 1.02 : 1)
+        .animation(.spring(response: 0.34, dampingFraction: 0.72), value: hover)
         .onHover { entered in
             hover = entered
             if entered {
@@ -424,5 +223,22 @@ struct MacDynamicTile: View {
             }
         }
         .contentShape(Rectangle())
+    }
+}
+
+// Loading placeholder matching HomeWeeklyCard's exact silhouette.
+struct HomeWeeklyCardSkeleton: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(Color.white.opacity(0.07))
+            .overlay(
+                ImageLoadingBeam(style: .skeleton)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+            )
+            .aspectRatio(goldenRatio, contentMode: .fit)
     }
 }
