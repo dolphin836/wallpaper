@@ -146,20 +146,47 @@ struct HomeView: View {
 
 // Home-only weekly card. Landscape, golden ratio (φ ≈ 1.618:1), large
 // corner radius, floating over the photo backdrop: a bright hairline
-// on top of a split contact + ambient shadow, hover lifts the card and
-// reveals the title on a bottom scrim. Deliberately separate from
-// MainGridTile — the browse pages keep their own tile.
+// on top of a split contact + ambient shadow, hover lifts the card.
+// The CONTENT mirrors MainGridTile exactly — chips top-left
+// (Resolution / Live / AI) and the hover action rail bottom-right
+// (Favorite · Like · Download) — only the shell styling differs, so
+// the browse pages' tile stays untouched.
 private let goldenRatio: CGFloat = 1.618
 
 struct HomeWeeklyCard: View {
     let wallpaper: Wallpaper
     @State private var hover = false
+    @State private var manager = WallpaperManager.shared
+    @State private var auth = AuthService.shared
+
+    // Optimistic local mirrors, same pattern as MainGridTile: snappy
+    // hover feedback here, authoritative state on the detail page.
+    @State private var liked: Bool? = nil
+    @State private var favorited: Bool? = nil
+    @State private var downloaded: Bool? = nil
+    @State private var busy: Bool = false
+
+    private var isLiked: Bool { liked ?? (wallpaper.isLiked ?? false) }
+    private var isFavorited: Bool { favorited ?? (wallpaper.isFavorited ?? false) }
+    private var localFileExists: Bool { manager.isDownloaded(wallpaper.id) }
+    private var isOwnWallpaper: Bool { auth.user?.id == wallpaper.userID }
+    private var isDownloaded: Bool {
+        if let downloaded { return downloaded }
+        return wallpaper.isDownloaded ?? localFileExists
+    }
+    private var downloadHelp: String {
+        if isDownloaded { return L10n.browse.tipGotIt }
+        if isOwnWallpaper { return L10n.browse.tipDownload }
+        return L10n.browse.tipTradeForOne
+    }
+    private var isTransferring: Bool { manager.downloading.contains(wallpaper.id) }
+    private var downloadProgress: Double? { manager.downloadProgress[wallpaper.id] }
 
     var body: some View {
         GeometryReader { proxy in
             let w = proxy.size.width
             let h = w / goldenRatio
-            ZStack(alignment: .bottomLeading) {
+            ZStack {
                 Color(hex: wallpaper.dominantColor ?? "#999").opacity(0.45)
 
                 ProgressiveCachedAsyncImage(
@@ -175,25 +202,64 @@ struct HomeWeeklyCard: View {
                 .frame(width: w, height: h)
                 .clipped()
 
-                // Bottom scrim + title, revealed on hover.
                 LinearGradient(
-                    colors: [.clear, .black.opacity(0.55)],
-                    startPoint: .center, endPoint: .bottom
+                    colors: [Color.black.opacity(0.20), .clear, .clear, Color.black.opacity(0.30)],
+                    startPoint: .top, endPoint: .bottom
                 )
-                .opacity(hover ? 1 : 0)
+                .opacity(hover ? 1 : 0.65)
                 .allowsHitTesting(false)
 
-                if !wallpaper.title.isEmpty {
-                    Text(wallpaper.title)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 13)
-                        .opacity(hover ? 1 : 0)
-                        .offset(y: hover ? 0 : 6)
-                        .allowsHitTesting(false)
+                // Chips top-left — same family as MainGridTile.
+                VStack {
+                    HStack(alignment: .top, spacing: 4) {
+                        resolutionChip
+                        if wallpaper.fileType.hasPrefix("video/") || wallpaper.isDynamic { liveChip }
+                        if wallpaper.isAIGenerated == true { aiChip }
+                        Spacer()
+                    }
+                    Spacer()
                 }
+                .padding(12)
+                .allowsHitTesting(false)
+
+                // Hover action rail bottom-right — Favorite · Like ·
+                // Download, shared ActionDot component.
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 5) {
+                            ActionDot(icon: isFavorited ? "star.fill" : "star",
+                                      kind: .favorite,
+                                      active: isFavorited,
+                                      help: isFavorited ? L10n.browse.tipUnfavorite : L10n.browse.tipFavorite,
+                                      busy: busy,
+                                      size: 24,
+                                      action: { Task { await toggleFavorite() } })
+                            ActionDot(icon: isLiked ? "heart.fill" : "heart",
+                                      kind: .like,
+                                      active: isLiked,
+                                      help: isLiked ? L10n.browse.tipUnlike : L10n.browse.tipLike,
+                                      busy: busy,
+                                      size: 24,
+                                      action: { Task { await toggleLike() } })
+                            ActionDot(icon: isDownloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
+                                      kind: .download,
+                                      active: isDownloaded,
+                                      help: downloadHelp,
+                                      busy: busy,
+                                      loading: isTransferring,
+                                      progress: downloadProgress,
+                                      size: 24,
+                                      action: { Task { await doDownload() } })
+                        }
+                        .opacity(hover ? 1 : 0)
+                        .offset(y: hover ? 0 : 4)
+                        .animation(.easeOut(duration: 0.2), value: hover)
+                        .allowsHitTesting(hover)
+                    }
+                }
+                .padding(12)
             }
             .frame(width: w, height: h)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -223,6 +289,74 @@ struct HomeWeeklyCard: View {
             }
         }
         .contentShape(Rectangle())
+    }
+
+    // ─── Chips — same tokens as MainGridTile's .tile-chip family ──
+
+    private static let chipBG   = Color.white.opacity(0.78)
+    private static let chipInk  = Color(red: 0.20, green: 0.21, blue: 0.23)
+    private static let chipFont = Font.system(size: 9, weight: .semibold, design: .monospaced)
+
+    private var resolutionChip: some View {
+        Text(wallpaper.resolutionLabel)
+            .font(Self.chipFont).tracking(0.4)
+            .foregroundStyle(Self.chipInk)
+            .padding(.horizontal, 7).padding(.vertical, 2)
+            .background(Capsule().fill(Self.chipBG))
+    }
+
+    private var liveChip: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "play.fill").font(.system(size: 8, weight: .semibold))
+            Text(L10n.browse.chipLive).font(Self.chipFont).tracking(0.4)
+        }
+        .foregroundStyle(Self.chipInk)
+        .padding(.horizontal, 7).padding(.vertical, 2)
+        .background(Capsule().fill(Self.chipBG))
+    }
+
+    private var aiChip: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "sparkles").font(.system(size: 8, weight: .semibold))
+            Text("AI").font(Self.chipFont).tracking(0.4)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 7).padding(.vertical, 2)
+        .background(Capsule().fill(Color(red: 0.62, green: 0.30, blue: 0.82).opacity(0.85)))
+    }
+
+    // ─── Action handlers — same behavior as MainGridTile ──────────
+
+    private func toggleLike() async {
+        guard auth.isLoggedIn else { auth.login(); return }
+        let prev = isLiked
+        liked = !prev
+        do {
+            if prev { try await APIClient.shared.unlike(wallpaperID: wallpaper.id) }
+            else    { try await APIClient.shared.like(wallpaperID: wallpaper.id) }
+        } catch { liked = prev }
+    }
+
+    private func toggleFavorite() async {
+        guard auth.isLoggedIn else { auth.login(); return }
+        let prev = isFavorited
+        favorited = !prev
+        do {
+            if prev { try await APIClient.shared.unfavorite(wallpaperID: wallpaper.id) }
+            else    { try await APIClient.shared.favorite(wallpaperID: wallpaper.id) }
+        } catch { favorited = prev }
+    }
+
+    private func doDownload() async {
+        guard auth.isLoggedIn else { auth.login(); return }
+        if localFileExists { return }
+        busy = true
+        defer { busy = false }
+        do {
+            try await manager.download(wallpaper: wallpaper)
+            downloaded = true
+            await auth.refreshProfile()
+        } catch {}
     }
 }
 
