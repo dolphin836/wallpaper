@@ -1,13 +1,14 @@
 import SwiftUI
 
-// Home page layout matches the web's HomePage:
-//   1. Hero card (big featured pick from /weekly-picks/current,
-//      tinted by its palette).
-//   2. This week's picks rest of slate — 5-column grid.
-//   3. Live — Mac dynamic (.heic solar/h24) + video wallpapers,
-//      unified under one "Live" pill. 4-column grid.
-//   4. AI Lab — 5-column grid.
-//   5. Themed collections — 4-column rail.
+// Immersive home page:
+//   • The weekly hero pick is the page BACKGROUND — published to
+//     HomeBackdropEnv and rendered full-window by MainWindow with the
+//     detail-page loading order (default mesh → dominant → thumb →
+//     original).
+//   • A transparent hero band at the top lets the backdrop breathe and
+//     carries the pick's kicker / title / CTA; tapping opens the pick.
+//   • The four content rows (weekly picks, Live, AI Lab, collections)
+//     scroll up over the backdrop on a rounded glass panel.
 struct HomeView: View {
     var onPick: (Wallpaper) -> Void
     var onOpenWeek: (Int, Int) -> Void
@@ -31,37 +32,139 @@ struct HomeView: View {
     @State private var allFailed = false
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            // Web .h3-row has padding-top 120px between rows. The first
-            // row gets 72px (handled by VStack initial spacing).
-            VStack(alignment: .leading, spacing: 100) {
-                if let hero = weekly?.picks.first(where: { $0.isHero }) ?? weekly?.picks.first {
-                    HeroCard(pick: hero, week: weekly!.week, year: weekly!.year, onTap: { onPick(weeklyToWallpaper(hero)) })
-                } else if weeklyLoading {
-                    SkeletonTile(variant: .hero)
-                }
-                if allFailed {
-                    RemoteLoadErrorView(message: L10n.home.homeFeedError) {
-                        Task { await loadAll() }
-                    }
-                } else {
-                    weeklySection
-                    liveSection
-                    aiSection
-                    collectionsSection
+        GeometryReader { proxy in
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 0) {
+                    heroBand(viewport: proxy.size)
+                    contentPanel
                 }
             }
-            // WindowChrome.topInset matches the sidebar logo's top
-            // padding, so the hero card and the sidebar logo line up
-            // on the same baseline (windowed AND full-screen).
-            .padding(.horizontal, 32)
-            .padding(.top, WindowChrome.topInset)
-            .padding(.bottom, 60)
-            .frame(maxWidth: 1280).frame(maxWidth: .infinity, alignment: .center)
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
         }
-        .scrollContentBackground(.hidden)
-        .background(Color.clear)
         .task { await loadAll() }
+    }
+
+    // ─── Hero band ─────────────────────────────────────────────
+
+    private var heroPick: WeeklyPicked? {
+        weekly?.picks.first(where: { $0.isHero }) ?? weekly?.picks.first
+    }
+
+    // Transparent band over the full-window backdrop. Carries the hero
+    // pick's kicker / title / meta on the left and the trade CTA on the
+    // right; the whole band opens the pick.
+    private func heroBand(viewport: CGSize) -> some View {
+        let height = max(300, viewport.height * 0.52)
+        return ZStack(alignment: .bottomLeading) {
+            Color.clear
+
+            if let hero = heroPick, let weekly {
+                Button(action: { onPick(weeklyToWallpaper(hero)) }) {
+                    HStack(alignment: .bottom, spacing: 24) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(L10n.home.heroKicker(weekly.week, weekly.year))
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .tracking(1.8)
+                                .foregroundStyle(Color.white.opacity(0.85))
+                            if !hero.title.isEmpty {
+                                Text(hero.title)
+                                    .font(.system(size: 38, weight: .medium, design: .serif))
+                                    .tracking(-0.4)
+                                    .foregroundStyle(.white)
+                                    .lineLimit(2)
+                            }
+                            Text(heroMeta(hero))
+                                .font(.system(size: 12.5, weight: .regular, design: .monospaced))
+                                .foregroundStyle(Color.white.opacity(0.78))
+                        }
+                        .shadow(color: .black.opacity(0.45), radius: 10, y: 2)
+
+                        Spacer(minLength: 0)
+
+                        HStack(spacing: 10) {
+                            CoinDisc(size: 12)
+                            Text(L10n.home.tradeForOne)
+                                .font(.system(size: 13.5, weight: .semibold))
+                                .foregroundStyle(Color.coinValue)
+                        }
+                        .padding(.horizontal, 22).padding(.vertical, 13)
+                        .background(
+                            Capsule().fill(
+                                LinearGradient(
+                                    colors: [.coinSurfaceStart, .coinSurfaceEnd],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                        )
+                        .overlay(Capsule().strokeBorder(Color.coinBorder, lineWidth: 1))
+                        .shadow(color: Color.black.opacity(0.22), radius: 10, y: 4)
+                    }
+                    .padding(.horizontal, 40)
+                    .padding(.bottom, 30)
+                    .frame(maxWidth: 1280)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .pointerCursor()
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: height)
+    }
+
+    // Web format: "4K · 1920×1080 · 2.3 MB".
+    private func heroMeta(_ pick: WeeklyPicked) -> String {
+        var parts: [String] = []
+        let px = max(pick.width, pick.height)
+        if px >= 7680 { parts.append("8K") }
+        else if px >= 3840 { parts.append("4K") }
+        else if px >= 2560 { parts.append("2K") }
+        else if px >= 1920 { parts.append("1080P") }
+        parts.append("\(pick.width)×\(pick.height)")
+        let mb = Double(pick.fileSize) / 1024.0 / 1024.0
+        parts.append(mb >= 10 ? String(format: "%.0f MB", mb) : String(format: "%.1f MB", mb))
+        return parts.joined(separator: " · ")
+    }
+
+    // ─── Content panel ─────────────────────────────────────────
+
+    // The four rows sit on a rounded glass panel that scrolls up over
+    // the wallpaper backdrop, keeping the ink text tokens legible.
+    private var contentPanel: some View {
+        VStack(alignment: .leading, spacing: 100) {
+            if allFailed {
+                RemoteLoadErrorView(message: L10n.home.homeFeedError) {
+                    Task { await loadAll() }
+                }
+            } else {
+                weeklySection
+                liveSection
+                aiSection
+                collectionsSection
+            }
+        }
+        .padding(.horizontal, 32)
+        .padding(.top, 56)
+        .padding(.bottom, 60)
+        .frame(maxWidth: 1280)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .background(
+            panelShape.fill(.ultraThinMaterial)
+        )
+        .background(
+            panelShape.fill(Color.paper.opacity(0.62))
+        )
+        .overlay(alignment: .top) {
+            panelShape
+                .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private var panelShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28, style: .continuous)
     }
 
     // ─── Sections ──────────────────────────────────────────────
@@ -292,6 +395,7 @@ struct HomeView: View {
         let w = await weeklyTask
         weekly = w
         weeklyLoading = false
+        publishBackdrop()
 
         let l = await liveTask
         liveWalls = l?.items ?? []
@@ -308,6 +412,19 @@ struct HomeView: View {
         allFailed = w == nil && l == nil && a == nil && c == nil
     }
 
+    // Push the hero pick into the shared backdrop env so MainWindow can
+    // paint it behind the whole window. Original falls back to preview
+    // (same rule the old HeroCard used for its high-res source).
+    private func publishBackdrop() {
+        guard let hero = heroPick else { return }
+        let original = hero.originalURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        HomeBackdropEnv.shared.set(
+            dominant: hero.dominantColor,
+            thumb: hero.thumbURL,
+            original: original.isEmpty ? hero.previewURL : original
+        )
+    }
+
     private func weeklyToWallpaper(_ p: WeeklyPicked) -> Wallpaper {
         Wallpaper(
             id: p.id, slug: p.slug, userID: 0, categoryID: nil, title: p.title, description: "",
@@ -318,178 +435,6 @@ struct HomeView: View {
             isAIGenerated: p.isAIGenerated, isLiked: nil, isFavorited: nil, isDownloaded: nil,
             createdAt: ""
         )
-    }
-}
-
-// Hero card at the top of Home. Mirrors the web's HomePage HeroCard:
-//   • 16:9 aspect, 24pt rounded
-//   • Bottom-gradient overlay
-//   • Left: Curation · Week N · YEAR kicker + WxH · file-size meta
-//   • Right: adaptive "Trade for 1" CTA pill with coin glyph
-//   • Top-right: small resolution chip
-// No serif title in the overlay — web hero leads with the image and
-// metadata, not text. Hover lifts the card and deepens the shadow.
-struct HeroCard: View {
-    let pick: WeeklyPicked
-    let week: Int
-    let year: Int
-    let onTap: () -> Void
-    @State private var hover = false
-
-    // Mirrors ResChip in components/WallpaperTile.tsx:
-    //   >=7680→8K, >=3840→4K, >=2560→2K, >=1920→1080P, >=1280→720P, else hidden
-    private var resolutionLabel: String? {
-        let px = max(pick.width, pick.height)
-        if px >= 7680 { return "8K" }
-        if px >= 3840 { return "4K" }
-        if px >= 2560 { return "2K" }
-        if px >= 1920 { return "1080P" }
-        if px >= 1280 { return "720P" }
-        return nil
-    }
-
-    // Web format: "1920×1080 · 2.3 MB" — 1 decimal under 10 MB.
-    private var fileSizeLabel: String {
-        let mb = Double(pick.fileSize) / 1024.0 / 1024.0
-        return mb >= 10 ? String(format: "%.0f MB", mb) : String(format: "%.1f MB", mb)
-    }
-
-    private var highImageURL: URL? {
-        let original = pick.originalURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !original.isEmpty {
-            return URL(string: original)
-        }
-        let preview = pick.previewURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        return preview.isEmpty ? nil : URL(string: preview)
-    }
-
-    var body: some View {
-        GeometryReader { proxy in
-            let heroWidth = proxy.size.width
-            let heroHeight = heroWidth * 9.0 / 16.0
-
-            Button(action: onTap) {
-                ZStack(alignment: .bottomLeading) {
-                    ProgressiveCachedAsyncImage(
-                        lowURL: URL(string: pick.thumbURL),
-                        highURL: highImageURL,
-                        lowMaxPixelDimension: 640,
-                        highMaxPixelDimension: 4200
-                    ) { img in
-                        img.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Color(hex: pick.dominantColor ?? "#bbb").opacity(0.5)
-                    }
-                    .frame(width: heroWidth, height: heroHeight)
-                    .clipped()
-
-                    // Bottom gradient — web uses linear-gradient(180deg,
-                    // transparent, rgba(0,0,0,0.4))
-                    LinearGradient(
-                        colors: [.clear, .black.opacity(0.4)],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                    .allowsHitTesting(false)
-
-                    // Top-right resolution chip — web .h3-hero .h3-res-chip
-                    //   top: 16px; right: 16px
-                    //   padding: 2px 8px
-                    //   font-size: 10px (mono, weight 600, letter-spacing 0.04em)
-                    //   background: oklch(98% 0.005 240 / 0.75)  ← LIGHT pill
-                    //   color: oklch(36% 0.012 240)              ← DARK text
-                    if let res = resolutionLabel {
-                        VStack {
-                            HStack {
-                                Spacer()
-                                Text(res)
-                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                    .tracking(0.4)
-                                    .foregroundStyle(Color(hex: "#54585f"))
-                                    .padding(.horizontal, 8).padding(.vertical, 2)
-                                    .background(
-                                        Capsule().fill(Color.white.opacity(0.75))
-                                    )
-                                    .padding(.top, 16).padding(.trailing, 16)
-                            }
-                            Spacer()
-                        }
-                    }
-
-                    // Bottom overlay — web .h3-hero-overlay
-                    //   padding: 26px 30px 24px (top right/left bottom)
-                    //   display: flex, align-items: end, justify-content: space-between, gap: 24px
-                    HStack(alignment: .bottom, spacing: 24) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            // .h3-kicker — mono 10px, letter-spacing 0.16em,
-                            // uppercase, color rgba(255,255,255,0.85)
-                            Text(L10n.home.heroKicker(week, year))
-                                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                .tracking(1.6)
-                                .foregroundStyle(Color.white.opacity(0.85))
-                            // .h3-meta — mono 12.5px, opacity 0.78
-                            Text("\(pick.width)×\(pick.height) · \(fileSizeLabel)")
-                                .font(.system(size: 12.5, weight: .regular, design: .monospaced))
-                                .foregroundStyle(Color.white.opacity(0.78))
-                        }
-                        Spacer(minLength: 0)
-                        // .h3-cta — padding 13px 22px, font 13.5/600.
-                        // Uses the shared coin surface tokens so the CTA stays
-                        // warm and legible in both light and dark mode.
-                        HStack(spacing: 10) {
-                            CoinDisc(size: 12)
-                            Text(L10n.home.tradeForOne)
-                                .font(.system(size: 13.5, weight: .semibold))
-                                .foregroundStyle(Color.coinValue)
-                        }
-                        .padding(.horizontal, 22).padding(.vertical, 13)
-                        .background(
-                            Capsule().fill(
-                                LinearGradient(
-                                    colors: [.coinSurfaceStart, .coinSurfaceEnd],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                        )
-                        .overlay(Capsule().strokeBorder(Color.coinBorder, lineWidth: 1))
-                        .shadow(color: hover ? Color.coinGlow : Color.black.opacity(0.22),
-                                radius: hover ? 14 : 10,
-                                x: 0,
-                                y: hover ? 8 : 4)
-                    }
-                    .padding(.top, 26)
-                    .padding(.horizontal, 30)
-                    .padding(.bottom, 24)
-                    .frame(width: heroWidth, height: heroHeight, alignment: .bottomLeading)
-                }
-                .frame(width: heroWidth, height: heroHeight)
-                .clipShape(RoundedRectangle(cornerRadius: 24))
-                .contentShape(RoundedRectangle(cornerRadius: 24))
-            }
-            .buttonStyle(.plain)
-            .frame(width: heroWidth, height: heroHeight)
-        }
-        .aspectRatio(16.0 / 9.0, contentMode: .fit)
-        // Keep the hero attached to the mesh. A large soft shadow reads
-        // like a separate rounded background card in the desktop window.
-        .scaleEffect(hover ? 1.005 : 1.0)
-        .overlay(
-            RoundedRectangle(cornerRadius: 24)
-                .stroke(Color.white.opacity(0.18), lineWidth: 1)
-                .allowsHitTesting(false)
-        )
-        .shadow(color: Color.black.opacity(hover ? 0.20 : 0.14),
-                radius: hover ? 18 : 12,
-                x: 0, y: hover ? 8 : 5)
-        .animation(.easeOut(duration: 0.6), value: hover)
-        .onHover { entered in
-            hover = entered
-            if entered {
-                PaletteEnv.shared.apply(palette: pick.colorPalette, dominant: pick.dominantColor)
-            } else {
-                PaletteEnv.shared.resetToDefaults()
-            }
-        }
     }
 }
 

@@ -132,6 +132,15 @@ enum ChromeLine {
     }
 }
 
+extension View {
+    // Pointing-hand cursor while hovering. push/pop pairs enter/exit.
+    func pointerCursor() -> some View {
+        onHover { h in
+            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+    }
+}
+
 extension Color {
     // RGB-space blend for chip tinting. Tag chips lean toward ink so
     // they stay legible while still palette-coloured.

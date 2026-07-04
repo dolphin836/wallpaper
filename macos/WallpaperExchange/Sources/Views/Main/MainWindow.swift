@@ -1,16 +1,16 @@
 import SwiftUI
 import AppKit
 
-// v2.2 main window. Left sidebar (Browse + My Library + footer
-// identity cell) and a thin top toolbar above the content area.
-// Full-page push for detail / profile / collection / device / etc.
+// v3 main window. No sidebar — a floating liquid-glass nav pill fixed
+// at the window's top-centre (Home / Discover / Weekly / Collections)
+// plus an icon toolbar on the right (upload, settings, refresh, theme,
+// avatar). Full-page push for detail / profile / collection / etc.
 struct MainWindow: View {
     @State private var auth = AuthService.shared
     @State private var manager = WallpaperManager.shared
     @AppStorage(AppearancePref.storageKey) private var appearanceRaw: String = AppearancePref.system.rawValue
 
     @State private var sidebar: SidebarItem = .home
-    @State private var sidebarCollapsed = false
     // Set when a Home "browse more" CTA jumps to Discover with a filter
     // (e.g. Live / AI). Cleared when leaving Discover.
     @State private var pendingDiscoverFilter: DiscoverView.Filter?
@@ -86,56 +86,30 @@ struct MainWindow: View {
     }
 
     var body: some View {
-        // Manual split layout (no NavigationSplitView) so the chrome is
-        // fully deterministic and matches the reference mockup exactly:
-        //   • A paper top bar across the window top — the native traffic
-        //     lights float on it at their natural top-left position
-        //     (we do NOT reposition them). Full-screen drops the buttons
-        //     and the bar simply reads as a top margin.
-        //   • A floating sidebar with only a hairline frame. The dynamic
-        //     page mesh remains visible underneath the sidebar and toolbar.
-        //   • A transparent content surface over the full-window palette mesh.
+        // Manual layout (no NavigationSplitView) so the chrome is fully
+        // deterministic:
+        //   • The native traffic lights float at their natural top-left
+        //     position (we do NOT reposition them).
+        //   • A liquid-glass nav pill floats at the top-centre; the icon
+        //     toolbar sits on the right of the same row. No divider —
+        //     the chrome reads as loose elements over the page backdrop.
+        //   • A transparent content surface over the full-window palette
+        //     mesh (and, on Home, over the weekly-hero wallpaper backdrop).
         ZStack(alignment: .topLeading) {
             // Full-window palette mesh. Tiles still drive PaletteEnv, but
-            // the responsive backdrop now spans the toolbar, sidebar gaps,
-            // and content surface instead of living only under detailPane.
+            // the responsive backdrop now spans the toolbar row and the
+            // content surface.
             PageMesh()
 
-            HStack(spacing: WindowChrome.inset) {
-                MainSidebar(selection: $sidebar, collapsed: $sidebarCollapsed)
-                    .frame(width: sidebarCollapsed ? 64 : 240)
-                    .background(
-                        RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
-                            .fill(Color.chromePanel)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: WindowChrome.radius, style: .continuous)
-                            .strokeBorder(ChromeLine.border(for: palette), lineWidth: 1)
-                    )
-                    // Alternate (form #2) collapse toggle: a circle
-                    // straddling the sidebar's right edge, vertically
-                    // centred on the logo. Kept alongside the
-                    // traffic-light toggle for comparison.
-                    .overlay(alignment: .topTrailing) {
-                        SidebarEdgeToggle(collapsed: sidebarCollapsed) {
-                            withAnimation(.easeInOut(duration: 0.22)) { sidebarCollapsed.toggle() }
-                        }
-                        // x: half the button straddles the edge.
-                        // y: logo centre = topInset + half the 24pt logo,
-                        //    minus half the button to get its top.
-                        .offset(x: SidebarEdgeToggle.size / 2,
-                                y: WindowChrome.topInset + 12 - SidebarEdgeToggle.size / 2)
-                    }
-                    .padding(.bottom, WindowChrome.inset)
-                    // Draw above the detail pane so overflowing hover
-                    // tooltips aren't covered by it.
-                    .zIndex(1)
-                    .animation(.easeInOut(duration: 0.22), value: sidebarCollapsed)
-
-                detailPane
+            // Home-only immersive backdrop: the current weekly hero
+            // wallpaper fills the whole window behind the chrome.
+            if sidebar == .home && path.isEmpty {
+                HomeBackdropView()
+                    .transition(.opacity)
             }
-            .padding(.leading, WindowChrome.inset)
-            .padding(.top, WindowChrome.topBar + WindowChrome.toolbarGap)
+
+            detailPane
+                .padding(.top, WindowChrome.topBar + WindowChrome.toolbarGap)
 
             topToolbar
                 .zIndex(3)
@@ -196,44 +170,41 @@ struct MainWindow: View {
         !forwardPath.isEmpty
     }
 
-    private var contentLeading: CGFloat {
-        WindowChrome.inset + (sidebarCollapsed ? 64 : 240) + WindowChrome.inset
-    }
-
+    // Top chrome row: brand + back/forward on the left, the liquid-glass
+    // nav pill centred on the window, and the icon toolbar (upload,
+    // settings, refresh, theme, avatar) on the right. No bottom divider.
     private var topToolbar: some View {
-        HStack(spacing: 12) {
-            ToolbarButtonGroup(style: .navigation) {
-                ChromeToolbarButton(
-                    icon: "chevron.left",
-                    help: L10n.shell.back,
-                    role: .navigation,
-                    disabled: !canGoBack,
-                    action: goBack
-                )
-                ChromeToolbarButton(
-                    icon: "chevron.right",
-                    help: L10n.shell.forward,
-                    role: .navigation,
-                    disabled: !canGoForward,
-                    action: goForward
-                )
-            }
+        ZStack {
+            HStack(spacing: 12) {
+                brandMark
 
-            Spacer(minLength: 16)
-
-            HStack(spacing: 10) {
-                ToolbarButtonGroup(style: .primary) {
+                ToolbarButtonGroup(style: .navigation) {
                     ChromeToolbarButton(
-                        icon: "square.and.arrow.up",
-                        label: L10n.shell.upload,
-                        help: L10n.shell.upload,
-                        role: .primary,
-                        active: sidebar == .upload,
-                        action: { selectTopLevel(.upload) }
+                        icon: "chevron.left",
+                        help: L10n.shell.back,
+                        role: .navigation,
+                        disabled: !canGoBack,
+                        action: goBack
+                    )
+                    ChromeToolbarButton(
+                        icon: "chevron.right",
+                        help: L10n.shell.forward,
+                        role: .navigation,
+                        disabled: !canGoForward,
+                        action: goForward
                     )
                 }
 
+                Spacer(minLength: 16)
+
                 ToolbarButtonGroup(style: .utility) {
+                    ChromeToolbarButton(
+                        icon: "square.and.arrow.up",
+                        help: L10n.shell.upload,
+                        role: .utility,
+                        active: sidebar == .upload,
+                        action: { selectTopLevel(.upload) }
+                    )
                     ChromeToolbarButton(
                         icon: "gearshape",
                         help: L10n.shell.settings,
@@ -254,19 +225,47 @@ struct MainWindow: View {
                         action: toggleTheme
                     )
                 }
+
+                ToolbarAvatarButton(active: sidebar.isMine) {
+                    if auth.isLoggedIn {
+                        selectTopLevel(.myUploads)
+                    } else {
+                        auth.login()
+                    }
+                }
+            }
+            .padding(.leading, isFullScreen ? 16 : 86)
+            .padding(.trailing, 16)
+
+            GlassNavBar(selection: navSelection) { item in
+                selectTopLevel(item)
             }
         }
-        .padding(.leading, max(contentLeading, isFullScreen ? 12 : 86))
-        .padding(.trailing, 16)
         .frame(maxWidth: .infinity)
         .frame(height: WindowChrome.topBar)
         .background(Color.clear)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(ChromeLine.divider(for: palette)).frame(height: 1)
-        }
-        .animation(.easeInOut(duration: 0.22), value: sidebarCollapsed)
         .animation(.easeInOut(duration: 0.22), value: isFullScreen)
         .animation(.easeOut(duration: 0.42), value: palette.c2)
+    }
+
+    // The glass nav only highlights top-level browse pages; account /
+    // upload / settings selections leave the pill unhighlighted.
+    private var navSelection: SidebarItem? {
+        switch sidebar {
+        case .home, .discover, .weekly, .collections: sidebar
+        default: nil
+        }
+    }
+
+    @ViewBuilder
+    private var brandMark: some View {
+        if let nsImg = BrandAsset.logo {
+            Image(nsImage: nsImg)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 22, height: 22)
+        }
     }
 
     private var themeToolbarIcon: String {
