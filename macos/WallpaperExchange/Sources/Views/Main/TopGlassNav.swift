@@ -81,24 +81,67 @@ struct GlassIconButton: View {
     }
 }
 
-// Liquid-glass navigation pill fixed at the window's top-centre. Only
-// the four browse destinations live here; actions (upload / settings /
-// avatar) stay in the icon toolbar pill on the right.
-struct GlassNavBar: View {
+// The single liquid-glass chrome bar fixed at the window's top-centre.
+// One shared container, three functional groups separated by hairline
+// dividers so they read as distinct clusters:
+//   1. Navigation — icon + label segments for the browse destinations
+//      (the only group with a selected-capsule state).
+//   2. Actions — icon-only buttons (upload, settings, refresh, theme).
+//   3. Identity — the avatar chip.
+struct GlassChromeBar: View {
     let selection: MainWindow.SidebarItem?
     let onSelect: (MainWindow.SidebarItem) -> Void
+    let uploadActive: Bool
+    let settingsActive: Bool
+    let avatarActive: Bool
+    let themeIcon: String
+    let themeHelp: String
+    let onUpload: () -> Void
+    let onSettings: () -> Void
+    let onRefresh: () -> Void
+    let onTheme: () -> Void
+    let onAvatar: () -> Void
 
-    private static let items: [MainWindow.SidebarItem] = [.home, .discover, .weekly, .collections]
+    private static let navItems: [MainWindow.SidebarItem] = [.home, .discover, .weekly, .collections]
 
     var body: some View {
         GlassPill {
-            ForEach(Self.items, id: \.self) { item in
+            ForEach(Self.navItems, id: \.self) { item in
                 GlassNavItem(
                     item: item,
                     isSelected: item == selection,
                     action: { onSelect(item) }
                 )
             }
+
+            GlassPillDivider()
+
+            GlassIconButton(
+                icon: "square.and.arrow.up",
+                help: L10n.shell.upload,
+                active: uploadActive,
+                action: onUpload
+            )
+            GlassIconButton(
+                icon: "gearshape",
+                help: L10n.shell.settings,
+                active: settingsActive,
+                action: onSettings
+            )
+            GlassIconButton(
+                icon: "arrow.clockwise",
+                help: L10n.shell.refreshPage,
+                action: onRefresh
+            )
+            GlassIconButton(
+                icon: themeIcon,
+                help: themeHelp,
+                action: onTheme
+            )
+
+            GlassPillDivider()
+
+            ToolbarAvatarButton(active: avatarActive, action: onAvatar)
         }
     }
 }

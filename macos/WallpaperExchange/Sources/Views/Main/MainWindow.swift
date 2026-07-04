@@ -170,57 +170,31 @@ struct MainWindow: View {
         !forwardPath.isEmpty
     }
 
-    // Top chrome row: the liquid-glass nav pill centred on the window
-    // and a matching glass icon toolbar (upload, settings, refresh,
-    // theme | avatar) on the right. Back/forward and the brand mark are
-    // hidden for now; no bottom divider.
+    // Top chrome row: one liquid-glass bar centred on the window,
+    // holding nav | actions | avatar as divider-separated groups.
+    // Back/forward and the brand mark are hidden for now; no divider
+    // under the row.
     private var topToolbar: some View {
-        ZStack {
-            HStack(spacing: 12) {
-                Spacer(minLength: 16)
-
-                GlassPill {
-                    GlassIconButton(
-                        icon: "square.and.arrow.up",
-                        help: L10n.shell.upload,
-                        active: sidebar == .upload,
-                        action: { selectTopLevel(.upload) }
-                    )
-                    GlassIconButton(
-                        icon: "gearshape",
-                        help: L10n.shell.settings,
-                        active: sidebar == .settings,
-                        action: { selectTopLevel(.settings) }
-                    )
-                    GlassIconButton(
-                        icon: "arrow.clockwise",
-                        help: L10n.shell.refreshPage,
-                        action: refreshCurrentPage
-                    )
-                    GlassIconButton(
-                        icon: themeToolbarIcon,
-                        help: themeToolbarHelp,
-                        action: toggleTheme
-                    )
-
-                    GlassPillDivider()
-
-                    ToolbarAvatarButton(active: sidebar.isMine) {
-                        if auth.isLoggedIn {
-                            selectTopLevel(.myUploads)
-                        } else {
-                            auth.login()
-                        }
-                    }
+        GlassChromeBar(
+            selection: navSelection,
+            onSelect: { selectTopLevel($0) },
+            uploadActive: sidebar == .upload,
+            settingsActive: sidebar == .settings,
+            avatarActive: sidebar.isMine,
+            themeIcon: themeToolbarIcon,
+            themeHelp: themeToolbarHelp,
+            onUpload: { selectTopLevel(.upload) },
+            onSettings: { selectTopLevel(.settings) },
+            onRefresh: refreshCurrentPage,
+            onTheme: toggleTheme,
+            onAvatar: {
+                if auth.isLoggedIn {
+                    selectTopLevel(.myUploads)
+                } else {
+                    auth.login()
                 }
             }
-            .padding(.leading, isFullScreen ? 16 : 86)
-            .padding(.trailing, 16)
-
-            GlassNavBar(selection: navSelection) { item in
-                selectTopLevel(item)
-            }
-        }
+        )
         .frame(maxWidth: .infinity)
         .frame(height: WindowChrome.topBar)
         .background(Color.clear)
