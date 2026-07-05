@@ -65,7 +65,7 @@ struct CollectionsListView: View {
                 }
             }
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
-            .frame(maxWidth: 1280).frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .task { await reload() }
         .onChange(of: filter) { _, _ in Task { await reload() } }
@@ -416,7 +416,7 @@ struct CollectionDetailView: View {
                 }
             }
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
-            .frame(maxWidth: 1280).frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .task(id: slug) { await load() }
         .onDisappear { PaletteEnv.shared.resetToDefaults() }

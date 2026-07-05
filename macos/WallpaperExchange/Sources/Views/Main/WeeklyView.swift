@@ -49,7 +49,7 @@ struct WeeklyArchiveView: View {
                 }
             }
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
-            .frame(maxWidth: 1280).frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .task { await load() }
         .onChange(of: selectedID) { _, _ in applySelectedPalette() }
@@ -308,7 +308,7 @@ struct WeeklyWeekView: View {
                 }
             }
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
-            .frame(maxWidth: 1280).frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollContentBackground(.hidden)
         .background(Color.clear)

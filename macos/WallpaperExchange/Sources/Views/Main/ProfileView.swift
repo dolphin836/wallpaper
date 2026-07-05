@@ -42,7 +42,7 @@ struct ProfileView: View {
                     grid
                 }
                 .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
-                .frame(maxWidth: 1100).frame(maxWidth: .infinity, alignment: .center)
+                .frame(maxWidth: .infinity, alignment: .leading)
             } else if let err = loadError {
                 RemoteLoadErrorView(message: err) {
                     Task { await loadProfile() }
@@ -51,7 +51,7 @@ struct ProfileView: View {
             } else {
                 profileSkeleton
                     .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
-                    .frame(maxWidth: 1100).frame(maxWidth: .infinity, alignment: .center)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         // page-mesh shows through; no opaque paper background here

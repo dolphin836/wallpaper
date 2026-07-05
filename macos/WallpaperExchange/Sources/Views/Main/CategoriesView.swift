@@ -40,7 +40,7 @@ struct CategoriesView: View {
                 }
             }
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
-            .frame(maxWidth: 1200).frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .task { await load() }
     }
@@ -150,7 +150,7 @@ struct CategoryFeedView: View {
                 }
             }
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
-            .frame(maxWidth: 1200).frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         // page-mesh shows through; no opaque paper background here
         .task(id: category.id) { await reload() }

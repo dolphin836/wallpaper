@@ -70,7 +70,7 @@ struct AccountView: View {
                 }
             }
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
-            .frame(maxWidth: 1180).frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .task(id: username) {
             if !didInit { tab = initialTab; didInit = true }

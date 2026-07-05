@@ -157,6 +157,65 @@ struct GlassPillDivider: View {
     }
 }
 
+// Circular glass back button. Lives on the chrome row's left side
+// (after the traffic lights) and only mounts on pushed second-level
+// pages — the nav pill itself has no room for history controls.
+// Same material family as the chrome bar; ⌘[ triggers it too.
+struct GlassBackButton: View {
+    let action: () -> Void
+    @State private var hover = false
+
+    private let size: CGFloat = 38
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "chevron.left")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(hover ? Color.ink : Color.ink2)
+                .frame(width: size, height: size)
+                .contentShape(Circle())
+        }
+        .buttonStyle(GlassBounceButtonStyle())
+        .focusEffectDisabled()
+        .focusable(false)
+        .keyboardShortcut("[", modifiers: .command)
+        .modifier(GlassCircleChrome())
+        .scaleEffect(hover ? 1.08 : 1)
+        .overlay(alignment: .top) {
+            if hover {
+                HoverTip(text: L10n.shell.back)
+                    .offset(y: size + 8)
+            }
+        }
+        .onHover { h in
+            hover = h
+            if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .animation(.spring(response: 0.32, dampingFraction: 0.6), value: hover)
+    }
+}
+
+// Circle-shaped variant of the GlassPill chrome (material + lighting +
+// split shadows), for standalone round controls like the back button.
+private struct GlassCircleChrome: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(.regular.interactive(), in: .circle)
+                .overlay(GlassLightingOverlay(intensity: 0.9))
+                .shadow(color: Color.black.opacity(0.18), radius: 3, y: 2)
+                .shadow(color: Color.black.opacity(0.20), radius: 16, y: 7)
+        } else {
+            content
+                .background(.ultraThinMaterial, in: Circle())
+                .background(Circle().fill(Color.paper.opacity(0.28)))
+                .overlay(GlassLightingOverlay(intensity: 0.9))
+                .shadow(color: Color.black.opacity(0.18), radius: 3, y: 2)
+                .shadow(color: Color.black.opacity(0.18), radius: 14, y: 6)
+        }
+    }
+}
+
 // Small dark capsule label shown under chrome buttons on hover — same
 // treatment the old collapsed sidebar used for its fly-out labels.
 struct HoverTip: View {

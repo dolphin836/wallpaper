@@ -173,22 +173,37 @@ struct MainWindow: View {
     // Back/forward and the brand mark are hidden for now; no divider
     // under the row.
     private var topToolbar: some View {
-        GlassChromeBar(
-            selection: navSelection,
-            onSelect: { selectTopLevel($0) },
-            avatarActive: sidebar.isMine || sidebar == .settings,
-            onAvatar: {
-                if auth.isLoggedIn {
-                    // Account home = the settings tab of the profile page.
-                    selectTopLevel(.settings)
-                } else {
-                    auth.login()
+        ZStack {
+            // Back button for pushed second-level pages (collection /
+            // week / profile…). Sits on the row's free left side, next
+            // to the traffic lights, and unmounts on top-level pages.
+            if canGoBack {
+                HStack {
+                    GlassBackButton(action: goBack)
+                    Spacer()
                 }
+                .padding(.leading, isFullScreen ? 16 : 86)
+                .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
-        )
+
+            GlassChromeBar(
+                selection: navSelection,
+                onSelect: { selectTopLevel($0) },
+                avatarActive: sidebar.isMine || sidebar == .settings,
+                onAvatar: {
+                    if auth.isLoggedIn {
+                        // Account home = the settings tab of the profile page.
+                        selectTopLevel(.settings)
+                    } else {
+                        auth.login()
+                    }
+                }
+            )
+        }
         .frame(maxWidth: .infinity)
         .frame(height: WindowChrome.topBar)
         .background(Color.clear)
+        .animation(.spring(response: 0.34, dampingFraction: 0.75), value: canGoBack)
         .animation(.easeInOut(duration: 0.22), value: isFullScreen)
         .animation(.easeOut(duration: 0.42), value: palette.c2)
     }
