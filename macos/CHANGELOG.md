@@ -10,6 +10,35 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-07-05
+
+### Added
+
+- **All-new liquid-glass interface.** The sidebar is gone: a floating
+  glass navigation pill sits top-centre (Home / Discover / Weekly /
+  Collections) with a liquid droplet marking the selection, the avatar
+  opens your account, and pushed pages get a floating glass back button
+  (⌘[). Built on GlassKit, the shared design system
+  (`docs/design-system.md`).
+- **Immersive home.** The weekly hero wallpaper is now the whole page
+  background (progressive: dominant color → thumb → original); the
+  slate renders as golden-ratio cards with the familiar chips + action
+  rail.
+- **Redesigned Weekly archive ("magazine rack")** — the latest issue
+  opens as a full-width spread with a strip of its slate; past issues
+  are cover cards. **Redesigned Collections list** — editorial banner +
+  three-image mosaic cards.
+
+### Changed
+
+- **Downloads always deliver the original file** (device variants are
+  retired). After the detail page displays the original, download /
+  download-and-set complete instantly from the local cache; the
+  buttons stay disabled until it's ready and the progress bar is gone.
+- **Sign-in token storage moved off the Keychain**, eliminating the
+  system permission prompt that reappeared after every update. You'll
+  need to sign in once after this update.
+
 ## [2.0.17] - 2026-07-02
 
 ### Fixed

@@ -1,8 +1,42 @@
 {
-  "current_version": "2.0.17",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.0.17.dmg",
+  "current_version": "2.1.0",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.1.0.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.1.0",
+      "released_at": "2026-07-05",
+      "notes": [
+        "All-new liquid-glass interface: floating top navigation with a liquid selection droplet, glass back button on sub-pages, unified design system.",
+        "Immersive home — the weekly hero wallpaper fills the whole window as the page background, with golden-ratio cards for the slate.",
+        "Redesigned Weekly archive (magazine rack with a strip of the latest issue) and Collections list (editorial banner + mosaic cards).",
+        "Downloads always deliver the original file and complete instantly once the detail page has shown it; the progress bar is gone.",
+        "Sign-in token no longer uses the Keychain, so the system permission prompt after every update is gone — you'll need to sign in once after this update."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "全新液态玻璃界面：顶部悬浮导航带液态水珠选中效果，二级页面有玻璃返回按钮，统一设计系统。",
+          "沉浸式首页——每周精选大图铺满整个窗口作为页面背景，列表采用黄金比例卡片。",
+          "重新设计每周精选归档（杂志架布局，最新一期附作品条带）与合集列表（头条横幅 + 拼贴卡片）。",
+          "下载一律获取原图，详情页展示过原图后下载瞬间完成，进度条已移除。",
+          "登录凭证不再使用钥匙串，每次更新后的系统授权弹窗从此消失——本次更新后需要重新登录一次。"
+        ],
+        "zh-TW": [
+          "全新液態玻璃介面：頂部懸浮導覽帶液態水珠選取效果，二級頁面有玻璃返回按鈕，統一設計系統。",
+          "沉浸式首頁——每週精選大圖鋪滿整個視窗作為頁面背景，列表採用黃金比例卡片。",
+          "重新設計每週精選封存（雜誌架佈局，最新一期附作品條帶）與合輯列表（頭條橫幅 + 拼貼卡片）。",
+          "下載一律取得原圖，詳情頁展示過原圖後下載瞬間完成，進度條已移除。",
+          "登入憑證不再使用鑰匙圈，每次更新後的系統授權彈窗從此消失——本次更新後需要重新登入一次。"
+        ],
+        "ja": [
+          "リキッドグラスの新インターフェース：上部フローティングナビに液滴の選択エフェクト、下層ページにはガラスの戻るボタン、統一デザインシステムを採用。",
+          "没入型ホーム——今週のピックの壁紙がウィンドウ全体の背景になり、一覧は黄金比カードで表示されます。",
+          "今週のピックのアーカイブ（最新号のストリップ付きマガジンラック）とコレクション一覧（バナー + モザイクカード）を再設計しました。",
+          "ダウンロードは常にオリジナルを取得し、詳細ページで表示済みなら即座に完了します。プログレスバーは廃止しました。",
+          "ログイン情報がキーチェーンを使わなくなり、アップデートのたびに出ていた許可ダイアログがなくなりました——今回の更新後に一度だけ再ログインが必要です。"
+        ]
+      }
+    },
     {
       "version": "2.0.17",
       "released_at": "2026-07-02",
