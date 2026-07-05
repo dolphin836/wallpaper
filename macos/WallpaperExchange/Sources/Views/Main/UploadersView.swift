@@ -60,21 +60,12 @@ struct UploadersView: View {
     }
 
     private var sortPicker: some View {
-        HStack(spacing: 4) {
-            ForEach(["trending", "newest", "downloads"], id: \.self) { s in
-                Button(action: { sort = s }) {
-                    Text(sortLabel(s))
-                        .font(.sans11)
-                        .foregroundStyle(sort == s ? Color.ink : Color.muted)
-                        .padding(.horizontal, 10).padding(.vertical, 4)
-                        .background(Capsule().fill(sort == s ? Color.paper : Color.clear))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(3)
-        .background(Capsule().fill(Color.paper2))
-        .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
+        GlassSegmented(
+            segments: ["trending", "newest", "downloads"].map { GlassSegment(id: $0, label: sortLabel($0)) },
+            selection: $sort,
+            compact: true
+        )
+        .fixedSize()
     }
 
     private func load() async {

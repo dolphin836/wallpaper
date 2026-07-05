@@ -157,37 +157,22 @@ struct AccountView: View {
     // ─── Tab bar (web .ptabs + .ptab-count) ──────────────────────
     // Single row that scrolls horizontally when it can't fit (never
     // wraps), with a full-width base hairline underneath.
+    // GlassKit segmented pill (liquid selection droplet) instead of
+    // the old underline tabs — matches the window chrome family.
+    // Scrolls horizontally when the owner's 7 tabs don't fit.
     private var tabBar: some View {
-        VStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 28) {
-                    ForEach(tabs, id: \.self) { t in tabButton(t) }
-                }
-                .padding(.top, 18)
-            }
-            Rectangle().fill(Color.hair).frame(height: 1)
+        ScrollView(.horizontal, showsIndicators: false) {
+            GlassSegmented(
+                segments: tabs.map {
+                    GlassSegment(id: $0, label: $0.label, icon: $0.icon, badge: counts[$0].map { "\($0)" })
+                },
+                selection: $tab,
+                compact: true
+            )
+            .padding(.top, 18)
+            .padding(.bottom, 10)
         }
-    }
-
-    private func tabButton(_ t: AccountTab) -> some View {
-        Button(action: { tab = t }) {
-            HStack(spacing: 8) {
-                Image(systemName: t.icon).font(.system(size: 12, weight: .medium))
-                Text(t.label).font(.system(size: 14, weight: .medium)).lineLimit(1).fixedSize()
-                if let c = counts[t] {
-                    Text("\(c)")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(0.4)
-                        .padding(.horizontal, 6).padding(.vertical, 1)
-                        .foregroundStyle(tab == t ? Color.paper : Color.muted)
-                        .background(RoundedRectangle(cornerRadius: 3).fill(tab == t ? Color.ink : Color.paper2))
-                }
-            }
-            .foregroundStyle(tab == t ? Color.ink : Color.muted)
-            .padding(.vertical, 14)
-            .overlay(alignment: .bottom) { Rectangle().fill(tab == t ? Color.ink : Color.clear).frame(height: 2) }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain).pointerCursor()
+        .scrollClipDisabled()
     }
 
     // ─── Tab content ─────────────────────────────────────────────
@@ -431,17 +416,14 @@ struct AccountHeader: View {
     }
 
     private func pill(_ label: String, primary: Bool = false, icon: String? = nil, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                if let icon { Image(systemName: icon).font(.system(size: 10, weight: .semibold)) }
-                Text(label).font(.system(size: 12, weight: .medium))
-            }
-            .foregroundStyle(primary ? Color.paper : Color.ink)
-            .padding(.horizontal, 14).padding(.vertical, 7)
-            .background(Capsule().fill(primary ? Color.ink : Color.paper))
-            .overlay(Capsule().strokeBorder(primary ? Color.ink : Color.hair, lineWidth: 1))
-        }
-        .buttonStyle(.plain).pointerCursor()
+        GlassCapsuleButton(
+            title: label,
+            icon: icon,
+            style: primary ? .accent : .glass(.light),
+            height: 30,
+            fontSize: 12,
+            action: action
+        )
     }
 
     private var passwordSheet: some View {
@@ -746,19 +728,10 @@ struct PagedCollectionGrid: View {
             }
             Spacer(minLength: 0)
             if manager.autoRotateCollectionID != nil {
-                Button {
+                GlassCapsuleButton(title: L10n.account.collectionAutoPlayStop, height: 28, fontSize: 11) {
                     autoPlayError = nil
                     manager.clearAutoRotateCollection()
-                } label: {
-                    Text(L10n.account.collectionAutoPlayStop)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.ink2)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Capsule().fill(Color.paper2))
-                        .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(12)
@@ -1069,11 +1042,12 @@ struct PrivacyBanner: View {
                     .font(.system(size: 11)).foregroundStyle(Color.muted)
             }
             Spacer()
-            Button(action: onToggle) {
-                Text(isPublic ? L10n.account.makePrivate : L10n.account.makePublic).font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.ink).padding(.horizontal, 14).padding(.vertical, 7)
-                    .background(Capsule().fill(Color.paper)).overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
-            }.buttonStyle(.plain).pointerCursor()
+            GlassCapsuleButton(
+                title: isPublic ? L10n.account.makePrivate : L10n.account.makePublic,
+                height: 30,
+                fontSize: 12,
+                action: onToggle
+            )
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.paper.opacity(0.5)))
@@ -1118,21 +1092,16 @@ struct PageBar: View {
     }
 
     private func navButton(_ label: String, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label).font(.system(size: 11, weight: .medium, design: .monospaced)).tracking(1.0)
-                .foregroundStyle(enabled ? Color.ink2 : Color.muted.opacity(0.5))
-                .padding(.horizontal, 16).padding(.vertical, 9)
-                .background(Capsule().fill(Color.paper)).overlay(Capsule().strokeBorder(Color.hair, lineWidth: 1))
-        }.buttonStyle(.plain).disabled(!enabled).pointerCursor()
+        GlassCapsuleButton(title: label, height: 32, fontSize: 11, action: action)
+            .disabled(!enabled)
     }
     private func pageButton(_ p: Int) -> some View {
         let isCurrent = p == current
         let reachable = p <= maxReachable
-        return Button(action: { if reachable && !isCurrent { onChange(p) } }) {
-            Text("\(p)").font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(isCurrent ? Color.paper : (reachable ? Color.ink2 : Color.muted.opacity(0.4)))
-                .frame(minWidth: 32, minHeight: 32).background(Capsule().fill(isCurrent ? Color.ink : Color.clear))
-        }.buttonStyle(.plain).disabled(!reachable || isCurrent).pointerCursor()
+        return GlassChip(label: "\(p)", active: isCurrent) {
+            if reachable && !isCurrent { onChange(p) }
+        }
+        .disabled(!reachable || isCurrent)
     }
 }
 

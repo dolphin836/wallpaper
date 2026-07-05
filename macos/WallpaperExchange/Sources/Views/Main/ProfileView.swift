@@ -129,23 +129,15 @@ struct ProfileView: View {
     }
 
     private var tabRow: some View {
-        HStack(spacing: 4) {
-            ForEach(visibleTabs, id: \.self) { t in
-                Button(action: { tab = t }) {
-                    Text(t.label)
-                        .font(.sans12)
-                        .foregroundStyle(tab == t ? Color.ink : Color.muted)
-                        .padding(.horizontal, 14).padding(.vertical, 7)
-                        .background(Capsule().fill(tab == t ? Color.paper : Color.clear))
-                }
-                .buttonStyle(.plain)
-            }
+        HStack {
+            GlassSegmented(
+                segments: visibleTabs.map { GlassSegment(id: $0, label: $0.label) },
+                selection: $tab,
+                compact: true
+            )
+            .fixedSize()
             Spacer()
         }
-        .padding(4)
-        .background(Capsule().fill(Color.paper2))
-        .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
-        .frame(maxWidth: 480, alignment: .leading)
     }
 
     private var grid: some View {

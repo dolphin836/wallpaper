@@ -630,6 +630,8 @@ struct GlassSegment<ID: Hashable> {
     let id: ID
     let label: String
     var icon: String? = nil
+    /// Optional trailing count/badge text (e.g. tab item counts).
+    var badge: String? = nil
 }
 
 // Capsule segmented control with the liquid selection droplet — the
@@ -683,6 +685,17 @@ struct GlassSegmentItem<ID: Hashable>: View {
                     .font(.system(size: compact ? 11.5 : 13.5, weight: isSelected ? .semibold : .regular))
                     .lineLimit(1)
                     .fixedSize()
+                if let badge = segment.badge {
+                    Text(badge)
+                        .font(.system(size: compact ? 9 : 10, weight: .medium, design: .monospaced))
+                        .tracking(0.4)
+                        .foregroundStyle(isSelected ? tone.fgPrimary : tone.fgMuted)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(
+                            Capsule().fill(isSelected ? tone.hoverFill : tone.hoverFill.opacity(0.6))
+                        )
+                }
             }
             .foregroundStyle(fg)
             .padding(.horizontal, compact ? 12 : 17)

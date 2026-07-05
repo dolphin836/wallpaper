@@ -250,18 +250,13 @@ struct UploadView: View {
                     .font(.system(size: 22, weight: .light))
                     .foregroundStyle(Color.accent)
             }
-            Button(action: pickFiles) {
-                Text(L10n.upload.addMore(files.count, uploadMaxFiles))
-                    .font(.mono11)
-                    .tracking(1.2)
-                    .foregroundStyle(uploading || files.count >= uploadMaxFiles ? Color.muted : Color.ink)
-                    .textCase(.uppercase)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Capsule().fill(Color.clear))
-                    .overlay(Capsule().stroke(Color.hair.blended(with: Color.accent, fraction: 0.35), lineWidth: 1))
+            GlassCapsuleButton(
+                title: L10n.upload.addMore(files.count, uploadMaxFiles).uppercased(),
+                height: 32,
+                fontSize: 11
+            ) {
+                pickFiles()
             }
-            .buttonStyle(.plain)
             .disabled(uploading || files.count >= uploadMaxFiles)
         }
     }
@@ -379,22 +374,28 @@ struct UploadView: View {
                 }
                 .buttonStyle(.plain)
             }
+            // Primary submit — accent capsule from the GlassKit family;
+            // hand-rolled here because it embeds a progress spinner.
             Button(action: { Task { await handleUpload() } }) {
                 HStack(spacing: 8) {
                     if uploading {
                         ProgressView()
                             .scaleEffect(0.58)
                             .frame(width: 14, height: 14)
+                            .tint(.white)
                     }
                     Text(uploadButtonTitle)
                 }
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.paper)
+                .foregroundStyle(.white)
                 .padding(.horizontal, 22)
-                .padding(.vertical, 10)
-                .background(Capsule().fill(Color.ink))
+                .frame(height: 38)
+                .contentShape(Capsule())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GlassBounceButtonStyle())
+            .background(Capsule().fill(Color.accent))
+            .overlay(GlassLightingOverlay(intensity: 0.7))
+            .shadow(color: Color.accent.opacity(0.26), radius: 8, y: 4)
             .disabled(uploading || allDone)
             .opacity(uploading || allDone ? 0.55 : 1)
         }
@@ -423,15 +424,9 @@ struct UploadView: View {
             Text(L10n.upload.signedOutBody)
                 .font(.sans13)
                 .foregroundStyle(Color.muted)
-            Button(action: { auth.login() }) {
-                Text(L10n.upload.signIn)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 8)
-                    .background(Capsule().fill(Color.accent))
+            GlassCapsuleButton(title: L10n.upload.signIn, style: .accent, height: 32, fontSize: 12) {
+                auth.login()
             }
-            .buttonStyle(.plain)
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

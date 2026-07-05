@@ -40,28 +40,12 @@ struct MacAppView: View {
                 .font(.sans13).foregroundStyle(Color.muted)
                 .frame(maxWidth: 600, alignment: .leading)
             HStack(spacing: 10) {
-                Button(action: { Task { @MainActor in UpdateService.shared.checkManually() } }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.clockwise").font(.system(size: 11, weight: .medium))
-                        Text(L10n.home.checkForUpdates).font(.sans12)
-                    }
-                    .foregroundStyle(Color.paper)
-                    .padding(.horizontal, 14).padding(.vertical, 7)
-                    .background(Capsule().fill(Color.ink))
+                GlassCapsuleButton(title: L10n.home.checkForUpdates, icon: "arrow.clockwise", style: .accent, height: 30, fontSize: 12) {
+                    Task { @MainActor in UpdateService.shared.checkManually() }
                 }
-                .buttonStyle(.plain)
-
-                Button(action: openInBrowser) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.up.right.square").font(.system(size: 11, weight: .medium))
-                        Text(L10n.home.openWebApp).font(.sans12)
-                    }
-                    .foregroundStyle(Color.ink2)
-                    .padding(.horizontal, 14).padding(.vertical, 7)
-                    .background(Capsule().fill(Color.paper))
-                    .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
+                GlassCapsuleButton(title: L10n.home.openWebApp, icon: "arrow.up.right.square", height: 30, fontSize: 12) {
+                    openInBrowser()
                 }
-                .buttonStyle(.plain)
             }
             .padding(.top, 6)
         }
