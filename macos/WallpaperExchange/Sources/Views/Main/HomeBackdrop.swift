@@ -37,8 +37,18 @@ final class HomeBackdropEnv {
 struct HomeBackdropView: View {
     @State private var env = HomeBackdropEnv.shared
 
+    // Bleed the backdrop 2pt past every window edge. GeometryReader
+    // reports fractional sizes while the layer is snapped to pixels, so
+    // an exact-size frame can leave a hairline of the mesh showing at
+    // an edge (seen as a sliver on the window's left). Overscanning by
+    // a couple of points guarantees full coverage; the excess is
+    // clipped by the window.
+    private let bleed: CGFloat = 2
+
     var body: some View {
         GeometryReader { proxy in
+            let w = proxy.size.width + bleed * 2
+            let h = proxy.size.height + bleed * 2
             ZStack {
                 if let dominant = env.dominantColor {
                     Color(hex: dominant).opacity(0.55)
@@ -55,7 +65,7 @@ struct HomeBackdropView: View {
                     } placeholder: {
                         Color.clear
                     }
-                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .frame(width: w, height: h)
                     .clipped()
                 }
 
@@ -74,7 +84,8 @@ struct HomeBackdropView: View {
                     endPoint: .bottom
                 )
             }
-            .frame(width: proxy.size.width, height: proxy.size.height)
+            .frame(width: w, height: h)
+            .offset(x: -bleed, y: -bleed)
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
