@@ -60,3 +60,4 @@ ai-wallpapers/
 ios/.build/
 ios/.swiftpm/
 ios/WallpaperExchange.xcodeproj/xcuserdata/
+macos/uitest/artifacts/
