@@ -25,10 +25,21 @@ struct AccountSettingsTab: View {
             appearanceSection
             languageSection
             storageSection
+            autoShuffleSection
             aboutSection
             sessionSection
         }
-        .frame(maxWidth: 720, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // Auto-rotate lives here with the storage settings: its two
+    // sources are the local downloads folder (configured below) and a
+    // collection — the collection is picked from the My Collections
+    // tab, and this panel shows/controls whichever is active.
+    private var autoShuffleSection: some View {
+        sectionCard(title: L10n.account.autoShuffleKicker) {
+            AutoShuffleSettings()
+        }
     }
 
     private var appearanceSection: some View {

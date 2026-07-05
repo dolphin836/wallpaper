@@ -159,20 +159,19 @@ struct AccountView: View {
     // wraps), with a full-width base hairline underneath.
     // GlassKit segmented pill (liquid selection droplet) instead of
     // the old underline tabs — matches the window chrome family.
-    // Scrolls horizontally when the owner's 7 tabs don't fit.
+    // Full page width: segments share the row equally within the
+    // page's fixed side gutters.
     private var tabBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            GlassSegmented(
-                segments: tabs.map {
-                    GlassSegment(id: $0, label: $0.label, icon: $0.icon, badge: counts[$0].map { "\($0)" })
-                },
-                selection: $tab,
-                compact: true
-            )
-            .padding(.top, 18)
-            .padding(.bottom, 10)
-        }
-        .scrollClipDisabled()
+        GlassSegmented(
+            segments: tabs.map {
+                GlassSegment(id: $0, label: $0.label, icon: $0.icon, badge: counts[$0].map { "\($0)" })
+            },
+            selection: $tab,
+            compact: true,
+            fullWidth: true
+        )
+        .padding(.top, 18)
+        .padding(.bottom, 10)
     }
 
     // ─── Tab content ─────────────────────────────────────────────
@@ -205,9 +204,6 @@ struct AccountView: View {
                           toggle: { v in Task { try? await APIClient.shared.updatePrivacy(likesPublic: v); await auth.refreshProfile() } })
         case .downloads:
             VStack(alignment: .leading, spacing: 22) {
-                if isOwner {
-                    downloadsAutoShufflePanel
-                }
                 wallpaperList(.downloads, head: L10n.account.headDownloads, empty: L10n.account.emptyDownloads,
                               isPublic: auth.user?.downloadsPublic ?? false, noun: L10n.account.nounDownloads,
                               fetch: { c, l in try await APIClient.shared.fetchUserDownloads(username: username, cursor: c, limit: l) },
@@ -217,29 +213,6 @@ struct AccountView: View {
         case .ledger:
             LedgerTab(onCount: { counts[.ledger] = $0 }, onPalette: applyMesh)
         }
-    }
-
-    private var downloadsAutoShufflePanel: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(L10n.account.autoShuffleKicker)
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .tracking(1.5)
-                .foregroundStyle(Color.muted)
-                .padding(.bottom, 8)
-
-            AutoShuffleSettings()
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.paper.opacity(0.5))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color.hair, lineWidth: 1)
-                )
-        }
-        .frame(maxWidth: 720, alignment: .leading)
     }
 
     @ViewBuilder

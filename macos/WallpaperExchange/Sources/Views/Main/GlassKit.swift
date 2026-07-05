@@ -644,6 +644,9 @@ struct GlassSegmented<ID: Hashable>: View {
     /// Compact fits inline contexts (mode pickers); regular is the
     /// chrome-bar scale.
     var compact: Bool = false
+    /// When true, segments share the available width equally and the
+    /// pill stretches to its container (page-level tab bars).
+    var fullWidth: Bool = false
 
     @Namespace private var dropletNS
 
@@ -655,6 +658,7 @@ struct GlassSegmented<ID: Hashable>: View {
                     isSelected: segment.id == selection,
                     tone: tone,
                     compact: compact,
+                    fullWidth: fullWidth,
                     dropletNamespace: dropletNS,
                     action: { selection = segment.id }
                 )
@@ -669,6 +673,7 @@ struct GlassSegmentItem<ID: Hashable>: View {
     let isSelected: Bool
     var tone: GlassTone = .light
     var compact: Bool = false
+    var fullWidth: Bool = false
     let dropletNamespace: Namespace.ID
     let action: () -> Void
 
@@ -699,6 +704,7 @@ struct GlassSegmentItem<ID: Hashable>: View {
             }
             .foregroundStyle(fg)
             .padding(.horizontal, compact ? 12 : 17)
+            .frame(maxWidth: fullWidth ? .infinity : nil)
             .frame(height: compact ? 26 : 34)
             .background {
                 if isSelected {
