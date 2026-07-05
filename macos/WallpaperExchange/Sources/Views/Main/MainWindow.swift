@@ -182,7 +182,9 @@ struct MainWindow: View {
                     GlassBackButton(action: goBack)
                     Spacer()
                 }
-                .padding(.leading, isFullScreen ? 16 : 86)
+                // Full-screen: align with the page content's 40pt
+                // gutter. Windowed: clear the traffic lights.
+                .padding(.leading, isFullScreen ? 40 : 86)
                 .transition(.opacity.combined(with: .scale(scale: 0.8)))
             }
 
