@@ -118,7 +118,7 @@ struct WeeklyArchiveView: View {
             .overlay(alignment: .bottomLeading) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L10n.home.issueLabel).font(.kicker).tracking(2.4).foregroundStyle(.white.opacity(0.85))
-                    Text("№ \(String(format: "%02d", s.week))")
+                    Text(L10n.home.weekTitle(s.week))
                         .font(.system(size: 34, weight: .semibold, design: .serif))
                         .foregroundStyle(.white)
                     Text("\(Self.fmtDate(s.year, s.week)) \(String(s.year)) · \(L10n.home.picksCountCaps(s.count))")
@@ -285,7 +285,7 @@ private struct WeeklyIssueCard: View {
             }
             .overlay(alignment: .bottomLeading) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("№ \(String(format: "%02d", entry.week))")
+                    Text(L10n.home.weekTitle(entry.week))
                         .font(.system(size: 22, weight: .semibold, design: .serif))
                         .foregroundStyle(.white)
                     Text("\(dateText) \(String(entry.year)) · \(L10n.home.picksCountCaps(entry.count))")
