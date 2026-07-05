@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
-	"golang.org/x/sync/singleflight"
 
 	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/pkg/errcode"
@@ -32,9 +31,6 @@ type WallpaperService struct {
 	deviceRepo      *repo.DeviceRepo
 	storage         *storage.Storage
 	kafkaWriter     *kafka.Writer
-	// variantSF collapses concurrent first-time generations of the same
-	// (wallpaper, device) variant into one resize+upload.
-	variantSF singleflight.Group
 }
 
 func NewWallpaperService(
@@ -540,17 +536,11 @@ func (s *WallpaperService) Unfavorite(ctx context.Context, userID, wallpaperID i
 	return nil
 }
 
-// DownloadTarget describes the resolution the client actually needs to fill
-// its display. When set, Download returns the smallest pre-rendered variant
-// that covers W×H instead of the (often massively oversized) original. Zero
-// values mean "no preference, give me the original" — that's the legacy
-// behavior, kept for the web's "Download original" button and old clients.
-type DownloadTarget struct {
-	Width  int
-	Height int
-}
-
-func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, userID int64, target DownloadTarget, meta repo.EventMeta) (string, *errcode.ErrCode) {
+// Download charges the download (owner exempt, first-time only) and returns
+// the original URL. Per the 2026-07-05 decision the derived device variants
+// are gone: every download serves the original file; clients hide wallpapers
+// that would need upscaling instead of receiving resized copies.
+func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, userID int64, meta repo.EventMeta) (string, *errcode.ErrCode) {
 	w, err := s.wallpaperRepo.GetByID(ctx, wallpaperID)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get wallpaper",
@@ -563,20 +553,6 @@ func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, user
 
 	if ec := s.chargeAndRecordDownload(ctx, w, userID, meta); ec != nil {
 		return "", ec
-	}
-
-	// Native clients (mac/windows) hit this endpoint with their screen size.
-	// Map that to the smallest covering device profile and lazily generate
-	// that variant, sharing the same derived cache as the web device picker.
-	if target.Width > 0 && target.Height > 0 && !w.IsDynamic && !isVideoType(w.FileType) {
-		if dev := s.pickDeviceForTarget(ctx, w, target); dev != nil {
-			if url, err := s.resolveOrGenerateVariant(ctx, w, dev); err == nil {
-				return url, nil
-			} else {
-				slog.ErrorContext(ctx, "variant generation failed (serving original)",
-					"error", err, "wallpaper_id", wallpaperID, "device_id", dev.ID)
-			}
-		}
 	}
 	return w.OriginalURL, nil
 }

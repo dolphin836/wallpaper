@@ -562,26 +562,6 @@ final class WallpaperManager {
         return contents.first { $0.lastPathComponent.hasPrefix(prefix) }
     }
 
-    /// Largest current display-mode dimensions across all connected screens.
-    /// This follows the same "looks like" resolution used for compatibility
-    /// filtering, so a display scaled to 1920 asks for a 1920-covering variant
-    /// rather than a native-panel-sized one. Returns (0, 0) when there is no
-    /// screen (unlikely, but better safe than asking for a 0x0 image).
-    private static func maxScreenPixels() -> (Int, Int) {
-        var maxW = 0
-        var maxH = 0
-        for screen in NSScreen.screens {
-            let pixels = displayModePixels(for: screen)
-            let w = pixels.width
-            let h = pixels.height
-            if w * h > maxW * maxH {
-                maxW = w
-                maxH = h
-            }
-        }
-        return (maxW, maxH)
-    }
-
     private static func displayModePixels(for screen: NSScreen) -> (width: Int, height: Int) {
         return (
             Int(screen.frame.width.rounded()),
@@ -589,16 +569,19 @@ final class WallpaperManager {
         )
     }
 
+    // Downloads always fetch the original file (2026-07-05 decision:
+    // device variants are gone — clients filter non-fitting wallpapers
+    // instead of receiving resized copies). downloadOriginal remains as
+    // an alias for existing call sites.
     func download(wallpaper: Wallpaper) async throws {
-        let (tw, th) = Self.maxScreenPixels()
-        try await download(wallpaper: wallpaper, targetWidth: tw, targetHeight: th)
+        try await performDownload(wallpaper: wallpaper)
     }
 
     func downloadOriginal(wallpaper: Wallpaper) async throws {
-        try await download(wallpaper: wallpaper, targetWidth: 0, targetHeight: 0)
+        try await performDownload(wallpaper: wallpaper)
     }
 
-    private func download(wallpaper: Wallpaper, targetWidth: Int, targetHeight: Int) async throws {
+    private func performDownload(wallpaper: Wallpaper) async throws {
         if let existing = localURL(for: wallpaper.id) {
             if !Self.isVideo(wallpaper) || Self.isVideoFileURL(existing) {
                 downloadedIDs.insert(wallpaper.id)
@@ -616,7 +599,7 @@ final class WallpaperManager {
 
         // The API call stays mandatory — it charges the coin and counts
         // the download; only the file transfer below is skippable.
-        let remoteURL = try await APIClient.shared.getDownloadURL(wallpaperID: wallpaper.id, targetWidth: targetWidth, targetHeight: targetHeight)
+        let remoteURL = try await APIClient.shared.getDownloadURL(wallpaperID: wallpaper.id)
 
         // If the image pipeline already fetched these exact bytes (the
         // detail page displays the original via CachedAsyncImage), copy
@@ -943,7 +926,7 @@ final class WallpaperManager {
         if localURL(for: wallpaper.id) != nil {
             try removeLocalFiles(for: wallpaper.id)
         }
-        try await download(wallpaper: wallpaper, targetWidth: 0, targetHeight: 0)
+        try await performDownload(wallpaper: wallpaper)
         guard let url = localURL(for: wallpaper.id), Self.isVideoFileURL(url) else {
             throw WallpaperError.fileUnavailable
         }

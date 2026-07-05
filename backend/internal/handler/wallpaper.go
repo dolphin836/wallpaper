@@ -323,14 +323,9 @@ func (h *WallpaperHandler) Download(w http.ResponseWriter, r *http.Request) {
 
 	userID := middleware.GetUserID(r.Context())
 
-	// Optional ?width=W&height=H lets the client say "I'm filling W×H of
-	// screen — give me the smallest variant that covers it." Both must be
-	// >0 to opt in; missing/invalid params keep the legacy behavior of
-	// returning the original. Atoi returns 0 on parse failure, which the
-	// service treats as "no preference."
-	width, _ := strconv.Atoi(r.URL.Query().Get("width"))
-	height, _ := strconv.Atoi(r.URL.Query().Get("height"))
-	url, ec := h.wallpaperSvc.Download(r.Context(), id, userID, service.DownloadTarget{Width: width, Height: height}, requestEventMeta(r, "", ""))
+	// Older clients still send ?width=&height= hints; they are accepted
+	// and ignored — downloads always return the original now.
+	url, ec := h.wallpaperSvc.Download(r.Context(), id, userID, requestEventMeta(r, "", ""))
 	if ec != nil {
 		status := http.StatusInternalServerError
 		switch ec.Code {

@@ -248,9 +248,6 @@ export const getMyCollections = (params?: { q?: string; wallpaper_id?: number; l
 export const getUserCollections = (username: string, params?: { cursor?: number; limit?: number }) =>
   client.get<ApiResponse<PaginatedData<Collection>>>(`/users/${username}/collections`, { params });
 
-export const downloadVariant = (wallpaperId: number, variantId: number) =>
-  client.post<ApiResponse<{ url: string }>>(`/wallpapers/${wallpaperId}/variants/${variantId}/download`);
-
 export const updateProfile = (data: { nickname: string; bio: string }) =>
   client.put<ApiResponse<User>>('/users/me/profile', data);
 

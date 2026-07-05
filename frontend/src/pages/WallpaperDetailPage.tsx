@@ -41,7 +41,6 @@ import {
   unfavoriteWallpaper,
   deleteWallpaper,
   downloadWallpaper,
-  downloadVariant,
   getMyCoins,
   getWallpaperVariants,
   getWallpaperEngagements,
@@ -393,53 +392,36 @@ export default function WallpaperDetailPage() {
     }
   };
 
-  const handleDownload = async (variant?: WallpaperVariant) => {
+  // Downloads always deliver the original upload (2026-07-05 decision:
+  // device variants are retired). The devices drawer keeps its preview
+  // and per-device browse actions; its "Get" simply downloads the same
+  // original file.
+  const handleDownload = async () => {
     if (dlLoading) return;
     if (!isAuthenticated) { navigate('/login'); return; }
     if (!wallpaper) return;
     const isOwnerDl = user?.id === wallpaper.user_id;
-    // The top "Download" button is meant to deliver the original upload —
-    // designers, editors, and people archiving the file expect the source,
-    // not a re-encoded screen-sized JPEG. Variant downloads happen *only*
-    // when the user clicks a row in the variant list, which passes the
-    // variant in explicitly. Dynamic HEICs always come back as the
-    // original regardless (variants can't represent multi-frame HEIC).
-    const useVariant = wallpaper.is_dynamic ? null : variant;
     setDlLoading(true);
     setDlProgress(null);
     try {
-      let blobUrl: string;
-      let filename: string;
-      if (useVariant) {
-        // POST first: on a cold variant the server resizes the original
-        // before answering, so keep the bar indeterminate until then.
-        const apiResp = await downloadVariant(wallpaper.id, useVariant.id);
-        const dlUrl = apiResp.data.data?.url;
-        if (!dlUrl) { toast.error(t('toast.downloadFailed')); return; }
-        const resp = await fetch(dlUrl);
-        const blob = await fetchBlobWithProgress(resp, setDlProgress);
-        blobUrl = URL.createObjectURL(blob);
-        filename = `wallpaper_${wallpaper.id}_${useVariant.width}x${useVariant.height}.jpg`;
-      } else {
-        const url = downloadWallpaper(wallpaper.id);
-        const resp = await fetch(url, {
-          headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
-        });
-        if (resp.status === 402) {
-          setCtaMode('insufficient');
-          toast.error(t('toast.insufficientCoins'));
-          return;
-        }
-        if (!resp.ok) {
-          toast.error(t('toast.downloadFailed'));
-          return;
-        }
-        const finalUrl = resp.url;
-        const blob = await fetchBlobWithProgress(resp, setDlProgress);
-        blobUrl = URL.createObjectURL(blob);
-        const ext = finalUrl.split('.').pop()?.split('?')[0] || 'jpg';
-        filename = `wallpaper_${wallpaper.id}_${wallpaper.width}x${wallpaper.height}.${ext}`;
+      const url = downloadWallpaper(wallpaper.id);
+      const resp = await fetch(url, {
+        headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
+      });
+      if (resp.status === 402) {
+        setCtaMode('insufficient');
+        toast.error(t('toast.insufficientCoins'));
+        return;
       }
+      if (!resp.ok) {
+        toast.error(t('toast.downloadFailed'));
+        return;
+      }
+      const finalUrl = resp.url;
+      const blob = await fetchBlobWithProgress(resp, setDlProgress);
+      const blobUrl = URL.createObjectURL(blob);
+      const ext = finalUrl.split('.').pop()?.split('?')[0] || 'jpg';
+      const filename = `wallpaper_${wallpaper.id}_${wallpaper.width}x${wallpaper.height}.${ext}`;
       setDlProgress(100);
       const a = document.createElement('a');
       a.href = blobUrl;
@@ -776,7 +758,7 @@ export default function WallpaperDetailPage() {
                               </span>
                             )}
                             <button
-                              onClick={() => handleDownload(v)}
+                              onClick={() => handleDownload()}
                               disabled={dlLoading}
                               title={t('drawer.getTitle')}
                               className={`wd-drawer-action wd-drawer-action-cta ${isMatched ? 'is-matched' : ''}`}
