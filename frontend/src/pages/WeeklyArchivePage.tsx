@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import { AiOutlineArrowRight } from 'react-icons/ai';
-import { getWeeklyArchive, type WeeklyArchiveEntry } from '../api';
+import { getWeeklyArchive, getWeeklyByWeek, type WeeklyArchiveEntry } from '../api';
+import type { WeeklyPicked } from '../api';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
@@ -24,12 +25,20 @@ function fmtDate(d: Date) {
   return `${MONTH_ABBR[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2,'0')}`;
 }
 
+/**
+ * Weekly archive v2 — the "magazine rack", mirroring the Mac client:
+ * no timeline pane. The latest issue opens the page as a full-width
+ * 21:9 spread with a strip of its slate; every past issue sits below
+ * as a 16:10 cover card in a full-width adaptive grid.
+ */
 export default function WeeklyArchivePage() {
   const { t } = useTranslation('browse');
+  const location = useLocation();
   const [rows, setRows] = useState<WeeklyArchiveEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [selectedIdx, setSelectedIdx] = useState(0); // 0 = most recent
+  // Latest issue's slate for the spread strip.
+  const [latestPicks, setLatestPicks] = useState<WeeklyPicked[]>([]);
 
   useEffect(() => {
     getWeeklyArchive(100)
@@ -38,55 +47,36 @@ export default function WeeklyArchivePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const selected = rows[selectedIdx];
+  const latest = rows[0];
+  const past = rows.slice(1);
 
-  // Cover paint state — single src straight from cover_url. The
-  // archive endpoint already picks the right wallpaper (admin hero
-  // first, fallback to first published). The list page used to
-  // re-fetch byWeek and progressively upgrade to original_url; that
-  // produced a visible image swap when the data sources disagreed.
-  // Now the list page renders cover_url and only cover_url —
-  // upgrade to the full original happens on the detail page.
-  const [coverLoaded, setCoverLoaded] = useState(false);
   useEffect(() => {
-    setCoverLoaded(false);
-  }, [selected?.year, selected?.week]);
+    if (!latest) return;
+    getWeeklyByWeek(latest.year, latest.week)
+      .then((r) => setLatestPicks(r.data.data.picks || []))
+      .catch(() => setLatestPicks([]));
+  }, [latest?.year, latest?.week]);
 
-  // Apply the selected issue's palette to the page-mesh CSS vars.
-  // Same pattern as WeeklyWeekPage: split color_palette by comma
-  // and take three stops; fall back to dominant_color when there's
-  // no palette; otherwise leave the defaults. Scoped to this page
-  // by setting on rootRef instead of :root.
+  // Tint the page mesh from the latest issue.
   const rootRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
-    if (!selected) {
-      root.style.removeProperty('--w-c1');
-      root.style.removeProperty('--w-c2');
-      root.style.removeProperty('--w-c3');
-      return;
-    }
-    const parts = (selected.color_palette || '')
-      .split(',').map((s) => s.trim()).filter(Boolean);
+    if (!root || !latest) return;
+    const parts = (latest.color_palette || '').split(',').map((s) => s.trim()).filter(Boolean);
+    const tint = latest.dominant_color || latest.accent_color;
     if (parts.length >= 3) {
       root.style.setProperty('--w-c1', parts[0]);
       root.style.setProperty('--w-c2', parts[Math.floor(parts.length / 2)]);
       root.style.setProperty('--w-c3', parts[parts.length - 1]);
-    } else if (selected.dominant_color) {
-      root.style.setProperty('--w-c1', selected.dominant_color);
-      root.style.setProperty('--w-c2', selected.dominant_color);
-      root.style.setProperty('--w-c3', selected.dominant_color);
-    } else if (selected.accent_color) {
-      root.style.setProperty('--w-c1', selected.accent_color);
-      root.style.setProperty('--w-c2', selected.accent_color);
-      root.style.setProperty('--w-c3', selected.accent_color);
-    } else {
-      root.style.removeProperty('--w-c1');
-      root.style.removeProperty('--w-c2');
-      root.style.removeProperty('--w-c3');
+    } else if (tint) {
+      root.style.setProperty('--w-c1', tint);
+      root.style.setProperty('--w-c2', tint);
+      root.style.setProperty('--w-c3', tint);
     }
-  }, [selected?.year, selected?.week, selected?.color_palette, selected?.dominant_color, selected?.accent_color]);
+  }, [latest?.year, latest?.week, latest?.color_palette, latest?.dominant_color, latest?.accent_color]);
+
+  const heroPick = latestPicks.find((p) => p.is_hero) || latestPicks[0];
+  const strip = latestPicks.filter((p) => p.id !== heroPick?.id);
 
   return (
     <div ref={rootRef} className="w-weekly-archive min-h-full">
@@ -95,8 +85,8 @@ export default function WeeklyArchivePage() {
         title={t('weekly.archiveMetaTitle')}
         description={t('weekly.archiveMetaDescription')}
       />
-      <main className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-10">
-        <header className="mb-12">
+      <main className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 py-10">
+        <header className="mb-10">
           <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">{t('weekly.archiveKicker')}</div>
           <h1 className="display text-[clamp(34px,4vw,52px)] leading-[1.05] mt-2 text-ink">
             <Trans i18nKey="weekly.archiveHeading" ns="browse" components={[<em key="0" />]} />
@@ -107,14 +97,14 @@ export default function WeeklyArchivePage() {
         </header>
 
         {loading ? (
-          <div className="w-archive-grid">
-            <div className="w-timeline-skeleton">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="w-timeline-row skeleton-card" style={{ height: 36 }} />
+          <>
+            <div className="wx-card skeleton-card" style={{ aspectRatio: '21/9' }} />
+            <div className="w2-rack mt-10">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="wx-card skeleton-card" style={{ aspectRatio: '16/10' }} />
               ))}
             </div>
-            <div className="w-archive-cover skeleton-card" style={{ aspectRatio: '16/10' }} />
-          </div>
+          </>
         ) : error ? (
           <ErrorState />
         ) : rows.length === 0 ? (
@@ -123,84 +113,80 @@ export default function WeeklyArchivePage() {
             message={t('weekly.emptyMessage')}
           />
         ) : (
-          <div className="w-archive-grid">
-            <ol className="w-timeline">
-              {rows.map((r, i) => {
-                const d = isoWeekFriday(r.year, r.week);
-                const isSelected = i === selectedIdx;
-                return (
-                  <li key={`${r.year}-${r.week}`}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedIdx(i)}
-                      className={`w-timeline-row${isSelected ? ' is-selected' : ''}`}
-                      aria-pressed={isSelected}
-                    >
-                      <span className="w-timeline-dot" aria-hidden />
-                      <span className="w-timeline-issue">№ {String(r.week).padStart(2, '0')}</span>
-                      <span className="w-timeline-date">{fmtDate(d)} · {r.year}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-
-            <div className="w-archive-panel">
-              {selected && (
-                <Link
-                  to={`/weekly-picks/${selected.year}/${selected.week}`}
-                  className="w-archive-cover-link"
-                >
-                  <figure className="w-archive-cover">
-                    {selected.cover_url && (
-                      <img
-                        key={`${selected.year}-${selected.week}`}
-                        ref={(el) => {
-                          // Cached-image edge case: when the key flip
-                          // remounts the <img>, the browser can serve
-                          // src from the HTTP cache so fast that the
-                          // onLoad fires before React attached its
-                          // listener — coverLoaded then stays false
-                          // forever and the CSS opacity: 0 hides the
-                          // image. Reading .complete synchronously
-                          // after mount catches that case. Verified
-                          // by the user as the 'first cover sometimes
-                          // doesn't show on refresh' symptom.
-                          if (el && el.complete && el.naturalWidth > 0) {
-                            setCoverLoaded(true);
-                          }
-                        }}
-                        src={selected.cover_url}
-                        alt=""
-                        loading="eager"
-                        decoding="async"
-                        fetchPriority="high"
-                        className={coverLoaded ? 'is-loaded' : ''}
-                        onLoad={() => setCoverLoaded(true)}
-                        onError={() => setCoverLoaded(true)}
-                      />
-                    )}
-                    <div className="w-archive-cover-shade" aria-hidden />
-                    <figcaption className="w-archive-cover-stamp">
-                      <span className="w-stamp-kicker">{t('weekly.stampKicker')}</span>
-                      <span className="w-stamp-issue">№ {String(selected.week).padStart(2, '0')}</span>
-                      <span className="w-stamp-meta">
-                        {t('weekly.stampMeta', {
-                          date: fmtDate(isoWeekFriday(selected.year, selected.week)),
-                          year: selected.year,
-                          num: selected.count,
-                        })}
-                      </span>
-                    </figcaption>
-                  </figure>
-                  <div className="w-archive-cta">
-                    <span>{t('weekly.viewAllPicks', { num: selected.count })}</span>
-                    <AiOutlineArrowRight size={14} />
+          <>
+            {/* ── Latest issue spread ── */}
+            {latest && (
+              <section>
+                <Link to={`/weekly-picks/${latest.year}/${latest.week}`} className="wx-card block w2-cover" style={{ aspectRatio: '21/9' }}>
+                  {latest.cover_url && (
+                    <img src={latest.cover_url} alt="" loading="eager" decoding="async" fetchPriority="high" />
+                  )}
+                  <div className="wx-card-scrim" />
+                  <div className="w2-stamp">
+                    <span className="w-stamp-kicker">{t('weekly.stampKicker')}</span>
+                    <span className="w2-stamp-week display">{t('weekly.weekTitle', { num: latest.week })}</span>
+                    <span className="w-stamp-meta">
+                      {t('weekly.stampMeta', {
+                        date: fmtDate(isoWeekFriday(latest.year, latest.week)),
+                        year: latest.year,
+                        num: latest.count,
+                      })}
+                    </span>
                   </div>
+                  <span className="w2-cover-cta glass glass-pill glass-bounce">
+                    {t('weekly.viewAllPicks', { num: latest.count })}
+                    <AiOutlineArrowRight size={13} />
+                  </span>
                 </Link>
-              )}
-            </div>
-          </div>
+
+                {strip.length > 0 && (
+                  <div className="w2-strip mt-3.5">
+                    {strip.map((p) => (
+                      <Link
+                        key={p.id}
+                        to={`/wallpaper/${p.slug || p.id}`}
+                        state={{ background: location }}
+                        className="w2-strip-thumb"
+                        style={{ backgroundColor: p.dominant_color || undefined }}
+                      >
+                        <img src={p.thumb_url} alt={p.title || ''} loading="lazy" decoding="async" />
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* ── Past issues rack ── */}
+            {past.length > 0 && (
+              <section className="mt-14">
+                <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted mb-4">{t('weekly.archiveKicker')}</div>
+                <div className="w2-rack">
+                  {past.map((r) => (
+                    <Link
+                      key={`${r.year}-${r.week}`}
+                      to={`/weekly-picks/${r.year}/${r.week}`}
+                      className="wx-card block w2-cover"
+                      style={{ aspectRatio: '16/10', backgroundColor: r.dominant_color || undefined }}
+                    >
+                      {r.cover_url && <img src={r.cover_url} alt="" loading="lazy" decoding="async" />}
+                      <div className="wx-card-scrim" />
+                      <div className="w2-stamp is-compact">
+                        <span className="w2-stamp-week display">{t('weekly.weekTitle', { num: r.week })}</span>
+                        <span className="w-stamp-meta">
+                          {t('weekly.stampMeta', {
+                            date: fmtDate(isoWeekFriday(r.year, r.week)),
+                            year: r.year,
+                            num: r.count,
+                          })}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
         )}
       </main>
     </div>

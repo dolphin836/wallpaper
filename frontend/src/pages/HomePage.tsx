@@ -1,37 +1,28 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Trans, useTranslation } from 'react-i18next';
-import { getWeeklyCurrent, getWallpapers, getCollections, type WeeklyCurrent } from '../api';
-import type { Wallpaper, Collection } from '../types';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { getWeeklyCurrent, type WeeklyCurrent } from '../api';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
-import WallpaperTile, { ResChip } from '../components/WallpaperTile';
+import WallpaperTile from '../components/WallpaperTile';
 
 /**
- * Home v3 — Liquid Surface skin. The page mounts an animated mesh
- * background whose three blob colors come from the active hero
- * wallpaper's palette; four content rows below each carry a distinct
- * tile aesthetic (weekly portrait, AI foil, video widescreen with
- * hover-autoplay, collection stacked-paper). Mirrors /v3-home.html
- * but inside the SPA / production Layout shell.
+ * Home v4 — immersive weekly backdrop, mirroring the Mac client
+ * (docs/design-system.md):
+ *   • The weekly hero pick IS the page background — fixed full-bleed,
+ *     loaded progressively (dominant color → thumb → original) under
+ *     the Mac backdrop's scrim stops.
+ *   • One content row: "This week's picks" in white display type over
+ *     the photo, then a golden-ratio adaptive grid of the whole slate
+ *     (hero included — its tile is the way to open it).
+ *   • A "browse more" link at the grid's bottom-trailing corner routes
+ *     to Discover.
  */
 export default function HomePage() {
   const { t } = useTranslation('browse');
   const [data, setData] = useState<WeeklyCurrent | null>(null);
   const [loading, setLoading] = useState(true);
-  // Top-level error: the weekly fetch is the page's spine; if it
-  // failed (likely a 502 / server outage), every secondary row also
-  // probably failed. Show the shared ErrorState instead of a blank
-  // skeleton sea.
   const [weeklyError, setWeeklyError] = useState(false);
-
-  // Independent rows — failure of one section shouldn't blank the page.
-  const [aiItems, setAiItems] = useState<Wallpaper[]>([]);
-  const [aiLoading, setAiLoading] = useState(true);
-  const [liveItems, setLiveItems] = useState<Wallpaper[]>([]);
-  const [liveLoading, setLiveLoading] = useState(true);
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [collectionsLoading, setCollectionsLoading] = useState(true);
 
   useEffect(() => {
     getWeeklyCurrent()
@@ -39,194 +30,44 @@ export default function HomePage() {
       .catch(() => setWeeklyError(true))
       .finally(() => setLoading(false));
   }, []);
-  useEffect(() => {
-    getWallpapers({ ai_only: true, limit: 10, sort: 'newest' })
-      .then((r) => setAiItems(r.data.data.items))
-      .catch(() => setAiItems([]))
-      .finally(() => setAiLoading(false));
-  }, []);
-  useEffect(() => {
-    // "Live" = Mac dynamic (.heic solar/h24) + video, unified concept.
-    // Backend's dynamic_only widened to cover both.
-    getWallpapers({ dynamic_only: true, limit: 10, sort: 'newest' })
-      .then((r) => setLiveItems(r.data.data.items))
-      .catch(() => setLiveItems([]))
-      .finally(() => setLiveLoading(false));
-  }, []);
-  useEffect(() => {
-    getCollections({ limit: 8 })
-      .then((r) => setCollections(r.data.data.items || []))
-      .catch(() => setCollections([]))
-      .finally(() => setCollectionsLoading(false));
-  }, []);
 
-  // Hero = pick flagged is_hero (admin-controlled). Fall back to first
-  // pick by sort_order so legacy slates predating the column still work.
   const hero = data?.picks?.find((p) => p.is_hero) || data?.picks?.[0] || null;
-  // Rest of the slate excludes the hero by id (admin may have promoted a
-  // non-first pick — slicing by index would dupe the hero into the grid).
-  const restPicks = (data?.picks || []).filter((p) => p.id !== hero?.id).slice(0, 5);
-
-  // Drive the page's mesh background from a wallpaper's palette. Effect
-  // runs on the root container so CSS variables stay scoped to .h3-home.
-  // Picks indices 0 / mid / last from the palette — palettes are typically
-  // ordered dark→light, so these three give the most visible contrast in
-  // the mesh. (The previous "last-2 / 1 / last" pick clustered to similar
-  // tones, making the background read as a flat tint.)
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const applyPalette = useCallback((palette: string | undefined | null, dominant?: string) => {
-    if (!rootRef.current) return;
-    if (!palette && !dominant) {
-      rootRef.current.style.removeProperty('--h3-c1');
-      rootRef.current.style.removeProperty('--h3-c2');
-      rootRef.current.style.removeProperty('--h3-c3');
-      return;
-    }
-    const parts = (palette || '').split(',').map((s) => s.trim()).filter(Boolean);
-    if (parts.length >= 3) {
-      rootRef.current.style.setProperty('--h3-c1', parts[0]);
-      rootRef.current.style.setProperty('--h3-c2', parts[Math.floor(parts.length / 2)]);
-      rootRef.current.style.setProperty('--h3-c3', parts[parts.length - 1]);
-      return;
-    }
-    // Fallback when palette is short/empty (e.g. video wallpapers — the
-    // transcode worker doesn't extract a palette, just a dominant color).
-    // Use the dominant_color for all three blobs so the mesh still tints
-    // toward the hovered wallpaper instead of staying static.
-    if (dominant) {
-      rootRef.current.style.setProperty('--h3-c1', dominant);
-      rootRef.current.style.setProperty('--h3-c2', dominant);
-      rootRef.current.style.setProperty('--h3-c3', dominant);
-    }
-  }, []);
-  // Hero palette = default. When user hovers a wallpaper tile, the mesh
-  // briefly switches to that wallpaper's palette; on leave we restore
-  // the hero's palette via this ref.
-  const heroPaletteRef = useRef<string | undefined>(undefined);
-  const heroDominantRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    heroPaletteRef.current = hero?.color_palette;
-    heroDominantRef.current = hero?.dominant_color;
-    applyPalette(hero?.color_palette, hero?.dominant_color);
-  }, [hero, applyPalette]);
-  const handleTileHover = useCallback(
-    (palette: string | undefined, dominant?: string) => {
-      if (palette || dominant) {
-        applyPalette(palette, dominant);
-      } else {
-        applyPalette(heroPaletteRef.current, heroDominantRef.current);
-      }
-    },
-    [applyPalette],
-  );
-
-  // Section visibility: show during initial loading (with skeleton tiles)
-  // so the page renders at ~final height from the very first paint — that
-  // way you can scroll to the bottom while data is still streaming in and
-  // the page doesn't pop content into existence (the previous logic
-  // produced a hero-only frame, document height = ~500px, scroll bottom
-  // unreachable until everything loaded).
-  const showWeeklyRest = loading || restPicks.length > 0;
-  const showAI = aiLoading || aiItems.length > 0;
-  const showLive = liveLoading || liveItems.length > 0;
-  const showCollections = collectionsLoading || collections.length > 0;
+  const picks = data?.picks || [];
 
   return (
-    <div ref={rootRef} className="h3-home">
+    <div className="h4-home">
       <PageMeta
         title={t('home.metaTitle')}
         description={t('home.metaDescription')}
       />
-      <div className="h3-home-mesh" aria-hidden />
 
-      <main className="h3-home-main px-6 sm:px-10 lg:px-14 py-10 max-w-[1600px] mx-auto">
-        {/* If the weekly spine failed AND no secondary row arrived,
-            the server's down — show the shared error state instead of
-            an empty page of skeletons. */}
-        {weeklyError && !data && aiItems.length === 0 && liveItems.length === 0 && collections.length === 0 ? (
-          <ErrorState />
+      {/* Full-page wallpaper backdrop (progressive) + legibility scrim. */}
+      <HomeBackdrop hero={hero} />
+
+      <main className="h4-home-main relative z-[1] px-6 sm:px-10 py-10">
+        {weeklyError && !data ? (
+          <div className="pt-[20vh]"><ErrorState /></div>
         ) : (
           <>
-        {/* ───── Hero ───── */}
-        {loading
-          ? <div className="h3-tile skeleton-card" style={{ aspectRatio: '16 / 9', borderRadius: 24 }} />
-          : hero
-            ? <HeroCard hero={hero} week={data!.week} year={data!.year} />
-            : null}
+            {/* Empty band — the first screenful leads with the backdrop
+                wallpaper itself. */}
+            <div className="h-[38vh] min-h-[220px]" aria-hidden />
 
-        {/* ───── This week's picks (rest of slate) ───── */}
-        {showWeeklyRest && (
-          <section className="h3-row">
-            <div className="h3-row-head">
-              <div>
-                <div className="h3-sub">{data ? t('home.curationKickerWeek', { week: data.week }) : t('home.curationKicker')}</div>
-                <h2><Trans i18nKey="home.weeklyHeading" ns="browse" components={[<em key="0" />]} /></h2>
-              </div>
-              {data && (
-                <Link to="/weekly-picks" className="h3-more">{t('home.viewArchive')}</Link>
-              )}
-            </div>
-            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-              {loading && restPicks.length === 0
-                ? Array.from({ length: 5 }).map((_, i) => <SkeletonTile key={`wsk-${i}`} variant="weekly" />)
-                : restPicks.map((w) => <WallpaperTile key={w.id} w={w} variant="weekly" onHover={handleTileHover} />)}
-            </div>
-          </section>
-        )}
+            <h1 className="h4-weekly-title display">{t('home.weeklyTitle')}</h1>
 
-        {/* ───── AI Lab ───── */}
-        {showAI && (
-          <section className="h3-row">
-            <div className="h3-row-head">
-              <div>
-                <div className="h3-sub">{t('home.aiKicker')}</div>
-                <h2><Trans i18nKey="home.aiHeading" ns="browse" components={[<em key="0" />]} /></h2>
-              </div>
-              <Link to="/discover?filter=ai" className="h3-more">{t('home.allAi')}</Link>
+            <div className="h4-weekly-grid mt-7">
+              {loading && picks.length === 0
+                ? Array.from({ length: 6 }).map((_, i) => (
+                    <div key={`hsk-${i}`} className="h3-tile h3-home skeleton-card" style={{ aspectRatio: '1.618' }} />
+                  ))
+                : picks.map((w) => <WallpaperTile key={w.id} w={w} variant="home" />)}
             </div>
-            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-              {aiLoading && aiItems.length === 0
-                ? Array.from({ length: 5 }).map((_, i) => <SkeletonTile key={`ask-${i}`} variant="ai" />)
-                : aiItems.slice(0, 5).map((w) => <WallpaperTile key={w.id} w={w} variant="ai" onHover={handleTileHover} />)}
-            </div>
-          </section>
-        )}
 
-        {/* ───── Live wallpapers (Mac dynamic + video) ───── */}
-        {showLive && (
-          <section className="h3-row">
-            <div className="h3-row-head">
-              <div>
-                <div className="h3-sub">{t('home.liveKicker')}</div>
-                <h2><Trans i18nKey="home.liveHeading" ns="browse" components={[<em key="0" />]} /></h2>
+            {picks.length > 0 && (
+              <div className="flex justify-end mt-4">
+                <Link to="/discover" className="h4-browse-more">{t('home.browseMore')}</Link>
               </div>
-              <Link to="/discover?filter=live" className="h3-more">{t('home.allLive')}</Link>
-            </div>
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-              {liveLoading && liveItems.length === 0
-                ? Array.from({ length: 4 }).map((_, i) => <SkeletonTile key={`vsk-${i}`} variant="video" />)
-                : liveItems.slice(0, 4).map((w) => <WallpaperTile key={w.id} w={w} variant="video" onHover={handleTileHover} />)}
-            </div>
-          </section>
-        )}
-
-        {/* ───── Themed collections ───── */}
-        {showCollections && (
-          <section className="h3-row">
-            <div className="h3-row-head">
-              <div>
-                <div className="h3-sub">{t('home.collectionsKicker')}</div>
-                <h2><Trans i18nKey="home.collectionsHeading" ns="browse" components={[<em key="0" />]} /></h2>
-              </div>
-              <Link to="/collections" className="h3-more">{t('home.allCollections')}</Link>
-            </div>
-            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-              {collectionsLoading && collections.length === 0
-                ? Array.from({ length: 4 }).map((_, i) => <SkeletonTile key={`csk-${i}`} variant="collection" />)
-                : collections.slice(0, 4).map((c) => <CollectionTile key={c.id} c={c} onHover={handleTileHover} />)}
-            </div>
-          </section>
-        )}
+            )}
           </>
         )}
       </main>
@@ -234,143 +75,36 @@ export default function HomePage() {
   );
 }
 
-/* ─────────── Hero — 16:9 floating card with progressive image upgrade ─────────── */
-function HeroCard({ hero, week, year }: { hero: Wallpaper; week: number; year: number }) {
-  const { t } = useTranslation('browse');
-  const location = useLocation();
-  const [src, setSrc] = useState(hero.thumb_url || hero.preview_url || hero.original_url);
-  const [loaded, setLoaded] = useState(false);
-  const [upgrading, setUpgrading] = useState(false);
+/* ─── Fixed full-bleed backdrop, Mac loading order:
+       dominant color → thumb (blurred) → original. ─── */
+function HomeBackdrop({ hero }: { hero: { thumb_url?: string; preview_url?: string; original_url?: string; dominant_color?: string } | null }) {
+  const [src, setSrc] = useState('');
+  const [sharp, setSharp] = useState(false);
+
   useEffect(() => {
+    if (!hero) return;
     let alive = true;
-    const baseSrc = hero.thumb_url || hero.preview_url || hero.original_url;
-    const previewSrc = hero.preview_url && hero.preview_url !== baseSrc ? hero.preview_url : '';
-    const originalSrc = hero.original_url && hero.original_url !== (previewSrc || baseSrc) ? hero.original_url : '';
+    const thumb = hero.thumb_url || hero.preview_url || '';
+    const original = hero.original_url || hero.preview_url || thumb;
 
-    setSrc(baseSrc);
-    setLoaded(false);
+    setSrc(thumb);
+    setSharp(false);
 
-    const queue = [previewSrc, originalSrc].filter(Boolean);
-    setUpgrading(queue.length > 0);
-
-    const loadNext = (index: number) => {
-      const next = queue[index];
-      if (!next) {
-        if (alive) setUpgrading(false);
-        return;
-      }
-      const image = new Image();
-      image.onload = () => {
-        if (!alive) return;
-        setLoaded(false);
-        setSrc(next);
-        loadNext(index + 1);
-      };
-      image.onerror = () => loadNext(index + 1);
-      image.src = next;
-    };
-    loadNext(0);
-
-    return () => {
-      alive = false;
-    };
-  }, [hero.id, hero.preview_url, hero.thumb_url, hero.original_url]);
+    if (original && original !== thumb) {
+      const img = new Image();
+      img.onload = () => { if (alive) { setSrc(original); setSharp(true); } };
+      img.onerror = () => { if (alive) setSharp(true); };
+      img.src = original;
+    } else {
+      setSharp(true);
+    }
+    return () => { alive = false; };
+  }, [hero]);
 
   return (
-    <Link
-      to={`/wallpaper/${hero.slug || hero.id}`}
-      state={{ background: location, initialWallpaper: hero }}
-      className="h3-hero block"
-    >
-      <img
-        src={src}
-        alt={hero.title || t('tile.wallpaperAlt', { id: hero.id })}
-        loading="eager"
-        decoding="async"
-        fetchPriority="high"
-        className={loaded ? 'h3-loaded' : ''}
-        onLoad={() => setLoaded(true)}
-        onError={() => setLoaded(true)}
-        style={{ backgroundColor: hero.dominant_color || undefined }}
-      />
-      {(!loaded || upgrading) && <span className="card-loading-beam" aria-hidden />}
-      <ResChip wallpaper={hero} />
-      <div className="h3-hero-overlay">
-        <div className="flex-1 min-w-0">
-          <div className="h3-kicker">{t('hero.kicker', { week, year })}</div>
-          <div className="h3-meta">{hero.width}×{hero.height} · {fmtMB(hero.file_size)}</div>
-        </div>
-        <button
-          className="h3-cta"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); /* navigate to detail handles trade */ }}
-        >
-          <span className="h3-coin" /> {t('hero.tradeForOne')}
-        </button>
-      </div>
-    </Link>
+    <div className="h4-backdrop" aria-hidden style={{ backgroundColor: hero?.dominant_color || undefined }}>
+      {src && <img src={src} alt="" decoding="async" className={sharp ? 'is-sharp' : ''} />}
+      <div className="h4-backdrop-scrim" />
+    </div>
   );
 }
-
-/* WallpaperTile + ResChip moved to components/WallpaperTile.tsx so
-   WeeklyWeekPage can render the same editorial weekly tile (with the
-   hover-revealed favorite/like/download rail + modal navigation) as
-   the home page. */
-
-/* ─────────── Collection tile (stacked paper) ─────────── */
-function CollectionTile({
-  c, onHover,
-}: {
-  c: Collection;
-  onHover?: (palette: string | undefined, dominant?: string) => void;
-}) {
-  const { t } = useTranslation('browse');
-  const [loaded, setLoaded] = useState(false);
-  // Collections expose an accent_color (curator-chosen). Use it as the
-  // mesh tint on hover — palettes aren't extracted for collections.
-  return (
-    <Link
-      to={`/collections/${c.slug || c.id}`}
-      className="h3-tile-collection block"
-      onMouseEnter={() => onHover?.(undefined, c.accent_color)}
-      onMouseLeave={() => onHover?.(undefined)}
-    >
-      <div className="h3-frame">
-        <img
-          src={c.cover_url || ''}
-          alt={c.title}
-          loading="lazy"
-          decoding="async"
-          className={loaded ? 'h3-loaded' : ''}
-          onLoad={() => setLoaded(true)}
-          onError={() => setLoaded(true)}
-        />
-        {!loaded && <span className="card-loading-beam" aria-hidden />}
-        <div className="h3-gradient" />
-      </div>
-      <div className="h3-copy">
-        <div className="h3-title">{c.title || t('home.untitledSet')}</div>
-        <div className="h3-count">{t('home.collectionCount', { num: c.wallpaper_count ?? 0 })}</div>
-      </div>
-    </Link>
-  );
-}
-
-/* ─────────── Skeleton placeholder per row variant ─────────── */
-function SkeletonTile({ variant }: { variant: 'weekly' | 'ai' | 'video' | 'collection' }) {
-  const ratio =
-    variant === 'weekly' ? '4 / 5'
-    : variant === 'video' ? '16 / 9'
-    : '1 / 1';
-  // Use the h3-tile chrome (rounded corners + shadow) so the skeleton
-  // visually matches what's about to land in its place.
-  return (
-    <div
-      className={variant === 'collection' ? 'h3-tile-collection skeleton-card' : `h3-tile h3-${variant} skeleton-card`}
-      style={{ aspectRatio: ratio }}
-    />
-  );
-}
-
-/* ─────────── Helpers ─────────── */
-// ResChip lives in components/WallpaperTile.tsx (shared with weekly).
-function fmtMB(b?: number) { return ((b || 0) / 1024 / 1024).toFixed(1) + ' MB'; }

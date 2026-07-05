@@ -146,22 +146,17 @@ export default function CollectionsPage() {
         </header>
 
         {loading && visible.length === 0 ? (
-          // 12 placeholders = 3 full rows at lg (4-col). Each card
-          // mirrors the real CollectionTile geometry: 1:1 cover +
-          // mono kicker bar + title bar + meta bar, so the page
-          // doesn't shift when the data lands.
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="c-tile-skel">
-                <div className="c-tile-skel-cover skeleton-card" />
-                <div className="c-tile-skel-cap">
-                  <div className="c-tile-skel-kicker skeleton-card" />
-                  <div className="c-tile-skel-title skeleton-card" />
-                  <div className="c-tile-skel-meta skeleton-card" />
-                </div>
-              </div>
-            ))}
-          </div>
+          // Skeletons mirror the redesigned geometry: full-width 21:9
+          // banner + golden-ratio mosaic cards, so the page doesn't
+          // shift when the data lands.
+          <>
+            <div className="wx-card skeleton-card" style={{ aspectRatio: '21/9' }} />
+            <div className="c2-grid mt-7">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="wx-card skeleton-card" style={{ aspectRatio: '1.618' }} />
+              ))}
+            </div>
+          </>
         ) : error && visible.length === 0 ? (
           <ErrorState />
         ) : visible.length === 0 ? (
@@ -172,11 +167,20 @@ export default function CollectionsPage() {
             onAction={isAuthenticated ? () => setShowCreate(true) : undefined}
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
-            {visible.map((c) => (
-              <CollectionTile key={c.id} collection={c} onTintsChange={applyTints} />
-            ))}
-          </div>
+          // Page 1 leads with the first collection as a full-width
+          // editorial banner; the rest render as large golden-ratio
+          // mosaic cards (docs/design-system.md, mirrors the Mac
+          // collections list).
+          <>
+            {current === 1 && visible.length > 1 && (
+              <CollectionHeroBanner collection={visible[0]} onTintsChange={applyTints} />
+            )}
+            <div className="c2-grid mt-7">
+              {(current === 1 && visible.length > 1 ? visible.slice(1) : visible).map((c) => (
+                <CollectionShowcaseCard key={c.id} collection={c} onTintsChange={applyTints} />
+              ))}
+            </div>
+          </>
         )}
 
         <Pagination
@@ -205,13 +209,30 @@ export default function CollectionsPage() {
   );
 }
 
-/* New collection tile — stacked-paper aesthetic. Single 1:1 cover
-   with multi-layer box-shadow rendering paper layers beneath
-   (accent-tinted via --c-accent from the collection). Caption block
-   below: mono kicker · display title · mono meta. Distinct from the
-   old 3-photo composition; reads as "an album on a shelf" instead
-   of "a mosaic preview". */
-function CollectionTile({
+/* Shared hover handler: push up to three dominant colours from the
+   collection's recent tiles into the page mesh. */
+function collectionTints(c: Collection): string[] {
+  const tints = (c.recent_tiles ?? [])
+    .map((t) => t.dominant_color)
+    .filter((s): s is string => Boolean(s))
+    .slice(0, 3);
+  if (tints.length === 0 && c.accent_color) tints.push(c.accent_color);
+  return tints;
+}
+
+function coverSrc(c: Collection): string {
+  const firstTile = c.recent_tiles?.[0];
+  return firstTile?.preview_url || c.cover_url || firstTile?.thumb_url || '';
+}
+
+function countLabel(c: Collection, t: (k: string, o?: Record<string, unknown>) => string): string {
+  return c.wallpaper_count === 1
+    ? t('tile.wallpaperCountOne')
+    : t('tile.wallpaperCount', { num: c.wallpaper_count });
+}
+
+/* Full-width 21:9 editorial banner for the leading collection. */
+function CollectionHeroBanner({
   collection: c,
   onTintsChange,
 }: {
@@ -219,65 +240,75 @@ function CollectionTile({
   onTintsChange?: (tints: string[] | null) => void;
 }) {
   const { t } = useTranslation('collections');
-  const accent = c.accent_color || 'var(--color-accent)';
-  // Cover source priority:
-  //   1. first recent_tile's preview_url (1600px wide, sharpest)
-  //   2. collection.cover_url (may be a 400px thumb from legacy
-  //      auto-backfill — only used when no tile is available)
-  //   3. first recent_tile's thumb_url
-  // The tile frame is rendered at ~480px square on lg grids
-  // (960px on 2× Retina), so using a 400px thumb cropped + scaled
-  // up reads visibly blurry. Preview wins whenever it exists.
-  // Legacy stale .jpg cover_urls (cleaned up when the worker
-  // switched to .webp) still get caught by the onError fallback.
-  const firstTile = c.recent_tiles?.[0];
-  const preferred = firstTile?.preview_url || c.cover_url || firstTile?.thumb_url || '';
-  const fallbackSrc = firstTile?.thumb_url || '';
-  const [src, setSrc] = useState(preferred);
   return (
     <Link
       to={`/collections/${c.slug}`}
-      className="c-tile no-underline"
-      style={{ '--c-accent': accent } as React.CSSProperties}
-      onMouseEnter={() => {
-        // Push up to three dominant colours from this collection's
-        // recent tiles for the page-mesh radials. Drop accent_color
-        // in as a fourth fallback so themed collections (kind=1)
-        // always have at least one strong colour to paint with.
-        const tints = (c.recent_tiles ?? [])
-          .map((t) => t.dominant_color)
-          .filter((s): s is string => Boolean(s))
-          .slice(0, 3);
-        if (tints.length === 0 && c.accent_color) tints.push(c.accent_color);
-        if (tints.length > 0) onTintsChange?.(tints);
-      }}
+      className="wx-card block w2-cover no-underline"
+      style={{ aspectRatio: '21/9', backgroundColor: c.recent_tiles?.[0]?.dominant_color || undefined }}
+      onMouseEnter={() => { const tints = collectionTints(c); if (tints.length) onTintsChange?.(tints); }}
       onMouseLeave={() => onTintsChange?.(null)}
     >
-      <div className="c-tile-frame">
-        {src ? (
-          <img
-            src={src}
-            alt={c.title}
-            loading="lazy"
-            onError={() => {
-              if (fallbackSrc && src !== fallbackSrc) setSrc(fallbackSrc);
-              else setSrc('');
-            }}
-          />
-        ) : (
-          <div className="c-tile-empty">{t('tile.noCover')}</div>
-        )}
-      </div>
-      <div className="c-tile-caption">
-        <div className="c-tile-kicker">
+      {coverSrc(c) && <img src={coverSrc(c)} alt={c.title} loading="eager" decoding="async" fetchPriority="high" />}
+      <div className="wx-card-scrim" />
+      {!c.is_public && <span className="c2-lock">{t('tile.private')}</span>}
+      <div className="c2-title-block" style={{ left: 24, bottom: 20 }}>
+        <div className="kicker" style={{ color: 'rgba(255,255,255,0.85)' }}>
           {c.kind === 1 ? t('tile.kickerTheme') : t('tile.kickerCollection')}
-          {!c.is_public && ` · ${t('tile.private')}`}
         </div>
-        <div className="c-tile-title">{c.title}</div>
-        <div className="c-tile-meta">
-          {c.wallpaper_count === 1
-            ? t('tile.wallpaperCountOne')
-            : t('tile.wallpaperCount', { num: c.wallpaper_count })}
+        <div className="display text-[24px] font-semibold leading-tight mt-1 truncate">{c.title}</div>
+        <div className="mono text-[11px] tracking-[0.1em] mt-1 opacity-80">{countLabel(c, t)}</div>
+      </div>
+    </Link>
+  );
+}
+
+/* Golden-ratio mosaic card: cover left 2/3 + two member tiles stacked
+   right 1/3 with hairline seams — reads as "a set" at a glance. Title
+   sits inside the card on a bottom scrim (mirrors the Mac
+   CollectionShowcaseCard). */
+function CollectionShowcaseCard({
+  collection: c,
+  onTintsChange,
+}: {
+  collection: Collection;
+  onTintsChange?: (tints: string[] | null) => void;
+}) {
+  const { t } = useTranslation('collections');
+  const tiles = c.recent_tiles ?? [];
+  const fallback = tiles[0]?.dominant_color || c.accent_color || '#999';
+  const cell = (idx: number) => {
+    const tile = tiles[idx];
+    const src = tile?.thumb_url || tile?.preview_url || '';
+    return src
+      ? <img src={src} alt="" loading="lazy" decoding="async" />
+      : <div style={{ position: 'absolute', inset: 0, background: tile?.dominant_color || fallback, opacity: 0.45 }} />;
+  };
+  return (
+    <Link
+      to={`/collections/${c.slug}`}
+      className="wx-card block no-underline"
+      style={{ aspectRatio: '1.618' }}
+      onMouseEnter={() => { const tints = collectionTints(c); if (tints.length) onTintsChange?.(tints); }}
+      onMouseLeave={() => onTintsChange?.(null)}
+    >
+      <div className="c2-mosaic">
+        <div className="c2-main">
+          {coverSrc(c)
+            ? <img src={coverSrc(c)} alt={c.title} loading="lazy" decoding="async" />
+            : <div style={{ position: 'absolute', inset: 0, background: fallback, opacity: 0.45 }} />}
+        </div>
+        <div>{cell(1)}</div>
+        <div>{cell(2)}</div>
+      </div>
+      <div className="wx-card-scrim" />
+      {!c.is_public && <span className="c2-lock">{t('tile.private')}</span>}
+      <div className="c2-title-block">
+        <div className="mono text-[9px] tracking-[0.18em] uppercase opacity-80">
+          {c.kind === 1 ? t('tile.kickerTheme') : t('tile.kickerCollection')}
+        </div>
+        <div className="flex items-baseline gap-2.5 mt-0.5">
+          <span className="text-[16px] font-semibold truncate">{c.title}</span>
+          <span className="mono text-[10px] tracking-[0.08em] opacity-75 shrink-0">{countLabel(c, t)}</span>
         </div>
       </div>
     </Link>

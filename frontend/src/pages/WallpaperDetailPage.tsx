@@ -1455,7 +1455,9 @@ function SpotlightStyles() {
 .wd-backdrop-scrim { position: absolute; inset: 0; z-index: 0; background: linear-gradient(180deg, rgba(250,247,240,0.42) 0%, rgba(250,247,240,0.7) 100%); pointer-events: none; }
 
 /* ── Stage panel — dominant-color mesh card holds hero + bar ── */
-.wd-panel { position: relative; border-radius: 24px; padding: clamp(16px, 2vw, 24px); border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 24px 56px -28px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.5); overflow: hidden; }
+.wd-panel { position: relative; border-radius: 24px; padding: clamp(16px, 2vw, 24px); border: none; overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(0,0,0,0.14), 0 2px 3px rgba(0,0,0,0.18), 0 18px 40px -18px rgba(0,0,0,0.30); }
+.wd-panel::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.05) 34%, transparent 58%); pointer-events: none; }
 
 /* ── Hero card ─────────────────────────────────────────────── */
 /* Transparent stage — visual chrome lives on the image / canvas inside,
@@ -1480,7 +1482,12 @@ function SpotlightStyles() {
 }
 
 /* ── Action bar ─────────────────────────────────────────────── */
-.wd-actionbar { margin-top: clamp(14px, 1.6vw, 18px); padding: 14px clamp(12px, 1.6vw, 16px); background: rgba(250,247,240,0.82); backdrop-filter: blur(16px) saturate(1.2); border: 1px solid rgba(0,0,0,0.06); border-radius: 18px; box-shadow: 0 12px 32px -16px rgba(0,0,0,0.22); }
+.wd-actionbar { position: relative; margin-top: clamp(14px, 1.6vw, 18px); padding: 14px clamp(12px, 1.6vw, 16px);
+  background: color-mix(in oklab, var(--color-paper) 55%, transparent);
+  backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: none; border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(0,0,0,0.12), 0 2px 3px rgba(0,0,0,0.14), 0 10px 24px -12px rgba(0,0,0,0.24); }
+.wd-actionbar::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(135deg, rgba(255,255,255,0.20), rgba(255,255,255,0.04) 34%, transparent 58%); pointer-events: none; }
 .wd-actionbar-meta { display: flex; align-items: baseline; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--color-hair); margin-bottom: 12px; flex-wrap: wrap; }
 .wd-actionbar-meta .display { color: var(--color-ink); font-weight: 500; }
 .wd-actionbar-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: var(--color-ink); color: var(--color-accent); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em; }
@@ -1490,7 +1497,12 @@ function SpotlightStyles() {
 .wd-actionbar-divider { width: 1px; height: 28px; background: var(--color-hair); flex-shrink: 0; }
 .wd-actionbar-toggle { background: var(--color-paper-2); padding: 3px; border-radius: 999px; border: 1px solid var(--color-hair); }
 
-.wd-btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-hair); background: var(--color-paper); color: var(--color-ink); font-size: 12px; font-weight: 500; transition: background-color .15s ease, color .15s ease, border-color .15s ease; white-space: nowrap; }
+.wd-btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-hair);
+  background: color-mix(in oklab, var(--color-paper) 82%, transparent); color: var(--color-ink); font-size: 12px; font-weight: 500; white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease, transform 240ms cubic-bezier(0.34,1.56,0.64,1); }
+.wd-btn:not(:disabled):hover { transform: scale(1.05); }
+.wd-btn:not(:disabled):active { transform: scale(0.92); }
 .wd-btn:hover { background: var(--color-paper-2); border-color: var(--color-ink-2); }
 .wd-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .wd-btn-icon { padding: 8px 12px; }
@@ -1500,9 +1512,13 @@ function SpotlightStyles() {
 
 .wd-toggle-pill { padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 500; color: var(--color-muted); transition: all .15s ease; }
 .wd-toggle-pill:hover { color: var(--color-ink-2); }
-.wd-toggle-pill.is-on { background: var(--color-paper); color: var(--color-ink); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.wd-toggle-pill.is-on { background: var(--color-paper); color: var(--color-ink); box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 1.5px 2px rgba(0,0,0,0.12), 0 3px 6px rgba(0,0,0,0.14); }
 
-.wd-btn-cta { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 999px; background: var(--color-accent); color: white; font-size: 13px; font-weight: 600; white-space: nowrap; box-shadow: 0 6px 14px -6px oklch(72% 0.18 55 / 0.5); transition: filter .15s ease; }
+.wd-btn-cta { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 999px; background: var(--color-accent); color: white; font-size: 13px; font-weight: 600; white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 4px 8px -2px oklch(64% 0.21 42 / 0.30), 0 8px 16px -6px oklch(64% 0.21 42 / 0.35);
+  transition: filter .15s ease, transform 240ms cubic-bezier(0.34,1.56,0.64,1); }
+.wd-btn-cta:not(:disabled):hover { transform: scale(1.04); }
+.wd-btn-cta:not(:disabled):active { transform: scale(0.94); }
 .wd-btn-cta:hover { filter: brightness(1.05); }
 .wd-btn-cta:disabled { opacity: 0.7; cursor: not-allowed; }
 
@@ -1576,7 +1592,12 @@ function SpotlightStyles() {
 
 /* ── Devices drawer — right-side slide-in ──────────────────── */
 .wd-drawer-scrim { position: fixed; inset: 0; background: rgba(20,18,15,0.42); backdrop-filter: blur(2px); z-index: 60; display: flex; justify-content: flex-end; animation: wdFadeIn .2s ease; }
-.wd-drawer { width: 440px; max-width: 92vw; height: 100vh; background: var(--color-paper); display: flex; flex-direction: column; box-shadow: -20px 0 60px -20px rgba(0,0,0,0.28); border-left: 1px solid var(--color-hair); animation: wdSlideInRight .28s cubic-bezier(0.2,0.8,0.2,1); }
+.wd-drawer { width: 440px; max-width: 92vw; height: 100vh;
+  background: color-mix(in oklab, var(--color-paper) 76%, transparent);
+  backdrop-filter: blur(28px) saturate(1.4); -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  display: flex; flex-direction: column;
+  box-shadow: inset 1px 0 0 rgba(255,255,255,0.4), -20px 0 60px -20px rgba(0,0,0,0.30);
+  border-left: 1px solid rgba(255,255,255,0.30); animation: wdSlideInRight .28s cubic-bezier(0.2,0.8,0.2,1); }
 .wd-drawer-head { padding: 22px 22px 16px; border-bottom: 1px solid var(--color-hair); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-shrink: 0; }
 .wd-drawer-body { flex: 1; overflow-y: auto; padding: 6px 18px 18px; }
 .wd-drawer-foot { padding: 12px 22px; border-top: 1px solid var(--color-hair); background: var(--color-paper-2); flex-shrink: 0; }

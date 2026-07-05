@@ -27,7 +27,10 @@ export function ResChip({ wallpaper }: { wallpaper: Wallpaper }) {
   return <span className="h3-res-chip">{label}</span>;
 }
 
-type Variant = 'weekly' | 'ai' | 'video';
+// 'home' = the golden-ratio landscape card used by the immersive home
+// page (docs/design-system.md §8) — same chips + action rail, larger
+// radius, φ aspect.
+type Variant = 'weekly' | 'ai' | 'video' | 'home';
 
 interface Props {
   w: Wallpaper;
