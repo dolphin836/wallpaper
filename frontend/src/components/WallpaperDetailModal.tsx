@@ -47,7 +47,7 @@ export default function WallpaperDetailModal() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="absolute bg-paper shadow-[0_24px_80px_rgba(0,0,0,0.32)] flex flex-col overflow-hidden rounded-[24px]"
+        className="wd-in-modal absolute bg-paper shadow-[0_24px_80px_rgba(0,0,0,0.32)] flex flex-col overflow-hidden rounded-[24px]"
         style={{ top: 28, bottom: 28, left: 40, right: 40 }}
       >
         <WallpaperDetailPage />

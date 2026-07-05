@@ -4,6 +4,8 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
 import InAppConfirm from '../components/InAppConfirm';
 import {
+  AiOutlineLeft,
+  AiOutlineInfoCircle,
   AiFillHeart,
   AiOutlineHeart,
   AiFillStar,
@@ -208,6 +210,7 @@ export default function WallpaperDetailPage() {
   // painted directly onto the hero image (clock / dock / menu bar —
   // same overlays the discover floating wall uses).
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   // Recommendation count — always two complete rows of the rec grid.
   // WallpaperGrid sizeMode="md" uses 2/3/4/5 cols at Tailwind's
   // default/sm/md/lg breakpoints, so two rows = 4/6/8/10 cards. We
@@ -796,485 +799,416 @@ export default function WallpaperDetailPage() {
             (corner-anchored ✕). No header strip here. */}
 
         <div className="flex-1 min-h-0 overflow-y-auto relative z-10">
-          <div className="mx-auto max-w-[1600px] px-6 sm:px-10 lg:px-14 py-6 lg:py-8">
 
-            {/* ─── STAGE PANEL — dominant-color mesh card holds the hero
-                + the action bar. Rounded all around so the harsh
-                rectangle from the previous iteration is gone. */}
-            <div
-              className="wd-panel"
-              style={{
-                background: wallpaper.dominant_color
-                  ? `radial-gradient(120% 80% at 20% 0%, ${wallpaper.dominant_color}88 0%, transparent 55%),
-                     radial-gradient(100% 70% at 100% 100%, ${wallpaper.dominant_color}66 0%, transparent 50%),
-                     linear-gradient(180deg, ${wallpaper.dominant_color}33 0%, var(--color-paper) 80%)`
-                  : 'var(--color-paper)',
-              }}
-            >
-              {/* Hero card.
-                  - 'off' mode uses the wallpaper's intrinsic aspect ratio
-                    (and lets clicking the image enter the fullscreen
-                    viewer).
-                  - plain / home / lock all render the wallpaper inside
-                    the matched-device chrome via InlineDeviceMockup,
-                    which auto-scales to fit. Aspect is dropped in this
-                    mode and a fixed-ish height takes over so the frame
-                    has room for its stand / chin / bezel.
-                  - Video and dynamic-HEIC always render their natural
-                    surfaces regardless of preview mode; the frame
-                    toggles are not meaningful for those formats. */}
-              {/* Hero stage — transparent flex container that centers the
-                  image (or canvas) horizontally. The visual chrome (rounded
-                  corners, shadow) lives on the image / canvas itself, so the
-                  container shrinks to its content and never paints an empty
-                  background strip around wide-short or tall-narrow wallpapers. */}
-              <div className="wd-hero">
-                {frames.length > 1 ? (
-                  <div className="wd-hero-canvas" style={{ aspectRatio: wallpaper.width > 0 && wallpaper.height > 0 ? `${wallpaper.width} / ${wallpaper.height}` : '16 / 9', backgroundColor: wallpaper.dominant_color || undefined }}>
-                    {frames.map((url, i) => (
-                      <img
-                        key={i}
-                        src={url}
-                        alt=""
-                        loading={i === 0 ? 'eager' : 'lazy'}
-                        decoding="async"
-                        fetchPriority={i === 0 ? 'high' : 'auto'}
-                        onContextMenu={(e) => e.preventDefault()}
-                        draggable={false}
-                        className={`absolute inset-0 w-full h-full object-contain select-none transition-opacity duration-500 ${frameIdx === i ? 'opacity-100' : 'opacity-0'}`}
-                        style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
-                      />
-                    ))}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setFramePlaying((p) => !p); }}
-                      className="absolute bottom-3 right-3 px-3 py-1 bg-black/60 text-white text-[11px] mono rounded backdrop-blur-sm"
-                    >{framePlaying ? t('hero.pause') : t('hero.play')} · {frameIdx + 1}/{frames.length}</button>
-                  </div>
-                ) : (wallpaper.file_type || '').startsWith('video/') && wallpaper.original_url ? (
+          {/* ═══ SCREEN 1 — immersive hero (mirrors the Mac detail page):
+              full-bleed wallpaper, back circle top-left, info circle +
+              panel top-right, glass toolbar bottom-centre. ═══ */}
+          <section className="wd-s1">
+            <div className="wd-s1-media" style={{ backgroundColor: wallpaper.dominant_color || undefined }}>
+              {frames.length > 1 ? (
+                <>
+                  {frames.map((url, i) => (
+                    <img
+                      key={i}
+                      src={url}
+                      alt=""
+                      loading={i === 0 ? 'eager' : 'lazy'}
+                      decoding="async"
+                      fetchPriority={i === 0 ? 'high' : 'auto'}
+                      onContextMenu={(e) => e.preventDefault()}
+                      draggable={false}
+                      className={`absolute inset-0 w-full h-full object-cover select-none transition-opacity duration-500 ${frameIdx === i ? 'opacity-100' : 'opacity-0'}`}
+                      style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
+                    />
+                  ))}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setFramePlaying((p) => !p); }}
+                    className="absolute top-6 right-24 z-[3] px-3 py-1 bg-black/60 text-white text-[11px] mono rounded-full backdrop-blur-sm"
+                  >{framePlaying ? t('hero.pause') : t('hero.play')} · {frameIdx + 1}/{frames.length}</button>
+                </>
+              ) : (wallpaper.file_type || '').startsWith('video/') && wallpaper.original_url ? (
+                <div className="wd-s1-center">
                   <div className="wd-hero-canvas" style={{ aspectRatio: wallpaper.width > 0 && wallpaper.height > 0 ? `${wallpaper.width} / ${wallpaper.height}` : '16 / 9', backgroundColor: wallpaper.dominant_color || undefined }}>
                     <VideoPlayer
                       src={wallpaper.preview_video_url || wallpaper.original_url}
                       poster={wallpaper.preview_url || wallpaper.thumb_url}
                     />
                   </div>
-                ) : heroImg ? (
-                  previewOverlay !== 'off' ? (
-                    /* Frame mode — transparent fixed-size stage purely
-                        for layout. No rounded card, no shadow, no
-                        background — the device chassis is the visual
-                        and any chrome around it would compete. */
-                    <div className="wd-hero-stage">
-                      <InlineDeviceMockup
-                        imageUrl={heroImg}
-                        platform={overlayPlatform}
-                        mode={previewOverlay}
-                        matched={matchedVariant}
-                      />
-                    </div>
-                  ) : (
-                    /* Off mode — image sizes itself, wrap is relative so
-                        the progress border can attach to its actual
-                        rendered rect (which respects max-h: 64vh). */
-                    <div className="wd-hero-img-wrap">
-                      <img
-                        src={heroImg}
-                        alt=""
-                        loading="eager"
-                        decoding="async"
-                        fetchPriority="high"
-                        onContextMenu={(e) => e.preventDefault()}
-                        draggable={false}
-                        onClick={() => setFullscreen(true)}
-                        className="wd-hero-img"
-                        style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
-                      />
-                    </div>
-                  )
-                ) : null}
-              </div>
-
-              {dlLoading && <DownloadProgressBar progress={dlProgress} />}
-
-              {/* ─── ACTION BAR ─── */}
-              <div className="wd-actionbar">
-                {/* Meta strip — was the top-right specs box before */}
-                <div className="wd-actionbar-meta">
-                  <span className="display text-[15px] leading-none">
-                    {wallpaper.width.toLocaleString()}<span className="text-muted"> × </span>{wallpaper.height.toLocaleString()}
-                  </span>
-                  <span className="mono text-[11px] tracking-[0.06em] text-muted">
-                    {resLabel || '—'} · {(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}
-                  </span>
-                  {(wallpaper.is_dynamic || (wallpaper.file_type || '').startsWith('video/')) && <span className="wd-actionbar-pill">{t('pill.live')}</span>}
-                  {wallpaper.is_ai_generated && <span className="wd-actionbar-pill is-ai">✦ AI</span>}
                 </div>
-
-                {/* Buttons — 3 groups separated by dividers. Wraps on
-                    narrow viewports so groups stay together. */}
-                <div className="wd-actionbar-rows">
-                  {/* Group A — social */}
-                  <div className="wd-actionbar-group">
-                    <button
-                      onClick={handleLike}
-                      disabled={likeLoading}
-                      className={`wd-btn ${wallpaper.is_liked ? 'is-liked' : ''}`}
-                      title={wallpaper.is_liked ? t('actions.unlike') : t('actions.like')}
-                    >
-                      {likeLoading
-                        ? <AiOutlineLoading3Quarters size={14} className="animate-spin" />
-                        : wallpaper.is_liked ? <AiFillHeart size={14} /> : <AiOutlineHeart size={14} />}
-                      <span>{wallpaper.is_liked ? t('actions.liked') : t('actions.like')}</span>
-                      <span className="wd-btn-count">{formatNumber(wallpaper.like_count)}</span>
-                    </button>
-                    <button
-                      onClick={handleFavorite}
-                      disabled={favLoading}
-                      className={`wd-btn ${wallpaper.is_favorited ? 'is-favorited' : ''}`}
-                      title={wallpaper.is_favorited ? t('actions.unfavorite') : t('actions.favorite')}
-                    >
-                      {favLoading
-                        ? <AiOutlineLoading3Quarters size={14} className="animate-spin" />
-                        : wallpaper.is_favorited ? <AiFillStar size={14} /> : <AiOutlineStar size={14} />}
-                      <span>{wallpaper.is_favorited ? t('actions.saved') : t('actions.favorite')}</span>
-                    </button>
-                    <button
-                      onClick={() => { if (!isAuthenticated) { navigate('/login'); return; } setShowAddToCollection(true); }}
-                      className="wd-btn"
-                      title={t('actions.addToCollectionTitle')}
-                    >
-                      <MdPlaylistAdd size={16} />
-                      <span>{t('actions.addToList')}</span>
-                    </button>
-                  </div>
-
-                  <div className="wd-actionbar-divider" />
-
-                  {/* Group B — preview modes. Off paints just the wallpaper;
-                      Plain / Home / Lock render the wallpaper inside the
-                      matched-device chrome (frame + optional overlay).
-                      Fullscreen is a sibling action. */}
-                  <div className="wd-actionbar-group wd-actionbar-toggle">
-                    {([
-                      ['off',   t('preview.off'),   t('preview.offDesc')],
-                      ['plain', t('preview.plain'), t('preview.plainDesc')],
-                      ['home',  t('preview.home'),  t('preview.homeDesc')],
-                      ['lock',  t('preview.lock'),  t('preview.lockDesc')],
-                    ] as const).map(([m, label, desc]) => (
-                      <button
-                        key={m}
-                        role="radio"
-                        aria-checked={previewOverlay === m}
-                        onClick={() => setPreviewOverlay(m)}
-                        className={`wd-toggle-pill ${previewOverlay === m ? 'is-on' : ''}`}
-                        title={desc}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => {
-                        if (frames.length > 1 || (wallpaper.file_type || '').startsWith('video/')) {
-                          toast(t('toast.useHeroControls'), { icon: 'ℹ️' });
-                          return;
-                        }
-                        setFullscreen(true);
-                      }}
-                      className="wd-btn wd-btn-icon"
-                      title={t('preview.fullscreenTitle')}
-                    >
-                      <AiOutlineFullscreen size={15} />
-                      <span className="hidden sm:inline">{t('preview.fullscreen')}</span>
-                    </button>
-                  </div>
-
-                  <div className="wd-actionbar-divider" />
-
-                  {/* Group C — get */}
-                  <div className="wd-actionbar-group">
-                    {variants.length > 0 && (
-                      <button
-                        onClick={() => setDrawerOpen(true)}
-                        className="wd-btn"
-                        title={t('actions.devicesTitle')}
-                      >
-                        <MdDevices size={16} />
-                        <span>{t('actions.devices')}</span>
-                        <span className="wd-btn-count">{variants.length}</span>
-                      </button>
-                    )}
-                    <button
-                      onClick={handleDownloadClick}
-                      disabled={dlLoading}
-                      className="wd-btn-cta"
-                      title={isOwner ? t('cta.downloadOriginalTitle') : t('cta.tradeTitle')}
-                    >
-                      {dlLoading ? (
-                        <AiOutlineLoading3Quarters size={15} className="animate-spin" />
-                      ) : dlDone ? (
-                        <><AiOutlineCheckCircle size={15} /> {isOwner ? t('cta.gotIt') : t('cta.traded')}</>
-                      ) : isOwner ? (
-                        <><AiOutlineDownload size={15} /> {t('cta.download')}</>
-                      ) : (
-                        <>
-                          <span className="w-2 h-2 rounded-full bg-white shadow-[inset_0_-2px_0_oklch(80%_0.18_60),inset_0_1px_0_oklch(98%_0.04_60)]" aria-hidden />
-                          {t('cta.tradeFor', { n: downloadCost || 1 })}
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
+              ) : heroImg ? (
+                previewOverlay !== 'off' ? (
+                  <InlineDeviceMockup
+                    imageUrl={heroImg}
+                    platform={overlayPlatform}
+                    mode={previewOverlay}
+                    matched={matchedVariant}
+                  />
+                ) : (
+                  <img
+                    src={heroImg}
+                    alt=""
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
+                    onContextMenu={(e) => e.preventDefault()}
+                    draggable={false}
+                    onClick={() => setFullscreen(true)}
+                    className="wd-s1-img"
+                    style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
+                  />
+                )
+              ) : null}
             </div>
+            <div className="wd-s1-vignette" aria-hidden />
 
-            {/* ─── COIN CTA inline bar — confirm / success / insufficient ─── */}
-            {(ctaState !== 'default') && (
-              <div className="mt-5">
-                {ctaState === 'success' ? (
-                  <div className="wd-notice is-success">
-                    <div className="flex justify-between items-center gap-4 flex-wrap">
-                      <div className="min-w-0">
-                        <div className="wd-notice-kicker inline-flex items-center gap-1.5">
-                          <AiOutlineCheckCircle size={11} /> {t('cta.downloadedKicker')}
-                        </div>
-                        <div className="wd-notice-title">
-                          wallpaper_<span className="mono text-[20px] sm:text-[24px]">{String(wallpaper.id).padStart(3, '0')}</span>.jpg
-                        </div>
-                        <div className="wd-notice-meta">
-                          {fileSize}  ·  {t('cta.coinsRemaining', { n: userBalance })}
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-2 flex-shrink-0">
-                        <button
-                          onClick={handleSuccessDismiss}
-                          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-ink text-paper font-medium text-[12px] whitespace-nowrap hover:bg-ink-2 transition-colors"
-                        >{t('cta.done')}</button>
-                        <Link
-                          to="/"
-                          className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full border border-hair text-ink text-[12px] no-underline whitespace-nowrap hover:bg-paper-2 transition-colors"
-                        >{t('cta.browseMore')}</Link>
-                      </div>
-                    </div>
-                    {!isMacUA && (
-                      <>
-                        <hr className="wd-notice-rule" />
-                        <div className="wd-notice-foot">
-                          <span>{t('cta.macPromo')}</span>
-                          <Link to="/download/mac" className="underline">{t('cta.getIt')}</Link>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ) : ctaState === 'insufficient' ? (
-                  <div className="wd-notice is-warning">
-                    <div className="flex justify-between items-center gap-4 flex-wrap">
-                      <div className="min-w-0">
-                        <div className="wd-notice-kicker">{t('cta.insufficientKicker')}</div>
-                        <div className="wd-notice-title is-large">
-                          <Trans i18nKey="cta.needMore" ns="detail" values={{ need: downloadCost - userBalance }} components={[<span key="0" />]} />
-                        </div>
-                        <div className="wd-notice-meta">
-                          {t('cta.balanceLine', { balance: userBalance, cost: downloadCost })}
-                        </div>
-                      </div>
-                      <Link to="/upload" className="wd-notice-primary">
-                        {t('cta.uploadToEarn')}
-                      </Link>
-                    </div>
-                    <hr className="wd-notice-rule" />
-                    <div className="wd-notice-foot gap-x-5">
-                      <span><Trans i18nKey="cta.earnUpload" ns="detail" components={[<strong className="mono mr-1.5" key="0" />]} /></span>
-                      <span><Trans i18nKey="cta.earnDownload" ns="detail" components={[<strong className="mono mr-1.5" key="0" />]} /></span>
-                    </div>
-                  </div>
-                ) : ctaState === 'confirm' ? (
-                  <div className="wd-notice is-confirm">
-                    <div className="flex justify-between items-center gap-4 flex-wrap">
-                      <div className="min-w-0">
-                        <div className="wd-notice-kicker">{t('cta.confirmKicker')}</div>
-                        <div className="wd-notice-title is-xl">
-                          −{downloadCost} <span className="text-accent">{t('cta.coinWord', { count: downloadCost })}</span>
-                        </div>
-                        <div className="wd-notice-meta">
-                          <Trans
-                            i18nKey="cta.confirmBalance"
-                            ns="detail"
-                            values={{ from: userBalance, to: userBalance - downloadCost }}
-                            components={[<span className="text-accent" key="0" />]}
-                          />
-                        </div>
-                        <Link
-                          to="/upload"
-                          className="wd-notice-refill"
-                        >
-                          {t('cta.refill')} <span aria-hidden>→</span>
-                        </Link>
-                      </div>
-                      <div className="flex flex-col gap-2 flex-shrink-0">
-                        <button
-                          onClick={handleConfirmYes}
-                          disabled={dlLoading}
-                          className="wd-notice-primary"
-                        >
-                          {dlLoading ? <AiOutlineLoading3Quarters size={14} className="animate-spin" /> : (
-                            <>
-                              <span className="w-2.5 h-2.5 rounded-full bg-white shadow-[inset_0_-2px_0_oklch(80%_0.18_60),inset_0_1px_0_oklch(98%_0.04_60)]" aria-hidden />
-                              {t('cta.yesTrade')}
-                            </>
-                          )}
-                        </button>
-                        <button
-                          onClick={handleConfirmCancel}
-                          disabled={dlLoading}
-                          className="wd-notice-secondary"
-                        >{t('cta.cancel')}</button>
-                      </div>
-                    </div>
-                    <hr className="wd-notice-rule" />
-                    <label className="wd-notice-check">
-                      <input
-                        type="checkbox"
-                        checked={confirmDontAsk}
-                        onChange={(e) => setConfirmDontAsk(e.target.checked)}
-                        className="appearance-none w-[13px] h-[13px] rounded-sm cursor-pointer checked:bg-accent transition-colors border border-current"
-                      />
-                      {t('cta.skipConfirm')}
-                    </label>
-                  </div>
-                ) : null}
-              </div>
-            )}
+            {/* Back — top-left floating glass circle. */}
+            <button
+              type="button"
+              className="wd-circle-btn glass-bounce wd-s1-back"
+              onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/'); }}
+              aria-label={t('cta.cancel')}
+            >
+              <AiOutlineLeft size={17} />
+            </button>
 
-            {/* ─── Stats / Metadata / Palette / Recommendations ─────── */}
-            <div className="wd-content-card mt-6">
-              {/* Stats strip */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-hair">
-                {([
-                  [t('stats.downloads'), wallpaper.download_count, engagements?.downloaders ?? []],
-                  [t('stats.likes'),     wallpaper.like_count,     engagements?.likers      ?? []],
-                  [t('stats.favorited'), wallpaper.favorite_count, engagements?.favoriters  ?? []],
-                  [t('stats.views'),     wallpaper.view_count,     []                            ],
-                ] as const).map(([k, v, users]) => (
-                  <div key={k} className="px-4 py-3.5">
-                    <div className="mono text-[9px] tracking-[0.14em] uppercase text-muted">{k}</div>
-                    <div className="display text-[22px] leading-none mt-1">{formatNumber(v)}</div>
-                    {users.length > 0 && (
-                      <AvatarStack users={users.slice(0, 5)} total={v} size={18} />
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Three even columns. The dim/res/file specs that used to
-                  sit here are dropped — the action bar's meta strip
-                  already shows them, so repeating them was waste.
-                  What's left: who made it, what it's about, what it
-                  looks like. Category gets a big serif headline, tags
-                  become chips tinted by palette colors (so the same
-                  tag doesn't fade into the page), uploader is its own
-                  column with a generous avatar. */}
-              <div className="border-t border-hair grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-7 p-5 lg:p-6">
-                {/* Uploader column */}
-                {wallpaper.uploader ? (
-                  <section className="min-w-0">
-                    <div className="kicker text-muted mb-3">{t('info.uploadedBy')}</div>
-                    <Link
-                      to={`/user/${wallpaper.uploader.username}`}
-                      className="inline-flex items-center gap-3 no-underline text-ink group"
-                    >
-                      <div className="w-14 h-14 rounded-full overflow-hidden bg-paper-2 border border-hair flex items-center justify-center display text-[22px] flex-shrink-0">
+            {/* Info — top-right floating circle; hover/click opens the
+                metadata panel (uploader / about / palette / stats). */}
+            <div
+              className="wd-s1-info"
+              onMouseEnter={() => setInfoOpen(true)}
+              onMouseLeave={() => setInfoOpen(false)}
+            >
+              <button
+                type="button"
+                className={`wd-circle-btn is-prominent glass-bounce ${infoOpen ? 'is-active' : ''}`}
+                onClick={() => setInfoOpen((v) => !v)}
+                aria-label="info"
+              >
+                <AiOutlineInfoCircle size={18} />
+              </button>
+              {infoOpen && (
+                <div className="wd-info-panel">
+                  {wallpaper.uploader && (
+                    <Link to={`/user/${wallpaper.uploader.username}`} className="wd-ip-row no-underline">
+                      <div className="wd-ip-avatar">
                         {wallpaper.uploader.avatar_url
-                          ? <img src={wallpaper.uploader.avatar_url} alt="" className="w-full h-full object-cover" />
-                          : uploaderInitial}
+                          ? <img src={wallpaper.uploader.avatar_url} alt="" />
+                          : <span className="display">{uploaderInitial}</span>}
                       </div>
                       <div className="min-w-0">
-                        <div className="display text-[20px] leading-tight truncate group-hover:underline">@{wallpaper.uploader.username}</div>
-                        {wallpaper.uploader.bio && (
-                          <div className="mono text-[10px] tracking-[0.04em] text-muted truncate mt-1">{wallpaper.uploader.bio}</div>
-                        )}
-                        <div className="mono text-[10px] tracking-[0.14em] text-muted mt-1.5 inline-flex items-center gap-1">
-                          {t('info.viewProfile')} <span aria-hidden>→</span>
-                        </div>
+                        <div className="text-[13px] font-medium text-white truncate">@{wallpaper.uploader.username}</div>
+                        <div className="mono text-[9px] tracking-[0.14em] uppercase text-white/55">{t('info.viewProfile')} →</div>
                       </div>
                     </Link>
-                  </section>
-                ) : <div />}
+                  )}
 
-                {/* Category + Tags column — the "what is this about" axis.
-                    Big serif headline for the category, tags below as
-                    pill chips. Each tag tints itself using a different
-                    palette color (rotated through the list) so the
-                    chips have visual differentiation and reinforce the
-                    wallpaper's palette without being noisy. */}
-                <section className="min-w-0">
-                  <div className="kicker text-muted mb-3">{t('info.about')}</div>
-                  {currentCategory ? (
-                    <Link to={`/category/${currentCategory.slug}`} className="no-underline">
-                      <h3 className="display text-[clamp(24px,2.4vw,30px)] leading-none tracking-[-0.01em] text-ink hover:text-accent transition-colors">
+                  <div className="wd-ip-block">
+                    <div className="wd-ip-kicker">{t('info.about')}</div>
+                    {currentCategory ? (
+                      <Link to={`/category/${currentCategory.slug}`} className="display text-[18px] text-white no-underline hover:underline">
                         {currentCategory.name}
-                      </h3>
-                    </Link>
-                  ) : (
-                    <h3 className="display text-[clamp(22px,2vw,28px)] leading-none text-muted italic">{t('info.uncategorised')}</h3>
-                  )}
-                  {wallpaper.tags && wallpaper.tags.length > 0 && (
-                    <div className="mt-4 flex flex-wrap gap-1.5">
-                      {wallpaper.tags.map((t, i) => {
-                        // Use the palette in rotation; fall back to muted ink
-                        // when no palette is available.
-                        const c = palette.length > 0 ? palette[i % palette.length] : 'var(--color-ink-2)';
-                        return (
-                          <span
-                            key={t.id}
-                            className="wd-tag-chip"
-                            style={{
-                              borderColor: c,
-                              background: `color-mix(in oklch, ${c} 12%, var(--color-paper))`,
-                              color: `color-mix(in oklch, ${c} 60%, var(--color-ink))`,
-                            }}
-                          >
-                            <span className="wd-tag-chip-dot" style={{ background: c }} />
-                            {t.name}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
+                      </Link>
+                    ) : (
+                      <span className="display text-[16px] text-white/55 italic">{t('info.uncategorised')}</span>
+                    )}
+                    {wallpaper.tags && wallpaper.tags.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {wallpaper.tags.map((tag) => (
+                          <span key={tag.id} className="wd-ip-tag">{tag.name}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-                {/* Palette column */}
-                {palette.length > 0 ? (
-                  <section className="min-w-0">
-                    <div className="kicker text-muted mb-3">{t('info.paletteKicker')}</div>
-                    <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(palette.length, 5)}, 1fr)` }}>
-                      {palette.map((c, i) => (
-                        <button
-                          key={`${c}-${i}`}
-                          onClick={() => copyHex(c)}
-                          className="flex flex-col gap-1 bg-transparent border-0 p-0 cursor-pointer text-left group"
-                        >
-                          <span
-                            className="block h-[60px] rounded-lg border border-hair transition-transform group-hover:scale-[1.04] group-hover:shadow-md"
+                  {palette.length > 0 && (
+                    <div className="wd-ip-block">
+                      <div className="wd-ip-kicker">{t('info.paletteKicker')}</div>
+                      <div className="flex gap-1.5">
+                        {palette.slice(0, 6).map((c, i) => (
+                          <button
+                            key={`${c}-${i}`}
+                            onClick={() => copyHex(c)}
+                            className="wd-ip-swatch"
                             style={{ background: c }}
                             title={t('info.copyTitle', { hex: c.toUpperCase() })}
                           />
-                          <span className="mono text-[10px] tracking-[0.06em] text-muted">{c.toUpperCase()}</span>
-                        </button>
-                      ))}
-                    </div>
-                    {wallpaper.dominant_color && (
-                      <div className="mt-3 inline-flex items-center gap-2 mono text-[10px] tracking-[0.12em] uppercase text-muted">
-                        <span className="inline-block w-3 h-3 rounded-sm border border-hair" style={{ background: wallpaper.dominant_color }} />
-                        {t('info.dominant', { hex: wallpaper.dominant_color.toUpperCase() })}
+                        ))}
                       </div>
-                    )}
-                  </section>
-                ) : <div />}
-              </div>
+                    </div>
+                  )}
+
+                  <div className="wd-ip-stats">
+                    {([
+                      [t('stats.downloads'), wallpaper.download_count, engagements?.downloaders ?? []],
+                      [t('stats.likes'),     wallpaper.like_count,     engagements?.likers      ?? []],
+                      [t('stats.favorited'), wallpaper.favorite_count, engagements?.favoriters  ?? []],
+                      [t('stats.views'),     wallpaper.view_count,     []                            ],
+                    ] as const).map(([k, v, users]) => (
+                      <div key={k}>
+                        <div className="wd-ip-kicker">{k}</div>
+                        <div className="display text-[18px] leading-none mt-0.5 text-white">{formatNumber(v)}</div>
+                        {users.length > 0 && <AvatarStack users={users.slice(0, 5)} total={v} size={16} />}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="wd-ip-foot">
+                    {isOwner ? (
+                      <button onClick={handleDelete} className="inline-flex items-center gap-1.5 text-white/65 hover:text-rose-300 transition-colors">
+                        <AiOutlineDelete size={13} /> {t('actions.deleteWallpaper')}
+                      </button>
+                    ) : isAuthenticated ? (
+                      <button onClick={() => setShowReport(true)} className="inline-flex items-center gap-1.5 text-white/65 hover:text-white transition-colors">
+                        <AiOutlineFlag size={13} /> {t('actions.report')}
+                      </button>
+                    ) : <span />}
+                    <span className="mono text-[9px] tracking-[0.14em] uppercase text-white/45">
+                      №{String(wallpaper.id).padStart(3, '0')}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* ─── More like this — discover-style grid ─────────────── */}
-            {similar.length > 0 && (
-              <section className="mt-8">
+            {/* Bottom-centre column: progress / notices / glass toolbar. */}
+            <div className="wd-s1-bottom">
+              {dlLoading && <DownloadProgressBar progress={dlProgress} />}
+
+              {ctaState === 'success' ? (
+                <div className="wd-notice is-success">
+                  <div className="flex justify-between items-center gap-4 flex-wrap">
+                    <div className="min-w-0">
+                      <div className="wd-notice-kicker inline-flex items-center gap-1.5">
+                        <AiOutlineCheckCircle size={11} /> {t('cta.downloadedKicker')}
+                      </div>
+                      <div className="wd-notice-title">
+                        wallpaper_<span className="mono text-[20px] sm:text-[24px]">{String(wallpaper.id).padStart(3, '0')}</span>.jpg
+                      </div>
+                      <div className="wd-notice-meta">
+                        {fileSize}  ·  {t('cta.coinsRemaining', { n: userBalance })}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 flex-shrink-0">
+                      <button
+                        onClick={handleSuccessDismiss}
+                        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-ink text-paper font-medium text-[12px] whitespace-nowrap hover:bg-ink-2 transition-colors"
+                      >{t('cta.done')}</button>
+                      <Link
+                        to="/"
+                        className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full border border-hair text-ink text-[12px] no-underline whitespace-nowrap hover:bg-paper-2 transition-colors"
+                      >{t('cta.browseMore')}</Link>
+                    </div>
+                  </div>
+                  {!isMacUA && (
+                    <>
+                      <hr className="wd-notice-rule" />
+                      <div className="wd-notice-foot">
+                        <span>{t('cta.macPromo')}</span>
+                        <Link to="/download/mac" className="underline">{t('cta.getIt')}</Link>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : ctaState === 'insufficient' ? (
+                <div className="wd-notice is-warning">
+                  <div className="flex justify-between items-center gap-4 flex-wrap">
+                    <div className="min-w-0">
+                      <div className="wd-notice-kicker">{t('cta.insufficientKicker')}</div>
+                      <div className="wd-notice-title is-large">
+                        <Trans i18nKey="cta.needMore" ns="detail" values={{ need: downloadCost - userBalance }} components={[<span key="0" />]} />
+                      </div>
+                      <div className="wd-notice-meta">
+                        {t('cta.balanceLine', { balance: userBalance, cost: downloadCost })}
+                      </div>
+                    </div>
+                    <Link to="/upload" className="wd-notice-primary">
+                      {t('cta.uploadToEarn')}
+                    </Link>
+                  </div>
+                  <hr className="wd-notice-rule" />
+                  <div className="wd-notice-foot gap-x-5">
+                    <span><Trans i18nKey="cta.earnUpload" ns="detail" components={[<strong className="mono mr-1.5" key="0" />]} /></span>
+                    <span><Trans i18nKey="cta.earnDownload" ns="detail" components={[<strong className="mono mr-1.5" key="0" />]} /></span>
+                  </div>
+                </div>
+              ) : ctaState === 'confirm' ? (
+                <div className="wd-notice is-confirm">
+                  <div className="flex justify-between items-center gap-4 flex-wrap">
+                    <div className="min-w-0">
+                      <div className="wd-notice-kicker">{t('cta.confirmKicker')}</div>
+                      <div className="wd-notice-title is-xl">
+                        −{downloadCost} <span className="text-accent">{t('cta.coinWord', { count: downloadCost })}</span>
+                      </div>
+                      <div className="wd-notice-meta">
+                        <Trans
+                          i18nKey="cta.confirmBalance"
+                          ns="detail"
+                          values={{ from: userBalance, to: userBalance - downloadCost }}
+                          components={[<span className="text-accent" key="0" />]}
+                        />
+                      </div>
+                      <Link
+                        to="/upload"
+                        className="wd-notice-refill"
+                      >
+                        {t('cta.refill')} <span aria-hidden>→</span>
+                      </Link>
+                    </div>
+                    <div className="flex flex-col gap-2 flex-shrink-0">
+                      <button
+                        onClick={handleConfirmYes}
+                        disabled={dlLoading}
+                        className="wd-notice-primary"
+                      >
+                        {dlLoading ? <AiOutlineLoading3Quarters size={14} className="animate-spin" /> : (
+                          <>
+                            <span className="w-2.5 h-2.5 rounded-full bg-white shadow-[inset_0_-2px_0_oklch(80%_0.18_60),inset_0_1px_0_oklch(98%_0.04_60)]" aria-hidden />
+                            {t('cta.yesTrade')}
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={handleConfirmCancel}
+                        disabled={dlLoading}
+                        className="wd-notice-secondary"
+                      >{t('cta.cancel')}</button>
+                    </div>
+                  </div>
+                  <hr className="wd-notice-rule" />
+                  <label className="wd-notice-check">
+                    <input
+                      type="checkbox"
+                      checked={confirmDontAsk}
+                      onChange={(e) => setConfirmDontAsk(e.target.checked)}
+                      className="appearance-none w-[13px] h-[13px] rounded-sm cursor-pointer checked:bg-accent transition-colors border border-current"
+                    />
+                    {t('cta.skipConfirm')}
+                  </label>
+                </div>
+              ) : null}
+
+              {/* Bottom-centre glass toolbar — meta | social | preview | get */}
+              <div className="wd-bar">
+                <div className="wd-bar-meta">
+                  <span className="text-[13px] font-semibold text-white leading-none whitespace-nowrap">
+                    {wallpaper.width.toLocaleString()} × {wallpaper.height.toLocaleString()}
+                  </span>
+                  <span className="mono text-[10px] tracking-[0.06em] text-white/65 whitespace-nowrap">
+                    {resLabel || '—'} · {(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}
+                    {(wallpaper.is_dynamic || (wallpaper.file_type || '').startsWith('video/')) && <> · {t('pill.live')}</>}
+                    {wallpaper.is_ai_generated && <> · AI</>}
+                  </span>
+                </div>
+
+                <span className="wd-bar-divider" />
+
+                <button
+                  onClick={handleLike}
+                  disabled={likeLoading}
+                  className={`wd-btn ${wallpaper.is_liked ? 'is-liked' : ''}`}
+                  title={wallpaper.is_liked ? t('actions.unlike') : t('actions.like')}
+                >
+                  {likeLoading
+                    ? <AiOutlineLoading3Quarters size={14} className="animate-spin" />
+                    : wallpaper.is_liked ? <AiFillHeart size={14} /> : <AiOutlineHeart size={14} />}
+                  <span className="wd-bar-hidesm">{wallpaper.is_liked ? t('actions.liked') : t('actions.like')}</span>
+                  <span className="wd-btn-count">{formatNumber(wallpaper.like_count)}</span>
+                </button>
+                <button
+                  onClick={handleFavorite}
+                  disabled={favLoading}
+                  className={`wd-btn ${wallpaper.is_favorited ? 'is-favorited' : ''}`}
+                  title={wallpaper.is_favorited ? t('actions.unfavorite') : t('actions.favorite')}
+                >
+                  {favLoading
+                    ? <AiOutlineLoading3Quarters size={14} className="animate-spin" />
+                    : wallpaper.is_favorited ? <AiFillStar size={14} /> : <AiOutlineStar size={14} />}
+                  <span className="wd-bar-hidesm">{wallpaper.is_favorited ? t('actions.saved') : t('actions.favorite')}</span>
+                </button>
+                <button
+                  onClick={() => { if (!isAuthenticated) { navigate('/login'); return; } setShowAddToCollection(true); }}
+                  className="wd-btn"
+                  title={t('actions.addToCollectionTitle')}
+                >
+                  <MdPlaylistAdd size={16} />
+                  <span className="wd-bar-hidesm">{t('actions.addToList')}</span>
+                </button>
+
+                <span className="wd-bar-divider" />
+
+                <div className="wd-actionbar-toggle">
+                  {([
+                    ['off',   t('preview.off'),   t('preview.offDesc')],
+                    ['plain', t('preview.plain'), t('preview.plainDesc')],
+                    ['home',  t('preview.home'),  t('preview.homeDesc')],
+                    ['lock',  t('preview.lock'),  t('preview.lockDesc')],
+                  ] as const).map(([m, label, desc]) => (
+                    <button
+                      key={m}
+                      role="radio"
+                      aria-checked={previewOverlay === m}
+                      onClick={() => setPreviewOverlay(m)}
+                      className={`wd-toggle-pill ${previewOverlay === m ? 'is-on' : ''}`}
+                      title={desc}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => {
+                    if (frames.length > 1 || (wallpaper.file_type || '').startsWith('video/')) {
+                      toast(t('toast.useHeroControls'), { icon: 'ℹ️' });
+                      return;
+                    }
+                    setFullscreen(true);
+                  }}
+                  className="wd-btn wd-btn-icon"
+                  title={t('preview.fullscreenTitle')}
+                >
+                  <AiOutlineFullscreen size={15} />
+                </button>
+
+                <span className="wd-bar-divider" />
+
+                {variants.length > 0 && (
+                  <button
+                    onClick={() => setDrawerOpen(true)}
+                    className="wd-btn"
+                    title={t('actions.devicesTitle')}
+                  >
+                    <MdDevices size={16} />
+                    <span className="wd-bar-hidesm">{t('actions.devices')}</span>
+                    <span className="wd-btn-count">{variants.length}</span>
+                  </button>
+                )}
+                <button
+                  onClick={handleDownloadClick}
+                  disabled={dlLoading}
+                  className="wd-btn-cta"
+                  title={isOwner ? t('cta.downloadOriginalTitle') : t('cta.tradeTitle')}
+                >
+                  {dlLoading ? (
+                    <AiOutlineLoading3Quarters size={15} className="animate-spin" />
+                  ) : dlDone ? (
+                    <><AiOutlineCheckCircle size={15} /> {isOwner ? t('cta.gotIt') : t('cta.traded')}</>
+                  ) : isOwner ? (
+                    <><AiOutlineDownload size={15} /> {t('cta.download')}</>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-white shadow-[inset_0_-2px_0_oklch(80%_0.18_60),inset_0_1px_0_oklch(98%_0.04_60)]" aria-hidden />
+                      {t('cta.tradeFor', { n: downloadCost || 1 })}
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* ═══ SCREEN 2 — recommendations ═══ */}
+          {similar.length > 0 && (
+            <section className="wd-s2">
+              <div className="mx-auto max-w-[1600px] px-6 sm:px-10 py-10">
                 {(() => {
                   const cols = recCount / 2;
                   const capped = Math.min(similar.length, recCount);
@@ -1294,26 +1228,9 @@ export default function WallpaperDetailPage() {
                     </>
                   );
                 })()}
-              </section>
-            )}
-
-            {/* ─── Owner / report row ───────────────────────────────── */}
-            <div className="flex justify-between items-center pt-5 mt-6 border-t border-hair/60 text-[12px] text-muted">
-              {isOwner ? (
-                <button onClick={handleDelete} className="inline-flex items-center gap-1.5 hover:text-rose-500 transition-colors">
-                  <AiOutlineDelete size={14} /> {t('actions.deleteWallpaper')}
-                </button>
-              ) : isAuthenticated ? (
-                <button onClick={() => setShowReport(true)} className="inline-flex items-center gap-1.5 hover:text-ink transition-colors">
-                  <AiOutlineFlag size={14} /> {t('actions.report')}
-                </button>
-              ) : <span />}
-              <span className="mono text-[10px] tracking-[0.14em] uppercase">
-                №{String(wallpaper.id).padStart(3, '0')}
-              </span>
-            </div>
-
-          </div>
+              </div>
+            </section>
+          )}
         </div>
       </div>
 
@@ -1448,6 +1365,90 @@ function DownloadProgressBar({ progress }: { progress: number | null }) {
 
 function SpotlightStyles() {
   return (<style>{`
+/* ── Immersive two-screen layout (mirrors the Mac detail page) ── */
+.wd-s1 { position: relative; height: calc(100dvh - 60px); min-height: 560px; overflow: hidden; }
+/* Inside the route modal the panel has its own definite height —
+   fill it exactly and drop the info circle below the modal's ✕. */
+.wd-in-modal .wd-s1 { height: 100%; min-height: 0; }
+.wd-in-modal .wd-s1-info { top: 58px; }
+.wd-s1-media { position: absolute; inset: 0; }
+.wd-s1-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; }
+.wd-s1-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 72px 24px 140px; }
+.wd-s1-center .wd-hero-canvas { max-height: 66dvh; max-width: min(1080px, 92vw); }
+/* Mac heroVignette: top 0.36 → clear → bottom 0.68 + extra lower band. */
+.wd-s1-vignette { position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,0.36), transparent 32%, transparent 55%, rgba(0,0,0,0.68)),
+    linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.38)); }
+
+/* Floating glass circles — back (top-left) / info (top-right). */
+.wd-circle-btn { position: relative; width: 42px; height: 42px; border-radius: 9999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.94); background: rgba(10,10,12,0.44);
+  backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(0,0,0,0.30),
+              0 2px 3px rgba(0,0,0,0.22), 0 10px 22px rgba(0,0,0,0.30); }
+.wd-circle-btn.is-prominent { color: var(--color-ink); background: rgba(255,255,255,0.92);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 0 0 1px oklch(64% 0.21 42 / 0.42),
+              0 2px 3px rgba(0,0,0,0.18), 0 10px 22px rgba(0,0,0,0.26); }
+.wd-circle-btn.is-active { color: var(--color-accent); }
+.wd-s1-back { position: absolute; top: 22px; left: 24px; z-index: 5; }
+.wd-s1-info { position: absolute; top: 22px; right: 24px; z-index: 5; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+
+/* Info panel — glass-dark metadata card (Mac detailInfoPanel). */
+.wd-info-panel { width: 320px; max-width: 86vw; max-height: calc(100dvh - 120px); overflow-y: auto;
+  padding: 16px; border-radius: 18px;
+  background: rgba(10,10,12,0.50);
+  backdrop-filter: blur(28px) saturate(1.4); -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.20), inset 0 -1px 0 rgba(0,0,0,0.30),
+              0 2px 3px rgba(0,0,0,0.22), 0 14px 30px rgba(0,0,0,0.34);
+  display: flex; flex-direction: column; gap: 14px;
+  animation: wdFadeIn .16s ease; }
+.wd-ip-row { display: flex; align-items: center; gap: 10px; }
+.wd-ip-avatar { width: 38px; height: 38px; border-radius: 9999px; overflow: hidden; flex-shrink: 0;
+  background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.25);
+  display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; }
+.wd-ip-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.wd-ip-block { border-top: 1px solid rgba(255,255,255,0.14); padding-top: 12px; }
+.wd-ip-kicker { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.50); margin-bottom: 4px; }
+.wd-ip-tag { display: inline-flex; padding: 2px 9px; border-radius: 9999px; font-size: 10.5px; font-weight: 500;
+  color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.16); }
+.wd-ip-swatch { width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.25); cursor: pointer; transition: transform 160ms var(--ease-out-quart); }
+.wd-ip-swatch:hover { transform: scale(1.08); }
+.wd-ip-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 12px; border-top: 1px solid rgba(255,255,255,0.14); padding-top: 12px; }
+.wd-ip-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid rgba(255,255,255,0.14); padding-top: 10px; font-size: 11.5px; }
+
+/* Bottom-centre column: progress + notices + toolbar. */
+.wd-s1-bottom { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 6;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  width: max-content; max-width: calc(100vw - 32px); }
+.wd-s1-bottom .wd-notice { width: min(560px, calc(100vw - 40px)); }
+.wd-s1-bottom .wd-download-progress { width: min(420px, calc(100vw - 40px)); margin-top: 0; }
+
+/* The toolbar itself — dark glass capsule (Mac immersiveToolbar). */
+.wd-bar { position: relative; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+  padding: 8px 10px; border-radius: 9999px;
+  background: rgba(10,10,12,0.44);
+  backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(0,0,0,0.30),
+              0 2px 3px rgba(0,0,0,0.22), 0 12px 26px rgba(0,0,0,0.34); }
+.wd-bar-meta { display: flex; flex-direction: column; gap: 3px; padding: 0 6px 0 10px; }
+.wd-bar-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.22); flex-shrink: 0; }
+/* Buttons inside the dark bar: flat white tints (no glass-on-glass). */
+.wd-bar .wd-btn { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.14); color: rgba(255,255,255,0.92); box-shadow: none; }
+.wd-bar .wd-btn:hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.28); }
+.wd-bar .wd-btn-count { background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.75); }
+.wd-bar .wd-btn.is-liked { color: #ff9e97; border-color: rgba(224,70,58,0.65); background: rgba(224,70,58,0.20); }
+.wd-bar .wd-btn.is-favorited { color: #ffd98f; border-color: rgba(216,162,58,0.65); background: rgba(216,162,58,0.20); }
+.wd-bar .wd-actionbar-toggle { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); }
+.wd-bar .wd-toggle-pill { color: rgba(255,255,255,0.60); }
+.wd-bar .wd-toggle-pill:hover { color: rgba(255,255,255,0.9); }
+.wd-bar .wd-toggle-pill.is-on { background: rgba(255,255,255,0.92); color: var(--color-ink); }
+@media (max-width: 900px) { .wd-bar-hidesm { display: none; } .wd-bar-meta { display: none; } }
+
+/* Screen 2 — recommendations on paper. */
+.wd-s2 { position: relative; z-index: 1; background: var(--color-paper); border-top: 1px solid var(--color-hair); }
+
 /* ── Outer blurred-wallpaper backdrop ────────────────────────── */
 .wd-root { isolation: isolate; }
 .wd-backdrop { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
