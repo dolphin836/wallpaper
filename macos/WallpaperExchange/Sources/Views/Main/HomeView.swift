@@ -75,6 +75,7 @@ struct HomeView: View {
                         .buttonStyle(.plain)
                     }
                 }
+                browseMoreLink
             } else if weeklyLoading {
                 LazyVGrid(columns: gridCols, spacing: 28) {
                     ForEach(0..<6, id: \.self) { _ in
@@ -86,21 +87,43 @@ struct HomeView: View {
     }
 
     // Just the big display title, drawn in white over the wallpaper
-    // backdrop (the ink/accent pair belongs to the paper pages). The
-    // accent word keeps its weight for rhythm, the rest sits slightly
-    // dimmer.
+    // backdrop (the ink/accent pair belongs to the paper pages), one
+    // uniform color, trailing full stop dropped.
     private var weeklyTitle: some View {
-        (
-            Text(L10n.home.weeklyTitleAccent)
-                .font(.system(size: 34, weight: .semibold, design: .serif))
-                .foregroundColor(.white)
-            +
-            Text(L10n.home.weeklyTitleRest)
-                .font(.system(size: 34, weight: .regular, design: .serif))
-                .foregroundColor(.white.opacity(0.82))
-        )
-        .tracking(-0.3)
-        .shadow(color: .black.opacity(0.45), radius: 8, y: 2)
+        Text(weeklyTitleString)
+            .font(.system(size: 34, weight: .semibold, design: .serif))
+            .foregroundColor(.white)
+            .tracking(-0.3)
+            .shadow(color: .black.opacity(0.45), radius: 8, y: 2)
+    }
+
+    private var weeklyTitleString: String {
+        let full = L10n.home.weeklyTitleAccent + L10n.home.weeklyTitleRest
+        return full.trimmingCharacters(in: CharacterSet(charactersIn: "。．. "))
+    }
+
+    // "Browse more" nav under the grid, bottom-trailing — routes to the
+    // Discover page.
+    private var browseMoreLink: some View {
+        HStack {
+            Spacer()
+            Button(action: { onOpenDiscover(.latest) }) {
+                Text(L10n.home.browseMore)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.88))
+                    .padding(.bottom, 2)
+                    .overlay(alignment: .bottom) {
+                        Rectangle()
+                            .fill(Color.white.opacity(0.45))
+                            .frame(height: 1)
+                    }
+                    .shadow(color: .black.opacity(0.4), radius: 6, y: 1)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .pointerCursor()
+        }
+        .padding(.top, 4)
     }
 
     private var gridCols: [GridItem] {

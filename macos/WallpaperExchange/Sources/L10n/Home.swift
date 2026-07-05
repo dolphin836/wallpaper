@@ -15,6 +15,7 @@ struct HomeStrings {
     let weeklyTitleAccent: String
     let weeklyTitleRest: String
     let viewArchive: String
+    let browseMore: String
     let liveKicker: String
     let liveTitleAccent: String
     let liveTitleRest: String
@@ -63,6 +64,7 @@ private let homeEN = HomeStrings(
     weeklyTitleAccent: "This week's",
     weeklyTitleRest: " picks.",
     viewArchive: "View archive →",
+    browseMore: "Browse more →",
     liveKicker: "Motion · hover to preview",
     liveTitleAccent: "Live",
     liveTitleRest: " wallpapers.",
@@ -105,6 +107,7 @@ private let homeZhCN = HomeStrings(
     weeklyTitleAccent: "本周",
     weeklyTitleRest: "精选。",
     viewArchive: "查看往期 →",
+    browseMore: "浏览更多 →",
     liveKicker: "动态 · 悬停预览",
     liveTitleAccent: "动态",
     liveTitleRest: "壁纸。",
@@ -147,6 +150,7 @@ private let homeZhTW = HomeStrings(
     weeklyTitleAccent: "本週",
     weeklyTitleRest: "精選。",
     viewArchive: "查看往期 →",
+    browseMore: "瀏覽更多 →",
     liveKicker: "動態 · 游標移入預覽",
     liveTitleAccent: "動態",
     liveTitleRest: "桌布。",
@@ -189,6 +193,7 @@ private let homeJA = HomeStrings(
     weeklyTitleAccent: "今週の",
     weeklyTitleRest: "ピックアップ。",
     viewArchive: "アーカイブを見る →",
+    browseMore: "もっと見る →",
     liveKicker: "モーション · ホバーでプレビュー",
     liveTitleAccent: "ライブ",
     liveTitleRest: "壁紙。",
