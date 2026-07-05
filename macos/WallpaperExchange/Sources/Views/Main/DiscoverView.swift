@@ -212,16 +212,9 @@ struct DiscoverView: View {
                     Button(L10n.common.retry) { Task { await loadMore() } }.controlSize(.small)
                 }
             } else if hasMore {
-                Button { Task { await loadMore() } } label: {
-                    Text(L10n.browse.loadMore)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.ink2)
-                        .padding(.horizontal, 18).padding(.vertical, 8)
-                        .background(Capsule().fill(Color.paper2))
-                        .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
-                        .contentShape(Capsule())
+                GlassCapsuleButton(title: L10n.browse.loadMore, height: 32, fontSize: 12) {
+                    Task { await loadMore() }
                 }
-                .buttonStyle(.plain)
             } else {
                 Text(L10n.browse.endOfFeed(items.count))
                     .font(.mono11).tracking(0.5).foregroundStyle(Color.muted)
@@ -285,20 +278,12 @@ struct DiscoverView: View {
     }
 
     private func categoryChip(label: String, id: Int?) -> some View {
-        let active = selectedCategoryID == id
-        return Button { selectedCategoryID = id } label: {
-            Text(label)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(active ? Color.paper : Color.ink2)
-                .padding(.horizontal, 16).padding(.vertical, 6)
-                .background(Capsule().fill(active ? Color.ink : Color.chromeControl))
-                .overlay(Capsule().stroke(active ? Color.ink : ChromeLine.softBorder(for: palette), lineWidth: 1))
-                .contentShape(Capsule())
+        GlassChip(label: label, active: selectedCategoryID == id) {
+            selectedCategoryID = id
         }
-        .buttonStyle(.plain)
     }
 
-    // FILTER dropdown — matches the web's labelled dropdown.
+    // FILTER dropdown — GlassKit menu chrome around a native Menu.
     private var filterMenu: some View {
         Menu {
             ForEach(availableFilters, id: \.self) { f in
@@ -321,10 +306,7 @@ struct DiscoverView: View {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold)).foregroundStyle(Color.muted)
             }
-            .padding(.horizontal, 12)
-            .frame(height: 32)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.chromeControl))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(ChromeLine.softBorder(for: palette), lineWidth: 1))
+            .glassMenuLabel()
         }
         .menuStyle(.button)
         .menuIndicator(.hidden)
@@ -332,28 +314,13 @@ struct DiscoverView: View {
         .fixedSize()
     }
 
-    // LG / MD size segmented control — matches the web's SizeControls.
+    // LG / MD size segmented control — compact GlassKit segments.
     private var sizeControl: some View {
-        HStack(spacing: 2) {
-            ForEach([SizeMode.md, .lg], id: \.self) { s in
-                let on = sizeMode == s
-                Button(action: { sizeMode = s }) {
-                    Text(s.rawValue)
-                        .font(.system(size: 11, weight: on ? .semibold : .medium, design: .monospaced))
-                        .tracking(0.4)
-                        .foregroundStyle(on ? Color.paper : Color.muted)
-                        .frame(minWidth: 30, minHeight: 26)
-                        .background(
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .fill(on ? Color.ink : Color.clear)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(3)
-        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.chromeControl))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(ChromeLine.softBorder(for: palette), lineWidth: 1))
+        GlassSegmented(
+            segments: [SizeMode.md, .lg].map { GlassSegment(id: $0, label: $0.rawValue) },
+            selection: $sizeMode,
+            compact: true
+        )
         .fixedSize()
     }
 

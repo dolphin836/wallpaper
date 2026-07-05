@@ -91,16 +91,9 @@ struct CollectionsListView: View {
                 filterChip(L10n.collections.filterAll, on: filter == .all) { filter = .all }
                 if auth.isLoggedIn {
                     filterChip(L10n.collections.filterYours, on: filter == .yours) { filter = .yours }
-                    Button { showCreate = true } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "plus").font(.system(size: 11, weight: .bold))
-                            Text(L10n.collections.newButton).font(.system(size: 12, weight: .semibold))
-                        }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12).padding(.vertical, 7)
-                        .background(Capsule().fill(Color.accent))
+                    GlassCapsuleButton(title: L10n.collections.newButton, icon: "plus", style: .accent, height: 30, fontSize: 12) {
+                        showCreate = true
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -129,30 +122,12 @@ struct CollectionsListView: View {
     }
 
     private func pageButton(_ label: String, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(enabled ? Color.ink2 : Color.muted.opacity(0.5))
-                .padding(.horizontal, 16).padding(.vertical, 8)
-                .background(Capsule().fill(Color.paper2))
-                .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
+        GlassCapsuleButton(title: label, height: 32, fontSize: 12, action: action)
+            .disabled(!enabled)
     }
 
     private func filterChip(_ label: String, on: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(on ? Color.paper : Color.ink2)
-                .padding(.horizontal, 14).padding(.vertical, 6)
-                .background(Capsule().fill(on ? Color.ink : Color.paper))
-                .overlay(Capsule().stroke(on ? Color.ink : Color.hair, lineWidth: 1))
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
+        GlassChip(label: label, active: on, action: action)
     }
 
     private func reload() async {

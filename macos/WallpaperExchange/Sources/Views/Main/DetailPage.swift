@@ -520,12 +520,12 @@ struct DetailPage: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: Capsule())
-        .background(Capsule().fill(Color.black.opacity(0.58)))
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
-        .shadow(color: Color.black.opacity(0.34), radius: 24, x: 0, y: 12)
+        .glassSurface(Capsule(), tone: .dark, lighting: 0.75)
     }
 
+    // GlassKit icon button inside the dark toolbar. The custom hover
+    // tip is disabled (the bar hugs the window's bottom edge, a tip
+    // below would clip) — the native help tooltip covers it.
     private func toolbarIconButton(
         systemName: String,
         help: String,
@@ -533,15 +533,16 @@ struct DetailPage: View {
         activeColor: Color = Color.accent,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(active ? activeColor : Color.white.opacity(0.92))
-                .frame(width: 38, height: 38)
-                .background(Circle().fill(Color.white.opacity(active ? 0.18 : 0.08)))
-                .overlay(Circle().strokeBorder(Color.white.opacity(active ? 0.22 : 0.10), lineWidth: 1))
-        }
-        .buttonStyle(.plain)
+        GlassIconButton(
+            icon: systemName,
+            tone: .dark,
+            size: 38,
+            iconSize: 16,
+            active: active,
+            activeColor: activeColor,
+            showTip: false,
+            action: action
+        )
         .help(help)
     }
 
@@ -561,27 +562,23 @@ struct DetailPage: View {
         .frame(maxWidth: .infinity)
     }
 
+    // Floating circles over the hero (back / info) — GlassKit circle
+    // buttons, dark tone; `prominent` = solid paper primary.
     private func detailTopButton(
         systemName: String,
         help: String,
         prominent: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: prominent ? 17 : 15, weight: .semibold))
-                .foregroundStyle(prominent ? Color.ink : Color.white.opacity(0.94))
-                .frame(width: prominent ? 42 : 38, height: prominent ? 42 : 38)
-                .background(
-                    Circle().fill(prominent ? Color.white.opacity(0.90) : Color.black.opacity(0.46))
-                )
-                .overlay(
-                    Circle().strokeBorder(prominent ? Color.accent.opacity(0.42) : Color.white.opacity(0.16), lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(prominent ? 0.28 : 0.36), radius: 18, y: 8)
-        }
-        .buttonStyle(.plain)
-        .help(help)
+        GlassCircleButton(
+            icon: systemName,
+            help: help,
+            tone: .dark,
+            size: prominent ? 42 : 38,
+            iconSize: prominent ? 17 : 15,
+            prominent: prominent,
+            action: action
+        )
     }
 
     private func detailInfoHoverButton(detail d: WallpaperDetail) -> some View {
@@ -644,15 +641,7 @@ struct DetailPage: View {
         }
         .padding(14)
         .frame(width: 306, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.black.opacity(0.44))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
-        )
+        .glassPanel(cornerRadius: 18)
     }
 
     private func infoPanelRow(icon: String, label: String, value: String) -> some View {
@@ -1335,16 +1324,7 @@ struct DetailPage: View {
         .animation(.easeOut(duration: 0.16), value: showingWallpaperPicker)
         .animation(.easeOut(duration: 0.16), value: showingCollectionPicker)
         .padding(layout.actionPadding)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color.black.opacity(0.24))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.46), radius: 34, y: 18)
+        .glassPanel(cornerRadius: 22)
         .shadow(color: Color.accent.opacity(0.16), radius: 30, y: 8)
         .background(
             GeometryReader { proxy in
@@ -1470,23 +1450,12 @@ struct DetailPage: View {
     }
 
     private var previewModePicker: some View {
-        HStack(spacing: 4) {
-            ForEach(Self.previewOptions, id: \.rawValue) { opt in
-                Button(action: { mode = opt }) {
-                    Text(previewModeLabel(opt))
-                        .font(.sans11)
-                        .lineLimit(1)
-                        .fixedSize()
-                        .foregroundStyle(mode == opt ? Color.ink : Color.muted)
-                        .padding(.horizontal, 13).padding(.vertical, 6)
-                        .background(Capsule().fill(mode == opt ? Color.paper : Color.clear))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(3)
-        .background(Capsule().fill(Color.paper2))
-        .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
+        GlassSegmented(
+            segments: Self.previewOptions.map { GlassSegment(id: $0, label: previewModeLabel($0)) },
+            selection: $mode,
+            tone: .light,
+            compact: true
+        )
     }
 
     private func downloadActions(detail: WallpaperDetail?, wallpaper: Wallpaper?) -> some View {
@@ -1599,15 +1568,7 @@ struct DetailPage: View {
         }
         .padding(14)
         .frame(width: resolvedActionBarWidth(layout: layout), alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.black.opacity(0.24))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
-        )
+        .glassPanel(cornerRadius: 18)
     }
 
     private func collectionPicker(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
@@ -1707,15 +1668,7 @@ struct DetailPage: View {
         }
         .padding(14)
         .frame(width: resolvedActionBarWidth(layout: layout), alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.black.opacity(0.24))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
-        )
+        .glassPanel(cornerRadius: 18)
     }
 
     private var canCreateCollection: Bool {
