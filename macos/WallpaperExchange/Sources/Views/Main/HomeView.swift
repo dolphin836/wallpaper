@@ -128,8 +128,12 @@ struct HomeView: View {
         .padding(.top, 4)
     }
 
+    // Adaptive columns, same approach as DiscoverView's grid: cards
+    // have a comfortable min/max width and the grid fits as many per
+    // row as the content area allows — ~3 in a 1280pt window, more in
+    // full-screen, fewer when narrow.
     private var gridCols: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 28, alignment: .top), count: 3)
+        [GridItem(.adaptive(minimum: 330, maximum: 520), spacing: 28, alignment: .top)]
     }
 
     private func load() async {
