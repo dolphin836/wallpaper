@@ -131,8 +131,10 @@ struct CollectionsListView: View {
     }
 
     // Large mosaic cards: ~2-up in a 1280pt window, 3-up full-screen.
+    // No maximum — columns stretch so the grid's outer edges always
+    // meet the page gutters exactly like the hero banner above.
     private var showcaseCols: [GridItem] {
-        [GridItem(.adaptive(minimum: 400, maximum: 560), spacing: 28, alignment: .top)]
+        [GridItem(.adaptive(minimum: 400), spacing: 28, alignment: .top)]
     }
 
     private var listSkeleton: some View {
