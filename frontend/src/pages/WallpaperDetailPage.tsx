@@ -200,6 +200,30 @@ export default function WallpaperDetailPage() {
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  // Mirrors the Mac client: the hero upgrades to the ORIGINAL file and
+  // download stays disabled until it has decoded — from that moment the
+  // bytes sit in the browser's HTTP cache, so the download fetch reuses
+  // them and completes near-instantly (hence no progress bar). Videos
+  // and dynamic wallpapers never display their original here and stay
+  // ungated.
+  const [originalReady, setOriginalReady] = useState(false);
+  useEffect(() => {
+    setOriginalReady(false);
+    if (!wallpaper) return;
+    const isMedia = (wallpaper.file_type || '').startsWith('video/') || wallpaper.is_dynamic;
+    const original = wallpaper.original_url;
+    if (isMedia || !original) return;
+    let alive = true;
+    const img = new Image();
+    img.onload = () => { if (alive) setOriginalReady(true); };
+    img.src = original;
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallpaper?.id, wallpaper?.original_url]);
+  const downloadReady = wallpaper
+    ? (wallpaper.file_type || '').startsWith('video/') || wallpaper.is_dynamic || !wallpaper.original_url || originalReady
+    : false;
+
   // Toolbar overlays. Drawer holds the grouped device list (opened
   // from the toolbar's Devices · N button).
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -235,7 +259,6 @@ export default function WallpaperDetailPage() {
   const [dlDone, setDlDone] = useState(false);
   // null while the server prepares the file (no measurable progress yet),
   // 0-100 once the download stream is reporting bytes.
-  const [dlProgress, setDlProgress] = useState<number | null>(null);
   // Bumped each time a download succeeds so a one-shot phosphor signal line
   // sweeps the bottom of the viewport (rendered via createPortal below). The
   // key={tradeFlashTick} forces a fresh DOM node so the CSS animation re-runs.
@@ -396,7 +419,6 @@ export default function WallpaperDetailPage() {
     if (!wallpaper) return;
     const isOwnerDl = user?.id === wallpaper.user_id;
     setDlLoading(true);
-    setDlProgress(null);
     try {
       const url = downloadWallpaper(wallpaper.id);
       const resp = await fetch(url, {
@@ -412,11 +434,12 @@ export default function WallpaperDetailPage() {
         return;
       }
       const finalUrl = resp.url;
-      const blob = await fetchBlobWithProgress(resp, setDlProgress);
+      // No streamed progress: after the hero displayed the original the
+      // bytes come straight from the HTTP cache.
+      const blob = await resp.blob();
       const blobUrl = URL.createObjectURL(blob);
       const ext = finalUrl.split('.').pop()?.split('?')[0] || 'jpg';
       const filename = `wallpaper_${wallpaper.id}_${wallpaper.width}x${wallpaper.height}.${ext}`;
-      setDlProgress(100);
       const a = document.createElement('a');
       a.href = blobUrl;
       a.download = filename;
@@ -450,7 +473,6 @@ export default function WallpaperDetailPage() {
       }
     } finally {
       setDlLoading(false);
-      setDlProgress(null);
     }
   };
 
@@ -748,7 +770,7 @@ export default function WallpaperDetailPage() {
                             )}
                             <button
                               onClick={() => handleDownload()}
-                              disabled={dlLoading}
+                              disabled={dlLoading || !downloadReady}
                               title={t('drawer.getTitle')}
                               className={`wd-drawer-action wd-drawer-action-cta ${isMatched ? 'is-matched' : ''}`}
                             >
@@ -823,7 +845,7 @@ export default function WallpaperDetailPage() {
                 </div>
               ) : heroImg ? (
                 <img
-                  src={heroImg}
+                  src={originalReady && wallpaper.original_url ? wallpaper.original_url : heroImg}
                   alt=""
                   loading="eager"
                   decoding="async"
@@ -949,8 +971,6 @@ export default function WallpaperDetailPage() {
 
             {/* Bottom-centre column: progress / notices / glass toolbar. */}
             <div className="wd-s1-bottom">
-              {dlLoading && <DownloadProgressBar progress={dlProgress} />}
-
               {ctaState === 'success' ? (
                 <div className="wd-notice is-success">
                   <div className="flex justify-between items-center gap-4 flex-wrap">
@@ -1126,8 +1146,9 @@ export default function WallpaperDetailPage() {
                 )}
                 <button
                   onClick={handleDownloadClick}
-                  disabled={dlLoading}
+                  disabled={dlLoading || !downloadReady}
                   className="wd-btn-cta"
+                  style={{ opacity: downloadReady ? undefined : 0.55 }}
                   title={isOwner ? t('cta.downloadOriginalTitle') : t('cta.tradeTitle')}
                 >
                   {dlLoading ? (
@@ -1181,35 +1202,6 @@ export default function WallpaperDetailPage() {
   );
 }
 
-function DownloadProgressBar({ progress }: { progress: number | null }) {
-  const { t } = useTranslation('detail');
-  const value = progress === null ? 0 : Math.max(0, Math.min(100, progress));
-  return (
-    <div
-      className="wd-download-progress"
-      role="progressbar"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={progress === null ? undefined : value}
-      aria-label={progress === null ? t('progress.preparingAria') : t('progress.downloadingAria')}
-    >
-      <div className="wd-download-progress__head">
-        <span>{progress === null ? t('progress.preparing') : t('progress.downloading')}</span>
-        <span className="tabular-nums">{progress === null ? '…' : `${value}%`}</span>
-      </div>
-      <div className="wd-download-progress__track" aria-hidden>
-        {progress === null ? (
-          <span className="wd-download-progress__fill wd-download-progress__fill--indeterminate" />
-        ) : (
-          <span
-            className="wd-download-progress__fill"
-            style={{ width: `${Math.max(value, value > 0 ? 4 : 0)}%` }}
-          />
-        )}
-        </div>
-    </div>
-  );
-}
 
 function SpotlightStyles() {
   return (<style>{`
