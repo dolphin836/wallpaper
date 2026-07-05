@@ -53,10 +53,12 @@ struct HomeView: View {
                 weeklySection
             }
         }
-        .padding(.horizontal, 32)
+        // Same margin logic as DiscoverView: a fixed 40pt gutter and a
+        // full-width frame, so the grid keeps growing in full-screen
+        // instead of pinning to a centered max width.
+        .padding(.horizontal, 40)
         .padding(.bottom, 72)
-        .frame(maxWidth: 1280)
-        .frame(maxWidth: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // ─── Weekly picks ──────────────────────────────────────────
