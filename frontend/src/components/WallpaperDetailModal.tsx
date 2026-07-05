@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import WallpaperDetailPage from '../pages/WallpaperDetailPage';
 
 /**
- * Modal frame around the wallpaper detail. Rounded inset panel pinned with
- * comfortable margins from the viewport, backed by a dim scrim.
+ * Modal frame around the wallpaper detail. Full-viewport overlay with no
+ * inset — mirrors the Mac client's full-window detail overlay; the
+ * wallpaper reads as the entire screen, not a floating panel.
  *
  * No close chrome of its own: the immersive page's top-left back circle
- * (navigate(-1)) closes the modal, and ESC / backdrop-click remain as
- * close paths.
+ * (navigate(-1)) closes the modal, and ESC remains as a close path.
  */
 export default function WallpaperDetailModal() {
   const navigate = useNavigate();
@@ -35,16 +35,8 @@ export default function WallpaperDetailModal() {
   }, [close]);
 
   return (
-    <div
-      onClick={close}
-      className="fixed inset-0 z-50 backdrop-blur-[2px]"
-      style={{ background: 'rgba(15,12,8,0.55)' }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="wd-in-modal absolute bg-paper shadow-[0_24px_80px_rgba(0,0,0,0.32)] flex flex-col overflow-hidden rounded-[24px]"
-        style={{ top: 28, bottom: 28, left: 40, right: 40 }}
-      >
+    <div className="fixed inset-0 z-50">
+      <div className="wd-in-modal absolute inset-0 bg-paper flex flex-col overflow-hidden">
         <WallpaperDetailPage />
       </div>
     </div>
