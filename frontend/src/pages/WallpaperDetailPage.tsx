@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
@@ -14,7 +14,6 @@ import {
   AiOutlineCheckCircle,
   AiOutlineDelete,
   AiOutlineFlag,
-  AiOutlineFullscreen,
   AiOutlineClose,
   AiOutlineLoading3Quarters,
   AiOutlineZoomIn,
@@ -26,10 +25,7 @@ import { MdPlaylistAdd, MdDesktopMac, MdLaptopMac, MdTabletMac, MdPhoneIphone, M
 import toast from 'react-hot-toast';
 import { useTranslation, Trans } from 'react-i18next';
 import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User } from '../types';
-import DeviceMockup, {
-  canShowMockup,
-  PhoneFrame, TabletFrame, LaptopFrame, DesktopFrame,
-} from '../components/DeviceMockup';
+import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
 import ReportModal from '../components/ReportModal';
 import WallpaperGrid from '../components/WallpaperGrid';
 import { useQuery } from '@tanstack/react-query';
@@ -204,11 +200,8 @@ export default function WallpaperDetailPage() {
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
   const [showReport, setShowReport] = useState(false);
-  // Action-bar overlays. Drawer holds the grouped device list
-  // (opened from the action bar's Devices · N button); previewOverlay
-  // toggles between the bare wallpaper and the Home / Lock chrome
-  // painted directly onto the hero image (clock / dock / menu bar —
-  // same overlays the discover floating wall uses).
+  // Toolbar overlays. Drawer holds the grouped device list (opened
+  // from the toolbar's Devices · N button).
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   // Recommendation count — always two complete rows of the rec grid.
@@ -230,7 +223,6 @@ export default function WallpaperDetailPage() {
   // 'off' = naked wallpaper, no chrome. plain/home/lock = wallpaper
   // rendered inside the matched-device frame with the corresponding
   // scene (clean / home or desktop / lock).
-  const [previewOverlay, setPreviewOverlay] = useState<'off' | 'plain' | 'home' | 'lock'>('off');
   // Categories map wallpaper.category_id (a number) to a display name.
   // Served from the shared TanStack Query cache, so opening detail modals
   // back-to-back doesn't refetch the list per mount.
@@ -322,10 +314,9 @@ export default function WallpaperDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!fullscreen && !mockupVariant && !drawerOpen && previewOverlay === 'off') return;
+    if (!fullscreen && !mockupVariant && !drawerOpen) return;
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (previewOverlay !== 'off') { setPreviewOverlay('off'); return; }
         if (drawerOpen) { setDrawerOpen(false); return; }
         setFullscreen(false);
         setMockupVariant(null);
@@ -337,7 +328,7 @@ export default function WallpaperDetailPage() {
       document.removeEventListener('keydown', handleEsc);
       document.body.style.overflow = '';
     };
-  }, [fullscreen, mockupVariant, drawerOpen, previewOverlay]);
+  }, [fullscreen, mockupVariant, drawerOpen]);
 
   const { data: similar = [] } = useQuery({
     queryKey: ['wallpaper', wallpaper?.id, 'similar'],
@@ -542,11 +533,6 @@ export default function WallpaperDetailPage() {
   // The visitor's platform drives which Home/Lock overlay chrome we
   // paint over the wallpaper (laptop/desktop = menubar+dock+clock,
   // phone = notch+clock, tablet = clock). Falls back to desktop.
-  const overlayPlatform: 'desktop' | 'laptop' | 'tablet' | 'phone' =
-    matchedVariant?.platform === 'phone' ? 'phone'
-    : matchedVariant?.platform === 'tablet' ? 'tablet'
-    : matchedVariant?.platform === 'laptop' ? 'laptop'
-    : 'desktop';
 
   return (
     <>
@@ -836,27 +822,18 @@ export default function WallpaperDetailPage() {
                   </div>
                 </div>
               ) : heroImg ? (
-                previewOverlay !== 'off' ? (
-                  <InlineDeviceMockup
-                    imageUrl={heroImg}
-                    platform={overlayPlatform}
-                    mode={previewOverlay}
-                    matched={matchedVariant}
-                  />
-                ) : (
-                  <img
-                    src={heroImg}
-                    alt=""
-                    loading="eager"
-                    decoding="async"
-                    fetchPriority="high"
-                    onContextMenu={(e) => e.preventDefault()}
-                    draggable={false}
-                    onClick={() => setFullscreen(true)}
-                    className="wd-s1-img"
-                    style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
-                  />
-                )
+                <img
+                  src={heroImg}
+                  alt=""
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
+                  onContextMenu={(e) => e.preventDefault()}
+                  draggable={false}
+                  onClick={() => setFullscreen(true)}
+                  className="wd-s1-img"
+                  style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
+                />
               ) : null}
             </div>
             <div className="wd-s1-vignette" aria-hidden />
@@ -1136,41 +1113,6 @@ export default function WallpaperDetailPage() {
 
                 <span className="wd-bar-divider" />
 
-                <div className="wd-actionbar-toggle">
-                  {([
-                    ['off',   t('preview.off'),   t('preview.offDesc')],
-                    ['plain', t('preview.plain'), t('preview.plainDesc')],
-                    ['home',  t('preview.home'),  t('preview.homeDesc')],
-                    ['lock',  t('preview.lock'),  t('preview.lockDesc')],
-                  ] as const).map(([m, label, desc]) => (
-                    <button
-                      key={m}
-                      role="radio"
-                      aria-checked={previewOverlay === m}
-                      onClick={() => setPreviewOverlay(m)}
-                      className={`wd-toggle-pill ${previewOverlay === m ? 'is-on' : ''}`}
-                      title={desc}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  onClick={() => {
-                    if (frames.length > 1 || (wallpaper.file_type || '').startsWith('video/')) {
-                      toast(t('toast.useHeroControls'), { icon: 'ℹ️' });
-                      return;
-                    }
-                    setFullscreen(true);
-                  }}
-                  className="wd-btn wd-btn-icon"
-                  title={t('preview.fullscreenTitle')}
-                >
-                  <AiOutlineFullscreen size={15} />
-                </button>
-
-                <span className="wd-bar-divider" />
-
                 {variants.length > 0 && (
                   <button
                     onClick={() => setDrawerOpen(true)}
@@ -1236,100 +1178,6 @@ export default function WallpaperDetailPage() {
 
       <SpotlightStyles />
     </>
-  );
-}
-
-/* In-place device mockup. Renders the wallpaper inside the matched
-   device's actual chassis chrome — the same MacBook / iMac / iPhone /
-   iPad frames the popup-mockup uses — auto-scaled to fit the hero card.
-   When no matched variant exists we synthesise reasonable defaults
-   per platform so the preview still makes sense.
-
-   Scene mapping per platform:
-     mode = 'plain' → scene 'clean'   (frame only, no overlay)
-     mode = 'home'  → scene 'home'  (mobile) / 'desktop' (laptop+desktop)
-     mode = 'lock'  → scene 'lock'  (both — desktop got 'lock' added too) */
-const DEFAULT_DEVICE_DIMS: Record<'desktop' | 'laptop' | 'tablet' | 'phone', { w: number; h: number }> = {
-  desktop: { w: 2560, h: 1440 },
-  laptop:  { w: 2560, h: 1600 },
-  tablet:  { w: 2048, h: 1536 },
-  phone:   { w: 1170, h: 2532 },
-};
-
-function InlineDeviceMockup({
-  imageUrl,
-  platform,
-  mode,
-  matched,
-}: {
-  imageUrl: string;
-  platform: 'desktop' | 'laptop' | 'tablet' | 'phone';
-  mode: 'plain' | 'home' | 'lock';
-  matched: WallpaperVariant | null;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ w: 1000, h: 600 });
-
-  useEffect(() => {
-    const node = containerRef.current;
-    if (!node) return;
-    const ro = new ResizeObserver((entries) => {
-      const r = entries[0].contentRect;
-      setSize({ w: r.width, h: r.height });
-    });
-    ro.observe(node);
-    return () => ro.disconnect();
-  }, []);
-
-  // Pick screen pixel dimensions: prefer the matched variant so the
-  // visitor sees the wallpaper sized for their actual device; otherwise
-  // fall back to a sensible per-platform default.
-  const dvW = matched?.platform === platform ? matched.width  : DEFAULT_DEVICE_DIMS[platform].w;
-  const dvH = matched?.platform === platform ? matched.height : DEFAULT_DEVICE_DIMS[platform].h;
-
-  // Approximate the chrome outside the screen rect (bezel + stand / hinge / chin).
-  const bezel = 24;
-  const chromeBelow =
-    platform === 'laptop'  ? dvW * 0.07 :
-    platform === 'desktop' ? dvW * 0.10 :
-    0;
-  const totalW = dvW + bezel;
-  const totalH = dvH + bezel + chromeBelow;
-
-  // 92% safety margin so the scaled frame never quite touches the
-  // hero card edges.
-  // Safety margin (0.84) keeps the chassis from crowding the action
-  // bar pills below — even a tall portrait phone gets a clear gap
-  // between the device's bottom edge and the toggle row.
-  const scale = Math.min(size.w / totalW, size.h / totalH) * 0.84;
-
-  let frame: ReactNode;
-  if (platform === 'phone') {
-    const scene = mode === 'home' ? 'home' : mode === 'lock' ? 'lock' : 'clean';
-    frame = <PhoneFrame imageUrl={imageUrl} width={dvW} height={dvH} scene={scene} />;
-  } else if (platform === 'tablet') {
-    const scene = mode === 'home' ? 'home' : mode === 'lock' ? 'lock' : 'clean';
-    frame = <TabletFrame imageUrl={imageUrl} width={dvW} height={dvH} scene={scene} />;
-  } else if (platform === 'laptop') {
-    const scene = mode === 'home' ? 'desktop' : mode === 'lock' ? 'lock' : 'clean';
-    frame = <LaptopFrame imageUrl={imageUrl} width={dvW} height={dvH} scene={scene} />;
-  } else {
-    const scene = mode === 'home' ? 'desktop' : mode === 'lock' ? 'lock' : 'clean';
-    frame = <DesktopFrame imageUrl={imageUrl} width={dvW} height={dvH} scene={scene} />;
-  }
-
-  return (
-    <div ref={containerRef} className="absolute inset-0 flex items-center justify-center overflow-hidden">
-      <div
-        style={{
-          transform: `scale(${scale})`,
-          transformOrigin: 'center center',
-          filter: 'drop-shadow(0 20px 36px rgba(0,0,0,0.35))',
-        }}
-      >
-        {frame}
-      </div>
-    </div>
   );
 }
 
