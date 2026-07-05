@@ -17,25 +17,18 @@ final class AuthService {
     var authFlow: AuthFlow?
     var isLoggedIn: Bool { token != nil }
 
-    // JWT lives in the Keychain (see KeychainTokenStore for the prompt
-    // trade-off). This key only remains for the one-time migration of
-    // tokens persisted by pre-Keychain builds.
+    // JWT lives in a user-only-readable file (see FileTokenStore for
+    // the trade-off vs. Keychain — the ad-hoc-signed binary re-armed
+    // the Keychain consent prompt on every rebuild). This key only
+    // remains for the one-time migration of tokens persisted by
+    // pre-Keychain builds.
     private let legacyTokenDefaultsKey = "auth.jwt_token"
 
     private var didLoadPersistedToken = false
 
-    // Keychain access is deliberately kept OUT of init and off the main
-    // thread. Reading the JWT with SecItemCopyMatching blocks until the
-    // keychain consent prompt is answered, and because the app is ad-hoc
-    // signed that prompt reappears after every re-sign (every update /
-    // dev rebuild — see KeychainTokenStore). The consent dialog is a
-    // system-modal window: if it comes up during launch, before the app
-    // has activated, it prevents the SwiftUI `Window` scene from ever
-    // presenting its initial window — the app looks frozen with no main
-    // window ("主界面出不来"). So the singleton starts logged-out and the
-    // main window drives loadPersistedToken() from its .task, once it is
-    // on screen. The consent prompt (if any) then floats over a visible
-    // window and answering it flips the UI to signed-in.
+    // Loading stays OUT of init and off the main thread so launch never
+    // blocks on disk I/O; the main window drives loadPersistedToken()
+    // from its .task once it is on screen.
     private init() {}
 
     // Called from the main window's .task after it appears. Idempotent.
@@ -47,16 +40,20 @@ final class AuthService {
         let loaded = await Task.detached(priority: .userInitiated) { () -> String? in
             if let legacy = UserDefaults.standard.string(forKey: legacyKey) {
                 // One-time migration off the old plain-text defaults storage.
-                KeychainTokenStore.save(legacy)
+                FileTokenStore.save(legacy)
                 UserDefaults.standard.removeObject(forKey: legacyKey)
                 return legacy
             }
-            return KeychainTokenStore.load()
+            // NOTE: tokens stored in the Keychain by 2.0.x builds are
+            // intentionally NOT migrated — reading them would raise the
+            // very consent prompt this change removes. Those users sign
+            // in once more and land in the file store.
+            return FileTokenStore.load()
         }.value
 
-        // A sign-in that completed while the Keychain load was pending
-        // owns the newer token; don't clobber it. The caller refreshes
-        // the profile after this returns.
+        // A sign-in that completed while the load was pending owns the
+        // newer token; don't clobber it. The caller refreshes the
+        // profile after this returns.
         guard let loaded, token == nil else { return }
         token = loaded
     }
@@ -87,7 +84,7 @@ final class AuthService {
         token = response.token
         user = response.user
         authFlow = nil
-        KeychainTokenStore.save(response.token)
+        FileTokenStore.save(response.token)
         Task {
             await refreshProfile()
         }
@@ -97,7 +94,7 @@ final class AuthService {
         token = nil
         user = nil
         authFlow = nil
-        KeychainTokenStore.delete()
+        FileTokenStore.delete()
     }
 
     func refreshProfile() async {
