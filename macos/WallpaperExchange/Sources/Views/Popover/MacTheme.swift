@@ -59,6 +59,22 @@ extension Color {
     static let chromeBorder = Color.adaptiveRGBA(light: (0.872, 0.862, 0.846, 0.72), dark: (0.630, 0.674, 0.696, 0.30))
     static let chromeDivider = Color.adaptiveRGBA(light: (0.872, 0.862, 0.846, 0.38), dark: (0.630, 0.674, 0.696, 0.18))
     static let chromeShadow = Color.adaptiveRGBA(light: (0.000, 0.000, 0.000, 0.035), dark: (0.000, 0.000, 0.000, 0.30))
+
+    // ── State colors (docs/design-system.md §2.2) ──
+    // Fixed across light/dark and shared with the web's CSS tokens —
+    // persistent social/action states only, never decoration.
+    static let stateLike       = Color(red: 0.88, green: 0.27, blue: 0.23)   // #E0463A
+    static let stateFavorite   = Color(red: 0.85, green: 0.64, blue: 0.23)   // #D8A23A
+    static let stateDownloaded = Color(red: 0.29, green: 0.54, blue: 0.35)   // #4A8A5A
+
+    // ── On-image chip / tip surfaces (§2.3, over-photo overlays) ──
+    // These sit on wallpaper imagery, not on paper, so they don't
+    // adapt to the app's light/dark mode.
+    static let chipSurface   = Color.white.opacity(0.78)                     // light chip pill
+    static let chipInk       = Color(red: 0.20, green: 0.21, blue: 0.23)    // dark slate text on chipSurface
+    static let chipAI        = Color(red: 0.62, green: 0.30, blue: 0.82)    // violet wash, AI badge only
+    static let chipMissing   = Color(red: 0.99, green: 0.93, blue: 0.60)    // amber wash, "not on this Mac"
+    static let tipSurface    = Color(red: 15.0 / 255, green: 12.0 / 255, blue: 8.0 / 255) // HoverTip / ActionDot base
 }
 
 // Editorial type ramp. We deliberately don't bundle Instrument Serif or

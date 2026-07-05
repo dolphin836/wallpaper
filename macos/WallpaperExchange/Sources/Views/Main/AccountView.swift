@@ -89,7 +89,7 @@ struct AccountView: View {
             ProfileHeaderSkeleton()
             HStack(spacing: 22) {
                 ForEach(0..<6, id: \.self) { _ in
-                    SkeletonLine(width: 104, height: 38, cornerRadius: 4)
+                    SkeletonLine(width: 104, height: 38, cornerRadius: 6)
                 }
             }
             .padding(.top, 4)
@@ -913,8 +913,8 @@ struct LedgerTab: View {
             Text(sub).font(.system(size: 10, design: .monospaced)).foregroundStyle(Color.muted)
         }
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.paper.opacity(0.5)))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.hair, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.paper.opacity(0.5)))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.hair, lineWidth: 1))
     }
 
     private func coinSummary(_ kicker: String, _ value: String, _ sub: String) -> some View {
@@ -934,10 +934,10 @@ struct LedgerTab: View {
         }
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 14)
                 .fill(LinearGradient(colors: [.coinSurfaceStart, .coinSurfaceEnd], startPoint: .topLeading, endPoint: .bottomTrailing))
         )
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.coinBorder, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.coinBorder, lineWidth: 1))
     }
 
     private func ledgerRow(_ tx: CoinTransaction) -> some View {
@@ -1023,8 +1023,8 @@ struct PrivacyBanner: View {
             )
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.paper.opacity(0.5)))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.hair, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.paper.opacity(0.5)))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.hair, lineWidth: 1))
     }
 }
 

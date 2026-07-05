@@ -487,7 +487,7 @@ struct DetailPage: View {
                 systemName: isFavorited ? "heart.fill" : "heart",
                 help: isFavorited ? L10n.detail.saved : L10n.detail.favorite,
                 active: isFavorited,
-                activeColor: Color(red: 1.0, green: 0.34, blue: 0.38)
+                activeColor: Color.stateLike
             ) {
                 Task { await toggleFavorite(d) }
             }
@@ -676,10 +676,10 @@ struct DetailPage: View {
                 .foregroundStyle(Color.white.opacity(0.50))
                 .frame(width: 72, alignment: .leading)
             HStack(spacing: 7) {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(Color(hex: hex))
                     .frame(width: 18, height: 14)
-                    .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).stroke(Color.white.opacity(0.34), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Color.white.opacity(0.34), lineWidth: 1))
                 Text(hex)
                     .font(.mono10)
                     .tracking(0.6)
@@ -781,7 +781,7 @@ struct DetailPage: View {
             HStack(alignment: .bottom, spacing: 18) {
                 VStack(alignment: .leading, spacing: 7) {
                     SkeletonLine(width: 72, height: 9)
-                    SkeletonLine(width: 220, height: 32, cornerRadius: 8)
+                    SkeletonLine(width: 220, height: 32, cornerRadius: 10)
                 }
                 Spacer()
                 SkeletonLine(width: 72, height: 10)
@@ -937,8 +937,8 @@ struct DetailPage: View {
                 }
                 .padding(layout.metaPadding)
             }
-            .background(RoundedRectangle(cornerRadius: 16).fill(Color.paper))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.hair, lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 18).fill(Color.paper))
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.hair, lineWidth: 1))
         }
     }
 
@@ -1118,8 +1118,8 @@ struct DetailPage: View {
             }
             .padding(14)
             .frame(width: resolvedActionBarWidth(layout: layout), alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(tone.background))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(tone.border, lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(tone.background))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(tone.border, lineWidth: 1))
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
@@ -1252,13 +1252,13 @@ struct DetailPage: View {
                 .font(.system(size: 9, weight: .semibold, design: .monospaced))
                 .tracking(0.4)
         }
-        .foregroundStyle(variant == .ai ? Color.white : Color(red: 0.20, green: 0.21, blue: 0.23))
+        .foregroundStyle(variant == .ai ? Color.white : Color.chipInk)
         .padding(.horizontal, 7)
         .padding(.vertical, 2)
         .background(
             Capsule().fill(
                 variant == .ai
-                ? Color(red: 0.62, green: 0.30, blue: 0.82).opacity(0.85)
+                ? Color.chipAI.opacity(0.85)
                 : Color.white.opacity(0.78)
             )
         )
@@ -1324,7 +1324,7 @@ struct DetailPage: View {
         .animation(.easeOut(duration: 0.16), value: showingWallpaperPicker)
         .animation(.easeOut(duration: 0.16), value: showingCollectionPicker)
         .padding(layout.actionPadding)
-        .glassPanel(cornerRadius: 22)
+        .glassPanel(cornerRadius: 24)
         .shadow(color: Color.accent.opacity(0.16), radius: 30, y: 8)
         .background(
             GeometryReader { proxy in
@@ -1421,7 +1421,7 @@ struct DetailPage: View {
         HStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.system(size: 10, weight: .semibold))
-            RoundedRectangle(cornerRadius: 3, style: .continuous)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(Color.white.opacity(0.22))
                 .frame(width: width, height: 9)
         }
@@ -1605,8 +1605,8 @@ struct DetailPage: View {
                     .foregroundStyle(Color.white.opacity(0.84))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.08)))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.08)))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
             } else {
@@ -1616,7 +1616,7 @@ struct DetailPage: View {
                         .foregroundStyle(Color.white.opacity(0.64))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(12)
-                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.07)))
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.07)))
                 } else {
                     ScrollView(.vertical, showsIndicators: myCollections.count > 4) {
                         VStack(spacing: 8) {
@@ -1699,8 +1699,8 @@ struct DetailPage: View {
                 .frame(height: 34)
                 .focused($collectionTitleFocused)
         }
-        .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Color.black.opacity(0.20)))
-        .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(Color.white.opacity(0.15), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black.opacity(0.20)))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.15), lineWidth: 1))
     }
 
     private func collectionPickerRow(collection: CollectionBrief, detail d: WallpaperDetail) -> some View {
@@ -1734,11 +1734,11 @@ struct DetailPage: View {
             .padding(.horizontal, 11)
             .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(contains ? Color.accent.opacity(0.10) : Color.white.opacity(0.075))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(contains ? Color.accent.opacity(0.34) : Color.white.opacity(0.10), lineWidth: 1)
             )
         }
@@ -1933,8 +1933,8 @@ struct DetailPage: View {
                 .padding(layout.metaPadding)
             }
         }
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color.paper))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.hair, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color.paper))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.hair, lineWidth: 1))
         .frame(maxWidth: .infinity)
     }
 
@@ -2907,7 +2907,7 @@ struct HomeMockOverlay: View {
             }
             HStack(spacing: 8) {
                 ForEach(0..<6) { i in
-                    RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.55))
+                    RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.55))
                         .frame(width: 32, height: 32)
                         .opacity(Double(i + 1) / 7)
                 }

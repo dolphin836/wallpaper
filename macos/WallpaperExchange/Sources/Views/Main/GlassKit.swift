@@ -255,7 +255,7 @@ struct HoverTip: View {
             .fixedSize()
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(Capsule().fill(Color(red: 15.0 / 255, green: 12.0 / 255, blue: 8.0 / 255).opacity(0.92)))
+            .background(Capsule().fill(Color.tipSurface.opacity(0.92)))
             .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
             .shadow(color: Color.black.opacity(0.22), radius: 6, y: 2)
             .allowsHitTesting(false)

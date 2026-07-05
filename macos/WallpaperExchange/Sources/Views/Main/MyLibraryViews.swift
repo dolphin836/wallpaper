@@ -157,7 +157,7 @@ struct MyCollectionCard: View {
     @State private var hover = false
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 14)
                 .fill(Color.paper2)
                 .aspectRatio(3 / 2, contentMode: .fit)
                 .overlay(
@@ -165,7 +165,7 @@ struct MyCollectionCard: View {
                         .font(.system(size: 30, weight: .light))
                         .foregroundStyle(Color.muted)
                 )
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.hair, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.hair, lineWidth: 1))
             VStack(alignment: .leading, spacing: 3) {
                 Text(brief.title).font(.displayMd).foregroundStyle(Color.ink).lineLimit(1)
                 Text(L10n.browse.collectionCount(brief.wallpaperCount))

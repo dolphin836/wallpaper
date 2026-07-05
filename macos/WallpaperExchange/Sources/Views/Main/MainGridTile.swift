@@ -165,8 +165,8 @@ struct MainGridTile: View {
     //   color: dark slate (oklch(34% 0.012 240))
     //   AI variant: violet wash with white text
 
-    private static let chipBG    = Color.white.opacity(0.78)
-    private static let chipInk   = Color(red: 0.20, green: 0.21, blue: 0.23)
+    private static let chipBG    = Color.chipSurface
+    private static let chipInk   = Color.chipInk
     private static let chipFont  = Font.system(size: 9, weight: .semibold, design: .monospaced)
 
     private var resolutionChip: some View {
@@ -196,7 +196,7 @@ struct MainGridTile: View {
         }
         .foregroundStyle(Self.chipInk)
         .padding(.horizontal, 7).padding(.vertical, 2)
-        .background(Capsule().fill(Color(red: 0.99, green: 0.93, blue: 0.6).opacity(0.95)))
+        .background(Capsule().fill(Color.chipMissing.opacity(0.95)))
     }
 
     private var aiChip: some View {
@@ -207,7 +207,7 @@ struct MainGridTile: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 7).padding(.vertical, 2)
         // .is-ai: oklch(70% 0.18 295 / 0.85) — violet wash
-        .background(Capsule().fill(Color(red: 0.62, green: 0.30, blue: 0.82).opacity(0.85)))
+        .background(Capsule().fill(Color.chipAI.opacity(0.85)))
     }
 
     // ActionDot lives in this file (see bottom).
@@ -321,16 +321,16 @@ struct ActionDot: View {
             .fixedSize()
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(Capsule().fill(Color(red: 15.0 / 255, green: 12.0 / 255, blue: 8.0 / 255).opacity(0.92)))
+            .background(Capsule().fill(Color.tipSurface.opacity(0.92)))
             .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
     }
 
     // Web color tokens
     private var activeColor: Color {
         switch kind {
-        case .favorite: return Color(red: 0.85, green: 0.64, blue: 0.23) // #d8a23a
-        case .like:     return Color(red: 0.88, green: 0.27, blue: 0.23) // #e0463a
-        case .download: return Color(red: 0.29, green: 0.54, blue: 0.35) // #4a8a5a
+        case .favorite: return Color.stateFavorite
+        case .like:     return Color.stateLike
+        case .download: return Color.stateDownloaded
         case .neutral:  return Color.accent
         }
     }
@@ -338,7 +338,7 @@ struct ActionDot: View {
     private var bgColor: Color {
         if active { return activeColor }
         // rgba(15,12,8, .45) at rest → .65 on hover
-        let base = Color(red: 15.0/255, green: 12.0/255, blue: 8.0/255)
+        let base = Color.tipSurface
         return base.opacity(hover ? 0.78 : 0.55)
     }
 

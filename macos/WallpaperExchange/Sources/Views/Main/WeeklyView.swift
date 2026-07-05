@@ -61,7 +61,7 @@ struct WeeklyArchiveView: View {
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(0..<4, id: \.self) { _ in
                     HStack(spacing: 12) {
-                        SkeletonPlate(aspectRatio: 1, cornerRadius: 4, shadow: false)
+                        SkeletonPlate(aspectRatio: 1, cornerRadius: 6, shadow: false)
                             .frame(width: 7, height: 7)
                         SkeletonLine(width: 68, height: 13)
                         Spacer(minLength: 0)
@@ -251,10 +251,10 @@ private struct WeeklyTimelineRow: View {
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(selected ? Color.accent.opacity(0.10) : Color.clear)
         )
-        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -319,7 +319,7 @@ struct WeeklyWeekView: View {
 
     private var weekSkeleton: some View {
         VStack(alignment: .leading, spacing: 28) {
-            SkeletonPlate(aspectRatio: 16.0 / 9.0, cornerRadius: 16)
+            SkeletonPlate(aspectRatio: 16.0 / 9.0, cornerRadius: 18)
             WallpaperGridSkeleton(columns: gridColumns, count: 12, spacing: 16, aspectRatio: 4.0 / 5.0, cornerRadius: 10)
         }
     }
@@ -362,8 +362,8 @@ struct WeeklyWeekView: View {
                     }
                     .padding(18)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.hair, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.hair, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }

@@ -32,10 +32,10 @@ struct DevicePreviewBanner<Header: View>: View {
         .frame(maxWidth: .infinity)
         .background(previewPanelBackground)
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .strokeBorder(ChromeLine.softBorder(for: palette), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .compositingGroup()
         .shadow(color: .black.opacity(colorScheme == .dark ? 0.34 : 0.10),
                 radius: colorScheme == .dark ? 24 : 18,
@@ -79,7 +79,7 @@ struct DevicePreviewBanner<Header: View>: View {
 
             Rectangle().fill(Color.chromePanel)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 }
 
@@ -130,10 +130,10 @@ struct DeviceMockup: View {
             .frame(maxWidth: .infinity)
             .background(glassBackground)
             .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
                     .strokeBorder(Color.white.opacity(0.25), lineWidth: 1)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             .shadow(color: .black.opacity(0.10), radius: 18, y: 8)
         } else {
             // Bare monitor only — host (e.g. detail hero) supplies its
@@ -194,7 +194,7 @@ struct DeviceMockup: View {
                 }
                 .frame(width: g.size.width, height: g.size.height)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .padding(6)
         }
         .aspectRatio(deviceAspect, contentMode: .fit)
@@ -238,7 +238,7 @@ struct DeviceMockup: View {
             }
             Rectangle().fill(.ultraThinMaterial)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
     // Faint macOS home layer — menubar strip + a dock of coloured dots.
@@ -248,7 +248,7 @@ struct DeviceMockup: View {
             Spacer()
             HStack(spacing: 6) {
                 ForEach(0..<6, id: \.self) { i in
-                    RoundedRectangle(cornerRadius: 5)
+                    RoundedRectangle(cornerRadius: 6)
                         .fill(Color(hue: Double(i) / 6.0, saturation: 0.55, brightness: 0.9))
                         .frame(width: 18, height: 18)
                 }

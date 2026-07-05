@@ -322,8 +322,8 @@ struct HomeWeeklyCard: View {
 
     // ─── Chips — same tokens as MainGridTile's .tile-chip family ──
 
-    private static let chipBG   = Color.white.opacity(0.78)
-    private static let chipInk  = Color(red: 0.20, green: 0.21, blue: 0.23)
+    private static let chipBG   = Color.chipSurface
+    private static let chipInk  = Color.chipInk
     private static let chipFont = Font.system(size: 9, weight: .semibold, design: .monospaced)
 
     private var resolutionChip: some View {
@@ -351,7 +351,7 @@ struct HomeWeeklyCard: View {
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 7).padding(.vertical, 2)
-        .background(Capsule().fill(Color(red: 0.62, green: 0.30, blue: 0.82).opacity(0.85)))
+        .background(Capsule().fill(Color.chipAI.opacity(0.85)))
     }
 
     // ─── Action handlers — same behavior as MainGridTile ──────────

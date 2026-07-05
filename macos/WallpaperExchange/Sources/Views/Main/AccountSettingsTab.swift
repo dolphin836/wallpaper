@@ -44,43 +44,29 @@ struct AccountSettingsTab: View {
 
     private var appearanceSection: some View {
         sectionCard(title: L10n.settings.appearance) {
-            HStack(spacing: 8) {
-                ForEach(AppearancePref.allCases, id: \.self) { pref in
-                    let isOn = appearanceRaw == pref.rawValue
-                    Button(action: { appearanceRaw = pref.rawValue }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: pref.icon).font(.system(size: 11, weight: .medium))
-                            Text(pref.label).font(.system(size: 12, weight: isOn ? .semibold : .regular))
-                        }
-                        .foregroundStyle(isOn ? Color.accent : Color.ink2)
-                        .padding(.horizontal, 12).padding(.vertical, 7)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(isOn ? Color.accent.opacity(0.12) : Color.paper2))
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(isOn ? Color.accent.opacity(0.35) : Color.hair, lineWidth: 1))
-                    }.buttonStyle(.plain).pointerCursor()
-                }
-            }
+            GlassSegmented(
+                segments: AppearancePref.allCases.map { GlassSegment(id: $0.rawValue, label: $0.label, icon: $0.icon) },
+                selection: $appearanceRaw,
+                compact: true
+            )
+            .fixedSize()
         }
     }
 
-    // Language picker mirrors the Appearance chip row. Labels render in their
-    // own script (never translated); App.swift re-mounts the whole tree via
+    // Language picker. Labels render in their own script (never
+    // translated); App.swift re-mounts the whole tree via
     // .id(languageRaw) so the switch takes effect immediately.
     private var languageSection: some View {
         sectionCard(title: L10n.common.language) {
             VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    ForEach(LanguagePref.allCases, id: \.self) { pref in
-                        let isOn = languageRaw == pref.rawValue
-                        let label = pref == .system ? L10n.common.languageSystem : pref.resolved.nativeName
-                        Button(action: { languageRaw = pref.rawValue }) {
-                            Text(label).font(.system(size: 12, weight: isOn ? .semibold : .regular))
-                                .foregroundStyle(isOn ? Color.accent : Color.ink2)
-                                .padding(.horizontal, 12).padding(.vertical, 7)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(isOn ? Color.accent.opacity(0.12) : Color.paper2))
-                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(isOn ? Color.accent.opacity(0.35) : Color.hair, lineWidth: 1))
-                        }.buttonStyle(.plain).pointerCursor()
-                    }
-                }
+                GlassSegmented(
+                    segments: LanguagePref.allCases.map {
+                        GlassSegment(id: $0.rawValue, label: $0 == .system ? L10n.common.languageSystem : $0.resolved.nativeName)
+                    },
+                    selection: $languageRaw,
+                    compact: true
+                )
+                .fixedSize()
                 Text(L10n.common.languageFootnote).font(.system(size: 11)).foregroundStyle(Color.muted)
             }
         }

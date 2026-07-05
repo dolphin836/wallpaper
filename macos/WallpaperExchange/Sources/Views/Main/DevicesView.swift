@@ -30,7 +30,7 @@ struct DevicesIndexView: View {
                 }
 
                 if loading && devices.isEmpty {
-                    WallpaperGridSkeleton(columns: gridColumns, count: 12, spacing: 12, aspectRatio: 4.0 / 3.0, cornerRadius: 12)
+                    WallpaperGridSkeleton(columns: gridColumns, count: 12, spacing: 12, aspectRatio: 4.0 / 3.0, cornerRadius: 14)
                 } else if let err = loadError {
                     RemoteLoadErrorView(message: err) {
                         Task { await load() }
@@ -86,13 +86,13 @@ struct DeviceCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack {
-                RoundedRectangle(cornerRadius: 12).fill(Color.paper2)
+                RoundedRectangle(cornerRadius: 14).fill(Color.paper2)
                 Image(systemName: iconName)
                     .font(.system(size: 36, weight: .light))
                     .foregroundStyle(Color.ink2)
             }
             .aspectRatio(4 / 3, contentMode: .fit)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.hair, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.hair, lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(device.name)

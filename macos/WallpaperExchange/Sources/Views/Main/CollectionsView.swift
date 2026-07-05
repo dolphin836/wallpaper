@@ -428,7 +428,7 @@ struct CollectionDetailView: View {
             // soft accent halo, with the image in an inner chamber.
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.paper)
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(Color.paper2)
                     .overlay {
                         if let cover = c.coverURL, let url = URL(string: cover) {
@@ -440,7 +440,7 @@ struct CollectionDetailView: View {
                                 .tracking(1.8).foregroundStyle(Color.muted)
                         }
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     .padding(16)
             }
             .frame(width: 340, height: 340)
@@ -669,7 +669,7 @@ struct FramedTile: View {
                     }
                     .scaleEffect(hovering ? 1.04 : 1.0)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay(alignment: .topLeading) { chips.padding(8) }
                 .overlay(alignment: .bottomTrailing) { actionRail.padding(8) }
                 .padding(12)

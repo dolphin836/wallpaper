@@ -138,7 +138,7 @@ struct CardListSkeleton: View {
                     Spacer(minLength: 0)
                     VStack(spacing: 3) {
                         ForEach(0..<3, id: \.self) { _ in
-                            SkeletonPlate(aspectRatio: 38.0 / 26.0, cornerRadius: 3, shadow: false)
+                            SkeletonPlate(aspectRatio: 38.0 / 26.0, cornerRadius: 6, shadow: false)
                                 .frame(width: 38, height: 26)
                         }
                     }
@@ -314,11 +314,11 @@ struct SkeletonTile: View {
                 let cardSize = max(0, cell - 12)
                 ZStack(alignment: .topLeading) {
                     RoundedRectangle(cornerRadius: 14)
-                        .fill(Color(red: 0.81, green: 0.81, blue: 0.83))
+                        .fill(Color.paper3)
                         .frame(width: cardSize, height: cardSize)
                         .offset(x: 8, y: 8)
                     RoundedRectangle(cornerRadius: 14)
-                        .fill(Color(red: 0.86, green: 0.86, blue: 0.87))
+                        .fill(Color.paper2)
                         .frame(width: cardSize, height: cardSize)
                         .offset(x: 4, y: 4)
                     plate(cornerRadius: 14)

@@ -170,11 +170,11 @@ struct UploadView: View {
         .padding(.vertical, 14)
         .frame(maxWidth: 720, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color.accent.opacity(0.055))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(Color.hair.blended(with: Color.accent, fraction: 0.30), lineWidth: 1)
         )
     }
@@ -875,7 +875,7 @@ struct PendingUploadTileView: View {
                                     Text(resolutionText)
                                         .font(.system(size: 9, weight: .semibold, design: .monospaced))
                                         .tracking(0.4)
-                                        .foregroundStyle(Color(red: 0.20, green: 0.21, blue: 0.23))
+                                        .foregroundStyle(Color.chipInk)
                                         .padding(.horizontal, 7)
                                         .padding(.vertical, 2)
                                         .background(Capsule().fill(Color.white.opacity(0.78)))

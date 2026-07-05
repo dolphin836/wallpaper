@@ -133,7 +133,7 @@ struct UploaderCard: View {
                         }
                         .frame(width: 38, height: 26)
                         .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 }
             }

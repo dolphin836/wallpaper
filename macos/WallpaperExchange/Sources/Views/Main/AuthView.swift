@@ -132,11 +132,11 @@ private struct AuthPanel: View {
                 .padding(11)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(Color.warn.opacity(0.10))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .strokeBorder(Color.warn.opacity(0.24), lineWidth: 1)
                 )
             }
@@ -220,7 +220,7 @@ private struct AuthPanel: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 24, height: 24)
             } else {
-                RoundedRectangle(cornerRadius: 5)
+                RoundedRectangle(cornerRadius: 6)
                     .fill(Color.accentSoft)
                     .frame(width: 24, height: 24)
                     .overlay(Image(systemName: "photo.on.rectangle").font(.system(size: 11)))

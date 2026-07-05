@@ -105,11 +105,11 @@ struct AutoShuffleSettings: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 7)
                 .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(isOn ? Color.ink : Color.paper2)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .stroke(isOn ? Color.clear : Color.hair, lineWidth: 1)
                 )
         }
