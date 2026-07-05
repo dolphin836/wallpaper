@@ -614,7 +614,23 @@ final class WallpaperManager {
             downloadProgress.removeValue(forKey: wallpaper.id)
         }
 
+        // The API call stays mandatory — it charges the coin and counts
+        // the download; only the file transfer below is skippable.
         let remoteURL = try await APIClient.shared.getDownloadURL(wallpaperID: wallpaper.id, targetWidth: targetWidth, targetHeight: targetHeight)
+
+        // If the image pipeline already fetched these exact bytes (the
+        // detail page displays the original via CachedAsyncImage), copy
+        // them out of the disk cache instead of re-downloading.
+        if let cached = await ImageCacheStore.shared.cachedData(for: remoteURL) {
+            let ext = Self.fileExtension(from: nil, url: remoteURL, fallback: wallpaper.fileType)
+            let dest = storageDir.appendingPathComponent("\(wallpaper.id).\(ext)")
+            try removeLocalFiles(for: wallpaper.id)
+            try cached.write(to: dest, options: .atomic)
+            downloadProgress[wallpaper.id] = 1
+            downloadedIDs.insert(wallpaper.id)
+            recomputeTotalBytes()
+            return
+        }
 
         let (tempURL, response) = try await Self.downloadWithProgress(from: remoteURL) { [weak self] p in
             self?.downloadProgress[wallpaper.id] = p
@@ -864,11 +880,11 @@ final class WallpaperManager {
         totalLocalBytes = bytes
     }
 
-    private static func fileExtension(from response: URLResponse, url: URL, fallback: String) -> String {
+    private static func fileExtension(from response: URLResponse?, url: URL, fallback: String) -> String {
         let pathExt = url.pathExtension.lowercased()
         if !pathExt.isEmpty, pathExt.count <= 5 { return pathExt }
 
-        if let mime = response.mimeType {
+        if let mime = response?.mimeType {
             switch mime {
             case "image/jpeg": return "jpg"
             case "image/png": return "png"

@@ -52,6 +52,14 @@ final class ImageCacheStore {
         "\(url.absoluteString)#px=\(maxPixelDimension)" as NSString
     }
 
+    /// Raw downloaded bytes for a URL if the image pipeline already
+    /// fetched them (e.g. the detail page displayed the original).
+    /// Lets WallpaperManager.download reuse the file instead of
+    /// re-transferring it.
+    func cachedData(for url: URL) async -> Data? {
+        await ImageDiskCache.shared.data(for: url)
+    }
+
     nonisolated private static func downsample(data: Data, maxPixelDimension: Int) -> NSImage? {
         let options = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let source = CGImageSourceCreateWithData(data as CFData, options) else {
