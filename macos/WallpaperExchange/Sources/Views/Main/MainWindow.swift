@@ -557,7 +557,7 @@ struct ContentRouter: View {
                                       onOpenWeeklyArchive: onOpenWeeklyArchive,
                                       onCollection: onCollection)
         case .discover:      DiscoverView(search: search, onPick: onPick, initialFilter: discoverInitialFilter)
-        case .weekly:        WeeklyArchiveView(onOpenWeek: onWeeklyWeek)
+        case .weekly:        WeeklyArchiveView(onOpenWeek: onWeeklyWeek, onPick: onPick)
         case .collections:   CollectionsListView(onCollection: onCollection)
         case .myUploads:     account(.uploads)
         case .myCollections: account(.collections)

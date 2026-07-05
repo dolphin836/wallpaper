@@ -31,12 +31,7 @@ struct CollectionsListView: View {
                 header
 
                 if loading && items.isEmpty {
-                    CollectionGridSkeleton(
-                        columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)],
-                        count: 8,
-                        spacing: 28
-                    )
-                    .padding(.top, 28)
+                    listSkeleton.padding(.top, 28)
                 } else if let err = loadError, items.isEmpty {
                     RemoteLoadErrorView(message: err) {
                         Task { await reload() }
@@ -52,10 +47,22 @@ struct CollectionsListView: View {
                         action: filter == .yours && auth.isLoggedIn ? { showCreate = true } : nil
                     )
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)], spacing: 28) {
-                        ForEach(visible) { c in
+                    // Page 0 leads with the first collection as a
+                    // full-width editorial banner; the rest render as
+                    // large golden-ratio mosaic cards (2-up in a
+                    // 1280pt window, 3-up in full-screen).
+                    let leadsWithHero = page == 0 && visible.count > 1
+                    if leadsWithHero, let first = visible.first {
+                        Button(action: { onCollection(first) }) {
+                            CollectionHeroBanner(item: first)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 28)
+                    }
+                    LazyVGrid(columns: showcaseCols, spacing: 28) {
+                        ForEach(leadsWithHero ? Array(visible.dropFirst()) : visible) { c in
                             Button(action: { onCollection(c) }) {
-                                CollectionTileCard(item: c)
+                                CollectionShowcaseCard(item: c)
                             }
                             .buttonStyle(.plain)
                         }
@@ -67,6 +74,8 @@ struct CollectionsListView: View {
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
         .task { await reload() }
         .onChange(of: filter) { _, _ in Task { await reload() } }
         .onDisappear { PaletteEnv.shared.resetToDefaults() }
@@ -121,6 +130,22 @@ struct CollectionsListView: View {
         }
     }
 
+    // Large mosaic cards: ~2-up in a 1280pt window, 3-up full-screen.
+    private var showcaseCols: [GridItem] {
+        [GridItem(.adaptive(minimum: 400, maximum: 560), spacing: 28, alignment: .top)]
+    }
+
+    private var listSkeleton: some View {
+        VStack(alignment: .leading, spacing: 28) {
+            SkeletonPlate(aspectRatio: 21.0 / 9.0, cornerRadius: 18)
+            LazyVGrid(columns: showcaseCols, spacing: 28) {
+                ForEach(0..<4, id: \.self) { _ in
+                    SkeletonPlate(aspectRatio: 1.618, cornerRadius: 18)
+                }
+            }
+        }
+    }
+
     private func pageButton(_ label: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         GlassCapsuleButton(title: label, height: 32, fontSize: 12, action: action)
             .disabled(!enabled)
@@ -156,6 +181,221 @@ struct CollectionsListView: View {
 
 // Web .c-tile — a clean 1:1 cover with the caption (kicker / title /
 // count) BELOW the image rather than overlaid on it.
+// ─── Collections list redesign (design-system.md) ────────────────
+// Shared helpers for the banner + showcase cards below.
+private enum CollectionCardArt {
+    static func tileURL(_ tile: CollectionTile?) -> URL? {
+        guard let tile else { return nil }
+        if !tile.previewURL.isEmpty { return URL(string: tile.previewURL) }
+        if !tile.thumbURL.isEmpty { return URL(string: tile.thumbURL) }
+        return nil
+    }
+
+    static func coverURL(_ item: CollectionItem) -> URL? {
+        if let url = tileURL(item.recentTiles?.first) { return url }
+        if let c = item.coverURL, !c.isEmpty { return URL(string: c) }
+        return nil
+    }
+
+    static func kicker(_ item: CollectionItem) -> String {
+        item.kind == 1 ? L10n.collections.kickerEditorTheme : L10n.collections.kickerCollection
+    }
+
+    @ViewBuilder
+    static func image(_ url: URL?, fallback: String?, maxPixel: Int = 1100) -> some View {
+        if let url {
+            CachedAsyncImage(url: url, maxPixelDimension: maxPixel) { img in
+                img.resizable().aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Color(hex: fallback ?? "#bbb").opacity(0.5)
+            }
+        } else {
+            Color(hex: fallback ?? "#bbb").opacity(0.4)
+        }
+    }
+
+    static var lockChip: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "lock.fill").font(.system(size: 8, weight: .bold))
+            Text(L10n.collections.privateLabel.uppercased())
+                .font(.system(size: 9, weight: .semibold, design: .monospaced)).tracking(0.4)
+        }
+        .foregroundStyle(Color.chipInk)
+        .padding(.horizontal, 7).padding(.vertical, 3)
+        .background(Capsule().fill(Color.chipSurface))
+    }
+}
+
+// Full-width 21:9 editorial banner for the leading collection.
+struct CollectionHeroBanner: View {
+    let item: CollectionItem
+    @State private var hover = false
+
+    private var tintHex: String? { item.recentTiles?.first?.dominantColor ?? item.accentColor }
+
+    var body: some View {
+        Color.clear
+            .aspectRatio(21.0 / 9.0, contentMode: .fit)
+            .overlay {
+                CollectionCardArt.image(CollectionCardArt.coverURL(item), fallback: tintHex, maxPixel: 2200)
+            }
+            .overlay {
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.62)],
+                    startPoint: .center, endPoint: .bottom
+                )
+                .allowsHitTesting(false)
+            }
+            .overlay(alignment: .bottomLeading) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(CollectionCardArt.kicker(item).uppercased())
+                        .font(.kicker).tracking(2.2)
+                        .foregroundStyle(.white.opacity(0.85))
+                    Text(item.title.isEmpty ? L10n.collections.untitledSet : item.title)
+                        .font(.system(size: 24, weight: .semibold, design: .serif))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Text(L10n.collections.wallpaperCountCaps(item.wallpaperCount))
+                        .font(.mono11).tracking(1.2)
+                        .foregroundStyle(.white.opacity(0.80))
+                }
+                .padding(24)
+            }
+            .overlay(alignment: .topLeading) {
+                if item.isPublic == false {
+                    CollectionCardArt.lockChip.padding(12)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(hover ? 0.55 : 0.35), .white.opacity(0.08)],
+                            startPoint: .top, endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+                    .allowsHitTesting(false)
+            )
+            .shadow(color: .black.opacity(0.20), radius: 3, y: 2)
+            .shadow(color: .black.opacity(hover ? 0.32 : 0.22), radius: hover ? 22 : 14, y: hover ? 12 : 7)
+            .scaleEffect(hover ? 1.005 : 1)
+            .animation(.spring(response: 0.34, dampingFraction: 0.72), value: hover)
+            .onHover { h in
+                hover = h
+                if h { PaletteEnv.shared.apply(palette: nil, dominant: tintHex) }
+                else { PaletteEnv.shared.resetToDefaults() }
+            }
+            .contentShape(Rectangle())
+    }
+}
+
+// Large golden-ratio card with a 3-image mosaic (cover left 2/3, two
+// member tiles stacked right 1/3) — reads as "a set" at a glance.
+// Title sits inside the card on a bottom scrim.
+struct CollectionShowcaseCard: View {
+    let item: CollectionItem
+    @State private var hover = false
+
+    private var tiles: [CollectionTile] { item.recentTiles ?? [] }
+    private var tintHex: String? { tiles.first?.dominantColor ?? item.accentColor }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let w = proxy.size.width
+            let h = w / 1.618
+            ZStack(alignment: .bottomLeading) {
+                mosaic(width: w, height: h)
+
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.58)],
+                    startPoint: .center, endPoint: .bottom
+                )
+                .allowsHitTesting(false)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(CollectionCardArt.kicker(item).uppercased())
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .tracking(1.8)
+                        .foregroundStyle(.white.opacity(0.78))
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(item.title.isEmpty ? L10n.collections.untitledSet : item.title)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        Text(L10n.collections.wallpaperCountCaps(item.wallpaperCount))
+                            .font(.mono10).tracking(1.0)
+                            .foregroundStyle(.white.opacity(0.72))
+                    }
+                }
+                .padding(16)
+            }
+            .frame(width: w, height: h)
+            .overlay(alignment: .topLeading) {
+                if item.isPublic == false {
+                    CollectionCardArt.lockChip.padding(10)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(hover ? 0.55 : 0.35), .white.opacity(0.08)],
+                            startPoint: .top, endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+                    .allowsHitTesting(false)
+            )
+        }
+        .aspectRatio(1.618, contentMode: .fit)
+        .shadow(color: .black.opacity(0.20), radius: 3, y: 2)
+        .shadow(color: .black.opacity(hover ? 0.34 : 0.22), radius: hover ? 22 : 14, y: hover ? 12 : 7)
+        .scaleEffect(hover ? 1.02 : 1)
+        .animation(.spring(response: 0.34, dampingFraction: 0.72), value: hover)
+        .onHover { h in
+            hover = h
+            if h { PaletteEnv.shared.apply(palette: nil, dominant: tintHex) }
+            else { PaletteEnv.shared.resetToDefaults() }
+        }
+        .contentShape(Rectangle())
+    }
+
+    // Cover (left 2/3) + two stacked member tiles (right 1/3), split
+    // by 2pt hairline seams. Falls back to tinted fills when the
+    // collection has fewer than three tiles.
+    private func mosaic(width: CGFloat, height: CGFloat) -> some View {
+        let seam: CGFloat = 2
+        let leftW = (width - seam) * 2 / 3
+        let rightW = width - seam - leftW
+        let cellH = (height - seam) / 2
+        return HStack(spacing: seam) {
+            CollectionCardArt.image(CollectionCardArt.coverURL(item), fallback: tintHex)
+                .frame(width: leftW, height: height)
+                .clipped()
+            VStack(spacing: seam) {
+                CollectionCardArt.image(
+                    CollectionCardArt.tileURL(tiles.count > 1 ? tiles[1] : nil),
+                    fallback: tiles.count > 1 ? tiles[1].dominantColor : tintHex,
+                    maxPixel: 560
+                )
+                .frame(width: rightW, height: cellH)
+                .clipped()
+                CollectionCardArt.image(
+                    CollectionCardArt.tileURL(tiles.count > 2 ? tiles[2] : nil),
+                    fallback: tiles.count > 2 ? tiles[2].dominantColor : tintHex,
+                    maxPixel: 560
+                )
+                .frame(width: rightW, height: cellH)
+                .clipped()
+            }
+        }
+        .background(Color.black.opacity(0.18))
+    }
+}
+
 struct CollectionTileCard: View {
     let item: CollectionItem
     @State private var hover = false

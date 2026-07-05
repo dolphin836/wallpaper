@@ -1,23 +1,34 @@
 import AppKit
 import SwiftUI
 
-// Weekly Picks archive — mirrors the web: an editorial header, a
-// left-hand timeline of past issues, and a large cover panel for the
-// selected issue (stamp + "view all N picks" CTA). Selecting a
-// timeline row swaps the cover; clicking the cover opens that week.
+// Weekly Picks archive — editorial header, a left-hand timeline of
+// past issues (liquid droplet selection), and a "magazine spread" for
+// the selected issue: 16:9 cover on top, the rest of the slate as a
+// thumbnail collage below. Cover opens the week page; collage thumbs
+// open the wallpaper detail directly.
 struct WeeklyArchiveView: View {
     var onOpenWeek: (Int, Int) -> Void
+    var onPick: (Wallpaper) -> Void = { _ in }
 
     @State private var entries: [WeeklyArchiveEntry] = []
     @State private var loading = false
     @State private var loadError: String?
     @State private var selectedID: String?
+    // Per-issue slate cache so switching between timeline rows is
+    // instant after the first visit.
+    @State private var picksCache: [String: [WeeklyPicked]] = [:]
+    @State private var loadingPicks = false
+    @Namespace private var timelineDroplet
 
     private var selected: WeeklyArchiveEntry? {
         if let selectedID, let entry = entries.first(where: { $0.id == selectedID }) {
             return entry
         }
         return entries.first
+    }
+
+    private var selectedPicks: [WeeklyPicked] {
+        selected.flatMap { picksCache[$0.id] } ?? []
     }
 
     var body: some View {
@@ -40,9 +51,9 @@ struct WeeklyArchiveView: View {
                 } else {
                     HStack(alignment: .top, spacing: 36) {
                         timeline
-                            .frame(width: 240)
+                            .frame(width: 220)
                             .zIndex(2)
-                        coverPanel
+                        issueSpread
                             .zIndex(1)
                     }
                     .padding(.top, 36)
@@ -51,7 +62,10 @@ struct WeeklyArchiveView: View {
             .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
         .task { await load() }
+        .task(id: selected?.id) { await loadSelectedPicks() }
         .onChange(of: selectedID) { _, _ in applySelectedPalette() }
         .onDisappear { PaletteEnv.shared.resetToDefaults() }
     }
@@ -102,11 +116,16 @@ struct WeeklyArchiveView: View {
     }
 
     private var timeline: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 2) {
             ForEach(entries) { e in
                 let on = e.id == selected?.id
-                WeeklyTimelineRow(entry: e, selected: on, dateText: Self.fmtDate(e.year, e.week))
-                    .frame(width: 240, alignment: .leading)
+                WeeklyTimelineRow(
+                    entry: e,
+                    selected: on,
+                    dateText: Self.fmtDate(e.year, e.week),
+                    dropletNamespace: timelineDroplet
+                )
+                    .frame(width: 220, alignment: .leading)
                     .contentShape(Rectangle())
                     .background(Color.black.opacity(0.001))
                     .highPriorityGesture(
@@ -123,6 +142,8 @@ struct WeeklyArchiveView: View {
                     }
                 }
         }
+        // Drives the droplet's slide between rows.
+        .animation(.spring(response: 0.42, dampingFraction: 0.68), value: selectedID)
     }
 
     private func select(_ entry: WeeklyArchiveEntry) {
@@ -132,59 +153,142 @@ struct WeeklyArchiveView: View {
         PaletteEnv.shared.apply(palette: entry.colorPalette, dominant: entry.dominantColor)
     }
 
-    private var coverPanel: some View {
+    // "Magazine spread" for the selected issue: 16:9 cover (opens the
+    // week page) + a collage of the remaining picks (each opens its
+    // wallpaper detail directly).
+    private var issueSpread: some View {
         Group {
             if let s = selected {
-                Button { onOpenWeek(s.year, s.week) } label: {
-                    VStack(alignment: .leading, spacing: 14) {
-                        // Color.clear sets a strict 16:10 box; the cover
-                        // fills it as an overlay and is clipped, so a
-                        // large image can't overflow the panel.
-                        Color.clear
-                            .aspectRatio(16.0 / 10.0, contentMode: .fit)
-                            .overlay {
-                                ProgressiveCachedAsyncImage(
-                                    lowURL: cleanURL(s.coverURL),
-                                    highURL: cleanURL(s.originalURL),
-                                    lowMaxPixelDimension: 1400,
-                                    highMaxPixelDimension: 4200
-                                ) { img in
-                                    img.resizable().aspectRatio(contentMode: .fill)
-                                } placeholder: {
-                                    Color(hex: s.dominantColor ?? "#bbb").opacity(0.5)
-                                }
-                            }
-                            .overlay {
-                                LinearGradient(colors: [.clear, .black.opacity(0.55)],
-                                               startPoint: .center, endPoint: .bottom)
-                                    .allowsHitTesting(false)
-                            }
-                            .overlay(alignment: .bottomLeading) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(L10n.home.issueLabel).font(.kicker).tracking(2.4).foregroundStyle(.white.opacity(0.85))
-                                    Text("№ \(String(format: "%02d", s.week))")
-                                        .font(.system(size: 30, weight: .semibold, design: .serif))
-                                        .foregroundStyle(.white)
-                                    Text("\(Self.fmtDate(s.year, s.week)) \(String(s.year)) · \(L10n.home.picksCountCaps(s.count))")
-                                        .font(.mono11).tracking(0.6).foregroundStyle(.white.opacity(0.85))
-                                }
-                                .padding(20)
-                            }
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.hair, lineWidth: 1))
-                            .id(s.id)
+                VStack(alignment: .leading, spacing: 18) {
+                    Button { onOpenWeek(s.year, s.week) } label: {
+                        issueCover(s)
+                    }
+                    .buttonStyle(.plain)
+                    .pointerCursor()
 
-                        HStack(spacing: 8) {
-                            Text(L10n.home.viewAllPicks(s.count))
-                                .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.accent)
-                            Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.accent)
+                    HStack(alignment: .center) {
+                        Text(L10n.home.picksCountCaps(s.count))
+                            .font(.mono11).tracking(1.4)
+                            .foregroundStyle(Color.muted)
+                        Spacer(minLength: 0)
+                        GlassCapsuleButton(title: L10n.home.viewAllPicks(s.count), icon: "arrow.right", height: 30, fontSize: 12) {
+                            onOpenWeek(s.year, s.week)
                         }
                     }
+
+                    issueCollage(s)
                 }
-                .buttonStyle(.plain)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func issueCover(_ s: WeeklyArchiveEntry) -> some View {
+        // Color.clear sets a strict 16:9 box; the cover fills it as an
+        // overlay and is clipped, so a large image can't overflow.
+        Color.clear
+            .aspectRatio(16.0 / 9.0, contentMode: .fit)
+            .overlay {
+                ProgressiveCachedAsyncImage(
+                    lowURL: cleanURL(s.coverURL),
+                    highURL: cleanURL(s.originalURL),
+                    lowMaxPixelDimension: 1400,
+                    highMaxPixelDimension: 4200
+                ) { img in
+                    img.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color(hex: s.dominantColor ?? "#bbb").opacity(0.5)
+                }
+            }
+            .overlay {
+                LinearGradient(colors: [.clear, .black.opacity(0.55)],
+                               startPoint: .center, endPoint: .bottom)
+                    .allowsHitTesting(false)
+            }
+            .overlay(alignment: .bottomLeading) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L10n.home.issueLabel).font(.kicker).tracking(2.4).foregroundStyle(.white.opacity(0.85))
+                    Text("№ \(String(format: "%02d", s.week))")
+                        .font(.system(size: 30, weight: .semibold, design: .serif))
+                        .foregroundStyle(.white)
+                    Text("\(Self.fmtDate(s.year, s.week)) \(String(s.year)) · \(L10n.home.picksCountCaps(s.count))")
+                        .font(.mono11).tracking(0.6).foregroundStyle(.white.opacity(0.85))
+                }
+                .padding(20)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(0.35), .white.opacity(0.08)],
+                            startPoint: .top, endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: .black.opacity(0.20), radius: 3, y: 2)
+            .shadow(color: .black.opacity(0.22), radius: 14, y: 7)
+            .id(s.id)
+    }
+
+    // The rest of the slate (hero excluded) as compact square thumbs.
+    @ViewBuilder
+    private func issueCollage(_ s: WeeklyArchiveEntry) -> some View {
+        let hero = selectedPicks.first(where: { $0.isHero }) ?? selectedPicks.first
+        let rest = selectedPicks.filter { $0.id != hero?.id }
+        if loadingPicks && selectedPicks.isEmpty {
+            LazyVGrid(columns: collageCols, spacing: 8) {
+                ForEach(0..<5, id: \.self) { _ in
+                    SkeletonPlate(aspectRatio: 1, cornerRadius: 10, shadow: false)
+                }
+            }
+        } else if !rest.isEmpty {
+            LazyVGrid(columns: collageCols, spacing: 8) {
+                ForEach(rest) { p in
+                    collageThumb(p)
+                }
+            }
+        }
+    }
+
+    private var collageCols: [GridItem] {
+        [GridItem(.adaptive(minimum: 110, maximum: 170), spacing: 8, alignment: .top)]
+    }
+
+    private func collageThumb(_ p: WeeklyPicked) -> some View {
+        Button(action: { onPick(p.asWallpaper()) }) {
+            Color.clear
+                .aspectRatio(1, contentMode: .fit)
+                .overlay {
+                    CachedAsyncImage(url: cleanURL(p.thumbURL), maxPixelDimension: 480) { img in
+                        img.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Color(hex: p.dominantColor ?? "#bbb").opacity(0.5)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(GlassBounceButtonStyle())
+        .pointerCursor()
+        .onHover { h in
+            if h { PaletteEnv.shared.apply(palette: p.colorPalette, dominant: p.dominantColor) }
+            else { applySelectedPalette() }
+        }
+    }
+
+    private func loadSelectedPicks() async {
+        guard let s = selected, picksCache[s.id] == nil else { return }
+        loadingPicks = true
+        defer { loadingPicks = false }
+        if let data = try? await APIClient.shared.fetchWeeklyByWeek(year: s.year, week: s.week) {
+            picksCache[s.id] = data.picks
+        }
     }
 
     private func load() async {
@@ -232,6 +336,7 @@ private struct WeeklyTimelineRow: View {
     let entry: WeeklyArchiveEntry
     let selected: Bool
     let dateText: String
+    let dropletNamespace: Namespace.ID
 
     var body: some View {
         HStack(spacing: 12) {
@@ -247,14 +352,33 @@ private struct WeeklyTimelineRow: View {
                 .tracking(0.4)
                 .foregroundStyle(Color.muted)
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(selected ? Color.accent.opacity(0.10) : Color.clear)
+        // Selected row carries the liquid droplet lens — same
+        // interaction language as the chrome nav and page tabs.
+        .background {
+            if selected {
+                GlassSelectionDroplet(tone: .light)
+                    .matchedGeometryEffect(id: "weekly-timeline-droplet", in: dropletNamespace)
+            }
+        }
+        .contentShape(Capsule())
+    }
+}
+
+extension WeeklyPicked {
+    // WeeklyPicked → Wallpaper for the shared tile/detail components.
+    func asWallpaper() -> Wallpaper {
+        Wallpaper(
+            id: id, slug: slug, userID: 0, categoryID: nil, title: title, description: "",
+            originalURL: originalURL, thumbURL: thumbURL, previewURL: previewURL,
+            width: width, height: height, fileSize: fileSize, fileType: fileType,
+            dominantColor: dominantColor, colorPalette: colorPalette, status: 1, viewCount: 0, likeCount: 0,
+            downloadCount: 0, favoriteCount: 0, isDynamic: isDynamic,
+            isAIGenerated: isAIGenerated, isLiked: nil, isFavorited: nil, isDownloaded: nil,
+            createdAt: ""
         )
-        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -393,16 +517,8 @@ struct WeeklyWeekView: View {
         }
     }
 
-    // WeeklyPicked → Wallpaper for the shared tile component.
+    // Shared converter lives in the WeeklyPicked extension below.
     private func asWallpaper(_ p: WeeklyPicked) -> Wallpaper {
-        Wallpaper(
-            id: p.id, slug: p.slug, userID: 0, categoryID: nil, title: p.title, description: "",
-            originalURL: p.originalURL, thumbURL: p.thumbURL, previewURL: p.previewURL,
-            width: p.width, height: p.height, fileSize: p.fileSize, fileType: p.fileType,
-            dominantColor: p.dominantColor, colorPalette: p.colorPalette, status: 1, viewCount: 0, likeCount: 0,
-            downloadCount: 0, favoriteCount: 0, isDynamic: p.isDynamic,
-            isAIGenerated: p.isAIGenerated, isLiked: nil, isFavorited: nil, isDownloaded: nil,
-            createdAt: ""
-        )
+        p.asWallpaper()
     }
 }
