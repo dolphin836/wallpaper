@@ -1215,10 +1215,8 @@ function SpotlightStyles() {
   return (<style>{`
 /* ── Immersive two-screen layout (mirrors the Mac detail page) ── */
 .wd-s1 { position: relative; height: calc(100dvh - 60px); min-height: 560px; overflow: hidden; }
-/* Inside the route modal the panel has its own definite height —
-   fill it exactly and drop the info circle below the modal's ✕. */
+/* Inside the route modal the panel has its own definite height. */
 .wd-in-modal .wd-s1 { height: 100%; min-height: 0; }
-.wd-in-modal .wd-s1-info { top: 58px; }
 .wd-s1-media { position: absolute; inset: 0; }
 .wd-s1-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; }
 .wd-s1-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 72px 24px 140px; }
