@@ -20,6 +20,11 @@ struct DetailPage: View {
     @State private var similar: [Wallpaper] = []
     @State private var similarLoaded = false
     @State private var loadError: String?
+    // Original decoded into the hero — from that moment the raw bytes
+    // are in the image disk cache and a download completes instantly.
+    // Static-image downloads stay disabled until then (videos/dynamic
+    // wallpapers never load their original here, so they don't gate).
+    @State private var heroOriginalLoaded = false
     @State private var mode: PreviewMode = .off
     @State private var manager = WallpaperManager.shared
     @State private var auth = AuthService.shared
@@ -409,7 +414,11 @@ struct DetailPage: View {
                 )
             }
 
-            CachedAsyncImage(url: detailHeroImageURL(d), maxPixelDimension: detailHeroDecodeDimension(detail: d, layout: layout)) { img in
+            CachedAsyncImage(
+                url: detailHeroImageURL(d),
+                maxPixelDimension: detailHeroDecodeDimension(detail: d, layout: layout),
+                onLoad: { heroOriginalLoaded = true }
+            ) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
                 Color.clear
@@ -419,6 +428,13 @@ struct DetailPage: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
+    }
+
+    // Static images gate on the hero's original being decoded (instant
+    // cache-hit download afterwards); videos and dynamic wallpapers
+    // download separately and stay available immediately.
+    private func downloadReady(_ d: WallpaperDetail) -> Bool {
+        isVideo(detail: d) || d.isDynamic || heroOriginalLoaded
     }
 
     private var heroVignette: some View {
@@ -474,7 +490,7 @@ struct DetailPage: View {
                 toolbarIconButton(systemName: downloaded ? "checkmark.circle.fill" : "tray.and.arrow.down", help: downloadButtonText(detail: d, downloaded: downloaded, downloading: downloading)) {
                     Task { await downloadOriginal(d) }
                 }
-                .disabled(downloading || downloaded)
+                .disabled(downloading || downloaded || !downloadReady(d))
             }
 
             toolbarIconButton(systemName: "square.and.arrow.up", help: "Share") {
@@ -513,9 +529,10 @@ struct DetailPage: View {
                 .padding(.horizontal, compact ? 15 : 22)
                 .frame(height: 38)
                 .background(Capsule().fill(Color.white.opacity(0.96)))
+                .opacity(downloadReady(d) ? 1 : 0.55)
             }
             .buttonStyle(.plain)
-            .disabled(downloading || applyingWallpaper)
+            .disabled(downloading || applyingWallpaper || !downloadReady(d))
             .keyboardShortcut("d", modifiers: .command)
         }
         .padding(.horizontal, 8)
@@ -977,7 +994,6 @@ struct DetailPage: View {
         let tint = Color(hex: d.dominantColor ?? "#888")
         return VStack(spacing: layout.stageSpacing) {
             hero(detail: d, layout: layout)
-            downloadProgressBar(detail: d, layout: layout)
             downloadNoticeView(detail: d, layout: layout)
             if showingCollectionPicker {
                 collectionPicker(detail: d, layout: layout)
@@ -1028,46 +1044,6 @@ struct DetailPage: View {
               let value = d.previewVideoURL?.trimmingCharacters(in: .whitespacesAndNewlines),
               !value.isEmpty else { return nil }
         return URL(string: value)
-    }
-
-    @ViewBuilder
-    private func downloadProgressBar(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
-        if manager.downloading.contains(d.id) {
-            let progress = max(0, min(manager.downloadProgress[d.id] ?? 0, 1))
-            VStack(alignment: .leading, spacing: 7) {
-                HStack {
-                    Text(progress > 0 ? L10n.detail.downloadingOriginal : L10n.detail.preparingOriginal)
-                        .font(.mono10)
-                        .tracking(1.4)
-                        .foregroundStyle(Color.accentInk)
-                    Spacer()
-                    Text(progress > 0 ? "\(Int(progress * 100))%" : "…")
-                        .font(.mono10)
-                        .tracking(0.8)
-                        .foregroundStyle(Color.muted)
-                        .monospacedDigit()
-                }
-                GeometryReader { proxy in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.accent.opacity(0.16))
-                        Capsule()
-                            .fill(LinearGradient(
-                                colors: [Color.accent, Color.accent.blended(with: Color.ink, fraction: 0.28)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ))
-                            .frame(width: max(progress > 0 ? 16 : 28, proxy.size.width * CGFloat(progress)))
-                    }
-                }
-                .frame(height: 6)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .frame(width: resolvedActionBarWidth(layout: layout), alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.accentSoft.opacity(0.92)))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.accent.opacity(0.24), lineWidth: 1))
-            .transition(.opacity.combined(with: .move(edge: .top)))
-        }
     }
 
     @ViewBuilder
@@ -1290,7 +1266,6 @@ struct DetailPage: View {
     private func detailActionOverlay(detail d: WallpaperDetail?, layout: DetailLayout) -> some View {
         VStack(alignment: .center, spacing: 12) {
             if let d {
-                downloadProgressBar(detail: d, layout: layout)
                 downloadNoticeView(detail: d, layout: layout)
 
                 if showingCollectionPicker {
@@ -1462,6 +1437,7 @@ struct DetailPage: View {
         let downloading = detail.map { manager.downloading.contains($0.id) } ?? false
         let downloaded = detail.map { isLocalDownloaded($0) } ?? isLocalDownloaded(wallpaper)
         let hasDetail = detail != nil
+        let ready = detail.map(downloadReady) ?? false
         return HStack(spacing: 6) {
             Button(action: {
                 if let detail {
@@ -1472,7 +1448,8 @@ struct DetailPage: View {
                               text: downloadButtonText(detail: detail, downloaded: downloaded, downloading: downloading),
                               emphasized: true)
             }
-            .allowsHitTesting(hasDetail && !downloading && !downloaded)
+            .allowsHitTesting(hasDetail && ready && !downloading && !downloaded)
+            .opacity(ready || downloaded ? 1 : 0.55)
             .buttonStyle(.plain)
             Button(action: {
                 guard detail != nil else { return }
@@ -1485,7 +1462,8 @@ struct DetailPage: View {
                               text: downloadAndSetButtonText(detail: detail, downloaded: downloaded),
                               emphasized: true)
             }
-            .allowsHitTesting(hasDetail && !downloading && !applyingWallpaper)
+            .allowsHitTesting(hasDetail && ready && !downloading && !applyingWallpaper)
+            .opacity(ready || downloaded ? 1 : 0.55)
             .buttonStyle(.plain)
             .keyboardShortcut("d", modifiers: .command)
         }
@@ -1502,7 +1480,8 @@ struct DetailPage: View {
         let activeTargetID = targets.contains { $0.id == selectedDisplayTargetID }
             ? selectedDisplayTargetID
             : WallpaperDisplayTarget.allID
-        let cannotApply = applyingWallpaper || manager.downloading.contains(d.id) || surfaceUnavailable(selectedWallpaperSurface, detail: d)
+        let cannotApply = applyingWallpaper || manager.downloading.contains(d.id)
+            || surfaceUnavailable(selectedWallpaperSurface, detail: d) || !downloadReady(d)
 
         return VStack(alignment: .leading, spacing: 14) {
             if selectedWallpaperSurface != .lockScreen {
@@ -2217,6 +2196,7 @@ struct DetailPage: View {
     private func load() async {
         detail = nil
         loadError = nil
+        heroOriginalLoaded = false
         downloadNotice = nil
         infoActionMessage = nil
         similar = []
