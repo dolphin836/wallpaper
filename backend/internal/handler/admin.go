@@ -251,6 +251,11 @@ func (h *AdminHandler) UpdateWallpaper(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
+	// Publishing via the edit form is an approval too — pay the upload
+	// reward here as well (GrantUploadReward is idempotent per wallpaper).
+	if req.Status != nil && *req.Status == model.WallpaperStatusPublished {
+		h.wallpaperSvc.GrantUploadReward(r.Context(), id)
+	}
 	response.OK(w, nil)
 }
 
@@ -304,9 +309,9 @@ func (h *AdminHandler) ApproveReview(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
-	if err := h.wallpaperRepo.AdminApprove(r.Context(), id); err != nil {
-		slog.ErrorContext(r.Context(), "admin approve review failed", "id", id, "error", err)
-		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+	if ec := h.wallpaperSvc.ApproveReview(r.Context(), id); ec != nil {
+		slog.ErrorContext(r.Context(), "admin approve review failed", "id", id)
+		response.Error(w, http.StatusInternalServerError, ec)
 		return
 	}
 	response.OK(w, nil)
@@ -510,7 +515,12 @@ func (h *AdminHandler) BatchWallpapers(w http.ResponseWriter, r *http.Request) {
 	case "hard_delete":
 		apply = h.hardDeleteOne
 	case "approve_review":
-		apply = h.wallpaperRepo.AdminApprove
+		apply = func(ctx context.Context, id int64) error {
+			if ec := h.wallpaperSvc.ApproveReview(ctx, id); ec != nil {
+				return errors.New(ec.Message)
+			}
+			return nil
+		}
 	case "reject_review":
 		apply = func(ctx context.Context, id int64) error {
 			return h.wallpaperRepo.AdminReject(ctx, id, reason)

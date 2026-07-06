@@ -167,11 +167,9 @@ func (s *WallpaperService) Upload(ctx context.Context, userID int64, req UploadR
 
 	s.publishUploadedEvent(ctx, w, userID, objectName)
 
-	if _, err := s.coinRepo.Transfer(ctx, repo.SystemUserID, userID, 1,
-		model.CoinTxUploadReward, model.CoinTxUploadReward, w.ID,
-		"Upload reward issued", "Upload wallpaper reward"); err != nil {
-		slog.ErrorContext(ctx, "failed to grant upload coin", "error", err, "user_id", userID, "wallpaper_id", w.ID)
-	}
+	// Upload reward is intentionally NOT granted here — it's paid when
+	// an admin approves the wallpaper (see ApproveReview), so rejected
+	// submissions never earn coins.
 
 	return w, nil
 }
@@ -617,6 +615,59 @@ func (s *WallpaperService) Reprocess(ctx context.Context, id int64) *errcode.Err
 	return nil
 }
 
+// ApproveReview publishes a pending-review wallpaper and grants the
+// uploader the one-coin upload reward. The reward used to be paid at
+// upload time, which let rejected submissions keep the coin — now it
+// only fires on the PendingReview → Published transition. A ref-scoped
+// idempotency check prevents double-paying across reject-undo-approve
+// cycles (and skips legacy wallpapers already rewarded at upload).
+func (s *WallpaperService) ApproveReview(ctx context.Context, id int64) *errcode.ErrCode {
+	approved, err := s.wallpaperRepo.AdminApprove(ctx, id)
+	if err != nil {
+		slog.ErrorContext(ctx, "approve review failed", "wallpaper_id", id, "error", err)
+		return errcode.ErrInternal
+	}
+	if !approved {
+		// Not in PendingReview (already published, deleted, …) — treat
+		// as a no-op success and don't pay the reward again.
+		return nil
+	}
+	s.GrantUploadReward(ctx, id)
+	return nil
+}
+
+// GrantUploadReward pays the one-coin upload reward for wallpaperID.
+// Idempotent per wallpaper (guarded by HasTransaction), so any path
+// that publishes a wallpaper can call it safely. Failures are logged
+// but never fail the publish itself — the ledger can be reconciled
+// manually, un-publishing the wallpaper can't.
+func (s *WallpaperService) GrantUploadReward(ctx context.Context, wallpaperID int64) {
+	w, err := s.wallpaperRepo.GetByID(ctx, wallpaperID)
+	if err != nil || w == nil {
+		slog.ErrorContext(ctx, "grant upload reward: load wallpaper failed",
+			"wallpaper_id", wallpaperID, "error", err)
+		return
+	}
+	if w.UserID == repo.SystemUserID {
+		return
+	}
+	granted, err := s.coinRepo.HasTransaction(ctx, w.UserID, model.CoinTxUploadReward, w.ID)
+	if err != nil {
+		slog.ErrorContext(ctx, "grant upload reward: idempotency check failed",
+			"user_id", w.UserID, "wallpaper_id", w.ID, "error", err)
+		return
+	}
+	if granted {
+		return
+	}
+	if _, err := s.coinRepo.Transfer(ctx, repo.SystemUserID, w.UserID, 1,
+		model.CoinTxUploadReward, model.CoinTxUploadReward, w.ID,
+		"Upload reward issued", "Upload wallpaper approved reward"); err != nil {
+		slog.ErrorContext(ctx, "grant upload reward: transfer failed",
+			"user_id", w.UserID, "wallpaper_id", w.ID, "error", err)
+	}
+}
+
 // IngestVideoUploadRequest is what the tus completion handler hands us
 // once the video bytes are safely stored in MinIO. We do NOT re-upload
 // to storage here — the tus handler already streamed the bytes in.
@@ -652,12 +703,8 @@ func (s *WallpaperService) IngestVideoUpload(ctx context.Context, userID int64, 
 		return nil, errcode.ErrInternal
 	}
 	s.publishTranscodeEvent(ctx, w, userID, req.ObjectKey)
-	if _, err := s.coinRepo.Transfer(ctx, repo.SystemUserID, userID, 1,
-		model.CoinTxUploadReward, model.CoinTxUploadReward, w.ID,
-		"Upload reward issued", "Upload video wallpaper reward"); err != nil {
-		slog.ErrorContext(ctx, "failed to grant video upload coin",
-			"error", err, "user_id", userID, "wallpaper_id", w.ID)
-	}
+	// Upload reward is granted at review approval, not here — see
+	// ApproveReview.
 	return w, nil
 }
 

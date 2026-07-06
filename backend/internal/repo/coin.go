@@ -73,6 +73,19 @@ func (r *CoinRepo) Transfer(ctx context.Context, fromID, toID int64, amount int6
 	return toBalance, err
 }
 
+// HasTransaction reports whether userID already has a transaction of
+// txType referencing refID. Used as an idempotency guard so rewards
+// keyed to a wallpaper (e.g. upload_reward on review approval) can't
+// be paid twice across reject-undo-approve cycles.
+func (r *CoinRepo) HasTransaction(ctx context.Context, userID int64, txType string, refID int64) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.CoinTransaction{}).
+		Where("user_id = ? AND tx_type = ? AND ref_id = ?", userID, txType, refID).
+		Count(&count).Error
+	return count > 0, err
+}
+
 func (r *CoinRepo) GetBalance(ctx context.Context, userID int64) (int64, error) {
 	var user model.User
 	err := r.db.WithContext(ctx).Select("coins").Where("id = ?", userID).First(&user).Error

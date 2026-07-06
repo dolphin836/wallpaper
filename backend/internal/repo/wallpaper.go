@@ -329,14 +329,19 @@ func (r *WallpaperRepo) UpdateTranscoded(ctx context.Context, id int64, in Updat
 // AdminApprove transitions a wallpaper from PendingReview → Published,
 // clearing any prior rejection reason in case the row went through a
 // reject-then-undo cycle. Called by the admin review queue handler.
-func (r *WallpaperRepo) AdminApprove(ctx context.Context, id int64) error {
-	return r.db.WithContext(ctx).
+// Returns whether a row actually transitioned, so the caller can tell
+// a real approval apart from a no-op on an already-published (or
+// otherwise non-pending) wallpaper — the upload coin reward must only
+// fire on the real transition.
+func (r *WallpaperRepo) AdminApprove(ctx context.Context, id int64) (bool, error) {
+	res := r.db.WithContext(ctx).
 		Model(&model.Wallpaper{}).
 		Where("id = ? AND status = ?", id, model.WallpaperStatusPendingReview).
 		Updates(map[string]any{
 			"status":           model.WallpaperStatusPublished,
 			"rejection_reason": "",
-		}).Error
+		})
+	return res.RowsAffected > 0, res.Error
 }
 
 // AdminReject transitions PendingReview → Rejected and stores the
