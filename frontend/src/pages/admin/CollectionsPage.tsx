@@ -227,7 +227,6 @@ function CollectionEditorModal({
   const addWallpaper = (_id: number, wallpaper?: AdminWallpaperRow) => {
     if (!wallpaper) return;
     setWallpapers((rows) => rows.some((w) => w.id === wallpaper.id) ? rows : [...rows, wallpaper]);
-    setShowPicker(false);
   };
 
   const save = () => {
