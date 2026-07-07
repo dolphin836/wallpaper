@@ -1240,6 +1240,28 @@ func (h *AdminHandler) SaveWeeklyPickWeek(w http.ResponseWriter, r *http.Request
 	response.OK(w, map[string]any{"ok": true})
 }
 
+// DeleteWeeklyPickWeek removes an entire week's slate. The wallpapers
+// themselves are untouched — they just stop being featured (and become
+// eligible for future weeks again).
+func (h *AdminHandler) DeleteWeeklyPickWeek(w http.ResponseWriter, r *http.Request) {
+	year, week, ok := parseWeeklyRoute(r)
+	if !ok {
+		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
+		return
+	}
+	if err := h.weeklyPickRepo.DeleteWeek(r.Context(), year, week); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
+			return
+		}
+		slog.ErrorContext(r.Context(), "delete weekly week failed", "year", year, "week", week, "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	slog.InfoContext(r.Context(), "weekly pick week deleted", "year", year, "week", week)
+	response.OK(w, map[string]any{"ok": true})
+}
+
 // SetWeeklyPickHero flips the hero flag for one wallpaper inside a week.
 // Body: {"wallpaper_id": <int64>}. The repo runs the swap in a transaction
 // so the partial unique index can never see two TRUE rows at once.

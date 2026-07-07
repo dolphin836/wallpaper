@@ -223,6 +223,7 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Get("/weekly-picks", deps.AdminHandler.ListWeeklyPickWeeks)
 			r.Get("/weekly-picks/{year}/{week}", deps.AdminHandler.GetWeeklyPickWeek)
 			r.Put("/weekly-picks/{year}/{week}", deps.AdminHandler.SaveWeeklyPickWeek)
+			r.Delete("/weekly-picks/{year}/{week}", deps.AdminHandler.DeleteWeeklyPickWeek)
 			r.Put("/weekly-picks/{year}/{week}/hero", deps.AdminHandler.SetWeeklyPickHero)
 			r.Post("/weekly-picks/{year}/{week}/picks", deps.AdminHandler.AddWeeklyPick)
 			r.Delete("/weekly-picks/{year}/{week}/picks/{wallpaperId}", deps.AdminHandler.RemoveWeeklyPick)

@@ -216,6 +216,23 @@ func (r *WeeklyPickRepo) RemovePick(ctx context.Context, year, week int16, wallp
 	})
 }
 
+// DeleteWeek removes an entire (year, week) slate. Returns
+// gorm.ErrRecordNotFound if the week has no picks so the handler can
+// answer 404 instead of a silent no-op. Deleting a week also frees its
+// wallpapers for future slates (AllPickedIDs no longer sees them).
+func (r *WeeklyPickRepo) DeleteWeek(ctx context.Context, year, week int16) error {
+	res := r.db.WithContext(ctx).
+		Where("year = ? AND week = ?", year, week).
+		Delete(&model.WeeklyPick{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 // WeekSummary is one entry in the admin weekly-picks index — a single
 // (year, week) row enriched with how many picks were curated and which
 // wallpaper is the hero, so the admin list can render cover thumbnails

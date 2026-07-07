@@ -34,15 +34,19 @@ export default function WeeklyPicksPage() {
   const [picksLoading, setPicksLoading] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
 
-  const fetchWeeks = useCallback(() => {
+  // autoSelectFirst: only the initial load (and a full-week delete)
+  // should move the selection to the newest week — refreshes triggered
+  // by edits must not yank the admin away from the week being edited.
+  const fetchWeeks = useCallback((autoSelectFirst = false) => {
     setWeeksLoading(true);
     admin.adminListWeeklyPickWeeks()
       .then((r) => {
         const list = r.data.data || [];
         setWeeks(list);
-        if (!selected && list.length > 0) {
+        if (autoSelectFirst && list.length > 0) {
           setSelected({ year: list[0].year, week: list[0].week });
           setYearInput(String(list[0].year));
           setWeekInput(String(list[0].week));
@@ -50,7 +54,6 @@ export default function WeeklyPicksPage() {
       })
       .catch((e) => toast.error(e?.response?.data?.message || '加载周列表失败'))
       .finally(() => setWeeksLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchPicks = useCallback((year: number, week: number) => {
@@ -62,7 +65,7 @@ export default function WeeklyPicksPage() {
       .finally(() => setPicksLoading(false));
   }, []);
 
-  useEffect(() => { fetchWeeks(); }, [fetchWeeks]);
+  useEffect(() => { fetchWeeks(true); }, [fetchWeeks]);
   useEffect(() => {
     if (selected) fetchPicks(selected.year, selected.week);
   }, [selected, fetchPicks]);
@@ -116,7 +119,6 @@ export default function WeeklyPicksPage() {
       .then(() => {
         fetchPicks(selected.year, selected.week);
         fetchWeeks();
-        setShowAdd(false);
         toast.success('已添加');
       })
       .catch((e) => toast.error(e?.response?.data?.message || '添加失败'));
@@ -130,6 +132,21 @@ export default function WeeklyPicksPage() {
       [next[index], next[target]] = [next[target], next[index]];
       return next.map((p, i) => ({ ...p, sort_order: i }));
     });
+  };
+
+  const deleteWeek = () => {
+    if (!selected || deleting) return;
+    if (!confirm(`删除 ${selected.year} W${selected.week} 整期推荐？壁纸本身不会被删除，且可以再次被选入其他期。`)) return;
+    setDeleting(true);
+    admin.adminDeleteWeeklyPickWeek(selected.year, selected.week)
+      .then(() => {
+        toast.success('这一期已删除');
+        setSelected(null);
+        setPicks([]);
+        fetchWeeks(true);
+      })
+      .catch((e) => toast.error(e?.response?.data?.message || '删除失败'))
+      .finally(() => setDeleting(false));
   };
 
   const saveSlate = () => {
@@ -238,6 +255,13 @@ export default function WeeklyPicksPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={deleteWeek}
+                      disabled={deleting || picks.length === 0}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border border-rose-200 dark:border-rose-500/40 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 disabled:opacity-50"
+                    >
+                      {deleting ? '删除中…' : '删除整期'}
+                    </button>
                     <button
                       onClick={() => setShowAdd(true)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
