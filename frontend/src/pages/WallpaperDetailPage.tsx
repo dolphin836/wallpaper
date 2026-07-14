@@ -200,28 +200,17 @@ export default function WallpaperDetailPage() {
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
   const [showReport, setShowReport] = useState(false);
-  // Mirrors the Mac client: the hero upgrades to the ORIGINAL file and
-  // download stays disabled until it has decoded — from that moment the
-  // bytes sit in the browser's HTTP cache, so the download fetch reuses
-  // them and completes near-instantly (hence no progress bar). Videos
-  // and dynamic wallpapers never display their original here and stay
-  // ungated.
-  const [originalReady, setOriginalReady] = useState(false);
-  useEffect(() => {
-    setOriginalReady(false);
-    if (!wallpaper) return;
-    const isMedia = (wallpaper.file_type || '').startsWith('video/') || wallpaper.is_dynamic;
-    const original = wallpaper.original_url;
-    if (isMedia || !original) return;
-    let alive = true;
-    const img = new Image();
-    img.onload = () => { if (alive) setOriginalReady(true); };
-    img.src = original;
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallpaper?.id, wallpaper?.original_url]);
+  // The actual original image stays mounted above the list preview while
+  // it loads. Once decoded, opacity cross-fades it in without ever removing
+  // the preview underneath, avoiding the one-frame blank flash caused by
+  // swapping a single <img>'s src. The same load also warms the HTTP cache
+  // for downloads. Videos and dynamic wallpapers stay ungated.
+  const [readyOriginalURL, setReadyOriginalURL] = useState('');
+  const [failedOriginalURL, setFailedOriginalURL] = useState('');
+  const originalReady = !!wallpaper?.original_url && readyOriginalURL === wallpaper.original_url;
+  const originalFailed = !!wallpaper?.original_url && failedOriginalURL === wallpaper.original_url;
   const downloadReady = wallpaper
-    ? (wallpaper.file_type || '').startsWith('video/') || wallpaper.is_dynamic || !wallpaper.original_url || originalReady
+    ? (wallpaper.file_type || '').startsWith('video/') || wallpaper.is_dynamic || !wallpaper.original_url || originalReady || originalFailed
     : false;
 
   // Toolbar overlays. Drawer holds the grouped device list (opened
@@ -520,7 +509,13 @@ export default function WallpaperDetailPage() {
   };
 
   const uploaderInitial = (wallpaper.uploader?.nickname || wallpaper.uploader?.username || '').charAt(0).toUpperCase();
-  const heroImg = wallpaper.preview_url || wallpaper.original_url;
+  const heroImg = wallpaper.preview_url || wallpaper.thumb_url || wallpaper.original_url;
+  const originalHeroImg = !(wallpaper.file_type || '').startsWith('video/')
+    && !wallpaper.is_dynamic
+    && wallpaper.original_url
+    && wallpaper.original_url !== heroImg
+      ? wallpaper.original_url
+      : '';
   const fileSize = wallpaper.file_size > 0 ? formatFileSize(wallpaper.file_size) : '—';
   const downloadCost = isOwner ? 0 : 1;
   const userBalance = user?.coins ?? 0;
@@ -844,18 +839,45 @@ export default function WallpaperDetailPage() {
                   </div>
                 </div>
               ) : heroImg ? (
-                <img
-                  src={originalReady && wallpaper.original_url ? wallpaper.original_url : heroImg}
-                  alt=""
-                  loading="eager"
-                  decoding="async"
-                  fetchPriority="high"
-                  onContextMenu={(e) => e.preventDefault()}
-                  draggable={false}
-                  onClick={() => setFullscreen(true)}
-                  className="wd-s1-img"
-                  style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
-                />
+                <>
+                  <img
+                    src={heroImg}
+                    alt=""
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
+                    onLoad={() => {
+                      if (heroImg === wallpaper.original_url) setReadyOriginalURL(heroImg);
+                    }}
+                    onError={() => {
+                      if (heroImg === wallpaper.original_url) setFailedOriginalURL(heroImg);
+                    }}
+                    onContextMenu={(e) => e.preventDefault()}
+                    draggable={false}
+                    onClick={() => setFullscreen(true)}
+                    className={`wd-s1-img wd-s1-img-preview ${originalReady ? 'is-upgraded' : ''}`}
+                    style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
+                  />
+                  {originalHeroImg && (
+                    <img
+                      src={originalHeroImg}
+                      alt=""
+                      aria-hidden
+                      loading="eager"
+                      decoding="async"
+                      fetchPriority="high"
+                      onLoad={() => setReadyOriginalURL(originalHeroImg)}
+                      onError={() => setFailedOriginalURL(originalHeroImg)}
+                      onContextMenu={(e) => e.preventDefault()}
+                      draggable={false}
+                      className={`wd-s1-img wd-s1-img-original ${originalReady ? 'is-ready' : ''}`}
+                      style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
+                    />
+                  )}
+                  {originalHeroImg && !originalReady && !originalFailed && (
+                    <span className="wd-s1-loading-glow" aria-hidden />
+                  )}
+                </>
               ) : null}
             </div>
             <div className="wd-s1-vignette" aria-hidden />
@@ -1209,8 +1231,28 @@ function SpotlightStyles() {
 .wd-s1 { position: relative; height: calc(100dvh - 60px); min-height: 560px; overflow: hidden; }
 /* Inside the route modal the panel has its own definite height. */
 .wd-in-modal .wd-s1 { height: 100%; min-height: 0; }
-.wd-s1-media { position: absolute; inset: 0; }
-.wd-s1-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; }
+.wd-s1-media { position: absolute; inset: 0; overflow: hidden; isolation: isolate; }
+.wd-s1-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; cursor: zoom-in;
+  transition: opacity 520ms var(--ease-out-quart), filter 720ms var(--ease-out-quart), transform 900ms var(--ease-out-quart);
+  will-change: opacity, filter, transform; }
+.wd-s1-img-preview { z-index: 0; filter: saturate(.96) blur(1.5px); transform: scale(1.012); }
+.wd-s1-img-preview.is-upgraded { filter: none; transform: scale(1); }
+.wd-s1-img-original { z-index: 1; opacity: 0; pointer-events: none; transform: scale(1.006); }
+.wd-s1-img-original.is-ready { opacity: 1; transform: scale(1); }
+.wd-s1-loading-glow { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none;
+  background: radial-gradient(circle at 50% 44%, rgba(255,255,255,.08), transparent 58%);
+  animation: wdHeroGlowPulse 1.8s ease-in-out infinite alternate; }
+.wd-s1-loading-glow::after { content: ''; position: absolute; top: -24%; bottom: -24%; left: -54%; width: 38%;
+  background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,.08) 24%, rgba(255,255,255,.48) 50%, rgba(255,255,255,.08) 76%, transparent 100%);
+  filter: blur(22px); transform: translateX(-120%) rotate(10deg); mix-blend-mode: screen;
+  animation: wdHeroGlowSweep 1.65s ease-in-out infinite; }
+@keyframes wdHeroGlowPulse { from { opacity: .48; } to { opacity: .9; } }
+@keyframes wdHeroGlowSweep { from { transform: translateX(-120%) rotate(10deg); } to { transform: translateX(520%) rotate(10deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .wd-s1-img { transition-duration: 0ms; }
+  .wd-s1-loading-glow, .wd-s1-loading-glow::after { animation: none; }
+  .wd-s1-loading-glow { opacity: .55; }
+}
 .wd-s1-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 72px 24px 140px; }
 .wd-s1-center .wd-hero-canvas { max-height: 66dvh; max-width: min(1080px, 92vw); }
 /* Mac heroVignette: top 0.36 → clear → bottom 0.68 + extra lower band. */

@@ -355,8 +355,7 @@ export default function DiscoverPage() {
   const categoryFilter: number | null = currentCategory ? currentCategory.id : null;
   const cursorRef = useRef(cursor);
   const hasMoreRef = useRef(hasMore);
-  cursorRef.current = cursor;
-  hasMoreRef.current = hasMore;
+  const wallpaperIdsRef = useRef<Set<number>>(new Set());
   const [sizeMode, setSizeMode] = useState<SizeMode>(() => {
     // SM was retired from the UI; saved 'sm' from older sessions
     // silently bumps to 'md'. New default is 'lg'.
@@ -366,7 +365,6 @@ export default function DiscoverPage() {
     return 'lg';
   });
   const sizeModeRef = useRef(sizeMode);
-  sizeModeRef.current = sizeMode;
 
   const screen = useMemo(() => getScreenResolution(), []);
 
@@ -377,6 +375,7 @@ export default function DiscoverPage() {
   const { device: currentDevice } = useCurrentDevice();
 
   const handleSizeChange = (size: SizeMode) => {
+    sizeModeRef.current = size;
     setSizeMode(size);
     localStorage.setItem('wallpaper_size_mode', size);
   };
@@ -403,8 +402,11 @@ export default function DiscoverPage() {
         }
         setStaggerFrom(0);
         setWallpapers(items);
+        wallpaperIdsRef.current = new Set(items.map((w) => w.id));
         setCursor(undefined);
+        cursorRef.current = undefined;
         setHasMore(false);
+        hasMoreRef.current = false;
         setLoadError(false);
         return;
       }
@@ -439,28 +441,27 @@ export default function DiscoverPage() {
       }
       const res = await getWallpapers(params);
       const { items, next_cursor, has_more } = res.data.data;
-      // Defensive dedupe: a thin category (e.g. Games with ~20 items)
-      // surfaced a server bug where pagination kept reporting
-      // has_more=true while returning the same page, producing visible
-      // duplicates in the feed. Drop any IDs we already have on append,
-      // and treat "no fresh items + same cursor" as the real end of
-      // the list regardless of what has_more says.
-      let appendedFresh = 0;
+      // Compute dedupe synchronously instead of mutating a local variable
+      // inside React's state updater. More importantly, publish the new
+      // cursor refs before busyRef is unlocked in finally: the observer can
+      // fire between the response and React's next render, and must never
+      // request the just-finished cursor again.
+      const seen = reset ? new Set<number>() : wallpaperIdsRef.current;
+      const freshItems = reset ? items : items.filter((w) => !seen.has(w.id));
+      wallpaperIdsRef.current = reset
+        ? new Set(items.map((w) => w.id))
+        : new Set([...seen, ...freshItems.map((w) => w.id)]);
       setWallpapers((prev) => {
         const base = reset ? [] : prev;
         setStaggerFrom(base.length);
-        if (reset) {
-          appendedFresh = items.length;
-          return items;
-        }
-        const seen = new Set(base.map((w) => w.id));
-        const fresh = items.filter((w) => !seen.has(w.id));
-        appendedFresh = fresh.length;
-        return [...base, ...fresh];
+        return reset ? items : [...base, ...freshItems];
       });
       const cursorStalled = !reset && next_cursor === cursorRef.current;
-      setCursor(next_cursor);
-      setHasMore(has_more && !cursorStalled && (reset || appendedFresh > 0));
+      const canLoadMore = has_more && !cursorStalled && (reset || freshItems.length > 0);
+      cursorRef.current = next_cursor || undefined;
+      hasMoreRef.current = canLoadMore;
+      setCursor(next_cursor || undefined);
+      setHasMore(canLoadMore);
       setLoadError(false);
     } catch {
       // Reset-time failures still surface a toast (they're catastrophic — no
@@ -477,7 +478,9 @@ export default function DiscoverPage() {
 
   // Holds latest fetchWallpapers so the (stable) sentinel ref-callback always calls the latest closure.
   const fetchWallpapersRef = useRef(fetchWallpapers);
-  fetchWallpapersRef.current = fetchWallpapers;
+  useEffect(() => {
+    fetchWallpapersRef.current = fetchWallpapers;
+  }, [fetchWallpapers]);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
