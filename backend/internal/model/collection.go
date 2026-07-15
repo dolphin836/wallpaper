@@ -34,7 +34,8 @@ type Collection struct {
 	// carries enough data for the frontend to do the same dominant-color +
 	// thumb-then-preview progressive load the main wallpaper grid does.
 	// gorm:"-" keeps it out of every read query that doesn't ask for it.
-	RecentTiles []CollectionTile `gorm:"-" json:"recent_tiles,omitempty"`
+	RecentTiles    []CollectionTile `gorm:"-" json:"recent_tiles,omitempty"`
+	AuthorUsername string           `gorm:"-" json:"author_username,omitempty"`
 }
 
 // CollectionTile is one slot in a collection card's preview composition.

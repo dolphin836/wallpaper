@@ -37,6 +37,34 @@ func (r *UserRepo) GetByID(ctx context.Context, id int64) (*model.User, error) {
 	return &user, nil
 }
 
+// UsernamesByIDs resolves collection owners in one query for public list
+// cards. It deliberately returns only the public username rather than full
+// user records, keeping the collection response small and avoiding N+1
+// lookups in the handler.
+func (r *UserRepo) UsernamesByIDs(ctx context.Context, ids []int64) (map[int64]string, error) {
+	usernames := make(map[int64]string, len(ids))
+	if len(ids) == 0 {
+		return usernames, nil
+	}
+
+	type row struct {
+		ID       int64  `gorm:"column:id"`
+		Username string `gorm:"column:username"`
+	}
+	var rows []row
+	if err := r.db.WithContext(ctx).
+		Model(&model.User{}).
+		Select("id, username").
+		Where("id IN ?", ids).
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, item := range rows {
+		usernames[item.ID] = item.Username
+	}
+	return usernames, nil
+}
+
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*model.User, error) {
 	var user model.User
 	err := r.db.WithContext(ctx).

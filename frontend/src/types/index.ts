@@ -152,6 +152,7 @@ export interface Collection {
   like_count: number;
   is_liked?: boolean;
   recent_tiles?: CollectionTile[];
+  author_username?: string;
   kind?: number;
   year?: number;
   week?: number;

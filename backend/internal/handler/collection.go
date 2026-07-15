@@ -127,6 +127,30 @@ func (h *CollectionHandler) List(w http.ResponseWriter, r *http.Request) {
 				resp.Items[i].RecentTiles = tiles[resp.Items[i].ID]
 			}
 		}
+
+		// User-made collections show their curator on the public card. Resolve
+		// all owners in one batch; weekly/editor collections intentionally omit
+		// the author in the UI and are labelled as weekly recommendations.
+		ownerSet := make(map[int64]struct{}, len(resp.Items))
+		ownerIDs := make([]int64, 0, len(resp.Items))
+		for _, item := range resp.Items {
+			if item.Kind != 0 {
+				continue
+			}
+			if _, exists := ownerSet[item.UserID]; exists {
+				continue
+			}
+			ownerSet[item.UserID] = struct{}{}
+			ownerIDs = append(ownerIDs, item.UserID)
+		}
+		usernames, err := h.userRepo.UsernamesByIDs(r.Context(), ownerIDs)
+		if err != nil {
+			slog.WarnContext(r.Context(), "collection author lookup failed", "error", err)
+		} else {
+			for i := range resp.Items {
+				resp.Items[i].AuthorUsername = usernames[resp.Items[i].UserID]
+			}
+		}
 	}
 	localizeCollections(requestLang(r), resp.Items)
 	response.OK(w, resp)
