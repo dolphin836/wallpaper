@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { AiOutlinePlus } from 'react-icons/ai';
 import { Link } from 'react-router-dom';
-import type { Collection } from '../types';
+import type { Collection, CollectionTile } from '../types';
 import { getCollections, createCollection } from '../api';
 import { useAuthStore } from '../store/auth';
 import PageMeta from '../components/PageMeta';
@@ -146,17 +146,7 @@ export default function CollectionsPage() {
         </header>
 
         {loading && visible.length === 0 ? (
-          // Skeletons mirror the redesigned geometry: full-width 21:9
-          // banner + golden-ratio mosaic cards, so the page doesn't
-          // shift when the data lands.
-          <>
-            <div className="wx-card skeleton-card" style={{ aspectRatio: '21/9' }} />
-            <div className="c2-grid mt-7">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="wx-card skeleton-card" style={{ aspectRatio: '1.618' }} />
-              ))}
-            </div>
-          </>
+          <CollectionsSkeleton current={current} />
         ) : error && visible.length === 0 ? (
           <ErrorState />
         ) : visible.length === 0 ? (
@@ -220,15 +210,227 @@ function collectionTints(c: Collection): string[] {
   return tints;
 }
 
-function coverSrc(c: Collection): string {
-  const firstTile = c.recent_tiles?.[0];
-  return firstTile?.preview_url || c.cover_url || firstTile?.thumb_url || '';
+function collectionCoverTiles(c: Collection): [
+  CollectionTile | undefined,
+  CollectionTile | undefined,
+  CollectionTile | undefined,
+] {
+  const tiles = c.recent_tiles ?? [];
+  let first = tiles[0];
+
+  // Older or empty collections may only expose cover_url. Treat it as
+  // a one-stage tile so the card still follows the same rendering path.
+  if (!first && c.cover_url) {
+    first = {
+      thumb_url: c.cover_url,
+      preview_url: c.cover_url,
+      dominant_color: c.accent_color || '',
+    };
+  }
+
+  // A collection cover always has three visual slots. When the API has
+  // only one or two wallpapers, repeat the first one instead of leaving
+  // a blank cell; this matches the product's cover composition contract.
+  return [first, tiles[1] ?? first, tiles[2] ?? first];
 }
 
 function countLabel(c: Collection, t: (k: string, o?: Record<string, unknown>) => string): string {
   return c.wallpaper_count === 1
     ? t('tile.wallpaperCountOne')
     : t('tile.wallpaperCount', { num: c.wallpaper_count });
+}
+
+/* The loading view uses the exact same banner/card count and internal
+   mosaic geometry as the resolved first page. This keeps both the page
+   height and the visual rhythm stable while the API request is in flight. */
+function CollectionsSkeleton({ current }: { current: number }) {
+  const hasHero = current === 1;
+  const cardCount = hasHero ? PAGE_SIZE - 1 : PAGE_SIZE;
+
+  return (
+    <>
+      {hasHero && (
+        <div className="c2-skeleton-card skeleton-card" style={{ aspectRatio: '21/9' }} aria-hidden>
+          <div className="c2-skeleton-cover" />
+          <div className="wx-card-scrim" />
+          <div className="c2-title-block c2-skeleton-title-block c2-skeleton-title-block-hero">
+            <span className="c2-skeleton-kicker" />
+            <span className="c2-skeleton-title" />
+            <span className="c2-skeleton-meta" />
+          </div>
+        </div>
+      )}
+      <div className="c2-grid mt-7">
+        {Array.from({ length: cardCount }).map((_, i) => (
+          <div
+            key={i}
+            className="c2-skeleton-card skeleton-card"
+            style={{ aspectRatio: '1.618' }}
+            aria-hidden
+          >
+            <div className="c2-mosaic c2-skeleton-mosaic">
+              <div className="c2-main" />
+              <div />
+              <div />
+            </div>
+            <div className="wx-card-scrim" />
+            <div className="c2-title-block c2-skeleton-title-block">
+              <span className="c2-skeleton-kicker" />
+              <div className="c2-skeleton-caption-row">
+                <span className="c2-skeleton-title" />
+                <span className="c2-skeleton-meta" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+type ImageLoadState = 'idle' | 'loaded' | 'failed';
+
+/* One collection-cover slot, loaded in a strict sequence:
+   dominant color (immediate from API) -> thumb -> preview. The preview
+   element is not mounted until the thumb has settled, so the browser
+   cannot start the larger request early. The loading beam remains over
+   the slot until the final available stage succeeds or fails. */
+function ProgressiveCollectionImage({
+  tile,
+  fallbackColor,
+  alt = '',
+  eager = false,
+  allowPreview = true,
+  onThumbSettled,
+}: {
+  tile?: CollectionTile;
+  fallbackColor?: string;
+  alt?: string;
+  eager?: boolean;
+  allowPreview?: boolean;
+  onThumbSettled?: () => void;
+}) {
+  const thumbSrc = tile?.thumb_url || tile?.preview_url || '';
+  const previewSrc = tile?.preview_url || thumbSrc;
+  const hasPreviewStage = Boolean(thumbSrc && previewSrc && previewSrc !== thumbSrc);
+  const [thumbState, setThumbState] = useState<ImageLoadState>('idle');
+  const [previewState, setPreviewState] = useState<ImageLoadState>('idle');
+  const thumbSettled = thumbState !== 'idle';
+  const shouldLoadPreview = hasPreviewStage && thumbSettled && allowPreview;
+  const finalSettled = !thumbSrc || (hasPreviewStage ? previewState !== 'idle' : thumbSettled);
+
+  const settleThumb = useCallback((state: Exclude<ImageLoadState, 'idle'>) => {
+    setThumbState(state);
+    onThumbSettled?.();
+  }, [onThumbSettled]);
+
+  const syncThumbRef = useCallback((node: HTMLImageElement | null) => {
+    if (!node?.complete) return;
+    settleThumb(node.naturalWidth > 0 ? 'loaded' : 'failed');
+  }, [settleThumb]);
+
+  const syncPreviewRef = useCallback((node: HTMLImageElement | null) => {
+    if (!node?.complete) return;
+    setPreviewState(node.naturalWidth > 0 ? 'loaded' : 'failed');
+  }, []);
+
+  return (
+    <div
+      className="c2-progressive-image"
+      style={{ backgroundColor: tile?.dominant_color || fallbackColor || 'var(--color-paper-2)' }}
+    >
+      {thumbSrc && (
+        <img
+          ref={syncThumbRef}
+          src={thumbSrc}
+          alt={alt}
+          loading={eager ? 'eager' : 'lazy'}
+          decoding="async"
+          fetchPriority={eager ? 'high' : 'auto'}
+          onLoad={() => settleThumb('loaded')}
+          onError={() => settleThumb('failed')}
+          className={`c2-progressive-img c2-progressive-thumb${thumbState === 'loaded' ? ' is-loaded' : ''}${hasPreviewStage && previewState !== 'failed' ? ' is-soft' : ''}`}
+        />
+      )}
+      {shouldLoadPreview && (
+        <img
+          ref={syncPreviewRef}
+          src={previewSrc}
+          alt=""
+          aria-hidden
+          loading={eager ? 'eager' : 'lazy'}
+          decoding="async"
+          fetchPriority={eager ? 'high' : 'auto'}
+          onLoad={() => setPreviewState('loaded')}
+          onError={() => setPreviewState('failed')}
+          className={`c2-progressive-img c2-progressive-preview${previewState === 'loaded' ? ' is-loaded' : ''}`}
+        />
+      )}
+      {!finalSettled && <span className="card-loading-beam" aria-hidden />}
+    </div>
+  );
+}
+
+/* All three small images in a mosaic get a chance to settle before any
+   large preview is mounted. This protects the small-first network order
+   at the whole-card level, rather than only within each individual slot. */
+function ProgressiveCollectionMosaic({
+  tiles,
+  fallbackColor,
+  title,
+}: {
+  tiles: [CollectionTile | undefined, CollectionTile | undefined, CollectionTile | undefined];
+  fallbackColor: string;
+  title: string;
+}) {
+  const [settledSlots, setSettledSlots] = useState<Set<number>>(() => new Set());
+  const requiredThumbs = tiles.reduce((count, tile) => (
+    tile?.thumb_url || tile?.preview_url ? count + 1 : count
+  ), 0);
+  const allowPreview = settledSlots.size >= requiredThumbs;
+
+  const markThumbSettled = useCallback((index: number) => {
+    setSettledSlots((current) => {
+      if (current.has(index)) return current;
+      const next = new Set(current);
+      next.add(index);
+      return next;
+    });
+  }, []);
+  const markMainSettled = useCallback(() => markThumbSettled(0), [markThumbSettled]);
+  const markSub1Settled = useCallback(() => markThumbSettled(1), [markThumbSettled]);
+  const markSub2Settled = useCallback(() => markThumbSettled(2), [markThumbSettled]);
+
+  const [main, sub1, sub2] = tiles;
+  return (
+    <div className="c2-mosaic">
+      <div className="c2-main">
+        <ProgressiveCollectionImage
+          tile={main}
+          fallbackColor={fallbackColor}
+          alt={title}
+          allowPreview={allowPreview}
+          onThumbSettled={markMainSettled}
+        />
+      </div>
+      <div>
+        <ProgressiveCollectionImage
+          tile={sub1}
+          fallbackColor={fallbackColor}
+          allowPreview={allowPreview}
+          onThumbSettled={markSub1Settled}
+        />
+      </div>
+      <div>
+        <ProgressiveCollectionImage
+          tile={sub2}
+          fallbackColor={fallbackColor}
+          allowPreview={allowPreview}
+          onThumbSettled={markSub2Settled}
+        />
+      </div>
+    </div>
+  );
 }
 
 /* Full-width 21:9 editorial banner for the leading collection. */
@@ -240,15 +442,22 @@ function CollectionHeroBanner({
   onTintsChange?: (tints: string[] | null) => void;
 }) {
   const { t } = useTranslation('collections');
+  const cover = collectionCoverTiles(c)[0];
   return (
     <Link
       to={`/collections/${c.slug}`}
       className="wx-card block w2-cover no-underline"
-      style={{ aspectRatio: '21/9', backgroundColor: c.recent_tiles?.[0]?.dominant_color || undefined }}
+      style={{ aspectRatio: '21/9', backgroundColor: cover?.dominant_color || c.accent_color || undefined }}
       onMouseEnter={() => { const tints = collectionTints(c); if (tints.length) onTintsChange?.(tints); }}
       onMouseLeave={() => onTintsChange?.(null)}
     >
-      {coverSrc(c) && <img src={coverSrc(c)} alt={c.title} loading="eager" decoding="async" fetchPriority="high" />}
+      <ProgressiveCollectionImage
+        key={`${cover?.thumb_url || ''}|${cover?.preview_url || ''}`}
+        tile={cover}
+        fallbackColor={c.accent_color}
+        alt={c.title}
+        eager
+      />
       <div className="wx-card-scrim" />
       {!c.is_public && <span className="c2-lock">{t('tile.private')}</span>}
       <div className="c2-title-block" style={{ left: 24, bottom: 20 }}>
@@ -274,15 +483,11 @@ function CollectionShowcaseCard({
   onTintsChange?: (tints: string[] | null) => void;
 }) {
   const { t } = useTranslation('collections');
-  const tiles = c.recent_tiles ?? [];
-  const fallback = tiles[0]?.dominant_color || c.accent_color || '#999';
-  const cell = (idx: number) => {
-    const tile = tiles[idx];
-    const src = tile?.thumb_url || tile?.preview_url || '';
-    return src
-      ? <img src={src} alt="" loading="lazy" decoding="async" />
-      : <div style={{ position: 'absolute', inset: 0, background: tile?.dominant_color || fallback, opacity: 0.45 }} />;
-  };
+  const [main, sub1, sub2] = collectionCoverTiles(c);
+  const fallback = main?.dominant_color || c.accent_color || 'var(--color-paper-2)';
+  const mosaicKey = [main, sub1, sub2]
+    .map((tile) => `${tile?.thumb_url || ''}|${tile?.preview_url || ''}`)
+    .join('||');
   return (
     <Link
       to={`/collections/${c.slug}`}
@@ -291,15 +496,12 @@ function CollectionShowcaseCard({
       onMouseEnter={() => { const tints = collectionTints(c); if (tints.length) onTintsChange?.(tints); }}
       onMouseLeave={() => onTintsChange?.(null)}
     >
-      <div className="c2-mosaic">
-        <div className="c2-main">
-          {coverSrc(c)
-            ? <img src={coverSrc(c)} alt={c.title} loading="lazy" decoding="async" />
-            : <div style={{ position: 'absolute', inset: 0, background: fallback, opacity: 0.45 }} />}
-        </div>
-        <div>{cell(1)}</div>
-        <div>{cell(2)}</div>
-      </div>
+      <ProgressiveCollectionMosaic
+        key={mosaicKey}
+        tiles={[main, sub1, sub2]}
+        fallbackColor={fallback}
+        title={c.title}
+      />
       <div className="wx-card-scrim" />
       {!c.is_public && <span className="c2-lock">{t('tile.private')}</span>}
       <div className="c2-title-block">

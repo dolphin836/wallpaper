@@ -339,14 +339,38 @@
 .c2-mosaic .c2-main { grid-row: 1 / span 2; }
 .c2-mosaic > div { position: relative; overflow: hidden; }
 .c2-mosaic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.c2-progressive-image {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+.c2-progressive-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 320ms ease, filter 420ms ease, transform 420ms ease;
+}
+.c2-progressive-img.is-loaded { opacity: 1; }
+.c2-progressive-thumb.is-soft {
+  filter: blur(10px);
+  transform: scale(1.045);
+}
+.c2-progressive-preview { z-index: 1; }
+.c2-progressive-image .card-loading-beam { z-index: 2; }
 .c2-title-block {
   position: absolute;
   left: 16px;
   right: 16px;
   bottom: 13px;
+  z-index: 2;
   color: #fff;
   text-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
 }
+.c-list .wx-card-scrim { z-index: 1; }
 .c2-lock {
   position: absolute;
   top: 10px;
@@ -363,6 +387,67 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  z-index: 3;
+}
+
+/* API-loading placeholders duplicate the resolved collection layout:
+   one 21:9 hero on page one, then the same three-cell golden-ratio
+   cards. The outer shimmer is intentionally one continuous sweep so
+   the internal mosaic reads as a single loading cover. */
+.c2-skeleton-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--color-paper-3);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.12), 0 7px 14px rgba(0, 0, 0, 0.12);
+}
+.c2-skeleton-card::after {
+  z-index: 5;
+  border: 0;
+  mask: none;
+}
+.c2-skeleton-cover {
+  position: absolute;
+  inset: 0;
+  background: var(--color-paper-3);
+}
+.c2-skeleton-mosaic > div {
+  background: var(--color-paper-3);
+}
+.c2-skeleton-title-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  text-shadow: none;
+}
+.c2-skeleton-title-block-hero {
+  left: 24px;
+  bottom: 20px;
+}
+.c2-skeleton-caption-row {
+  display: flex;
+  align-items: center;
+  width: min(72%, 280px);
+  gap: 10px;
+}
+.c2-skeleton-kicker,
+.c2-skeleton-title,
+.c2-skeleton-meta {
+  display: block;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.34);
+}
+.c2-skeleton-kicker { width: 72px; height: 7px; }
+.c2-skeleton-title { width: min(58%, 240px); height: 16px; }
+.c2-skeleton-meta { width: 64px; height: 8px; }
+.c2-skeleton-caption-row .c2-skeleton-title {
+  width: min(72%, 190px);
+  flex: 1;
+}
+.c2-skeleton-caption-row .c2-skeleton-meta {
+  width: 54px;
+  flex: 0 0 54px;
 }
 
 /* Editorial type helpers used across the new Discover surface */
