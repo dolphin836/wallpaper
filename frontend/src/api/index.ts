@@ -212,7 +212,7 @@ export const getWallpaperVariants = (wallpaperId: number) =>
 export const getWallpaperEngagements = (wallpaperId: number) =>
   client.get<ApiResponse<Engagements>>(`/wallpapers/${wallpaperId}/engagements`);
 
-export const getCollections = (params: { cursor?: number; limit?: number; kind?: number }) =>
+export const getCollections = (params: { cursor?: number; limit?: number }) =>
   client.get<ApiResponse<PaginatedData<Collection>>>('/collections', { params });
 
 export const getCollection = (slug: string) =>

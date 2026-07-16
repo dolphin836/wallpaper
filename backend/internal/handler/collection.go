@@ -92,20 +92,7 @@ func (h *CollectionHandler) List(w http.ResponseWriter, r *http.Request) {
 		limit = v
 	}
 
-	// kind: omit query param → -1 (all). Pass kind=1 to limit to editor
-	// themes, kind=0 to limit to user-made.
-	kind := -1
-	if raw := q.Get("kind"); raw != "" {
-		v, err := strconv.Atoi(raw)
-		if err != nil {
-			response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
-			return
-		}
-		kind = v
-	}
-
-	userID := middleware.GetUserID(r.Context())
-	resp, ec := h.collectionSvc.List(r.Context(), cursor, limit, userID, kind)
+	resp, ec := h.collectionSvc.List(r.Context(), cursor, limit)
 	if ec != nil {
 		response.Error(w, http.StatusInternalServerError, ec)
 		return
@@ -125,30 +112,6 @@ func (h *CollectionHandler) List(w http.ResponseWriter, r *http.Request) {
 		} else {
 			for i := range resp.Items {
 				resp.Items[i].RecentTiles = tiles[resp.Items[i].ID]
-			}
-		}
-
-		// User-made collections show their curator on the public card. Resolve
-		// all owners in one batch; weekly/editor collections intentionally omit
-		// the author in the UI and are labelled as weekly recommendations.
-		ownerSet := make(map[int64]struct{}, len(resp.Items))
-		ownerIDs := make([]int64, 0, len(resp.Items))
-		for _, item := range resp.Items {
-			if item.Kind != 0 {
-				continue
-			}
-			if _, exists := ownerSet[item.UserID]; exists {
-				continue
-			}
-			ownerSet[item.UserID] = struct{}{}
-			ownerIDs = append(ownerIDs, item.UserID)
-		}
-		usernames, err := h.userRepo.UsernamesByIDs(r.Context(), ownerIDs)
-		if err != nil {
-			slog.WarnContext(r.Context(), "collection author lookup failed", "error", err)
-		} else {
-			for i := range resp.Items {
-				resp.Items[i].AuthorUsername = usernames[resp.Items[i].UserID]
 			}
 		}
 	}

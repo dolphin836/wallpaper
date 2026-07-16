@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { AiOutlinePlus } from 'react-icons/ai';
@@ -12,19 +11,11 @@ import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import Pagination from '../components/Pagination';
 
-type Filter = 'all' | 'yours';
-
 const PAGE_SIZE = 12;
 
 export default function CollectionsPage() {
   const { t } = useTranslation('collections');
-  const { isAuthenticated, user } = useAuthStore();
-  const [searchParams] = useSearchParams();
-  // ?kind=1 limits to editor themes. Anything non-numeric falls through
-  // as "no filter" so junk values don't 400 the API.
-  const kindParam = searchParams.get('kind');
-  const kind = kindParam !== null && /^\d+$/.test(kindParam) ? Number(kindParam) : undefined;
-  const isThemes = kind === 1;
+  const { isAuthenticated } = useAuthStore();
 
   const [pages, setPages] = useState<Record<number, Collection[]>>({});
   const [cursors, setCursors] = useState<Record<number, number | undefined>>({ 1: undefined });
@@ -36,15 +27,7 @@ export default function CollectionsPage() {
   const [current, setCurrent] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [filter, setFilter] = useState<Filter>('all');
   const [showCreate, setShowCreate] = useState(false);
-
-  useEffect(() => {
-    setPages({});
-    setCursors({ 1: undefined });
-    setServerTotal(null);
-    setCurrent(1);
-  }, [filter, kind]);
 
   const fetchPage = useCallback(async (page: number) => {
     if (pages[page]) return;
@@ -52,14 +35,11 @@ export default function CollectionsPage() {
     if (page > 1 && cursor === undefined) return;
     setLoading(true);
     try {
-      const res = await getCollections({ cursor, limit: PAGE_SIZE, kind });
-      let items = res.data.data.items || [];
+      const res = await getCollections({ cursor, limit: PAGE_SIZE });
+      const items = res.data.data.items || [];
       const nextCursor = res.data.data.next_cursor;
       const hasMore = res.data.data.has_more;
       const total = res.data.data.total;
-      if (filter === 'yours' && user) {
-        items = items.filter((c) => c.user_id === user.id);
-      }
       setPages((prev) => ({ ...prev, [page]: items }));
       if (hasMore && nextCursor) {
         setCursors((prev) => ({ ...prev, [page + 1]: nextCursor }));
@@ -73,7 +53,7 @@ export default function CollectionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [pages, cursors, filter, user, kind]);
+  }, [pages, cursors]);
 
   useEffect(() => { fetchPage(current); }, [current, fetchPage]);
 
@@ -109,31 +89,25 @@ export default function CollectionsPage() {
     <div ref={rootRef} className="c-list min-h-full">
       <div className="c-list-mesh" aria-hidden />
       <PageMeta
-        title={isThemes ? t('meta.titleThemes') : t('meta.title')}
-        description={isThemes ? t('meta.descriptionThemes') : t('meta.description')}
+        title={t('meta.titleThemes')}
+        description={t('meta.descriptionThemes')}
       />
 
       <main className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-10">
         <header className="c-list-head">
           <div>
             <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
-              {isThemes ? t('list.kickerThemes') : t('list.kicker')}
+              {t('list.kickerThemes')}
             </div>
             <h1 className="display text-[clamp(34px,4.2vw,56px)] leading-[1.02] mt-2 tracking-[-0.01em] text-ink">
-              {isThemes
-                ? <Trans i18nKey="list.headingThemes" ns="collections" components={[<em key="0" />]} />
-                : <Trans i18nKey="list.heading" ns="collections" components={[<em key="0" />]} />}
+              <Trans i18nKey="list.headingThemes" ns="collections" components={[<em key="0" />]} />
             </h1>
             <p className="text-ink-2 mt-3 max-w-2xl text-[14px] leading-relaxed">
-              {isThemes ? t('list.introThemes') : t('list.intro')}
+              {t('list.introThemes')}
             </p>
           </div>
 
           <div className="c-list-toolbar">
-            <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>{t('list.filterAll')}</FilterChip>
-            {isAuthenticated && (
-              <FilterChip active={filter === 'yours'} onClick={() => setFilter('yours')}>{t('list.filterYours')}</FilterChip>
-            )}
             {isAuthenticated && (
               <button
                 onClick={() => setShowCreate(true)}
@@ -151,8 +125,8 @@ export default function CollectionsPage() {
           <ErrorState />
         ) : visible.length === 0 ? (
           <EmptyState
-            title={filter === 'yours' ? t('list.emptyYoursTitle') : t('list.emptyTitle')}
-            message={filter === 'yours' ? t('list.emptyYoursMessage') : t('list.emptyMessage')}
+            title={t('list.emptyTitle')}
+            message={t('list.emptyMessage')}
             actionLabel={isAuthenticated ? t('list.emptyAction') : undefined}
             onAction={isAuthenticated ? () => setShowCreate(true) : undefined}
           />
@@ -551,21 +525,6 @@ function CollectionShowcaseCard({
         </div>
       </div>
     </Link>
-  );
-}
-
-function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-colors ${
-        active
-          ? 'bg-ink text-paper border border-ink'
-          : 'bg-paper text-ink border border-hair hover:bg-paper-2 hover:border-ink-2'
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 

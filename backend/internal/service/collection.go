@@ -98,15 +98,16 @@ func (s *CollectionService) RecentTiles(ctx context.Context, ids []int64) (map[i
 	return s.collectionRepo.RecentTilesForCollections(ctx, ids)
 }
 
-func (s *CollectionService) List(ctx context.Context, cursor int64, limit int, userID int64, kind int) (*CollectionListResponse, *errcode.ErrCode) {
+func (s *CollectionService) List(ctx context.Context, cursor int64, limit int) (*CollectionListResponse, *errcode.ErrCode) {
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
 	fetchLimit := limit + 1
-	// The public library only ever shows public collections — pass 0 as
-	// the visibility user so a signed-in viewer's own private collections
-	// don't leak into the shared list (they live on their profile).
-	items, err := s.collectionRepo.List(ctx, cursor, fetchLimit, 0, kind)
+	// The public library is an editorial surface: it only exposes public,
+	// system-recommended collections (kind=1). User-created collections live
+	// on profile pages and must never be mixed into this catalogue.
+	const recommendedKind = 1
+	items, err := s.collectionRepo.List(ctx, cursor, fetchLimit, 0, recommendedKind)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to list collections", "error", err)
 		return nil, errcode.ErrInternal
@@ -119,7 +120,7 @@ func (s *CollectionService) List(ctx context.Context, cursor int64, limit int, u
 	if hasMore && len(items) > 0 {
 		nextCursor = items[len(items)-1].ID
 	}
-	total, err := s.collectionRepo.Count(ctx, 0, kind)
+	total, err := s.collectionRepo.Count(ctx, 0, recommendedKind)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to count collections", "error", err)
 		total = 0 // non-fatal; SPA will degrade to cursor-only pagination
