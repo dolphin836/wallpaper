@@ -6,7 +6,7 @@
 
 24KPixel 早就停更，Dynamic Wallpaper Club 时灵时不灵，Reddit 上的 `r/macOSWallpapers` 翻得手酸也只能看到那几张老物件。最离谱的是，很多论坛贴的 HEIC 文件根本没保留 solar 元数据 —— 下载下来 Mac 当成静态图处理，整个动态体验丢了。
 
-我做了 [WallpaperExchange](https://wallpaper.haibing.site) 就是想解决这个问题。这是一个**把 macOS 动态壁纸放在第一位的壁纸社区**，同时也兼顾常规高清壁纸。
+我做了 [WallpaperExchange](https://wallpaperexchange.com) 就是想解决这个问题。这是一个**把 macOS 动态壁纸放在第一位的壁纸社区**，同时也兼顾常规高清壁纸。
 
 ## 它做对了的几件事
 
@@ -38,7 +38,7 @@ WallpaperExchange 给每张壁纸**自动生成多个尺寸变体**（按主流�
 
 下载的壁纸放在 `~/Library/Application Support/WallpaperExchange/Downloads/`，你可以随时备份、迁移。支持多屏 —— 每个屏幕可以单独设一张。
 
-下载入口：[wallpaper.haibing.site/download/mac](https://wallpaper.haibing.site/download/mac)
+下载入口：[wallpaperexchange.com/download/mac](https://wallpaperexchange.com/download/mac)
 
 ### 4. 每周编辑精选 + 主题合集
 
@@ -46,7 +46,7 @@ WallpaperExchange 给每张壁纸**自动生成多个尺寸变体**（按主流�
 
 我做了一个 **Weekly Drop** 机制：每周（按 ISO 周）人工从近期上传里挑出 10 张做精选；同时整理一个**有共同主题的合集**。比如本周（2026 W21）是 *Moody Mountain Solitude*（雾气山脉孤独感）—— 不是随机挑十张山，而是确实有共同的氛围、构图、色调。
 
-每张壁纸**只会被精选一次**，所以你每周看到的都是新的。历史精选都归档在 [/weekly-picks](https://wallpaper.haibing.site/weekly-picks)，可以慢慢翻。
+每张壁纸**只会被精选一次**，所以你每周看到的都是新的。历史精选都归档在 [/weekly-picks](https://wallpaperexchange.com/weekly-picks)，可以慢慢翻。
 
 ### 5. AI 自动打标 + 质量审核
 
@@ -64,9 +64,9 @@ WallpaperExchange 没有广告、不向第三方分享数据、不需要注册�
 
 ## 你能怎么参与
 
-**直接用** —— 浏览：[wallpaper.haibing.site](https://wallpaper.haibing.site)；Mac 客户端：[/download/mac](https://wallpaper.haibing.site/download/mac)
+**直接用** —— 浏览：[wallpaperexchange.com](https://wallpaperexchange.com)；Mac 客户端：[/download/mac](https://wallpaperexchange.com/download/mac)
 
-**上传你的收藏** —— 特别欢迎那种"老但好"的动态壁纸（macOS Mojave / Catalina 时代的官方 + 民间制作）。注册后到 [/upload](https://wallpaper.haibing.site/upload) 拖拽即可，上传成功一张拿 1 个 coin（暂时是纪念意义，后面会有兑换计划）。
+**上传你的收藏** —— 特别欢迎那种"老但好"的动态壁纸（macOS Mojave / Catalina 时代的官方 + 民间制作）。注册后到 [/upload](https://wallpaperexchange.com/upload) 拖拽即可，上传成功一张拿 1 个 coin（暂时是纪念意义，后面会有兑换计划）。
 
 **发现重复 / 低质内容** —— 详情页有 Report 按钮，反馈直接进我审核队列。
 
@@ -81,4 +81,4 @@ WallpaperExchange 没有广告、不向第三方分享数据、不需要注册�
 
 —
 
-封面图：本周精选的 [Misty Frosted Pine Forest on Mountain Slopes](https://wallpaper.haibing.site/wallpaper/item-0ad08733)。
+封面图：本周精选的 [Misty Frosted Pine Forest on Mountain Slopes](https://wallpaperexchange.com/wallpaper/item-0ad08733)。

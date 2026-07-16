@@ -48,8 +48,7 @@ func NewRouter(deps Deps) *chi.Mux {
 		AllowOriginFunc: func(_ *http.Request, origin string) bool {
 			switch origin {
 			case "https://wallpaperexchange.com",
-				"https://www.wallpaperexchange.com",
-				"https://wallpaper.haibing.site":
+				"https://www.wallpaperexchange.com":
 				return true
 			}
 			return strings.HasPrefix(origin, "http://localhost:") ||

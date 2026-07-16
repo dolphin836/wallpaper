@@ -88,7 +88,7 @@ func registrationSource(explicit, referrer string) string {
 	}
 	host := strings.ToLower(strings.TrimPrefix(u.Hostname(), "www."))
 	switch host {
-	case "wallpaperexchange.com", "api.wallpaperexchange.com", "wallpaper.haibing.site":
+	case "wallpaperexchange.com", "api.wallpaperexchange.com":
 		return "site"
 	default:
 		return truncate(host, 128)

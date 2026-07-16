@@ -5,12 +5,12 @@ A full-stack wallpaper sharing platform where users can upload, browse, search, 
 ## Tech Stack
 
 - **Backend**: Go (chi router + GORM)
-- **Frontend**: React 18 + TypeScript + TailwindCSS
+- **Frontend**: React 19 + TypeScript + TailwindCSS
 - **Database**: PostgreSQL 16
 - **Cache**: Redis 7
 - **Object Storage**: MinIO (S3-compatible)
 - **Message Queue**: Kafka (KRaft mode)
-- **Deployment**: Docker Compose
+- **Deployment**: Cloudflare Pages (Web) + Docker Compose (backend services)
 
 ## Quick Start
 
@@ -29,7 +29,6 @@ Available `.env` variables:
 
 | Variable | Default | Description |
 |---|---|---|
-| `SITE_DOMAIN` | `localhost` | Domain for HTTPS (Let's Encrypt auto-cert if real domain) |
 | `HTTP_PORT` | `80` | HTTP port on host |
 | `HTTPS_PORT` | `443` | HTTPS port on host |
 | `POSTGRES_USER` | `wallpaper` | PostgreSQL username |
@@ -39,6 +38,7 @@ Available `.env` variables:
 | `MINIO_ROOT_USER` | `minioadmin` | MinIO access key |
 | `MINIO_ROOT_PASSWORD` | `minioadmin` | MinIO secret key |
 | `MINIO_BUCKET` | `wallpapers` | MinIO bucket name |
+| `MINIO_PUBLIC_URL` | `https://wallpaperexchange.com/storage` | Public media URL proxied by Cloudflare Pages |
 | `JWT_SECRET` | `change-me...` | JWT signing secret |
 | `JWT_EXPIRE_HOUR` | `24` | JWT token expiry (hours) |
 
@@ -48,7 +48,9 @@ Available `.env` variables:
 ./wallctl.sh start
 ```
 
-Only Caddy's HTTP/HTTPS ports are exposed to the host. All internal services (PostgreSQL, Redis, MinIO, Kafka, API, Worker) communicate within the Docker network.
+`wallctl.sh start` starts backend infrastructure only. The Web build is published
+from `main` by Cloudflare Pages; API and MinIO remain private Docker services
+reached through the shared Caddy origin.
 
 ### Development
 
@@ -81,7 +83,7 @@ The dev server proxies `/api` requests to `localhost:8080`.
 
 ```
 wallpaper/
-├── docker-compose.yml          # Full stack orchestration
+├── docker-compose.yml          # Backend service orchestration
 ├── backend/
 │   ├── cmd/api/                # API server entry point
 │   ├── cmd/worker/             # Kafka workers entry point

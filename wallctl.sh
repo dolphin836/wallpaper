@@ -46,12 +46,12 @@ cmd_restart() {
             compose up -d --build --no-deps api worker
             ;;
         frontend|web)
-            log_info "Rebuilding and restarting frontend..."
-            compose up -d --build --no-deps frontend
+            log_error "Frontend is deployed by Cloudflare Pages; no server service exists."
+            return 2
             ;;
         app)
-            log_info "Rebuilding and restarting app services (api + worker + frontend)..."
-            compose up -d --build --no-deps api worker frontend
+            log_info "Rebuilding and restarting app services (api + worker)..."
+            compose up -d --build --no-deps api worker
             ;;
         *)
             log_info "Rebuilding and restarting: $target"
@@ -107,8 +107,8 @@ cmd_build() {
             compose build api worker
             ;;
         frontend|web)
-            log_info "Building frontend image..."
-            compose build frontend
+            log_error "Frontend is built and deployed by Cloudflare Pages."
+            return 2
             ;;
         *)
             log_info "Building: $target"
@@ -131,8 +131,8 @@ cmd_deploy() {
     log_info "Pruning docker build cache (keeping 4GB)..."
     docker builder prune -f --keep-storage=4GB >/dev/null 2>&1 || true
 
-    log_info "Rebuilding and restarting app services..."
-    compose up -d --build api worker frontend
+    log_info "Rebuilding and restarting backend services..."
+    compose up -d --build api worker
 
     sleep 3
     cmd_status
@@ -318,14 +318,12 @@ ${YELLOW}Commands:${NC}
 ${YELLOW}Restart targets:${NC}
   ${GREEN}all${NC}                     All services (default)
   ${GREEN}backend${NC}                 api + worker
-  ${GREEN}frontend${NC}                frontend only
-  ${GREEN}app${NC}                     api + worker + frontend
+  ${GREEN}app${NC}                     api + worker
   ${GREEN}<service>${NC}               Any single service (e.g. api, worker, minio)
 
 ${YELLOW}Examples:${NC}
   ./wallctl.sh restart                 # Rebuild & restart everything
   ./wallctl.sh restart backend         # Rebuild & restart api + worker
-  ./wallctl.sh restart frontend        # Rebuild & restart frontend only
   ./wallctl.sh restart worker          # Rebuild & restart worker only
   ./wallctl.sh logs api 200            # Tail last 200 lines of api logs
   ./wallctl.sh deploy                  # Git pull + rebuild + restart

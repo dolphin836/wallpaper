@@ -16,8 +16,7 @@
     {
       "identifier": "http:default",
       "allow": [
-        { "url": "https://wallpaperexchange.com/*" },
-        { "url": "https://wallpaper.haibing.site/*" }
+        { "url": "https://wallpaperexchange.com/*" }
       ]
     }
   ]

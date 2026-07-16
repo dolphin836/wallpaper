@@ -4,6 +4,7 @@
 //
 // What we proxy
 //   /api/*               → ${API_ORIGIN}/api/*
+//   /storage/*           → ${STORAGE_ORIGIN}/*
 //   /__pinterest/v5/*    → https://api.pinterest.com/v5/* (API egress proxy)
 //   /__reddit/oauth/*     → https://oauth.reddit.com/* (API egress proxy)
 //   /__reddit/token       → https://www.reddit.com/api/v1/access_token
@@ -12,20 +13,23 @@
 //   /feed.xml            → ${API_ORIGIN}/feed.xml          (RSS)
 //   /{indexnowKey}.txt   → ${API_ORIGIN}/{indexnowKey}.txt (Bing/Yandex verification)
 //
-// Why API_ORIGIN = wallpaper.haibing.site, not api.wallpaperexchange.com?
+// Why the origin lives under api.haibing.site instead of
+// api.wallpaperexchange.com?
 //   api.wallpaperexchange.com is in the same Cloudflare zone as the apex.
 //   When a Pages Function fetches a hostname inside its own zone, CF routes
 //   the request through its internal proxy fabric and applies the zone's
 //   SSL/TLS settings end-to-end — which broke with a 525 "SSL handshake
-//   failed" against our origin. wallpaper.haibing.site points at the same
-//   server but is hosted on Aliyun DNS, so CF can't recognize it as
-//   in-zone and the fetch goes straight out over the public internet,
-//   bypassing all that. Same bytes, different routing path.
+//   failed" against our origin. api.haibing.site is outside that zone, so
+//   the fetch goes straight to the existing Caddy origin. The prefixed
+//   routes keep the WallpaperExchange API and MinIO paths isolated from the
+//   other application already served by that hostname.
 //
 // Everything else (assets, SPA routes) passes through to the static build
 // via context.next().
 
-const API_ORIGIN = 'https://wallpaper.haibing.site';
+const ORIGIN_BASE = 'https://api.haibing.site';
+const API_ORIGIN = `${ORIGIN_BASE}/wallpaper-api`;
+const STORAGE_ORIGIN = `${ORIGIN_BASE}/wallpaper-storage`;
 
 // User agents that benefit from a server-rendered HTML response instead
 // of the SPA. Two reasons one might be on this list:
@@ -135,6 +139,7 @@ export const onRequest: PagesFunction = async (context) => {
 
   const shouldProxy =
     path.startsWith('/api/') ||
+    path.startsWith('/storage/') ||
     path === '/sitemap.xml' ||
     path === '/robots.txt' ||
     path === '/feed.xml' ||
@@ -145,10 +150,13 @@ export const onRequest: PagesFunction = async (context) => {
     return context.next();
   }
 
+  const isStorage = path.startsWith('/storage/');
   const proxyPath = isBotDetail
     ? `/__og/wallpaper/${wpMatch[1]}`
     : path;
-  const target = API_ORIGIN + proxyPath + url.search;
+  const target = isStorage
+    ? STORAGE_ORIGIN + path.slice('/storage'.length) + url.search
+    : API_ORIGIN + proxyPath + url.search;
 
   // Preserve method, body, and most headers. We intentionally do NOT forward
   // Host (the backend reads r.Host to build sitemap URLs and seeing the api
@@ -172,7 +180,13 @@ export const onRequest: PagesFunction = async (context) => {
   // Surface a small debug breadcrumb so it's obvious in DevTools which
   // requests went through the proxy vs straight to the static SPA.
   const respHeaders = new Headers(upstream.headers);
-  respHeaders.set('x-proxied-by', 'pages-fn');
+  respHeaders.set('x-proxied-by', isStorage ? 'pages-storage-proxy' : 'pages-fn');
+  if (isStorage && upstream.ok) {
+    // Object keys are immutable UUID/versioned paths. Let both browsers and
+    // Cloudflare keep them so a gallery refresh does not fan out dozens of
+    // requests to the single MinIO origin again.
+    respHeaders.set('cache-control', 'public, max-age=31536000, immutable');
+  }
 
   return new Response(upstream.body, {
     status: upstream.status,

@@ -3,10 +3,9 @@ import i18n from '../i18n';
 import { requestStarted, requestSettled } from '../lib/pageProgress';
 
 export function resolveBaseURL(): string {
-  // Every prod surface — wallpaperexchange.com (CF Pages with _redirects),
-  // wallpaper.haibing.site (Caddy with /api/* handle), and the dev Vite
-  // server (proxy to :8080) — exposes the API on the same origin under
-  // /api/v1. Relative paths just work everywhere; no per-host branching.
+  // Cloudflare Pages and the dev Vite server both expose the API on the
+  // same origin under /api/v1. Relative paths keep browser traffic on the
+  // canonical wallpaperexchange.com domain in production.
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL;
   }

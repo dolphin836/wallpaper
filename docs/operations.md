@@ -203,12 +203,13 @@ curl -fsSI "https://wallpaperexchange.com/downloads/mac/WallpaperExchange-X.Y.Z.
 ### 常规部署
 
 ```bash
-./deploy.sh                  # 整套（api + worker + frontend）
-./deploy.sh backend          # 只重启 api+worker（最快）
-./deploy.sh frontend         # 只重建 SPA
+git push                     # main 分支由 Cloudflare Pages 构建并发布 Web
+./deploy.sh                  # 服务器只部署 api + worker
+./deploy.sh backend          # 与上面相同，可用于显式后端部署
 ```
 
-部署脚本会自动 prune docker build cache（防止磁盘炸），不用你手动清。
+服务器不再运行 frontend 容器。后端部署脚本会自动 prune docker build
+cache（防止磁盘炸），不用你手动清。
 
 ### 数据库 schema 改了之后
 
@@ -242,7 +243,7 @@ ssh root@139.224.49.94 'cd /opt/app/wallpaper && ./wallctl.sh db-migrate'
 
 | 文件 | 渠道 | 何时发 |
 |---|---|---|
-| `sspai-launch.md` | [sspai.com 矩阵](https://sspai.com/matrix) | 任何时候，越早越好；链接已经用 `wallpaper.haibing.site`（国内可达）|
+| `sspai-launch.md` | [sspai.com 矩阵](https://sspai.com/matrix) | 任何时候，越早越好；链接已经用 `wallpaperexchange.com`（国内可达）|
 | `alternativeto-listing.md` | [alternativeto.net/submit](https://alternativeto.net/submit/) | 复制每个字段填表 |
 | `show-hn-launch.md` | [news.ycombinator.com/submit](https://news.ycombinator.com/submit) | **等 Mac 1.3 发版日** UTC 08:00-14:00 |
 | `product-hunt-launch.md` | [producthunt.com/posts/new](https://www.producthunt.com/posts/new) | **同上**，太平洋时间周二/三 00:01 PT |

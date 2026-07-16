@@ -254,7 +254,9 @@ users N──M wallpapers (via user_favorites)
 | kafka | apache/kafka:3.7.0 | 9092 | - |
 | api | 自构建 | 8080 | postgres, redis, minio, kafka |
 | worker | 自构建 | - | postgres, minio, kafka |
-| frontend | 自构建 (nginx) | 80 | api |
+
+Web 前端不在服务器 Docker Compose 中运行，由 Cloudflare Pages 从 `main`
+分支构建发布。Pages Function 将 `/api/*` 和 `/storage/*` 代理到私有源站路径。
 
 ## 8. 安全考虑
 

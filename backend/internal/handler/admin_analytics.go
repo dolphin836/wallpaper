@@ -110,7 +110,6 @@ var ownHosts = []string{
 	"wallpaperexchange.com",
 	"www.wallpaperexchange.com",
 	"api.wallpaperexchange.com",
-	"wallpaper.haibing.site",
 }
 
 func (h *AdminHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {

@@ -101,7 +101,7 @@ Three auth tiers under `/api/v1`:
 - **OptionalAuth**: list/get wallpapers, collections, user wallpaper lists. Injects userID if JWT present so `is_liked` / `is_favorited` fields populate, otherwise anonymous.
 - **Auth (required)**: uploads, deletes, likes, favorites, downloads, profile mutation, coin endpoints, collection mutation.
 
-CORS allow-list is **hard-coded** in `router.go`: `wallpaperexchange.com`, `www.wallpaperexchange.com`, `wallpaper.haibing.site`, plus any `http://localhost:*`. Update there when adding domains.
+CORS allow-list is **hard-coded** in `router.go`: `wallpaperexchange.com`, `www.wallpaperexchange.com`, plus any `http://localhost:*`. Update there when adding domains.
 
 ### Kafka Event Flow
 

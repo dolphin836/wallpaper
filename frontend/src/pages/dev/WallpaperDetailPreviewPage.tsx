@@ -34,7 +34,7 @@ const SAMPLE = {
     'oklch(94% 0.03 85)',
   ],
   hero:
-    'https://wallpaper.haibing.site/storage/wallpapers/previews/f8f15fe9-986e-4c3a-a99f-a5d787ca313c.webp',
+    'https://wallpaperexchange.com/storage/wallpapers/previews/f8f15fe9-986e-4c3a-a99f-a5d787ca313c.webp',
   uploader: {
     username: 'forest_walker',
     nickname: 'Forest Walker',

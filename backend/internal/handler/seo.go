@@ -23,9 +23,8 @@ type SEOHandler struct {
 	indexNowKey    string // served as text from /{key}.txt for verification
 	// canonicalURL overrides the request-derived base in sitemap/feed/
 	// robots output. CF Pages proxies wallpaperexchange.com requests to
-	// the wallpaper.haibing.site origin, which would otherwise leak the
-	// origin hostname into <loc> tags and confuse search engines about
-	// the canonical site.
+	// a private origin, which would otherwise leak that hostname into <loc>
+	// tags and confuse search engines about the canonical site.
 	canonicalURL string
 }
 

@@ -158,7 +158,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       MINIO_BUCKET: ${MINIO_BUCKET:-wallpapers}
-      MINIO_PUBLIC_URL: "https://${SITE_DOMAIN:-localhost}/storage"
+      MINIO_PUBLIC_URL: "${MINIO_PUBLIC_URL:-https://wallpaperexchange.com/storage}"
       KAFKA_BROKERS: "kafka:9092"
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-random-string}
       JWT_EXPIRE_HOUR: ${JWT_EXPIRE_HOUR:-24}
@@ -212,7 +212,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       MINIO_BUCKET: ${MINIO_BUCKET:-wallpapers}
-      MINIO_PUBLIC_URL: "https://${SITE_DOMAIN:-localhost}/storage"
+      MINIO_PUBLIC_URL: "${MINIO_PUBLIC_URL:-https://wallpaperexchange.com/storage}"
       KAFKA_BROKERS: "kafka:9092"
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       INDEXNOW_KEY: ${INDEXNOW_KEY:-}
@@ -227,24 +227,6 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: wallpaper_frontend
-    logging: *default-logging
-    deploy:
-      resources:
-        limits:
-          memory: 128m
-          cpus: "0.5"
-    networks:
-      - default
-      - caddy_shared
-    depends_on:
-      - api
     restart: unless-stopped
 
 volumes:
