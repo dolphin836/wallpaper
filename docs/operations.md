@@ -204,8 +204,8 @@ curl -fsSI "https://wallpaperexchange.com/downloads/mac/WallpaperExchange-X.Y.Z.
 
 ```bash
 git push                     # main 分支由 Cloudflare Pages 构建并发布 Web
-./deploy.sh                  # 服务器只部署 api + worker
-./deploy.sh backend          # 与上面相同，可用于显式后端部署
+./deploy.sh                  # 部署 api + worker，并确保 cloudflared 运行
+./deploy.sh backend          # 仅显式重建 api + worker
 ```
 
 服务器不再运行 frontend 容器。后端部署脚本会自动 prune docker build
@@ -364,7 +364,10 @@ ssh root@139.224.49.94 'cd /opt/app/wallpaper && ./wallctl.sh restart api'
 
 ### 8.2 服务器 `/opt/app/wallpaper/.env`
 
-跟本地一份，外加 docker compose 用的 `POSTGRES_*` / `MINIO_*` / `JWT_SECRET`。
+跟本地一份，外加 docker compose 用的 `POSTGRES_*` / `MINIO_*` / `JWT_SECRET`
+和生产专用的 `CLOUDFLARE_TUNNEL_TOKEN`。Tunnel 将
+`api.wallpaperexchange.com`、`storage.wallpaperexchange.com` 分别接到 API、MinIO；
+Web、macOS、iOS、Android 客户端仍统一访问 `wallpaperexchange.com` 主域名。
 
 **复制本地某个 key 到服务器**：
 

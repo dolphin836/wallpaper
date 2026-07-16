@@ -130,7 +130,7 @@ PostgreSQL 16, all timestamps `TIMESTAMPTZ(6)` in UTC. Identity columns (`BIGINT
 
 React 19 + React Router 7 SPA. Key conventions:
 
-- **API base URL resolution** (`src/api/client.ts:resolveBaseURL`): uses `VITE_API_BASE_URL` if set, else maps `wallpaperexchange.com` → `https://api.wallpaperexchange.com/api/v1`, else falls back to relative `/api/v1` (dev proxy in `vite.config.ts` routes to `:8080`). Any new XHR endpoint that bypasses axios (e.g. raw `fetch` for downloads/uploads) must call `resolveBaseURL()` directly — see recent commits `2715eef`, `47d43d5`.
+- **API base URL resolution** (`src/api/client.ts:resolveBaseURL`): uses `VITE_API_BASE_URL` if set, otherwise relative `/api/v1` (Cloudflare Pages in production, Vite's `:8080` proxy in development). Public clients stay on `wallpaperexchange.com`; `api.wallpaperexchange.com` is only the Pages Function's Cloudflare Tunnel origin. Any new XHR endpoint that bypasses axios (e.g. raw `fetch` for downloads/uploads) must call `resolveBaseURL()` directly.
 - **Auth token**: stored in `localStorage` as `token`; axios interceptor attaches `Authorization: Bearer`. 401 responses force redirect to `/login`.
 - **State**: Zustand store in `src/store/auth.ts`. No other global stores.
 - **Routing**: uses the `location.state.background` pattern in `App.tsx` to show `WallpaperDetailModal` overlaid on the previous page (Unsplash-style modal) while keeping `/wallpaper/:slug` as a sharable deep link.
@@ -141,7 +141,7 @@ React 19 + React Router 7 SPA. Key conventions:
 Menu-bar–only app (no Dock icon — `LSUIElement` is true). Structure under `macos/WallpaperExchange/Sources/`:
 
 - `App/` — `AppDelegate` sets up the `NSStatusItem`, transient `NSPopover` with `PopoverContentView`, global mouse-event monitor to dismiss, and the `wallxch://` URL scheme handler for OAuth callback (`wallxch://auth?token=...`).
-- `Services/` — `APIClient` (actor, `baseURL` is **hard-coded** to `https://api.wallpaperexchange.com/api/v1`), `AuthService` (singleton, token persistence + URL callback), `WallpaperManager` (downloads to `~/Library/Application Support/WallpaperExchange/Downloads`, applies wallpapers).
+- `Services/` — `APIClient` (actor, `baseURL` is **hard-coded** to `https://wallpaperexchange.com/api/v1`), `AuthService` (singleton, token persistence + URL callback), `WallpaperManager` (downloads to `~/Library/Application Support/WallpaperExchange/Downloads`, applies wallpapers).
 - `Models/`, `Views/` — SwiftUI views inside the popover.
 
 Info.plist is **injected into the binary at link time** via `unsafeFlags` in `Package.swift` (`-sectcreate __TEXT,__info_plist`). Don't add it to `resources` — `swift build` won't pick it up. The bundle ID is `com.wallpaperexchange.mac`.

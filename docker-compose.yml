@@ -229,6 +229,28 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Outbound-only origin connector for Cloudflare Pages. Keeping this behind
+  # an explicit profile means local `wallctl.sh start` does not require the
+  # production tunnel token; production deploys target the service directly.
+  cloudflared:
+    image: cloudflare/cloudflared:2026.7.2
+    container_name: wallpaper_cloudflared
+    logging: *default-logging
+    profiles:
+      - tunnel
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.25"
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      api:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pg_data:
   redis_data:

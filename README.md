@@ -39,6 +39,7 @@ Available `.env` variables:
 | `MINIO_ROOT_PASSWORD` | `minioadmin` | MinIO secret key |
 | `MINIO_BUCKET` | `wallpapers` | MinIO bucket name |
 | `MINIO_PUBLIC_URL` | `https://wallpaperexchange.com/storage` | Public media URL proxied by Cloudflare Pages |
+| `CLOUDFLARE_TUNNEL_TOKEN` | (empty) | Production token for the outbound API/MinIO origin tunnel |
 | `JWT_SECRET` | `change-me...` | JWT signing secret |
 | `JWT_EXPIRE_HOUR` | `24` | JWT token expiry (hours) |
 
@@ -49,8 +50,11 @@ Available `.env` variables:
 ```
 
 `wallctl.sh start` starts backend infrastructure only. The Web build is published
-from `main` by Cloudflare Pages; API and MinIO remain private Docker services
-reached through the shared Caddy origin.
+from `main` by Cloudflare Pages. API and MinIO remain private Docker services;
+`cloudflared` exposes them as `api.wallpaperexchange.com` and
+`storage.wallpaperexchange.com` only for the Pages Function, while all public
+clients continue to use `https://wallpaperexchange.com/api/...` and
+`https://wallpaperexchange.com/storage/...`.
 
 ### Development
 

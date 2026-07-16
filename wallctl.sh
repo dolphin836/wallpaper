@@ -134,6 +134,9 @@ cmd_deploy() {
     log_info "Rebuilding and restarting backend services..."
     compose up -d --build api worker
 
+    log_info "Ensuring the Cloudflare origin tunnel is running..."
+    compose up -d cloudflared
+
     sleep 3
     cmd_status
     log_info "Deploy complete."

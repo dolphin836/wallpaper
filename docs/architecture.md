@@ -254,9 +254,13 @@ users N──M wallpapers (via user_favorites)
 | kafka | apache/kafka:3.7.0 | 9092 | - |
 | api | 自构建 | 8080 | postgres, redis, minio, kafka |
 | worker | 自构建 | - | postgres, minio, kafka |
+| cloudflared | cloudflare/cloudflared | - | api, minio |
 
 Web 前端不在服务器 Docker Compose 中运行，由 Cloudflare Pages 从 `main`
-分支构建发布。Pages Function 将 `/api/*` 和 `/storage/*` 代理到私有源站路径。
+分支构建发布。Pages Function 将公开的 `/api/*` 和 `/storage/*` 分别代理到
+`api.wallpaperexchange.com` 与 `storage.wallpaperexchange.com`。这两个子域名
+都是 Cloudflare Tunnel 路由，由服务器内的 `cloudflared` 通过 Docker 网络
+直连 API 和 MinIO；不暴露服务器源 IP，也不依赖其他产品的域名。
 
 ## 8. 安全考虑
 

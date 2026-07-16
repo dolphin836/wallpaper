@@ -13,23 +13,15 @@
 //   /feed.xml            → ${API_ORIGIN}/feed.xml          (RSS)
 //   /{indexnowKey}.txt   → ${API_ORIGIN}/{indexnowKey}.txt (Bing/Yandex verification)
 //
-// Why the origin lives under api.haibing.site instead of
-// api.wallpaperexchange.com?
-//   api.wallpaperexchange.com is in the same Cloudflare zone as the apex.
-//   When a Pages Function fetches a hostname inside its own zone, CF routes
-//   the request through its internal proxy fabric and applies the zone's
-//   SSL/TLS settings end-to-end — which broke with a 525 "SSL handshake
-//   failed" against our origin. api.haibing.site is outside that zone, so
-//   the fetch goes straight to the existing Caddy origin. The prefixed
-//   routes keep the WallpaperExchange API and MinIO paths isolated from the
-//   other application already served by that hostname.
+// Both origins are Cloudflare Tunnel routes in the wallpaperexchange.com
+// zone. The tunnel connects outbound from the production Docker network, so
+// Pages never needs to reach the server IP or share another product's domain.
 //
 // Everything else (assets, SPA routes) passes through to the static build
 // via context.next().
 
-const ORIGIN_BASE = 'https://api.haibing.site';
-const API_ORIGIN = `${ORIGIN_BASE}/wallpaper-api`;
-const STORAGE_ORIGIN = `${ORIGIN_BASE}/wallpaper-storage`;
+const API_ORIGIN = 'https://api.wallpaperexchange.com';
+const STORAGE_ORIGIN = 'https://storage.wallpaperexchange.com';
 
 // User agents that benefit from a server-rendered HTML response instead
 // of the SPA. Two reasons one might be on this list:
