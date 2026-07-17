@@ -93,21 +93,37 @@ export default function CollectionsPage() {
         description={t('meta.descriptionThemes')}
       />
 
-      <main className="relative z-10 max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 py-10">
-        <header className="c-list-head">
-          <div>
+      <main className="c4-shell">
+        <header className="c4-masthead">
+          <div className="c4-masthead-copy">
             <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
               {t('list.kickerThemes')}
             </div>
-            <h1 className="display text-[clamp(34px,4.2vw,56px)] leading-[1.02] mt-2 tracking-[-0.01em] text-ink">
+            <h1 className="display c4-masthead-title">
               <Trans i18nKey="list.headingThemes" ns="collections" components={[<em key="0" />]} />
             </h1>
-            <p className="text-ink-2 mt-3 max-w-2xl text-[14px] leading-relaxed">
+            <p className="c4-masthead-intro">
               {t('list.introThemes')}
             </p>
           </div>
 
-          <div className="c-list-toolbar">
+          <aside className="c4-catalogue-meta" aria-label={t('list.kickerThemes')}>
+            <div className="c4-catalogue-count">
+              {serverTotal !== null ? (
+                <>
+                  <strong>{String(serverTotal).padStart(2, '0')}</strong>
+                  <span>{t('list.archiveCount', { num: serverTotal })}</span>
+                </>
+              ) : (
+                <>
+                  <span className="c4-count-skeleton skeleton-card" aria-hidden />
+                  <span className="c4-count-label-skeleton skeleton-card" aria-hidden />
+                </>
+              )}
+            </div>
+            <span className="c4-page-label">
+              {t('list.pageLabel', { current, total })}
+            </span>
             {isAuthenticated && (
               <button
                 onClick={() => setShowCreate(true)}
@@ -116,7 +132,7 @@ export default function CollectionsPage() {
                 <AiOutlinePlus size={13} /> {t('list.newButton')}
               </button>
             )}
-          </div>
+          </aside>
         </header>
 
         {loading && visible.length === 0 ? (
@@ -131,24 +147,18 @@ export default function CollectionsPage() {
             onAction={isAuthenticated ? () => setShowCreate(true) : undefined}
           />
         ) : (
-          // Page 1 opens as an editorial spread. The remaining cards use
-          // an asymmetric 12-column catalogue rhythm while keeping the
-          // existing three-stage cover loader untouched.
-          <>
-            {current === 1 && visible.length > 1 && (
-              <CollectionHeroBanner collection={visible[0]} onTintsChange={applyTints} />
-            )}
-            <div className="c3-grid">
-              {(current === 1 && visible.length > 1 ? visible.slice(1) : visible).map((c, index) => (
-                <CollectionShowcaseCard
-                  key={c.id}
-                  collection={c}
-                  index={(current - 1) * PAGE_SIZE + index + (current === 1 && visible.length > 1 ? 2 : 1)}
-                  onTintsChange={applyTints}
-                />
-              ))}
-            </div>
-          </>
+          <div className="c4-index">
+            {visible.map((c, index) => (
+              <CollectionIndexCard
+                key={c.id}
+                collection={c}
+                index={(current - 1) * PAGE_SIZE + index + 1}
+                reverse={index % 2 === 1}
+                eager={current === 1 && index === 0}
+                onTintsChange={applyTints}
+              />
+            ))}
+          </div>
         )}
 
         <Pagination
@@ -218,60 +228,42 @@ function countLabel(c: Collection, t: (k: string, o?: Record<string, unknown>) =
     : t('tile.wallpaperCount', { num: c.wallpaper_count });
 }
 
-function authorLabel(c: Collection, t: (k: string, o?: Record<string, unknown>) => string): string {
-  if (c.kind === 1) return t('tile.weeklyRecommendation');
-  if (c.author_username) return t('tile.byAuthor', { name: c.author_username });
-  return t('tile.authorFallback');
-}
-
-/* The loading view mirrors the editorial spread, asymmetric card widths,
-   cover geometry, and all three caption rows of the resolved page. */
+/* The loading view mirrors the same alternating index rows, copy rails,
+   and three-slot cover geometry as the resolved catalogue. */
 function CollectionsSkeleton({ current }: { current: number }) {
-  const hasHero = current === 1;
-  const cardCount = hasHero ? PAGE_SIZE - 1 : PAGE_SIZE;
-
   return (
-    <>
-      {hasHero && (
-        <div className="c3-lead c3-skeleton-lead" aria-hidden>
-          <div className="c3-lead-cover c3-skeleton-cover skeleton-card" />
-          <div className="c3-lead-copy">
-            <div>
-              <span className="c3-skeleton-line c3-skeleton-kicker skeleton-card" />
-              <span className="c3-skeleton-line c3-skeleton-hero-title skeleton-card" />
-              <span className="c3-skeleton-line c3-skeleton-hero-title is-short skeleton-card" />
+    <div className="c4-index" aria-hidden>
+      {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+        <div
+          key={`${current}-${i}`}
+          className={`c4-entry c4-skeleton-entry${i % 2 === 1 ? ' is-reverse' : ''}`}
+        >
+          <div className="c4-entry-copy">
+            <div className="c4-entry-kicker">
+              <span className="c4-skeleton-line c4-skeleton-kicker skeleton-card" />
+              <span className="c4-skeleton-line c4-skeleton-folio skeleton-card" />
             </div>
-            <div className="c3-lead-meta">
-              <span className="c3-skeleton-line c3-skeleton-author skeleton-card" />
-              <span className="c3-skeleton-line c3-skeleton-count skeleton-card" />
+            <div>
+              <span className="c4-skeleton-line c4-skeleton-title skeleton-card" />
+              <span className="c4-skeleton-line c4-skeleton-title is-short skeleton-card" />
+              <span className="c4-skeleton-line c4-skeleton-description skeleton-card" />
+              <span className="c4-skeleton-line c4-skeleton-description is-short skeleton-card" />
+            </div>
+            <div className="c4-entry-meta">
+              <span className="c4-skeleton-line c4-skeleton-count skeleton-card" />
+              <span className="c4-skeleton-arrow skeleton-card" />
+            </div>
+          </div>
+          <div className="c4-entry-media skeleton-card">
+            <div className="c2-mosaic c4-skeleton-mosaic">
+              <div className="c2-main" />
+              <div />
+              <div />
             </div>
           </div>
         </div>
-      )}
-      <div className="c3-grid">
-        {Array.from({ length: cardCount }).map((_, i) => (
-          <div key={i} className="c3-card c3-skeleton-card" aria-hidden>
-            <div className="c3-card-cover skeleton-card">
-              <div className="c2-mosaic c3-skeleton-mosaic">
-                <div className="c2-main" />
-                <div />
-                <div />
-              </div>
-            </div>
-            <div className="c3-card-caption">
-              <div className="c3-card-index">
-                <span className="c3-skeleton-line c3-skeleton-kicker skeleton-card" />
-              </div>
-              <span className="c3-skeleton-line c3-skeleton-title skeleton-card" />
-              <div className="c3-card-meta">
-                <span className="c3-skeleton-line c3-skeleton-author skeleton-card" />
-                <span className="c3-skeleton-line c3-skeleton-count skeleton-card" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
+      ))}
+    </div>
   );
 }
 
@@ -365,10 +357,12 @@ function ProgressiveCollectionMosaic({
   tiles,
   fallbackColor,
   title,
+  eager = false,
 }: {
   tiles: [CollectionTile | undefined, CollectionTile | undefined, CollectionTile | undefined];
   fallbackColor: string;
   title: string;
+  eager?: boolean;
 }) {
   const [settledSlots, setSettledSlots] = useState<Set<number>>(() => new Set());
   const requiredThumbs = tiles.reduce((count, tile) => (
@@ -396,6 +390,7 @@ function ProgressiveCollectionMosaic({
           tile={main}
           fallbackColor={fallbackColor}
           alt={title}
+          eager={eager}
           allowPreview={allowPreview}
           onThumbSettled={markMainSettled}
         />
@@ -404,6 +399,7 @@ function ProgressiveCollectionMosaic({
         <ProgressiveCollectionImage
           tile={sub1}
           fallbackColor={fallbackColor}
+          eager={eager}
           allowPreview={allowPreview}
           onThumbSettled={markSub1Settled}
         />
@@ -412,6 +408,7 @@ function ProgressiveCollectionMosaic({
         <ProgressiveCollectionImage
           tile={sub2}
           fallbackColor={fallbackColor}
+          eager={eager}
           allowPreview={allowPreview}
           onThumbSettled={markSub2Settled}
         />
@@ -420,70 +417,20 @@ function ProgressiveCollectionMosaic({
   );
 }
 
-/* The leading collection opens as a two-page editorial spread: artwork on
-   the left, a quiet paper colophon on the right. The cover loader itself is
-   the same dominant-color -> thumb -> preview sequence used before. */
-function CollectionHeroBanner({
-  collection: c,
-  onTintsChange,
-}: {
-  collection: Collection;
-  onTintsChange?: (tints: string[] | null) => void;
-}) {
-  const { t } = useTranslation('collections');
-  const cover = collectionCoverTiles(c)[0];
-  return (
-    <Link
-      to={`/collections/${c.slug}`}
-      className="c3-lead no-underline"
-      style={{ '--c3-accent': c.accent_color || cover?.dominant_color || 'var(--color-ink)' } as React.CSSProperties}
-      onMouseEnter={() => { const tints = collectionTints(c); if (tints.length) onTintsChange?.(tints); }}
-      onMouseLeave={() => onTintsChange?.(null)}
-    >
-      <div
-        className="c3-lead-cover"
-        style={{ backgroundColor: cover?.dominant_color || c.accent_color || undefined }}
-      >
-        <ProgressiveCollectionImage
-          key={`${cover?.thumb_url || ''}|${cover?.preview_url || ''}`}
-          tile={cover}
-          fallbackColor={c.accent_color}
-          alt={c.title}
-          eager
-        />
-        <div className="c3-cover-vignette" />
-        {!c.is_public && <span className="c2-lock">{t('tile.private')}</span>}
-        <span className="c3-lead-number" aria-hidden>01</span>
-      </div>
-      <div className="c3-lead-copy">
-        <div>
-          <div className="c3-lead-kicker">
-            <span>{c.kind === 1 ? t('tile.weeklyRecommendation') : t('tile.kickerCollection')}</span>
-            <span aria-hidden>VOL. 01</span>
-          </div>
-          <h2 className="display c3-lead-title" title={c.title}>{c.title}</h2>
-        </div>
-        <div className="c3-lead-meta">
-          <span>{authorLabel(c, t)}</span>
-          <span>{countLabel(c, t)}</span>
-        </div>
-        <span className="c3-open-mark" aria-hidden>↗</span>
-      </div>
-    </Link>
-  );
-}
-
-/* Golden-ratio mosaic card: cover left 2/3 + two member tiles stacked
-   right 1/3 with hairline seams — reads as "a set" at a glance. Title
-   sits inside the card on a bottom scrim (mirrors the Mac
-   CollectionShowcaseCard). */
-function CollectionShowcaseCard({
+/* One catalogue row: a restrained copy rail paired with the three-image
+   mood board. Alternating the two columns creates rhythm without turning
+   the page into a wall of unrelated card shapes. */
+function CollectionIndexCard({
   collection: c,
   index,
+  reverse,
+  eager,
   onTintsChange,
 }: {
   collection: Collection;
   index: number;
+  reverse: boolean;
+  eager: boolean;
   onTintsChange?: (tints: string[] | null) => void;
 }) {
   const { t } = useTranslation('collections');
@@ -492,37 +439,45 @@ function CollectionShowcaseCard({
   const mosaicKey = [main, sub1, sub2]
     .map((tile) => `${tile?.thumb_url || ''}|${tile?.preview_url || ''}`)
     .join('||');
+  const applyCollectionTints = () => {
+    const tints = collectionTints(c);
+    if (tints.length) onTintsChange?.(tints);
+  };
+
   return (
     <Link
       to={`/collections/${c.slug}`}
-      className="c3-card no-underline"
-      style={{ '--c3-accent': c.accent_color || fallback } as React.CSSProperties}
-      onMouseEnter={() => { const tints = collectionTints(c); if (tints.length) onTintsChange?.(tints); }}
+      className={`c4-entry no-underline${reverse ? ' is-reverse' : ''}`}
+      style={{ '--c4-accent': c.accent_color || fallback } as React.CSSProperties}
+      onMouseEnter={applyCollectionTints}
       onMouseLeave={() => onTintsChange?.(null)}
+      onFocus={applyCollectionTints}
+      onBlur={() => onTintsChange?.(null)}
     >
-      <div className="c3-card-cover">
+      <div className="c4-entry-copy">
+        <div className="c4-entry-kicker">
+          <span>{c.kind === 1 ? t('tile.weeklyRecommendation') : t('tile.kickerCollection')}</span>
+          <span aria-hidden>COL—{String(index).padStart(2, '0')}</span>
+        </div>
+        <div className="c4-entry-body">
+          <h2 className="display c4-entry-title" title={c.title}>{c.title}</h2>
+          {c.description && <p className="c4-entry-description">{c.description}</p>}
+        </div>
+        <div className="c4-entry-meta">
+          <span>{countLabel(c, t)}</span>
+          <span className="c4-entry-open" aria-hidden>↗</span>
+        </div>
+      </div>
+      <div className="c4-entry-media">
         <ProgressiveCollectionMosaic
           key={mosaicKey}
           tiles={[main, sub1, sub2]}
           fallbackColor={fallback}
           title={c.title}
+          eager={eager}
         />
-        <div className="c3-cover-vignette" />
         {!c.is_public && <span className="c2-lock">{t('tile.private')}</span>}
-      </div>
-      <div className="c3-card-caption">
-        <div className="c3-card-index">
-          <span>{c.kind === 1 ? t('tile.weeklyRecommendation') : t('tile.kickerCollection')}</span>
-          <span>COL—{String(index).padStart(2, '0')}</span>
-        </div>
-        <div className="c3-card-title-row">
-          <h2 className="display c3-card-title" title={c.title}>{c.title}</h2>
-          <span className="c3-card-arrow" aria-hidden>↗</span>
-        </div>
-        <div className="c3-card-meta">
-          <span>{authorLabel(c, t)}</span>
-          <span>{countLabel(c, t)}</span>
-        </div>
+        <span className="c4-media-folio" aria-hidden>{String(index).padStart(2, '0')}</span>
       </div>
     </Link>
   );
