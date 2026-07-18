@@ -52,9 +52,12 @@ Available `.env` variables:
 `wallctl.sh start` starts backend infrastructure only. The Web build is published
 from `main` by Cloudflare Pages. API and MinIO remain private Docker services;
 `cloudflared` exposes them as `api.wallpaperexchange.com` and
-`storage.wallpaperexchange.com` only for the Pages Function, while all public
-clients continue to use `https://wallpaperexchange.com/api/...` and
-`https://wallpaperexchange.com/storage/...`.
+`storage.wallpaperexchange.com` for the Pages Function. Normal API and storage
+traffic continues to use `https://wallpaperexchange.com/api/...` and
+`https://wallpaperexchange.com/storage/...`; browser uploads go directly to
+`https://api.wallpaperexchange.com/api/v1` so large request bodies do not pass
+through a second Pages Function streaming hop. The origin tunnel is pinned to
+HTTP/2 because QUIC is unreliable on the production host's current edge route.
 
 ### Development
 

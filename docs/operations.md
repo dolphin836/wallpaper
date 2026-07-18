@@ -367,7 +367,9 @@ ssh root@139.224.49.94 'cd /opt/app/wallpaper && ./wallctl.sh restart api'
 跟本地一份，外加 docker compose 用的 `POSTGRES_*` / `MINIO_*` / `JWT_SECRET`
 和生产专用的 `CLOUDFLARE_TUNNEL_TOKEN`。Tunnel 将
 `api.wallpaperexchange.com`、`storage.wallpaperexchange.com` 分别接到 API、MinIO；
-Web、macOS、iOS、Android 客户端仍统一访问 `wallpaperexchange.com` 主域名。
+客户端的普通请求仍统一访问 `wallpaperexchange.com` 主域名。Web 图片/视频上传
+直接访问 `api.wallpaperexchange.com/api/v1`，绕过 Pages Function 的请求体转发；
+Tunnel 在 Compose 中固定为 HTTP/2，以避免生产线路上的 QUIC 上传中断。
 
 **复制本地某个 key 到服务器**：
 

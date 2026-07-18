@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import { useDropzone } from 'react-dropzone';
 import * as tus from 'tus-js-client';
-import { resolveBaseURL } from '../api/client';
+import { resolveUploadBaseURL } from '../api/client';
 import {
   AiOutlineCloudUpload,
   AiOutlineClose,
@@ -18,14 +18,17 @@ import usePageTitle from '../hooks/usePageTitle';
 
 const MAX_SIZE = 200 * 1024 * 1024;
 const MAX_FILES = 20;
+const IMAGE_UPLOAD_TIMEOUT_MS = 15 * 60 * 1000;
 
 type FileStatus = 'pending' | 'uploading' | 'success' | 'error';
+type UploadPhase = 'sending' | 'confirming';
 
 interface UploadFile {
   file: File;
   preview: string;
   status: FileStatus;
   progress: number;
+  phase?: UploadPhase;
   error?: string;
 }
 
@@ -149,18 +152,18 @@ export default function UploadPage() {
         success++;
         continue;
       }
-      updateFile(i, { status: 'uploading', progress: 0 });
+      updateFile(i, { status: 'uploading', progress: 0, phase: 'sending', error: undefined });
       try {
         if (isVideoFile(files[i].file)) {
           await uploadVideoTus(i, files[i].file);
         } else {
           await uploadImageMultipart(i, files[i].file);
         }
-        updateFile(i, { status: 'success', progress: 100 });
+        updateFile(i, { status: 'success', progress: 100, phase: undefined });
         success++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : t('errors.uploadFailed');
-        updateFile(i, { status: 'error', progress: 0, error: msg });
+        updateFile(i, { status: 'error', progress: 0, phase: undefined, error: msg });
         failed++;
       }
     }
@@ -188,14 +191,22 @@ export default function UploadPage() {
       const formData = new FormData();
       formData.append('file', f);
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${resolveBaseURL()}/wallpapers`);
+      xhr.open('POST', `${resolveUploadBaseURL()}/wallpapers`);
+      xhr.timeout = IMAGE_UPLOAD_TIMEOUT_MS;
       const token = localStorage.getItem('token');
       if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
-          updateFile(i, { progress: Math.round((e.loaded / e.total) * 100) });
+          // Reserve the final 5% for origin acknowledgement. Browser upload
+          // progress only means the nearest Cloudflare edge accepted the
+          // bytes; it does not mean the API and MinIO have persisted them.
+          updateFile(i, {
+            phase: 'sending',
+            progress: Math.min(95, Math.round((e.loaded / e.total) * 95)),
+          });
         }
       };
+      xhr.upload.onload = () => updateFile(i, { phase: 'confirming', progress: 95 });
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) return resolve();
         let msg = `HTTP ${xhr.status}`;
@@ -207,6 +218,7 @@ export default function UploadPage() {
       };
       xhr.onerror = () => reject(new Error(t('errors.network')));
       xhr.ontimeout = () => reject(new Error(t('errors.timeout')));
+      xhr.onabort = () => reject(new Error(t('errors.network')));
       xhr.send(formData);
     });
 
@@ -214,9 +226,10 @@ export default function UploadPage() {
     new Promise<void>((resolve, reject) => {
       const token = localStorage.getItem('token');
       if (!token) return reject(new Error(t('errors.signInFirst')));
-      const base = resolveBaseURL().startsWith('http')
-        ? resolveBaseURL()
-        : `${window.location.origin}${resolveBaseURL()}`;
+      const uploadBase = resolveUploadBaseURL();
+      const base = uploadBase.startsWith('http')
+        ? uploadBase
+        : `${window.location.origin}${uploadBase}`;
       const upload = new tus.Upload(f, {
         endpoint: `${base}/uploads/tus`,
         chunkSize: 8 * 1024 * 1024,
@@ -227,7 +240,11 @@ export default function UploadPage() {
         removeFingerprintOnSuccess: true,
         onError: (err) => reject(new Error(err.message || t('errors.uploadFailed'))),
         onProgress: (sent, total) => {
-          updateFile(i, { progress: Math.round((sent / total) * 100) });
+          const sentAll = sent >= total;
+          updateFile(i, {
+            phase: sentAll ? 'confirming' : 'sending',
+            progress: sentAll ? 95 : Math.min(94, Math.round((sent / total) * 95)),
+          });
         },
         onSuccess: () => resolve(),
       });
@@ -241,7 +258,9 @@ export default function UploadPage() {
   const totalDone = files.filter((f) => f.status === 'success').length;
   const totalError = files.filter((f) => f.status === 'error').length;
   const totalPending = files.filter((f) => f.status === 'pending' || f.status === 'uploading').length;
-  const overallProgress = files.length > 0 ? Math.round((totalDone / files.length) * 100) : 0;
+  const overallProgress = files.length > 0
+    ? Math.round(files.reduce((sum, f) => sum + f.progress, 0) / files.length)
+    : 0;
   const allDone = files.length > 0 && files.every((f) => f.status === 'success');
 
   const uploadControls = files.length > 0 && (
@@ -458,7 +477,7 @@ function UploadTile({
               <div className="upload-tile-progress-fill" style={{ width: `${f.progress}%` }} />
             </div>
             <span className="mono text-[10px] tracking-[0.06em] text-paper mt-1.5 tabular-nums">
-              {f.progress}%
+              {f.phase === 'confirming' ? t('queue.confirming') : `${f.progress}%`}
             </span>
           </div>
         )}

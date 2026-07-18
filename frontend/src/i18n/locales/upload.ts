@@ -25,6 +25,7 @@ const en = {
     label: 'Queue · {{num}}',
     done: '{{num}} done',
     failed: '{{num}} failed',
+    confirming: 'Waiting for server…',
     remove: 'Remove',
   },
   bar: {
@@ -83,6 +84,7 @@ const zhCN: typeof en = {
     label: '队列 · {{num}}',
     done: '{{num}} 个完成',
     failed: '{{num}} 个失败',
+    confirming: '等待服务器确认…',
     remove: '移除',
   },
   bar: {
@@ -141,6 +143,7 @@ const zhTW: typeof en = {
     label: '佇列 · {{num}}',
     done: '{{num}} 個完成',
     failed: '{{num}} 個失敗',
+    confirming: '等待伺服器確認…',
     remove: '移除',
   },
   bar: {
@@ -199,6 +202,7 @@ const ja: typeof en = {
     label: 'キュー · {{num}}',
     done: '{{num}} 件完了',
     failed: '{{num}} 件失敗',
+    confirming: 'サーバーの確認待ち…',
     remove: '削除',
   },
   bar: {

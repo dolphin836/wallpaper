@@ -243,7 +243,10 @@ services:
         limits:
           memory: 128m
           cpus: "0.25"
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    # The production host's QUIC connections repeatedly timed out against
+    # LAX edges during request-body streaming. HTTP/2 keeps the origin tunnel
+    # on TCP, which is materially more stable for large uploads on this route.
+    command: tunnel --protocol http2 --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
       api:
         condition: service_started

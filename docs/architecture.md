@@ -260,7 +260,10 @@ Web 前端不在服务器 Docker Compose 中运行，由 Cloudflare Pages 从 `m
 分支构建发布。Pages Function 将公开的 `/api/*` 和 `/storage/*` 分别代理到
 `api.wallpaperexchange.com` 与 `storage.wallpaperexchange.com`。这两个子域名
 都是 Cloudflare Tunnel 路由，由服务器内的 `cloudflared` 通过 Docker 网络
-直连 API 和 MinIO；不暴露服务器源 IP，也不依赖其他产品的域名。
+直连 API 和 MinIO；不暴露服务器源 IP，也不依赖其他产品的域名。普通 Web
+请求继续走主域名的 Pages Function；浏览器上传直接请求
+`api.wallpaperexchange.com/api/v1`，避免大请求体经过两层 Cloudflare 代理。
+生产 Tunnel 强制使用基于 TCP 的 HTTP/2，规避当前线路上的 QUIC 长连接抖动。
 
 ## 8. 安全考虑
 

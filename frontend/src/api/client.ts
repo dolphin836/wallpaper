@@ -12,6 +12,26 @@ export function resolveBaseURL(): string {
   return '/api/v1';
 }
 
+// Large request bodies should not pass through the apex-domain Pages
+// Function. That extra streaming proxy can finish receiving the browser
+// upload before the origin has the full body, which makes XHR report 100%
+// while the request is still crossing the origin tunnel. In production we
+// post straight to the public Tunnel hostname; local development keeps using
+// the Vite /api proxy. A dedicated env override remains available for preview
+// deployments or a future upload origin.
+export function resolveUploadBaseURL(): string {
+  if (import.meta.env.VITE_UPLOAD_API_BASE_URL) {
+    return import.meta.env.VITE_UPLOAD_API_BASE_URL.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'wallpaperexchange.com' || hostname === 'www.wallpaperexchange.com') {
+      return 'https://api.wallpaperexchange.com/api/v1';
+    }
+  }
+  return resolveBaseURL();
+}
+
 const client = axios.create({
   baseURL: resolveBaseURL(),
   timeout: 15000,
