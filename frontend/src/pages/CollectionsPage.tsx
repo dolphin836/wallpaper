@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { AiOutlinePlus } from 'react-icons/ai';
 import { Link } from 'react-router-dom';
 import type { Collection, CollectionTile } from '../types';
 import { getCollections, createCollection } from '../api';
@@ -62,53 +61,29 @@ export default function CollectionsPage() {
   // the very first request is in flight.
   const total = serverTotal !== null ? Math.max(1, Math.ceil(serverTotal / PAGE_SIZE)) : 1;
 
-  // Page-mesh palette is driven by whichever collection card the
-  // cursor is hovering over — we read up to three dominant colours
-  // from that collection's recent_tiles and stamp them as
-  // --c-list-c1/c2/c3 on the page root. The CSS .c-list-mesh
-  // radials read those vars, so the soft cloud behind the grid
-  // tracks the card. On mouse-leave the vars are removed and the
-  // mesh falls back to its default neutral triad.
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const applyTints = useCallback((tints: string[] | null) => {
-    const root = rootRef.current;
-    if (!root) return;
-    if (!tints || tints.length === 0) {
-      root.style.removeProperty('--c-list-c1');
-      root.style.removeProperty('--c-list-c2');
-      root.style.removeProperty('--c-list-c3');
-      return;
-    }
-    const [c1, c2 = c1, c3 = c1] = tints;
-    root.style.setProperty('--c-list-c1', c1);
-    root.style.setProperty('--c-list-c2', c2);
-    root.style.setProperty('--c-list-c3', c3);
-  }, []);
-
   return (
-    <div ref={rootRef} className="c-list min-h-full">
-      <div className="c-list-mesh" aria-hidden />
+    <div className="c-list min-h-full">
       <PageMeta
         title={t('meta.titleThemes')}
         description={t('meta.descriptionThemes')}
       />
 
-      <main className="c4-shell">
-        <header className="c4-masthead">
-          <div className="c4-masthead-copy">
+      <main className="c5-shell">
+        <header className="c5-header">
+          <div className="c5-header-copy">
             <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
               {t('list.kickerThemes')}
             </div>
-            <h1 className="display c4-masthead-title">
+            <h1 className="display c5-header-title">
               <Trans i18nKey="list.headingThemes" ns="collections" components={[<em key="0" />]} />
             </h1>
-            <p className="c4-masthead-intro">
+            <p className="c5-header-intro">
               {t('list.introThemes')}
             </p>
           </div>
 
-          <aside className="c4-catalogue-meta" aria-label={t('list.kickerThemes')}>
-            <div className="c4-catalogue-count">
+          <aside className="c5-summary" aria-label={t('list.kickerThemes')}>
+            <div className="c5-count">
               {serverTotal !== null ? (
                 <>
                   <strong>{String(serverTotal).padStart(2, '0')}</strong>
@@ -116,12 +91,12 @@ export default function CollectionsPage() {
                 </>
               ) : (
                 <>
-                  <span className="c4-count-skeleton skeleton-card" aria-hidden />
-                  <span className="c4-count-label-skeleton skeleton-card" aria-hidden />
+                  <span className="c5-count-number-skeleton skeleton-card" aria-hidden />
+                  <span className="c5-count-label-skeleton skeleton-card" aria-hidden />
                 </>
               )}
             </div>
-            <span className="c4-page-label">
+            <span className="c5-page-label">
               {t('list.pageLabel', { current, total })}
             </span>
             {isAuthenticated && (
@@ -129,7 +104,7 @@ export default function CollectionsPage() {
                 onClick={() => setShowCreate(true)}
                 className="c-list-new"
               >
-                <AiOutlinePlus size={13} /> {t('list.newButton')}
+                <span aria-hidden>+</span> {t('list.newButton')}
               </button>
             )}
           </aside>
@@ -147,15 +122,13 @@ export default function CollectionsPage() {
             onAction={isAuthenticated ? () => setShowCreate(true) : undefined}
           />
         ) : (
-          <div className="c4-index">
+          <div className="c5-list">
             {visible.map((c, index) => (
-              <CollectionIndexCard
+              <CollectionListCard
                 key={c.id}
                 collection={c}
                 index={(current - 1) * PAGE_SIZE + index + 1}
-                reverse={index % 2 === 1}
                 eager={current === 1 && index === 0}
-                onTintsChange={applyTints}
               />
             ))}
           </div>
@@ -187,22 +160,7 @@ export default function CollectionsPage() {
   );
 }
 
-/* Shared hover handler: push up to three dominant colours from the
-   collection's recent tiles into the page mesh. */
-function collectionTints(c: Collection): string[] {
-  const tints = (c.recent_tiles ?? [])
-    .map((t) => t.dominant_color)
-    .filter((s): s is string => Boolean(s))
-    .slice(0, 3);
-  if (tints.length === 0 && c.accent_color) tints.push(c.accent_color);
-  return tints;
-}
-
-function collectionCoverTiles(c: Collection): [
-  CollectionTile | undefined,
-  CollectionTile | undefined,
-  CollectionTile | undefined,
-] {
+function collectionCoverTiles(c: Collection): Array<CollectionTile | undefined> {
   const tiles = c.recent_tiles ?? [];
   let first = tiles[0];
 
@@ -216,10 +174,10 @@ function collectionCoverTiles(c: Collection): [
     };
   }
 
-  // A collection cover always has three visual slots. When the API has
-  // only one or two wallpapers, repeat the first one instead of leaving
-  // a blank cell; this matches the product's cover composition contract.
-  return [first, tiles[1] ?? first, tiles[2] ?? first];
+  // Keep the card quiet: one image is the default cover. A second recent
+  // image may form a narrow supporting panel, but we never manufacture
+  // extra slots by repeating the first wallpaper.
+  return tiles[1] ? [first, tiles[1]] : [first];
 }
 
 function countLabel(c: Collection, t: (k: string, o?: Record<string, unknown>) => string): string {
@@ -228,39 +186,31 @@ function countLabel(c: Collection, t: (k: string, o?: Record<string, unknown>) =
     : t('tile.wallpaperCount', { num: c.wallpaper_count });
 }
 
-/* The loading view mirrors the same alternating index rows, copy rails,
-   and three-slot cover geometry as the resolved catalogue. */
+/* The loading view mirrors the resolved horizontal card list exactly. */
 function CollectionsSkeleton({ current }: { current: number }) {
   return (
-    <div className="c4-index" aria-hidden>
+    <div className="c5-list" aria-hidden>
       {Array.from({ length: PAGE_SIZE }).map((_, i) => (
         <div
           key={`${current}-${i}`}
-          className={`c4-entry c4-skeleton-entry${i % 2 === 1 ? ' is-reverse' : ''}`}
+          className="c5-card c5-skeleton-card"
         >
-          <div className="c4-entry-copy">
-            <div className="c4-entry-kicker">
-              <span className="c4-skeleton-line c4-skeleton-kicker skeleton-card" />
-              <span className="c4-skeleton-line c4-skeleton-folio skeleton-card" />
+          <div className="c5-media skeleton-card" />
+          <div className="c5-copy">
+            <div className="c5-eyebrow">
+              <span className="c5-skeleton-line c5-skeleton-source skeleton-card" />
+              <span className="c5-skeleton-line c5-skeleton-folio skeleton-card" />
             </div>
-            <div>
-              <span className="c4-skeleton-line c4-skeleton-title skeleton-card" />
-              <span className="c4-skeleton-line c4-skeleton-title is-short skeleton-card" />
-              <span className="c4-skeleton-line c4-skeleton-description skeleton-card" />
-              <span className="c4-skeleton-line c4-skeleton-description is-short skeleton-card" />
+            <div className="c5-body">
+              <span className="c5-skeleton-line c5-skeleton-title skeleton-card" />
+              <span className="c5-skeleton-line c5-skeleton-description skeleton-card" />
+              <span className="c5-skeleton-line c5-skeleton-description is-short skeleton-card" />
             </div>
-            <div className="c4-entry-meta">
-              <span className="c4-skeleton-line c4-skeleton-count skeleton-card" />
-              <span className="c4-skeleton-arrow skeleton-card" />
-            </div>
-          </div>
-          <div className="c4-entry-media skeleton-card">
-            <div className="c2-mosaic c4-skeleton-mosaic">
-              <div className="c2-main" />
-              <div />
-              <div />
+            <div className="c5-meta">
+              <span className="c5-skeleton-line c5-skeleton-count skeleton-card" />
             </div>
           </div>
+          <span className="c5-skeleton-arrow skeleton-card" />
         </div>
       ))}
     </div>
@@ -350,16 +300,15 @@ function ProgressiveCollectionImage({
   );
 }
 
-/* All three small images in a mosaic get a chance to settle before any
-   large preview is mounted. This protects the small-first network order
-   at the whole-card level, rather than only within each individual slot. */
-function ProgressiveCollectionMosaic({
+/* Every small image settles before a large preview is mounted, preserving
+   the existing dominant colour -> thumb -> preview network order. */
+function ProgressiveCollectionCover({
   tiles,
   fallbackColor,
   title,
   eager = false,
 }: {
-  tiles: [CollectionTile | undefined, CollectionTile | undefined, CollectionTile | undefined];
+  tiles: Array<CollectionTile | undefined>;
   fallbackColor: string;
   title: string;
   eager?: boolean;
@@ -378,107 +327,114 @@ function ProgressiveCollectionMosaic({
       return next;
     });
   }, []);
-  const markMainSettled = useCallback(() => markThumbSettled(0), [markThumbSettled]);
-  const markSub1Settled = useCallback(() => markThumbSettled(1), [markThumbSettled]);
-  const markSub2Settled = useCallback(() => markThumbSettled(2), [markThumbSettled]);
 
-  const [main, sub1, sub2] = tiles;
   return (
-    <div className="c2-mosaic">
-      <div className="c2-main">
-        <ProgressiveCollectionImage
-          tile={main}
+    <div className={`c5-cover-layout${tiles.length > 1 ? ' is-duo' : ' is-single'}`}>
+      {tiles.map((tile, index) => (
+        <ProgressiveCollectionCoverSlot
+          key={`${tile?.thumb_url || tile?.preview_url || 'empty'}-${index}`}
+          tile={tile}
+          index={index}
           fallbackColor={fallbackColor}
-          alt={title}
+          title={title}
           eager={eager}
           allowPreview={allowPreview}
-          onThumbSettled={markMainSettled}
+          onThumbSettled={markThumbSettled}
         />
-      </div>
-      <div>
-        <ProgressiveCollectionImage
-          tile={sub1}
-          fallbackColor={fallbackColor}
-          eager={eager}
-          allowPreview={allowPreview}
-          onThumbSettled={markSub1Settled}
-        />
-      </div>
-      <div>
-        <ProgressiveCollectionImage
-          tile={sub2}
-          fallbackColor={fallbackColor}
-          eager={eager}
-          allowPreview={allowPreview}
-          onThumbSettled={markSub2Settled}
-        />
-      </div>
+      ))}
     </div>
   );
 }
 
-/* One catalogue row: a restrained copy rail paired with the three-image
-   mood board. Alternating the two columns creates rhythm without turning
-   the page into a wall of unrelated card shapes. */
-function CollectionIndexCard({
+function ProgressiveCollectionCoverSlot({
+  tile,
+  index,
+  fallbackColor,
+  title,
+  eager,
+  allowPreview,
+  onThumbSettled,
+}: {
+  tile?: CollectionTile;
+  index: number;
+  fallbackColor: string;
+  title: string;
+  eager: boolean;
+  allowPreview: boolean;
+  onThumbSettled: (index: number) => void;
+}) {
+  const handleThumbSettled = useCallback(() => onThumbSettled(index), [index, onThumbSettled]);
+
+  return (
+    <div>
+      <ProgressiveCollectionImage
+        tile={tile}
+        fallbackColor={fallbackColor}
+        alt={index === 0 ? title : ''}
+        eager={eager}
+        allowPreview={allowPreview}
+        onThumbSettled={handleThumbSettled}
+      />
+    </div>
+  );
+}
+
+/* A consistent horizontal card list. The image remains the lead, while
+   metadata stays in one predictable reading path on every row. */
+function CollectionListCard({
   collection: c,
   index,
-  reverse,
   eager,
-  onTintsChange,
 }: {
   collection: Collection;
   index: number;
-  reverse: boolean;
   eager: boolean;
-  onTintsChange?: (tints: string[] | null) => void;
 }) {
   const { t } = useTranslation('collections');
-  const [main, sub1, sub2] = collectionCoverTiles(c);
+  const tiles = collectionCoverTiles(c);
+  const main = tiles[0];
   const fallback = main?.dominant_color || c.accent_color || 'var(--color-paper-2)';
-  const mosaicKey = [main, sub1, sub2]
+  const coverKey = tiles
     .map((tile) => `${tile?.thumb_url || ''}|${tile?.preview_url || ''}`)
     .join('||');
-  const applyCollectionTints = () => {
-    const tints = collectionTints(c);
-    if (tints.length) onTintsChange?.(tints);
-  };
+  const source = c.kind === 1
+    ? t('tile.weeklyRecommendation')
+    : c.author_username
+      ? t('tile.byAuthor', { name: c.author_username })
+      : t('tile.authorFallback');
 
   return (
     <Link
       to={`/collections/${c.slug}`}
-      className={`c4-entry no-underline${reverse ? ' is-reverse' : ''}`}
-      style={{ '--c4-accent': c.accent_color || fallback } as React.CSSProperties}
-      onMouseEnter={applyCollectionTints}
-      onMouseLeave={() => onTintsChange?.(null)}
-      onFocus={applyCollectionTints}
-      onBlur={() => onTintsChange?.(null)}
+      className="c5-card no-underline"
+      style={{ '--c5-accent': c.accent_color || fallback } as React.CSSProperties}
     >
-      <div className="c4-entry-copy">
-        <div className="c4-entry-kicker">
-          <span>{c.kind === 1 ? t('tile.weeklyRecommendation') : t('tile.kickerCollection')}</span>
-          <span aria-hidden>COL—{String(index).padStart(2, '0')}</span>
-        </div>
-        <div className="c4-entry-body">
-          <h2 className="display c4-entry-title" title={c.title}>{c.title}</h2>
-          {c.description && <p className="c4-entry-description">{c.description}</p>}
-        </div>
-        <div className="c4-entry-meta">
-          <span>{countLabel(c, t)}</span>
-          <span className="c4-entry-open" aria-hidden>↗</span>
-        </div>
-      </div>
-      <div className="c4-entry-media">
-        <ProgressiveCollectionMosaic
-          key={mosaicKey}
-          tiles={[main, sub1, sub2]}
+      <div className="c5-media">
+        <ProgressiveCollectionCover
+          key={coverKey}
+          tiles={tiles}
           fallbackColor={fallback}
           title={c.title}
           eager={eager}
         />
         {!c.is_public && <span className="c2-lock">{t('tile.private')}</span>}
-        <span className="c4-media-folio" aria-hidden>{String(index).padStart(2, '0')}</span>
       </div>
+      <div className="c5-copy">
+        <div className="c5-eyebrow">
+          <span className="c5-source"><i aria-hidden />{source}</span>
+          <span aria-hidden>COL—{String(index).padStart(2, '0')}</span>
+        </div>
+        <div className="c5-body">
+          <h2 className="display c5-title" title={c.title}>{c.title}</h2>
+          {c.description && <p className="c5-description">{c.description}</p>}
+        </div>
+        <div className="c5-meta">{countLabel(c, t)}</div>
+      </div>
+      <span className="c5-arrow" aria-hidden>
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M5 12h13M13 7l5 5-5 5" />
+        </svg>
+      </span>
     </Link>
   );
 }
