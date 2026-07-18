@@ -482,8 +482,7 @@
 .c5-cover-layout {
   position: absolute;
   inset: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr) minmax(0, 0.68fr);
+  display: flex;
   gap: 2px;
   align-items: stretch;
   background: color-mix(in srgb, var(--color-hair) 75%, transparent);
@@ -491,16 +490,39 @@
 }
 .c5-cover-layout > div {
   position: relative;
+  flex-basis: 0;
   min-width: 0;
   overflow: hidden;
+  transition:
+    flex-grow 420ms var(--ease-out-quart),
+    margin 360ms var(--ease-out-quart),
+    opacity 240ms ease,
+    filter 240ms ease;
 }
+.c5-cover-layout > div:nth-child(1) { flex-grow: 1.65; }
 .c5-cover-layout > div:nth-child(2) {
+  flex-grow: 1;
   margin-block: 9px;
   border-radius: 4px;
 }
 .c5-cover-layout > div:nth-child(3) {
+  flex-grow: 0.68;
   margin-block: 18px;
   border-radius: 4px 0 0 4px;
+}
+.c5-cover-layout:hover > div:not(:hover) {
+  flex-grow: 0.58;
+  opacity: 0.82;
+  filter: saturate(0.82) brightness(0.94);
+}
+.c5-cover-layout:hover > div:hover {
+  flex-grow: 2.15;
+  opacity: 1;
+  filter: none;
+}
+.c5-cover-layout:hover > div:nth-child(2):hover,
+.c5-cover-layout:hover > div:nth-child(3):hover {
+  margin-block: 4px;
 }
 .c5-card:hover .c5-cover-layout,
 .c5-card:focus-visible .c5-cover-layout { transform: scale(1.018); }
@@ -626,6 +648,7 @@
   .c5-card,
   .c-list-mesh,
   .c5-cover-layout,
+  .c5-cover-layout > div,
   .c5-arrow svg { transition: none; }
   .c5-card:hover,
   .c5-card:focus-visible,
