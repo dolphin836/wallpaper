@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import type { Collection, CollectionTile } from '../types';
-import { getCollections, createCollection } from '../api';
-import { useAuthStore } from '../store/auth';
+import { getCollections } from '../api';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
@@ -14,7 +12,6 @@ const PAGE_SIZE = 12;
 
 export default function CollectionsPage() {
   const { t } = useTranslation('collections');
-  const { isAuthenticated } = useAuthStore();
 
   const [pages, setPages] = useState<Record<number, Collection[]>>({});
   const [cursors, setCursors] = useState<Record<number, number | undefined>>({ 1: undefined });
@@ -26,7 +23,6 @@ export default function CollectionsPage() {
   const [current, setCurrent] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
 
   const fetchPage = useCallback(async (page: number) => {
     if (pages[page]) return;
@@ -70,44 +66,15 @@ export default function CollectionsPage() {
 
       <main className="c5-shell">
         <header className="c5-header">
-          <div className="c5-header-copy">
-            <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
-              {t('list.kickerThemes')}
-            </div>
-            <h1 className="display c5-header-title">
-              <Trans i18nKey="list.headingThemes" ns="collections" components={[<em key="0" />]} />
-            </h1>
-            <p className="c5-header-intro">
-              {t('list.introThemes')}
-            </p>
+          <div className="mono text-[10px] tracking-[0.22em] uppercase text-muted">
+            {t('list.kickerThemes')}
           </div>
-
-          <aside className="c5-summary" aria-label={t('list.kickerThemes')}>
-            <div className="c5-count">
-              {serverTotal !== null ? (
-                <>
-                  <strong>{String(serverTotal).padStart(2, '0')}</strong>
-                  <span>{t('list.archiveCount', { num: serverTotal })}</span>
-                </>
-              ) : (
-                <>
-                  <span className="c5-count-number-skeleton skeleton-card" aria-hidden />
-                  <span className="c5-count-label-skeleton skeleton-card" aria-hidden />
-                </>
-              )}
-            </div>
-            <span className="c5-page-label">
-              {t('list.pageLabel', { current, total })}
-            </span>
-            {isAuthenticated && (
-              <button
-                onClick={() => setShowCreate(true)}
-                className="c-list-new"
-              >
-                <span aria-hidden>+</span> {t('list.newButton')}
-              </button>
-            )}
-          </aside>
+          <h1 className="display c5-header-title">
+            <Trans i18nKey="list.headingThemes" ns="collections" components={[<em key="0" />]} />
+          </h1>
+          <p className="c5-header-intro">
+            {t('list.introThemes')}
+          </p>
         </header>
 
         {loading && visible.length === 0 ? (
@@ -118,8 +85,6 @@ export default function CollectionsPage() {
           <EmptyState
             title={t('list.emptyTitle')}
             message={t('list.emptyMessage')}
-            actionLabel={isAuthenticated ? t('list.emptyAction') : undefined}
-            onAction={isAuthenticated ? () => setShowCreate(true) : undefined}
           />
         ) : (
           <div className="c5-list">
@@ -127,7 +92,6 @@ export default function CollectionsPage() {
               <CollectionListCard
                 key={c.id}
                 collection={c}
-                index={(current - 1) * PAGE_SIZE + index + 1}
                 eager={current === 1 && index === 0}
               />
             ))}
@@ -143,26 +107,13 @@ export default function CollectionsPage() {
           onChange={setCurrent}
         />
       </main>
-
-      {showCreate && (
-        <NewCollectionModal
-          onClose={() => setShowCreate(false)}
-          onCreated={() => {
-            setShowCreate(false);
-            setPages({});
-            setCursors({ 1: undefined });
-            setServerTotal(null);
-            setCurrent(1);
-          }}
-        />
-      )}
     </div>
   );
 }
 
 function collectionCoverTiles(c: Collection): Array<CollectionTile | undefined> {
-  const tiles = c.recent_tiles ?? [];
-  let first = tiles[0];
+  const available = [...(c.recent_tiles ?? [])];
+  let first = available[0];
 
   // Older or empty collections may only expose cover_url. Treat it as
   // a one-stage tile so the card still follows the same rendering path.
@@ -172,12 +123,17 @@ function collectionCoverTiles(c: Collection): Array<CollectionTile | undefined> 
       preview_url: c.cover_url,
       dominant_color: c.accent_color || '',
     };
+    available.push(first);
   }
 
-  // Keep the card quiet: one image is the default cover. A second recent
-  // image may form a narrow supporting panel, but we never manufacture
-  // extra slots by repeating the first wallpaper.
-  return tiles[1] ? [first, tiles[1]] : [first];
+  if (!first) return [undefined, undefined, undefined, undefined];
+
+  // Cards always resolve to four slots. Use real recent wallpapers first;
+  // when a collection has fewer than four, repeat its first image so the
+  // composition stays complete without inventing empty white gaps.
+  const resolved = available.slice(0, 4);
+  while (resolved.length < 4) resolved.push(first);
+  return resolved;
 }
 
 function countLabel(c: Collection, t: (k: string, o?: Record<string, unknown>) => string): string {
@@ -199,7 +155,6 @@ function CollectionsSkeleton({ current }: { current: number }) {
           <div className="c5-copy">
             <div className="c5-eyebrow">
               <span className="c5-skeleton-line c5-skeleton-source skeleton-card" />
-              <span className="c5-skeleton-line c5-skeleton-folio skeleton-card" />
             </div>
             <div className="c5-body">
               <span className="c5-skeleton-line c5-skeleton-title skeleton-card" />
@@ -210,7 +165,6 @@ function CollectionsSkeleton({ current }: { current: number }) {
               <span className="c5-skeleton-line c5-skeleton-count skeleton-card" />
             </div>
           </div>
-          <span className="c5-skeleton-arrow skeleton-card" />
         </div>
       ))}
     </div>
@@ -329,7 +283,7 @@ function ProgressiveCollectionCover({
   }, []);
 
   return (
-    <div className={`c5-cover-layout${tiles.length > 1 ? ' is-duo' : ' is-single'}`}>
+    <div className="c5-cover-layout">
       {tiles.map((tile, index) => (
         <ProgressiveCollectionCoverSlot
           key={`${tile?.thumb_url || tile?.preview_url || 'empty'}-${index}`}
@@ -383,11 +337,9 @@ function ProgressiveCollectionCoverSlot({
    metadata stays in one predictable reading path on every row. */
 function CollectionListCard({
   collection: c,
-  index,
   eager,
 }: {
   collection: Collection;
-  index: number;
   eager: boolean;
 }) {
   const { t } = useTranslation('collections');
@@ -422,7 +374,6 @@ function CollectionListCard({
       <div className="c5-copy">
         <div className="c5-eyebrow">
           <span className="c5-source"><i aria-hidden />{source}</span>
-          <span aria-hidden>COL—{String(index).padStart(2, '0')}</span>
         </div>
         <div className="c5-body">
           <h2 className="display c5-title" title={c.title}>{c.title}</h2>
@@ -436,63 +387,5 @@ function CollectionListCard({
         </svg>
       </span>
     </Link>
-  );
-}
-
-function NewCollectionModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const { t } = useTranslation('collections');
-  const [title, setTitle] = useState('');
-  const [creating, setCreating] = useState(false);
-
-  const submit = async () => {
-    const trimmed = title.trim();
-    if (!trimmed || creating) return;
-    setCreating(true);
-    try {
-      await createCollection({ title: trimmed });
-      toast.success(t('create.success'));
-      onCreated();
-    } catch {
-      toast.error(t('create.error'));
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-[60] flex items-start justify-center pt-[20vh] px-4"
-      style={{ background: 'rgba(15,12,8,0.55)' }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-paper border border-ink w-full max-w-[360px] p-5 rounded-xl"
-        style={{ boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }}
-      >
-        <div className="mono text-[10px] tracking-[0.16em] uppercase text-muted mb-3">{t('create.kicker')}</div>
-        <input
-          autoFocus
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onClose(); }}
-          placeholder={t('create.placeholder')}
-          maxLength={100}
-          className="w-full px-3.5 py-3 bg-paper text-[14px] text-ink placeholder:text-muted outline-none rounded-lg"
-          style={{ border: '1px solid var(--color-hair)' }}
-        />
-        <div className="flex justify-end gap-2 mt-3">
-          <button
-            onClick={onClose}
-            className="px-3.5 py-1.5 rounded-full border border-hair text-ink-2 text-[12px] font-medium hover:bg-paper-2 transition-colors"
-          >{t('create.cancel')}</button>
-          <button
-            onClick={submit}
-            disabled={!title.trim() || creating}
-            className="px-3.5 py-1.5 rounded-full bg-ink text-paper text-[12px] font-medium disabled:opacity-50 transition-colors"
-          >{creating ? t('create.creating') : t('create.create')}</button>
-        </div>
-      </div>
-    </div>
   );
 }

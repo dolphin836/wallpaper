@@ -345,7 +345,7 @@ func (r *CollectionRepo) RemoveWallpaperFromAll(ctx context.Context, wallpaperID
 	return nil
 }
 
-// RecentTilesForCollections returns up to 3 wallpaper tiles per collection
+// RecentTilesForCollections returns up to 4 wallpaper tiles per collection
 // id, keyed by collection id. Each tile carries thumb_url, preview_url and
 // dominant_color so the frontend can do dominant-color placeholder + thumb-
 // then-preview progressive load. Ordered by the collection's own sort_order,
@@ -374,7 +374,7 @@ func (r *CollectionRepo) RecentTilesForCollections(ctx context.Context, ids []in
 			   AND w.status = 1
 			   AND w.thumb_url <> ''
 		) ranked
-		WHERE rn <= 3
+		WHERE rn <= 4
 		ORDER BY collection_id, rn
 	`, ids).Scan(&rows).Error
 	if err != nil {
@@ -463,7 +463,7 @@ type SitemapCollectionEntry struct {
 // ListThemeCollections returns the most recent editor-curated weekly
 // theme collections (kind=1) — newest first. The Home page calls this
 // with limit=3 to render the "Weekly Theme Collections" rail. Each row
-// is hydrated with up to 3 recent_tiles so the card can render its
+// is hydrated with up to 4 recent_tiles so the card can render its
 // preview composition without a second round-trip.
 func (r *CollectionRepo) ListThemeCollections(ctx context.Context, limit int) ([]model.Collection, error) {
 	if limit <= 0 {

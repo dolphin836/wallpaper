@@ -375,30 +375,26 @@
   text-transform: uppercase;
   z-index: 3;
 }
-/* ═══ Collections list v5 — quiet horizontal cards ════════════════
-   The list uses one consistent card shape, an adaptive one/two-image
-   cover and a restrained metadata rail. The existing c2-* progressive
-   image pipeline still owns dominant colour -> thumbnail -> preview. */
+/* ═══ Collections list v6 — wide two-column card catalogue ════════
+   The public page shares the 1600px product container used by Discover
+   and Weekly. Cards use a four-slot cover, compact copy and restrained
+   motion while preserving dominant colour -> thumb -> preview loading. */
 .c5-shell {
   position: relative;
   z-index: 1;
-  width: min(100%, 1160px);
+  width: min(100%, 1600px);
   margin-inline: auto;
-  padding: clamp(38px, 5vw, 70px) clamp(20px, 4vw, 44px) 80px;
+  padding: clamp(38px, 4vw, 64px) clamp(24px, 3.5vw, 56px) 80px;
 }
 .c5-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: clamp(36px, 7vw, 96px);
-  align-items: end;
+  max-width: 720px;
   padding-bottom: clamp(30px, 4vw, 46px);
 }
-.c5-header-copy { max-width: 690px; }
 .c5-header-title {
   max-width: 680px;
   margin-top: 10px;
   color: var(--color-ink);
-  font-size: clamp(42px, 5.3vw, 68px);
+  font-size: clamp(42px, 4.5vw, 64px);
   font-weight: 400;
   line-height: 1;
   letter-spacing: -0.035em;
@@ -417,67 +413,18 @@
   line-height: 1.7;
   text-wrap: pretty;
 }
-.c5-summary {
-  display: grid;
-  grid-template-columns: auto auto;
-  gap: 10px 24px;
-  align-items: center;
-  min-width: 230px;
-  padding: 16px 0 2px 24px;
-  border-left: 1px solid var(--color-hair);
-}
-.c5-count {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  grid-column: 1 / -1;
-}
-.c5-count strong {
-  color: var(--color-ink);
-  font-family: var(--font-display);
-  font-size: 36px;
-  font-weight: 400;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  letter-spacing: -0.04em;
-}
-.c5-count > span:not(.c5-count-number-skeleton):not(.c5-count-label-skeleton),
-.c5-page-label {
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  line-height: 1.45;
-  text-transform: uppercase;
-}
-.c5-page-label { white-space: nowrap; }
-.c5-summary .c-list-new { justify-self: end; }
-.c5-count-number-skeleton {
-  display: block;
-  width: 48px;
-  height: 32px;
-  border-radius: 4px;
-}
-.c5-count-label-skeleton {
-  display: block;
-  width: 112px;
-  height: 8px;
-  border-radius: 2px;
-}
 
 .c5-list {
   display: grid;
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(18px, 2vw, 28px);
 }
 .c5-card {
   --c5-accent: var(--color-accent);
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(250px, 34%) minmax(0, 1fr) 34px;
-  gap: 0;
-  min-height: 202px;
-  padding: 11px;
+  display: block;
+  min-width: 0;
+  padding: 10px;
   overflow: hidden;
   border: 1px solid var(--color-hair);
   border-radius: 12px;
@@ -507,8 +454,8 @@
 }
 .c5-media {
   position: relative;
+  aspect-ratio: 16 / 9;
   min-width: 0;
-  min-height: 180px;
   overflow: hidden;
   border: 1px solid var(--color-hair);
   border-radius: 8px;
@@ -518,12 +465,12 @@
   position: absolute;
   inset: 0;
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 1px;
   background: color-mix(in srgb, var(--color-hair) 75%, transparent);
   transition: transform 380ms var(--ease-out-quart);
 }
-.c5-cover-layout.is-single { grid-template-columns: 1fr; }
-.c5-cover-layout.is-duo { grid-template-columns: minmax(0, 2.15fr) minmax(72px, 0.85fr); }
 .c5-cover-layout > div {
   position: relative;
   min-width: 0;
@@ -535,7 +482,8 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 14px 22px 12px 26px;
+  min-height: 152px;
+  padding: 20px 48px 14px 12px;
 }
 .c5-eyebrow,
 .c5-meta {
@@ -551,8 +499,6 @@
 .c5-eyebrow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 18px;
 }
 .c5-source {
   display: inline-flex;
@@ -567,11 +513,11 @@
   border-radius: 50%;
   background: var(--c5-accent);
 }
-.c5-body { margin-block: auto; padding-block: 18px; }
+.c5-body { margin-block: auto; padding-block: 16px 14px; }
 .c5-title {
   overflow: hidden;
   color: var(--color-ink);
-  font-size: clamp(25px, 2.65vw, 34px);
+  font-size: clamp(26px, 2.3vw, 34px);
   font-weight: 400;
   line-height: 1.08;
   letter-spacing: -0.025em;
@@ -591,8 +537,11 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
-.c5-meta { margin-top: auto; }
+.c5-meta { margin-top: auto; padding-right: 30px; }
 .c5-arrow {
+  position: absolute;
+  right: 24px;
+  bottom: 25px;
   display: grid;
   place-items: center;
   color: var(--color-muted);
@@ -621,54 +570,25 @@
   border-radius: 2px;
 }
 .c5-skeleton-source { width: 112px; }
-.c5-skeleton-folio { width: 48px; }
 .c5-skeleton-title { width: min(72%, 320px); height: 28px; }
 .c5-skeleton-description { width: min(88%, 410px); margin-top: 16px; }
 .c5-skeleton-description.is-short { width: min(62%, 270px); margin-top: 8px; }
 .c5-skeleton-count { width: 88px; }
-.c5-skeleton-arrow {
-  align-self: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-}
 
-@media (max-width: 760px) {
+@media (max-width: 860px) {
+  .c5-list { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
   .c5-shell { padding: 32px 18px 64px; }
-  .c5-header {
-    grid-template-columns: 1fr;
-    gap: 26px;
-    padding-bottom: 30px;
-  }
+  .c5-header { padding-bottom: 30px; }
   .c5-header-title { font-size: clamp(41px, 12vw, 58px); }
-  .c5-summary {
-    grid-template-columns: 1fr auto;
-    min-width: 0;
-    padding: 16px 0 0;
-    border-top: 1px solid var(--color-hair);
-    border-left: 0;
-  }
-  .c5-count { grid-column: 1 / -1; }
-  .c5-summary .c-list-new { justify-self: end; }
   .c5-list { gap: 12px; }
-  .c5-card {
-    grid-template-columns: 1fr;
-    min-height: 0;
-    padding: 9px;
-  }
-  .c5-media {
-    min-height: 0;
-    aspect-ratio: 16 / 10;
-  }
-  .c5-copy { min-height: 176px; padding: 18px 10px 12px; }
-  .c5-body { padding-block: 22px 18px; }
+  .c5-card { padding: 8px; }
+  .c5-media { aspect-ratio: 4 / 3; }
+  .c5-copy { min-height: 164px; padding: 18px 44px 12px 10px; }
+  .c5-body { padding-block: 20px 16px; }
   .c5-title { font-size: 28px; }
-  .c5-arrow {
-    position: absolute;
-    right: 18px;
-    bottom: 20px;
-  }
-  .c5-skeleton-arrow { display: none; }
+  .c5-arrow { right: 18px; bottom: 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .c5-card,
@@ -3012,27 +2932,6 @@
   isolation: isolate;
   min-height: 100%;
   background: var(--color-paper);
-}
-
-.c-list-new {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px;
-  border-radius: 6px;
-  background: var(--color-ink);
-  color: var(--color-paper);
-  border: 1px solid var(--color-ink);
-  font-size: 12px;
-  font-weight: 500;
-  transition: background 200ms ease, transform 100ms ease;
-  cursor: pointer;
-}
-.c-list-new:hover {
-  background: var(--color-ink-2);
-}
-.c-list-new:active { transform: scale(0.97); }
-.c-list-new:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 3px;
 }
 
 /* Collection tile skeleton — mirrors the real CollectionTile so the
