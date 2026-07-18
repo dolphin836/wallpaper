@@ -126,13 +126,14 @@ function collectionCoverTiles(c: Collection): Array<CollectionTile | undefined> 
     available.push(first);
   }
 
-  if (!first) return [undefined, undefined, undefined, undefined];
+  if (!first) return [undefined, undefined, undefined];
 
-  // Cards always resolve to four slots. Use real recent wallpapers first;
-  // when a collection has fewer than four, repeat its first image so the
+  // Cards resolve to at most three slots, matching the list API contract.
+  // Use real recent wallpapers first; when a collection has fewer than
+  // three, repeat its first image so the
   // composition stays complete without inventing empty white gaps.
-  const resolved = available.slice(0, 4);
-  while (resolved.length < 4) resolved.push(first);
+  const resolved = available.slice(0, 3);
+  while (resolved.length < 3) resolved.push(first);
   return resolved;
 }
 
@@ -151,7 +152,13 @@ function CollectionsSkeleton({ current }: { current: number }) {
           key={`${current}-${i}`}
           className="c5-card c5-skeleton-card"
         >
-          <div className="c5-media skeleton-card" />
+          <div className="c5-media">
+            <div className="c5-cover-layout">
+              <div className="skeleton-card" />
+              <div className="skeleton-card" />
+              <div className="skeleton-card" />
+            </div>
+          </div>
           <div className="c5-copy">
             <div className="c5-eyebrow">
               <span className="c5-skeleton-line c5-skeleton-source skeleton-card" />

@@ -375,9 +375,9 @@
   text-transform: uppercase;
   z-index: 3;
 }
-/* ═══ Collections list v6 — wide two-column card catalogue ════════
+/* ═══ Collections list v7 — compact stepped-cover catalogue ═══════
    The public page shares the 1600px product container used by Discover
-   and Weekly. Cards use a four-slot cover, compact copy and restrained
+   and Weekly. Cards use a three-stage cover, compact copy and restrained
    motion while preserving dominant colour -> thumb -> preview loading. */
 .c5-shell {
   position: relative;
@@ -416,18 +416,19 @@
 
 .c5-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(18px, 2vw, 28px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(16px, 1.6vw, 24px);
+  align-items: start;
 }
 .c5-card {
   --c5-accent: var(--color-accent);
   position: relative;
   display: block;
   min-width: 0;
-  padding: 10px;
+  padding: 8px;
   overflow: hidden;
   border: 1px solid var(--color-hair);
-  border-radius: 12px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--color-paper) 94%, var(--color-paper-2));
   color: var(--color-ink);
   outline: none;
@@ -454,20 +455,20 @@
 }
 .c5-media {
   position: relative;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 16 / 10;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--color-hair);
-  border-radius: 8px;
+  border-radius: 7px;
   background: var(--color-paper-2);
 }
 .c5-cover-layout {
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  gap: 1px;
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr) minmax(0, 0.68fr);
+  gap: 2px;
+  align-items: stretch;
   background: color-mix(in srgb, var(--color-hair) 75%, transparent);
   transition: transform 380ms var(--ease-out-quart);
 }
@@ -476,14 +477,22 @@
   min-width: 0;
   overflow: hidden;
 }
+.c5-cover-layout > div:nth-child(2) {
+  margin-block: 9px;
+  border-radius: 4px;
+}
+.c5-cover-layout > div:nth-child(3) {
+  margin-block: 18px;
+  border-radius: 4px 0 0 4px;
+}
 .c5-card:hover .c5-cover-layout,
 .c5-card:focus-visible .c5-cover-layout { transform: scale(1.018); }
 .c5-copy {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 152px;
-  padding: 20px 48px 14px 12px;
+  min-height: 132px;
+  padding: 16px 42px 12px 10px;
 }
 .c5-eyebrow,
 .c5-meta {
@@ -513,11 +522,11 @@
   border-radius: 50%;
   background: var(--c5-accent);
 }
-.c5-body { margin-block: auto; padding-block: 16px 14px; }
+.c5-body { margin-block: auto; padding-block: 13px 11px; }
 .c5-title {
   overflow: hidden;
   color: var(--color-ink);
-  font-size: clamp(26px, 2.3vw, 34px);
+  font-size: clamp(24px, 1.9vw, 30px);
   font-weight: 400;
   line-height: 1.08;
   letter-spacing: -0.025em;
@@ -531,8 +540,8 @@
   margin-top: 10px;
   overflow: hidden;
   color: var(--color-ink-2);
-  font-size: 12px;
-  line-height: 1.65;
+  font-size: 11.5px;
+  line-height: 1.6;
   text-wrap: pretty;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -540,8 +549,8 @@
 .c5-meta { margin-top: auto; padding-right: 30px; }
 .c5-arrow {
   position: absolute;
-  right: 24px;
-  bottom: 25px;
+  right: 20px;
+  bottom: 20px;
   display: grid;
   place-items: center;
   color: var(--color-muted);
@@ -564,6 +573,7 @@
 
 .c5-skeleton-card { pointer-events: none; }
 .c5-skeleton-card:hover { transform: none; box-shadow: none; }
+.c5-skeleton-card .c5-cover-layout { transition: none; }
 .c5-skeleton-line {
   display: block;
   height: 8px;
@@ -575,19 +585,19 @@
 .c5-skeleton-description.is-short { width: min(62%, 270px); margin-top: 8px; }
 .c5-skeleton-count { width: 88px; }
 
-@media (max-width: 860px) {
-  .c5-list { grid-template-columns: 1fr; }
+@media (max-width: 1180px) {
+  .c5-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 640px) {
+@media (max-width: 720px) {
   .c5-shell { padding: 32px 18px 64px; }
   .c5-header { padding-bottom: 30px; }
   .c5-header-title { font-size: clamp(41px, 12vw, 58px); }
-  .c5-list { gap: 12px; }
+  .c5-list { grid-template-columns: 1fr; gap: 12px; }
   .c5-card { padding: 8px; }
-  .c5-media { aspect-ratio: 4 / 3; }
-  .c5-copy { min-height: 164px; padding: 18px 44px 12px 10px; }
-  .c5-body { padding-block: 20px 16px; }
-  .c5-title { font-size: 28px; }
+  .c5-media { aspect-ratio: 16 / 10; }
+  .c5-copy { min-height: 140px; padding: 16px 42px 12px 10px; }
+  .c5-body { padding-block: 16px 13px; }
+  .c5-title { font-size: 27px; }
   .c5-arrow { right: 18px; bottom: 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
