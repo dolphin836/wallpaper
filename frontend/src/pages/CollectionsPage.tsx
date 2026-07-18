@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import type { Collection, CollectionTile } from '../types';
@@ -57,8 +57,25 @@ export default function CollectionsPage() {
   // the very first request is in flight.
   const total = serverTotal !== null ? Math.max(1, Math.ceil(serverTotal / PAGE_SIZE)) : 1;
 
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const applyTints = useCallback((tints: string[] | null) => {
+    const root = rootRef.current;
+    if (!root) return;
+    if (!tints?.length) {
+      root.style.removeProperty('--c-list-c1');
+      root.style.removeProperty('--c-list-c2');
+      root.style.removeProperty('--c-list-c3');
+      return;
+    }
+    const [c1, c2 = c1, c3 = c2] = tints;
+    root.style.setProperty('--c-list-c1', c1);
+    root.style.setProperty('--c-list-c2', c2);
+    root.style.setProperty('--c-list-c3', c3);
+  }, []);
+
   return (
-    <div className="c-list min-h-full">
+    <div ref={rootRef} className="c-list min-h-full">
+      <div className="c-list-mesh" aria-hidden />
       <PageMeta
         title={t('meta.titleThemes')}
         description={t('meta.descriptionThemes')}
@@ -93,6 +110,7 @@ export default function CollectionsPage() {
                 key={c.id}
                 collection={c}
                 eager={current === 1 && index === 0}
+                onTintsChange={applyTints}
               />
             ))}
           </div>
@@ -109,6 +127,15 @@ export default function CollectionsPage() {
       </main>
     </div>
   );
+}
+
+function collectionTints(c: Collection): string[] {
+  const tints = (c.recent_tiles ?? [])
+    .map((tile) => tile.dominant_color)
+    .filter((color): color is string => Boolean(color))
+    .slice(0, 3);
+  if (!tints.length && c.accent_color) tints.push(c.accent_color);
+  return tints;
 }
 
 function collectionCoverTiles(c: Collection): Array<CollectionTile | undefined> {
@@ -345,9 +372,11 @@ function ProgressiveCollectionCoverSlot({
 function CollectionListCard({
   collection: c,
   eager,
+  onTintsChange,
 }: {
   collection: Collection;
   eager: boolean;
+  onTintsChange?: (tints: string[] | null) => void;
 }) {
   const { t } = useTranslation('collections');
   const tiles = collectionCoverTiles(c);
@@ -361,12 +390,20 @@ function CollectionListCard({
     : c.author_username
       ? t('tile.byAuthor', { name: c.author_username })
       : t('tile.authorFallback');
+  const applyCollectionTints = () => {
+    const tints = collectionTints(c);
+    if (tints.length) onTintsChange?.(tints);
+  };
 
   return (
     <Link
       to={`/collections/${c.slug}`}
       className="c5-card no-underline"
       style={{ '--c5-accent': c.accent_color || fallback } as React.CSSProperties}
+      onMouseEnter={applyCollectionTints}
+      onMouseLeave={() => onTintsChange?.(null)}
+      onFocus={applyCollectionTints}
+      onBlur={() => onTintsChange?.(null)}
     >
       <div className="c5-media">
         <ProgressiveCollectionCover
@@ -384,7 +421,12 @@ function CollectionListCard({
         </div>
         <div className="c5-body">
           <h2 className="display c5-title" title={c.title}>{c.title}</h2>
-          {c.description && <p className="c5-description">{c.description}</p>}
+          <p
+            className={`c5-description${c.description ? '' : ' is-empty'}`}
+            aria-hidden={c.description ? undefined : true}
+          >
+            {c.description || '\u00a0'}
+          </p>
         </div>
         <div className="c5-meta">{countLabel(c, t)}</div>
       </div>

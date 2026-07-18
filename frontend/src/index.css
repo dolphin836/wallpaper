@@ -379,6 +379,23 @@
    The public page shares the 1600px product container used by Discover
    and Weekly. Cards use a three-stage cover, compact copy and restrained
    motion while preserving dominant colour -> thumb -> preview loading. */
+.c-list-mesh {
+  position: fixed;
+  inset: -8%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(42% 40% at 18% 24%, color-mix(in srgb, var(--c-list-c1, #d8c8b5) 58%, transparent) 0%, transparent 70%),
+    radial-gradient(44% 42% at 82% 28%, color-mix(in srgb, var(--c-list-c2, #c7d7d3) 52%, transparent) 0%, transparent 70%),
+    radial-gradient(50% 46% at 54% 82%, color-mix(in srgb, var(--c-list-c3, #e2c8bd) 48%, transparent) 0%, transparent 72%);
+  filter: blur(78px) saturate(1.12);
+  opacity: 0.58;
+  transition: background 620ms ease, opacity 220ms ease;
+}
+.dark .c-list-mesh {
+  filter: blur(82px) saturate(1.35);
+  opacity: 0.42;
+}
 .c5-shell {
   position: relative;
   z-index: 1;
@@ -491,7 +508,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 132px;
+  height: 152px;
   padding: 16px 42px 12px 10px;
 }
 .c5-eyebrow,
@@ -513,6 +530,9 @@
   display: inline-flex;
   align-items: center;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .c5-source i {
   flex: 0 0 auto;
@@ -522,7 +542,7 @@
   border-radius: 50%;
   background: var(--c5-accent);
 }
-.c5-body { margin-block: auto; padding-block: 13px 11px; }
+.c5-body { flex: 1; min-height: 0; padding-block: 10px 8px; }
 .c5-title {
   overflow: hidden;
   color: var(--color-ink);
@@ -536,8 +556,9 @@
 }
 .c5-description {
   display: -webkit-box;
+  height: 3.2em;
   max-width: 58ch;
-  margin-top: 10px;
+  margin-top: 8px;
   overflow: hidden;
   color: var(--color-ink-2);
   font-size: 11.5px;
@@ -546,6 +567,7 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
+.c5-description.is-empty { visibility: hidden; }
 .c5-meta { margin-top: auto; padding-right: 30px; }
 .c5-arrow {
   position: absolute;
@@ -595,13 +617,14 @@
   .c5-list { grid-template-columns: 1fr; gap: 12px; }
   .c5-card { padding: 8px; }
   .c5-media { aspect-ratio: 16 / 10; }
-  .c5-copy { min-height: 140px; padding: 16px 42px 12px 10px; }
-  .c5-body { padding-block: 16px 13px; }
+  .c5-copy { height: 152px; padding: 16px 42px 12px 10px; }
+  .c5-body { padding-block: 10px 8px; }
   .c5-title { font-size: 27px; }
   .c5-arrow { right: 18px; bottom: 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .c5-card,
+  .c-list-mesh,
   .c5-cover-layout,
   .c5-arrow svg { transition: none; }
   .c5-card:hover,
