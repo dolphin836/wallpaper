@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
@@ -14,6 +14,7 @@ import {
   AiOutlineCheckCircle,
   AiOutlineDelete,
   AiOutlineFlag,
+  AiOutlineFullscreen,
   AiOutlineClose,
   AiOutlineLoading3Quarters,
   AiOutlineZoomIn,
@@ -207,11 +208,40 @@ export default function WallpaperDetailPage() {
   // for downloads. Videos and dynamic wallpapers stay ungated.
   const [readyOriginalURL, setReadyOriginalURL] = useState('');
   const [failedOriginalURL, setFailedOriginalURL] = useState('');
+  const heroMediaRef = useRef<HTMLDivElement>(null);
+  const [heroCanCover, setHeroCanCover] = useState(false);
+  const heroSourceId = wallpaper?.id;
+  const heroSourceWidth = wallpaper?.width ?? 0;
+  const heroSourceHeight = wallpaper?.height ?? 0;
   const originalReady = !!wallpaper?.original_url && readyOriginalURL === wallpaper.original_url;
   const originalFailed = !!wallpaper?.original_url && failedOriginalURL === wallpaper.original_url;
   const downloadReady = wallpaper
     ? (wallpaper.file_type || '').startsWith('video/') || wallpaper.is_dynamic || !wallpaper.original_url || originalReady || originalFailed
     : false;
+
+  // Keep the immersive cover treatment only when the original has enough
+  // pixels to fill the live hero box without being enlarged. Smaller images
+  // use object-fit: scale-down, which preserves their intrinsic size (or only
+  // shrinks them when necessary) and centres them in the available space.
+  useLayoutEffect(() => {
+    const media = heroMediaRef.current;
+    if (!media || !heroSourceId) {
+      setHeroCanCover(false);
+      return;
+    }
+
+    const updateFit = () => {
+      const { width, height } = media.getBoundingClientRect();
+      setHeroCanCover(
+        heroSourceWidth >= Math.ceil(width) && heroSourceHeight >= Math.ceil(height),
+      );
+    };
+
+    updateFit();
+    const observer = new ResizeObserver(updateFit);
+    observer.observe(media);
+    return () => observer.disconnect();
+  }, [heroSourceId, heroSourceWidth, heroSourceHeight]);
 
   // Toolbar overlays. Drawer holds the grouped device list (opened
   // from the toolbar's Devices · N button).
@@ -632,7 +662,7 @@ export default function WallpaperDetailPage() {
           style={{ touchAction: 'none', cursor: fsScale > 1 ? (fsDrag.current.down ? 'grabbing' : 'grab') : 'default' }}
         >
           <img
-            src={matchedVariant?.url || wallpaper.preview_url || wallpaper.original_url}
+            src={matchedVariant?.url || wallpaper.original_url || wallpaper.preview_url}
             alt=""
             loading="eager"
             decoding="async"
@@ -807,7 +837,7 @@ export default function WallpaperDetailPage() {
               full-bleed wallpaper, back circle top-left, info circle +
               panel top-right, glass toolbar bottom-centre. ═══ */}
           <section className="wd-s1">
-            <div className="wd-s1-media" style={{ backgroundColor: wallpaper.dominant_color || undefined }}>
+            <div ref={heroMediaRef} className="wd-s1-media" style={{ backgroundColor: wallpaper.dominant_color || undefined }}>
               {frames.length > 1 ? (
                 <>
                   {frames.map((url, i) => (
@@ -820,7 +850,7 @@ export default function WallpaperDetailPage() {
                       fetchPriority={i === 0 ? 'high' : 'auto'}
                       onContextMenu={(e) => e.preventDefault()}
                       draggable={false}
-                      className={`absolute inset-0 w-full h-full object-cover select-none transition-opacity duration-500 ${frameIdx === i ? 'opacity-100' : 'opacity-0'}`}
+                      className={`absolute inset-0 w-full h-full ${heroCanCover ? 'object-cover' : 'object-scale-down'} select-none transition-opacity duration-500 ${frameIdx === i ? 'opacity-100' : 'opacity-0'}`}
                       style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                     />
                   ))}
@@ -854,8 +884,7 @@ export default function WallpaperDetailPage() {
                     }}
                     onContextMenu={(e) => e.preventDefault()}
                     draggable={false}
-                    onClick={() => setFullscreen(true)}
-                    className={`wd-s1-img wd-s1-img-preview ${originalReady ? 'is-upgraded' : ''}`}
+                    className={`wd-s1-img wd-s1-img-preview ${heroCanCover ? '' : 'is-native-size'} ${originalReady ? 'is-upgraded' : ''}`}
                     style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                   />
                   {originalHeroImg && (
@@ -870,7 +899,7 @@ export default function WallpaperDetailPage() {
                       onError={() => setFailedOriginalURL(originalHeroImg)}
                       onContextMenu={(e) => e.preventDefault()}
                       draggable={false}
-                      className={`wd-s1-img wd-s1-img-original ${originalReady ? 'is-ready' : ''}`}
+                      className={`wd-s1-img wd-s1-img-original ${heroCanCover ? '' : 'is-native-size'} ${originalReady ? 'is-ready' : ''}`}
                       style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                     />
                   )}
@@ -901,7 +930,7 @@ export default function WallpaperDetailPage() {
             >
               <button
                 type="button"
-                className={`wd-circle-btn is-prominent glass-bounce ${infoOpen ? 'is-active' : ''}`}
+                className={`wd-circle-btn glass-bounce ${infoOpen ? 'is-active' : ''}`}
                 onClick={() => setInfoOpen((v) => !v)}
                 aria-label="info"
               >
@@ -1155,6 +1184,22 @@ export default function WallpaperDetailPage() {
 
                 <span className="wd-bar-divider" />
 
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (frames.length > 1 || (wallpaper.file_type || '').startsWith('video/')) {
+                      toast(t('toast.useHeroControls'), { icon: 'ℹ️' });
+                      return;
+                    }
+                    setFullscreen(true);
+                  }}
+                  className="wd-btn wd-btn-icon"
+                  title={t('preview.fullscreenTitle')}
+                  aria-label={t('preview.fullscreenTitle')}
+                >
+                  <AiOutlineFullscreen size={15} />
+                </button>
+
                 {variants.length > 0 && (
                   <button
                     onClick={() => setDrawerOpen(true)}
@@ -1232,13 +1277,18 @@ function SpotlightStyles() {
 /* Inside the route modal the panel has its own definite height. */
 .wd-in-modal .wd-s1 { height: 100%; min-height: 0; }
 .wd-s1-media { position: absolute; inset: 0; overflow: hidden; isolation: isolate; }
-.wd-s1-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; cursor: zoom-in;
+.wd-s1-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
   transition: opacity 520ms var(--ease-out-quart), filter 720ms var(--ease-out-quart), transform 900ms var(--ease-out-quart);
   will-change: opacity, filter, transform; }
+.wd-s1-img.is-native-size { object-fit: scale-down; }
 .wd-s1-img-preview { z-index: 0; filter: saturate(.96) blur(1.5px); transform: scale(1.012); }
 .wd-s1-img-preview.is-upgraded { filter: none; transform: scale(1); }
 .wd-s1-img-original { z-index: 1; opacity: 0; pointer-events: none; transform: scale(1.006); }
 .wd-s1-img-original.is-ready { opacity: 1; transform: scale(1); }
+.wd-s1-img-preview.is-native-size,
+.wd-s1-img-preview.is-native-size.is-upgraded,
+.wd-s1-img-original.is-native-size,
+.wd-s1-img-original.is-native-size.is-ready { transform: none; }
 .wd-s1-loading-glow { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none;
   background: radial-gradient(circle at 50% 44%, rgba(255,255,255,.08), transparent 58%);
   animation: wdHeroGlowPulse 1.8s ease-in-out infinite alternate; }
@@ -1268,9 +1318,6 @@ function SpotlightStyles() {
   backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(0,0,0,0.30),
               0 2px 3px rgba(0,0,0,0.22), 0 10px 22px rgba(0,0,0,0.30); }
-.wd-circle-btn.is-prominent { color: var(--color-ink); background: rgba(255,255,255,0.92);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 0 0 1px oklch(64% 0.21 42 / 0.42),
-              0 2px 3px rgba(0,0,0,0.18), 0 10px 22px rgba(0,0,0,0.26); }
 .wd-circle-btn.is-active { color: var(--color-accent); }
 .wd-s1-back { position: absolute; top: 22px; left: 24px; z-index: 5; }
 .wd-s1-info { position: absolute; top: 22px; right: 24px; z-index: 5; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
