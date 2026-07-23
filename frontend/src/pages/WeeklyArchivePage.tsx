@@ -9,6 +9,8 @@ import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 
 const MONTH_ABBR = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const WEEKLY_STRIP_SIZE = 9;
+const WEEKLY_RACK_GAP = 28;
 
 // ISO week → date of the Friday in that week (weeklies drop on Fridays).
 // UTC internally to dodge DST + timezone slippage at midnight.
@@ -25,6 +27,50 @@ function fmtDate(d: Date) {
   return `${MONTH_ABBR[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2,'0')}`;
 }
 
+function weeklyRackSkeletonCount() {
+  if (typeof window === 'undefined') return 36;
+
+  const horizontalPadding = window.innerWidth >= 640 ? 80 : 48;
+  const contentWidth = Math.max(1, Math.min(window.innerWidth, 1600) - horizontalPadding);
+  const minCardWidth = Math.min(300, contentWidth);
+  const columns = Math.max(1, Math.floor((contentWidth + WEEKLY_RACK_GAP) / (minCardWidth + WEEKLY_RACK_GAP)));
+  const cardWidth = (contentWidth - WEEKLY_RACK_GAP * (columns - 1)) / columns;
+  const rowHeight = cardWidth * 10 / 16;
+  const rows = Math.ceil((window.innerHeight * 2 + WEEKLY_RACK_GAP) / (rowHeight + WEEKLY_RACK_GAP));
+  return columns * Math.max(1, rows);
+}
+
+function WeeklyStripSkeleton() {
+  return (
+    <div className="w2-strip mt-3.5" aria-hidden>
+      {Array.from({ length: WEEKLY_STRIP_SIZE }).map((_, i) => (
+        <div key={i} className="w2-strip-thumb skeleton-card" />
+      ))}
+    </div>
+  );
+}
+
+function WeeklyArchiveSkeleton() {
+  const rackCardCount = weeklyRackSkeletonCount();
+
+  return (
+    <>
+      <section aria-hidden>
+        <div className="wx-card skeleton-card" style={{ aspectRatio: '21/9' }} />
+        <WeeklyStripSkeleton />
+      </section>
+      <section className="mt-14" aria-hidden>
+        <div className="skeleton-card mb-4 h-[10px] w-28 rounded" />
+        <div className="w2-rack">
+          {Array.from({ length: rackCardCount }).map((_, i) => (
+            <div key={i} className="wx-card skeleton-card" style={{ aspectRatio: '16/10' }} />
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}
+
 /**
  * Weekly archive v2 — the "magazine rack", mirroring the Mac client:
  * no timeline pane. The latest issue opens the page as a full-width
@@ -38,7 +84,10 @@ export default function WeeklyArchivePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   // Latest issue's slate for the spread strip.
-  const [latestPicks, setLatestPicks] = useState<WeeklyPicked[]>([]);
+  const [latestPicksResult, setLatestPicksResult] = useState<{ issueKey: string; picks: WeeklyPicked[] }>({
+    issueKey: '',
+    picks: [],
+  });
 
   useEffect(() => {
     getWeeklyArchive(100)
@@ -49,21 +98,38 @@ export default function WeeklyArchivePage() {
 
   const latest = rows[0];
   const past = rows.slice(1);
+  const latestIssueKey = latest ? `${latest.year}-${latest.week}` : '';
+  const latestYear = latest?.year;
+  const latestWeek = latest?.week;
+  const latestPalette = latest?.color_palette;
+  const latestDominant = latest?.dominant_color;
+  const latestAccent = latest?.accent_color;
+  const latestPicks = latestPicksResult.issueKey === latestIssueKey ? latestPicksResult.picks : [];
+  const latestPicksLoading = Boolean(latestIssueKey && latestPicksResult.issueKey !== latestIssueKey);
 
   useEffect(() => {
-    if (!latest) return;
-    getWeeklyByWeek(latest.year, latest.week)
-      .then((r) => setLatestPicks(r.data.data.picks || []))
-      .catch(() => setLatestPicks([]));
-  }, [latest?.year, latest?.week]);
+    if (!latestYear || !latestWeek) return;
+    let cancelled = false;
+    const issueKey = `${latestYear}-${latestWeek}`;
+    getWeeklyByWeek(latestYear, latestWeek)
+      .then((r) => {
+        if (!cancelled) setLatestPicksResult({ issueKey, picks: r.data.data.picks || [] });
+      })
+      .catch(() => {
+        if (!cancelled) setLatestPicksResult({ issueKey, picks: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [latestYear, latestWeek]);
 
   // Tint the page mesh from the latest issue.
   const rootRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const root = rootRef.current;
-    if (!root || !latest) return;
-    const parts = (latest.color_palette || '').split(',').map((s) => s.trim()).filter(Boolean);
-    const tint = latest.dominant_color || latest.accent_color;
+    if (!root || !latestIssueKey) return;
+    const parts = (latestPalette || '').split(',').map((s) => s.trim()).filter(Boolean);
+    const tint = latestDominant || latestAccent;
     if (parts.length >= 3) {
       root.style.setProperty('--w-c1', parts[0]);
       root.style.setProperty('--w-c2', parts[Math.floor(parts.length / 2)]);
@@ -73,7 +139,7 @@ export default function WeeklyArchivePage() {
       root.style.setProperty('--w-c2', tint);
       root.style.setProperty('--w-c3', tint);
     }
-  }, [latest?.year, latest?.week, latest?.color_palette, latest?.dominant_color, latest?.accent_color]);
+  }, [latestIssueKey, latestPalette, latestDominant, latestAccent]);
 
   const heroPick = latestPicks.find((p) => p.is_hero) || latestPicks[0];
   const strip = latestPicks.filter((p) => p.id !== heroPick?.id);
@@ -97,14 +163,7 @@ export default function WeeklyArchivePage() {
         </header>
 
         {loading ? (
-          <>
-            <div className="wx-card skeleton-card" style={{ aspectRatio: '21/9' }} />
-            <div className="w2-rack mt-10">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="wx-card skeleton-card" style={{ aspectRatio: '16/10' }} />
-              ))}
-            </div>
-          </>
+          <WeeklyArchiveSkeleton />
         ) : error ? (
           <ErrorState />
         ) : rows.length === 0 ? (
@@ -139,7 +198,9 @@ export default function WeeklyArchivePage() {
                   </span>
                 </Link>
 
-                {strip.length > 0 && (
+                {latestPicksLoading ? (
+                  <WeeklyStripSkeleton />
+                ) : strip.length > 0 && (
                   <div className="w2-strip mt-3.5">
                     {strip.map((p) => (
                       <Link
