@@ -210,10 +210,23 @@ export default function WallpaperDetailPage() {
   const [failedOriginalURL, setFailedOriginalURL] = useState('');
   const heroMediaRef = useRef<HTMLDivElement>(null);
   const [heroCanCover, setHeroCanCover] = useState(false);
+  const [heroContainedSize, setHeroContainedSize] = useState({ width: 0, height: 0 });
   const heroSourceId = wallpaper?.id;
-  const heroSourceWidth = wallpaper?.width ?? 0;
-  const heroSourceHeight = wallpaper?.height ?? 0;
   const isVideoWallpaper = (wallpaper?.file_type || '').startsWith('video/');
+  const originalSourceWidth = wallpaper?.width ?? 0;
+  const originalSourceHeight = wallpaper?.height ?? 0;
+  // The browser displays derived media for dynamic wallpapers, not the
+  // original upload: HEIC frames are capped at 1600px wide and MP4 previews
+  // at 480px high. Base the no-upscale decision on those real display assets.
+  const derivedScale = wallpaper?.is_dynamic && originalSourceWidth > 0
+    ? Math.min(1, 1600 / originalSourceWidth)
+    : isVideoWallpaper && wallpaper?.preview_video_url && originalSourceHeight > 0
+      ? Math.min(1, 480 / originalSourceHeight)
+      : 1;
+  const heroSourceWidth = isVideoWallpaper && wallpaper?.preview_video_url
+    ? Math.round((originalSourceWidth * derivedScale) / 2) * 2
+    : Math.round(originalSourceWidth * derivedScale);
+  const heroSourceHeight = Math.round(originalSourceHeight * derivedScale);
   const originalReady = !!wallpaper?.original_url && readyOriginalURL === wallpaper.original_url;
   const originalFailed = !!wallpaper?.original_url && failedOriginalURL === wallpaper.original_url;
   const downloadReady = wallpaper
@@ -228,14 +241,24 @@ export default function WallpaperDetailPage() {
     const media = heroMediaRef.current;
     if (loading || !media || !heroSourceId) {
       setHeroCanCover(false);
+      setHeroContainedSize({ width: 0, height: 0 });
       return;
     }
 
     const updateFit = () => {
-      const { width, height } = media.getBoundingClientRect();
+      const { width: containerWidth, height: containerHeight } = media.getBoundingClientRect();
       setHeroCanCover(
-        heroSourceWidth >= Math.ceil(width) && heroSourceHeight >= Math.ceil(height),
+        heroSourceWidth >= Math.ceil(containerWidth) && heroSourceHeight >= Math.ceil(containerHeight),
       );
+      const containedScale = Math.min(
+        1,
+        containerWidth / Math.max(1, heroSourceWidth),
+        containerHeight / Math.max(1, heroSourceHeight),
+      );
+      setHeroContainedSize({
+        width: Math.round(heroSourceWidth * containedScale),
+        height: Math.round(heroSourceHeight * containedScale),
+      });
     };
 
     updateFit();
@@ -861,12 +884,16 @@ export default function WallpaperDetailPage() {
                   >{framePlaying ? t('hero.pause') : t('hero.play')} · {frameIdx + 1}/{frames.length}</button>
                 </>
               ) : isVideoWallpaper && (wallpaper.preview_video_url || wallpaper.original_url) ? (
-                <div className="absolute inset-0">
-                  <VideoPlayer
-                    src={wallpaper.preview_video_url || wallpaper.original_url}
-                    poster={wallpaper.preview_url || wallpaper.thumb_url}
-                    fit={heroCanCover ? 'cover' : 'scale-down'}
-                  />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div
+                    className={heroCanCover ? 'w-full h-full' : 'shrink-0'}
+                    style={heroCanCover ? undefined : heroContainedSize}
+                  >
+                    <VideoPlayer
+                      src={wallpaper.preview_video_url || wallpaper.original_url}
+                      poster={wallpaper.preview_url || wallpaper.thumb_url}
+                    />
+                  </div>
                 </div>
               ) : heroImg ? (
                 <>
@@ -1563,7 +1590,7 @@ function SpotlightStyles() {
 //   playing   — video crossfades over poster from the in-memory blob;
 //               click pauses (pause button shows on hover when playing)
 // No bytes are fetched until the user actively chooses to play.
-function VideoPlayer({ src, poster, fit }: { src: string; poster?: string; fit: 'cover' | 'scale-down' }) {
+function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
   const { t } = useTranslation('detail');
   const vidRef = useRef<HTMLVideoElement | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
@@ -1613,7 +1640,7 @@ function VideoPlayer({ src, poster, fit }: { src: string; poster?: string; fit: 
           alt=""
           decoding="async"
           draggable={false}
-          className={`absolute inset-0 w-full h-full ${fit === 'cover' ? 'object-cover' : 'object-scale-down'} pointer-events-none transition-opacity duration-300 ${playing ? 'opacity-0' : 'opacity-100'}`}
+          className={`absolute inset-0 w-full h-full object-cover pointer-events-none transition-opacity duration-300 ${playing ? 'opacity-0' : 'opacity-100'}`}
           style={{ transitionTimingFunction: 'var(--ease-out-quart)' }}
         />
       )}
@@ -1625,7 +1652,7 @@ function VideoPlayer({ src, poster, fit }: { src: string; poster?: string; fit: 
         muted
         onPlaying={() => { setPlaying(true); setBuffering(false); }}
         onPause={() => setPlaying(false)}
-        className={`relative z-[1] w-full h-full ${fit === 'cover' ? 'object-cover' : 'object-scale-down'} transition-opacity duration-300 ${playing ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`relative z-[1] w-full h-full object-cover transition-opacity duration-300 ${playing ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
       />
       <button
         type="button"
