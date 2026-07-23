@@ -213,6 +213,7 @@ export default function WallpaperDetailPage() {
   const heroSourceId = wallpaper?.id;
   const heroSourceWidth = wallpaper?.width ?? 0;
   const heroSourceHeight = wallpaper?.height ?? 0;
+  const isVideoWallpaper = (wallpaper?.file_type || '').startsWith('video/');
   const originalReady = !!wallpaper?.original_url && readyOriginalURL === wallpaper.original_url;
   const originalFailed = !!wallpaper?.original_url && failedOriginalURL === wallpaper.original_url;
   const downloadReady = wallpaper
@@ -225,7 +226,7 @@ export default function WallpaperDetailPage() {
   // shrinks them when necessary) and centres them in the available space.
   useLayoutEffect(() => {
     const media = heroMediaRef.current;
-    if (!media || !heroSourceId) {
+    if (loading || !media || !heroSourceId) {
       setHeroCanCover(false);
       return;
     }
@@ -241,7 +242,7 @@ export default function WallpaperDetailPage() {
     const observer = new ResizeObserver(updateFit);
     observer.observe(media);
     return () => observer.disconnect();
-  }, [heroSourceId, heroSourceWidth, heroSourceHeight]);
+  }, [loading, heroSourceId, heroSourceWidth, heroSourceHeight]);
 
   // Toolbar overlays. Drawer holds the grouped device list (opened
   // from the toolbar's Devices · N button).
@@ -859,14 +860,13 @@ export default function WallpaperDetailPage() {
                     className="absolute top-6 right-24 z-[3] px-3 py-1 bg-black/60 text-white text-[11px] mono rounded-full backdrop-blur-sm"
                   >{framePlaying ? t('hero.pause') : t('hero.play')} · {frameIdx + 1}/{frames.length}</button>
                 </>
-              ) : (wallpaper.file_type || '').startsWith('video/') && wallpaper.original_url ? (
-                <div className="wd-s1-center">
-                  <div className="wd-hero-canvas" style={{ aspectRatio: wallpaper.width > 0 && wallpaper.height > 0 ? `${wallpaper.width} / ${wallpaper.height}` : '16 / 9', backgroundColor: wallpaper.dominant_color || undefined }}>
-                    <VideoPlayer
-                      src={wallpaper.preview_video_url || wallpaper.original_url}
-                      poster={wallpaper.preview_url || wallpaper.thumb_url}
-                    />
-                  </div>
+              ) : isVideoWallpaper && (wallpaper.preview_video_url || wallpaper.original_url) ? (
+                <div className="absolute inset-0">
+                  <VideoPlayer
+                    src={wallpaper.preview_video_url || wallpaper.original_url}
+                    poster={wallpaper.preview_url || wallpaper.thumb_url}
+                    fit={heroCanCover ? 'cover' : 'scale-down'}
+                  />
                 </div>
               ) : heroImg ? (
                 <>
@@ -930,7 +930,7 @@ export default function WallpaperDetailPage() {
             >
               <button
                 type="button"
-                className={`wd-circle-btn glass-bounce ${infoOpen ? 'is-active' : ''}`}
+                className="wd-circle-btn glass-bounce"
                 onClick={() => setInfoOpen((v) => !v)}
                 aria-label="info"
               >
@@ -1318,7 +1318,6 @@ function SpotlightStyles() {
   backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(0,0,0,0.30),
               0 2px 3px rgba(0,0,0,0.22), 0 10px 22px rgba(0,0,0,0.30); }
-.wd-circle-btn.is-active { color: var(--color-accent); }
 .wd-s1-back { position: absolute; top: 22px; left: 24px; z-index: 5; }
 .wd-s1-info { position: absolute; top: 22px; right: 24px; z-index: 5; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 
@@ -1564,7 +1563,7 @@ function SpotlightStyles() {
 //   playing   — video crossfades over poster from the in-memory blob;
 //               click pauses (pause button shows on hover when playing)
 // No bytes are fetched until the user actively chooses to play.
-function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
+function VideoPlayer({ src, poster, fit }: { src: string; poster?: string; fit: 'cover' | 'scale-down' }) {
   const { t } = useTranslation('detail');
   const vidRef = useRef<HTMLVideoElement | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
@@ -1614,7 +1613,7 @@ function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
           alt=""
           decoding="async"
           draggable={false}
-          className={`absolute inset-0 w-full h-full object-contain pointer-events-none transition-opacity duration-300 ${playing ? 'opacity-0' : 'opacity-100'}`}
+          className={`absolute inset-0 w-full h-full ${fit === 'cover' ? 'object-cover' : 'object-scale-down'} pointer-events-none transition-opacity duration-300 ${playing ? 'opacity-0' : 'opacity-100'}`}
           style={{ transitionTimingFunction: 'var(--ease-out-quart)' }}
         />
       )}
@@ -1626,7 +1625,7 @@ function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
         muted
         onPlaying={() => { setPlaying(true); setBuffering(false); }}
         onPause={() => setPlaying(false)}
-        className={`relative z-[1] w-full h-full object-contain transition-opacity duration-300 ${playing ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`relative z-[1] w-full h-full ${fit === 'cover' ? 'object-cover' : 'object-scale-down'} transition-opacity duration-300 ${playing ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
       />
       <button
         type="button"
