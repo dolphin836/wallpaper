@@ -21,6 +21,8 @@ struct AccountView: View {
     @State private var tab: AccountTab = .uploads
     @State private var didInit = false
     @State private var counts: [AccountTab: Int] = [:]
+    @State private var hoveredTab: AccountTab?
+    @Namespace private var tabIndicatorNamespace
 
     init(
         username: String,
@@ -155,23 +157,69 @@ struct AccountView: View {
     }
 
     // ─── Tab bar (web .ptabs + .ptab-count) ──────────────────────
-    // Single row that scrolls horizontally when it can't fit (never
-    // wraps), with a full-width base hairline underneath.
-    // GlassKit segmented pill (liquid selection droplet) instead of
-    // the old underline tabs — matches the window chrome family.
-    // Full page width: segments share the row equally within the
-    // page's fixed side gutters.
+    // Page navigation should read as navigation, not as a row of action
+    // buttons. Keep it text-led with one shared baseline and a moving
+    // accent rule; horizontal scrolling preserves the single-line layout.
     private var tabBar: some View {
-        GlassSegmented(
-            segments: tabs.map {
-                GlassSegment(id: $0, label: $0.label, icon: $0.icon, badge: counts[$0].map { "\($0)" })
-            },
-            selection: $tab,
-            compact: true,
-            fullWidth: true
-        )
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 26) {
+                ForEach(tabs, id: \.self) { item in
+                    accountTabItem(item)
+                }
+            }
+            .padding(.horizontal, 2)
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.hair)
+                .frame(height: 1)
+        }
         .padding(.top, 18)
         .padding(.bottom, 10)
+        .animation(.spring(response: 0.34, dampingFraction: 0.78), value: tab)
+        .animation(.easeOut(duration: 0.14), value: hoveredTab)
+    }
+
+    private func accountTabItem(_ item: AccountTab) -> some View {
+        let selected = item == tab
+        let hovered = item == hoveredTab
+
+        return Button {
+            tab = item
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(item.label)
+                    .font(.system(size: 12.5, weight: selected ? .semibold : .medium))
+                    .foregroundStyle(selected ? Color.ink : (hovered ? Color.ink2 : Color.muted))
+
+                if let count = counts[item] {
+                    Text("\(count)")
+                        .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                        .monospacedDigit()
+                        .foregroundStyle(selected ? Color.accent : Color.muted.opacity(0.78))
+                }
+            }
+            .padding(.horizontal, 2)
+            .frame(height: 40)
+            .contentShape(Rectangle())
+            .overlay(alignment: .bottom) {
+                if selected {
+                    Capsule()
+                        .fill(Color.accent)
+                        .frame(height: 2)
+                        .matchedGeometryEffect(id: "account-tab-indicator", in: tabIndicatorNamespace)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .onHover { hovering in
+            if hovering {
+                hoveredTab = item
+            } else if hoveredTab == item {
+                hoveredTab = nil
+            }
+        }
     }
 
     // ─── Tab content ─────────────────────────────────────────────
@@ -242,17 +290,6 @@ enum AccountTab: String, Hashable {
         case .likes: L10n.account.tabLikes
         case .downloads: L10n.account.tabDownloads
         case .ledger: L10n.account.tabLedger
-        }
-    }
-    var icon: String {
-        switch self {
-        case .settings: "gearshape"
-        case .uploads: "photo"
-        case .collections: "square.grid.2x2"
-        case .favorites: "star"
-        case .likes: "heart"
-        case .downloads: "arrow.down.circle"
-        case .ledger: "bolt"
         }
     }
 }

@@ -44,12 +44,15 @@ struct AccountSettingsTab: View {
 
     private var appearanceSection: some View {
         sectionCard(title: L10n.settings.appearance) {
-            GlassSegmented(
-                segments: AppearancePref.allCases.map { GlassSegment(id: $0.rawValue, label: $0.label, icon: $0.icon) },
-                selection: $appearanceRaw,
-                compact: true
-            )
-            .fixedSize()
+            Picker(L10n.settings.appearance, selection: $appearanceRaw) {
+                ForEach(AppearancePref.allCases, id: \.rawValue) { preference in
+                    Label(preference.label, systemImage: preference.icon)
+                        .tag(preference.rawValue)
+                }
+            }
+            .pickerStyle(.radioGroup)
+            .labelsHidden()
+            .controlSize(.regular)
         }
     }
 
@@ -59,14 +62,15 @@ struct AccountSettingsTab: View {
     private var languageSection: some View {
         sectionCard(title: L10n.common.language) {
             VStack(alignment: .leading, spacing: 10) {
-                GlassSegmented(
-                    segments: LanguagePref.allCases.map {
-                        GlassSegment(id: $0.rawValue, label: $0 == .system ? L10n.common.languageSystem : $0.resolved.nativeName)
-                    },
-                    selection: $languageRaw,
-                    compact: true
-                )
-                .fixedSize()
+                Picker(L10n.common.language, selection: $languageRaw) {
+                    ForEach(LanguagePref.allCases, id: \.rawValue) { preference in
+                        Text(preference == .system ? L10n.common.languageSystem : preference.resolved.nativeName)
+                            .tag(preference.rawValue)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+                .labelsHidden()
+                .controlSize(.regular)
                 Text(L10n.common.languageFootnote).font(.system(size: 11)).foregroundStyle(Color.muted)
             }
         }
