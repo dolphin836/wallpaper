@@ -21,6 +21,7 @@ import {
   AiOutlineZoomOut,
   AiOutlineRedo,
   AiOutlineReload,
+  AiOutlineDown,
 } from 'react-icons/ai';
 import { MdPlaylistAdd, MdDesktopMac, MdLaptopMac, MdTabletMac, MdPhoneIphone, MdOutlineRemoveRedEye, MdDevices } from 'react-icons/md';
 import toast from 'react-hot-toast';
@@ -63,6 +64,9 @@ function formatNumber(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K`;
   return n.toLocaleString();
 }
+
+const DRAWER_PLATFORMS = ['desktop', 'laptop', 'tablet', 'phone', 'other'] as const;
+type DrawerPlatform = (typeof DRAWER_PLATFORMS)[number];
 
 // Pick the variant whose pixel dimensions best match this screen.
 // Two guards keep the match honest:
@@ -292,6 +296,7 @@ export default function WallpaperDetailPage() {
   // Toolbar overlays. Drawer holds the grouped device list (opened
   // from the toolbar's Devices · N button).
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [expandedDrawerPlatform, setExpandedDrawerPlatform] = useState<DrawerPlatform | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   // Recommendation count — always two complete rows of the rec grid.
   // WallpaperGrid sizeMode="md" uses 2/3/4/5 cols at Tailwind's
@@ -353,6 +358,12 @@ export default function WallpaperDetailPage() {
   }, [framePlaying, frames.length, nextFrame]);
 
   const matchedVariant = useMemo(() => findBestMatch(variants), [variants]);
+  const matchedDrawerPlatform = useMemo<DrawerPlatform | null>(() => {
+    if (!matchedVariant) return null;
+    return DRAWER_PLATFORMS.includes(matchedVariant.platform as DrawerPlatform)
+      ? matchedVariant.platform as DrawerPlatform
+      : 'other';
+  }, [matchedVariant]);
 
   // Variants partitioned by platform, with the matched device pinned to
   // the top of its own group and the rest sorted by total pixels desc.
@@ -778,80 +789,103 @@ export default function WallpaperDetailPage() {
               </button>
             </div>
             <div className="wd-drawer-body">
-              {(['desktop', 'laptop', 'tablet', 'phone', 'other'] as const).map((platform) => {
+              {DRAWER_PLATFORMS.map((platform) => {
                 const list = groupedVariants[platform];
                 if (!list || list.length === 0) return null;
                 const label = t(`drawer.platform.${platform}`);
+                const isExpanded = expandedDrawerPlatform === platform;
+                const triggerId = `wd-drawer-trigger-${platform}`;
+                const panelId = `wd-drawer-panel-${platform}`;
                 return (
                   <div key={platform} className="wd-drawer-group">
-                    <div className="wd-drawer-grouphead">
+                    <button
+                      id={triggerId}
+                      type="button"
+                      className="wd-drawer-grouphead"
+                      aria-expanded={isExpanded}
+                      aria-controls={panelId}
+                      onClick={() => setExpandedDrawerPlatform((current) => current === platform ? null : platform)}
+                    >
                       <span>{label}</span>
-                      <span className="mono text-[10px] tracking-[0.14em] text-muted normal-case">{list.length}</span>
-                    </div>
-                    {list.map((v) => {
-                      const isMatched = matchedVariant?.id === v.id;
-                      const mockable = canShowMockup(v);
-                      const deviceName = [v.brand, v.device_name].filter(Boolean).join(' ').trim() || t('drawer.device');
-                      const Icon =
-                        v.platform === 'phone' ? MdPhoneIphone
-                        : v.platform === 'tablet' ? MdTabletMac
-                        : v.platform === 'laptop' ? MdLaptopMac
-                        : MdDesktopMac;
-                      return (
-                        <div key={v.id} className={`wd-drawer-row ${isMatched ? 'is-matched' : ''}`}>
-                          <div className="wd-drawer-row-head">
-                            <Icon size={20} className="text-ink-2 flex-shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-[14px] font-medium text-ink truncate">{deviceName}</span>
-                                {isMatched && (
-                                  <span className="mono text-[9px] tracking-[0.14em] px-1.5 py-[1px] bg-ink text-paper rounded">{t('drawer.yourDevice')}</span>
-                                )}
+                      <span className="wd-drawer-groupmeta">
+                        <span className="mono text-[10px] tracking-[0.14em] text-muted normal-case">{list.length}</span>
+                        <AiOutlineDown className="wd-drawer-groupchevron" size={13} aria-hidden />
+                      </span>
+                    </button>
+                    <div
+                      id={panelId}
+                      role="region"
+                      aria-labelledby={triggerId}
+                      aria-hidden={!isExpanded}
+                      className={`wd-drawer-groupcontent ${isExpanded ? 'is-open' : ''}`}
+                    >
+                      <div className="wd-drawer-groupitems">
+                        {list.map((v) => {
+                          const isMatched = matchedVariant?.id === v.id;
+                          const mockable = canShowMockup(v);
+                          const deviceName = [v.brand, v.device_name].filter(Boolean).join(' ').trim() || t('drawer.device');
+                          const Icon =
+                            v.platform === 'phone' ? MdPhoneIphone
+                            : v.platform === 'tablet' ? MdTabletMac
+                            : v.platform === 'laptop' ? MdLaptopMac
+                            : MdDesktopMac;
+                          return (
+                            <div key={v.id} className={`wd-drawer-row ${isMatched ? 'is-matched' : ''}`}>
+                              <div className="wd-drawer-row-head">
+                                <Icon size={20} className="text-ink-2 flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-[14px] font-medium text-ink truncate">{deviceName}</span>
+                                    {isMatched && (
+                                      <span className="mono text-[9px] tracking-[0.14em] px-1.5 py-[1px] bg-ink text-paper rounded">{t('drawer.yourDevice')}</span>
+                                    )}
+                                  </div>
+                                  <div className="mono text-[10px] text-muted mt-0.5">
+                                    {v.width.toLocaleString()} × {v.height.toLocaleString()}
+                                    {v.file_size > 0 && <> · {formatFileSize(v.file_size)}</>}
+                                  </div>
+                                </div>
                               </div>
-                              <div className="mono text-[10px] text-muted mt-0.5">
-                                {v.width.toLocaleString()} × {v.height.toLocaleString()}
-                                {v.file_size > 0 && <> · {formatFileSize(v.file_size)}</>}
+                              {/* 3-button row — preview chassis, browse all
+                                  wallpapers tailored for this device, get
+                                  the variant download. Matched device's Get
+                                  switches to accent so it pops. */}
+                              <div className="wd-drawer-row-actions">
+                                <button
+                                  onClick={() => mockable && setMockupVariant(v)}
+                                  disabled={!mockable}
+                                  title={mockable ? t('drawer.previewTitle') : t('drawer.noMockup')}
+                                  className="wd-drawer-action"
+                                >
+                                  <MdOutlineRemoveRedEye size={14} /> {t('drawer.preview')}
+                                </button>
+                                {v.device_slug ? (
+                                  <Link
+                                    to={`/wallpapers-for/${v.device_slug}`}
+                                    className="wd-drawer-action no-underline"
+                                    title={t('drawer.browseTitle', { device: deviceName })}
+                                  >
+                                    <MdDevices size={14} /> {t('drawer.browse')}
+                                  </Link>
+                                ) : (
+                                  <span className="wd-drawer-action is-disabled" title={t('drawer.noDevicePage')}>
+                                    <MdDevices size={14} /> {t('drawer.browse')}
+                                  </span>
+                                )}
+                                <button
+                                  onClick={() => handleDownload()}
+                                  disabled={dlLoading || !downloadReady}
+                                  title={t('drawer.getTitle')}
+                                  className={`wd-drawer-action wd-drawer-action-cta ${isMatched ? 'is-matched' : ''}`}
+                                >
+                                  <AiOutlineDownload size={14} /> {t('drawer.get')}
+                                </button>
                               </div>
                             </div>
-                          </div>
-                          {/* 3-button row — preview chassis, browse all
-                              wallpapers tailored for this device, get
-                              the variant download. Matched device's Get
-                              switches to accent so it pops. */}
-                          <div className="wd-drawer-row-actions">
-                            <button
-                              onClick={() => mockable && setMockupVariant(v)}
-                              disabled={!mockable}
-                              title={mockable ? t('drawer.previewTitle') : t('drawer.noMockup')}
-                              className="wd-drawer-action"
-                            >
-                              <MdOutlineRemoveRedEye size={14} /> {t('drawer.preview')}
-                            </button>
-                            {v.device_slug ? (
-                              <Link
-                                to={`/wallpapers-for/${v.device_slug}`}
-                                className="wd-drawer-action no-underline"
-                                title={t('drawer.browseTitle', { device: deviceName })}
-                              >
-                                <MdDevices size={14} /> {t('drawer.browse')}
-                              </Link>
-                            ) : (
-                              <span className="wd-drawer-action is-disabled" title={t('drawer.noDevicePage')}>
-                                <MdDevices size={14} /> {t('drawer.browse')}
-                              </span>
-                            )}
-                            <button
-                              onClick={() => handleDownload()}
-                              disabled={dlLoading || !downloadReady}
-                              title={t('drawer.getTitle')}
-                              className={`wd-drawer-action wd-drawer-action-cta ${isMatched ? 'is-matched' : ''}`}
-                            >
-                              <AiOutlineDownload size={14} /> {t('drawer.get')}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 );
               })}
@@ -1263,7 +1297,10 @@ export default function WallpaperDetailPage() {
 
                 {variants.length > 0 && (
                   <button
-                    onClick={() => setDrawerOpen(true)}
+                    onClick={() => {
+                      setExpandedDrawerPlatform(matchedDrawerPlatform);
+                      setDrawerOpen(true);
+                    }}
                     disabled={!downloadReady}
                     className="wd-btn"
                     title={t('actions.devicesTitle')}
@@ -1609,7 +1646,15 @@ html.wd-detail-scrollbar-hidden body::-webkit-scrollbar,
 .wd-drawer-body { flex: 1; overflow-y: auto; padding: 6px 18px 18px; }
 .wd-drawer-foot { padding: 12px 22px; border-top: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04); flex-shrink: 0; }
 .wd-drawer-group { margin-top: 14px; }
-.wd-drawer-grouphead { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.50); padding: 0 6px 6px; border-bottom: 1px solid rgba(255,255,255,0.14); margin-bottom: 6px; }
+.wd-drawer-grouphead { width: 100%; display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-align: left; text-transform: uppercase; color: rgba(255,255,255,0.50); padding: 2px 6px 8px; border: 0; border-bottom: 1px solid rgba(255,255,255,0.14); background: transparent; cursor: pointer; transition: color .18s ease, border-color .18s ease; }
+.wd-drawer-grouphead:hover, .wd-drawer-grouphead[aria-expanded="true"] { color: rgba(255,255,255,0.88); border-bottom-color: rgba(255,255,255,0.24); }
+.wd-drawer-grouphead:focus-visible { outline: 2px solid color-mix(in oklch, var(--color-accent) 72%, white); outline-offset: 3px; border-radius: 6px; }
+.wd-drawer-groupmeta { display: inline-flex; align-items: center; gap: 8px; }
+.wd-drawer-groupchevron { flex-shrink: 0; color: rgba(255,255,255,0.58); transform: rotate(0deg); transition: transform .22s cubic-bezier(0.2,0.8,0.2,1), color .18s ease; }
+.wd-drawer-grouphead[aria-expanded="true"] .wd-drawer-groupchevron { color: rgba(255,255,255,0.88); transform: rotate(180deg); }
+.wd-drawer-groupcontent { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows .24s cubic-bezier(0.2,0.8,0.2,1), opacity .18s ease, visibility 0s linear .24s; }
+.wd-drawer-groupcontent.is-open { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition-delay: 0s; }
+.wd-drawer-groupitems { min-height: 0; overflow: hidden; padding-top: 6px; }
 .wd-drawer-row { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; transition: background-color .15s ease; border: 1px solid transparent; margin-bottom: 4px; }
 .wd-drawer-row:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.14); }
 .wd-drawer-row.is-matched { background: color-mix(in oklch, var(--color-accent) 16%, transparent); border-color: color-mix(in oklch, var(--color-accent) 52%, transparent); }
@@ -1625,6 +1670,10 @@ html.wd-detail-scrollbar-hidden body::-webkit-scrollbar,
 
 @media (prefers-reduced-transparency: reduce) {
   .wd-info-panel, .wd-bar, .wd-drawer { background: rgba(10,10,12,0.96); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wd-drawer-grouphead, .wd-drawer-groupchevron, .wd-drawer-groupcontent { transition: none; }
 }
 
 @keyframes wdSlideInRight { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
