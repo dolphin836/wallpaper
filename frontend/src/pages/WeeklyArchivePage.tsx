@@ -7,9 +7,9 @@ import type { WeeklyPicked } from '../api';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
+import useSkeletonRows from '../hooks/useSkeletonRows';
 
 const MONTH_ABBR = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-const WEEKLY_STRIP_SIZE = 9;
 const WEEKLY_RACK_GAP = 28;
 
 // ISO week → date of the Friday in that week (weeklies drop on Fridays).
@@ -41,9 +41,11 @@ function weeklyRackSkeletonCount() {
 }
 
 function WeeklyStripSkeleton() {
+  const { containerRef, count } = useSkeletonRows(1);
+
   return (
-    <div className="w2-strip mt-3.5" aria-hidden>
-      {Array.from({ length: WEEKLY_STRIP_SIZE }).map((_, i) => (
+    <div ref={containerRef} className="w2-strip mt-3.5" aria-hidden>
+      {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="w2-strip-thumb skeleton-card" />
       ))}
     </div>

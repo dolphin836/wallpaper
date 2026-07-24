@@ -5,6 +5,7 @@ import { getWeeklyCurrent, type WeeklyCurrent } from '../api';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
 import WallpaperTile from '../components/WallpaperTile';
+import useSkeletonRows from '../hooks/useSkeletonRows';
 
 /**
  * Home v4 — immersive weekly backdrop, mirroring the Mac client
@@ -23,6 +24,7 @@ export default function HomePage() {
   const [data, setData] = useState<WeeklyCurrent | null>(null);
   const [loading, setLoading] = useState(true);
   const [weeklyError, setWeeklyError] = useState(false);
+  const { containerRef: weeklyGridRef, count: weeklySkeletonCount } = useSkeletonRows(2);
 
   useEffect(() => {
     getWeeklyCurrent()
@@ -55,9 +57,9 @@ export default function HomePage() {
 
             <h1 className="h4-weekly-title display">{t('home.weeklyTitle')}</h1>
 
-            <div className="h4-weekly-grid mt-7">
+            <div ref={weeklyGridRef} className="h4-weekly-grid mt-7">
               {loading && picks.length === 0
-                ? Array.from({ length: 6 }).map((_, i) => (
+                ? Array.from({ length: weeklySkeletonCount }).map((_, i) => (
                     <div key={`hsk-${i}`} className="h3-tile h3-home skeleton-card" style={{ aspectRatio: '1.618' }} />
                   ))
                 : picks.map((w) => <WallpaperTile key={w.id} w={w} variant="home" />)}
