@@ -47,6 +47,8 @@ struct DetailPage: View {
     @FocusState private var collectionTitleFocused: Bool
     @State private var measuredActionBarWidth: CGFloat = 0
     @State private var showingFullscreenPreview = false
+    @State private var dynamicFrameIndex = 0
+    @State private var dynamicFramePlaying = true
     @State private var selectedWallpaperSurface: WallpaperApplySurface = .desktop
     @State private var selectedDisplayTargetID = WallpaperDisplayTarget.allID
     @State private var applyingWallpaper = false
@@ -185,7 +187,7 @@ struct DetailPage: View {
                     .padding(.top, layout.topControlsTopPadding)
                     .zIndex(20)
 
-                if showingFullscreenPreview, let detail, !isVideo(detail: detail) {
+                if showingFullscreenPreview, let detail, supportsFullscreenPreview(detail) {
                     FullscreenWallpaperPreview(
                         lowURL: detailPreviewPosterURL(detail),
                         highURL: detailHeroImageURL(detail),
@@ -392,7 +394,9 @@ struct DetailPage: View {
                     DynamicFramePreview(
                         frameURLs: frames,
                         posterURL: detailPreviewPosterURL(d),
-                        dominantColor: d.dominantColor ?? initialWallpaper?.dominantColor
+                        dominantColor: d.dominantColor ?? initialWallpaper?.dominantColor,
+                        frameIndex: $dynamicFrameIndex,
+                        playing: $dynamicFramePlaying
                     )
                 }
             } else {
@@ -1347,6 +1351,10 @@ struct DetailPage: View {
         d.fileType.lowercased().hasPrefix("video/")
     }
 
+    private func supportsFullscreenPreview(_ d: WallpaperDetail) -> Bool {
+        !isVideo(detail: d) && !d.isDynamic
+    }
+
     private func fullscreenResolutionName(_ d: WallpaperDetail) -> String {
         switch max(d.width, d.height) {
         case 7680...: return "8K UHD"
@@ -1435,6 +1443,10 @@ struct DetailPage: View {
                 .fixedSize(horizontal: true, vertical: false)
             divider
             fullscreenAction(detail: detail)
+            if hasDynamicPlaybackAction(detail) {
+                dynamicPlaybackAction(detail: detail)
+                divider
+            }
             downloadActions(detail: detail, wallpaper: wallpaper)
                 .fixedSize(horizontal: true, vertical: false)
         }
@@ -1450,6 +1462,10 @@ struct DetailPage: View {
             }
             HStack(spacing: 8) {
                 fullscreenAction(detail: detail)
+                if hasDynamicPlaybackAction(detail) {
+                    dynamicPlaybackAction(detail: detail)
+                    divider
+                }
                 downloadActions(detail: detail, wallpaper: wallpaper)
                     .fixedSize(horizontal: true, vertical: false)
             }
@@ -1461,12 +1477,18 @@ struct DetailPage: View {
             actionBarMeta(detail: detail, wallpaper: wallpaper)
             HStack(spacing: 8) {
                 socialActions(detail: detail, wallpaper: wallpaper)
-                if detail.map({ !isVideo(detail: $0) }) ?? true {
+                if detail.map(supportsFullscreenPreview) ?? true {
                     divider
                     fullscreenAction(detail: detail)
                 }
             }
-            downloadActions(detail: detail, wallpaper: wallpaper)
+            HStack(spacing: 8) {
+                if hasDynamicPlaybackAction(detail) {
+                    dynamicPlaybackAction(detail: detail)
+                    divider
+                }
+                downloadActions(detail: detail, wallpaper: wallpaper)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -1476,6 +1498,10 @@ struct DetailPage: View {
             actionBarMeta(detail: detail, wallpaper: wallpaper)
             HStack(spacing: 8) {
                 fullscreenAction(detail: detail)
+                if hasDynamicPlaybackAction(detail) {
+                    dynamicPlaybackAction(detail: detail)
+                    divider
+                }
                 downloadActions(detail: detail, wallpaper: wallpaper)
             }
         }
@@ -1600,10 +1626,10 @@ struct DetailPage: View {
 
     @ViewBuilder
     private func fullscreenAction(detail: WallpaperDetail?) -> some View {
-        if detail.map({ !isVideo(detail: $0) }) ?? true {
+        if detail.map(supportsFullscreenPreview) ?? true {
             let ready = detail.map(downloadReady) ?? false
             Button {
-                guard let detail, !isVideo(detail: detail), downloadReady(detail) else { return }
+                guard let detail, supportsFullscreenPreview(detail), downloadReady(detail) else { return }
                 withAnimation(.easeOut(duration: 0.18)) {
                     showingCollectionPicker = false
                     showingWallpaperPicker = false
@@ -1622,6 +1648,46 @@ struct DetailPage: View {
             .disabled(!ready)
             .opacity(ready ? 1 : 0.48)
             .help(L10n.detail.fullscreenPreview)
+        }
+    }
+
+    private func hasDynamicPlaybackAction(_ detail: WallpaperDetail?) -> Bool {
+        guard let detail, detail.isDynamic, !isVideo(detail: detail) else { return false }
+        return dynamicFrameURLs(detail: detail).count > 1
+    }
+
+    @ViewBuilder
+    private func dynamicPlaybackAction(detail: WallpaperDetail?) -> some View {
+        if let detail, hasDynamicPlaybackAction(detail) {
+            let frameCount = dynamicFrameURLs(detail: detail).count
+            let visibleFrameIndex = min(max(dynamicFrameIndex, 0), frameCount - 1)
+            Button {
+                dynamicFramePlaying.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: dynamicFramePlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .frame(width: 11, height: 11)
+                    Text(dynamicFramePlaying ? L10n.detail.pausePreview : L10n.detail.playPreview)
+                        .font(.sans11)
+                        .lineLimit(1)
+                    Text("\(visibleFrameIndex + 1)/\(frameCount)")
+                        .font(.mono10)
+                        .tracking(0.4)
+                        .monospacedDigit()
+                        .foregroundStyle(Color.white.opacity(0.70))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(Color.white.opacity(0.13)))
+                }
+                .foregroundStyle(Color.white.opacity(0.92))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Capsule().fill(Color.white.opacity(0.08)))
+                .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
+            }
+            .buttonStyle(GlassBounceButtonStyle())
+            .help(dynamicFramePlaying ? L10n.detail.pausePreview : L10n.detail.playPreview)
         }
     }
 
@@ -2419,6 +2485,8 @@ struct DetailPage: View {
         showingWallpaperPicker = false
         showingCollectionPicker = false
         showingFullscreenPreview = false
+        dynamicFrameIndex = 0
+        dynamicFramePlaying = true
         collectionError = nil
         isLiked = initialWallpaper?.isLiked ?? false
         isFavorited = initialWallpaper?.isFavorited ?? false
@@ -2686,11 +2754,10 @@ private struct DynamicFramePreview: View {
     let frameURLs: [URL]
     let posterURL: URL?
     let dominantColor: String?
+    @Binding var frameIndex: Int
+    @Binding var playing: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var frameIndex = 0
-    @State private var playing = true
-    @State private var hover = false
 
     var body: some View {
         ZStack {
@@ -2719,20 +2786,9 @@ private struct DynamicFramePreview: View {
                 endPoint: .bottom
             )
             .allowsHitTesting(false)
-
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    playbackControl
-                }
-                .padding(.trailing, 22)
-                .padding(.bottom, 18)
-            }
         }
         .animation(.easeInOut(duration: 0.55), value: visibleFrameIndex)
         .contentShape(Rectangle())
-        .onHover { hover = $0 }
         .onAppear {
             if reduceMotion {
                 playing = false
@@ -2754,33 +2810,6 @@ private struct DynamicFramePreview: View {
 
     private var playbackTaskID: String {
         "\(playing)-\(reduceMotion)-\(frameURLs.map(\.absoluteString).joined(separator: "|"))"
-    }
-
-    private var playbackControl: some View {
-        Button {
-            playing.toggle()
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: playing ? "pause.fill" : "play.fill")
-                    .font(.system(size: 9, weight: .bold))
-                    .frame(width: 10)
-                Text("\(L10n.detail.chipLive) · \(visibleFrameIndex + 1)/\(max(frameURLs.count, 1))")
-                    .font(.mono10)
-                    .tracking(0.7)
-                    .monospacedDigit()
-            }
-            .foregroundStyle(Color.white.opacity(0.94))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(
-                Capsule()
-                    .fill(Color.black.opacity(hover || !playing ? 0.70 : 0.52))
-            )
-            .overlay(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
-            .shadow(color: Color.black.opacity(0.25), radius: 12, x: 0, y: 4)
-        }
-        .buttonStyle(.plain)
-        .help(playing ? L10n.detail.pausePreview : L10n.detail.playPreview)
     }
 
     private func runPlaybackLoop() async {
