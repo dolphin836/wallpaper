@@ -189,8 +189,8 @@ struct DetailPage: View {
                     FullscreenWallpaperPreview(
                         lowURL: detailPreviewPosterURL(detail),
                         highURL: detailHeroImageURL(detail),
-                        title: displayTitle(detail.title),
-                        metadata: "\(detail.resolutionLabel) · \(detail.width.formatted()) × \(detail.height.formatted())",
+                        resolutionName: fullscreenResolutionName(detail),
+                        dimensions: "\(detail.width.formatted()) × \(detail.height.formatted())",
                         onClose: { showingFullscreenPreview = false }
                     )
                     .transition(.opacity)
@@ -1330,6 +1330,17 @@ struct DetailPage: View {
 
     private func isVideo(detail d: WallpaperDetail) -> Bool {
         d.fileType.lowercased().hasPrefix("video/")
+    }
+
+    private func fullscreenResolutionName(_ d: WallpaperDetail) -> String {
+        switch max(d.width, d.height) {
+        case 7680...: return "8K UHD"
+        case 3840...: return "4K UHD"
+        case 2560...: return "QHD/2K"
+        case 1920...: return "Full HD"
+        case 1280...: return "HD"
+        default: return d.resolutionLabel
+        }
     }
 
     private func rawHeroSize(detail: WallpaperDetail, layout: DetailLayout) -> CGSize {
