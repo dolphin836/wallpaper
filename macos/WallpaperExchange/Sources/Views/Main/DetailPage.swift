@@ -354,32 +354,46 @@ struct DetailPage: View {
     @ViewBuilder
     private func immersiveHeroMedia(layout: DetailLayout) -> some View {
         if let d = detail, let videoURL = livePreviewVideoURL(detail: d) {
-            LiveVideoPreview(
-                sourceURL: videoURL,
-                posterURL: detailPreviewPosterURL(d),
-                dominantColor: d.dominantColor ?? initialWallpaper?.dominantColor
-            )
-            .frame(width: layout.size.width, height: layout.heroViewportHeight)
-            .clipped()
-        } else if let d = detail {
-            let frames = dynamicFrameURLs(detail: d)
-            if frames.count > 1 {
-                DynamicFramePreview(
-                    frameURLs: frames,
+            fittedHeroMedia(
+                sourceSize: detailHeroSourceSize(d),
+                layout: layout,
+                background: .black
+            ) {
+                LiveVideoPreview(
+                    sourceURL: videoURL,
                     posterURL: detailPreviewPosterURL(d),
                     dominantColor: d.dominantColor ?? initialWallpaper?.dominantColor
                 )
-                .frame(width: layout.size.width, height: layout.heroViewportHeight)
-                .clipped()
+            }
+        } else if let d = detail {
+            let frames = dynamicFrameURLs(detail: d)
+            if frames.count > 1 {
+                fittedHeroMedia(
+                    sourceSize: detailHeroSourceSize(d),
+                    layout: layout,
+                    background: Color(hex: d.dominantColor ?? initialWallpaper?.dominantColor ?? "#111111")
+                ) {
+                    DynamicFramePreview(
+                        frameURLs: frames,
+                        posterURL: detailPreviewPosterURL(d),
+                        dominantColor: d.dominantColor ?? initialWallpaper?.dominantColor
+                    )
+                }
             } else {
                 progressivePosterImage(detail: d, layout: layout)
             }
         } else if let wallpaper = initialWallpaper {
-            posterImage(
-                url: URL(string: wallpaper.displayURL),
-                dominantColor: wallpaper.dominantColor,
-                maxPixelDimension: 1100
-            )
+            fittedHeroMedia(
+                sourceSize: CGSize(width: wallpaper.width, height: wallpaper.height),
+                layout: layout,
+                background: Color(hex: wallpaper.dominantColor ?? "#111111")
+            ) {
+                posterImage(
+                    url: URL(string: wallpaper.displayURL),
+                    dominantColor: wallpaper.dominantColor,
+                    maxPixelDimension: 1100
+                )
+            }
         } else {
             LinearGradient(
                 colors: [Color.black, Color.paper2.blended(with: Color.black, fraction: 0.72)],
@@ -403,31 +417,89 @@ struct DetailPage: View {
     }
 
     private func progressivePosterImage(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
-        ZStack {
-            Color(hex: d.dominantColor ?? initialWallpaper?.dominantColor ?? "#111111")
+        fittedHeroMedia(
+            sourceSize: detailHeroSourceSize(d),
+            layout: layout,
+            background: Color(hex: d.dominantColor ?? initialWallpaper?.dominantColor ?? "#111111")
+        ) {
+            ZStack {
+                if let wallpaper = initialWallpaper {
+                    posterImage(
+                        url: URL(string: wallpaper.displayURL),
+                        dominantColor: wallpaper.dominantColor,
+                        maxPixelDimension: 1100
+                    )
+                }
 
-            if let wallpaper = initialWallpaper {
-                posterImage(
-                    url: URL(string: wallpaper.displayURL),
-                    dominantColor: wallpaper.dominantColor,
-                    maxPixelDimension: 1100
-                )
+                CachedAsyncImage(
+                    url: detailHeroImageURL(d),
+                    maxPixelDimension: detailHeroDecodeDimension(detail: d, layout: layout),
+                    onLoad: { heroOriginalLoaded = true }
+                ) { img in
+                    img.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color.clear
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
             }
-
-            CachedAsyncImage(
-                url: detailHeroImageURL(d),
-                maxPixelDimension: detailHeroDecodeDimension(detail: d, layout: layout),
-                onLoad: { heroOriginalLoaded = true }
-            ) { img in
-                img.resizable().aspectRatio(contentMode: .fill)
-            } placeholder: {
-                Color.clear
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipped()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // The regular Mac feeds intentionally include every wallpaper. Keep the
+    // immersive cover treatment only when the displayed asset can fill the
+    // live hero without enlargement; smaller media stays at native size (or
+    // shrinks to fit) and is centred over its dominant-colour backdrop.
+    private func fittedHeroMedia<Content: View>(
+        sourceSize: CGSize,
+        layout: DetailLayout,
+        background: Color,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        let canvasSize = detailHeroCanvasSize(sourceSize: sourceSize, layout: layout)
+        return ZStack {
+            background
+            content()
+                .frame(width: canvasSize.width, height: canvasSize.height)
+                .clipped()
+        }
+        .frame(width: layout.size.width, height: layout.heroViewportHeight)
         .clipped()
+    }
+
+    private func detailHeroCanvasSize(sourceSize: CGSize, layout: DetailLayout) -> CGSize {
+        let viewport = CGSize(width: max(1, layout.size.width), height: max(1, layout.heroViewportHeight))
+        guard sourceSize.width > 0, sourceSize.height > 0 else { return viewport }
+
+        if sourceSize.width >= viewport.width.rounded(.up),
+           sourceSize.height >= viewport.height.rounded(.up) {
+            return viewport
+        }
+
+        let scale = min(1, viewport.width / sourceSize.width, viewport.height / sourceSize.height)
+        return CGSize(
+            width: max(1, (sourceSize.width * scale).rounded()),
+            height: max(1, (sourceSize.height * scale).rounded())
+        )
+    }
+
+    private func detailHeroSourceSize(_ d: WallpaperDetail) -> CGSize {
+        guard d.width > 0, d.height > 0 else { return .zero }
+        let width = CGFloat(d.width)
+        let height = CGFloat(d.height)
+        let scale: CGFloat
+
+        if livePreviewVideoURL(detail: d) != nil {
+            // The backend's detail preview is capped at 480 px high.
+            scale = min(1, 480 / height)
+        } else if d.isDynamic {
+            // Dynamic HEIC frames are exported at no more than 1600 px wide.
+            scale = min(1, 1600 / width)
+        } else {
+            scale = 1
+        }
+
+        return CGSize(width: width * scale, height: height * scale)
     }
 
     // Static images gate on the hero's original being decoded (instant
@@ -579,28 +651,26 @@ struct DetailPage: View {
         .frame(maxWidth: .infinity)
     }
 
-    // Floating circles over the hero (back / info) — GlassKit circle
-    // buttons, dark tone; `prominent` = solid paper primary.
+    // Floating circles over the hero (back / info) share the exact same
+    // GlassKit geometry and dark-glass interaction states.
     private func detailTopButton(
         systemName: String,
         help: String,
-        prominent: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
         GlassCircleButton(
             icon: systemName,
             help: help,
             tone: .dark,
-            size: prominent ? 42 : 38,
-            iconSize: prominent ? 17 : 15,
-            prominent: prominent,
+            size: 38,
+            iconSize: 15,
             action: action
         )
     }
 
     private func detailInfoHoverButton(detail d: WallpaperDetail) -> some View {
         VStack(alignment: .trailing, spacing: 10) {
-            detailTopButton(systemName: "info.circle.fill", help: L10n.detail.info, prominent: true) {
+            detailTopButton(systemName: "info.circle", help: L10n.detail.info) {
                 withAnimation(.easeOut(duration: 0.16)) {
                     infoPanelHover = true
                 }
