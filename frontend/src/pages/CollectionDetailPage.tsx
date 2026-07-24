@@ -32,6 +32,8 @@ import {
 } from '../api';
 import { useAuthStore } from '../store/auth';
 import { useWallpaperActions } from '../hooks/useWallpaperActions';
+import MacDynamicChip from '../components/MacDynamicChip';
+import { isMacDynamicWallpaper } from '../lib/wallpaperType';
 import Pagination from '../components/Pagination';
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
@@ -101,6 +103,7 @@ function FramedTile({
               {t('frame.chipLive')}
             </span>
           )}
+          {isMacDynamicWallpaper(w) && <MacDynamicChip />}
           {w.is_ai_generated && (
             <span className="tile-chip is-ai">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 2l1.6 4.6L18 8.2l-4.4 1.6L12 14.4l-1.6-4.6L6 8.2l4.4-1.6L12 2zm7 10l1 2.8 2.8 1-2.8 1L19 19.6l-1-2.8-2.8-1 2.8-1L19 12zM5 14l.9 2.6L8.4 17.6l-2.5 1L5 21.2 4.1 18.6 1.6 17.6 4.1 16.6 5 14z"/></svg>

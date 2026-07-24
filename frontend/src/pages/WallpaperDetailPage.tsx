@@ -23,7 +23,7 @@ import {
   AiOutlineReload,
   AiOutlineDown,
 } from 'react-icons/ai';
-import { MdPlaylistAdd, MdDesktopMac, MdLaptopMac, MdTabletMac, MdPhoneIphone, MdOutlineRemoveRedEye, MdDevices } from 'react-icons/md';
+import { MdPlaylistAdd, MdDesktopMac, MdLaptopMac, MdTabletMac, MdPhoneIphone, MdOutlineRemoveRedEye, MdDevices, MdPlayArrow, MdPause } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import { useTranslation, Trans } from 'react-i18next';
 import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User } from '../types';
@@ -52,6 +52,7 @@ import ErrorState from '../components/ErrorState';
 import AvatarStack from '../components/AvatarStack';
 import AddToCollectionModal from '../components/AddToCollectionModal';
 import useProtectedImageBlob from '../hooks/useProtectedImageBlob';
+import { isMacDynamicWallpaper } from '../lib/wallpaperType';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -229,6 +230,7 @@ export default function WallpaperDetailPage() {
   const [heroContainedSize, setHeroContainedSize] = useState({ width: 0, height: 0 });
   const heroSourceId = wallpaper?.id;
   const isVideoWallpaper = (wallpaper?.file_type || '').startsWith('video/');
+  const isMacDynamic = isMacDynamicWallpaper(wallpaper);
   const protectedOriginalSource = wallpaper?.original_url && !isVideoWallpaper && !wallpaper.is_dynamic
     ? wallpaper.original_url
     : '';
@@ -237,7 +239,7 @@ export default function WallpaperDetailPage() {
     loading: originalBlobLoading,
     failed: originalBlobFailed,
   } = useProtectedImageBlob(protectedOriginalSource);
-  const fullscreenVisible = fullscreen && !isVideoWallpaper;
+  const fullscreenVisible = fullscreen && !isVideoWallpaper && !isMacDynamic;
   const originalSourceWidth = wallpaper?.width ?? 0;
   const originalSourceHeight = wallpaper?.height ?? 0;
   // The browser displays derived HEIC frames at up to 1600px wide. Video
@@ -935,10 +937,6 @@ export default function WallpaperDetailPage() {
                       style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                     />
                   ))}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setFramePlaying((p) => !p); }}
-                    className="absolute top-6 right-24 z-[3] px-3 py-1 bg-black/60 text-white text-[11px] mono rounded-full backdrop-blur-sm"
-                  >{framePlaying ? t('hero.pause') : t('hero.play')} · {frameIdx + 1}/{frames.length}</button>
                 </>
               ) : isVideoWallpaper && wallpaper.original_url ? (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -1275,7 +1273,7 @@ export default function WallpaperDetailPage() {
 
                 <span className="wd-bar-divider" />
 
-                {!isVideoWallpaper && (
+                {!isVideoWallpaper && !isMacDynamic && (
                   <button
                     type="button"
                     disabled={!downloadReady}
@@ -1309,6 +1307,24 @@ export default function WallpaperDetailPage() {
                     <span className="wd-bar-hidesm">{t('actions.devices')}</span>
                     <span className="wd-btn-count">{variants.length}</span>
                   </button>
+                )}
+                {isMacDynamic && frames.length > 1 && (
+                  <>
+                    {variants.length > 0 && <span className="wd-bar-divider" />}
+                    <button
+                      type="button"
+                      onClick={() => setFramePlaying((playing) => !playing)}
+                      className="wd-btn"
+                      title={framePlaying ? t('hero.pause') : t('hero.play')}
+                      aria-label={framePlaying ? t('hero.pause') : t('hero.play')}
+                      aria-pressed={framePlaying}
+                    >
+                      {framePlaying ? <MdPause size={16} /> : <MdPlayArrow size={17} />}
+                      <span>{framePlaying ? t('hero.pause') : t('hero.play')}</span>
+                      <span className="wd-btn-count">{frameIdx + 1}/{frames.length}</span>
+                    </button>
+                    <span className="wd-bar-divider" />
+                  </>
                 )}
                 <button
                   onClick={handleDownloadClick}

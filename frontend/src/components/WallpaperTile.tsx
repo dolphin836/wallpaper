@@ -10,12 +10,14 @@ import {
 } from 'react-icons/ai';
 import type { Wallpaper } from '../types';
 import { useWallpaperActions } from '../hooks/useWallpaperActions';
+import MacDynamicChip from './MacDynamicChip';
+import { isMacDynamicWallpaper } from '../lib/wallpaperType';
 
 /**
  * Resolution chip — small mono pill in the top-left of a tile.
  * Shared between hero + tile so the visual vocabulary stays consistent.
  */
-export function ResChip({ wallpaper }: { wallpaper: Wallpaper }) {
+export function ResChip({ wallpaper, embedded = false }: { wallpaper: Wallpaper; embedded?: boolean }) {
   const px = Math.max(wallpaper.width || 0, wallpaper.height || 0);
   let label = '';
   if (px >= 7680) label = '8K';
@@ -24,7 +26,7 @@ export function ResChip({ wallpaper }: { wallpaper: Wallpaper }) {
   else if (px >= 1920) label = '1080P';
   else if (px >= 1280) label = '720P';
   if (!label) return null;
-  return <span className="h3-res-chip">{label}</span>;
+  return <span className={embedded ? 'tile-chip is-resolution' : 'h3-res-chip'}>{label}</span>;
 }
 
 // 'home' = the golden-ratio landscape card used by the immersive home
@@ -61,6 +63,9 @@ export default function WallpaperTile({ w, variant, onHover }: Props) {
   }, [playing]);
 
   const acts = useWallpaperActions(w);
+  const isVideo = (w.file_type || '').startsWith('video/');
+  const hasBadges = Math.max(w.width || 0, w.height || 0) >= 1280
+    || isVideo || w.is_dynamic || w.is_ai_generated;
   const lowResSrc = w.thumb_url || '';
   const highResSrc = w.preview_url || w.thumb_url || '';
   const hasHighResLayer = Boolean(lowResSrc && highResSrc && highResSrc !== lowResSrc);
@@ -156,7 +161,24 @@ export default function WallpaperTile({ w, variant, onHover }: Props) {
           <svg viewBox="0 0 24 24" aria-hidden><polygon points="6,4 6,20 20,12" /></svg>
         </div>
       )}
-      <ResChip wallpaper={w} />
+      {hasBadges && (
+        <div className="h3-tile-chips">
+          <ResChip wallpaper={w} embedded />
+          {(isVideo || w.is_dynamic) && (
+            <span className="tile-chip is-live">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+              {t('chip.live')}
+            </span>
+          )}
+          {isMacDynamicWallpaper(w) && <MacDynamicChip />}
+          {w.is_ai_generated && (
+            <span className="tile-chip is-ai">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 2l1.6 4.6L18 8.2l-4.4 1.6L12 14.4l-1.6-4.6L6 8.2l4.4-1.6L12 2zm7 10l1 2.8 2.8 1-2.8 1L19 19.6l-1-2.8-2.8-1 2.8-1L19 12zM5 14l.9 2.6L8.4 17.6l-2.5 1L5 21.2 4.1 18.6 1.6 17.6 4.1 16.6 5 14z" /></svg>
+              {t('chip.ai')}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Hover-revealed action rail — favorite / like / download.
           Same chrome as the salon variant; CSS rule (.h3-tile:hover

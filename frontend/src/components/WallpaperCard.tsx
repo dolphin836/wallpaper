@@ -14,6 +14,8 @@ import {
 } from 'react-icons/ai';
 import type { Wallpaper } from '../types';
 import { useWallpaperActions } from '../hooks/useWallpaperActions';
+import MacDynamicChip from './MacDynamicChip';
+import { isMacDynamicWallpaper } from '../lib/wallpaperType';
 
 const STATUS_PROCESSING = 0;
 const STATUS_PUBLISHED = 1;
@@ -117,7 +119,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
     : { style: { cursor: 'default' } };
 
   // ── Salon variant (editorial Discover tile) ─────────────────────────
-  // Minimal chrome: top-left resolution + Mac chip only, hover reveals a
+  // Minimal chrome: top-left resolution / live / Mac / AI chips, hover reveals a
   // 3-button rail at bottom-right with persisted selected states for
   // liked/favorited/downloaded. Shares all action handlers + progressive
   // image loading with the legacy card below. Falls back gracefully for
@@ -204,6 +206,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               {t('chip.live')}
             </span>
           )}
+          {isMacDynamicWallpaper(wallpaper) && <MacDynamicChip />}
           {wallpaper.is_ai_generated && (
             <span className="tile-chip is-ai">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.6 4.6L18 8.2l-4.4 1.6L12 14.4l-1.6-4.6L6 8.2l4.4-1.6L12 2zm7 10l1 2.8 2.8 1-2.8 1L19 19.6l-1-2.8-2.8-1 2.8-1L19 12zM5 14l.9 2.6L8.4 17.6l-2.5 1L5 21.2 4.1 18.6 1.6 17.6 4.1 16.6 5 14z"/></svg>
@@ -340,6 +343,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               {t('chip.live')}
             </span>
           )}
+          {isMacDynamicWallpaper(wallpaper) && <MacDynamicChip />}
           {wallpaper.is_ai_generated && (
             <span className="tile-chip is-ai">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.6 4.6L18 8.2l-4.4 1.6L12 14.4l-1.6-4.6L6 8.2l4.4-1.6L12 2zm7 10l1 2.8 2.8 1-2.8 1L19 19.6l-1-2.8-2.8-1 2.8-1L19 12zM5 14l.9 2.6L8.4 17.6l-2.5 1L5 21.2 4.1 18.6 1.6 17.6 4.1 16.6 5 14z"/></svg>

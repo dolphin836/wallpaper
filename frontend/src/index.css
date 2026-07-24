@@ -997,6 +997,27 @@
   width: 10px;
   height: 10px;
 }
+.tile-chip.is-mac {
+  height: 20px;
+  padding: 0 7px 0 5px;
+  border: 1px solid oklch(78% 0.10 238 / 0.82);
+  border-radius: 999px;
+  background: oklch(52% 0.15 245 / 0.90);
+  color: oklch(99% 0.004 240);
+  font-family: var(--font-sans);
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.24),
+    0 2px 8px oklch(38% 0.12 245 / 0.24);
+  backdrop-filter: blur(10px) saturate(125%);
+  -webkit-backdrop-filter: blur(10px) saturate(125%);
+}
+.tile-chip.is-mac svg {
+  width: 10px;
+  height: 10px;
+}
 .tile-chip.is-ai {
   background: oklch(70% 0.18 295 / 0.85);
   color: oklch(99% 0 0);
@@ -4548,6 +4569,17 @@
 
 /* Home and weekly resolution chip mirrors the squared technical plate used
    by the rest of the wallpaper cards. */
+.h3-tile-chips {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: calc(100% - 20px);
+}
 .h3-res-chip {
   position: absolute; top: 10px; left: 10px; z-index: 4;
   display: inline-flex; align-items: center; justify-content: center;
