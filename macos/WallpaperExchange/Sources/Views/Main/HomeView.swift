@@ -328,26 +328,14 @@ struct HomeWeeklyCard: View {
 
     // ─── Chips — same tokens as MainGridTile's .tile-chip family ──
 
-    private static let chipBG   = Color.chipSurface
-    private static let chipInk  = Color.chipInk
     private static let chipFont = Font.system(size: 9, weight: .semibold, design: .monospaced)
 
     private var resolutionChip: some View {
-        Text(wallpaper.resolutionLabel)
-            .font(Self.chipFont).tracking(0.4)
-            .foregroundStyle(Self.chipInk)
-            .padding(.horizontal, 7).padding(.vertical, 2)
-            .background(Capsule().fill(Self.chipBG))
+        WallpaperCardTag(wallpaper.resolutionLabel, kind: .resolution)
     }
 
     private var liveChip: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "play.fill").font(.system(size: 8, weight: .semibold))
-            Text(L10n.browse.chipLive).font(Self.chipFont).tracking(0.4)
-        }
-        .foregroundStyle(Self.chipInk)
-        .padding(.horizontal, 7).padding(.vertical, 2)
-        .background(Capsule().fill(Self.chipBG))
+        WallpaperCardTag(L10n.browse.chipLive, kind: .live, icon: "play.fill")
     }
 
     private var aiChip: some View {

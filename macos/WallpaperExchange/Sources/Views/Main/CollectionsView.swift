@@ -970,8 +970,10 @@ struct FramedTile: View {
 
     @ViewBuilder private var chips: some View {
         HStack(spacing: 5) {
-            if let r = resLabel { tileChip(r, icon: nil) }
-            if isVideo || wallpaper.isDynamic { tileChip(L10n.collections.liveChip, icon: "play.fill") }
+            if let r = resLabel { WallpaperCardTag(r, kind: .resolution) }
+            if isVideo || wallpaper.isDynamic {
+                WallpaperCardTag(L10n.collections.liveChip, kind: .live, icon: "play.fill")
+            }
             if wallpaper.isAIGenerated == true { tileChip("AI", icon: "sparkles") }
             Spacer(minLength: 0)
         }

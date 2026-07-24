@@ -77,9 +77,9 @@ struct WallpaperTileView: View {
             // Always rendered now — Wallpaper.resolutionLabel falls back
             // to "{w}×{h}" or "HD" when the backend hasn't backfilled
             // dimensions, so the slot is never empty.
-            Chip(text: wallpaper.resolutionLabel)
+            WallpaperCardTag(wallpaper.resolutionLabel, kind: .resolution)
             if wallpaper.isDynamic {
-                Chip(text: "Mac", icon: "apple.logo")
+                WallpaperCardTag("Mac", kind: .live, icon: "apple.logo")
             }
             if wallpaper.isAIGenerated == true {
                 Chip(text: "AI", icon: "sparkles", tone: .ai)

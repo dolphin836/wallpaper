@@ -159,32 +159,17 @@ struct MainGridTile: View {
     }
 
     // ─── Chips (match web .tile-chip family) ────────────────────
-    //   padding: 2px 7px
-    //   font: mono 9px / weight 600 / letter-spacing 0.04em
-    //   background: light translucent (oklch(98% 0.005 240 / 0.62))
-    //   color: dark slate (oklch(34% 0.012 240))
-    //   AI variant: violet wash with white text
-
-    private static let chipBG    = Color.chipSurface
+    // Resolution and live-media tags use the shared Web-matched component;
+    // AI and local-file state retain their existing semantic treatments.
     private static let chipInk   = Color.chipInk
     private static let chipFont  = Font.system(size: 9, weight: .semibold, design: .monospaced)
 
     private var resolutionChip: some View {
-        Text(wallpaper.resolutionLabel)
-            .font(Self.chipFont).tracking(0.4)
-            .foregroundStyle(Self.chipInk)
-            .padding(.horizontal, 7).padding(.vertical, 2)
-            .background(Capsule().fill(Self.chipBG))
+        WallpaperCardTag(wallpaper.resolutionLabel, kind: .resolution)
     }
 
     private var liveChip: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "play.fill").font(.system(size: 8, weight: .semibold))
-            Text(L10n.browse.chipLive).font(Self.chipFont).tracking(0.4)
-        }
-        .foregroundStyle(Self.chipInk)
-        .padding(.horizontal, 7).padding(.vertical, 2)
-        .background(Capsule().fill(Self.chipBG))
+        WallpaperCardTag(L10n.browse.chipLive, kind: .live, icon: "play.fill")
     }
 
     // Local-file-missing tag for the My Downloads grid — amber wash so
