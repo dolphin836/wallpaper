@@ -506,9 +506,32 @@ struct PagedWallpaperGrid: View {
     @State private var loading = false
     @State private var loaded = false
     @State private var loadError: String?
+    @State private var manager = WallpaperManager.shared
+    @State private var localOnly = false
+    @State private var localRecords: [Wallpaper] = []
+    @State private var localRecordsLoading = false
+    @State private var localRecordsLoaded = false
+    @State private var localRecordsError: String?
 
     private let pageSize = 24
-    private var totalPages: Int { total > 0 ? Int(ceil(Double(total) / Double(pageSize))) : max(cursors.count, 1) }
+    private var locallyAvailableItems: [Wallpaper] {
+        let knownLocalIDs = manager.downloadedIDs
+        return localRecords.filter { knownLocalIDs.contains($0.id) && manager.isDownloaded($0.id) }
+    }
+    private var visibleItems: [Wallpaper] {
+        guard localOnly else { return items }
+        let start = (page - 1) * pageSize
+        guard start < locallyAvailableItems.count else { return [] }
+        return Array(locallyAvailableItems[start..<min(start + pageSize, locallyAvailableItems.count)])
+    }
+    private var visibleTotal: Int { localOnly ? locallyAvailableItems.count : total }
+    private var totalPages: Int {
+        visibleTotal > 0 ? Int(ceil(Double(visibleTotal) / Double(pageSize))) : 1
+    }
+    private var maxReachablePage: Int { localOnly ? totalPages : cursors.count }
+    private var visibleLoading: Bool { localOnly ? localRecordsLoading : loading }
+    private var visibleLoaded: Bool { localOnly ? localRecordsLoaded : loaded }
+    private var visibleError: String? { localOnly ? localRecordsError : loadError }
     private var gridColumns: [GridItem] {
         [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14, alignment: .top)]
     }
@@ -516,16 +539,26 @@ struct PagedWallpaperGrid: View {
 
     var body: some View {
         Group {
-            if hideWhenEmpty && loaded && items.isEmpty && loadError == nil {
+            if hideWhenEmpty && visibleLoaded && visibleItems.isEmpty && visibleError == nil {
                 EmptyView()
             } else {
                 VStack(alignment: .leading, spacing: 16) {
                     if let noun = privacyNoun {
                         PrivacyBanner(noun: noun, isPublic: privacyIsPublic) { onTogglePrivacy?(!privacyIsPublic) }
                     }
-                    LabelRule(text: "\(headLabel) · \(loaded ? "\(total)" : "…")")
+                    HStack(spacing: 14) {
+                        LabelRule(text: "\(headLabel) · \(visibleLoaded ? "\(visibleTotal)" : "…")")
+                        if flagIfNotLocal {
+                            Toggle(L10n.account.localOnlyFilter, isOn: $localOnly)
+                                .toggleStyle(.checkbox)
+                                .controlSize(.small)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(Color.ink2)
+                                .fixedSize()
+                        }
+                    }
 
-                    if loading && items.isEmpty {
+                    if visibleLoading && visibleItems.isEmpty {
                         WallpaperGridSkeleton(
                             columns: gridColumns,
                             count: 12,
@@ -533,19 +566,24 @@ struct PagedWallpaperGrid: View {
                             aspectRatio: 3.0 / 2.0,
                             cornerRadius: 10
                         )
-                    } else if let err = loadError, items.isEmpty {
+                    } else if let err = visibleError, visibleItems.isEmpty {
                         RemoteLoadErrorView(message: err) {
-                            Task { await loadPage(page) }
+                            Task {
+                                if localOnly { await loadLocalRecords() }
+                                else { await loadPage(page) }
+                            }
                         }
-                    } else if items.isEmpty {
+                    } else if visibleItems.isEmpty {
                         RemoteEmptyStateView(
-                            title: emptyText.isEmpty ? L10n.account.nothingHere : emptyText,
-                            message: L10n.account.emptySectionMessage,
-                            symbol: showProcessing ? "hourglass" : "photo.on.rectangle"
+                            title: localOnly
+                                ? L10n.account.emptyLocalDownloads
+                                : (emptyText.isEmpty ? L10n.account.nothingHere : emptyText),
+                            message: localOnly ? L10n.account.emptyLocalDownloadsMessage : L10n.account.emptySectionMessage,
+                            symbol: localOnly ? "externaldrive.badge.xmark" : (showProcessing ? "hourglass" : "photo.on.rectangle")
                         )
                     } else {
                         LazyVGrid(columns: gridColumns, spacing: gridSpacing) {
-                            ForEach(items) { wp in
+                            ForEach(visibleItems) { wp in
                                 if showProcessing {
                                     PendingUploadTileView(wallpaper: wp)
                                 } else {
@@ -553,11 +591,20 @@ struct PagedWallpaperGrid: View {
                                 }
                             }
                         }
-                        PageBar(current: page, totalPages: totalPages, maxReachable: cursors.count) { p in Task { await loadPage(p) } }
-                        if let err = loadError {
+                        PageBar(current: page, totalPages: totalPages, maxReachable: maxReachablePage) { p in
+                            if localOnly { page = p }
+                            else { Task { await loadPage(p) } }
+                        }
+                        if let err = visibleError {
                             HStack(spacing: 10) {
                                 Text(err).font(.sans12).foregroundStyle(Color.ink2).lineLimit(1)
-                                Button(L10n.common.retry) { Task { await loadPage(page) } }.controlSize(.small)
+                                Button(L10n.common.retry) {
+                                    Task {
+                                        if localOnly { await loadLocalRecords() }
+                                        else { await loadPage(page) }
+                                    }
+                                }
+                                .controlSize(.small)
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.top, 8)
@@ -571,6 +618,17 @@ struct PagedWallpaperGrid: View {
         // card's color. The mesh only shifts when a tile is hovered
         // (MainGridTile drives PaletteEnv directly).
         .onAppear { onPalette(nil, nil) }
+        .onChange(of: localOnly) { _, enabled in
+            page = 1
+            Task {
+                if enabled { await loadLocalRecords() }
+                else { await loadPage(1) }
+            }
+        }
+        .onChange(of: manager.downloadedIDs) { _, _ in
+            guard localOnly else { return }
+            page = min(page, totalPages)
+        }
     }
 
     private func loadPage(_ p: Int) async {
@@ -589,6 +647,44 @@ struct PagedWallpaperGrid: View {
         } catch {
             loadError = error.localizedDescription
             loaded = true
+        }
+    }
+
+    // The backend cannot know which files exist on this Mac. Load the full
+    // server-side download history once, then match it against the manager's
+    // on-disk index and paginate the filtered result locally. Filtering only
+    // the current remote page would hide valid local files on later pages.
+    private func loadLocalRecords() async {
+        guard !localRecordsLoading else { return }
+        localRecordsLoading = true
+        localRecordsError = nil
+        defer { localRecordsLoading = false }
+
+        do {
+            var records: [Wallpaper] = []
+            var seenWallpaperIDs = Set<Int>()
+            var seenCursors = Set<Int>()
+            var nextCursor: Int?
+
+            while true {
+                let data = try await fetch(nextCursor, 50)
+                for wallpaper in data.items where seenWallpaperIDs.insert(wallpaper.id).inserted {
+                    records.append(wallpaper)
+                }
+
+                guard data.hasMore,
+                      let cursor = data.nextCursor,
+                      cursor > 0,
+                      seenCursors.insert(cursor).inserted
+                else { break }
+                nextCursor = cursor
+            }
+
+            localRecords = records
+            localRecordsLoaded = true
+        } catch {
+            localRecordsError = error.localizedDescription
+            localRecordsLoaded = true
         }
     }
 }

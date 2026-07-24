@@ -48,6 +48,7 @@ struct AccountStrings {
     let headPending: String
     let headPublished: String
     let headLedger: String
+    let localOnlyFilter: String
 
     // ── Empty states ──
     let emptyFavorites: String
@@ -58,6 +59,8 @@ struct AccountStrings {
     let emptySectionMessage: String
     let emptyCollectionsTitle: String
     let emptyCollectionsMessage: String
+    let emptyLocalDownloads: String
+    let emptyLocalDownloadsMessage: String
 
     // ── Auto-shuffle panel ──
     let autoShuffleKicker: String
@@ -158,6 +161,7 @@ private let accountEN = AccountStrings(
     headPending: "PENDING",
     headPublished: "PUBLISHED",
     headLedger: "LEDGER",
+    localOnlyFilter: "On this Mac only",
     emptyFavorites: "No favorites yet.",
     emptyLikes: "No likes yet.",
     emptyDownloads: "No downloads yet.",
@@ -166,6 +170,8 @@ private let accountEN = AccountStrings(
     emptySectionMessage: "This section will fill in once matching activity appears.",
     emptyCollectionsTitle: "No collections yet.",
     emptyCollectionsMessage: "Collections will appear here when this user starts grouping wallpapers into sets.",
+    emptyLocalDownloads: "No local downloads.",
+    emptyLocalDownloadsMessage: "Turn off the filter to see downloads stored on other devices.",
     autoShuffleKicker: "AUTO-SHUFFLE",
     autoShuffleTitle: "Auto-shuffle",
     autoShuffleLocalStatus: { "Switch to a random downloaded wallpaper every \($0)" },
@@ -258,6 +264,7 @@ private let accountZhCN = AccountStrings(
     headPending: "待发布",
     headPublished: "已发布",
     headLedger: "金币流水",
+    localOnlyFilter: "仅本地存在",
     emptyFavorites: "还没有收藏。",
     emptyLikes: "还没有点赞。",
     emptyDownloads: "还没有下载记录。",
@@ -266,6 +273,8 @@ private let accountZhCN = AccountStrings(
     emptySectionMessage: "一旦有相关动态，这里就会展示出来。",
     emptyCollectionsTitle: "还没有合集。",
     emptyCollectionsMessage: "当该用户开始把壁纸整理成合集时，就会显示在这里。",
+    emptyLocalDownloads: "本地没有已下载的壁纸。",
+    emptyLocalDownloadsMessage: "取消勾选后，可以查看其他设备上的下载记录。",
     autoShuffleKicker: "自动轮换",
     autoShuffleTitle: "自动轮换",
     autoShuffleLocalStatus: { "每 \($0) 随机切换一张已下载壁纸" },
@@ -354,6 +363,7 @@ private let accountZhTW = AccountStrings(
     headPending: "待發佈",
     headPublished: "已發佈",
     headLedger: "金幣紀錄",
+    localOnlyFilter: "僅本機存在",
     emptyFavorites: "還沒有收藏。",
     emptyLikes: "還沒有按讚的桌布。",
     emptyDownloads: "還沒有下載記錄。",
@@ -362,6 +372,8 @@ private let accountZhTW = AccountStrings(
     emptySectionMessage: "一旦有相關動態，這裡就會顯示出來。",
     emptyCollectionsTitle: "還沒有合輯。",
     emptyCollectionsMessage: "當這位使用者開始把桌布整理成合輯時，就會顯示在這裡。",
+    emptyLocalDownloads: "本機沒有已下載的桌布。",
+    emptyLocalDownloadsMessage: "取消勾選後，可以查看其他裝置上的下載記錄。",
     autoShuffleKicker: "自動輪換",
     autoShuffleTitle: "自動輪換",
     autoShuffleLocalStatus: { "每 \($0) 隨機切換一張已下載桌布" },
@@ -450,6 +462,7 @@ private let accountJA = AccountStrings(
     headPending: "公開待ち",
     headPublished: "公開済み",
     headLedger: "コイン履歴",
+    localOnlyFilter: "このMacにある項目のみ",
     emptyFavorites: "まだお気に入りがありません。",
     emptyLikes: "まだいいねがありません。",
     emptyDownloads: "まだダウンロードがありません。",
@@ -458,6 +471,8 @@ private let accountJA = AccountStrings(
     emptySectionMessage: "該当するアクティビティがあると、ここに表示されます。",
     emptyCollectionsTitle: "コレクションはまだありません。",
     emptyCollectionsMessage: "このユーザーが壁紙をコレクションにまとめると、ここに表示されます。",
+    emptyLocalDownloads: "このMacにダウンロードはありません。",
+    emptyLocalDownloadsMessage: "フィルターを外すと、ほかのデバイスのダウンロード履歴を表示できます。",
     autoShuffleKicker: "自動シャッフル",
     autoShuffleTitle: "自動シャッフル",
     autoShuffleLocalStatus: { "\($0)ごとにダウンロード済み壁紙をランダムに切り替えます" },
