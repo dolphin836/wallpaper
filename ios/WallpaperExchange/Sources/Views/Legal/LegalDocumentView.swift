@@ -323,7 +323,7 @@ enum LegalDocs {
                 .init(id: "01", heading: "我们收集的信息", paragraphs: [
                     "账户信息：注册时，我们会收集你的用户名、邮箱地址和哈希处理后的密码。我们不会存储明文密码。",
                     "使用数据：我们会收集你与本服务互动的信息，包括上传、下载、喜欢、收藏和金币交易。",
-                    "设备信息：使用设备匹配功能时，你的屏幕分辨率会发送到服务器，以查找适合你设备的壁纸。该信息不会永久保存。",
+                    "设备信息：使用原生客户端时，你的屏幕分辨率会发送到服务器，以便列表只返回适合当前设备的壁纸。该信息不会永久保存。",
                     "上传内容：你上传的壁纸会存储在我们的服务器上。分辨率、文件大小、主要颜色和文件类型等元数据会随图片一并提取和保存。",
                 ]),
                 .init(id: "02", heading: "我们如何使用信息", paragraphs: [
@@ -612,7 +612,7 @@ enum LegalDocs {
                 .init(id: "01", heading: "What we collect", paragraphs: [
                     "Account information: when you register, we collect your username, email address, and a hashed version of your password. We do not store plain-text passwords.",
                     "Usage data: we collect information about how you interact with the Service, including uploads, downloads, likes, favorites, and coin transactions.",
-                    "Device information: when you use the device-matching feature, your screen resolution is sent to the server to find wallpapers that fit your device. This information is not stored permanently.",
+                    "Device information: when you use a native client, your screen resolution is sent to the server so lists only return wallpapers that fit your current device. This information is not stored permanently.",
                     "Uploaded content: wallpapers you upload are stored on our servers. Metadata such as resolution, file size, dominant colors, and file type are extracted and stored alongside the image.",
                 ]),
                 .init(id: "02", heading: "How we use it", paragraphs: [

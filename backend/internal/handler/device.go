@@ -58,14 +58,14 @@ func (h *DeviceHandler) GetDeviceBySlug(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusNotFound, errcode.ErrNotFound)
 		return
 	}
-	count, err := h.deviceRepo.CountWallpapersForDevice(r.Context(), device.ID)
+	count, err := h.deviceRepo.CountWallpapersForDevice(r.Context(), device.ID, parseWallpaperExclusions(r))
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
 	response.OK(w, map[string]any{
-		"device":           device,
-		"wallpaper_count":  count,
+		"device":          device,
+		"wallpaper_count": count,
 	})
 }
 
@@ -94,7 +94,7 @@ func (h *DeviceHandler) ListWallpapersForDevice(w http.ResponseWriter, r *http.R
 		limit = 20
 	}
 
-	items, err := h.deviceRepo.ListWallpapersForDevice(r.Context(), device.ID, cursor, limit)
+	items, err := h.deviceRepo.ListWallpapersForDevice(r.Context(), device.ID, cursor, limit, parseWallpaperExclusions(r))
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return

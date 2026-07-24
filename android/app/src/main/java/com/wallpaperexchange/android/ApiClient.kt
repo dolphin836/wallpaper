@@ -1,5 +1,6 @@
 package com.wallpaperexchange.android
 
+import android.content.res.Resources
 import android.os.Build
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -259,6 +260,9 @@ object ApiClient {
         body: JSONObject? = null,
     ): JSONObject = withContext(Dispatchers.IO) {
         val url = URL(BASE_URL + path + query(params))
+        val displayMetrics = Resources.getSystem().displayMetrics
+        val deviceWidth = minOf(displayMetrics.widthPixels, displayMetrics.heightPixels)
+        val deviceHeight = maxOf(displayMetrics.widthPixels, displayMetrics.heightPixels)
         val connection = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = 15000
@@ -267,6 +271,8 @@ object ApiClient {
             setRequestProperty("Accept-Language", Locale.getDefault().toLanguageTag())
             setRequestProperty("User-Agent", "WallpaperExchange/android ${BuildConfig.VERSION_NAME}")
             setRequestProperty("X-Wallpaper-Client", "android")
+            setRequestProperty("X-Device-Width", deviceWidth.toString())
+            setRequestProperty("X-Device-Height", deviceHeight.toString())
             token?.let { setRequestProperty("Authorization", "Bearer $it") }
             if (body != null) {
                 doOutput = true

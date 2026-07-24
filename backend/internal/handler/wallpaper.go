@@ -139,19 +139,7 @@ func (h *WallpaperHandler) List(w http.ResponseWriter, r *http.Request) {
 		categoryID = v
 	}
 
-	var deviceWidth, deviceHeight int
-	if raw := q.Get("device_width"); raw != "" {
-		v, err := strconv.Atoi(raw)
-		if err == nil {
-			deviceWidth = v
-		}
-	}
-	if raw := q.Get("device_height"); raw != "" {
-		v, err := strconv.Atoi(raw)
-		if err == nil {
-			deviceHeight = v
-		}
-	}
+	deviceWidth, deviceHeight := parseWallpaperDeviceRequirement(r)
 
 	opts := repo.ListOptions{
 		Cursor:         cursor,

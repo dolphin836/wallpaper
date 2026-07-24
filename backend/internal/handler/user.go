@@ -194,6 +194,27 @@ func (h *UserHandler) GetWallpapers(w http.ResponseWriter, r *http.Request) {
 		opts.Status = model.WallpaperStatusPublished
 	}
 
+	// Native resolution filtering applies to public/published browsing, but
+	// never hides an owner's processing, rejected, duplicate, or removed
+	// uploads from the account-management surface.
+	filterPublishedOnly := !isOwner
+	if isOwner && opts.StatusFilter != nil {
+		filterPublishedOnly = *opts.StatusFilter == model.WallpaperStatusPublished
+	}
+	if isOwner && len(opts.StatusFilterIn) > 0 {
+		filterPublishedOnly = true
+		for _, status := range opts.StatusFilterIn {
+			if status != model.WallpaperStatusPublished {
+				filterPublishedOnly = false
+				break
+			}
+		}
+	}
+	if filterPublishedOnly {
+		opts.DeviceWidth = exclusions.DeviceWidth
+		opts.DeviceHeight = exclusions.DeviceHeight
+	}
+
 	items, err := h.wallpaperRepo.List(r.Context(), opts)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to list user wallpapers",
@@ -321,12 +342,13 @@ func (h *UserHandler) GetDownloads(w http.ResponseWriter, r *http.Request) {
 
 	// Same resolution / dynamic filter contract as /wallpapers — lets the
 	// home feed and the My-Downloads list share UI affordances.
+	exclusions := parseWallpaperExclusions(r)
 	filters := repo.DownloadFilters{
 		DeviceWidth:               parseIntQuery(r, "device_width"),
 		DeviceHeight:              parseIntQuery(r, "device_height"),
 		DynamicOnly:               r.URL.Query().Get("dynamic_only") == "true",
 		IncludeDynamic:            r.URL.Query().Get("include_dynamic") == "true",
-		WallpaperExclusionFilters: parseWallpaperExclusions(r),
+		WallpaperExclusionFilters: exclusions,
 	}
 
 	items, err := h.interactionRepo.ListDownloads(r.Context(), userID, cursor, fetchLimit, filters)

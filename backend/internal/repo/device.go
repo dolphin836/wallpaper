@@ -202,12 +202,14 @@ func (r *DeviceRepo) GetBySlug(ctx context.Context, slug string) (*model.DeviceP
 // CountWallpapersForDevice returns the number of published static wallpapers
 // the device can be served (original resolution covers the device). Variants
 // are lazy now, so this is a dimension test, not a variant-row join.
-func (r *DeviceRepo) CountWallpapersForDevice(ctx context.Context, deviceID int64) (int64, error) {
+func (r *DeviceRepo) CountWallpapersForDevice(ctx context.Context, deviceID int64, filters WallpaperExclusionFilters) (int64, error) {
 	var n int64
-	err := r.db.WithContext(ctx).
+	query := r.db.WithContext(ctx).
 		Table("wallpapers w").
 		Joins("JOIN device_profiles d ON d.id = ?", deviceID).
-		Where("w.status = ? AND w.is_dynamic = false AND w.file_type NOT LIKE 'video/%' AND w.width >= d.width AND w.height >= d.height", 1).
+		Where("w.status = ? AND w.is_dynamic = false AND w.file_type NOT LIKE 'video/%' AND w.width >= d.width AND w.height >= d.height", 1)
+	query = filters.apply(query, "w")
+	err := query.
 		Count(&n).Error
 	return n, err
 }
@@ -216,7 +218,7 @@ func (r *DeviceRepo) CountWallpapersForDevice(ctx context.Context, deviceID int6
 // device can be served (original covers the device resolution), newest first.
 // The cursor is the wallpaper id of the last row from the previous page.
 func (r *DeviceRepo) ListWallpapersForDevice(
-	ctx context.Context, deviceID int64, cursor int64, limit int,
+	ctx context.Context, deviceID int64, cursor int64, limit int, filters WallpaperExclusionFilters,
 ) ([]model.Wallpaper, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
@@ -226,6 +228,7 @@ func (r *DeviceRepo) ListWallpapersForDevice(
 		Select("w.*").
 		Joins("JOIN device_profiles d ON d.id = ?", deviceID).
 		Where("w.status = ? AND w.is_dynamic = false AND w.file_type NOT LIKE 'video/%' AND w.width >= d.width AND w.height >= d.height", 1)
+	q = filters.apply(q, "w")
 	if cursor > 0 {
 		q = q.Where("w.id < ?", cursor)
 	}

@@ -318,7 +318,12 @@ func (s *WallpaperService) List(ctx context.Context, opts repo.ListOptions, curr
 
 func (s *WallpaperService) listTrending(ctx context.Context, opts repo.ListOptions, currentUserID int64) (*ListResponse, *errcode.ErrCode) {
 	since := time.Now().UTC().Add(-7 * 24 * time.Hour)
-	trendingIDs, err := s.eventRepo.GetTrending(ctx, since, opts.Limit, opts.CategoryID)
+	trendingIDs, err := s.eventRepo.GetTrending(ctx, since, opts.Limit, opts.CategoryID, repo.WallpaperExclusionFilters{
+		ExcludeDynamic: opts.ExcludeDynamic,
+		ExcludeVideo:   opts.ExcludeVideo,
+		DeviceWidth:    opts.DeviceWidth,
+		DeviceHeight:   opts.DeviceHeight,
+	})
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get trending wallpapers", "error", err)
 		return nil, errcode.ErrInternal

@@ -55,7 +55,7 @@ type TrendingItem struct {
 // the "Trending in City" combo would silently fall back to global
 // trending and the downstream filter would just trim an already-mixed
 // top-N list.
-func (r *EventRepo) GetTrending(ctx context.Context, since time.Time, limit int, categoryID int64) ([]int64, error) {
+func (r *EventRepo) GetTrending(ctx context.Context, since time.Time, limit int, categoryID int64, filters WallpaperExclusionFilters) ([]int64, error) {
 	var items []TrendingItem
 	q := r.db.WithContext(ctx).
 		Table("wallpaper_events AS we").
@@ -64,12 +64,13 @@ func (r *EventRepo) GetTrending(ctx context.Context, since time.Time, limit int,
 			         WHEN we.event_type = 'variant_download' THEN 3
 			         WHEN we.event_type = 'like' THEN 2
 			         ELSE 1 END) AS score`).
-		Where("we.created_at >= ?", since)
+		Where("we.created_at >= ?", since).
+		Joins("JOIN wallpapers w ON w.id = we.wallpaper_id").
+		Where("w.status = ?", model.WallpaperStatusPublished)
 	if categoryID > 0 {
-		q = q.Joins("JOIN wallpapers w ON w.id = we.wallpaper_id").
-			Where("w.category_id = ?", categoryID).
-			Where("w.status = ?", model.WallpaperStatusPublished)
+		q = q.Where("w.category_id = ?", categoryID)
 	}
+	q = filters.apply(q, "w")
 	err := q.
 		Group("we.wallpaper_id").
 		Order("score DESC").

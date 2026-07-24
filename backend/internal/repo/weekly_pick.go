@@ -83,8 +83,16 @@ func (r *WeeklyPickRepo) AllPickedIDs(ctx context.Context) (map[int64]bool, erro
 // joined with the wallpaper rows themselves in pick order. Missing weeks
 // return an empty slice — the handler is responsible for 404-ing.
 func (r *WeeklyPickRepo) ListByWeek(ctx context.Context, year, week int16) ([]WeeklyPicked, error) {
+	return r.ListByWeekFiltered(ctx, year, week, WallpaperExclusionFilters{})
+}
+
+// ListByWeekFiltered is the native-client variant of ListByWeek. Admin and
+// publishing jobs keep using ListByWeek and therefore see the full curated
+// slate; public native responses can additionally require the current screen
+// resolution without changing the weekly-pick data itself.
+func (r *WeeklyPickRepo) ListByWeekFiltered(ctx context.Context, year, week int16, filters WallpaperExclusionFilters) ([]WeeklyPicked, error) {
 	var rows []WeeklyPicked
-	err := r.db.WithContext(ctx).
+	query := r.db.WithContext(ctx).
 		Table("weekly_picks AS wp").
 		Select(`w.id, w.slug, w.user_id, w.category_id, w.title, w.description,
 		        w.original_url, w.thumb_url, w.preview_url, w.preview_video_url, w.width, w.height,
@@ -93,7 +101,9 @@ func (r *WeeklyPickRepo) ListByWeek(ctx context.Context, year, week int16) ([]We
 		        w.favorite_count, w.is_dynamic, w.dynamic_type, w.frame_urls,
 		        w.created_at, w.updated_at, wp.sort_order, wp.is_hero`).
 		Joins("JOIN wallpapers w ON w.id = wp.wallpaper_id").
-		Where("wp.year = ? AND wp.week = ? AND w.status = ?", year, week, model.WallpaperStatusPublished).
+		Where("wp.year = ? AND wp.week = ? AND w.status = ?", year, week, model.WallpaperStatusPublished)
+	query = filters.apply(query, "w")
+	err := query.
 		Order("wp.sort_order ASC").
 		Find(&rows).Error
 	if err != nil {

@@ -36,7 +36,7 @@ func (h *WeeklyPickHandler) Current(w http.ResponseWriter, r *http.Request) {
 
 	var picks []repo.WeeklyPicked
 	if year != 0 {
-		picks, err = h.weeklyRepo.ListByWeek(ctx, year, week)
+		picks, err = h.weeklyRepo.ListByWeekFiltered(ctx, year, week, parseWallpaperExclusions(r))
 		if err != nil {
 			slog.ErrorContext(ctx, "weekly: list by week failed", "error", err)
 			response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
@@ -88,7 +88,7 @@ func (h *WeeklyPickHandler) ByWeek(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, errcode.ErrInvalidParam)
 		return
 	}
-	picks, err := h.weeklyRepo.ListByWeek(r.Context(), int16(year), int16(week))
+	picks, err := h.weeklyRepo.ListByWeekFiltered(r.Context(), int16(year), int16(week), parseWallpaperExclusions(r))
 	if err != nil {
 		slog.ErrorContext(r.Context(), "weekly: by week failed", "error", err)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)

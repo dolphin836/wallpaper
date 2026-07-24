@@ -205,20 +205,31 @@ type DownloadFilters struct {
 // resolution / dynamic-only knobs. Same WHERE clauses as WallpaperRepo.List
 // so the two listings filter identically.
 func (r *InteractionRepo) applyDownloadFilters(query *gorm.DB, f DownloadFilters) *gorm.DB {
-	query = f.WallpaperExclusionFilters.apply(query, "wallpapers")
+	// Resolution is applied below so the explicit include_dynamic behavior is
+	// preserved. Clearing it from the shared filter avoids intersecting a
+	// strict dimension clause with the dynamic-wallpaper OR clause.
+	exclusions := f.WallpaperExclusionFilters
+	exclusions.DeviceWidth = 0
+	exclusions.DeviceHeight = 0
+	query = exclusions.apply(query, "wallpapers")
 	if f.DynamicOnly {
 		return query.Where("wallpapers.is_dynamic = true OR wallpapers.file_type LIKE 'video/%'")
 	}
-	if f.DeviceWidth > 0 && f.DeviceHeight > 0 {
+	deviceWidth, deviceHeight := f.DeviceWidth, f.DeviceHeight
+	if deviceWidth <= 0 || deviceHeight <= 0 {
+		deviceWidth = f.WallpaperExclusionFilters.DeviceWidth
+		deviceHeight = f.WallpaperExclusionFilters.DeviceHeight
+	}
+	if deviceWidth > 0 && deviceHeight > 0 {
 		if f.IncludeDynamic {
 			return query.Where(
 				"((wallpapers.width >= ? AND wallpapers.height >= ?) OR wallpapers.is_dynamic = true)",
-				f.DeviceWidth, f.DeviceHeight,
+				deviceWidth, deviceHeight,
 			)
 		}
 		return query.Where(
 			"wallpapers.width >= ? AND wallpapers.height >= ?",
-			f.DeviceWidth, f.DeviceHeight,
+			deviceWidth, deviceHeight,
 		)
 	}
 	return query

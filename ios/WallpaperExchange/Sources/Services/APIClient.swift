@@ -115,7 +115,11 @@ actor APIClient {
         var req = URLRequest(url: url)
         req.httpMethod = method
         let languageTag = await MainActor.run { UIPrefs.shared.language.acceptLanguageTag }
+        let screenRequirement = await MainActor.run { DeviceScreenRequirement.current }
         req.setValue(languageTag, forHTTPHeaderField: "Accept-Language")
+        req.setValue("ios", forHTTPHeaderField: "X-Wallpaper-Client")
+        req.setValue(String(screenRequirement.width), forHTTPHeaderField: "X-Device-Width")
+        req.setValue(String(screenRequirement.height), forHTTPHeaderField: "X-Device-Height")
 
         if let token = await AuthService.shared.token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

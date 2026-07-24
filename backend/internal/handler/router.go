@@ -59,6 +59,7 @@ func NewRouter(deps Deps) *chi.Mux {
 		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowedHeaders: []string{
 			"Accept", "Authorization", "Content-Type", "X-Wallpaper-Client",
+			"X-Device-Width", "X-Device-Height",
 			// tus.io protocol headers — required for browser pre-flight
 			// to succeed on POST/PATCH/HEAD against the tus endpoint.
 			"Tus-Resumable", "Upload-Length", "Upload-Offset",

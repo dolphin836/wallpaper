@@ -122,6 +122,8 @@ type ListOptions struct {
 type WallpaperExclusionFilters struct {
 	ExcludeDynamic bool
 	ExcludeVideo   bool
+	DeviceWidth    int
+	DeviceHeight   int
 }
 
 func (f WallpaperExclusionFilters) apply(query *gorm.DB, qualifier string) *gorm.DB {
@@ -133,6 +135,12 @@ func (f WallpaperExclusionFilters) apply(query *gorm.DB, qualifier string) *gorm
 	}
 	if f.ExcludeVideo {
 		query = query.Where(qualifier + "file_type NOT LIKE 'video/%'")
+	}
+	if f.DeviceWidth > 0 && f.DeviceHeight > 0 {
+		query = query.Where(
+			qualifier+"width >= ? AND "+qualifier+"height >= ?",
+			f.DeviceWidth, f.DeviceHeight,
+		)
 	}
 	return query
 }
@@ -504,9 +512,13 @@ func (r *WallpaperRepo) ListPopularIDs(ctx context.Context, userID int64, limit 
 		  AND w.id NOT IN (SELECT wallpaper_id FROM user_signals)
 		  AND (? = false OR w.is_dynamic = false)
 		  AND (? = false OR w.file_type NOT LIKE 'video/%')
+		  AND (? <= 0 OR ? <= 0 OR (w.width >= ? AND w.height >= ?))
 		ORDER BY (w.like_count * 2 + w.favorite_count * 3 + w.view_count) DESC, w.created_at DESC
 		LIMIT ?
-	`, userID, userID, userID, model.WallpaperStatusPublished, filters.ExcludeDynamic, filters.ExcludeVideo, limit).Scan(&rows).Error
+	`, userID, userID, userID, model.WallpaperStatusPublished,
+		filters.ExcludeDynamic, filters.ExcludeVideo,
+		filters.DeviceWidth, filters.DeviceHeight, filters.DeviceWidth, filters.DeviceHeight,
+		limit).Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}
@@ -554,9 +566,13 @@ func (r *WallpaperRepo) ListForYouIDs(ctx context.Context, userID int64, limit i
 		WHERE w.status = ?
 		  AND (? = false OR w.is_dynamic = false)
 		  AND (? = false OR w.file_type NOT LIKE 'video/%')
+		  AND (? <= 0 OR ? <= 0 OR (w.width >= ? AND w.height >= ?))
 		ORDER BY cs.tag_score DESC, w.created_at DESC
 		LIMIT ?
-	`, userID, userID, userID, model.WallpaperStatusPublished, filters.ExcludeDynamic, filters.ExcludeVideo, limit).Scan(&rows).Error
+	`, userID, userID, userID, model.WallpaperStatusPublished,
+		filters.ExcludeDynamic, filters.ExcludeVideo,
+		filters.DeviceWidth, filters.DeviceHeight, filters.DeviceWidth, filters.DeviceHeight,
+		limit).Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}

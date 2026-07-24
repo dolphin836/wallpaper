@@ -76,9 +76,9 @@ actor APIClient {
         decoder = JSONDecoder()
     }
 
-    // Shared paginated helper. The Mac client no longer applies a local
-    // screen-size filter by default; explicit My Device filters still
-    // send dimensions to the backend.
+    // Shared paginated helper. Screen-size filtering is performed by the
+    // backend from the native-client headers attached in request<T>, keeping
+    // pagination and totals consistent across every list surface.
     func fetchWallpaperPage(
         _ path: String,
         cursor: Int?,
@@ -161,6 +161,9 @@ actor APIClient {
         req.setValue(L10n.lang.rawValue, forHTTPHeaderField: "Accept-Language")
         req.setValue(appUserAgent, forHTTPHeaderField: "User-Agent")
         req.setValue("mac", forHTTPHeaderField: "X-Wallpaper-Client")
+        let screenRequirement = MacScreenRequirement.current
+        req.setValue(String(screenRequirement.width), forHTTPHeaderField: "X-Device-Width")
+        req.setValue(String(screenRequirement.height), forHTTPHeaderField: "X-Device-Height")
 
         if let token = await AuthService.shared.token {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -241,9 +244,8 @@ actor APIClient {
         if let sort, !sort.isEmpty {
             items.append(.init(name: "sort", value: sort))
         }
-        // Device-resolution match — sends this Mac's physical pixel
-        // dimensions so the backend filters to wallpapers with a
-        // matching variant.
+        // Explicit My Device match keeps using query parameters so it can
+        // override the default native-client header contract.
         if deviceMatch {
             let requirement = MacScreenRequirement.current
             items.append(.init(name: "device_width", value: String(requirement.width)))
