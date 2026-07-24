@@ -2,7 +2,6 @@ import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } fr
 import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
-import InAppConfirm from '../components/InAppConfirm';
 import {
   AiOutlineLeft,
   AiOutlineInfoCircle,
@@ -12,8 +11,6 @@ import {
   AiOutlineStar,
   AiOutlineDownload,
   AiOutlineCheckCircle,
-  AiOutlineDelete,
-  AiOutlineFlag,
   AiOutlineFullscreen,
   AiOutlineClose,
   AiOutlineLoading3Quarters,
@@ -28,7 +25,6 @@ import toast from 'react-hot-toast';
 import { useTranslation, Trans } from 'react-i18next';
 import type { Wallpaper, WallpaperDetail, WallpaperVariant, Engagements, User } from '../types';
 import DeviceMockup, { canShowMockup } from '../components/DeviceMockup';
-import ReportModal from '../components/ReportModal';
 import WallpaperGrid from '../components/WallpaperGrid';
 import { useQuery } from '@tanstack/react-query';
 import { getSimilarWallpapers } from '../api';
@@ -39,7 +35,6 @@ import {
   unlikeWallpaper,
   favoriteWallpaper,
   unfavoriteWallpaper,
-  deleteWallpaper,
   downloadWallpaper,
   getMyCoins,
   getWallpaperVariants,
@@ -217,7 +212,6 @@ export default function WallpaperDetailPage() {
   }, [fullscreen]);
   const [mockupVariant, setMockupVariant] = useState<WallpaperVariant | null>(null);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
-  const [showReport, setShowReport] = useState(false);
   // The actual original image stays mounted above the list preview while
   // it loads. Once decoded, opacity cross-fades it in without ever removing
   // the preview underneath, avoiding the one-frame blank flash caused by
@@ -554,23 +548,6 @@ export default function WallpaperDetailPage() {
     }
   };
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const handleDelete = () => {
-    if (!wallpaper) return;
-    setShowDeleteConfirm(true);
-  };
-  const doDelete = async () => {
-    if (!wallpaper) return;
-    setShowDeleteConfirm(false);
-    try {
-      await deleteWallpaper(wallpaper.id);
-      toast.success(t('toast.deleted'));
-      navigate('/');
-    } catch {
-      toast.error(t('toast.deleteFailed'));
-    }
-  };
-
   if (loading) return <Spinner />;
   if (!wallpaper && error) return <ErrorState />;
   if (!wallpaper) return <EmptyState message={t('notFound')} />;
@@ -654,20 +631,6 @@ export default function WallpaperDetailPage() {
       {showAddToCollection && wallpaper && (
         <AddToCollectionModal wallpaperId={wallpaper.id} onClose={() => setShowAddToCollection(false)} />
       )}
-
-      {showReport && wallpaper && (
-        <ReportModal wallpaperId={wallpaper.id} onClose={() => setShowReport(false)} />
-      )}
-
-      <InAppConfirm
-        open={showDeleteConfirm}
-        title={t('delete.title')}
-        message={t('delete.message')}
-        confirmLabel={t('delete.confirm')}
-        destructive
-        onConfirm={doDelete}
-        onCancel={() => setShowDeleteConfirm(false)}
-      />
 
       {tradeFlashTick > 0 && createPortal(
         <div key={tradeFlashTick} className="trade-flash" aria-hidden />,
@@ -1094,19 +1057,6 @@ export default function WallpaperDetailPage() {
                     ))}
                   </div>
 
-                  {(isOwner || isAuthenticated) && (
-                    <div className="wd-ip-foot">
-                      {isOwner ? (
-                        <button onClick={handleDelete} className="inline-flex items-center gap-1.5 text-white/65 hover:text-rose-300 transition-colors">
-                          <AiOutlineDelete size={13} /> {t('actions.deleteWallpaper')}
-                        </button>
-                      ) : (
-                        <button onClick={() => setShowReport(true)} className="inline-flex items-center gap-1.5 text-white/65 hover:text-white transition-colors">
-                          <AiOutlineFlag size={13} /> {t('actions.report')}
-                        </button>
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -1478,7 +1428,6 @@ html.wd-detail-scrollbar-hidden body::-webkit-scrollbar,
 .wd-ip-swatch { width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.25); cursor: pointer; transition: transform 160ms var(--ease-out-quart); }
 .wd-ip-swatch:hover { transform: scale(1.08); }
 .wd-ip-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 12px; border-top: 1px solid rgba(255,255,255,0.14); padding-top: 12px; }
-.wd-ip-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid rgba(255,255,255,0.14); padding-top: 10px; font-size: 11.5px; }
 
 /* Bottom-centre column: progress + notices + toolbar. */
 .wd-s1-bottom { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 6;

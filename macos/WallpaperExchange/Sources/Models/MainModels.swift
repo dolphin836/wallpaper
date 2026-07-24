@@ -32,9 +32,10 @@ struct WallpaperUploader: Decodable, Hashable {
     let nickname: String?
     let avatarURL: String?
     let bio: String?
+    let coins: Int?
 
     enum CodingKeys: String, CodingKey {
-        case id, username, nickname, bio
+        case id, username, nickname, bio, coins
         case avatarURL = "avatar_url"
     }
 }

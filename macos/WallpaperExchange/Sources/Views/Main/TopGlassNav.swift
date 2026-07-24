@@ -72,27 +72,9 @@ struct ToolbarAvatarButton: View {
 
     var body: some View {
         Button(action: action) {
-            avatarContent
-                .frame(width: size, height: size)
-                .clipShape(Circle())
-                // Always-on ring so the avatar reads as a control even
-                // at rest: a crisp white ring with a dark outer hair
-                // for separation on bright backdrops. Accent when the
-                // account page is open.
-                .overlay(
-                    Circle().strokeBorder(
-                        active ? Color.accent.opacity(0.85) : Color.white.opacity(hover ? 0.95 : 0.75),
-                        lineWidth: 1.5
-                    )
-                )
-                .background(
-                    Circle()
-                        .stroke(Color.black.opacity(0.18), lineWidth: 0.5)
-                        .padding(-0.5)
-                )
-                .frame(width: 34, height: 34)
-                .scaleEffect(hover ? 1.12 : 1)
-                .contentShape(Circle())
+            ChromeAvatarVisual(size: size, active: active, hover: hover) {
+                avatarContent
+            }
         }
         .buttonStyle(GlassBounceButtonStyle())
         .focusEffectDisabled()
@@ -139,5 +121,47 @@ struct ToolbarAvatarButton: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Color.ink)
         }
+    }
+}
+
+// Shared avatar chrome used by the top navigation and contextual user rows.
+// Keeping the ring and hover transform in one component prevents detail-page
+// avatars from drifting away from the navigation treatment again.
+struct ChromeAvatarVisual<Content: View>: View {
+    var size: CGFloat = 30
+    var active: Bool = false
+    var hover: Bool = false
+    let content: Content
+
+    init(
+        size: CGFloat = 30,
+        active: Bool = false,
+        hover: Bool = false,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.size = size
+        self.active = active
+        self.hover = hover
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .frame(width: size, height: size)
+            .clipShape(Circle())
+            .overlay(
+                Circle().strokeBorder(
+                    active ? Color.accent.opacity(0.85) : Color.white.opacity(hover ? 0.95 : 0.75),
+                    lineWidth: 1.5
+                )
+            )
+            .background(
+                Circle()
+                    .stroke(Color.black.opacity(0.18), lineWidth: 0.5)
+                    .padding(-0.5)
+            )
+            .frame(width: size + 4, height: size + 4)
+            .scaleEffect(hover ? 1.12 : 1)
+            .contentShape(Circle())
     }
 }

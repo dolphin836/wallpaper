@@ -34,11 +34,8 @@ struct DetailPage: View {
     @State private var myCollections: [CollectionBrief] = []
     @State private var categories: [Category] = []
     @State private var downloadNotice: DownloadNotice?
-    @State private var infoActionMessage: String?
     @State private var infoPanelHover = false
-    @State private var reportingWallpaper = false
-    @State private var deletingWallpaper = false
-    @State private var showingDeleteConfirm = false
+    @State private var infoUploaderHover = false
     @State private var showingWallpaperPicker = false
     @State private var showingCollectionPicker = false
     @State private var newCollectionTitle = ""
@@ -210,20 +207,6 @@ struct DetailPage: View {
         .onPreferenceChange(ActionBarWidthPreferenceKey.self) { width in
             guard width > 0 else { return }
             measuredActionBarWidth = width
-        }
-        .confirmationDialog(
-            L10n.detail.deleteConfirmTitle,
-            isPresented: $showingDeleteConfirm,
-            titleVisibility: .visible
-        ) {
-            Button(L10n.detail.deleteWallpaper, role: .destructive) {
-                if let detail {
-                    Task { await deleteWallpaper(detail) }
-                }
-            }
-            Button(L10n.common.cancel, role: .cancel) {}
-        } message: {
-            Text(L10n.detail.deleteConfirmMessage)
         }
     }
 
@@ -719,41 +702,6 @@ struct DetailPage: View {
                 }
 
                 infoStatsBlock(detail: d)
-
-                HStack(spacing: 10) {
-                    if isOwner(d) {
-                        weakInfoAction(icon: "trash", title: L10n.detail.deleteWallpaper, destructive: true) {
-                            showingDeleteConfirm = true
-                        }
-                        .disabled(deletingWallpaper)
-                    } else if auth.isLoggedIn {
-                        weakInfoAction(icon: "flag", title: reportingWallpaper ? L10n.detail.reporting : L10n.detail.report, destructive: false) {
-                            Task { await reportWallpaper(d) }
-                        }
-                        .disabled(reportingWallpaper)
-                    }
-
-                    if let infoActionMessage {
-                        Text(infoActionMessage)
-                            .font(.mono10)
-                            .tracking(0.4)
-                            .foregroundStyle(Color.white.opacity(0.64))
-                            .lineLimit(1)
-                    }
-
-                    Spacer(minLength: 0)
-                    Text("№\(String(format: "%03d", d.id))")
-                        .font(.mono10)
-                        .tracking(1.1)
-                        .foregroundStyle(Color.white.opacity(0.45))
-                        .lineLimit(1)
-                }
-                .padding(.top, 10)
-                .overlay(alignment: .top) {
-                    Rectangle()
-                        .fill(Color.white.opacity(0.14))
-                        .frame(height: 1)
-                }
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -773,16 +721,28 @@ struct DetailPage: View {
                     infoUploaderAvatar(uploader)
 
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("@\(uploader.username)")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Color.white)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                        Text(L10n.detail.viewProfile)
-                            .font(.system(size: 9, weight: .medium, design: .monospaced))
-                            .tracking(1.2)
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Text("@\(uploader.username)")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(Color.white)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+
+                            Spacer(minLength: 0)
+
+                            Text(compactInfoCount(uploader.coins ?? 0))
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color(red: 1.00, green: 0.78, blue: 0.42))
+                                .monospacedDigit()
+                                .lineLimit(1)
+                        }
+
+                        Text(uploader.bio ?? "")
+                            .font(.system(size: 11, weight: .regular))
                             .foregroundStyle(Color.white.opacity(0.55))
                             .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: .infinity, minHeight: 15, alignment: .leading)
                     }
 
                     Spacer(minLength: 0)
@@ -790,6 +750,11 @@ struct DetailPage: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .onHover { hovering in
+                infoUploaderHover = hovering
+                if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+            }
+            .animation(.spring(response: 0.32, dampingFraction: 0.6), value: infoUploaderHover)
         } else {
             Text(L10n.detail.unknownUploader)
                 .font(.system(size: 13, weight: .medium))
@@ -798,25 +763,24 @@ struct DetailPage: View {
     }
 
     private func infoUploaderAvatar(_ uploader: WallpaperUploader) -> some View {
-        ZStack {
-            Circle()
-                .fill(Color.white.opacity(0.14))
+        ChromeAvatarVisual(hover: infoUploaderHover) {
+            ZStack {
+                Circle().fill(Color.paper2)
 
-            if let rawURL = uploader.avatarURL,
-               let url = URL(string: rawURL),
-               !rawURL.isEmpty {
-                CachedAsyncImage(url: url, maxPixelDimension: 96) { image in
-                    image.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
+                if let rawURL = uploader.avatarURL,
+                   let url = URL(string: rawURL),
+                   !rawURL.isEmpty {
+                    CachedAsyncImage(url: url, maxPixelDimension: 96) { image in
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        infoUploaderInitial(uploader)
+                    }
+                    .clipShape(Circle())
+                } else {
                     infoUploaderInitial(uploader)
                 }
-                .clipShape(Circle())
-            } else {
-                infoUploaderInitial(uploader)
             }
         }
-        .frame(width: 38, height: 38)
-        .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1))
     }
 
     private func infoUploaderInitial(_ uploader: WallpaperUploader) -> some View {
@@ -824,15 +788,13 @@ struct DetailPage: View {
         let initialSource = displayName?.isEmpty == false ? displayName ?? uploader.username : uploader.username
         let initial = String(initialSource.prefix(1)).uppercased()
         return Text(initial)
-            .font(.system(size: 16, weight: .semibold, design: .serif))
-            .foregroundStyle(Color.white.opacity(0.92))
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(Color.ink)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func infoAboutBlock(detail d: WallpaperDetail) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            infoKicker(L10n.detail.about)
-
             Text(categoryName(for: d))
                 .font(.system(size: 18, weight: .medium, design: .serif))
                 .foregroundStyle(Color.white)
@@ -863,8 +825,6 @@ struct DetailPage: View {
 
     private func infoPaletteBlock(detail d: WallpaperDetail) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            infoKicker(L10n.detail.palette)
-
             HStack(spacing: 6) {
                 ForEach(Array(d.paletteList.prefix(6).enumerated()), id: \.offset) { _, hex in
                     Button {
@@ -948,21 +908,6 @@ struct DetailPage: View {
         let value = hex.uppercased()
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(value, forType: .string)
-        infoActionMessage = "\(value) ✓"
-    }
-
-    private func weakInfoAction(icon: String, title: String, destructive: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: icon)
-                    .font(.system(size: 10, weight: .semibold))
-                Text(title)
-                    .font(.system(size: 11, weight: .medium))
-            }
-            .foregroundStyle(destructive ? Color.red.opacity(0.78) : Color.white.opacity(0.62))
-            .padding(.vertical, 2)
-        }
-        .buttonStyle(.plain)
     }
 
     private func categoryName(for detail: WallpaperDetail) -> String {
@@ -2601,7 +2546,6 @@ struct DetailPage: View {
         loadError = nil
         heroOriginalLoaded = false
         downloadNotice = nil
-        infoActionMessage = nil
         similar = []
         similarLoaded = false
         showingWallpaperPicker = false
@@ -2721,52 +2665,6 @@ struct DetailPage: View {
             }
         } catch {
             isFavorited = prev
-        }
-    }
-
-    private func reportWallpaper(_ d: WallpaperDetail) async {
-        guard auth.isLoggedIn else {
-            auth.login()
-            return
-        }
-        guard !reportingWallpaper else { return }
-        reportingWallpaper = true
-        infoActionMessage = nil
-        defer { reportingWallpaper = false }
-        do {
-            try await APIClient.shared.reportWallpaper(wallpaperID: d.id, reason: "other", note: "Reported from macOS client.")
-            infoActionMessage = L10n.detail.reported
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                auth.login()
-            }
-            infoActionMessage = L10n.detail.reportFailed
-        } catch {
-            infoActionMessage = L10n.detail.reportFailed
-        }
-    }
-
-    private func deleteWallpaper(_ d: WallpaperDetail) async {
-        guard auth.isLoggedIn else {
-            auth.login()
-            return
-        }
-        guard isOwner(d), !deletingWallpaper else { return }
-        deletingWallpaper = true
-        infoActionMessage = nil
-        defer { deletingWallpaper = false }
-        do {
-            try await APIClient.shared.deleteWallpaper(wallpaperID: d.id)
-            manager.deleteLocal(d.id)
-            infoActionMessage = L10n.detail.deleteSucceeded
-            closeOrDismiss()
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                auth.login()
-            }
-            infoActionMessage = L10n.detail.deleteFailed
-        } catch {
-            infoActionMessage = L10n.detail.deleteFailed
         }
     }
 
