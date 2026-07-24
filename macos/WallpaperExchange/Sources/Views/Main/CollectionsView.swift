@@ -974,6 +974,9 @@ struct FramedTile: View {
             if isVideo || wallpaper.isDynamic {
                 WallpaperCardTag(L10n.collections.liveChip, kind: .live, icon: "play.fill")
             }
+            if wallpaper.isDynamic && !isVideo {
+                WallpaperCardTag("Mac", kind: .mac, icon: "desktopcomputer")
+            }
             if wallpaper.isAIGenerated == true { tileChip("AI", icon: "sparkles") }
             Spacer(minLength: 0)
         }

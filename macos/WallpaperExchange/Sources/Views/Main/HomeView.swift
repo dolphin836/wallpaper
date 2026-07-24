@@ -183,7 +183,7 @@ struct HomeView: View {
 // corner radius, floating over the photo backdrop: a bright hairline
 // on top of a split contact + ambient shadow, hover lifts the card.
 // The CONTENT mirrors MainGridTile exactly — chips top-left
-// (Resolution / Live / AI) and the hover action rail bottom-right
+// (Resolution / Live / Mac / AI) and the hover action rail bottom-right
 // (Favorite · Like · Download) — only the shell styling differs, so
 // the browse pages' tile stays untouched.
 private let goldenRatio: CGFloat = 1.618
@@ -249,6 +249,7 @@ struct HomeWeeklyCard: View {
                     HStack(alignment: .top, spacing: 4) {
                         resolutionChip
                         if wallpaper.fileType.hasPrefix("video/") || wallpaper.isDynamic { liveChip }
+                        if wallpaper.isDynamic && !wallpaper.fileType.hasPrefix("video/") { macChip }
                         if wallpaper.isAIGenerated == true { aiChip }
                         Spacer()
                     }
@@ -336,6 +337,10 @@ struct HomeWeeklyCard: View {
 
     private var liveChip: some View {
         WallpaperCardTag(L10n.browse.chipLive, kind: .live, icon: "play.fill")
+    }
+
+    private var macChip: some View {
+        WallpaperCardTag("Mac", kind: .mac, icon: "desktopcomputer")
     }
 
     private var aiChip: some View {

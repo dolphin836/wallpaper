@@ -88,6 +88,7 @@ struct MainGridTile: View {
                     HStack(alignment: .top, spacing: 4) {
                         resolutionChip
                         if wallpaper.fileType.hasPrefix("video/") || wallpaper.isDynamic { liveChip }
+                        if wallpaper.isDynamic && !wallpaper.fileType.hasPrefix("video/") { macChip }
                         if wallpaper.isAIGenerated == true        { aiChip }
                         if flagIfNotLocal && !localFileExists { notLocalChip }
                         Spacer()
@@ -170,6 +171,10 @@ struct MainGridTile: View {
 
     private var liveChip: some View {
         WallpaperCardTag(L10n.browse.chipLive, kind: .live, icon: "play.fill")
+    }
+
+    private var macChip: some View {
+        WallpaperCardTag("Mac", kind: .mac, icon: "desktopcomputer")
     }
 
     // Local-file-missing tag for the My Downloads grid — amber wash so

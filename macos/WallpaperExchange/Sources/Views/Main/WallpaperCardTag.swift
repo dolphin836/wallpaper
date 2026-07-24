@@ -1,13 +1,15 @@
 import SwiftUI
 
 // Shared on-image wallpaper metadata tags. These mirror the web card tags:
-// resolution is a compact charcoal spec plate, while live media uses the
-// brand-orange capsule. A fixed height keeps text and optional icons on the
-// same optical centre line in every grid implementation.
+// resolution is a compact charcoal spec plate, live media uses the
+// brand-orange capsule, and Mac-only dynamic media uses a cool-blue capsule.
+// A fixed height keeps text and optional icons on the same optical centre line
+// in every grid implementation.
 struct WallpaperCardTag: View {
     enum Kind {
         case resolution
         case live
+        case mac
     }
 
     let text: String
@@ -45,7 +47,7 @@ struct WallpaperCardTag: View {
         switch kind {
         case .resolution:
             return .system(size: 9, weight: .semibold, design: .monospaced)
-        case .live:
+        case .live, .mac:
             return .system(size: 9, weight: .semibold)
         }
     }
@@ -65,6 +67,9 @@ struct WallpaperCardTag: View {
                     with: Color(red: 0.17, green: 0.055, blue: 0.015),
                     fraction: 0.18
                 ))
+        case .mac:
+            Capsule(style: .continuous)
+                .fill(Color(red: 0.13, green: 0.39, blue: 0.68).opacity(0.94))
         }
     }
 
@@ -76,10 +81,17 @@ struct WallpaperCardTag: View {
         case .live:
             Capsule(style: .continuous)
                 .strokeBorder(Color.accent.blended(with: .white, fraction: 0.24), lineWidth: 1)
+        case .mac:
+            Capsule(style: .continuous)
+                .strokeBorder(Color(red: 0.52, green: 0.76, blue: 0.96).opacity(0.82), lineWidth: 1)
         }
     }
 
     private var shadowColor: Color {
-        kind == .resolution ? Color.black.opacity(0.16) : Color.accent.opacity(0.22)
+        switch kind {
+        case .resolution: Color.black.opacity(0.16)
+        case .live: Color.accent.opacity(0.22)
+        case .mac: Color(red: 0.13, green: 0.39, blue: 0.68).opacity(0.24)
+        }
     }
 }
