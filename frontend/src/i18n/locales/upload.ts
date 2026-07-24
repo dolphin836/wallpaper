@@ -8,7 +8,7 @@ const en = {
   header: {
     kicker: 'Contribute · Wallpaper Exchange',
     heading: "Share <0>what's on your screen.</0>",
-    intro: 'Drop images (JPG / PNG / HEIC, up to {{maxFiles}} at a time) or a single video (MP4 / MOV / WebM / MKV). Each file capped at 200 MB. Every upload earns one coin once it clears review.',
+    intro: 'Choose up to {{maxFiles}} files per batch (JPG / PNG / HEIC / MP4 / MOV / WebM / MKV), including up to {{maxVideos}} videos. Each file is capped at 200 MB. Every upload earns one coin once it clears review.',
   },
   notice: {
     kicker: 'Admin review',
@@ -16,9 +16,10 @@ const en = {
   },
   dropzone: {
     dropActive: 'Drop them here',
-    dropIdle: 'Drop images here',
+    dropIdle: 'Drop images or videos here',
     orPick: 'or <0>click to pick from your computer</0>',
     upToFiles: 'Up to {{max}} files',
+    upToVideos: 'Up to {{max}} videos',
     addMore: 'Add more · {{current}} / {{max}}',
   },
   queue: {
@@ -43,11 +44,8 @@ const en = {
   toast: {
     maxFiles: 'Maximum {{max}} files allowed',
     oversized: '{{num}} file(s) exceed 200MB and were skipped',
-    oneVideoAtATime: "Drop one video at a time — combining files in a single batch isn't supported",
-    clearImagesFirst: 'Clear the image batch before adding a video',
-    onlyOneVideo: 'Only one video per upload — remove the current one first',
-    clearVideoFirst: 'Clear the queued video before adding images',
-    selectAtLeastOne: 'Please select at least one image',
+    maxVideos: 'Maximum {{max}} videos allowed per batch',
+    selectAtLeastOne: 'Please select at least one file',
     successOne: "Upload received — pending admin review. You'll see it in your profile once approved.",
     successMany: '{{num}} uploads received — pending admin review.',
     partialFail: '{{success}} succeeded, {{failed}} failed — retry the failed rows below.',
@@ -67,7 +65,7 @@ const zhCN: typeof en = {
   header: {
     kicker: '投稿 · Wallpaper Exchange',
     heading: '分享<0>你屏幕上的风景。</0>',
-    intro: '拖入图片（JPG / PNG / HEIC，一次最多 {{maxFiles}} 张），或单个视频（MP4 / MOV / WebM / MKV）。单个文件上限 200 MB。每次上传通过审核后可赚 1 枚金币。',
+    intro: '每批最多选择 {{maxFiles}} 个文件（JPG / PNG / HEIC / MP4 / MOV / WebM / MKV），其中视频最多 {{maxVideos}} 个。单个文件上限 200 MB。每次上传通过审核后可赚 1 枚金币。',
   },
   notice: {
     kicker: '管理员审核',
@@ -75,9 +73,10 @@ const zhCN: typeof en = {
   },
   dropzone: {
     dropActive: '松手放到这里',
-    dropIdle: '把图片拖到这里',
+    dropIdle: '把图片或视频拖到这里',
     orPick: '或者<0>点击从电脑中选择</0>',
     upToFiles: '最多 {{max}} 个文件',
+    upToVideos: '视频最多 {{max}} 个',
     addMore: '继续添加 · {{current}} / {{max}}',
   },
   queue: {
@@ -102,11 +101,8 @@ const zhCN: typeof en = {
   toast: {
     maxFiles: '最多允许 {{max}} 个文件',
     oversized: '{{num}} 个文件超过 200MB，已被跳过',
-    oneVideoAtATime: '一次只能拖入一个视频——不支持在同一批里混合文件',
-    clearImagesFirst: '请先清空图片队列，再添加视频',
-    onlyOneVideo: '每次只能上传一个视频——请先移除当前这个',
-    clearVideoFirst: '请先清空排队中的视频，再添加图片',
-    selectAtLeastOne: '请至少选择一张图片',
+    maxVideos: '每批最多允许 {{max}} 个视频',
+    selectAtLeastOne: '请至少选择一个文件',
     successOne: '已收到上传，等待管理员审核。通过后即可在你的主页看到。',
     successMany: '已收到 {{num}} 个上传，等待管理员审核。',
     partialFail: '{{success}} 个成功，{{failed}} 个失败——请在下方重试失败的条目。',
@@ -126,7 +122,7 @@ const zhTW: typeof en = {
   header: {
     kicker: '投稿 · Wallpaper Exchange',
     heading: '分享<0>你螢幕上的風景。</0>',
-    intro: '拖入圖片（JPG / PNG / HEIC，一次最多 {{maxFiles}} 張），或單支影片（MP4 / MOV / WebM / MKV）。單一檔案上限 200 MB。每次上傳通過審核後可賺 1 枚金幣。',
+    intro: '每批最多選擇 {{maxFiles}} 個檔案（JPG / PNG / HEIC / MP4 / MOV / WebM / MKV），其中影片最多 {{maxVideos}} 個。單一檔案上限 200 MB。每次上傳通過審核後可賺 1 枚金幣。',
   },
   notice: {
     kicker: '管理員審核',
@@ -134,9 +130,10 @@ const zhTW: typeof en = {
   },
   dropzone: {
     dropActive: '鬆手放到這裡',
-    dropIdle: '把圖片拖到這裡',
+    dropIdle: '把圖片或影片拖到這裡',
     orPick: '或者<0>點擊從電腦中選擇</0>',
     upToFiles: '最多 {{max}} 個檔案',
+    upToVideos: '影片最多 {{max}} 個',
     addMore: '繼續加入 · {{current}} / {{max}}',
   },
   queue: {
@@ -161,11 +158,8 @@ const zhTW: typeof en = {
   toast: {
     maxFiles: '最多允許 {{max}} 個檔案',
     oversized: '{{num}} 個檔案超過 200MB，已略過',
-    oneVideoAtATime: '一次只能拖入一支影片——不支援在同一批裡混合檔案',
-    clearImagesFirst: '請先清空圖片佇列，再加入影片',
-    onlyOneVideo: '每次只能上傳一支影片——請先移除目前這支',
-    clearVideoFirst: '請先清空排隊中的影片，再加入圖片',
-    selectAtLeastOne: '請至少選擇一張圖片',
+    maxVideos: '每批最多允許 {{max}} 支影片',
+    selectAtLeastOne: '請至少選擇一個檔案',
     successOne: '已收到上傳，等待管理員審核。通過後就能在你的主頁看到。',
     successMany: '已收到 {{num}} 個上傳，等待管理員審核。',
     partialFail: '{{success}} 個成功，{{failed}} 個失敗——請在下方重試失敗的項目。',
@@ -185,7 +179,7 @@ const ja: typeof en = {
   header: {
     kicker: '投稿 · Wallpaper Exchange',
     heading: 'いま画面にあるものを、<0>そのままシェア。</0>',
-    intro: '画像（JPG / PNG / HEIC、一度に最大 {{maxFiles}} 枚）または動画 1 本（MP4 / MOV / WebM / MKV）をドロップ。1 ファイルの上限は 200 MB。アップロードは審査を通過するごとにコインを 1 枚獲得できます。',
+    intro: '1 回につき最大 {{maxFiles}} ファイル（JPG / PNG / HEIC / MP4 / MOV / WebM / MKV）、うち動画は最大 {{maxVideos}} 本まで選択できます。1 ファイルの上限は 200 MB。アップロードは審査を通過するごとにコインを 1 枚獲得できます。',
   },
   notice: {
     kicker: '管理者による審査',
@@ -193,9 +187,10 @@ const ja: typeof en = {
   },
   dropzone: {
     dropActive: 'ここにドロップ',
-    dropIdle: 'ここに画像をドロップ',
+    dropIdle: 'ここに画像または動画をドロップ',
     orPick: 'または<0>クリックしてパソコンから選択</0>',
     upToFiles: '最大 {{max}} ファイル',
+    upToVideos: '動画は最大 {{max}} 本',
     addMore: 'さらに追加 · {{current}} / {{max}}',
   },
   queue: {
@@ -220,11 +215,8 @@ const ja: typeof en = {
   toast: {
     maxFiles: 'ファイルは最大 {{max}} 個までです',
     oversized: '{{num}} 個のファイルが 200MB を超えていたためスキップしました',
-    oneVideoAtATime: '動画は 1 本ずつドロップしてください — 同じバッチでの混在には対応していません',
-    clearImagesFirst: '動画を追加する前に画像のバッチをクリアしてください',
-    onlyOneVideo: '1 回のアップロードにつき動画は 1 本まで — 先に現在の動画を削除してください',
-    clearVideoFirst: '画像を追加する前にキュー内の動画をクリアしてください',
-    selectAtLeastOne: '画像を 1 枚以上選択してください',
+    maxVideos: '動画は 1 回につき最大 {{max}} 本までです',
+    selectAtLeastOne: 'ファイルを 1 つ以上選択してください',
     successOne: 'アップロードを受け付けました — 管理者の審査待ちです。承認されるとプロフィールに表示されます。',
     successMany: '{{num}} 件のアップロードを受け付けました — 管理者の審査待ちです。',
     partialFail: '成功 {{success}} 件、失敗 {{failed}} 件 — 下の失敗した項目を再試行してください。',

@@ -18,14 +18,18 @@ import usePageTitle from '../hooks/usePageTitle';
 
 const MAX_SIZE = 200 * 1024 * 1024;
 const MAX_FILES = 20;
+const MAX_VIDEO_FILES = 10;
 const IMAGE_UPLOAD_TIMEOUT_MS = 15 * 60 * 1000;
 
 type FileStatus = 'pending' | 'uploading' | 'success' | 'error';
 type UploadPhase = 'sending' | 'confirming';
 
 interface UploadFile {
+  id: string;
   file: File;
   preview: string;
+  width?: number;
+  height?: number;
   status: FileStatus;
   progress: number;
   phase?: UploadPhase;
@@ -35,6 +39,12 @@ interface UploadFile {
 const isVideoFile = (f: File) =>
   (f.type || '').startsWith('video/') ||
   /\.(mp4|mov|webm|mkv)$/i.test(f.name);
+
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 export default function UploadPage() {
   const { t } = useTranslation('upload');
@@ -56,40 +66,40 @@ export default function UploadPage() {
       toast.error(t('toast.maxFiles', { max: MAX_FILES }));
       return;
     }
-    const toAdd = accepted.slice(0, remaining);
-    const oversized = toAdd.filter((f) => f.size > MAX_SIZE);
+    const oversized = accepted.filter((f) => f.size > MAX_SIZE);
     if (oversized.length > 0) {
       toast.error(t('toast.oversized', { num: oversized.length }));
     }
-    const sizeOK = toAdd.filter((f) => f.size <= MAX_SIZE);
+    const sizeOK = accepted.filter((f) => f.size <= MAX_SIZE);
     if (sizeOK.length === 0) return;
 
-    // Mixed-batch rules. Videos process one-at-a-time through the tus
-    // resumable endpoint, images stay on the existing multipart route.
-    const incomingHasVideo = sizeOK.some((f) => isVideoFile(f));
-    const existingHasVideo = files.some((f) => isVideoFile(f.file));
-    const existingHasImage = files.some((f) => !isVideoFile(f.file));
-    if (incomingHasVideo) {
-      if (sizeOK.length > 1) {
-        toast.error(t('toast.oneVideoAtATime'));
-        return;
+    // Images and videos can share one queue. Videos still upload one after
+    // another through tus, but a batch may now contain up to ten of them.
+    let videoSlots = MAX_VIDEO_FILES - files.filter((f) => isVideoFile(f.file)).length;
+    let skippedVideos = 0;
+    const withinVideoLimit = sizeOK.filter((f) => {
+      if (!isVideoFile(f)) return true;
+      if (videoSlots <= 0) {
+        skippedVideos++;
+        return false;
       }
-      if (existingHasImage) {
-        toast.error(t('toast.clearImagesFirst'));
-        return;
-      }
-      if (existingHasVideo) {
-        toast.error(t('toast.onlyOneVideo'));
-        return;
-      }
-    } else if (existingHasVideo) {
-      toast.error(t('toast.clearVideoFirst'));
-      return;
+      videoSlots--;
+      return true;
+    });
+    if (skippedVideos > 0) {
+      toast.error(t('toast.maxVideos', { max: MAX_VIDEO_FILES }));
     }
 
-    const newFiles: UploadFile[] = sizeOK.map((f) => {
+    const toAdd = withinVideoLimit.slice(0, remaining);
+    if (withinVideoLimit.length > remaining) {
+      toast.error(t('toast.maxFiles', { max: MAX_FILES }));
+    }
+    if (toAdd.length === 0) return;
+
+    const newFiles: UploadFile[] = toAdd.map((f) => {
       const heic = /\.heic$/i.test(f.name) || f.type === 'image/heic' || f.type === 'image/heif';
       return {
+        id: crypto.randomUUID(),
         file: f,
         preview: heic ? '' : URL.createObjectURL(f),
         status: 'pending' as FileStatus,
@@ -136,6 +146,15 @@ export default function UploadPage() {
   const updateFile = (index: number, updates: Partial<UploadFile>) => {
     setFiles((prev) => prev.map((f, i) => (i === index ? { ...f, ...updates } : f)));
   };
+
+  const updateFileDimensions = useCallback((id: string, width: number, height: number) => {
+    if (width <= 0 || height <= 0) return;
+    setFiles((prev) => prev.map((f) => (
+      f.id === id && (f.width !== width || f.height !== height)
+        ? { ...f, width, height }
+        : f
+    )));
+  }, []);
 
   const handleUpload = async () => {
     if (files.length === 0) {
@@ -341,7 +360,7 @@ export default function UploadPage() {
             <Trans i18nKey="header.heading" ns="upload" components={[<span className="upload-title-tail" key="0" />]} />
           </h1>
           <p className="text-ink-2 mt-4 max-w-[640px] text-[14.5px] leading-relaxed">
-            {t('header.intro', { maxFiles: MAX_FILES })}
+            {t('header.intro', { maxFiles: MAX_FILES, maxVideos: MAX_VIDEO_FILES })}
           </p>
         </header>
 
@@ -389,6 +408,8 @@ export default function UploadPage() {
                 <span>≤ 200 MB</span>
                 <span>·</span>
                 <span>{t('dropzone.upToFiles', { max: MAX_FILES })}</span>
+                <span>·</span>
+                <span>{t('dropzone.upToVideos', { max: MAX_VIDEO_FILES })}</span>
               </div>
             </>
           ) : (
@@ -413,11 +434,12 @@ export default function UploadPage() {
             <div className="upload-grid">
               {files.map((f, idx) => (
                 <UploadTile
-                  key={idx}
+                  key={f.id}
                   file={f}
                   index={idx}
                   uploading={uploading}
                   onRemove={() => removeFile(idx)}
+                  onDimensions={(width, height) => updateFileDimensions(f.id, width, height)}
                 />
               ))}
             </div>
@@ -437,11 +459,13 @@ function UploadTile({
   index,
   uploading,
   onRemove,
+  onDimensions,
 }: {
   file: UploadFile;
   index: number;
   uploading: boolean;
   onRemove: () => void;
+  onDimensions: (width: number, height: number) => void;
 }) {
   const { t } = useTranslation('upload');
   const isVideo = isVideoFile(f.file);
@@ -455,18 +479,25 @@ function UploadTile({
             loop
             playsInline
             autoPlay
+            onLoadedMetadata={(event) => {
+              onDimensions(event.currentTarget.videoWidth, event.currentTarget.videoHeight);
+            }}
             className="upload-tile-media"
           />
         ) : f.preview ? (
-          <img src={f.preview} alt="" className="upload-tile-media" />
+          <img
+            src={f.preview}
+            alt=""
+            onLoad={(event) => {
+              onDimensions(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight);
+            }}
+            className="upload-tile-media"
+          />
         ) : (
           <div className="upload-tile-heic">
             <svg width="22" height="22" viewBox="0 0 384 512" fill="currentColor" aria-hidden>
               <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
             </svg>
-            <span className="mono text-[9px] tracking-[0.06em] text-muted truncate w-full text-center px-1 mt-1">
-              {f.file.name}
-            </span>
           </div>
         )}
 
@@ -517,7 +548,13 @@ function UploadTile({
         <span className="mono text-[10px] text-muted tabular-nums">
           {String(index + 1).padStart(2, '0')}
         </span>
-        <span className="text-[11px] text-ink-2 truncate min-w-0">{f.file.name}</span>
+        <span className="upload-tile-meta mono tabular-nums">
+          {f.width && f.height
+            ? `${f.width.toLocaleString()} × ${f.height.toLocaleString()}`
+            : '— × —'}
+          <span aria-hidden> · </span>
+          {formatFileSize(f.file.size)}
+        </span>
       </div>
     </div>
   );
