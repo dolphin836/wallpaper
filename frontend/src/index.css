@@ -963,9 +963,11 @@
 }
 .tile-chip svg { width: 9px; height: 9px; }
 .tile-chip.is-resolution {
-  padding: 2px 6px;
+  height: 20px;
+  padding: 0 6px;
   border: 1px solid oklch(100% 0 0 / 0.22);
   border-radius: 5px;
+  line-height: 1;
   background: oklch(18% 0.014 240 / 0.76);
   color: oklch(97% 0.004 240);
   box-shadow:
@@ -975,7 +977,8 @@
   -webkit-backdrop-filter: blur(10px) saturate(125%);
 }
 .tile-chip.is-live {
-  padding: 2px 7px 2px 5px;
+  height: 20px;
+  padding: 0 7px 0 5px;
   border: 1px solid color-mix(in oklch, var(--color-accent) 76%, oklch(94% 0.025 60));
   border-radius: 999px;
   background: color-mix(in oklch, var(--color-accent) 82%, oklch(28% 0.045 42));
@@ -983,6 +986,7 @@
   font-family: var(--font-sans);
   font-weight: 650;
   letter-spacing: 0.01em;
+  line-height: 1;
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.24),
     0 2px 8px color-mix(in oklch, var(--color-accent) 22%, oklch(0% 0 0 / 0.18));
@@ -4546,14 +4550,15 @@
    by the rest of the wallpaper cards. */
 .h3-res-chip {
   position: absolute; top: 10px; left: 10px; z-index: 4;
-  padding: 2px 6px; border-radius: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 20px; padding: 0 6px; border-radius: 5px;
   border: 1px solid oklch(100% 0 0 / 0.22);
   background: oklch(18% 0.014 240 / 0.76);
   backdrop-filter: blur(10px) saturate(125%);
   -webkit-backdrop-filter: blur(10px) saturate(125%);
   color: oklch(97% 0.004 240); font-size: 9px; font-weight: 600;
   font-family: var(--font-mono); letter-spacing: 0.04em;
-  line-height: 1.5;
+  line-height: 1;
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.14),
     0 2px 8px oklch(0% 0 0 / 0.16);
@@ -4564,7 +4569,7 @@
 }
 .h3-hero .h3-res-chip {
   top: 16px; left: auto; right: 16px;
-  padding: 2px 8px; font-size: 10px;
+  padding: 0 8px; font-size: 10px;
   background: oklch(18% 0.014 240 / 0.76);
   color: oklch(97% 0.004 240);
 }
