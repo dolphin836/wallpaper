@@ -573,7 +573,7 @@ struct DetailPage: View {
             .frame(width: compact ? 170 : 260, alignment: .leading)
 
             if !compact {
-                toolbarIconButton(systemName: downloaded ? "checkmark.circle.fill" : "tray.and.arrow.down", help: downloadButtonText(detail: d, downloaded: downloaded, downloading: downloading)) {
+                toolbarIconButton(systemName: downloaded ? "checkmark.circle" : "arrow.down.to.line", help: downloadButtonText(detail: d, downloaded: downloaded, downloading: downloading)) {
                     Task { await downloadOriginal(d) }
                 }
                 .disabled(downloading || downloaded || !downloadReady(d))
@@ -1595,9 +1595,9 @@ struct DetailPage: View {
                     showingFullscreenPreview = true
                 }
             } label: {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.system(size: 13, weight: .semibold))
+                WebFullscreenIconShape()
                     .foregroundStyle(Color.white.opacity(0.92))
+                    .frame(width: 15, height: 15)
                     .frame(width: 38, height: 38)
                     .background(Circle().fill(Color.white.opacity(0.08)))
                     .overlay(Circle().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
@@ -1630,7 +1630,7 @@ struct DetailPage: View {
                     Task { await downloadOriginal(detail) }
                 }
             }) {
-                downloadLabel(icon: downloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
+                downloadLabel(icon: downloaded ? .system("checkmark.circle") : .webDownload,
                               text: downloadButtonText(detail: detail, downloaded: downloaded, downloading: downloading),
                               emphasized: true)
             }
@@ -1644,7 +1644,7 @@ struct DetailPage: View {
                     showingWallpaperPicker.toggle()
                 }
             }) {
-                downloadLabel(icon: downloaded ? "display" : "rectangle.on.rectangle.angled",
+                downloadLabel(icon: .system(downloaded ? "display" : "rectangle.on.rectangle.angled"),
                               text: downloadAndSetButtonText(detail: detail, downloaded: downloaded),
                               emphasized: false)
             }
@@ -1980,9 +1980,23 @@ struct DetailPage: View {
         }
     }
 
-    private func downloadLabel(icon: String, text: String, emphasized: Bool) -> some View {
+    private enum DetailActionIcon {
+        case system(String)
+        case webDownload
+    }
+
+    private func downloadLabel(icon: DetailActionIcon, text: String, emphasized: Bool) -> some View {
         HStack(spacing: emphasized ? 7 : 6) {
-            Image(systemName: icon).font(.system(size: emphasized ? 12 : 11, weight: emphasized ? .semibold : .medium))
+            Group {
+                switch icon {
+                case .system(let systemName):
+                    Image(systemName: systemName)
+                case .webDownload:
+                    WebDownloadIconShape()
+                }
+            }
+            .font(.system(size: emphasized ? 12 : 11, weight: emphasized ? .semibold : .medium))
+            .frame(width: emphasized ? 13 : 12, height: emphasized ? 13 : 12)
             Text(text)
                 .font(.system(size: emphasized ? 12 : 11, weight: emphasized ? .semibold : .medium))
                 .lineLimit(1)
@@ -2644,6 +2658,86 @@ struct DetailPage: View {
             isLiked: d.isLiked, isFavorited: d.isFavorited, isDownloaded: d.isDownloaded,
             createdAt: d.createdAt
         )
+    }
+}
+
+// Ant Design's web detail toolbar icons, redrawn as native SwiftUI vector
+// shapes so the Mac action bar uses the same silhouettes without bundling a
+// raster asset or introducing an icon dependency.
+private struct WebDownloadIconShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let side = min(rect.width, rect.height)
+        let origin = CGPoint(
+            x: rect.midX - side / 2,
+            y: rect.midY - side / 2
+        )
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: origin.x + x / 1024 * side, y: origin.y + y / 1024 * side)
+        }
+
+        var path = Path()
+        // Down arrow: the shaft and broad arrowhead match AiOutlineDownload.
+        path.move(to: point(474, 160))
+        path.addLine(to: point(550, 160))
+        path.addLine(to: point(550, 506))
+        path.addLine(to: point(624, 506))
+        path.addLine(to: point(512, 669))
+        path.addLine(to: point(393, 519))
+        path.addLine(to: point(474, 519))
+        path.closeSubpath()
+
+        // Open-top download baseline used by the web icon (not a tray).
+        path.move(to: point(138, 626))
+        path.addLine(to: point(214, 626))
+        path.addLine(to: point(214, 788))
+        path.addLine(to: point(810, 788))
+        path.addLine(to: point(810, 626))
+        path.addLine(to: point(886, 626))
+        path.addLine(to: point(886, 832))
+        path.addLine(to: point(854, 864))
+        path.addLine(to: point(170, 864))
+        path.addLine(to: point(138, 832))
+        path.closeSubpath()
+        return path
+    }
+}
+
+private struct WebFullscreenIconShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let side = min(rect.width, rect.height)
+        let origin = CGPoint(
+            x: rect.midX - side / 2,
+            y: rect.midY - side / 2
+        )
+        let base: [(CGFloat, CGFloat)] = [
+            (423.7, 370.1), (290, 236.4), (333.9, 192.5),
+            (160, 160), (179, 329.1), (236.3, 290.1), (370, 423.7),
+        ]
+
+        func rotated(_ point: (CGFloat, CGFloat), quarterTurns: Int) -> (CGFloat, CGFloat) {
+            switch quarterTurns {
+            case 1: (1024 - point.1, point.0)
+            case 2: (1024 - point.0, 1024 - point.1)
+            case 3: (point.1, 1024 - point.0)
+            default: point
+            }
+        }
+        func scaled(_ point: (CGFloat, CGFloat)) -> CGPoint {
+            CGPoint(
+                x: origin.x + point.0 / 1024 * side,
+                y: origin.y + point.1 / 1024 * side
+            )
+        }
+
+        var path = Path()
+        for quarterTurns in 0..<4 {
+            let points = base.map { scaled(rotated($0, quarterTurns: quarterTurns)) }
+            guard let first = points.first else { continue }
+            path.move(to: first)
+            for point in points.dropFirst() { path.addLine(to: point) }
+            path.closeSubpath()
+        }
+        return path
     }
 }
 
