@@ -37,3 +37,15 @@ wallpapers — not a literal substring match on title/tag.
 
 Trigger to revisit: search log volume justifies the work, or a
 specific UX request for vibes-based queries.
+
+## Product backlog
+
+### Discovery and detail navigation (recorded 2026-07-25)
+
+- Add color and resolution filters to Discover.
+- Add previous/next wallpaper navigation to the detail page.
+
+### macOS client (recorded 2026-07-25)
+
+- Support applying wallpapers to the Lock Screen.
+- Support dynamic particle-effect wallpapers.

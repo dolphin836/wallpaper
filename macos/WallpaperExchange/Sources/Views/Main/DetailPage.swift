@@ -692,7 +692,7 @@ struct DetailPage: View {
         VStack(alignment: .trailing, spacing: 10) {
             detailTopButton(systemName: "info.circle", help: L10n.detail.info) {
                 withAnimation(.easeOut(duration: 0.16)) {
-                    infoPanelHover = true
+                    infoPanelHover.toggle()
                 }
             }
 
@@ -709,113 +709,246 @@ struct DetailPage: View {
     }
 
     private func detailInfoPanel(detail d: WallpaperDetail) -> some View {
-        VStack(alignment: .leading, spacing: 11) {
-            infoPanelRow(icon: "person.crop.circle", label: L10n.detail.uploadedBy, value: uploaderName(d))
-            infoPanelRow(icon: "folder", label: L10n.detail.category, value: categoryName(for: d))
-            infoColorRow(detail: d)
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 14) {
+                infoUploaderBlock(detail: d)
+                infoAboutBlock(detail: d)
 
-            Rectangle()
-                .fill(Color.white.opacity(0.14))
-                .frame(height: 1)
-
-            HStack(spacing: 8) {
-                infoStat(icon: "arrow.down.circle", value: "\(d.downloadCount)", label: L10n.detail.statDownloads)
-                infoStat(icon: "heart", value: "\(d.likeCount)", label: L10n.detail.statLikes)
-                infoStat(icon: "star", value: "\(d.favoriteCount)", label: L10n.detail.statFavorited)
-            }
-
-            HStack(spacing: 8) {
-                if isOwner(d) {
-                    weakInfoAction(icon: "trash", title: L10n.detail.deleteWallpaper, destructive: true) {
-                        showingDeleteConfirm = true
-                    }
-                    .disabled(deletingWallpaper)
-                } else {
-                    weakInfoAction(icon: "flag", title: reportingWallpaper ? L10n.detail.reporting : L10n.detail.report, destructive: false) {
-                        Task { await reportWallpaper(d) }
-                    }
-                    .disabled(reportingWallpaper)
+                if !d.paletteList.isEmpty {
+                    infoPaletteBlock(detail: d)
                 }
-                Spacer(minLength: 0)
-                if let infoActionMessage {
-                    Text(infoActionMessage)
+
+                infoStatsBlock(detail: d)
+
+                HStack(spacing: 10) {
+                    if isOwner(d) {
+                        weakInfoAction(icon: "trash", title: L10n.detail.deleteWallpaper, destructive: true) {
+                            showingDeleteConfirm = true
+                        }
+                        .disabled(deletingWallpaper)
+                    } else if auth.isLoggedIn {
+                        weakInfoAction(icon: "flag", title: reportingWallpaper ? L10n.detail.reporting : L10n.detail.report, destructive: false) {
+                            Task { await reportWallpaper(d) }
+                        }
+                        .disabled(reportingWallpaper)
+                    }
+
+                    if let infoActionMessage {
+                        Text(infoActionMessage)
+                            .font(.mono10)
+                            .tracking(0.4)
+                            .foregroundStyle(Color.white.opacity(0.64))
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 0)
+                    Text("№\(String(format: "%03d", d.id))")
                         .font(.mono10)
-                        .tracking(0.4)
-                        .foregroundStyle(Color.white.opacity(0.68))
+                        .tracking(1.1)
+                        .foregroundStyle(Color.white.opacity(0.45))
                         .lineLimit(1)
                 }
+                .padding(.top, 10)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.14))
+                        .frame(height: 1)
+                }
             }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(14)
-        .frame(width: 306, alignment: .leading)
+        .frame(width: 320, alignment: .topLeading)
+        .frame(maxHeight: 520, alignment: .topLeading)
         .glassPanel(cornerRadius: 18)
     }
 
-    private func infoPanelRow(icon: String, label: String, value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 9) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.54))
-                .frame(width: 14)
-            Text(label)
-                .font(.mono10)
-                .tracking(0.6)
-                .foregroundStyle(Color.white.opacity(0.50))
-                .frame(width: 72, alignment: .leading)
-            Text(value)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.90))
+    @ViewBuilder
+    private func infoUploaderBlock(detail d: WallpaperDetail) -> some View {
+        if let uploader = d.uploader {
+            Button {
+                onUploader(uploader.username)
+            } label: {
+                HStack(spacing: 10) {
+                    infoUploaderAvatar(uploader)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("@\(uploader.username)")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Color.white)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Text(L10n.detail.viewProfile)
+                            .font(.system(size: 9, weight: .medium, design: .monospaced))
+                            .tracking(1.2)
+                            .foregroundStyle(Color.white.opacity(0.55))
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        } else {
+            Text(L10n.detail.unknownUploader)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.white.opacity(0.58))
+        }
+    }
+
+    private func infoUploaderAvatar(_ uploader: WallpaperUploader) -> some View {
+        ZStack {
+            Circle()
+                .fill(Color.white.opacity(0.14))
+
+            if let rawURL = uploader.avatarURL,
+               let url = URL(string: rawURL),
+               !rawURL.isEmpty {
+                CachedAsyncImage(url: url, maxPixelDimension: 96) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    infoUploaderInitial(uploader)
+                }
+                .clipShape(Circle())
+            } else {
+                infoUploaderInitial(uploader)
+            }
+        }
+        .frame(width: 38, height: 38)
+        .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1))
+    }
+
+    private func infoUploaderInitial(_ uploader: WallpaperUploader) -> some View {
+        let displayName = uploader.nickname?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let initialSource = displayName?.isEmpty == false ? displayName ?? uploader.username : uploader.username
+        let initial = String(initialSource.prefix(1)).uppercased()
+        return Text(initial)
+            .font(.system(size: 16, weight: .semibold, design: .serif))
+            .foregroundStyle(Color.white.opacity(0.92))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func infoAboutBlock(detail d: WallpaperDetail) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            infoKicker(L10n.detail.about)
+
+            Text(categoryName(for: d))
+                .font(.system(size: 18, weight: .medium, design: .serif))
+                .foregroundStyle(Color.white)
                 .lineLimit(1)
                 .truncationMode(.tail)
+
+            if let tags = d.tags, !tags.isEmpty {
+                ChipFlow(spacing: 6) {
+                    ForEach(tags) { tag in
+                        Text(tag.name)
+                            .font(.system(size: 10.5, weight: .medium))
+                            .foregroundStyle(Color.white.opacity(0.85))
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(Color.white.opacity(0.10)))
+                            .overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
+                    }
+                }
+            }
+        }
+        .padding(.top, 12)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color.white.opacity(0.14))
+                .frame(height: 1)
         }
     }
 
-    private func infoColorRow(detail d: WallpaperDetail) -> some View {
-        let hex = (d.dominantColor ?? "#888888").uppercased()
-        return HStack(alignment: .center, spacing: 9) {
-            Image(systemName: "paintpalette")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.54))
-                .frame(width: 14)
-            Text(L10n.detail.color)
-                .font(.mono10)
-                .tracking(0.6)
-                .foregroundStyle(Color.white.opacity(0.50))
-                .frame(width: 72, alignment: .leading)
-            HStack(spacing: 7) {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color(hex: hex))
-                    .frame(width: 18, height: 14)
-                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Color.white.opacity(0.34), lineWidth: 1))
-                Text(hex)
-                    .font(.mono10)
-                    .tracking(0.6)
-                    .foregroundStyle(Color.white.opacity(0.86))
+    private func infoPaletteBlock(detail d: WallpaperDetail) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            infoKicker(L10n.detail.palette)
+
+            HStack(spacing: 6) {
+                ForEach(Array(d.paletteList.prefix(6).enumerated()), id: \.offset) { _, hex in
+                    Button {
+                        copyPaletteColor(hex)
+                    } label: {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color(hex: hex))
+                            .frame(width: 30, height: 30)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(GlassBounceButtonStyle())
+                    .help(hex.uppercased())
+                }
             }
+        }
+        .padding(.top, 12)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color.white.opacity(0.14))
+                .frame(height: 1)
         }
     }
 
-    private func infoStat(icon: String, value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 5) {
-                Image(systemName: icon)
-                    .font(.system(size: 10, weight: .semibold))
-                Text(value)
-                    .font(.mono10)
-                    .monospacedDigit()
-            }
-            Text(label)
-                .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.48))
+    private func infoStatsBlock(detail d: WallpaperDetail) -> some View {
+        LazyVGrid(
+            columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
+            alignment: .leading,
+            spacing: 10
+        ) {
+            infoStat(value: d.downloadCount, label: L10n.detail.statDownloads)
+            infoStat(value: d.likeCount, label: L10n.detail.statLikes)
+            infoStat(value: d.favoriteCount, label: L10n.detail.statFavorited)
+            infoStat(value: d.viewCount, label: L10n.detail.statViews)
+        }
+        .padding(.top, 12)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color.white.opacity(0.14))
+                .frame(height: 1)
+        }
+    }
+
+    private func infoStat(value: Int, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            infoKicker(label)
+            Text(compactInfoCount(value))
+                .font(.system(size: 18, weight: .medium, design: .serif))
+                .foregroundStyle(Color.white)
+                .monospacedDigit()
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .foregroundStyle(Color.white.opacity(0.82))
-        .help(label)
-        .padding(.horizontal, 9)
-        .padding(.vertical, 7)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.09)))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.white.opacity(0.10), lineWidth: 1))
+    }
+
+    private func infoKicker(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 9, weight: .medium, design: .monospaced))
+            .tracking(1.25)
+            .textCase(.uppercase)
+            .foregroundStyle(Color.white.opacity(0.50))
+            .lineLimit(1)
+    }
+
+    private func compactInfoCount(_ value: Int) -> String {
+        if value >= 1_000_000 {
+            return String(format: "%.1fM", Double(value) / 1_000_000)
+        }
+        if value >= 10_000 {
+            return String(format: "%.0fK", Double(value) / 1_000)
+        }
+        if value >= 1_000 {
+            return String(format: "%.1fK", Double(value) / 1_000)
+        }
+        return value.formatted()
+    }
+
+    private func copyPaletteColor(_ hex: String) {
+        let value = hex.uppercased()
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(value, forType: .string)
+        infoActionMessage = "\(value) ✓"
     }
 
     private func weakInfoAction(icon: String, title: String, destructive: Bool, action: @escaping () -> Void) -> some View {
@@ -827,20 +960,9 @@ struct DetailPage: View {
                     .font(.system(size: 11, weight: .medium))
             }
             .foregroundStyle(destructive ? Color.red.opacity(0.78) : Color.white.opacity(0.62))
-            .padding(.horizontal, 9)
-            .padding(.vertical, 6)
-            .background(Capsule().fill(Color.white.opacity(0.07)))
-            .overlay(Capsule().stroke(Color.white.opacity(0.09), lineWidth: 1))
+            .padding(.vertical, 2)
         }
         .buttonStyle(.plain)
-    }
-
-    private func uploaderName(_ detail: WallpaperDetail) -> String {
-        guard let uploader = detail.uploader else { return L10n.detail.unknownUploader }
-        if let nickname = uploader.nickname?.trimmingCharacters(in: .whitespacesAndNewlines), !nickname.isEmpty {
-            return "\(nickname) · @\(uploader.username)"
-        }
-        return "@\(uploader.username)"
     }
 
     private func categoryName(for detail: WallpaperDetail) -> String {
