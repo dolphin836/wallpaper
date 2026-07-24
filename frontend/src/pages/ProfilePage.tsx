@@ -1325,9 +1325,9 @@ function ProfileWallpaperTile({
         />
         {(resLabel || isVideo || w.is_dynamic || w.is_ai_generated) && (
           <div className="absolute top-2.5 left-2.5 z-[3] flex gap-1 flex-wrap max-w-[calc(100%-20px)]">
-            {resLabel && <span className="tile-chip">{resLabel}</span>}
+            {resLabel && <span className="tile-chip is-resolution">{resLabel}</span>}
             {(isVideo || w.is_dynamic) && (
-              <span className="tile-chip">
+              <span className="tile-chip is-live">
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
                 {t('tile.live')}
               </span>

@@ -193,14 +193,13 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           </div>
         )}
 
-        {/* Top-left chips. Editorial pill family — see .tile-chip in
-            index.css; the AI variant keeps a violet wash so the
-            "synthetic" label reads at a glance, everything else is the
-            neutral light/dark pill shared with home-page tiles. */}
+        {/* Top-left chips. Resolution uses the compact spec-plate treatment;
+            live content uses the warmer media pill. AI and status chips keep
+            their existing semantic treatments. */}
         <div className="absolute top-2.5 left-2.5 z-[2] flex gap-1 flex-wrap max-w-[calc(100%-20px)]">
-          {resLabel && <span className="tile-chip">{resLabel}</span>}
+          {resLabel && <span className="tile-chip is-resolution">{resLabel}</span>}
           {(isVideo || wallpaper.is_dynamic) && (
-            <span className="tile-chip">
+            <span className="tile-chip is-live">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
               {t('chip.live')}
             </span>
@@ -331,12 +330,12 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         {/* Tags: top-left */}
         <div className="absolute top-2.5 left-2.5 z-[3] flex items-center gap-1.5 flex-wrap max-w-[calc(100%-20px)]">
           {resLabel && (
-            <span className="tile-chip">
+            <span className="tile-chip is-resolution">
               {resLabel}
             </span>
           )}
           {(isVideo || wallpaper.is_dynamic) && (
-            <span className="tile-chip">
+            <span className="tile-chip is-live">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z"/></svg>
               {t('chip.live')}
             </span>

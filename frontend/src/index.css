@@ -940,11 +940,9 @@
 .tile-cell:hover .tile-gradient,
 .tile-cell:focus-within .tile-gradient { opacity: 1; }
 
-/* Editorial pill family for top-left tag stack. Light/dark
-   surface-mode adapts; AI gets a violet wash to flag synthetic
-   content. Shared with home-page tiles (see .h3-res-chip — same
-   visual recipe, slightly larger padding to read at glance with
-   icons). */
+/* Top-left wallpaper tag family. The compact, squared resolution plate
+   reads as technical metadata; the round accent pill marks live media.
+   AI and workflow states retain their established semantic colours. */
 .tile-chip {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 2px 7px;
@@ -964,6 +962,37 @@
   color: oklch(86% 0.012 240);
 }
 .tile-chip svg { width: 9px; height: 9px; }
+.tile-chip.is-resolution {
+  padding: 2px 6px;
+  border: 1px solid oklch(100% 0 0 / 0.22);
+  border-radius: 5px;
+  background: oklch(18% 0.014 240 / 0.76);
+  color: oklch(97% 0.004 240);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.14),
+    0 2px 8px oklch(0% 0 0 / 0.16);
+  backdrop-filter: blur(10px) saturate(125%);
+  -webkit-backdrop-filter: blur(10px) saturate(125%);
+}
+.tile-chip.is-live {
+  padding: 2px 7px 2px 5px;
+  border: 1px solid color-mix(in oklch, var(--color-accent) 76%, oklch(94% 0.025 60));
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--color-accent) 82%, oklch(28% 0.045 42));
+  color: oklch(98% 0.006 60);
+  font-family: var(--font-sans);
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.24),
+    0 2px 8px color-mix(in oklch, var(--color-accent) 22%, oklch(0% 0 0 / 0.18));
+  backdrop-filter: blur(10px) saturate(125%);
+  -webkit-backdrop-filter: blur(10px) saturate(125%);
+}
+.tile-chip.is-live svg {
+  width: 10px;
+  height: 10px;
+}
 .tile-chip.is-ai {
   background: oklch(70% 0.18 295 / 0.85);
   color: oklch(99% 0 0);
@@ -4513,26 +4542,33 @@
   background: linear-gradient(135deg, #f4ae66, #d57130);
 }
 
-/* Resolution chip — small, soft */
+/* Home and weekly resolution chip mirrors the squared technical plate used
+   by the rest of the wallpaper cards. */
 .h3-res-chip {
   position: absolute; top: 10px; left: 10px; z-index: 4;
-  padding: 1px 6px; border-radius: 999px;
-  background: oklch(98% 0.005 240 / 0.55); backdrop-filter: blur(6px);
-  color: oklch(36% 0.012 240); font-size: 9px; font-weight: 600;
+  padding: 2px 6px; border-radius: 5px;
+  border: 1px solid oklch(100% 0 0 / 0.22);
+  background: oklch(18% 0.014 240 / 0.76);
+  backdrop-filter: blur(10px) saturate(125%);
+  -webkit-backdrop-filter: blur(10px) saturate(125%);
+  color: oklch(97% 0.004 240); font-size: 9px; font-weight: 600;
   font-family: var(--font-mono); letter-spacing: 0.04em;
   line-height: 1.5;
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0 / 0.14),
+    0 2px 8px oklch(0% 0 0 / 0.16);
 }
 .dark .h3-res-chip {
-  background: oklch(14% 0.018 240 / 0.72);
-  color: oklch(86% 0.012 240);
+  background: oklch(18% 0.014 240 / 0.76);
+  color: oklch(97% 0.004 240);
 }
 .h3-hero .h3-res-chip {
   top: 16px; left: auto; right: 16px;
   padding: 2px 8px; font-size: 10px;
-  background: oklch(98% 0.005 240 / 0.75);
-  color: oklch(36% 0.012 240);
+  background: oklch(18% 0.014 240 / 0.76);
+  color: oklch(97% 0.004 240);
 }
-.dark .h3-hero .h3-res-chip { background: oklch(14% 0.018 240 / 0.78); color: oklch(86% 0.012 240); }
+.dark .h3-hero .h3-res-chip { background: oklch(18% 0.014 240 / 0.76); color: oklch(97% 0.004 240); }
 
 /* ── Row header ──
    Sections separate by breathing room alone — no rules, no ornaments.
