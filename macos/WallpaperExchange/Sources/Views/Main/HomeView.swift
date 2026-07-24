@@ -24,13 +24,14 @@ struct HomeView: View {
 
     var body: some View {
         GeometryReader { proxy in
+            let contentWidth = max(1, proxy.size.width - 80)
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
                     // Empty band at the top: the first screenful leads
                     // with the backdrop wallpaper itself.
                     Color.clear
                         .frame(height: max(280, proxy.size.height * 0.52))
-                    content
+                    content(availableWidth: contentWidth)
                 }
             }
             .scrollContentBackground(.hidden)
@@ -43,14 +44,14 @@ struct HomeView: View {
         weekly?.picks.first(where: { $0.isHero }) ?? weekly?.picks.first
     }
 
-    private var content: some View {
+    private func content(availableWidth: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if failed {
                 RemoteLoadErrorView(message: L10n.home.homeFeedError) {
                     Task { await load() }
                 }
             } else {
-                weeklySection
+                weeklySection(availableWidth: availableWidth)
             }
         }
         // Same margin logic as DiscoverView: a fixed 40pt gutter and a
@@ -63,7 +64,7 @@ struct HomeView: View {
 
     // ─── Weekly picks ──────────────────────────────────────────
 
-    private var weeklySection: some View {
+    private func weeklySection(availableWidth: CGFloat) -> some View {
         let picks = weekly?.picks ?? []
         return VStack(alignment: .leading, spacing: 28) {
             weeklyTitle
@@ -80,7 +81,7 @@ struct HomeView: View {
                 browseMoreLink
             } else if weeklyLoading {
                 LazyVGrid(columns: gridCols, spacing: 28) {
-                    ForEach(0..<6, id: \.self) { _ in
+                    ForEach(0..<weeklySkeletonCount(for: availableWidth), id: \.self) { _ in
                         HomeWeeklyCardSkeleton()
                     }
                 }
@@ -134,6 +135,11 @@ struct HomeView: View {
     // full-screen, fewer when narrow.
     private var gridCols: [GridItem] {
         [GridItem(.adaptive(minimum: 330, maximum: 520), spacing: 28, alignment: .top)]
+    }
+
+    private func weeklySkeletonCount(for availableWidth: CGFloat) -> Int {
+        let columns = max(1, Int(floor((availableWidth + 28) / (330 + 28))))
+        return columns * 2
     }
 
     private func load() async {

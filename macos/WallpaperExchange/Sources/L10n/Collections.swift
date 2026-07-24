@@ -30,6 +30,7 @@ struct CollectionsStrings {
     let newCollection: String
     let kickerEditorTheme: String
     let kickerCollection: String
+    let weeklyRecommendation: String
     let privateLabel: String
     let untitledSet: String
     let wallpaperCountCaps: (Int) -> String
@@ -97,6 +98,7 @@ private let collectionsEN = CollectionsStrings(
     newCollection: "New collection",
     kickerEditorTheme: "Editor Theme",
     kickerCollection: "Collection",
+    weeklyRecommendation: "Weekly recommendation",
     privateLabel: "Private",
     untitledSet: "Untitled set",
     wallpaperCountCaps: { "\($0) \($0 == 1 ? "WALLPAPER" : "WALLPAPERS")" },
@@ -154,6 +156,7 @@ private let collectionsZhCN = CollectionsStrings(
     newCollection: "新建合集",
     kickerEditorTheme: "编辑主题",
     kickerCollection: "合集",
+    weeklyRecommendation: "每周推荐",
     privateLabel: "私密",
     untitledSet: "未命名合集",
     wallpaperCountCaps: { "\($0) 张壁纸" },
@@ -211,6 +214,7 @@ private let collectionsZhTW = CollectionsStrings(
     newCollection: "新增合輯",
     kickerEditorTheme: "編輯主題",
     kickerCollection: "合輯",
+    weeklyRecommendation: "每週推薦",
     privateLabel: "私人",
     untitledSet: "未命名合輯",
     wallpaperCountCaps: { "\($0) 張桌布" },
@@ -268,6 +272,7 @@ private let collectionsJA = CollectionsStrings(
     newCollection: "新しいコレクション",
     kickerEditorTheme: "エディターテーマ",
     kickerCollection: "コレクション",
+    weeklyRecommendation: "今週のおすすめ",
     privateLabel: "非公開",
     untitledSet: "無題のセット",
     wallpaperCountCaps: { "壁紙 \($0) 枚" },

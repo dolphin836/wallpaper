@@ -22,49 +22,58 @@ struct WeeklyArchiveView: View {
     private var latest: WeeklyArchiveEntry? { entries.first }
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 0) {
-                header
+        GeometryReader { proxy in
+            let contentWidth = max(1, proxy.size.width - 80)
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    header
 
-                if loading && entries.isEmpty {
-                    archiveSkeleton.padding(.top, 32)
-                } else if let err = loadError, entries.isEmpty {
-                    RemoteLoadErrorView(message: err) {
-                        Task { await load() }
-                    }
-                } else if entries.isEmpty {
-                    RemoteEmptyStateView(
-                        title: L10n.home.archiveEmptyTitle,
-                        message: L10n.home.archiveEmptyMessage,
-                        symbol: "calendar"
-                    )
-                } else {
-                    if let latest {
-                        latestSpread(latest).padding(.top, 32)
-                    }
-                    if entries.count > 1 {
-                        pastIssuesSection.padding(.top, 56)
+                    if loading && entries.isEmpty {
+                        archiveSkeleton(availableWidth: contentWidth).padding(.top, 32)
+                    } else if let err = loadError, entries.isEmpty {
+                        RemoteLoadErrorView(message: err) {
+                            Task { await load() }
+                        }
+                    } else if entries.isEmpty {
+                        RemoteEmptyStateView(
+                            title: L10n.home.archiveEmptyTitle,
+                            message: L10n.home.archiveEmptyMessage,
+                            symbol: "calendar"
+                        )
+                    } else {
+                        if let latest {
+                            latestSpread(latest, availableWidth: contentWidth).padding(.top, 32)
+                        }
+                        if entries.count > 1 {
+                            pastIssuesSection.padding(.top, 56)
+                        }
                     }
                 }
+                .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
         }
-        .scrollContentBackground(.hidden)
-        .background(Color.clear)
         .task { await load() }
         .task(id: latest?.id) { await loadLatestPicks() }
         .onDisappear { PaletteEnv.shared.resetToDefaults() }
     }
 
-    private var archiveSkeleton: some View {
-        VStack(alignment: .leading, spacing: 28) {
+    private func archiveSkeleton(availableWidth: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
             SkeletonPlate(aspectRatio: 21.0 / 9.0, cornerRadius: 18)
-            LazyVGrid(columns: pastCols, spacing: 28) {
-                ForEach(0..<3, id: \.self) { _ in
-                    SkeletonPlate(aspectRatio: 16.0 / 10.0, cornerRadius: 18)
+            stripSkeleton(availableWidth: availableWidth)
+                .padding(.top, 14)
+            VStack(alignment: .leading, spacing: 16) {
+                SkeletonLine(width: 112, height: 9)
+                LazyVGrid(columns: pastCols, spacing: 28) {
+                    ForEach(0..<pastSkeletonCount(for: availableWidth), id: \.self) { _ in
+                        SkeletonPlate(aspectRatio: 16.0 / 10.0, cornerRadius: 18)
+                    }
                 }
             }
+            .padding(.top, 56)
         }
     }
 
@@ -81,7 +90,7 @@ struct WeeklyArchiveView: View {
 
     // ─── Latest issue spread ─────────────────────────────────────
 
-    private func latestSpread(_ s: WeeklyArchiveEntry) -> some View {
+    private func latestSpread(_ s: WeeklyArchiveEntry, availableWidth: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Button { onOpenWeek(s.year, s.week) } label: {
                 latestCover(s)
@@ -89,7 +98,7 @@ struct WeeklyArchiveView: View {
             .buttonStyle(.plain)
             .pointerCursor()
 
-            latestStrip(s)
+            latestStrip(s, availableWidth: availableWidth)
         }
     }
 
@@ -151,16 +160,11 @@ struct WeeklyArchiveView: View {
     // The rest of the latest slate as one horizontal strip of square
     // thumbs — a quick taste of the issue without leaving the page.
     @ViewBuilder
-    private func latestStrip(_ s: WeeklyArchiveEntry) -> some View {
+    private func latestStrip(_ s: WeeklyArchiveEntry, availableWidth: CGFloat) -> some View {
         let hero = latestPicks.first(where: { $0.isHero }) ?? latestPicks.first
         let rest = latestPicks.filter { $0.id != hero?.id }
         if loadingPicks && latestPicks.isEmpty {
-            HStack(spacing: 8) {
-                ForEach(0..<6, id: \.self) { _ in
-                    SkeletonPlate(aspectRatio: 1, cornerRadius: 10, shadow: false)
-                        .frame(width: 108, height: 108)
-                }
-            }
+            stripSkeleton(availableWidth: availableWidth)
         } else if !rest.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -216,6 +220,25 @@ struct WeeklyArchiveView: View {
     // page gutters (3-up windowed, 4-up full-screen).
     private var pastCols: [GridItem] {
         [GridItem(.adaptive(minimum: 300), spacing: 28, alignment: .top)]
+    }
+
+    private func stripSkeleton(availableWidth: CGFloat) -> some View {
+        HStack(spacing: 8) {
+            ForEach(0..<stripSkeletonCount(for: availableWidth), id: \.self) { _ in
+                SkeletonPlate(aspectRatio: 1, cornerRadius: 10, shadow: false)
+                    .frame(width: 108, height: 108)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func stripSkeletonCount(for availableWidth: CGFloat) -> Int {
+        max(1, Int(floor((availableWidth + 8) / (108 + 8))))
+    }
+
+    private func pastSkeletonCount(for availableWidth: CGFloat) -> Int {
+        let columns = max(1, Int(floor((availableWidth + 28) / (300 + 28))))
+        return columns * 2
     }
 
     private func load() async {
