@@ -99,6 +99,9 @@ func (h *DeviceHandler) ListWallpapersForDevice(w http.ResponseWriter, r *http.R
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
+	for i := range items {
+		items[i].OriginalURL = ""
+	}
 
 	var nextCursor int64
 	hasMore := len(items) == limit

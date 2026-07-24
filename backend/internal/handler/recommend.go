@@ -166,6 +166,7 @@ func (h *RecommendHandler) Similar(w http.ResponseWriter, r *http.Request) {
 	ordered := make([]model.Wallpaper, 0, len(topIDs))
 	for _, id := range topIDs {
 		if wp, ok := byID[id]; ok {
+			wp.OriginalURL = ""
 			ordered = append(ordered, wp)
 		}
 	}
@@ -223,6 +224,7 @@ func (h *RecommendHandler) ForYou(w http.ResponseWriter, r *http.Request) {
 	ordered := make([]model.Wallpaper, 0, len(ids))
 	for _, id := range ids {
 		if wp, ok := byID[id]; ok {
+			wp.OriginalURL = ""
 			ordered = append(ordered, wp)
 		}
 	}

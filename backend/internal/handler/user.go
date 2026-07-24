@@ -87,11 +87,9 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, user)
 }
 
-func stripOriginalURLs(items []model.Wallpaper, ownerID int64) {
+func stripOriginalURLs(items []model.Wallpaper) {
 	for i := range items {
-		if items[i].UserID != ownerID {
-			items[i].OriginalURL = ""
-		}
+		items[i].OriginalURL = ""
 	}
 }
 
@@ -243,7 +241,7 @@ func (h *UserHandler) GetWallpapers(w http.ResponseWriter, r *http.Request) {
 		nextCursor = items[len(items)-1].ID
 	}
 
-	stripOriginalURLs(items, currentUserID)
+	stripOriginalURLs(items)
 
 	response.OK(w, map[string]any{
 		"items":       h.enrichItems(r, items, currentUserID),
@@ -284,7 +282,7 @@ func (h *UserHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 		nextCursor = items[len(items)-1].ID
 	}
 
-	stripOriginalURLs(items, userID)
+	stripOriginalURLs(items)
 
 	response.OK(w, map[string]any{
 		"items":       h.enrichItems(r, items, userID),
@@ -325,7 +323,7 @@ func (h *UserHandler) GetLikes(w http.ResponseWriter, r *http.Request) {
 		nextCursor = items[len(items)-1].ID
 	}
 
-	stripOriginalURLs(items, userID)
+	stripOriginalURLs(items)
 
 	response.OK(w, map[string]any{
 		"items":       h.enrichItems(r, items, userID),
@@ -376,7 +374,7 @@ func (h *UserHandler) GetDownloads(w http.ResponseWriter, r *http.Request) {
 		nextCursor = items[len(items)-1].ID
 	}
 
-	stripOriginalURLs(items, userID)
+	stripOriginalURLs(items)
 
 	response.OK(w, map[string]any{
 		"items":       h.enrichItems(r, items, userID),
@@ -801,7 +799,7 @@ func (h *UserHandler) listUserInteractions(
 	if hasMore && len(items) > 0 {
 		nextCursor = items[len(items)-1].ID
 	}
-	stripOriginalURLs(items, currentUserID)
+	stripOriginalURLs(items)
 	response.OK(w, map[string]any{
 		"items":       h.enrichItems(r, items, currentUserID),
 		"next_cursor": nextCursor,

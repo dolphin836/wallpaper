@@ -2,13 +2,14 @@
 // that pre-date the perceptual-hash dedup feature.
 //
 // Usage:
-//   /bin/phashgen                    # only rows with phash=0
-//   /bin/phashgen --force            # recompute every published row
-//   /bin/phashgen --report-dupes     # after backfill, log near-duplicate pairs
 //
-// Runs inside the api container so it shares config/network with the API
-// (env-driven DB DSN, MinIO public URL reachable). Downloads + decodes are
-// I/O- and CPU-bound, so we fan out across worker goroutines.
+//	/bin/phashgen                    # only rows with phash=0
+//	/bin/phashgen --force            # recompute every published row
+//	/bin/phashgen --report-dupes     # after backfill, log near-duplicate pairs
+//
+// Runs inside the api container so it shares config/network with the API.
+// Originals are read through the authenticated MinIO client; reads + decodes
+// are I/O- and CPU-bound, so we fan out across worker goroutines.
 package main
 
 import (
@@ -22,8 +23,6 @@ import (
 	"io"
 	"log"
 	"math/bits"
-	"net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -35,6 +34,7 @@ import (
 	"gorm.io/gorm/logger"
 
 	"github.com/wallpaper/backend/internal/config"
+	"github.com/wallpaper/backend/internal/pkg/storage"
 )
 
 type wallpaperRow struct {
@@ -71,27 +71,13 @@ func main() {
 		log.Fatal("query: ", err)
 	}
 
-	// Prefer the internal MinIO endpoint so we skip Caddy + TLS — public URL
-	// fetches were taking 30-60s per HEIC file and saturating the timeout.
-	publicPrefix := strings.TrimRight(cfg.MinIO.PublicURL, "/")
-	internalBase := "http://" + cfg.MinIO.Endpoint
-	rewriteForInternal := func(u string) string {
-		if publicPrefix == "" || !strings.HasPrefix(u, publicPrefix) {
-			return u
-		}
-		return internalBase + strings.TrimPrefix(u, publicPrefix)
+	store, err := storage.New(cfg.MinIO)
+	if err != nil {
+		log.Fatal("connect minio: ", err)
 	}
 
 	fmt.Printf("Wallpapers to backfill: %d (concurrency=%d, timeout=%s, internal=%s)\n",
-		len(rows), *concurrency, *timeout, internalBase)
-
-	// Shared transport so all workers re-use the connection pool to MinIO.
-	transport := &http.Transport{
-		MaxIdleConns:        *concurrency * 2,
-		MaxIdleConnsPerHost: *concurrency * 2,
-		IdleConnTimeout:     90 * time.Second,
-	}
-	client := &http.Client{Timeout: *timeout, Transport: transport}
+		len(rows), *concurrency, *timeout, cfg.MinIO.Endpoint)
 
 	jobs := make(chan wallpaperRow)
 	var ok, fail int64
@@ -102,7 +88,7 @@ func main() {
 			defer wg.Done()
 			for r := range jobs {
 				ctx, cancel := context.WithTimeout(context.Background(), *timeout)
-				hash, err := computePhash(ctx, client, rewriteForInternal(r.OriginalURL))
+				hash, err := computePhash(ctx, store, r.OriginalURL)
 				cancel()
 				if err != nil {
 					log.Printf("  [FAIL] %d: %v", r.ID, err)
@@ -135,23 +121,20 @@ func main() {
 	}
 }
 
-func computePhash(ctx context.Context, client *http.Client, url string) (int64, error) {
-	if url == "" {
+func computePhash(ctx context.Context, store *storage.Storage, originalURL string) (int64, error) {
+	if originalURL == "" {
 		return 0, fmt.Errorf("empty original_url")
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	objectKey := store.ObjectKeyFromURL(originalURL)
+	if objectKey == "" {
+		return 0, fmt.Errorf("cannot derive object key from %q", originalURL)
+	}
+	object, err := store.GetObject(ctx, objectKey)
 	if err != nil {
 		return 0, err
 	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("http %d", resp.StatusCode)
-	}
-	data, err := io.ReadAll(resp.Body)
+	defer object.Close()
+	data, err := io.ReadAll(object)
 	if err != nil {
 		return 0, err
 	}

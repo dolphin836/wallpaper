@@ -7,6 +7,7 @@ import type { Wallpaper } from '../types';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
 import WallpaperTile, { ResChip } from '../components/WallpaperTile';
+import useProtectedImageBlob from '../hooks/useProtectedImageBlob';
 
 const MONTH_ABBR = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -33,20 +34,24 @@ function fmtMB(b?: number) { return ((b || 0) / 1024 / 1024).toFixed(1) + ' MB';
 function WeeklyHero({ hero, week, year }: { hero: WeeklyPicked; week: number; year: number }) {
   const { t } = useTranslation('browse');
   const location = useLocation();
-  const [src, setSrc] = useState(hero.thumb_url || hero.preview_url || hero.original_url);
+  const [src, setSrc] = useState(hero.thumb_url || hero.preview_url || '');
   const [loaded, setLoaded] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
+  const protectedOriginal = !hero.file_type.startsWith('video/') && !hero.is_dynamic
+    ? hero.original_url
+    : '';
+  const { blobURL: originalBlobURL, loading: originalLoading } = useProtectedImageBlob(protectedOriginal);
   useEffect(() => {
     let alive = true;
-    const baseSrc = hero.thumb_url || hero.preview_url || hero.original_url;
+    const baseSrc = hero.thumb_url || hero.preview_url || originalBlobURL;
     const previewSrc = hero.preview_url && hero.preview_url !== baseSrc ? hero.preview_url : '';
-    const originalSrc = hero.original_url && hero.original_url !== (previewSrc || baseSrc) ? hero.original_url : '';
+    const originalSrc = originalBlobURL && originalBlobURL !== (previewSrc || baseSrc) ? originalBlobURL : '';
 
     setSrc(baseSrc);
     setLoaded(false);
 
     const queue = [previewSrc, originalSrc].filter(Boolean);
-    setUpgrading(queue.length > 0);
+    setUpgrading(queue.length > 0 || originalLoading);
 
     const loadNext = (index: number) => {
       const next = queue[index];
@@ -69,7 +74,7 @@ function WeeklyHero({ hero, week, year }: { hero: WeeklyPicked; week: number; ye
     return () => {
       alive = false;
     };
-  }, [hero.id, hero.preview_url, hero.thumb_url, hero.original_url]);
+  }, [hero.id, hero.preview_url, hero.thumb_url, originalBlobURL, originalLoading]);
 
   return (
     <Link

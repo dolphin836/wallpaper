@@ -6,6 +6,8 @@ import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
 import WallpaperTile from '../components/WallpaperTile';
 import useSkeletonRows from '../hooks/useSkeletonRows';
+import useProtectedImageBlob from '../hooks/useProtectedImageBlob';
+import type { Wallpaper } from '../types';
 
 /**
  * Home v4 — immersive weekly backdrop, mirroring the Mac client
@@ -79,29 +81,40 @@ export default function HomePage() {
 
 /* ─── Fixed full-bleed backdrop, Mac loading order:
        dominant color → thumb (blurred) → original. ─── */
-function HomeBackdrop({ hero }: { hero: { thumb_url?: string; preview_url?: string; original_url?: string; dominant_color?: string } | null }) {
+function HomeBackdrop({ hero }: { hero: Partial<Wallpaper> | null }) {
   const [src, setSrc] = useState('');
   const [sharp, setSharp] = useState(false);
+  const protectedOriginal = hero?.original_url
+    && !hero.file_type?.startsWith('video/')
+    && !hero.is_dynamic
+      ? hero.original_url
+      : '';
+  const { blobURL: originalBlobURL, loading: originalLoading } = useProtectedImageBlob(protectedOriginal);
+
+  useEffect(() => {
+    if (!hero) return;
+    const thumb = hero.thumb_url || hero.preview_url || '';
+    setSrc(thumb);
+    setSharp(false);
+
+  }, [hero]);
 
   useEffect(() => {
     if (!hero) return;
     let alive = true;
     const thumb = hero.thumb_url || hero.preview_url || '';
-    const original = hero.original_url || hero.preview_url || thumb;
+    const high = originalBlobURL || hero.preview_url || thumb;
 
-    setSrc(thumb);
-    setSharp(false);
-
-    if (original && original !== thumb) {
+    if (high && high !== thumb) {
       const img = new Image();
-      img.onload = () => { if (alive) { setSrc(original); setSharp(true); } };
+      img.onload = () => { if (alive) { setSrc(high); setSharp(!originalLoading); } };
       img.onerror = () => { if (alive) setSharp(true); };
-      img.src = original;
+      img.src = high;
     } else {
-      setSharp(true);
+      setSharp(!originalLoading);
     }
     return () => { alive = false; };
-  }, [hero]);
+  }, [hero, originalBlobURL, originalLoading]);
 
   return (
     <div className="h4-backdrop" aria-hidden style={{ backgroundColor: hero?.dominant_color || undefined }}>

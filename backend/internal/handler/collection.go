@@ -339,9 +339,9 @@ func (h *CollectionHandler) ListWallpapers(w http.ResponseWriter, r *http.Reques
 	items := make([]wallpaperWithStatus, len(resp.Items))
 	wpIDs := make([]int64, len(resp.Items))
 	for i := range resp.Items {
-		if currentUserID <= 0 || currentUserID != resp.Items[i].UserID {
-			resp.Items[i].OriginalURL = ""
-		}
+		// Permanent storage URLs are private. Lists expose only the derived
+		// thumbnail/preview tiers; detail requests receive a short-lived URL.
+		resp.Items[i].OriginalURL = ""
 		wpIDs[i] = resp.Items[i].ID
 		items[i] = wallpaperWithStatus{Wallpaper: resp.Items[i]}
 	}

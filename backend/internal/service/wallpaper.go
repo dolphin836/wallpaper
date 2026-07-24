@@ -207,13 +207,6 @@ func (s *WallpaperService) GetBySlug(ctx context.Context, idOrSlug string, curre
 		return nil, errcode.ErrInternal
 	}
 
-	// Video detail playback now loads the sole H.264 asset directly after the
-	// user presses play; there is no separate preview clip. Keep its URL in the
-	// detail payload while preserving the original image download gate.
-	if (currentUserID <= 0 || currentUserID != w.UserID) && !strings.HasPrefix(w.FileType, "video/") {
-		w.OriginalURL = ""
-	}
-
 	detail := &WallpaperDetail{
 		Wallpaper: *w,
 		Tags:      tags,
@@ -275,9 +268,7 @@ func (s *WallpaperService) List(ctx context.Context, opts repo.ListOptions, curr
 
 	listItems := make([]WallpaperListItem, len(items))
 	for i := range items {
-		if currentUserID <= 0 || currentUserID != items[i].UserID {
-			items[i].OriginalURL = ""
-		}
+		items[i].OriginalURL = ""
 		listItems[i] = WallpaperListItem{Wallpaper: items[i]}
 	}
 
@@ -363,9 +354,7 @@ func (s *WallpaperService) listTrending(ctx context.Context, opts repo.ListOptio
 
 	listItems := make([]WallpaperListItem, len(filtered))
 	for i := range filtered {
-		if currentUserID <= 0 || currentUserID != filtered[i].UserID {
-			filtered[i].OriginalURL = ""
-		}
+		filtered[i].OriginalURL = ""
 		listItems[i] = WallpaperListItem{Wallpaper: filtered[i]}
 	}
 
@@ -543,24 +532,23 @@ func (s *WallpaperService) Unfavorite(ctx context.Context, userID, wallpaperID i
 }
 
 // Download charges the download (owner exempt, first-time only) and returns
-// the original URL. Per the 2026-07-05 decision the derived device variants
-// are gone: every download serves the original file; clients hide wallpapers
-// that would need upscaling instead of receiving resized copies.
-func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, userID int64, meta repo.EventMeta) (string, *errcode.ErrCode) {
+// the authorized wallpaper. The handler converts it into a short-lived media
+// redirect; permanent storage URLs are never returned to clients.
+func (s *WallpaperService) Download(ctx context.Context, wallpaperID int64, userID int64, meta repo.EventMeta) (*model.Wallpaper, *errcode.ErrCode) {
 	w, err := s.wallpaperRepo.GetByID(ctx, wallpaperID)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get wallpaper",
 			"error", err, "wallpaper_id", wallpaperID)
-		return "", errcode.ErrInternal
+		return nil, errcode.ErrInternal
 	}
 	if w == nil {
-		return "", errcode.ErrNotFound
+		return nil, errcode.ErrNotFound
 	}
 
 	if ec := s.chargeAndRecordDownload(ctx, w, userID, meta); ec != nil {
-		return "", ec
+		return nil, ec
 	}
-	return w.OriginalURL, nil
+	return w, nil
 }
 
 // chargeAndRecordDownload runs the coin transfer (first download only, owner

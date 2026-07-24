@@ -143,6 +143,18 @@ export const onRequest: PagesFunction = async (context) => {
   }
 
   const isStorage = path.startsWith('/storage/');
+  // Originals and served videos are intentionally private in MinIO. Block
+  // their historical public paths at the edge too, so an old immutable
+  // cache entry cannot keep acting as the product's viewing API.
+  if (isStorage && /^\/storage\/[^/]+\/(?:originals|videos)\//.test(path)) {
+    return new Response('Not found', {
+      status: 404,
+      headers: {
+        'cache-control': 'private, no-store, max-age=0',
+        'x-robots-tag': 'noindex, noimageindex',
+      },
+    });
+  }
   const proxyPath = isBotDetail
     ? `/__og/wallpaper/${wpMatch[1]}`
     : path;

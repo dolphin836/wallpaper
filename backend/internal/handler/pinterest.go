@@ -375,7 +375,7 @@ func (h *PinterestHandler) boardName(ctx context.Context, categoryID int64) stri
 }
 
 func (h *PinterestHandler) wallpaperImageURL(wallpaper *model.Wallpaper) string {
-	for _, candidate := range []string{wallpaper.PreviewURL, wallpaper.ThumbURL, wallpaper.OriginalURL} {
+	for _, candidate := range []string{wallpaper.PreviewURL, wallpaper.ThumbURL} {
 		candidate = strings.TrimSpace(candidate)
 		if candidate == "" {
 			continue

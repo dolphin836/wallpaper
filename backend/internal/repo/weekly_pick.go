@@ -342,6 +342,7 @@ type ArchiveEntry struct {
 	Year        int16  `json:"year"`
 	Week        int16  `json:"week"`
 	Count       int    `json:"count"`
+	WallpaperID int64  `json:"-"`
 	CoverURL    string `json:"cover_url"`
 	OriginalURL string `json:"original_url,omitempty"`
 	AccentColor string `json:"accent_color,omitempty"`
@@ -379,7 +380,7 @@ func (r *WeeklyPickRepo) Archive(ctx context.Context, limit int) ([]ArchiveEntry
 	// no progressive upgrade, no chance of swap.
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT DISTINCT ON (slate.year, slate.week)
-		       slate.year, slate.week, slate.cnt AS count,
+		       slate.year, slate.week, slate.cnt AS count, w.id AS wallpaper_id,
 		       COALESCE(w.preview_url, w.thumb_url, '') AS cover_url,
 		       COALESCE(w.original_url, '') AS original_url,
 		       COALESCE(tc.accent_color, '') AS accent_color,

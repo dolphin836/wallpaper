@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/pkg/errcode"
 	"github.com/wallpaper/backend/internal/pkg/variant"
 	"github.com/wallpaper/backend/internal/repo"
@@ -74,31 +75,31 @@ func (s *WallpaperService) ListSupportedDevices(ctx context.Context, wallpaperID
 }
 
 // DownloadForDevice charges the download (owner exempt, first-time only) and
-// returns the original URL. The device id is validated for API compatibility
+// returns the authorized wallpaper. The device id is validated for API compatibility
 // with older clients, but no longer selects a derived file — per the
 // 2026-07-05 decision, every download serves the original and clients filter
 // non-fitting wallpapers instead.
-func (s *WallpaperService) DownloadForDevice(ctx context.Context, wallpaperID, deviceID, userID int64, meta repo.EventMeta) (string, *errcode.ErrCode) {
+func (s *WallpaperService) DownloadForDevice(ctx context.Context, wallpaperID, deviceID, userID int64, meta repo.EventMeta) (*model.Wallpaper, *errcode.ErrCode) {
 	w, err := s.wallpaperRepo.GetByID(ctx, wallpaperID)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get wallpaper", "error", err, "wallpaper_id", wallpaperID)
-		return "", errcode.ErrInternal
+		return nil, errcode.ErrInternal
 	}
 	if w == nil {
-		return "", errcode.ErrNotFound
+		return nil, errcode.ErrNotFound
 	}
 
 	dev, err := s.deviceRepo.GetByID(ctx, deviceID)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get device", "error", err, "device_id", deviceID)
-		return "", errcode.ErrInternal
+		return nil, errcode.ErrInternal
 	}
 	if dev == nil {
-		return "", errcode.ErrNotFound
+		return nil, errcode.ErrNotFound
 	}
 
 	if ec := s.chargeAndRecordDownload(ctx, w, userID, meta); ec != nil {
-		return "", ec
+		return nil, ec
 	}
-	return w.OriginalURL, nil
+	return w, nil
 }

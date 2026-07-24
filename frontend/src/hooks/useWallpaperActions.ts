@@ -127,7 +127,8 @@ export function useWallpaperActions(wallpaper: Wallpaper) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const ext = wallpaper.original_url.split('.').pop()?.split('?')[0] || 'jpg';
+      const finalPath = new URL(resp.url, window.location.href).pathname;
+      const ext = finalPath.match(/\.([a-z0-9]{2,8})$/i)?.[1] || 'jpg';
       a.download = `wallpaper_${wallpaper.id}.${ext}`;
       document.body.appendChild(a);
       a.click();

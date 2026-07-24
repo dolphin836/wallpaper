@@ -15,6 +15,7 @@ import (
 type Deps struct {
 	AuthHandler       *AuthHandler
 	WallpaperHandler  *WallpaperHandler
+	MediaHandler      *MediaHandler
 	CategoryHandler   *CategoryHandler
 	TagHandler        *TagHandler
 	UserHandler       *UserHandler
@@ -101,6 +102,8 @@ func NewRouter(deps Deps) *chi.Mux {
 		r.Get("/mac/release", deps.ReleaseHandler.GetMacRelease)
 		r.Get("/android/release", deps.ReleaseHandler.GetAndroidRelease)
 		r.Get("/stats", deps.StatsHandler.Get)
+		r.Get("/media/{token}/{filename}", deps.MediaHandler.Serve)
+		r.MethodFunc(http.MethodHead, "/media/{token}/{filename}", deps.MediaHandler.Serve)
 
 		r.Get("/users", deps.UserHandler.ListUsers)
 

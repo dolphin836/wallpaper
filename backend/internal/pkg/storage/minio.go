@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -39,10 +41,29 @@ func (s *Storage) EnsureBucket(ctx context.Context) error {
 			return fmt.Errorf("make bucket: %w", err)
 		}
 	}
-	return s.ensurePublicRead(ctx)
+	return s.ensurePublicAssetRead(ctx)
 }
 
-func (s *Storage) ensurePublicRead(ctx context.Context) error {
+// ensurePublicAssetRead keeps only derived display assets anonymously
+// readable. Originals and served videos stay private and are exposed through
+// the short-lived media gateway in the API.
+func (s *Storage) ensurePublicAssetRead(ctx context.Context) error {
+	data, err := publicAssetReadPolicy(s.bucket)
+	if err != nil {
+		return err
+	}
+	if err := s.client.SetBucketPolicy(ctx, s.bucket, string(data)); err != nil {
+		return fmt.Errorf("set bucket policy: %w", err)
+	}
+	return nil
+}
+
+func publicAssetReadPolicy(bucket string) ([]byte, error) {
+	publicPrefixes := []string{"avatars", "frames", "posters", "previews", "thumbs"}
+	resources := make([]string, 0, len(publicPrefixes))
+	for _, prefix := range publicPrefixes {
+		resources = append(resources, fmt.Sprintf("arn:aws:s3:::%s/%s/*", bucket, prefix))
+	}
 	policy := map[string]any{
 		"Version": "2012-10-17",
 		"Statement": []map[string]any{
@@ -50,18 +71,15 @@ func (s *Storage) ensurePublicRead(ctx context.Context) error {
 				"Effect":    "Allow",
 				"Principal": map[string]string{"AWS": "*"},
 				"Action":    []string{"s3:GetObject"},
-				"Resource":  []string{fmt.Sprintf("arn:aws:s3:::%s/*", s.bucket)},
+				"Resource":  resources,
 			},
 		},
 	}
 	data, err := json.Marshal(policy)
 	if err != nil {
-		return fmt.Errorf("marshal bucket policy: %w", err)
+		return nil, fmt.Errorf("marshal bucket policy: %w", err)
 	}
-	if err := s.client.SetBucketPolicy(ctx, s.bucket, string(data)); err != nil {
-		return fmt.Errorf("set bucket policy: %w", err)
-	}
-	return nil
+	return data, nil
 }
 
 func (s *Storage) Upload(ctx context.Context, objectName string, reader io.Reader, size int64, contentType string) error {
@@ -78,6 +96,38 @@ func (s *Storage) GetObject(ctx context.Context, objectName string) (io.ReadClos
 	obj, err := s.client.GetObject(ctx, s.bucket, objectName, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("get object: %w", err)
+	}
+	return obj, nil
+}
+
+type ObjectInfo struct {
+	Size         int64
+	ContentType  string
+	ETag         string
+	LastModified time.Time
+}
+
+func (s *Storage) StatObject(ctx context.Context, objectName string) (ObjectInfo, error) {
+	info, err := s.client.StatObject(ctx, s.bucket, objectName, minio.StatObjectOptions{})
+	if err != nil {
+		return ObjectInfo{}, fmt.Errorf("stat object: %w", err)
+	}
+	return ObjectInfo{
+		Size:         info.Size,
+		ContentType:  info.ContentType,
+		ETag:         info.ETag,
+		LastModified: info.LastModified,
+	}, nil
+}
+
+func (s *Storage) GetObjectRange(ctx context.Context, objectName string, start, end int64) (io.ReadCloser, error) {
+	opts := minio.GetObjectOptions{}
+	if err := opts.SetRange(start, end); err != nil {
+		return nil, fmt.Errorf("set object range: %w", err)
+	}
+	obj, err := s.client.GetObject(ctx, s.bucket, objectName, opts)
+	if err != nil {
+		return nil, fmt.Errorf("get object range: %w", err)
 	}
 	return obj, nil
 }
@@ -156,9 +206,23 @@ func (s *Storage) ObjectKeyFromURL(fullURL string) string {
 	if after, ok := strings.CutPrefix(fullURL, prefix); ok {
 		return after
 	}
-	prefix = fmt.Sprintf("%s/%s/", s.client.EndpointURL(), s.bucket)
-	if after, ok := strings.CutPrefix(fullURL, prefix); ok {
-		return after
+	if s.client != nil {
+		prefix = fmt.Sprintf("%s/%s/", s.client.EndpointURL(), s.bucket)
+		if after, ok := strings.CutPrefix(fullURL, prefix); ok {
+			return after
+		}
+	}
+	// Stored URLs can outlive a MINIO_PUBLIC_URL change. Fall back to the
+	// stable /{bucket}/{object-key} path shape so historical rows remain
+	// streamable after the public originals policy is removed.
+	if parsed, err := url.Parse(fullURL); err == nil {
+		marker := "/" + s.bucket + "/"
+		if _, after, ok := strings.Cut(parsed.Path, marker); ok {
+			if key, err := url.PathUnescape(after); err == nil {
+				return key
+			}
+			return after
+		}
 	}
 	return ""
 }

@@ -27,10 +27,11 @@ var extMIME = map[string]string{
 
 type WallpaperHandler struct {
 	wallpaperSvc *service.WallpaperService
+	mediaHandler *MediaHandler
 }
 
-func NewWallpaperHandler(wallpaperSvc *service.WallpaperService) *WallpaperHandler {
-	return &WallpaperHandler{wallpaperSvc: wallpaperSvc}
+func NewWallpaperHandler(wallpaperSvc *service.WallpaperService, mediaHandler *MediaHandler) *WallpaperHandler {
+	return &WallpaperHandler{wallpaperSvc: wallpaperSvc, mediaHandler: mediaHandler}
 }
 
 func (h *WallpaperHandler) Upload(w http.ResponseWriter, r *http.Request) {
@@ -184,6 +185,17 @@ func (h *WallpaperHandler) Get(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, status, ec)
 		return
 	}
+	mediaSession, err := h.mediaHandler.EnsureViewSession(w, r)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "create anonymous media session failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	if err := h.mediaHandler.DecorateOriginal(r, mediaSession, &detail.Wallpaper); err != nil {
+		slog.ErrorContext(r.Context(), "sign original view failed", "error", err, "wallpaper_id", detail.ID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
 	localizeTags(requestLang(r), detail.Tags)
 	response.OK(w, detail)
 }
@@ -313,7 +325,7 @@ func (h *WallpaperHandler) Download(w http.ResponseWriter, r *http.Request) {
 
 	// Older clients still send ?width=&height= hints; they are accepted
 	// and ignored — downloads always return the original now.
-	url, ec := h.wallpaperSvc.Download(r.Context(), id, userID, requestEventMeta(r, "", ""))
+	wp, ec := h.wallpaperSvc.Download(r.Context(), id, userID, requestEventMeta(r, "", ""))
 	if ec != nil {
 		status := http.StatusInternalServerError
 		switch ec.Code {
@@ -323,6 +335,12 @@ func (h *WallpaperHandler) Download(w http.ResponseWriter, r *http.Request) {
 			status = http.StatusPaymentRequired
 		}
 		response.Error(w, status, ec)
+		return
+	}
+	url, err := h.mediaHandler.DownloadURL(r, wp)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "sign original download failed", "error", err, "wallpaper_id", id)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
 	http.Redirect(w, r, url, http.StatusFound)
@@ -364,7 +382,7 @@ func (h *WallpaperHandler) DownloadForDevice(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
-	url, ec := h.wallpaperSvc.DownloadForDevice(r.Context(), id, deviceID, userID, requestEventMeta(r, "", ""))
+	wp, ec := h.wallpaperSvc.DownloadForDevice(r.Context(), id, deviceID, userID, requestEventMeta(r, "", ""))
 	if ec != nil {
 		status := http.StatusInternalServerError
 		switch ec.Code {
@@ -374,6 +392,12 @@ func (h *WallpaperHandler) DownloadForDevice(w http.ResponseWriter, r *http.Requ
 			status = http.StatusPaymentRequired
 		}
 		response.Error(w, status, ec)
+		return
+	}
+	url, err := h.mediaHandler.DownloadURL(r, wp)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "sign device download failed", "error", err, "wallpaper_id", id, "device_id", deviceID)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
 	response.OK(w, map[string]string{"url": url})

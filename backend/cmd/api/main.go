@@ -97,7 +97,8 @@ func main() {
 	collectionSvc := service.NewCollectionService(collectionRepo, interactionRepo)
 
 	authHandler := handler.NewAuthHandler(authSvc, loginLogRepo)
-	wallpaperHandler := handler.NewWallpaperHandler(wallpaperSvc)
+	mediaHandler := handler.NewMediaHandler(wallpaperSvc, store, cfg.JWT.Secret, cfg.IndexNow.SiteURL)
+	wallpaperHandler := handler.NewWallpaperHandler(wallpaperSvc, mediaHandler)
 	categoryHandler := handler.NewCategoryHandler(categoryRepo, cacheClient)
 	tagHandler := handler.NewTagHandler(tagRepo, cacheClient)
 	userHandler := handler.NewUserHandler(userRepo, wallpaperRepo, interactionRepo, coinRepo, store)
@@ -109,7 +110,7 @@ func main() {
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsRepo)
 	recommendHandler := handler.NewRecommendHandler(wallpaperRepo)
 	weeklyPickRepo := repo.NewWeeklyPickRepo(db)
-	weeklyPickHandler := handler.NewWeeklyPickHandler(weeklyPickRepo, collectionRepo)
+	weeklyPickHandler := handler.NewWeeklyPickHandler(weeklyPickRepo, collectionRepo, mediaHandler)
 	statsHandler := handler.NewStatsHandler(wallpaperRepo, collectionRepo)
 	llmUsageRepo := repo.NewLLMUsageRepo(db)
 	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, coinRepo, wallpaperRepo, collectionRepo, reportRepo, workerJobRepo, categoryRepo, analyticsRepo, loginLogRepo, llmUsageRepo, weeklyPickRepo, eventRepo, store, wallpaperSvc)
@@ -128,6 +129,7 @@ func main() {
 	router := handler.NewRouter(handler.Deps{
 		AuthHandler:       authHandler,
 		WallpaperHandler:  wallpaperHandler,
+		MediaHandler:      mediaHandler,
 		CategoryHandler:   categoryHandler,
 		TagHandler:        tagHandler,
 		UserHandler:       userHandler,

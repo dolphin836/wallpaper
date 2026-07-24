@@ -50,6 +50,7 @@ import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import AvatarStack from '../components/AvatarStack';
 import AddToCollectionModal from '../components/AddToCollectionModal';
+import useProtectedImageBlob from '../hooks/useProtectedImageBlob';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -154,13 +155,13 @@ export default function WallpaperDetailPage() {
   const metaDescription = wallpaper
     ? t(wallpaper.is_dynamic ? 'meta.descriptionDynamic' : 'meta.description', { res: `${wallpaper.width}×${wallpaper.height}` })
     : undefined;
-  const metaImage = wallpaper?.preview_url || wallpaper?.original_url;
+  const metaImage = wallpaper?.preview_url || wallpaper?.thumb_url;
   const jsonLd = wallpaper
     ? {
         '@context': 'https://schema.org',
         '@type': 'ImageObject',
         name: metaTitle,
-        contentUrl: wallpaper.original_url,
+        contentUrl: wallpaper.preview_url || wallpaper.thumb_url,
         thumbnailUrl: wallpaper.thumb_url || wallpaper.preview_url,
         width: wallpaper.width,
         height: wallpaper.height,
@@ -213,6 +214,14 @@ export default function WallpaperDetailPage() {
   const [heroContainedSize, setHeroContainedSize] = useState({ width: 0, height: 0 });
   const heroSourceId = wallpaper?.id;
   const isVideoWallpaper = (wallpaper?.file_type || '').startsWith('video/');
+  const protectedOriginalSource = wallpaper?.original_url && !isVideoWallpaper && !wallpaper.is_dynamic
+    ? wallpaper.original_url
+    : '';
+  const {
+    blobURL: originalBlobURL,
+    loading: originalBlobLoading,
+    failed: originalBlobFailed,
+  } = useProtectedImageBlob(protectedOriginalSource);
   const fullscreenVisible = fullscreen && !isVideoWallpaper;
   const originalSourceWidth = wallpaper?.width ?? 0;
   const originalSourceHeight = wallpaper?.height ?? 0;
@@ -224,9 +233,10 @@ export default function WallpaperDetailPage() {
     : 1;
   const heroSourceWidth = Math.round(originalSourceWidth * derivedScale);
   const heroSourceHeight = Math.round(originalSourceHeight * derivedScale);
-  const originalReady = !!wallpaper?.original_url && readyOriginalURL === wallpaper.original_url;
-  const originalFailed = !!wallpaper?.original_url && failedOriginalURL === wallpaper.original_url;
-  const needsOriginalLoad = !!wallpaper?.original_url && !isVideoWallpaper && !wallpaper.is_dynamic;
+  const originalReady = !!originalBlobURL && readyOriginalURL === originalBlobURL;
+  const originalFailed = !!protectedOriginalSource
+    && (originalBlobFailed || failedOriginalURL === protectedOriginalSource);
+  const needsOriginalLoad = !!protectedOriginalSource;
   const downloadReady = !!wallpaper && (!needsOriginalLoad || originalReady || originalFailed);
   const markOriginalDecoded = (image: HTMLImageElement, url: string) => {
     void image.decode()
@@ -564,12 +574,12 @@ export default function WallpaperDetailPage() {
   };
 
   const uploaderInitial = (wallpaper.uploader?.nickname || wallpaper.uploader?.username || '').charAt(0).toUpperCase();
-  const heroImg = wallpaper.preview_url || wallpaper.thumb_url || wallpaper.original_url;
+  const heroImg = wallpaper.preview_url || wallpaper.thumb_url || originalBlobURL;
   const originalHeroImg = !(wallpaper.file_type || '').startsWith('video/')
     && !wallpaper.is_dynamic
-    && wallpaper.original_url
-    && wallpaper.original_url !== heroImg
-      ? wallpaper.original_url
+    && originalBlobURL
+    && originalBlobURL !== heroImg
+      ? originalBlobURL
       : '';
   const fileSize = wallpaper.file_size > 0 ? formatFileSize(wallpaper.file_size) : '—';
   const downloadCost = isOwner ? 0 : 1;
@@ -645,7 +655,7 @@ export default function WallpaperDetailPage() {
 
       {mockupVariant && wallpaper && (
         <DeviceMockup
-          imageUrl={mockupVariant.url || wallpaper.preview_url || wallpaper.original_url}
+          imageUrl={mockupVariant.url || originalBlobURL || wallpaper.preview_url || wallpaper.thumb_url}
           platform={mockupVariant.platform}
           deviceName={`${mockupVariant.brand} ${mockupVariant.device_name}`}
           deviceWidth={mockupVariant.width}
@@ -688,7 +698,7 @@ export default function WallpaperDetailPage() {
           style={{ touchAction: 'none', cursor: fsScale > 1 ? (fsDrag.current.down ? 'grabbing' : 'grab') : 'default' }}
         >
           <img
-            src={matchedVariant?.url || wallpaper.original_url || wallpaper.preview_url}
+            src={matchedVariant?.url || originalBlobURL || wallpaper.preview_url || wallpaper.thumb_url}
             alt=""
             loading="eager"
             decoding="async"
@@ -912,10 +922,10 @@ export default function WallpaperDetailPage() {
                       decoding="async"
                       fetchPriority="high"
                       onLoad={(event) => {
-                        if (heroImg === wallpaper.original_url) markOriginalDecoded(event.currentTarget, heroImg);
+                        if (heroImg === originalBlobURL) markOriginalDecoded(event.currentTarget, heroImg);
                       }}
                       onError={() => {
-                        if (heroImg === wallpaper.original_url) setFailedOriginalURL(heroImg);
+                        if (heroImg === originalBlobURL) setFailedOriginalURL(protectedOriginalSource);
                       }}
                       onContextMenu={(e) => e.preventDefault()}
                       draggable={false}
@@ -931,14 +941,14 @@ export default function WallpaperDetailPage() {
                         decoding="async"
                         fetchPriority="high"
                         onLoad={(event) => markOriginalDecoded(event.currentTarget, originalHeroImg)}
-                        onError={() => setFailedOriginalURL(originalHeroImg)}
+                        onError={() => setFailedOriginalURL(protectedOriginalSource)}
                         onContextMenu={(e) => e.preventDefault()}
                         draggable={false}
                         className={`wd-s1-img wd-s1-img-original ${originalReady ? 'is-ready' : ''}`}
                         style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                       />
                     )}
-                    {needsOriginalLoad && !originalReady && !originalFailed && (
+                    {needsOriginalLoad && (originalBlobLoading || !originalReady) && !originalFailed && (
                       <span className="wd-s1-loading-glow" aria-hidden />
                     )}
                   </div>

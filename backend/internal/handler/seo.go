@@ -414,7 +414,7 @@ func (h *SEOHandler) OGWallpaper(w http.ResponseWriter, r *http.Request) {
 		Description:   fmt.Sprintf("Download this %d×%d%s wallpaper for free on Wallpaper Exchange.", wp.Width, wp.Height, dynamic),
 		URL:           base + "/wallpaper/" + wp.Slug,
 		Image:         wp.PreviewURL,
-		OriginalURL:   wp.OriginalURL,
+		OriginalURL:   wp.PreviewURL,
 		ThumbURL:      wp.ThumbURL,
 		Width:         wp.Width,
 		Height:        wp.Height,
@@ -422,7 +422,10 @@ func (h *SEOHandler) OGWallpaper(w http.ResponseWriter, r *http.Request) {
 		SiteURL:       base,
 	}
 	if data.Image == "" {
-		data.Image = wp.OriginalURL
+		data.Image = wp.ThumbURL
+	}
+	if data.OriginalURL == "" {
+		data.OriginalURL = data.Image
 	}
 	// Best-effort category lookup for the BreadcrumbList step. A missing
 	// category (or a transient DB error) just collapses the breadcrumb to
