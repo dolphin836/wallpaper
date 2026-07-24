@@ -149,6 +149,7 @@ export const getTops = (by = 'views', limit = 10) => client.get<ApiResponse<Admi
 export const listAdminWallpapers = (params: {
   page?: number; limit?: number; search?: string;
   status?: number; category_id?: number; user_id?: number; sort?: string;
+  wallpaper_type?: '' | 'ai' | 'heic' | 'video' | 'image';
   quality_flag?: '' | 'unassessed' | 'flagged' | 'weekly_eligible' | string;
 }) => client.get<ApiResponse<PaginatedAdmin<AdminWallpaperRow>>>('/admin/wallpapers', { params });
 

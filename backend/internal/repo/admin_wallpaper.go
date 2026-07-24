@@ -21,6 +21,9 @@ type AdminWallpaperListOpts struct {
 	Status     int16 // -1 means any
 	CategoryID int64
 	UserID     int64
+	// WallpaperType is an exclusive admin media bucket: ai, heic, video,
+	// or image. Empty means all types.
+	WallpaperType string
 	// QualityFlag accepts the literal flag values stored in wallpapers
 	// (`ok`, `low_aesthetic`, `watermark`, ...) plus synthetic values:
 	// `""` = no filter, `"unassessed"` = empty string, `"flagged"` =
@@ -54,6 +57,20 @@ func (r *WallpaperRepo) AdminList(ctx context.Context, opts AdminWallpaperListOp
 	if opts.UserID > 0 {
 		q = q.Where("wallpapers.user_id = ?", opts.UserID)
 		cq = cq.Where("user_id = ?", opts.UserID)
+	}
+	switch opts.WallpaperType {
+	case "ai":
+		q = q.Where("wallpapers.is_ai_generated = true")
+		cq = cq.Where("is_ai_generated = true")
+	case "heic":
+		q = q.Where("wallpapers.is_ai_generated = false AND LOWER(wallpapers.file_type) IN ('image/heic', 'image/heif')")
+		cq = cq.Where("is_ai_generated = false AND LOWER(file_type) IN ('image/heic', 'image/heif')")
+	case "video":
+		q = q.Where("wallpapers.is_ai_generated = false AND wallpapers.file_type LIKE 'video/%'")
+		cq = cq.Where("is_ai_generated = false AND file_type LIKE 'video/%'")
+	case "image":
+		q = q.Where("wallpapers.is_ai_generated = false AND wallpapers.file_type LIKE 'image/%' AND LOWER(wallpapers.file_type) NOT IN ('image/heic', 'image/heif')")
+		cq = cq.Where("is_ai_generated = false AND file_type LIKE 'image/%' AND LOWER(file_type) NOT IN ('image/heic', 'image/heif')")
 	}
 	switch opts.QualityFlag {
 	case "":

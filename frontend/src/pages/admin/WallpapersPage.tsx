@@ -34,6 +34,8 @@ const EVENT_NAMES: Record<string, string> = {
   download: '下载',
 };
 
+type WallpaperTypeFilter = '' | 'ai' | 'heic' | 'video' | 'image';
+
 function clientLabel(value?: string): string {
   if (!value) return '—';
   return CLIENT_NAMES[value.toLowerCase()] || value;
@@ -47,6 +49,7 @@ export default function WallpapersPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<number | -1>(-1);
   const [categoryFilter, setCategoryFilter] = useState<number>(0);
+  const [wallpaperTypeFilter, setWallpaperTypeFilter] = useState<WallpaperTypeFilter>('');
   // '' = no filter, 'flagged' / 'unassessed' = synthetic buckets,
   // anything else = exact match on quality_flag column.
   const [qualityFilter, setQualityFilter] = useState<string>('');
@@ -67,6 +70,7 @@ export default function WallpapersPage() {
         search: search || undefined,
         status: statusFilter >= 0 ? statusFilter : undefined,
         category_id: categoryFilter || undefined,
+        wallpaper_type: wallpaperTypeFilter || undefined,
         quality_flag: qualityFilter || undefined,
         sort,
       })
@@ -77,7 +81,7 @@ export default function WallpapersPage() {
       })
       .catch((e) => toast.error(e?.response?.data?.message || '加载失败'))
       .finally(() => setLoading(false));
-  }, [page, limit, search, statusFilter, categoryFilter, qualityFilter, sort]);
+  }, [page, limit, search, statusFilter, categoryFilter, wallpaperTypeFilter, qualityFilter, sort]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
 
@@ -225,6 +229,18 @@ export default function WallpapersPage() {
             <select value={categoryFilter} onChange={(e) => { setCategoryFilter(Number(e.target.value)); setPage(1); }} className="px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
               <option value={0}>全部分类</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <select
+              value={wallpaperTypeFilter}
+              onChange={(e) => { setWallpaperTypeFilter(e.target.value as WallpaperTypeFilter); setPage(1); }}
+              aria-label="壁纸类型"
+              className="px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+            >
+              <option value="">全部类型</option>
+              <option value="ai">AI</option>
+              <option value="heic">HEIC</option>
+              <option value="video">Video</option>
+              <option value="image">图片</option>
             </select>
             <select value={qualityFilter} onChange={(e) => { setQualityFilter(e.target.value); setPage(1); }} className="px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
               <option value="">全部质量</option>
