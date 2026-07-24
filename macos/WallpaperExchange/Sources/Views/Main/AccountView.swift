@@ -2,6 +2,17 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
+// Keep account loading grids aligned with the web profile: four complete
+// rows at whatever column count the current Mac window can actually fit.
+private func accountSkeletonCount(
+    availableWidth: CGFloat,
+    minimumItemWidth: CGFloat,
+    spacing: CGFloat
+) -> Int {
+    let columns = max(1, Int(floor((max(1, availableWidth) + spacing) / (minimumItemWidth + spacing))))
+    return columns * 4
+}
+
 // Unified account / profile page — the Mac port of the web ProfilePage.
 // One editorial header (with owner inline-editing + avatar + balance +
 // Edit/Password/Upload pills) + an underline tab bar with count badges +
@@ -52,27 +63,30 @@ struct AccountView: View {
     }
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 0) {
-                if let p = profile {
-                    AccountHeader(profile: p, isOwner: isOwner, onUpload: onUpload,
-                                  onChanged: { await loadProfile() })
-                    tabBar
-                    content(p).padding(.top, 26)
-                } else if let err = loadError {
-                    RemoteLoadErrorView(message: err) {
-                        Task {
-                            await loadProfile()
-                            await prefetchCounts()
+        GeometryReader { proxy in
+            let contentWidth = max(1, proxy.size.width - 80)
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    if let p = profile {
+                        AccountHeader(profile: p, isOwner: isOwner, onUpload: onUpload,
+                                      onChanged: { await loadProfile() })
+                        tabBar
+                        content(p, availableWidth: contentWidth).padding(.top, 26)
+                    } else if let err = loadError {
+                        RemoteLoadErrorView(message: err) {
+                            Task {
+                                await loadProfile()
+                                await prefetchCounts()
+                            }
                         }
+                        .padding(.top, 36)
+                    } else {
+                        accountSkeleton(availableWidth: contentWidth)
                     }
-                    .padding(.top, 36)
-                } else {
-                    accountSkeleton
                 }
+                .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 40).padding(.top, 24).padding(.bottom, 60)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .task(id: username) {
             if !didInit { tab = initialTab; didInit = true }
@@ -86,7 +100,7 @@ struct AccountView: View {
         .onDisappear { PaletteEnv.shared.resetToDefaults() }
     }
 
-    private var accountSkeleton: some View {
+    private func accountSkeleton(availableWidth: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 24) {
             ProfileHeaderSkeleton()
             HStack(spacing: 22) {
@@ -96,18 +110,18 @@ struct AccountView: View {
             }
             .padding(.top, 4)
             .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 1) }
-            accountContentSkeleton
+            accountContentSkeleton(availableWidth: availableWidth)
             .padding(.top, 2)
         }
     }
 
     @ViewBuilder
-    private var accountContentSkeleton: some View {
+    private func accountContentSkeleton(availableWidth: CGFloat) -> some View {
         switch tab {
         case .collections:
             CollectionGridSkeleton(
                 columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)],
-                count: 8,
+                count: accountSkeletonCount(availableWidth: availableWidth, minimumItemWidth: 240, spacing: 24),
                 spacing: 28
             )
         case .ledger:
@@ -115,7 +129,7 @@ struct AccountView: View {
         default:
             WallpaperGridSkeleton(
                 columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14, alignment: .top)],
-                count: 12
+                count: accountSkeletonCount(availableWidth: availableWidth, minimumItemWidth: 220, spacing: 14)
             )
         }
     }
@@ -223,17 +237,18 @@ struct AccountView: View {
     }
 
     // ─── Tab content ─────────────────────────────────────────────
-    @ViewBuilder private func content(_ p: PublicProfile) -> some View {
+    @ViewBuilder private func content(_ p: PublicProfile, availableWidth: CGFloat) -> some View {
         switch tab {
         case .settings:
             AccountSettingsTab()
         case .uploads:
-            AccountUploadsTab(username: username, isOwner: isOwner,
+            AccountUploadsTab(username: username, isOwner: isOwner, availableWidth: availableWidth,
                               onWallpaper: onWallpaper, onCount: { counts[.uploads] = $0 },
                               onPalette: applyMesh)
         case .collections:
             PagedCollectionGrid(
                 headLabel: L10n.account.headCreated,
+                availableWidth: availableWidth,
                 fetch: { cursor, limit in try await APIClient.shared.fetchUserCollections(idOrUsername: username, cursor: cursor, limit: limit) },
                 onCollection: onCollection,
                 onCount: { counts[.collections] = $0 },
@@ -242,17 +257,20 @@ struct AccountView: View {
             ).id("collections-\(username)")
         case .favorites:
             wallpaperList(.favorites, head: L10n.account.headFavorites, empty: L10n.account.emptyFavorites,
+                          availableWidth: availableWidth,
                           isPublic: auth.user?.favoritesPublic ?? false, noun: L10n.account.nounFavorites,
                           fetch: { c, l in try await APIClient.shared.fetchUserFavorites(username: username, cursor: c, limit: l) },
                           toggle: { v in Task { try? await APIClient.shared.updatePrivacy(favoritesPublic: v); await auth.refreshProfile() } })
         case .likes:
             wallpaperList(.likes, head: L10n.account.headLikes, empty: L10n.account.emptyLikes,
+                          availableWidth: availableWidth,
                           isPublic: auth.user?.likesPublic ?? false, noun: L10n.account.nounLikes,
                           fetch: { c, l in try await APIClient.shared.fetchUserLikes(username: username, cursor: c, limit: l) },
                           toggle: { v in Task { try? await APIClient.shared.updatePrivacy(likesPublic: v); await auth.refreshProfile() } })
         case .downloads:
             VStack(alignment: .leading, spacing: 22) {
                 wallpaperList(.downloads, head: L10n.account.headDownloads, empty: L10n.account.emptyDownloads,
+                              availableWidth: availableWidth,
                               isPublic: auth.user?.downloadsPublic ?? false, noun: L10n.account.nounDownloads,
                               fetch: { c, l in try await APIClient.shared.fetchUserDownloads(username: username, cursor: c, limit: l) },
                               toggle: { v in Task { try? await APIClient.shared.updatePrivacy(downloadsPublic: v); await auth.refreshProfile() } },
@@ -265,12 +283,13 @@ struct AccountView: View {
 
     @ViewBuilder
     private func wallpaperList(_ t: AccountTab, head: String, empty: String,
+                               availableWidth: CGFloat,
                                isPublic: Bool, noun: String,
                                fetch: @escaping (_ c: Int?, _ l: Int) async throws -> PaginatedData<Wallpaper>,
                                toggle: @escaping (Bool) -> Void,
                                flagIfNotLocal: Bool = false) -> some View {
         PagedWallpaperGrid(
-            headLabel: head, emptyText: empty,
+            headLabel: head, availableWidth: availableWidth, emptyText: empty,
             privacyNoun: isOwner ? noun : nil, privacyIsPublic: isPublic,
             onTogglePrivacy: toggle,
             fetch: fetch, onWallpaper: onWallpaper, onCount: { counts[t] = $0 }, onPalette: applyMesh,
@@ -498,6 +517,7 @@ struct AccountHeader: View {
 struct AccountUploadsTab: View {
     let username: String
     let isOwner: Bool
+    let availableWidth: CGFloat
     var onWallpaper: (Wallpaper) -> Void
     var onCount: (Int) -> Void
     var onPalette: (String?, String?) -> Void = { _, _ in }
@@ -506,14 +526,16 @@ struct AccountUploadsTab: View {
         VStack(alignment: .leading, spacing: 36) {
             if isOwner {
                 PagedWallpaperGrid(
-                    headLabel: L10n.account.headPending, emptyText: "", hideWhenEmpty: true,
+                    headLabel: L10n.account.headPending, availableWidth: availableWidth,
+                    emptyText: "", hideWhenEmpty: true,
                     fetch: { cursor, limit in try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, limit: limit, status: "0,5") },
                     onWallpaper: onWallpaper,
                     showProcessing: true
                 ).id("pending-\(username)")
             }
             PagedWallpaperGrid(
-                headLabel: L10n.account.headPublished, emptyText: L10n.account.emptyPublished,
+                headLabel: L10n.account.headPublished, availableWidth: availableWidth,
+                emptyText: L10n.account.emptyPublished,
                 fetch: { cursor, limit in try await APIClient.shared.fetchUserUploads(username: username, cursor: cursor, limit: limit, status: "1") },
                 onWallpaper: onWallpaper, onCount: onCount, onPalette: onPalette
             ).id("pub-\(username)")
@@ -524,6 +546,7 @@ struct AccountUploadsTab: View {
 // ─── Reusable paged wallpaper grid ───────────────────────────────
 struct PagedWallpaperGrid: View {
     let headLabel: String
+    let availableWidth: CGFloat
     var emptyText: String = L10n.account.nothingHere
     var hideWhenEmpty: Bool = false
     var privacyNoun: String? = nil
@@ -598,7 +621,11 @@ struct PagedWallpaperGrid: View {
                     if visibleLoading && visibleItems.isEmpty {
                         WallpaperGridSkeleton(
                             columns: gridColumns,
-                            count: 12,
+                            count: accountSkeletonCount(
+                                availableWidth: availableWidth,
+                                minimumItemWidth: 220,
+                                spacing: gridSpacing
+                            ),
                             spacing: gridSpacing,
                             aspectRatio: 3.0 / 2.0,
                             cornerRadius: 10
@@ -729,6 +756,7 @@ struct PagedWallpaperGrid: View {
 // ─── Reusable paged collection grid ──────────────────────────────
 struct PagedCollectionGrid: View {
     let headLabel: String
+    let availableWidth: CGFloat
     let fetch: (_ cursor: Int?, _ limit: Int) async throws -> PaginatedData<CollectionItem>
     var onCollection: (CollectionItem) -> Void
     var onCount: (Int) -> Void = { _ in }
@@ -763,7 +791,11 @@ struct PagedCollectionGrid: View {
             if loading && items.isEmpty {
                 CollectionGridSkeleton(
                     columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)],
-                    count: 8,
+                    count: accountSkeletonCount(
+                        availableWidth: availableWidth,
+                        minimumItemWidth: 240,
+                        spacing: 24
+                    ),
                     spacing: 28
                 )
             } else if let err = loadError, items.isEmpty {
