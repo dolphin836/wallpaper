@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,9 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -20,14 +17,15 @@ import (
 
 	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/pkg/storage"
+	"github.com/wallpaper/backend/internal/pkg/videoassets"
 	"github.com/wallpaper/backend/internal/repo"
 )
 
 // TranscodeWorker consumes wallpaper.transcode events for video
 // uploads (single-file, ≤200 MB, arrived via the tus handler), runs
-// ffmpeg to normalize the encoding to H.264 + AAC at ≤1080p,
-// extracts a poster image from the first second, uploads both back
-// to MinIO, and moves the wallpaper row from Processing →
+// ffmpeg to normalize the encoding to H.264 + AAC at source resolution,
+// extracts 400px / 1600px / full-size poster images, uploads the four
+// resulting assets to MinIO, and moves the wallpaper row from Processing →
 // PendingReview so the admin queue picks it up.
 //
 // Why a separate worker (not the image worker):
@@ -143,34 +141,34 @@ func (w *TranscodeWorker) processVideo(ctx context.Context, event WallpaperUploa
 	}
 
 	// Probe duration + dimensions for the wallpaper row update.
-	probe, err := ffprobe(ctx, srcPath)
+	probe, err := videoassets.Probe(ctx, srcPath)
 	if err != nil {
 		return fmt.Errorf("ffprobe: %w", err)
 	}
 	if probe.Width <= 0 || probe.Height <= 0 {
 		return fmt.Errorf("ffprobe returned zero dimensions")
 	}
+	if !videoassets.MeetsMinimumResolution(probe.Width, probe.Height) {
+		// The TUS create hook rejects dimensions supplied by current clients,
+		// while this probe remains the authoritative guard for older clients
+		// that do not send width/height metadata.
+		if err := w.storage.Delete(ctx, event.ObjectKey); err != nil {
+			slog.WarnContext(ctx, "transcode: delete rejected source failed", "key", event.ObjectKey, "error", err)
+		}
+		return fmt.Errorf(
+			"video resolution %dx%d is below the minimum %dx%d",
+			probe.Width, probe.Height, videoassets.MinLongEdge, videoassets.MinShortEdge,
+		)
+	}
 
-	// Transcode → H.264 + AAC, cap height at 1080p (preserves aspect
-	// via -2 for width). CRF 23 is the ffmpeg sweet-spot for delivery.
-	// -movflags +faststart puts the moov atom at the front so the
-	// browser can start playback before the whole file downloads.
+	// Normalize to H.264 + AAC without reducing the source resolution.
+	// -movflags +faststart puts the moov atom at the front so clients can
+	// start playback before the whole file downloads.
 	outMp4 := filepath.Join(work, "out.mp4")
-	transcodeArgs := []string{
-		"-y", "-hide_banner", "-loglevel", "error",
-		"-i", srcPath,
-		"-c:v", "libx264", "-profile:v", "high", "-preset", "medium", "-crf", "23",
-		"-vf", "scale=-2:'min(1080,ih)',format=yuv420p",
-		"-pix_fmt", "yuv420p",
-		"-c:a", "aac", "-b:a", "128k",
-		"-movflags", "+faststart",
-		"-max_muxing_queue_size", "1024",
-		outMp4,
+	if err := videoassets.Transcode(ctx, srcPath, outMp4); err != nil {
+		return err
 	}
-	if out, err := exec.CommandContext(ctx, "ffmpeg", transcodeArgs...).CombinedOutput(); err != nil {
-		return fmt.Errorf("ffmpeg transcode: %w (%s)", err, snippet(out, 400))
-	}
-	servedProbe, err := ffprobe(ctx, outMp4)
+	servedProbe, err := videoassets.Probe(ctx, outMp4)
 	if err != nil {
 		return fmt.Errorf("ffprobe transcoded mp4: %w", err)
 	}
@@ -178,62 +176,38 @@ func (w *TranscodeWorker) processVideo(ctx context.Context, event WallpaperUploa
 		return fmt.Errorf("ffprobe transcoded mp4 returned zero dimensions")
 	}
 
-	// Poster from the 1s mark (or the first frame if the video is
-	// shorter). webp keeps the file ≈10× smaller than jpeg for the
-	// same quality and matches what the image worker writes.
-	posterPath := filepath.Join(work, "poster.webp")
-	seek := "1"
-	if probe.Duration > 0 && probe.Duration < 1 {
-		seek = "0"
+	posterPaths := videoassets.PosterPaths{
+		Thumb:   filepath.Join(work, "thumb.webp"),
+		Preview: filepath.Join(work, "preview.webp"),
+		Full:    filepath.Join(work, "poster.webp"),
 	}
-	posterArgs := []string{
-		"-y", "-hide_banner", "-loglevel", "error",
-		"-ss", seek, "-i", outMp4,
-		"-vframes", "1",
-		"-vf", "scale=-2:'min(720,ih)'",
-		"-c:v", "libwebp", "-quality", "80",
-		posterPath,
-	}
-	if out, err := exec.CommandContext(ctx, "ffmpeg", posterArgs...).CombinedOutput(); err != nil {
-		return fmt.Errorf("ffmpeg poster: %w (%s)", err, snippet(out, 400))
+	if err := videoassets.GeneratePosters(ctx, outMp4, servedProbe.Duration, posterPaths); err != nil {
+		return err
 	}
 
-	// Low-quality preview clip for the detail page: 480p, CRF 30, no audio,
-	// faststart. The web player fully buffers this before playing (no mid-
-	// playback stutter), so keeping it small matters more than fidelity —
-	// original_url stays the download-quality copy. Roughly 1/6–1/8 the
-	// transcoded size. Downscaled from out.mp4 since that's already H.264.
-	previewMp4 := filepath.Join(work, "preview.mp4")
-	previewArgs := []string{
-		"-y", "-hide_banner", "-loglevel", "error",
-		"-i", outMp4,
-		"-c:v", "libx264", "-profile:v", "high", "-preset", "veryfast", "-crf", "30",
-		"-vf", "scale=-2:'min(480,ih)',format=yuv420p",
-		"-pix_fmt", "yuv420p",
-		"-an",
-		"-movflags", "+faststart",
-		"-max_muxing_queue_size", "1024",
-		previewMp4,
-	}
-	if out, err := exec.CommandContext(ctx, "ffmpeg", previewArgs...).CombinedOutput(); err != nil {
-		return fmt.Errorf("ffmpeg preview: %w (%s)", err, snippet(out, 400))
-	}
-
-	// Upload all three back to MinIO.
+	// Upload the transcoded video and all three image tiers. There is no
+	// derived preview video; playback loads original_url only after click.
 	mp4Key := fmt.Sprintf("videos/%s/%s.mp4",
 		time.Now().UTC().Format("2006/01/02"), uuid.New().String())
 	if err := w.uploadFile(ctx, mp4Key, outMp4, "video/mp4"); err != nil {
 		return fmt.Errorf("upload transcoded mp4: %w", err)
 	}
-	posterKey := fmt.Sprintf("posters/%s/%s.webp",
-		time.Now().UTC().Format("2006/01/02"), uuid.New().String())
-	if err := w.uploadFile(ctx, posterKey, posterPath, "image/webp"); err != nil {
-		return fmt.Errorf("upload poster: %w", err)
-	}
-	previewKey := fmt.Sprintf("video-previews/%s/%s.mp4",
-		time.Now().UTC().Format("2006/01/02"), uuid.New().String())
-	if err := w.uploadFile(ctx, previewKey, previewMp4, "video/mp4"); err != nil {
-		return fmt.Errorf("upload preview mp4: %w", err)
+	assetDate := time.Now().UTC().Format("2006/01/02")
+	thumbKey := fmt.Sprintf("thumbs/%s.webp", uuid.New().String())
+	previewKey := fmt.Sprintf("previews/%s.webp", uuid.New().String())
+	posterKey := fmt.Sprintf("posters/%s/%s.webp", assetDate, uuid.New().String())
+	for _, asset := range []struct {
+		key  string
+		path string
+		name string
+	}{
+		{thumbKey, posterPaths.Thumb, "thumb"},
+		{previewKey, posterPaths.Preview, "preview"},
+		{posterKey, posterPaths.Full, "full poster"},
+	} {
+		if err := w.uploadFile(ctx, asset.key, asset.path, "image/webp"); err != nil {
+			return fmt.Errorf("upload %s: %w", asset.name, err)
+		}
 	}
 
 	// Update DB:
@@ -248,15 +222,19 @@ func (w *TranscodeWorker) processVideo(ctx context.Context, event WallpaperUploa
 	st, _ := os.Stat(outMp4)
 	if err := w.wpRepo.UpdateTranscoded(ctx, event.WallpaperID, repo.UpdateTranscodedInput{
 		OriginalURL:     w.storage.GetURL(mp4Key),
-		ThumbURL:        w.storage.GetURL(posterKey),
-		PreviewURL:      w.storage.GetURL(posterKey),
-		PreviewVideoURL: w.storage.GetURL(previewKey),
+		ThumbURL:        w.storage.GetURL(thumbKey),
+		PreviewURL:      w.storage.GetURL(previewKey),
+		PosterURL:       w.storage.GetURL(posterKey),
+		PreviewVideoURL: "",
 		Width:           servedProbe.Width,
 		Height:          servedProbe.Height,
 		FileSize:        st.Size(),
 		FileType:        "video/mp4",
 	}); err != nil {
 		return fmt.Errorf("update wallpaper row: %w", err)
+	}
+	if err := w.storage.Delete(ctx, event.ObjectKey); err != nil {
+		slog.WarnContext(ctx, "transcode: delete staged source failed", "key", event.ObjectKey, "error", err)
 	}
 
 	slog.Info("transcode: done",
@@ -297,61 +275,4 @@ func (w *TranscodeWorker) uploadFile(ctx context.Context, objectKey, srcPath, co
 		return err
 	}
 	return w.storage.Upload(ctx, objectKey, f, st.Size(), contentType)
-}
-
-type probeResult struct {
-	Width    int
-	Height   int
-	Duration float64
-}
-
-// ffprobe returns dimensions + duration of the first video stream.
-// Plain `ffprobe` JSON output keeps the parsing trivial.
-func ffprobe(ctx context.Context, path string) (probeResult, error) {
-	args := []string{
-		"-v", "error",
-		"-select_streams", "v:0",
-		"-show_entries", "stream=width,height,duration:format=duration",
-		"-print_format", "json",
-		path,
-	}
-	out, err := exec.CommandContext(ctx, "ffprobe", args...).Output()
-	if err != nil {
-		return probeResult{}, fmt.Errorf("ffprobe: %w", err)
-	}
-	var parsed struct {
-		Streams []struct {
-			Width    int    `json:"width"`
-			Height   int    `json:"height"`
-			Duration string `json:"duration"`
-		} `json:"streams"`
-		Format struct {
-			Duration string `json:"duration"`
-		} `json:"format"`
-	}
-	if err := json.Unmarshal(out, &parsed); err != nil {
-		return probeResult{}, fmt.Errorf("ffprobe parse: %w", err)
-	}
-	if len(parsed.Streams) == 0 {
-		return probeResult{}, fmt.Errorf("ffprobe found no video streams")
-	}
-	r := probeResult{
-		Width:  parsed.Streams[0].Width,
-		Height: parsed.Streams[0].Height,
-	}
-	// Stream-level duration is empty on some containers; fall back
-	// to format-level.
-	if d, err := strconv.ParseFloat(parsed.Streams[0].Duration, 64); err == nil {
-		r.Duration = d
-	} else if d, err := strconv.ParseFloat(parsed.Format.Duration, 64); err == nil {
-		r.Duration = d
-	}
-	return r, nil
-}
-
-func snippet(b []byte, n int) string {
-	if len(b) <= n {
-		return string(bytes.TrimSpace(b))
-	}
-	return string(bytes.TrimSpace(b[:n])) + "…"
 }

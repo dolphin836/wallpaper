@@ -17,6 +17,7 @@ import (
 
 	"github.com/wallpaper/backend/internal/pkg/jwt"
 	"github.com/wallpaper/backend/internal/pkg/storage"
+	"github.com/wallpaper/backend/internal/pkg/videoassets"
 	"github.com/wallpaper/backend/internal/repo"
 	"github.com/wallpaper/backend/internal/service"
 )
@@ -47,6 +48,8 @@ const (
 	tusMetaUserID   = "user_id"
 	tusMetaFiletype = "filetype"
 	tusMetaFilename = "filename"
+	tusMetaWidth    = "width"
+	tusMetaHeight   = "height"
 )
 
 type TusHandler struct {
@@ -142,6 +145,20 @@ func (h *TusHandler) preCreate(event tusd.HookEvent) (tusd.HTTPResponse, tusd.Fi
 			Body:       "only video/* uploads are accepted on this endpoint",
 		}, tusd.FileInfoChanges{}, fmt.Errorf("non-video filetype %q", filetype)
 	}
+	width, widthErr := strconv.Atoi(event.Upload.MetaData[tusMetaWidth])
+	height, heightErr := strconv.Atoi(event.Upload.MetaData[tusMetaHeight])
+	// Current clients always send dimensions. Missing values remain allowed so
+	// uploads started by an older released client stay resumable; the worker
+	// probes the actual media and enforces the same rule before processing.
+	if widthErr == nil && heightErr == nil && !videoassets.MeetsMinimumResolution(width, height) {
+		return tusd.HTTPResponse{
+			StatusCode: http.StatusBadRequest,
+			Body: fmt.Sprintf(
+				"video resolution %dx%d is below the minimum %dx%d",
+				width, height, videoassets.MinLongEdge, videoassets.MinShortEdge,
+			),
+		}, tusd.FileInfoChanges{}, fmt.Errorf("video below minimum resolution: %dx%d", width, height)
+	}
 
 	// Merge user_id into the upload's persisted metadata. We preserve
 	// any client-supplied filename / filetype rather than overwriting.
@@ -151,6 +168,10 @@ func (h *TusHandler) preCreate(event tusd.HookEvent) (tusd.HTTPResponse, tusd.Fi
 	}
 	if name := event.Upload.MetaData[tusMetaFilename]; name != "" {
 		merged[tusMetaFilename] = name
+	}
+	if widthErr == nil && heightErr == nil {
+		merged[tusMetaWidth] = strconv.Itoa(width)
+		merged[tusMetaHeight] = strconv.Itoa(height)
 	}
 	return tusd.HTTPResponse{}, tusd.FileInfoChanges{MetaData: merged}, nil
 }

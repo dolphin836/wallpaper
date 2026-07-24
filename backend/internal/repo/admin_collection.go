@@ -181,7 +181,7 @@ func (r *CollectionRepo) AdminListCollectionWallpapers(ctx context.Context, id i
 		Table("wallpapers").
 		Select(`wallpapers.id, wallpapers.slug, wallpapers.user_id, wallpapers.title,
 		        wallpapers.category_id, wallpapers.thumb_url, wallpapers.preview_url,
-		        wallpapers.preview_video_url, wallpapers.width, wallpapers.height,
+		        wallpapers.poster_url, wallpapers.preview_video_url, wallpapers.width, wallpapers.height,
 		        wallpapers.file_size, wallpapers.file_type, wallpapers.dominant_color,
 		        wallpapers.color_palette, wallpapers.status, wallpapers.view_count,
 		        wallpapers.like_count, wallpapers.download_count, wallpapers.favorite_count,

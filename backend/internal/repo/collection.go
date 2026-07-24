@@ -243,7 +243,7 @@ func (r *CollectionRepo) RemoveWallpaper(ctx context.Context, collectionID, wall
 func (r *CollectionRepo) ListWallpapers(ctx context.Context, collectionID int64, cursor, limit int, filters WallpaperExclusionFilters) ([]model.Wallpaper, error) {
 	query := r.db.WithContext(ctx).
 		Table("wallpapers").
-		Select("wallpapers.id, wallpapers.slug, wallpapers.user_id, wallpapers.title, wallpapers.category_id, wallpapers.thumb_url, wallpapers.preview_url, wallpapers.preview_video_url, wallpapers.width, wallpapers.height, wallpapers.file_size, wallpapers.file_type, wallpapers.dominant_color, wallpapers.color_palette, wallpapers.status, wallpapers.view_count, wallpapers.like_count, wallpapers.download_count, wallpapers.favorite_count, wallpapers.is_dynamic, wallpapers.dynamic_type, wallpapers.is_ai_generated, wallpapers.created_at").
+		Select("wallpapers.id, wallpapers.slug, wallpapers.user_id, wallpapers.title, wallpapers.category_id, wallpapers.thumb_url, wallpapers.preview_url, wallpapers.poster_url, wallpapers.preview_video_url, wallpapers.width, wallpapers.height, wallpapers.file_size, wallpapers.file_type, wallpapers.dominant_color, wallpapers.color_palette, wallpapers.status, wallpapers.view_count, wallpapers.like_count, wallpapers.download_count, wallpapers.favorite_count, wallpapers.is_dynamic, wallpapers.dynamic_type, wallpapers.is_ai_generated, wallpapers.created_at").
 		Joins("JOIN collection_wallpapers cw ON cw.wallpaper_id = wallpapers.id").
 		Where("cw.collection_id = ? AND wallpapers.status = ?", collectionID, model.WallpaperStatusPublished)
 

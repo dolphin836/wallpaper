@@ -16,6 +16,7 @@ struct UploadStrings {
     let orWord: String
     let pickFromComputer: String
     let maxFilesChip: (Int) -> String
+	let videoMinimum: String
     let addMore: (Int, Int) -> String
     let queueLabel: (Int) -> String
     let doneCount: (Int) -> String
@@ -37,6 +38,9 @@ struct UploadStrings {
     let clearImagesFirst: String
     let onlyOneVideo: String
     let clearVideoFirst: String
+	let checkingVideoResolution: String
+	let lowResolutionBlocked: String
+	let unreadableVideoResolution: String
     let receivedOne: String
     let receivedMany: (Int) -> String
     let resultSummary: (Int, Int) -> String
@@ -69,6 +73,7 @@ private let uploadEN = UploadStrings(
     orWord: "or",
     pickFromComputer: "click to pick from your computer",
     maxFilesChip: { n in "Up to \(n) files" },
+	videoMinimum: "Video ≥ 1920 × 1080",
     addMore: { count, max in "Add more · \(count) / \(max)" },
     queueLabel: { n in "QUEUE · \(n)" },
     doneCount: { n in "· \(n) done" },
@@ -93,6 +98,9 @@ private let uploadEN = UploadStrings(
     clearImagesFirst: "Clear the image batch before adding a video.",
     onlyOneVideo: "Only one video per upload.",
     clearVideoFirst: "Clear the queued video before adding images.",
+	checkingVideoResolution: "Reading video resolution…",
+	lowResolutionBlocked: "Low resolution · at least 1920 × 1080 required",
+	unreadableVideoResolution: "Could not read the video resolution",
     receivedOne: "Upload received. It will appear after review.",
     receivedMany: { n in "\(n) uploads received. They will appear after review." },
     resultSummary: { ok, failed in "\(ok) succeeded, \(failed) failed." },
@@ -125,6 +133,7 @@ private let uploadZhCN = UploadStrings(
     orWord: "或",
     pickFromComputer: "点击从电脑中选择",
     maxFilesChip: { n in "最多 \(n) 个文件" },
+	videoMinimum: "视频 ≥ 1920 × 1080",
     addMore: { count, max in "继续添加 · \(count) / \(max)" },
     queueLabel: { n in "队列 · \(n)" },
     doneCount: { n in "· \(n) 已完成" },
@@ -148,6 +157,9 @@ private let uploadZhCN = UploadStrings(
     clearImagesFirst: "请先清空图片队列，再添加视频。",
     onlyOneVideo: "每次上传只能包含一个视频。",
     clearVideoFirst: "请先移除队列中的视频，再添加图片。",
+	checkingVideoResolution: "正在读取视频分辨率…",
+	lowResolutionBlocked: "低分辨率 · 至少需要 1920 × 1080",
+	unreadableVideoResolution: "无法读取视频分辨率",
     receivedOne: "已收到上传，审核通过后即会展示。",
     receivedMany: { n in "已收到 \(n) 个上传，审核通过后即会展示。" },
     resultSummary: { ok, failed in "\(ok) 个成功，\(failed) 个失败。" },
@@ -180,6 +192,7 @@ private let uploadZhTW = UploadStrings(
     orWord: "或",
     pickFromComputer: "點按從電腦中選擇",
     maxFilesChip: { n in "最多 \(n) 個檔案" },
+	videoMinimum: "影片 ≥ 1920 × 1080",
     addMore: { count, max in "繼續加入 · \(count) / \(max)" },
     queueLabel: { n in "佇列 · \(n)" },
     doneCount: { n in "· \(n) 已完成" },
@@ -203,6 +216,9 @@ private let uploadZhTW = UploadStrings(
     clearImagesFirst: "請先清空圖片佇列，再加入影片。",
     onlyOneVideo: "每次上傳只能包含一個影片。",
     clearVideoFirst: "請先移除佇列中的影片，再加入圖片。",
+	checkingVideoResolution: "正在讀取影片解析度…",
+	lowResolutionBlocked: "低解析度 · 至少需要 1920 × 1080",
+	unreadableVideoResolution: "無法讀取影片解析度",
     receivedOne: "已收到上傳，審核通過後即會顯示。",
     receivedMany: { n in "已收到 \(n) 個上傳，審核通過後即會顯示。" },
     resultSummary: { ok, failed in "\(ok) 個成功，\(failed) 個失敗。" },
@@ -235,6 +251,7 @@ private let uploadJA = UploadStrings(
     orWord: "または",
     pickFromComputer: "クリックしてコンピュータから選択",
     maxFilesChip: { n in "最大 \(n) ファイル" },
+	videoMinimum: "動画 ≥ 1920 × 1080",
     addMore: { count, max in "さらに追加 · \(count) / \(max)" },
     queueLabel: { n in "キュー · \(n)" },
     doneCount: { n in "· \(n) 完了" },
@@ -258,6 +275,9 @@ private let uploadJA = UploadStrings(
     clearImagesFirst: "動画を追加する前に画像のキューを空にしてください。",
     onlyOneVideo: "1 回のアップロードに動画は 1 本までです。",
     clearVideoFirst: "画像を追加する前にキューの動画を削除してください。",
+	checkingVideoResolution: "動画の解像度を確認中…",
+	lowResolutionBlocked: "低解像度 · 1920 × 1080 以上が必要です",
+	unreadableVideoResolution: "動画の解像度を読み取れませんでした",
     receivedOne: "アップロードを受け付けました。審査後に公開されます。",
     receivedMany: { n in "\(n) 件のアップロードを受け付けました。審査後に公開されます。" },
     resultSummary: { ok, failed in "成功 \(ok) 件、失敗 \(failed) 件。" },

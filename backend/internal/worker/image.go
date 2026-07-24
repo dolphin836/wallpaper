@@ -265,8 +265,8 @@ func extractFrameIndex(path string) int {
 }
 
 func (w *ImageWorker) processImage(ctx context.Context, event WallpaperUploadedEvent) error {
-	// Videos use a separate transcode pipeline (mp4 → poster +
-	// preview_video_url) — they should never go through the image
+	// Videos use a separate transcode pipeline (mp4 → three poster tiers) —
+	// they should never go through the image
 	// worker. Until the recompress CLI grew a status filter, they
 	// were getting re-queued here too, and `image.Decode` on raw
 	// mp4 bytes always returned "unknown format" → row marked

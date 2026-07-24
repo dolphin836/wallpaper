@@ -425,6 +425,8 @@ actor APIClient {
 
     func uploadVideoTus(
         fileURL: URL,
+		width: Int,
+		height: Int,
         progress: @escaping @Sendable (Double) -> Void
     ) async throws {
         guard let token = await AuthService.shared.token else { throw APIError.unauthorized }
@@ -447,6 +449,8 @@ actor APIClient {
         create.setValue(Self.tusMetadata([
             "filename": fileURL.lastPathComponent,
             "filetype": mime,
+			"width": String(width),
+			"height": String(height),
         ]), forHTTPHeaderField: "Upload-Metadata")
 
         let createResponse: URLResponse

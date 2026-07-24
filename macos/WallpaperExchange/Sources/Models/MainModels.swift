@@ -58,6 +58,7 @@ struct WallpaperDetail: Decodable, Identifiable {
     let originalURL: String
     let thumbURL: String
     let previewURL: String
+    let posterURL: String?
     let previewVideoURL: String?
     let viewCount: Int
     let likeCount: Int
@@ -84,6 +85,7 @@ struct WallpaperDetail: Decodable, Identifiable {
         case originalURL = "original_url"
         case thumbURL = "thumb_url"
         case previewURL = "preview_url"
+        case posterURL = "poster_url"
         case previewVideoURL = "preview_video_url"
         case viewCount = "view_count"
         case likeCount = "like_count"

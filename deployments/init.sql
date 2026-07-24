@@ -216,8 +216,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_wallpapers_slug ON wallpapers(slug) WHERE 
 ALTER TABLE collections ADD COLUMN IF NOT EXISTS slug VARCHAR(160) NOT NULL DEFAULT '';
 CREATE UNIQUE INDEX IF NOT EXISTS idx_collections_slug ON collections(slug) WHERE slug != '';
 
--- Low-quality 480p preview clip for video wallpapers (detail-page playback);
--- original_url stays the download-quality transcode. Empty for images.
+-- Full-resolution still poster for video wallpapers. thumb_url and
+-- preview_url keep the same 400px / 1600px progressive tiers as images;
+-- original_url remains the H.264 video loaded only after the user presses play.
+ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS poster_url VARCHAR(512) NOT NULL DEFAULT '';
+-- Kept for backward API/client compatibility. New video processing leaves it
+-- empty and historical data is cleared by cmd/videoprev.
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS preview_video_url VARCHAR(512) NOT NULL DEFAULT '';
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS is_dynamic BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE wallpapers ADD COLUMN IF NOT EXISTS dynamic_type VARCHAR(16) NOT NULL DEFAULT '';

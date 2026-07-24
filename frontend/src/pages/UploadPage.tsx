@@ -20,6 +20,8 @@ const MAX_SIZE = 200 * 1024 * 1024;
 const MAX_FILES = 20;
 const MAX_VIDEO_FILES = 10;
 const IMAGE_UPLOAD_TIMEOUT_MS = 15 * 60 * 1000;
+const MIN_VIDEO_LONG_EDGE = 1920;
+const MIN_VIDEO_SHORT_EDGE = 1080;
 
 type FileStatus = 'pending' | 'uploading' | 'success' | 'error';
 type UploadPhase = 'sending' | 'confirming';
@@ -39,6 +41,12 @@ interface UploadFile {
 const isVideoFile = (f: File) =>
   (f.type || '').startsWith('video/') ||
   /\.(mp4|mov|webm|mkv)$/i.test(f.name);
+
+const meetsMinimumVideoResolution = (width?: number, height?: number) => {
+  if (!width || !height) return false;
+  return Math.max(width, height) >= MIN_VIDEO_LONG_EDGE
+    && Math.min(width, height) >= MIN_VIDEO_SHORT_EDGE;
+};
 
 const formatFileSize = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
@@ -162,6 +170,21 @@ export default function UploadPage() {
       return;
     }
 
+    const hasCheckingVideo = files.some((item) => isVideoFile(item.file) && (!item.width || !item.height));
+    if (hasCheckingVideo) {
+      toast.error(t('toast.waitForResolution'));
+      return;
+    }
+    const uploadableIndexes = files
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => item.status !== 'success'
+        && (!isVideoFile(item.file) || meetsMinimumVideoResolution(item.width, item.height)))
+      .map(({ index }) => index);
+    if (uploadableIndexes.length === 0) {
+      toast.error(t('toast.noUploadableFiles'));
+      return;
+    }
+
     setUploading(true);
     let success = 0;
     let failed = 0;
@@ -171,10 +194,11 @@ export default function UploadPage() {
         success++;
         continue;
       }
+      if (!uploadableIndexes.includes(i)) continue;
       updateFile(i, { status: 'uploading', progress: 0, phase: 'sending', error: undefined });
       try {
         if (isVideoFile(files[i].file)) {
-          await uploadVideoTus(i, files[i].file);
+          await uploadVideoTus(i, files[i].file, files[i].width!, files[i].height!);
         } else {
           await uploadImageMultipart(i, files[i].file);
         }
@@ -189,7 +213,8 @@ export default function UploadPage() {
 
     setUploading(false);
     track('upload_complete', { succeeded: success, failed });
-    if (failed === 0) {
+    const blocked = files.length - uploadableIndexes.length - files.filter((item) => item.status === 'success').length;
+    if (failed === 0 && blocked === 0) {
       toast.success(
         success === 1
           ? t('toast.successOne')
@@ -200,8 +225,10 @@ export default function UploadPage() {
           navigate(`/user/${user.username}`);
         }
       }, 1500);
-    } else {
+    } else if (failed > 0) {
       toast.error(t('toast.partialFail', { success, failed }));
+    } else {
+      toast.success(t('toast.validUploaded', { num: success }));
     }
   };
 
@@ -241,7 +268,7 @@ export default function UploadPage() {
       xhr.send(formData);
     });
 
-  const uploadVideoTus = (i: number, f: File) =>
+  const uploadVideoTus = (i: number, f: File, width: number, height: number) =>
     new Promise<void>((resolve, reject) => {
       const token = localStorage.getItem('token');
       if (!token) return reject(new Error(t('errors.signInFirst')));
@@ -253,7 +280,12 @@ export default function UploadPage() {
         endpoint: `${base}/uploads/tus`,
         chunkSize: 8 * 1024 * 1024,
         retryDelays: [0, 1000, 3000, 5000, 10000],
-        metadata: { filename: f.name, filetype: f.type || 'video/mp4' },
+        metadata: {
+          filename: f.name,
+          filetype: f.type || 'video/mp4',
+          width: String(width),
+          height: String(height),
+        },
         headers: { Authorization: `Bearer ${token}` },
         storeFingerprintForResuming: true,
         removeFingerprintOnSuccess: true,
@@ -276,11 +308,18 @@ export default function UploadPage() {
 
   const totalDone = files.filter((f) => f.status === 'success').length;
   const totalError = files.filter((f) => f.status === 'error').length;
-  const totalPending = files.filter((f) => f.status === 'pending' || f.status === 'uploading').length;
+  const blockedCount = files.filter((f) => isVideoFile(f.file)
+    && !!f.width && !!f.height
+    && !meetsMinimumVideoResolution(f.width, f.height)).length;
+  const checkingCount = files.filter((f) => isVideoFile(f.file) && (!f.width || !f.height)).length;
+  const totalPending = files.filter((f) => (f.status === 'pending' || f.status === 'uploading')
+    && (!isVideoFile(f.file) || meetsMinimumVideoResolution(f.width, f.height))).length;
+  const uploadableCount = files.filter((f) => f.status !== 'success'
+    && (!isVideoFile(f.file) || meetsMinimumVideoResolution(f.width, f.height))).length;
   const overallProgress = files.length > 0
     ? Math.round(files.reduce((sum, f) => sum + f.progress, 0) / files.length)
     : 0;
-  const allDone = files.length > 0 && files.every((f) => f.status === 'success');
+  const allDone = files.length > 0 && blockedCount === 0 && files.every((f) => f.status === 'success');
 
   const uploadControls = files.length > 0 && (
     <div className={`upload-bar${allDone ? ' is-done' : ''}`}>
@@ -309,6 +348,12 @@ export default function UploadPage() {
               {totalError > 0 && (
                 <span className="text-red-500"> · {t('bar.needRetry', { num: totalError })}</span>
               )}
+              {blockedCount > 0 && (
+                <span className="text-red-500"> · {t('bar.blocked', { num: blockedCount })}</span>
+              )}
+              {checkingCount > 0 && (
+                <span className="text-muted"> · {t('bar.checking', { num: checkingCount })}</span>
+              )}
             </div>
           )}
         </div>
@@ -324,7 +369,7 @@ export default function UploadPage() {
 
         <button
           onClick={handleUpload}
-          disabled={uploading || allDone}
+          disabled={uploading || allDone || uploadableCount === 0 || checkingCount > 0}
           className="upload-bar-go"
         >
           {uploading ? (
@@ -336,10 +381,10 @@ export default function UploadPage() {
             t('bar.retryFailed')
           ) : allDone ? (
             t('bar.done')
-          ) : files.length === 1 ? (
+          ) : uploadableCount === 1 ? (
             t('bar.uploadOne')
           ) : (
-            t('bar.uploadMany', { num: files.length })
+            t('bar.uploadMany', { num: uploadableCount })
           )}
         </button>
       </div>
@@ -407,6 +452,8 @@ export default function UploadPage() {
                 <span>·</span>
                 <span>≤ 200 MB</span>
                 <span>·</span>
+                <span>{t('dropzone.videoMinimum')}</span>
+                <span>·</span>
                 <span>{t('dropzone.upToFiles', { max: MAX_FILES })}</span>
                 <span>·</span>
                 <span>{t('dropzone.upToVideos', { max: MAX_VIDEO_FILES })}</span>
@@ -470,7 +517,7 @@ function UploadTile({
   const { t } = useTranslation('upload');
   const isVideo = isVideoFile(f.file);
   return (
-    <div className={`upload-tile${f.status === 'error' ? ' is-error' : ''}${f.status === 'success' ? ' is-success' : ''}`}>
+    <div className={`upload-tile${f.status === 'error' || (isVideo && !!f.width && !!f.height && !meetsMinimumVideoResolution(f.width, f.height)) ? ' is-error' : ''}${f.status === 'success' ? ' is-success' : ''}`}>
       <div className="upload-tile-screen">
         {f.preview && isVideo ? (
           <video
@@ -531,6 +578,17 @@ function UploadTile({
                 {f.error}
               </span>
             )}
+          </div>
+        )}
+
+        {f.status === 'pending' && isVideo && f.width && f.height && !meetsMinimumVideoResolution(f.width, f.height) && (
+          <div className="upload-tile-overlay is-error">
+            <div className="upload-tile-badge is-error">
+              <AiOutlineCloseCircle size={20} />
+            </div>
+            <span className="text-[10px] text-paper text-center leading-snug mt-2 px-2">
+              {t('queue.lowResolution')}
+            </span>
           </div>
         )}
 

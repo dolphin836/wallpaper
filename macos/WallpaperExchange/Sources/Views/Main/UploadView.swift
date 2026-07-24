@@ -1,10 +1,13 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import AppKit
+import AVFoundation
 
 private let uploadMaxBytes = 200 * 1024 * 1024
 private let uploadMaxFiles = 20
 private let pendingUploadLimit = 12
+private let minimumVideoLongEdge = 1920
+private let minimumVideoShortEdge = 1080
 
 private enum UploadStatus: Equatable {
     case pending
@@ -18,6 +21,13 @@ private enum UploadKind {
     case video
 }
 
+private enum VideoResolutionValidation: Equatable {
+	case checking
+	case valid(width: Int, height: Int)
+	case tooLow(width: Int, height: Int)
+	case unreadable
+}
+
 private struct UploadItem: Identifiable {
     let id = UUID()
     let url: URL
@@ -25,6 +35,7 @@ private struct UploadItem: Identifiable {
     let byteSize: Int
     let kind: UploadKind
     let thumbnail: NSImage?
+	var videoResolution: VideoResolutionValidation?
     var status: UploadStatus = .pending
     var progress: Int = 0
 }
@@ -58,6 +69,25 @@ struct UploadView: View {
             }
         }.count
     }
+	private var blockedVideoCount: Int {
+		files.filter { item in
+			if case .tooLow = item.videoResolution { return true }
+			if case .unreadable = item.videoResolution { return true }
+			return false
+		}.count
+	}
+	private var checkingVideoCount: Int {
+		files.filter { $0.videoResolution == .checking }.count
+	}
+	private var uploadableCount: Int {
+		files.filter { item in
+			guard item.status != .success else { return false }
+			switch item.videoResolution {
+			case .tooLow, .unreadable, .checking: return false
+			case .valid, nil: return true
+			}
+		}.count
+	}
     private var allDone: Bool { !files.isEmpty && files.allSatisfy { $0.status == .success } }
     private var showPendingUploadsSection: Bool {
         pendingLoading || pendingError != nil || !pendingUploads.isEmpty
@@ -234,6 +264,8 @@ struct UploadView: View {
                 Text("·").font(.mono10).foregroundStyle(Color.muted)
                 metaChip("≤ 200 MB")
                 Text("·").font(.mono10).foregroundStyle(Color.muted)
+				metaChip(L10n.upload.videoMinimum)
+				Text("·").font(.mono10).foregroundStyle(Color.muted)
                 metaChip(L10n.upload.maxFilesChip(uploadMaxFiles))
             }
             .padding(.top, 4)
@@ -349,7 +381,7 @@ struct UploadView: View {
                             .foregroundStyle(Color.ink)
                     }
                 } else {
-                    Text(L10n.upload.readySummary(totalPending, totalError))
+					Text(uploadReadySummary)
                         .font(.system(size: 13))
                         .foregroundStyle(totalError > 0 ? Color.warn : Color.ink2)
                 }
@@ -396,8 +428,8 @@ struct UploadView: View {
             .background(Capsule().fill(Color.accent))
             .overlay(GlassLightingOverlay(intensity: 0.7))
             .shadow(color: Color.accent.opacity(0.26), radius: 8, y: 4)
-            .disabled(uploading || allDone)
-            .opacity(uploading || allDone ? 0.55 : 1)
+			.disabled(uploading || allDone || uploadableCount == 0 || checkingVideoCount > 0)
+			.opacity(uploading || allDone || uploadableCount == 0 || checkingVideoCount > 0 ? 0.55 : 1)
         }
         .padding(.horizontal, 40)
         .padding(.vertical, 12)
@@ -409,8 +441,14 @@ struct UploadView: View {
         if uploading { return L10n.upload.uploadingTitle }
         if totalError > 0 { return L10n.upload.retryFailed }
         if allDone { return L10n.common.done }
-        return L10n.upload.uploadN(files.count)
+		return L10n.upload.uploadN(uploadableCount)
     }
+
+	private var uploadReadySummary: String {
+		if checkingVideoCount > 0 { return L10n.upload.checkingVideoResolution }
+		if blockedVideoCount > 0 { return L10n.upload.lowResolutionBlocked }
+		return L10n.upload.readySummary(totalPending, totalError)
+	}
 
     private var signedOutPrompt: some View {
         VStack(spacing: 14) {
@@ -539,6 +577,9 @@ struct UploadView: View {
         }
 
         files.append(contentsOf: accepted)
+		for item in accepted where item.kind == .video {
+			Task { await inspectVideoResolution(item) }
+		}
     }
 
     private func makeItem(url: URL) -> UploadItem? {
@@ -549,9 +590,38 @@ struct UploadView: View {
             name: url.lastPathComponent,
             byteSize: size,
             kind: kind,
-            thumbnail: kind == .image ? NSImage(contentsOf: url) : nil
+			thumbnail: kind == .image ? NSImage(contentsOf: url) : nil,
+			videoResolution: kind == .video ? .checking : nil
         )
     }
+
+	private func inspectVideoResolution(_ item: UploadItem) async {
+		let didAccess = item.url.startAccessingSecurityScopedResource()
+		defer {
+			if didAccess { item.url.stopAccessingSecurityScopedResource() }
+		}
+		let asset = AVURLAsset(url: item.url)
+		do {
+			guard let track = try await asset.loadTracks(withMediaType: .video).first else {
+				updateFile(item.id) { $0.videoResolution = .unreadable }
+				return
+			}
+			let naturalSize = try await track.load(.naturalSize)
+			let transform = try await track.load(.preferredTransform)
+			let displaySize = naturalSize.applying(transform)
+			let width = Int(abs(displaySize.width).rounded())
+			let height = Int(abs(displaySize.height).rounded())
+			let longEdge = max(width, height)
+			let shortEdge = min(width, height)
+			updateFile(item.id) {
+				$0.videoResolution = longEdge >= minimumVideoLongEdge && shortEdge >= minimumVideoShortEdge
+					? .valid(width: width, height: height)
+					: .tooLow(width: width, height: height)
+			}
+		} catch {
+			updateFile(item.id) { $0.videoResolution = .unreadable }
+		}
+	}
 
     private func kind(for url: URL) -> UploadKind? {
         let ext = url.pathExtension.lowercased()
@@ -574,6 +644,7 @@ struct UploadView: View {
 
     private func handleUpload() async {
         guard !files.isEmpty, !uploading else { return }
+		guard checkingVideoCount == 0, uploadableCount > 0 else { return }
         uploading = true
         message = nil
         var succeeded = 0
@@ -584,13 +655,20 @@ struct UploadView: View {
                 succeeded += 1
                 continue
             }
+			switch file.videoResolution {
+			case .checking, .tooLow, .unreadable:
+				continue
+			case .valid, nil:
+				break
+			}
             updateFile(file.id) {
                 $0.status = .uploading
                 $0.progress = 0
             }
             do {
                 if file.kind == .video {
-                    try await APIClient.shared.uploadVideoTus(fileURL: file.url) { value in
+					guard case .valid(let width, let height) = file.videoResolution else { continue }
+					try await APIClient.shared.uploadVideoTus(fileURL: file.url, width: width, height: height) { value in
                         Task { @MainActor in
                             updateFile(file.id) { $0.progress = Int((value * 100).rounded()) }
                         }
@@ -675,6 +753,8 @@ private struct UploadTileView: View {
 
     private var isError: Bool {
         if case .error = item.status { return true }
+		if case .tooLow = item.videoResolution { return true }
+		if case .unreadable = item.videoResolution { return true }
         return false
     }
 
@@ -717,6 +797,13 @@ private struct UploadTileView: View {
                     .foregroundStyle(Color.ink2)
                     .lineLimit(1)
             }
+			if let resolutionText {
+				Text(resolutionText)
+					.font(.mono10)
+					.tracking(0.4)
+					.foregroundStyle(isError ? Color.warn : Color.muted)
+					.lineLimit(1)
+			}
         }
     }
 
@@ -747,7 +834,16 @@ private struct UploadTileView: View {
     private var statusOverlay: some View {
         switch item.status {
         case .pending:
-            EmptyView()
+			switch item.videoResolution {
+			case .checking:
+				validationOverlay(message: L10n.upload.checkingVideoResolution, warning: false)
+			case .tooLow:
+				validationOverlay(message: L10n.upload.lowResolutionBlocked, warning: true)
+			case .unreadable:
+				validationOverlay(message: L10n.upload.unreadableVideoResolution, warning: true)
+			case .valid, nil:
+				EmptyView()
+			}
         case .uploading:
             VStack(spacing: 8) {
                 ProgressView()
@@ -801,6 +897,41 @@ private struct UploadTileView: View {
         if isError { return Color.warn.opacity(0.65) }
         return Color.hair
     }
+
+	private var resolutionText: String? {
+		switch item.videoResolution {
+		case .valid(let width, let height), .tooLow(let width, let height):
+			return "\(width.formatted()) × \(height.formatted())"
+		case .checking:
+			return L10n.upload.checkingVideoResolution
+		case .unreadable:
+			return L10n.upload.unreadableVideoResolution
+		case nil:
+			return nil
+		}
+	}
+
+	private func validationOverlay(message: String, warning: Bool) -> some View {
+		VStack(spacing: 7) {
+			ProgressView()
+				.scaleEffect(0.65)
+				.tint(Color.paper)
+				.opacity(warning ? 0 : 1)
+			if warning {
+				Image(systemName: "exclamationmark.triangle.fill")
+					.font(.system(size: 19, weight: .semibold))
+					.foregroundStyle(Color.paper)
+			}
+			Text(message)
+				.font(.system(size: 10, weight: .medium))
+				.multilineTextAlignment(.center)
+				.lineLimit(3)
+				.foregroundStyle(Color.paper)
+				.padding(.horizontal, 8)
+		}
+		.frame(maxWidth: .infinity, maxHeight: .infinity)
+		.background(warning ? Color.warn.opacity(0.72) : Color.black.opacity(0.52))
+	}
 
     private var kindLabel: String {
         item.kind == .video ? L10n.upload.vidShort : L10n.upload.imgShort

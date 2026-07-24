@@ -216,17 +216,13 @@ export default function WallpaperDetailPage() {
   const fullscreenVisible = fullscreen && !isVideoWallpaper;
   const originalSourceWidth = wallpaper?.width ?? 0;
   const originalSourceHeight = wallpaper?.height ?? 0;
-  // The browser displays derived media for dynamic wallpapers, not the
-  // original upload: HEIC frames are capped at 1600px wide and MP4 previews
-  // at 480px high. Base the no-upscale decision on those real display assets.
+  // The browser displays derived HEIC frames at up to 1600px wide. Video
+  // posters now preserve the served video's full dimensions, so their fit
+  // calculation uses the original width/height directly.
   const derivedScale = wallpaper?.is_dynamic && originalSourceWidth > 0
     ? Math.min(1, 1600 / originalSourceWidth)
-    : isVideoWallpaper && wallpaper?.preview_video_url && originalSourceHeight > 0
-      ? Math.min(1, 480 / originalSourceHeight)
-      : 1;
-  const heroSourceWidth = isVideoWallpaper && wallpaper?.preview_video_url
-    ? Math.round((originalSourceWidth * derivedScale) / 2) * 2
-    : Math.round(originalSourceWidth * derivedScale);
+    : 1;
+  const heroSourceWidth = Math.round(originalSourceWidth * derivedScale);
   const heroSourceHeight = Math.round(originalSourceHeight * derivedScale);
   const originalReady = !!wallpaper?.original_url && readyOriginalURL === wallpaper.original_url;
   const originalFailed = !!wallpaper?.original_url && failedOriginalURL === wallpaper.original_url;
@@ -889,15 +885,17 @@ export default function WallpaperDetailPage() {
                     className="absolute top-6 right-24 z-[3] px-3 py-1 bg-black/60 text-white text-[11px] mono rounded-full backdrop-blur-sm"
                   >{framePlaying ? t('hero.pause') : t('hero.play')} · {frameIdx + 1}/{frames.length}</button>
                 </>
-              ) : isVideoWallpaper && (wallpaper.preview_video_url || wallpaper.original_url) ? (
+              ) : isVideoWallpaper && wallpaper.original_url ? (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div
                     className={heroCanCover ? 'w-full h-full' : 'shrink-0'}
                     style={heroCanCover ? undefined : heroContainedSize}
                   >
                     <VideoPlayer
-                      src={wallpaper.preview_video_url || wallpaper.original_url}
-                      poster={wallpaper.preview_url || wallpaper.thumb_url}
+                      src={wallpaper.original_url}
+                      thumb={wallpaper.thumb_url}
+                      preview={wallpaper.preview_url}
+                      poster={wallpaper.poster_url}
                     />
                   </div>
                 </div>
@@ -1602,13 +1600,35 @@ function SpotlightStyles() {
 //   playing   — video crossfades over poster from the in-memory blob;
 //               click pauses (pause button shows on hover when playing)
 // No bytes are fetched until the user actively chooses to play.
-function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
+function VideoPlayer({
+  src,
+  thumb,
+  preview,
+  poster,
+}: {
+  src: string;
+  thumb?: string;
+  preview?: string;
+  poster?: string;
+}) {
   const { t } = useTranslation('detail');
   const vidRef = useRef<HTMLVideoElement | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState<number | null>(null); // null = not buffering
   const [buffering, setBuffering] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const posterTiers = [thumb, preview, poster].filter(
+    (url, index, list): url is string => !!url && list.indexOf(url) === index,
+  );
+  const posterIdentity = posterTiers.join('|');
+  const [posterLoadState, setPosterLoadState] = useState({ identity: '', index: -1 });
+  const highestLoadedPoster = posterLoadState.identity === posterIdentity ? posterLoadState.index : -1;
+  const markPosterLoaded = (index: number) => {
+    setPosterLoadState((current) => ({
+      identity: posterIdentity,
+      index: current.identity === posterIdentity ? Math.max(current.index, index) : index,
+    }));
+  };
 
   // Release the object URL when it changes or the player unmounts.
   useEffect(() => () => { if (blobUrl) URL.revokeObjectURL(blobUrl); }, [blobUrl]);
@@ -1646,16 +1666,19 @@ function VideoPlayer({ src, poster }: { src: string; poster?: string }) {
 
   return (
     <div className="relative w-full h-full bg-black flex items-center justify-center">
-      {poster && (
+      {posterTiers.map((url, index) => (index === 0 || highestLoadedPoster >= index - 1) && (
         <img
-          src={poster}
+          key={url}
+          src={url}
           alt=""
           decoding="async"
           draggable={false}
-          className={`absolute inset-0 w-full h-full object-cover pointer-events-none transition-opacity duration-300 ${playing ? 'opacity-0' : 'opacity-100'}`}
+          onLoad={() => markPosterLoaded(index)}
+          onError={() => markPosterLoaded(index)}
+          className={`absolute inset-0 w-full h-full object-cover pointer-events-none transition-opacity duration-300 ${!playing && highestLoadedPoster === index ? 'opacity-100' : 'opacity-0'}`}
           style={{ transitionTimingFunction: 'var(--ease-out-quart)' }}
         />
-      )}
+      ))}
       <video
         ref={vidRef}
         src={blobUrl ?? undefined}

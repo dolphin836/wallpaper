@@ -102,7 +102,7 @@ func (r *WallpaperRepo) AdminList(ctx context.Context, opts AdminWallpaperListOp
 
 	var rows []AdminWallpaperRow
 	err := q.Select(`wallpapers.id, wallpapers.slug, wallpapers.user_id, wallpapers.title, wallpapers.description,
-                     wallpapers.category_id, wallpapers.thumb_url, wallpapers.preview_url, wallpapers.original_url,
+			         wallpapers.category_id, wallpapers.thumb_url, wallpapers.preview_url, wallpapers.poster_url, wallpapers.original_url,
                      wallpapers.width, wallpapers.height, wallpapers.file_size, wallpapers.file_type,
                      wallpapers.dominant_color, wallpapers.status, wallpapers.view_count, wallpapers.like_count,
                      wallpapers.download_count, wallpapers.favorite_count, wallpapers.is_dynamic, wallpapers.dynamic_type,

@@ -277,29 +277,36 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
 struct ProgressiveCachedAsyncImage<Content: View, Placeholder: View>: View {
     let lowURL: URL?
     let highURL: URL?
+    let finalURL: URL?
     let lowMaxPixelDimension: Int
     let highMaxPixelDimension: Int
+    let finalMaxPixelDimension: Int
     let onLoad: (() -> Void)?
     let content: (Image) -> Content
     let placeholder: () -> Placeholder
 
     @State private var lowImage: NSImage?
     @State private var highImage: NSImage?
+    @State private var finalImage: NSImage?
     @State private var loading = false
 
     init(
         lowURL: URL?,
         highURL: URL?,
+        finalURL: URL? = nil,
         lowMaxPixelDimension: Int = 520,
         highMaxPixelDimension: Int = 1400,
+        finalMaxPixelDimension: Int = 5200,
         onLoad: (() -> Void)? = nil,
         @ViewBuilder content: @escaping (Image) -> Content,
         @ViewBuilder placeholder: @escaping () -> Placeholder
     ) {
         self.lowURL = lowURL
         self.highURL = highURL
+        self.finalURL = finalURL
         self.lowMaxPixelDimension = lowMaxPixelDimension
         self.highMaxPixelDimension = highMaxPixelDimension
+        self.finalMaxPixelDimension = finalMaxPixelDimension
         self.onLoad = onLoad
         self.content = content
         self.placeholder = placeholder
@@ -313,11 +320,17 @@ struct ProgressiveCachedAsyncImage<Content: View, Placeholder: View>: View {
                 content(Image(nsImage: lowImage))
                     .blur(radius: shouldUpgrade && loading && highImage == nil ? 7 : 0)
                     .scaleEffect(shouldUpgrade && loading && highImage == nil ? 1.035 : 1)
-                    .opacity(highImage == nil ? 1 : 0)
+                    .opacity(highImage == nil && finalImage == nil ? 1 : 0)
             }
 
             if let highImage {
                 content(Image(nsImage: highImage))
+                    .opacity(finalImage == nil ? 1 : 0)
+                    .transition(.opacity)
+            }
+
+            if let finalImage {
+                content(Image(nsImage: finalImage))
                     .transition(.opacity)
             }
 
@@ -327,26 +340,29 @@ struct ProgressiveCachedAsyncImage<Content: View, Placeholder: View>: View {
             }
         }
         .animation(.easeOut(duration: 0.28), value: highImage != nil)
+        .animation(.easeOut(duration: 0.28), value: finalImage != nil)
         .task(id: loadIdentity) {
             await load()
         }
     }
 
     private var targetURL: URL? {
-        highURL ?? lowURL
+        finalURL ?? highURL ?? lowURL
     }
 
     private var shouldUpgrade: Bool {
-        guard let lowURL, let highURL else { return false }
-        return lowURL != highURL
+		let urls = [lowURL, highURL, finalURL].compactMap { $0 }
+		return Set(urls).count > 1
     }
 
     private var loadIdentity: String {
         [
             lowURL?.absoluteString ?? "nil",
             highURL?.absoluteString ?? "nil",
+            finalURL?.absoluteString ?? "nil",
             String(lowMaxPixelDimension),
-            String(highMaxPixelDimension)
+			String(highMaxPixelDimension),
+			String(finalMaxPixelDimension)
         ].joined(separator: "#")
     }
 
@@ -354,11 +370,13 @@ struct ProgressiveCachedAsyncImage<Content: View, Placeholder: View>: View {
         let requestID = loadIdentity
         let requestLowURL = lowURL
         let requestHighURL = highURL
+		let requestFinalURL = finalURL
         let requestTargetURL = targetURL
         let requestShouldUpgrade = shouldUpgrade
 
         lowImage = nil
         highImage = nil
+		finalImage = nil
         loading = requestTargetURL != nil
 
         guard let requestTargetURL else {
@@ -375,20 +393,35 @@ struct ProgressiveCachedAsyncImage<Content: View, Placeholder: View>: View {
             }
         }
 
-        let finalPixelDimension = requestShouldUpgrade ? highMaxPixelDimension : lowMaxPixelDimension
-        let finalURL = requestShouldUpgrade ? (requestHighURL ?? requestTargetURL) : requestTargetURL
+		if let requestHighURL,
+		   requestFinalURL != nil,
+		   requestHighURL != requestLowURL,
+		   requestHighURL != requestFinalURL {
+			if let cachedHigh = ImageCacheStore.shared.get(requestHighURL, maxPixelDimension: highMaxPixelDimension) {
+				highImage = cachedHigh
+			} else if let loadedHigh = await ImageCacheStore.shared.load(requestHighURL, maxPixelDimension: highMaxPixelDimension) {
+				guard !Task.isCancelled, loadIdentity == requestID else { return }
+				highImage = loadedHigh
+			}
+		}
 
-        if let cachedHigh = ImageCacheStore.shared.get(finalURL, maxPixelDimension: finalPixelDimension) {
+		let finalPixelDimension = requestFinalURL != nil
+			? finalMaxPixelDimension
+			: (requestShouldUpgrade ? highMaxPixelDimension : lowMaxPixelDimension)
+		let resolvedFinalURL = requestFinalURL
+			?? (requestShouldUpgrade ? (requestHighURL ?? requestTargetURL) : requestTargetURL)
+
+		if let cachedHigh = ImageCacheStore.shared.get(resolvedFinalURL, maxPixelDimension: finalPixelDimension) {
             guard !Task.isCancelled, loadIdentity == requestID else { return }
-            highImage = cachedHigh
+			if requestFinalURL != nil { finalImage = cachedHigh } else { highImage = cachedHigh }
             loading = false
             onLoad?()
             return
         }
 
-        if let loadedHigh = await ImageCacheStore.shared.load(finalURL, maxPixelDimension: finalPixelDimension) {
+		if let loadedHigh = await ImageCacheStore.shared.load(resolvedFinalURL, maxPixelDimension: finalPixelDimension) {
             guard !Task.isCancelled, loadIdentity == requestID else { return }
-            highImage = loadedHigh
+			if requestFinalURL != nil { finalImage = loadedHigh } else { highImage = loadedHigh }
             loading = false
             onLoad?()
             return

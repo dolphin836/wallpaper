@@ -375,7 +375,9 @@ struct DetailPage: View {
             ) {
                 LiveVideoPreview(
                     sourceURL: videoURL,
-                    posterURL: detailPreviewPosterURL(d),
+                    thumbURL: detailThumbPosterURL(d),
+                    previewURL: detailPreviewPosterURL(d),
+                    posterURL: detailFullPosterURL(d),
                     dominantColor: d.dominantColor ?? initialWallpaper?.dominantColor
                 )
             }
@@ -951,6 +953,17 @@ struct DetailPage: View {
         return initialWallpaper.flatMap { URL(string: $0.displayURL) }
     }
 
+    private func detailThumbPosterURL(_ d: WallpaperDetail) -> URL? {
+        let value = d.thumbURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? detailPreviewPosterURL(d) : URL(string: value)
+    }
+
+    private func detailFullPosterURL(_ d: WallpaperDetail) -> URL? {
+        guard let value = d.posterURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty else { return detailPreviewPosterURL(d) }
+        return URL(string: value)
+    }
+
     private func detailHeroDecodeDimension(detail d: WallpaperDetail, layout: DetailLayout) -> Int {
         let sourceMax = CGFloat(max(d.width, d.height, 1))
         let screenScale = NSScreen.screens.map(\.backingScaleFactor).max() ?? NSScreen.main?.backingScaleFactor ?? 2
@@ -1124,9 +1137,9 @@ struct DetailPage: View {
     }
 
     private func livePreviewVideoURL(detail d: WallpaperDetail) -> URL? {
-        guard isVideo(detail: d),
-              let value = d.previewVideoURL?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !value.isEmpty else { return nil }
+		guard isVideo(detail: d) else { return nil }
+		let value = d.originalURL.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard !value.isEmpty else { return nil }
         return URL(string: value)
     }
 
@@ -1270,7 +1283,9 @@ struct DetailPage: View {
             Spacer(minLength: 0)
             LiveVideoPreview(
                 sourceURL: sourceURL,
-                posterURL: detailPreviewPosterURL(detail),
+                thumbURL: detailThumbPosterURL(detail),
+                previewURL: detailPreviewPosterURL(detail),
+                posterURL: detailFullPosterURL(detail),
                 dominantColor: detail.dominantColor
             )
             .frame(width: size.width, height: size.height)
@@ -2447,9 +2462,7 @@ struct DetailPage: View {
     }
 
     private func loadVideoDuration(detail d: WallpaperDetail) async {
-        let rawURL = d.previewVideoURL?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let source = rawURL?.isEmpty == false ? (rawURL ?? d.originalURL) : d.originalURL
-        guard let url = URL(string: source) else { return }
+		guard let url = URL(string: d.originalURL) else { return }
         let asset = AVURLAsset(url: url)
         do {
             let duration = try await asset.load(.duration)
@@ -2792,6 +2805,8 @@ private struct DynamicFramePreview: View {
 
 private struct LiveVideoPreview: View {
     let sourceURL: URL
+	let thumbURL: URL?
+	let previewURL: URL?
     let posterURL: URL?
     let dominantColor: String?
 
@@ -2808,7 +2823,14 @@ private struct LiveVideoPreview: View {
     var body: some View {
         ZStack {
             Color.black
-            CachedAsyncImage(url: posterURL) { img in
+			ProgressiveCachedAsyncImage(
+				lowURL: thumbURL,
+				highURL: previewURL,
+				finalURL: posterURL,
+				lowMaxPixelDimension: 520,
+				highMaxPixelDimension: 1800,
+				finalMaxPixelDimension: 5200
+			) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
                 Color(hex: dominantColor ?? "#111")
