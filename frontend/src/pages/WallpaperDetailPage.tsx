@@ -229,9 +229,13 @@ export default function WallpaperDetailPage() {
   const heroSourceHeight = Math.round(originalSourceHeight * derivedScale);
   const originalReady = !!wallpaper?.original_url && readyOriginalURL === wallpaper.original_url;
   const originalFailed = !!wallpaper?.original_url && failedOriginalURL === wallpaper.original_url;
-  const downloadReady = wallpaper
-    ? (wallpaper.file_type || '').startsWith('video/') || wallpaper.is_dynamic || !wallpaper.original_url || originalReady || originalFailed
-    : false;
+  const needsOriginalLoad = !!wallpaper?.original_url && !isVideoWallpaper && !wallpaper.is_dynamic;
+  const downloadReady = !!wallpaper && (!needsOriginalLoad || originalReady || originalFailed);
+  const markOriginalDecoded = (image: HTMLImageElement, url: string) => {
+    void image.decode()
+      .catch(() => undefined)
+      .finally(() => setReadyOriginalURL(url));
+  };
 
   // Keep the immersive cover treatment only when the original has enough
   // pixels to fill the live hero box without being enlarged. Smaller images
@@ -457,7 +461,7 @@ export default function WallpaperDetailPage() {
   // and per-device browse actions; its "Get" simply downloads the same
   // original file.
   const handleDownload = async () => {
-    if (dlLoading) return;
+    if (dlLoading || !downloadReady) return;
     if (!isAuthenticated) { navigate('/login'); return; }
     if (!wallpaper) return;
     const isOwnerDl = user?.id === wallpaper.user_id;
@@ -578,6 +582,7 @@ export default function WallpaperDetailPage() {
   const ctaState = ctaMode;
 
   const handleDownloadClick = () => {
+    if (!downloadReady) return;
     if (!isAuthenticated) { navigate('/login'); return; }
     if (isOwner) { handleDownload(); return; }
     // Skip-confirm flag respected per-session (set inside the confirm UI).
@@ -896,44 +901,49 @@ export default function WallpaperDetailPage() {
                   </div>
                 </div>
               ) : heroImg ? (
-                <>
-                  <img
-                    src={heroImg}
-                    alt=""
-                    loading="eager"
-                    decoding="async"
-                    fetchPriority="high"
-                    onLoad={() => {
-                      if (heroImg === wallpaper.original_url) setReadyOriginalURL(heroImg);
-                    }}
-                    onError={() => {
-                      if (heroImg === wallpaper.original_url) setFailedOriginalURL(heroImg);
-                    }}
-                    onContextMenu={(e) => e.preventDefault()}
-                    draggable={false}
-                    className={`wd-s1-img wd-s1-img-preview ${heroCanCover ? '' : 'is-native-size'} ${originalReady ? 'is-upgraded' : ''}`}
-                    style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
-                  />
-                  {originalHeroImg && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div
+                    className={`wd-s1-image-canvas ${heroCanCover ? 'w-full h-full' : 'shrink-0'}`}
+                    style={heroCanCover ? undefined : heroContainedSize}
+                  >
                     <img
-                      src={originalHeroImg}
+                      src={heroImg}
                       alt=""
-                      aria-hidden
                       loading="eager"
                       decoding="async"
                       fetchPriority="high"
-                      onLoad={() => setReadyOriginalURL(originalHeroImg)}
-                      onError={() => setFailedOriginalURL(originalHeroImg)}
+                      onLoad={(event) => {
+                        if (heroImg === wallpaper.original_url) markOriginalDecoded(event.currentTarget, heroImg);
+                      }}
+                      onError={() => {
+                        if (heroImg === wallpaper.original_url) setFailedOriginalURL(heroImg);
+                      }}
                       onContextMenu={(e) => e.preventDefault()}
                       draggable={false}
-                      className={`wd-s1-img wd-s1-img-original ${heroCanCover ? '' : 'is-native-size'} ${originalReady ? 'is-ready' : ''}`}
+                      className={`wd-s1-img wd-s1-img-preview ${originalReady ? 'is-upgraded' : ''}`}
                       style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
                     />
-                  )}
-                  {originalHeroImg && !originalReady && !originalFailed && (
-                    <span className="wd-s1-loading-glow" aria-hidden />
-                  )}
-                </>
+                    {originalHeroImg && (
+                      <img
+                        src={originalHeroImg}
+                        alt=""
+                        aria-hidden
+                        loading="eager"
+                        decoding="async"
+                        fetchPriority="high"
+                        onLoad={(event) => markOriginalDecoded(event.currentTarget, originalHeroImg)}
+                        onError={() => setFailedOriginalURL(originalHeroImg)}
+                        onContextMenu={(e) => e.preventDefault()}
+                        draggable={false}
+                        className={`wd-s1-img wd-s1-img-original ${originalReady ? 'is-ready' : ''}`}
+                        style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
+                      />
+                    )}
+                    {needsOriginalLoad && !originalReady && !originalFailed && (
+                      <span className="wd-s1-loading-glow" aria-hidden />
+                    )}
+                  </div>
+                </div>
               ) : null}
             </div>
             <div className="wd-s1-vignette" aria-hidden />
@@ -1213,7 +1223,9 @@ export default function WallpaperDetailPage() {
 
                 <button
                   type="button"
+                  disabled={!downloadReady}
                   onClick={() => {
+                    if (!downloadReady) return;
                     if (frames.length > 1 || (wallpaper.file_type || '').startsWith('video/')) {
                       toast(t('toast.useHeroControls'), { icon: 'ℹ️' });
                       return;
@@ -1230,6 +1242,7 @@ export default function WallpaperDetailPage() {
                 {variants.length > 0 && (
                   <button
                     onClick={() => setDrawerOpen(true)}
+                    disabled={!downloadReady}
                     className="wd-btn"
                     title={t('actions.devicesTitle')}
                   >
@@ -1304,18 +1317,14 @@ function SpotlightStyles() {
 /* Inside the route modal the panel has its own definite height. */
 .wd-in-modal .wd-s1 { height: 100%; min-height: 0; }
 .wd-s1-media { position: absolute; inset: 0; overflow: hidden; isolation: isolate; }
+.wd-s1-image-canvas { position: relative; overflow: hidden; }
 .wd-s1-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-  transition: opacity 520ms var(--ease-out-quart), filter 720ms var(--ease-out-quart), transform 900ms var(--ease-out-quart);
-  will-change: opacity, filter, transform; }
-.wd-s1-img.is-native-size { object-fit: scale-down; }
-.wd-s1-img-preview { z-index: 0; filter: saturate(.96) blur(1.5px); transform: scale(1.012); }
-.wd-s1-img-preview.is-upgraded { filter: none; transform: scale(1); }
-.wd-s1-img-original { z-index: 1; opacity: 0; pointer-events: none; transform: scale(1.006); }
-.wd-s1-img-original.is-ready { opacity: 1; transform: scale(1); }
-.wd-s1-img-preview.is-native-size,
-.wd-s1-img-preview.is-native-size.is-upgraded,
-.wd-s1-img-original.is-native-size,
-.wd-s1-img-original.is-native-size.is-ready { transform: none; }
+  transition: opacity 520ms var(--ease-out-quart), filter 720ms var(--ease-out-quart);
+  will-change: opacity, filter; }
+.wd-s1-img-preview { z-index: 0; filter: saturate(.96) blur(1.5px); }
+.wd-s1-img-preview.is-upgraded { filter: none; }
+.wd-s1-img-original { z-index: 1; opacity: 0; pointer-events: none; }
+.wd-s1-img-original.is-ready { opacity: 1; }
 .wd-s1-loading-glow { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none;
   background: radial-gradient(circle at 50% 44%, rgba(255,255,255,.08), transparent 58%);
   animation: wdHeroGlowPulse 1.8s ease-in-out infinite alternate; }
@@ -1389,7 +1398,7 @@ function SpotlightStyles() {
 .wd-bar-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.22); flex-shrink: 0; }
 /* Buttons inside the dark bar: flat white tints (no glass-on-glass). */
 .wd-bar .wd-btn { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.14); color: rgba(255,255,255,0.92); box-shadow: none; }
-.wd-bar .wd-btn:hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.28); }
+.wd-bar .wd-btn:not(:disabled):hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.28); }
 .wd-bar .wd-btn-count { background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.75); }
 .wd-bar .wd-btn.is-liked { color: #ff9e97; border-color: rgba(224,70,58,0.65); background: rgba(224,70,58,0.20); }
 .wd-bar .wd-btn.is-favorited { color: #ffd98f; border-color: rgba(216,162,58,0.65); background: rgba(216,162,58,0.20); }
@@ -1457,7 +1466,7 @@ function SpotlightStyles() {
   transition: background-color .15s ease, color .15s ease, border-color .15s ease, transform 240ms cubic-bezier(0.34,1.56,0.64,1); }
 .wd-btn:not(:disabled):hover { transform: scale(1.05); }
 .wd-btn:not(:disabled):active { transform: scale(0.92); }
-.wd-btn:hover { background: var(--color-paper-2); border-color: var(--color-ink-2); }
+.wd-btn:not(:disabled):hover { background: var(--color-paper-2); border-color: var(--color-ink-2); }
 .wd-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .wd-btn-icon { padding: 8px 12px; }
 .wd-btn.is-liked { color: oklch(58% 0.20 25); border-color: oklch(58% 0.20 25); background: color-mix(in oklch, oklch(58% 0.20 25) 4%, var(--color-paper)); }
@@ -1473,7 +1482,7 @@ function SpotlightStyles() {
   transition: filter .15s ease, transform 240ms cubic-bezier(0.34,1.56,0.64,1); }
 .wd-btn-cta:not(:disabled):hover { transform: scale(1.04); }
 .wd-btn-cta:not(:disabled):active { transform: scale(0.94); }
-.wd-btn-cta:hover { filter: brightness(1.05); }
+.wd-btn-cta:not(:disabled):hover { filter: brightness(1.05); }
 .wd-btn-cta:disabled { opacity: 0.7; cursor: not-allowed; }
 
 /* ── Detail notices — trade / download / coin states ─────────── */
