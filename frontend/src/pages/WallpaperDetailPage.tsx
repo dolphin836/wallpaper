@@ -1028,21 +1028,25 @@ export default function WallpaperDetailPage() {
               {infoOpen && (
                 <div className="wd-info-panel">
                   {wallpaper.uploader && (
-                    <Link to={`/user/${wallpaper.uploader.username}`} className="wd-ip-row no-underline">
-                      <div className="wd-ip-avatar">
+                    <Link to={`/user/${wallpaper.uploader.username}`} className="wd-ip-row avatar-shell no-underline">
+                      <span className="avatar-btn wd-ip-avatar-btn">
                         {wallpaper.uploader.avatar_url
-                          ? <img src={wallpaper.uploader.avatar_url} alt="" />
-                          : <span className="display">{uploaderInitial}</span>}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-[13px] font-medium text-white truncate">@{wallpaper.uploader.username}</div>
-                        <div className="mono text-[9px] tracking-[0.14em] uppercase text-white/55">{t('info.viewProfile')} →</div>
+                          ? <img src={wallpaper.uploader.avatar_url} alt="" decoding="async" className="avatar-img" />
+                          : <span className="avatar-img avatar-img--fallback">{uploaderInitial}</span>}
+                      </span>
+                      <div className="wd-ip-user-copy">
+                        <div className="wd-ip-user-line">
+                          <span className="wd-ip-username">@{wallpaper.uploader.username}</span>
+                          <span className="wd-ip-coins">{formatNumber(wallpaper.uploader.coins ?? 0)}</span>
+                        </div>
+                        <div className="wd-ip-bio" title={wallpaper.uploader.bio || undefined}>
+                          {wallpaper.uploader.bio || '\u00A0'}
+                        </div>
                       </div>
                     </Link>
                   )}
 
                   <div className="wd-ip-block">
-                    <div className="wd-ip-kicker">{t('info.about')}</div>
                     {currentCategory ? (
                       <Link to={`/category/${currentCategory.slug}`} className="display text-[18px] text-white no-underline hover:underline">
                         {currentCategory.name}
@@ -1061,7 +1065,6 @@ export default function WallpaperDetailPage() {
 
                   {palette.length > 0 && (
                     <div className="wd-ip-block">
-                      <div className="wd-ip-kicker">{t('info.paletteKicker')}</div>
                       <div className="flex gap-1.5">
                         {palette.slice(0, 6).map((c, i) => (
                           <button
@@ -1091,20 +1094,19 @@ export default function WallpaperDetailPage() {
                     ))}
                   </div>
 
-                  <div className="wd-ip-foot">
-                    {isOwner ? (
-                      <button onClick={handleDelete} className="inline-flex items-center gap-1.5 text-white/65 hover:text-rose-300 transition-colors">
-                        <AiOutlineDelete size={13} /> {t('actions.deleteWallpaper')}
-                      </button>
-                    ) : isAuthenticated ? (
-                      <button onClick={() => setShowReport(true)} className="inline-flex items-center gap-1.5 text-white/65 hover:text-white transition-colors">
-                        <AiOutlineFlag size={13} /> {t('actions.report')}
-                      </button>
-                    ) : <span />}
-                    <span className="mono text-[9px] tracking-[0.14em] uppercase text-white/45">
-                      №{String(wallpaper.id).padStart(3, '0')}
-                    </span>
-                  </div>
+                  {(isOwner || isAuthenticated) && (
+                    <div className="wd-ip-foot">
+                      {isOwner ? (
+                        <button onClick={handleDelete} className="inline-flex items-center gap-1.5 text-white/65 hover:text-rose-300 transition-colors">
+                          <AiOutlineDelete size={13} /> {t('actions.deleteWallpaper')}
+                        </button>
+                      ) : (
+                        <button onClick={() => setShowReport(true)} className="inline-flex items-center gap-1.5 text-white/65 hover:text-white transition-colors">
+                          <AiOutlineFlag size={13} /> {t('actions.report')}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1460,10 +1462,15 @@ html.wd-detail-scrollbar-hidden body::-webkit-scrollbar,
   display: flex; flex-direction: column; gap: 14px;
   animation: wdFadeIn .16s ease; }
 .wd-ip-row { display: flex; align-items: center; gap: 10px; }
-.wd-ip-avatar { width: 38px; height: 38px; border-radius: 9999px; overflow: hidden; flex-shrink: 0;
-  background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.25);
-  display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; }
-.wd-ip-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.wd-ip-avatar-btn { flex-shrink: 0; }
+.wd-ip-user-copy { min-width: 0; flex: 1; }
+.wd-ip-user-line { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.wd-ip-username { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: #fff; font-size: 13px; font-weight: 500; }
+.wd-ip-coins { flex-shrink: 0; color: oklch(84% 0.14 82); font-size: 13px; font-weight: 600;
+  font-variant-numeric: tabular-nums; text-shadow: 0 1px 8px oklch(76% 0.16 75 / 0.24); }
+.wd-ip-bio { min-height: 1.35em; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: rgba(255,255,255,0.55); font-size: 11px; line-height: 1.35; }
 .wd-ip-block { border-top: 1px solid rgba(255,255,255,0.14); padding-top: 12px; }
 .wd-ip-kicker { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.50); margin-bottom: 4px; }
 .wd-ip-tag { display: inline-flex; padding: 2px 9px; border-radius: 9999px; font-size: 10.5px; font-weight: 500;
