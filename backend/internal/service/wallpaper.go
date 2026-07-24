@@ -207,7 +207,10 @@ func (s *WallpaperService) GetBySlug(ctx context.Context, idOrSlug string, curre
 		return nil, errcode.ErrInternal
 	}
 
-	if currentUserID <= 0 || currentUserID != w.UserID {
+	// Video detail playback now loads the sole H.264 asset directly after the
+	// user presses play; there is no separate preview clip. Keep its URL in the
+	// detail payload while preserving the original image download gate.
+	if (currentUserID <= 0 || currentUserID != w.UserID) && !strings.HasPrefix(w.FileType, "video/") {
 		w.OriginalURL = ""
 	}
 
