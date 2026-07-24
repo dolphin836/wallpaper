@@ -1,6 +1,23 @@
 import SwiftUI
 import AppKit
 
+// Shared by the public catalogue and the account's "My Collections" tab so
+// their cards, skeletons, and four-row request size stay on one grid contract.
+func collectionListColumnCount(for availableWidth: CGFloat) -> Int {
+    availableWidth > 1180 ? 3 : (availableWidth > 720 ? 2 : 1)
+}
+
+func collectionListGridColumns(for availableWidth: CGFloat) -> [GridItem] {
+    Array(
+        repeating: GridItem(.flexible(minimum: 0), spacing: 24, alignment: .top),
+        count: collectionListColumnCount(for: availableWidth)
+    )
+}
+
+func collectionListPageSize(for availableWidth: CGFloat, rows: Int = 4) -> Int {
+    collectionListColumnCount(for: availableWidth) * rows
+}
+
 // Public collections list. Loads /collections (cursor-paginated) and
 // mirrors the web catalogue's compact stepped-cover card grid.
 struct CollectionsListView: View {
@@ -51,7 +68,7 @@ struct CollectionsListView: View {
                     } else {
                         // Match the web catalogue: one consistent compact card
                         // grid, without a special first-page hero treatment.
-                        LazyVGrid(columns: listColumns(for: contentWidth), spacing: 24) {
+                        LazyVGrid(columns: collectionListGridColumns(for: contentWidth), spacing: 24) {
                             ForEach(visible) { c in
                                 Button(action: { onCollection(c) }) {
                                     CollectionListCard(item: c)
@@ -124,15 +141,8 @@ struct CollectionsListView: View {
         }
     }
 
-    // Same responsive density as the web c5 list: two columns in a normal
-    // window and three when the content area has enough room.
-    private func listColumns(for availableWidth: CGFloat) -> [GridItem] {
-        let count = availableWidth > 1180 ? 3 : (availableWidth > 720 ? 2 : 1)
-        return Array(repeating: GridItem(.flexible(minimum: 0), spacing: 24, alignment: .top), count: count)
-    }
-
     private func listSkeleton(availableWidth: CGFloat) -> some View {
-        LazyVGrid(columns: listColumns(for: availableWidth), spacing: 24) {
+        LazyVGrid(columns: collectionListGridColumns(for: availableWidth), spacing: 24) {
             ForEach(0..<pageSize, id: \.self) { _ in
                 CollectionListCardSkeleton()
             }
@@ -210,7 +220,7 @@ private func collectionCoverSlots(_ item: CollectionItem) -> [CollectionCoverSlo
     return slots
 }
 
-private struct CollectionListCard: View {
+struct CollectionListCard: View {
     let item: CollectionItem
     @State private var hovering = false
 
@@ -374,7 +384,7 @@ private struct CollectionCoverImage: View {
     }
 }
 
-private struct CollectionListCardSkeleton: View {
+struct CollectionListCardSkeleton: View {
     private let weights: [CGFloat] = [1.65, 1, 0.68]
 
     var body: some View {

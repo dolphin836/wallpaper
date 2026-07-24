@@ -120,11 +120,11 @@ struct AccountView: View {
     private func accountContentSkeleton(availableWidth: CGFloat) -> some View {
         switch tab {
         case .collections:
-            CollectionGridSkeleton(
-                columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)],
-                count: accountGridPageSize(availableWidth: availableWidth, minimumItemWidth: 240, spacing: 24),
-                spacing: 28
-            )
+            LazyVGrid(columns: collectionListGridColumns(for: availableWidth), spacing: 24) {
+                ForEach(0..<collectionListPageSize(for: availableWidth), id: \.self) { _ in
+                    CollectionListCardSkeleton()
+                }
+            }
         case .ledger:
             LedgerRowsSkeleton(rows: 4)
         default:
@@ -791,8 +791,9 @@ struct PagedCollectionGrid: View {
     @State private var hoveredAutoPlayCollectionID: Int?
 
     private var pageSize: Int {
-        accountGridPageSize(availableWidth: availableWidth, minimumItemWidth: 240, spacing: 24)
+        collectionListPageSize(for: availableWidth)
     }
+    private var gridColumns: [GridItem] { collectionListGridColumns(for: availableWidth) }
     private var totalPages: Int { total > 0 ? Int(ceil(Double(total) / Double(pageSize))) : max(cursors.count, 1) }
 
     var body: some View {
@@ -802,11 +803,11 @@ struct PagedCollectionGrid: View {
                 autoPlayStatusPanel
             }
             if loading && items.isEmpty {
-                CollectionGridSkeleton(
-                    columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)],
-                    count: pageSize,
-                    spacing: 28
-                )
+                LazyVGrid(columns: gridColumns, spacing: 24) {
+                    ForEach(0..<pageSize, id: \.self) { _ in
+                        CollectionListCardSkeleton()
+                    }
+                }
             } else if let err = loadError, items.isEmpty {
                 RemoteLoadErrorView(message: err) {
                     Task { await loadPage(page) }
@@ -818,7 +819,7 @@ struct PagedCollectionGrid: View {
                     symbol: "square.grid.2x2"
                 )
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)], spacing: 28) {
+                LazyVGrid(columns: gridColumns, spacing: 24) {
                     ForEach(items) { c in
                         collectionCell(c)
                     }
@@ -897,9 +898,10 @@ struct PagedCollectionGrid: View {
     private func collectionCell(_ collection: CollectionItem) -> some View {
         ZStack(alignment: .topTrailing) {
             Button(action: { onCollection(collection) }) {
-                CollectionTileCard(item: collection)
+                CollectionListCard(item: collection)
             }
             .buttonStyle(.plain)
+            .pointerCursor()
 
             if shouldShowAutoPlayButton(for: collection) {
                 autoPlayButton(collection)

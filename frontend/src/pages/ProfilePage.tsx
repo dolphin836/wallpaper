@@ -47,6 +47,10 @@ import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import Pagination from '../components/Pagination';
 import AvatarCropModal from '../components/AvatarCropModal';
+import {
+  CollectionListCard,
+  CollectionListCardSkeleton,
+} from '../components/CollectionListCard';
 
 const PAGE_SIZE = 12; // ledger only — fixed-density list
 
@@ -58,6 +62,12 @@ const COLS_AT_WIDTH = (w: number): number =>
   w >= 1024 ? 5 : w >= 768 ? 4 : w >= 640 ? 3 : 2;
 function calcGridPageSize(w: number): number {
   return COLS_AT_WIDTH(w) * 4;
+}
+
+// Match the public .c5-list breakpoints exactly and keep four complete rows.
+function calcCollectionPageSize(w: number): number {
+  const columns = w > 1180 ? 3 : w > 720 ? 2 : 1;
+  return columns * 4;
 }
 
 type ListKey = 'favorites' | 'likes' | 'downloads';
@@ -124,12 +134,16 @@ export default function ProfilePage() {
   const [gridPageSize, setGridPageSize] = useState<number>(
     () => (typeof window !== 'undefined' ? calcGridPageSize(window.innerWidth) : 20),
   );
+  const [collectionsPageSize, setCollectionsPageSize] = useState<number>(
+    () => (typeof window !== 'undefined' ? calcCollectionPageSize(window.innerWidth) : 12),
+  );
   useEffect(() => {
     let raf = 0;
     const onResize = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         setGridPageSize(calcGridPageSize(window.innerWidth));
+        setCollectionsPageSize(calcCollectionPageSize(window.innerWidth));
       });
     };
     window.addEventListener('resize', onResize);
@@ -277,21 +291,10 @@ export default function ProfilePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, currentUser?.id, gridPageSize, t]);
 
-  // Collections grid uses its own page-size + cursor table. The
-  // grid is 4 cols at lg (one fewer than the wallpaper grid) so
-  // pageSize = colsAtWidth × 4, capped to a sensible upper bound.
-  const collectionsPageSize = useMemo(() => {
-    const cols = (typeof window !== 'undefined' && window.innerWidth >= 1024) ? 4
-      : (typeof window !== 'undefined' && window.innerWidth >= 768) ? 3
-      : (typeof window !== 'undefined' && window.innerWidth >= 640) ? 2
-      : 1;
-    return cols * 4;
-    // gridPageSize changes on resize and we reuse that as a proxy
-    // for "viewport changed". Re-running per resize keeps the page
-    // count aligned with the current viewport.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gridPageSize]);
+  // Collections use their own cursor table because their responsive
+  // list has a different column count from wallpaper grids.
   const collectionsCursorsRef = useRef<number[]>([0]);
+  const previousCollectionsPageSizeRef = useRef(collectionsPageSize);
   const fetchCollections = useCallback(async (page = 1) => {
     if (!user) return;
     const cursor = collectionsCursorsRef.current[page - 1] ?? 0;
@@ -322,6 +325,23 @@ export default function ProfilePage() {
       setCollectionsLoaded(true);
     }
   }, [user, collectionsPageSize, t]);
+
+  // A collection breakpoint change invalidates the cursor chain because
+  // every cursor was produced for the previous limit. Restart at page one
+  // and request exactly four rows for the new column count.
+  useEffect(() => {
+    if (previousCollectionsPageSizeRef.current === collectionsPageSize) return;
+    previousCollectionsPageSizeRef.current = collectionsPageSize;
+    collectionsCursorsRef.current = [0];
+    setCollections([]);
+    setCollectionsPage(1);
+    setCollectionsTotal(0);
+    setCollectionsMaxReached(1);
+    setCollectionsLoaded(false);
+    if (activeTab === 'collections' && user) {
+      void fetchCollections(1);
+    }
+  }, [activeTab, collectionsPageSize, fetchCollections, user]);
 
   const fetchLedger = useCallback(async (page: number) => {
     setTxLoading(true);
@@ -976,9 +996,13 @@ function CollectionsPanel({ isOwner, collections, loaded, page, total, pageSize,
         />
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
-            {collections.map((c) => (
-              <ProfileCollectionTile key={c.id} c={c} />
+          <div className="c5-list">
+            {collections.map((c, index) => (
+              <CollectionListCard
+                key={c.id}
+                collection={c}
+                eager={page === 1 && index === 0}
+              />
             ))}
           </div>
           <Pagination
@@ -993,57 +1017,8 @@ function CollectionsPanel({ isOwner, collections, loaded, page, total, pageSize,
   );
 }
 
-/* CollectionsPanel tile — same .c-tile chrome as the
-   /collections library page (stacked-paper aesthetic with an
-   accent-tinted shadow layer). Cover fallback chain: cover_url →
-   recent_tiles[0].preview_url → recent_tiles[0].thumb_url →
-   empty card. */
-function ProfileCollectionTile({ c }: { c: Collection }) {
-  const { t } = useTranslation('profile');
-  const accent = c.accent_color || 'var(--color-accent)';
-  const firstTile = c.recent_tiles?.[0];
-  const preferred = firstTile?.preview_url || c.cover_url || firstTile?.thumb_url || '';
-  const fallbackSrc = firstTile?.thumb_url || '';
-  const [src, setSrc] = useState(preferred);
-  return (
-    <Link
-      to={`/collections/${c.slug}`}
-      className="c-tile no-underline"
-      style={{ '--c-accent': accent } as React.CSSProperties}
-    >
-      <div className="c-tile-frame">
-        {src ? (
-          <img
-            src={src}
-            alt={c.title}
-            loading="lazy"
-            onError={() => {
-              if (fallbackSrc && src !== fallbackSrc) setSrc(fallbackSrc);
-              else setSrc('');
-            }}
-          />
-        ) : (
-          <div className="c-tile-empty">{t('collections.noCover')}</div>
-        )}
-      </div>
-      <div className="c-tile-caption">
-        <div className="c-tile-kicker">
-          {c.kind === 1 ? t('collections.editorTheme') : t('collections.collection')}
-          {!c.is_public && ` · ${t('collections.private')}`}
-        </div>
-        <div className="c-tile-title">{c.title}</div>
-        <div className="c-tile-meta">
-          {c.wallpaper_count === 1
-            ? t('collections.wallpaperOne', { num: c.wallpaper_count })
-            : t('collections.wallpaperMany', { num: c.wallpaper_count })}
-        </div>
-      </div>
-    </Link>
-  );
-}
-
 /* Skeletons matching the live grids — same chrome (dev-spec-card
-   for wallpapers, c-tile for collections) so loading state and
+   for wallpapers, c5-card for collections) so loading state and
    loaded state occupy identical footprints. Staggered animation
    delays via .skeleton-card's shimmer. */
 function ProfileWallpapersSkeleton() {
@@ -1060,14 +1035,9 @@ function ProfileWallpapersSkeleton() {
 }
 function ProfileCollectionsSkeleton({ count }: { count: number }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
+    <div className="c5-list" aria-hidden>
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="flex flex-col gap-3">
-          <div className="c-tile-frame skeleton-card" style={{ aspectRatio: '1 / 1' }} />
-          <div className="skeleton-card" style={{ width: '40%', height: 10, borderRadius: 4 }} />
-          <div className="skeleton-card" style={{ width: '70%', height: 18, borderRadius: 4 }} />
-          <div className="skeleton-card" style={{ width: '30%', height: 9, borderRadius: 4 }} />
-        </div>
+        <CollectionListCardSkeleton key={i} />
       ))}
     </div>
   );
