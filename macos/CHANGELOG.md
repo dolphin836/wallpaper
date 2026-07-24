@@ -10,6 +10,35 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-07-25
+
+### Added
+
+- **My Downloads can show only files that still exist locally.** Account tabs,
+  language, and appearance controls now read as selectors, and account lists
+  request enough items to fill four rows at the current window size.
+- **Still-image details now include a full-screen preview** with zoom, rotate,
+  and reset controls. Preview, download, and download-and-set actions remain
+  disabled until the original image is ready.
+
+### Changed
+
+- **Native wallpaper lists now fit the Mac's displays.** Results exclude images
+  below the smallest connected screen resolution, so multi-monitor setups do
+  not receive wallpapers that only suit smaller devices.
+- **Home, Weekly Picks, Collections, and account pages size their loading and
+  content grids from the available space.** Collection cards now use the same
+  layout in the public list and My Collections.
+- **Video uploads preserve their source resolution.** Videos below 1080p are
+  rejected before upload, poster images use the same small, large, and original
+  tiers as static wallpapers, and playback loads the original video directly.
+
+### Fixed
+
+- **Detail media no longer enlarges undersized originals.** The action bar,
+  preview and download icons, resolution badges, and dynamic-video tags now
+  follow the same visual language as the web client.
+
 ## [2.1.0] - 2026-07-05
 
 ### Added

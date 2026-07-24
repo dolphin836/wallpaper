@@ -1,8 +1,46 @@
 {
-  "current_version": "2.1.0",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.1.0.dmg",
+  "current_version": "2.1.1",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.1.1.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.1.1",
+      "released_at": "2026-07-25",
+      "notes": [
+        "My Downloads can now show only files that still exist locally; account tabs and language/appearance controls read as selectors, and account lists dynamically fill four rows.",
+        "Native wallpaper lists now exclude images below the smallest connected screen resolution, keeping multi-monitor results suitable for every display.",
+        "Still-image details now include a full-screen preview with zoom, rotate, and reset controls; preview and download actions wait until the original is ready.",
+        "Detail media no longer enlarges undersized originals, and action icons, resolution badges, and dynamic-video tags now match the web design.",
+        "Home, Weekly Picks, Collections, and account pages dynamically size loading and content grids; collection cards now share one layout everywhere.",
+        "Video uploads must be at least 1080p, preserve their source resolution, use image-style poster tiers, and load the original video for playback."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "“我的下载”新增“仅显示本地存在”筛选；用户主页标签、语言和外观选项改成更明确的选择器，列表会按窗口动态加载四行。",
+          "Mac 壁纸列表现在会过滤掉低于最小连接屏幕分辨率的图片，多显示器环境下返回的结果也能适合每一块屏幕。",
+          "静态壁纸详情新增全屏预览，支持缩放、旋转和重置；原图准备完成前，预览和下载操作会保持禁用。",
+          "详情页不再放大低分辨率原图，操作图标、分辨率标签和动态视频标签也已与 Web 端统一。",
+          "首页、每周精选、合集和用户主页会根据可用空间动态计算骨架屏与内容网格；合集卡片在所有入口使用同一布局。",
+          "视频上传最低要求为 1080p，处理时保留原始分辨率，预览图采用与静态壁纸相同的尺寸层级，播放时直接加载原视频。"
+        ],
+        "zh-TW": [
+          "「我的下載」新增「僅顯示本機存在」篩選；使用者主頁分頁、語言和外觀選項改成更明確的選擇器，清單會依視窗動態載入四列。",
+          "Mac 桌布清單現在會過濾低於最小連接螢幕解析度的圖片，多螢幕環境下傳回的結果也能適合每一個螢幕。",
+          "靜態桌布詳細頁新增全螢幕預覽，支援縮放、旋轉和重設；原圖準備完成前，預覽和下載操作會維持停用。",
+          "詳細頁不再放大低解析度原圖，操作圖示、解析度標籤和動態影片標籤也已與 Web 端統一。",
+          "首頁、每週精選、合輯和使用者主頁會依可用空間動態計算骨架畫面與內容網格；合輯卡片在所有入口使用同一版面。",
+          "影片上傳最低要求為 1080p，處理時保留原始解析度，預覽圖採用與靜態桌布相同的尺寸層級，播放時直接載入原始影片。"
+        ],
+        "ja": [
+          "「マイダウンロード」にローカルに存在するファイルだけを表示するフィルターを追加しました。アカウントのタブ、言語、外観は選択項目として分かりやすくなり、一覧はウインドウ幅に合わせて4行分を読み込みます。",
+          "Mac の壁紙一覧は、接続中の最小ディスプレイ解像度を下回る画像を除外するようになり、マルチディスプレイ環境でもすべての画面に適した結果を返します。",
+          "静止画の詳細に、拡大、回転、リセットができるフルスクリーンプレビューを追加しました。オリジナル画像の準備が完了するまで、プレビューとダウンロード操作は無効になります。",
+          "詳細画面で低解像度のオリジナルを拡大しなくなり、操作アイコン、解像度バッジ、動画タグも Web 版と統一しました。",
+          "ホーム、今週のピック、コレクション、アカウント画面は、利用可能な領域に合わせてスケルトンとコンテンツのグリッド数を動的に計算します。コレクションカードもすべての入口で同じレイアウトになりました。",
+          "動画アップロードは 1080p 以上が必須になり、処理時に元の解像度を保持します。ポスター画像は静止画と同じサイズ階層を使い、再生時はオリジナル動画を直接読み込みます。"
+        ]
+      }
+    },
     {
       "version": "2.1.0",
       "released_at": "2026-07-05",
