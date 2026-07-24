@@ -2,9 +2,10 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
-// Keep account loading grids aligned with the web profile: four complete
-// rows at whatever column count the current Mac window can actually fit.
-private func accountSkeletonCount(
+// Keep account grids aligned with the web profile: both the loading skeleton
+// and the real API page contain four complete rows at the column count the
+// current Mac window can actually fit.
+private func accountGridPageSize(
     availableWidth: CGFloat,
     minimumItemWidth: CGFloat,
     spacing: CGFloat
@@ -121,7 +122,7 @@ struct AccountView: View {
         case .collections:
             CollectionGridSkeleton(
                 columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)],
-                count: accountSkeletonCount(availableWidth: availableWidth, minimumItemWidth: 240, spacing: 24),
+                count: accountGridPageSize(availableWidth: availableWidth, minimumItemWidth: 240, spacing: 24),
                 spacing: 28
             )
         case .ledger:
@@ -129,7 +130,7 @@ struct AccountView: View {
         default:
             WallpaperGridSkeleton(
                 columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14, alignment: .top)],
-                count: accountSkeletonCount(availableWidth: availableWidth, minimumItemWidth: 220, spacing: 14)
+                count: accountGridPageSize(availableWidth: availableWidth, minimumItemWidth: 220, spacing: 14)
             )
         }
     }
@@ -573,7 +574,9 @@ struct PagedWallpaperGrid: View {
     @State private var localRecordsLoaded = false
     @State private var localRecordsError: String?
 
-    private let pageSize = 24
+    private var pageSize: Int {
+        accountGridPageSize(availableWidth: availableWidth, minimumItemWidth: 220, spacing: gridSpacing)
+    }
     private var locallyAvailableItems: [Wallpaper] {
         let knownLocalIDs = manager.downloadedIDs
         return localRecords.filter { knownLocalIDs.contains($0.id) && manager.isDownloaded($0.id) }
@@ -621,11 +624,7 @@ struct PagedWallpaperGrid: View {
                     if visibleLoading && visibleItems.isEmpty {
                         WallpaperGridSkeleton(
                             columns: gridColumns,
-                            count: accountSkeletonCount(
-                                availableWidth: availableWidth,
-                                minimumItemWidth: 220,
-                                spacing: gridSpacing
-                            ),
+                            count: pageSize,
                             spacing: gridSpacing,
                             aspectRatio: 3.0 / 2.0,
                             cornerRadius: 10
@@ -677,7 +676,7 @@ struct PagedWallpaperGrid: View {
                 }
             }
         }
-        .task { if !loaded { await loadPage(1) } }
+        .task(id: pageSize) { await reloadForCurrentPageSize() }
         // Entering the tab shows the default brand mesh — not the first
         // card's color. The mesh only shifts when a tile is hovered
         // (MainGridTile drives PaletteEnv directly).
@@ -693,6 +692,18 @@ struct PagedWallpaperGrid: View {
             guard localOnly else { return }
             page = min(page, totalPages)
         }
+    }
+
+    private func reloadForCurrentPageSize() async {
+        page = 1
+        if localOnly {
+            if !localRecordsLoaded { await loadLocalRecords() }
+            return
+        }
+        cursors = [nil]
+        items = []
+        loaded = false
+        await loadPage(1)
     }
 
     private func loadPage(_ p: Int) async {
@@ -779,7 +790,9 @@ struct PagedCollectionGrid: View {
     @State private var showAutoPlayDownloadPrompt = false
     @State private var hoveredAutoPlayCollectionID: Int?
 
-    private let pageSize = 12
+    private var pageSize: Int {
+        accountGridPageSize(availableWidth: availableWidth, minimumItemWidth: 240, spacing: 24)
+    }
     private var totalPages: Int { total > 0 ? Int(ceil(Double(total) / Double(pageSize))) : max(cursors.count, 1) }
 
     var body: some View {
@@ -791,11 +804,7 @@ struct PagedCollectionGrid: View {
             if loading && items.isEmpty {
                 CollectionGridSkeleton(
                     columns: [GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 24, alignment: .top)],
-                    count: accountSkeletonCount(
-                        availableWidth: availableWidth,
-                        minimumItemWidth: 240,
-                        spacing: 24
-                    ),
+                    count: pageSize,
                     spacing: 28
                 )
             } else if let err = loadError, items.isEmpty {
@@ -825,7 +834,7 @@ struct PagedCollectionGrid: View {
                 }
             }
         }
-        .task { if !loaded { await loadPage(1) } }
+        .task(id: pageSize) { await reloadForCurrentPageSize() }
         // Default brand mesh on enter; hovering a collection card tints it.
         .onAppear { onPalette(nil, nil) }
         .confirmationDialog(
@@ -842,6 +851,14 @@ struct PagedCollectionGrid: View {
         } message: {
             Text(L10n.account.collectionAutoPlayDownloadMessage(pendingMissingCount))
         }
+    }
+
+    private func reloadForCurrentPageSize() async {
+        page = 1
+        cursors = [nil]
+        items = []
+        loaded = false
+        await loadPage(1)
     }
 
     private var autoPlayStatusPanel: some View {
