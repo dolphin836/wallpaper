@@ -145,6 +145,17 @@ export default function WallpaperDetailPage() {
   const location = useLocation();
   const { isAuthenticated, user, updateCoins } = useAuthStore();
   const initialWallpaper = (location.state as { initialWallpaper?: Wallpaper } | null)?.initialWallpaper;
+
+  // Hide only the scrollbar chrome while this route is mounted. The document
+  // remains scrollable for direct detail URLs, and modal details keep using
+  // their own scroll container below, so the recommendation screen is still
+  // reached normally with wheel, trackpad, touch, or keyboard input.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add('wd-detail-scrollbar-hidden');
+    return () => root.classList.remove('wd-detail-scrollbar-hidden');
+  }, []);
+
   // Hydrate from list snapshot so the preview renders immediately; uploader/tags are filled in by the detail fetch.
   const [wallpaper, setWallpaper] = useState<WallpaperDetail | null>(() =>
     initialWallpaper
@@ -867,7 +878,7 @@ export default function WallpaperDetailPage() {
         {/* Modal-mode chrome moved to the modal wrapper itself
             (corner-anchored ✕). No header strip here. */}
 
-        <div className="flex-1 min-h-0 overflow-y-auto relative z-10">
+        <div className="wd-detail-scroll flex-1 min-h-0 overflow-y-auto relative z-10">
 
           {/* ═══ SCREEN 1 — immersive hero (mirrors the Mac detail page):
               full-bleed wallpaper, back circle top-left, info circle +
@@ -1329,6 +1340,19 @@ function SpotlightStyles() {
   --wd-detail-glass-filter: blur(24px) saturate(1.4);
   --wd-detail-glass-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(0,0,0,0.30),
                             0 2px 3px rgba(0,0,0,0.22), 0 12px 26px rgba(0,0,0,0.34);
+}
+html.wd-detail-scrollbar-hidden,
+html.wd-detail-scrollbar-hidden body,
+.wd-detail-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html.wd-detail-scrollbar-hidden::-webkit-scrollbar,
+html.wd-detail-scrollbar-hidden body::-webkit-scrollbar,
+.wd-detail-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 .wd-s1 { position: relative; height: calc(100dvh - 60px); min-height: 560px; overflow: hidden; }
 /* Inside the route modal the panel has its own definite height. */
