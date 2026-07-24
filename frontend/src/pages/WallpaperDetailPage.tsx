@@ -213,6 +213,7 @@ export default function WallpaperDetailPage() {
   const [heroContainedSize, setHeroContainedSize] = useState({ width: 0, height: 0 });
   const heroSourceId = wallpaper?.id;
   const isVideoWallpaper = (wallpaper?.file_type || '').startsWith('video/');
+  const fullscreenVisible = fullscreen && !isVideoWallpaper;
   const originalSourceWidth = wallpaper?.width ?? 0;
   const originalSourceHeight = wallpaper?.height ?? 0;
   // The browser displays derived media for dynamic wallpapers, not the
@@ -384,7 +385,7 @@ export default function WallpaperDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!fullscreen && !mockupVariant && !drawerOpen) return;
+    if (!fullscreenVisible && !mockupVariant && !drawerOpen) return;
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (drawerOpen) { setDrawerOpen(false); return; }
@@ -393,12 +394,12 @@ export default function WallpaperDetailPage() {
       }
     };
     document.addEventListener('keydown', handleEsc);
-    if (fullscreen || mockupVariant) document.body.style.overflow = 'hidden';
+    if (fullscreenVisible || mockupVariant) document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleEsc);
       document.body.style.overflow = '';
     };
-  }, [fullscreen, mockupVariant, drawerOpen]);
+  }, [fullscreenVisible, mockupVariant, drawerOpen]);
 
   const { data: similar = [] } = useQuery({
     queryKey: ['wallpaper', wallpaper?.id, 'similar'],
@@ -658,7 +659,7 @@ export default function WallpaperDetailPage() {
         />
       )}
 
-      {fullscreen && createPortal(
+      {fullscreenVisible && createPortal(
         <div
           className="fixed inset-0 z-[70] bg-black flex items-center justify-center overflow-hidden"
           onClick={() => {
@@ -1221,23 +1222,25 @@ export default function WallpaperDetailPage() {
 
                 <span className="wd-bar-divider" />
 
-                <button
-                  type="button"
-                  disabled={!downloadReady}
-                  onClick={() => {
-                    if (!downloadReady) return;
-                    if (frames.length > 1 || (wallpaper.file_type || '').startsWith('video/')) {
-                      toast(t('toast.useHeroControls'), { icon: 'ℹ️' });
-                      return;
-                    }
-                    setFullscreen(true);
-                  }}
-                  className="wd-btn wd-btn-icon"
-                  title={t('preview.fullscreenTitle')}
-                  aria-label={t('preview.fullscreenTitle')}
-                >
-                  <AiOutlineFullscreen size={15} />
-                </button>
+                {!isVideoWallpaper && (
+                  <button
+                    type="button"
+                    disabled={!downloadReady}
+                    onClick={() => {
+                      if (!downloadReady) return;
+                      if (frames.length > 1) {
+                        toast(t('toast.useHeroControls'), { icon: 'ℹ️' });
+                        return;
+                      }
+                      setFullscreen(true);
+                    }}
+                    className="wd-btn wd-btn-icon"
+                    title={t('preview.fullscreenTitle')}
+                    aria-label={t('preview.fullscreenTitle')}
+                  >
+                    <AiOutlineFullscreen size={15} />
+                  </button>
+                )}
 
                 {variants.length > 0 && (
                   <button

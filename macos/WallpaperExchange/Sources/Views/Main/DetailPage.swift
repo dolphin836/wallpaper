@@ -185,7 +185,7 @@ struct DetailPage: View {
                     .padding(.top, layout.topControlsTopPadding)
                     .zIndex(20)
 
-                if showingFullscreenPreview, let detail {
+                if showingFullscreenPreview, let detail, !isVideo(detail: detail) {
                     FullscreenWallpaperPreview(
                         lowURL: detailPreviewPosterURL(detail),
                         highURL: detailHeroImageURL(detail),
@@ -1435,8 +1435,10 @@ struct DetailPage: View {
             actionBarMeta(detail: detail, wallpaper: wallpaper)
             HStack(spacing: 8) {
                 socialActions(detail: detail, wallpaper: wallpaper)
-                divider
-                fullscreenAction(detail: detail)
+                if detail.map({ !isVideo(detail: $0) }) ?? true {
+                    divider
+                    fullscreenAction(detail: detail)
+                }
             }
             downloadActions(detail: detail, wallpaper: wallpaper)
         }
@@ -1570,27 +1572,31 @@ struct DetailPage: View {
         }
     }
 
+    @ViewBuilder
     private func fullscreenAction(detail: WallpaperDetail?) -> some View {
-        Button {
-            guard detail != nil else { return }
-            withAnimation(.easeOut(duration: 0.18)) {
-                showingCollectionPicker = false
-                showingWallpaperPicker = false
-                showingFullscreenPreview = true
+        if detail.map({ !isVideo(detail: $0) }) ?? true {
+            let ready = detail.map(downloadReady) ?? false
+            Button {
+                guard let detail, !isVideo(detail: detail), downloadReady(detail) else { return }
+                withAnimation(.easeOut(duration: 0.18)) {
+                    showingCollectionPicker = false
+                    showingWallpaperPicker = false
+                    showingFullscreenPreview = true
+                }
+            } label: {
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.92))
+                    .frame(width: 38, height: 38)
+                    .background(Circle().fill(Color.white.opacity(0.08)))
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+                    .contentShape(Circle())
             }
-        } label: {
-            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.92))
-                .frame(width: 38, height: 38)
-                .background(Circle().fill(Color.white.opacity(0.08)))
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
-                .contentShape(Circle())
+            .buttonStyle(GlassBounceButtonStyle())
+            .disabled(!ready)
+            .opacity(ready ? 1 : 0.48)
+            .help(L10n.detail.fullscreenPreview)
         }
-        .buttonStyle(GlassBounceButtonStyle())
-        .allowsHitTesting(detail != nil)
-        .opacity(detail == nil ? 0.48 : 1)
-        .help(L10n.detail.fullscreenPreview)
     }
 
     private var previewModePicker: some View {
@@ -1617,8 +1623,8 @@ struct DetailPage: View {
                               text: downloadButtonText(detail: detail, downloaded: downloaded, downloading: downloading),
                               emphasized: true)
             }
-            .allowsHitTesting(hasDetail && ready && !downloading && !downloaded)
-            .opacity(ready || downloaded ? 1 : 0.55)
+            .disabled(!(hasDetail && ready && !downloading && !downloaded))
+            .opacity(ready ? 1 : 0.55)
             .buttonStyle(.plain)
             Button(action: {
                 guard detail != nil else { return }
@@ -1631,8 +1637,8 @@ struct DetailPage: View {
                               text: downloadAndSetButtonText(detail: detail, downloaded: downloaded),
                               emphasized: false)
             }
-            .allowsHitTesting(hasDetail && ready && !downloading && !applyingWallpaper)
-            .opacity(ready || downloaded ? 1 : 0.55)
+            .disabled(!(hasDetail && ready && !downloading && !applyingWallpaper))
+            .opacity(ready ? 1 : 0.55)
             .buttonStyle(.plain)
             .keyboardShortcut("d", modifiers: .command)
         }
@@ -2372,6 +2378,7 @@ struct DetailPage: View {
         similarLoaded = false
         showingWallpaperPicker = false
         showingCollectionPicker = false
+        showingFullscreenPreview = false
         collectionError = nil
         isLiked = initialWallpaper?.isLiked ?? false
         isFavorited = initialWallpaper?.isFavorited ?? false
