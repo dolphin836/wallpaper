@@ -10,6 +10,12 @@ struct DetailStrings {
     let previewPlain: String
     let previewHome: String
     let previewLock: String
+    let fullscreenPreview: String
+    let fullscreenClose: String
+    let fullscreenZoomOut: String
+    let fullscreenZoomIn: String
+    let fullscreenRotate: String
+    let fullscreenReset: String
 
     // Breadcrumb kicker
     let specimen: (Int) -> String
@@ -119,6 +125,12 @@ private let detailEN = DetailStrings(
     previewPlain: "Plain",
     previewHome: "Home",
     previewLock: "Lock",
+    fullscreenPreview: "Fullscreen preview",
+    fullscreenClose: "Close preview",
+    fullscreenZoomOut: "Zoom out",
+    fullscreenZoomIn: "Zoom in",
+    fullscreenRotate: "Rotate",
+    fullscreenReset: "Reset view",
     specimen: { id in "Specimen №\(id)" },
     downloadingOriginal: "DOWNLOADING ORIGINAL",
     preparingOriginal: "PREPARING ORIGINAL",
@@ -204,8 +216,14 @@ private let detailEN = DetailStrings(
 private let detailZhCN = DetailStrings(
     previewWallpaper: "壁纸",
     previewPlain: "纯净",
-    previewHome: "桌面",
+    previewHome: "主屏",
     previewLock: "锁屏",
+    fullscreenPreview: "全屏预览",
+    fullscreenClose: "关闭预览",
+    fullscreenZoomOut: "缩小",
+    fullscreenZoomIn: "放大",
+    fullscreenRotate: "旋转",
+    fullscreenReset: "重置视图",
     specimen: { id in "藏品 №\(id)" },
     downloadingOriginal: "正在下载原图",
     preparingOriginal: "正在准备原图",
@@ -291,8 +309,14 @@ private let detailZhCN = DetailStrings(
 private let detailZhTW = DetailStrings(
     previewWallpaper: "桌布",
     previewPlain: "純淨",
-    previewHome: "桌面",
+    previewHome: "主畫面",
     previewLock: "鎖定畫面",
+    fullscreenPreview: "全螢幕預覽",
+    fullscreenClose: "關閉預覽",
+    fullscreenZoomOut: "縮小",
+    fullscreenZoomIn: "放大",
+    fullscreenRotate: "旋轉",
+    fullscreenReset: "重設檢視",
     specimen: { id in "藏品 №\(id)" },
     downloadingOriginal: "正在下載原圖",
     preparingOriginal: "正在準備原圖",
@@ -380,6 +404,12 @@ private let detailJA = DetailStrings(
     previewPlain: "プレーン",
     previewHome: "ホーム",
     previewLock: "ロック",
+    fullscreenPreview: "フルスクリーンプレビュー",
+    fullscreenClose: "プレビューを閉じる",
+    fullscreenZoomOut: "縮小",
+    fullscreenZoomIn: "拡大",
+    fullscreenRotate: "回転",
+    fullscreenReset: "表示をリセット",
     specimen: { id in "作品 №\(id)" },
     downloadingOriginal: "オリジナルをダウンロード中",
     preparingOriginal: "オリジナルを準備中",

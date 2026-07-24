@@ -46,6 +46,7 @@ struct DetailPage: View {
     @State private var collectionError: String?
     @FocusState private var collectionTitleFocused: Bool
     @State private var measuredActionBarWidth: CGFloat = 0
+    @State private var showingFullscreenPreview = false
     @State private var selectedWallpaperSurface: WallpaperApplySurface = .desktop
     @State private var selectedDisplayTargetID = WallpaperDisplayTarget.allID
     @State private var applyingWallpaper = false
@@ -183,9 +184,22 @@ struct DetailPage: View {
                     .padding(.horizontal, layout.topControlsHorizontalPadding)
                     .padding(.top, layout.topControlsTopPadding)
                     .zIndex(20)
+
+                if showingFullscreenPreview, let detail {
+                    FullscreenWallpaperPreview(
+                        lowURL: detailPreviewPosterURL(detail),
+                        highURL: detailHeroImageURL(detail),
+                        title: displayTitle(detail.title),
+                        metadata: "\(detail.resolutionLabel) · \(detail.width.formatted()) × \(detail.height.formatted())",
+                        onClose: { showingFullscreenPreview = false }
+                    )
+                    .transition(.opacity)
+                    .zIndex(100)
+                }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
+            .animation(.easeOut(duration: 0.18), value: showingFullscreenPreview)
             .task(id: "\(slug)-\(detail?.id ?? 0)-\(layout.recommendationLimit)") {
                 await loadSimilar(limit: layout.recommendationLimit)
             }
@@ -1368,9 +1382,17 @@ struct DetailPage: View {
         }
         .animation(.easeOut(duration: 0.16), value: showingWallpaperPicker)
         .animation(.easeOut(duration: 0.16), value: showingCollectionPicker)
-        .padding(layout.actionPadding)
-        .glassPanel(cornerRadius: 24)
-        .shadow(color: Color.accent.opacity(0.16), radius: 30, y: 8)
+        .padding(layout.isCompact ? 8 : 10)
+        .background(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(Color.black.opacity(0.42))
+        )
+        .glassSurface(
+            RoundedRectangle(cornerRadius: 30, style: .continuous),
+            tone: .dark,
+            lighting: 0.72
+        )
+        .shadow(color: Color.black.opacity(0.30), radius: 26, y: 10)
         .background(
             GeometryReader { proxy in
                 Color.clear.preference(key: ActionBarWidthPreferenceKey.self, value: proxy.size.width)
@@ -1379,12 +1401,14 @@ struct DetailPage: View {
     }
 
     private func actionRowsWide(detail: WallpaperDetail?, wallpaper: Wallpaper?) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
+            actionBarMeta(detail: detail, wallpaper: wallpaper)
+                .fixedSize(horizontal: true, vertical: false)
+            divider
             socialActions(detail: detail, wallpaper: wallpaper)
                 .fixedSize(horizontal: true, vertical: false)
-            divider.opacity(0.42)
-            toolbarMeta(detail: detail, wallpaper: wallpaper)
-                .fixedSize(horizontal: true, vertical: false)
+            divider
+            fullscreenAction(detail: detail)
             downloadActions(detail: detail, wallpaper: wallpaper)
                 .fixedSize(horizontal: true, vertical: false)
         }
@@ -1392,23 +1416,27 @@ struct DetailPage: View {
 
     private func actionRowsMedium(detail: WallpaperDetail?, wallpaper: Wallpaper?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
+                actionBarMeta(detail: detail, wallpaper: wallpaper)
+                divider
                 socialActions(detail: detail, wallpaper: wallpaper)
                     .fixedSize(horizontal: true, vertical: false)
-                divider.opacity(0.42)
-                toolbarMeta(detail: detail, wallpaper: wallpaper)
+            }
+            HStack(spacing: 8) {
+                fullscreenAction(detail: detail)
+                downloadActions(detail: detail, wallpaper: wallpaper)
                     .fixedSize(horizontal: true, vertical: false)
             }
-            downloadActions(detail: detail, wallpaper: wallpaper)
-                .fixedSize(horizontal: true, vertical: false)
         }
     }
 
     private func actionRowsCompact(detail: WallpaperDetail?, wallpaper: Wallpaper?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
+            actionBarMeta(detail: detail, wallpaper: wallpaper)
+            HStack(spacing: 8) {
                 socialActions(detail: detail, wallpaper: wallpaper)
-                toolbarMeta(detail: detail, wallpaper: wallpaper)
+                divider
+                fullscreenAction(detail: detail)
             }
             downloadActions(detail: detail, wallpaper: wallpaper)
         }
@@ -1417,10 +1445,58 @@ struct DetailPage: View {
 
     private func actionRowsMinimal(detail: WallpaperDetail?, wallpaper: Wallpaper?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            toolbarMeta(detail: detail, wallpaper: wallpaper)
-            downloadActions(detail: detail, wallpaper: wallpaper)
+            actionBarMeta(detail: detail, wallpaper: wallpaper)
+            HStack(spacing: 8) {
+                fullscreenAction(detail: detail)
+                downloadActions(detail: detail, wallpaper: wallpaper)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func actionBarMeta(detail d: WallpaperDetail?, wallpaper: Wallpaper?) -> some View {
+        if let d {
+            actionBarMetaText(
+                dimensions: "\(d.width.formatted()) × \(d.height.formatted())",
+                specs: metaSpecText(detail: d)
+            )
+        } else if let wallpaper {
+            actionBarMetaText(
+                dimensions: "\(wallpaper.width.formatted()) × \(wallpaper.height.formatted())",
+                specs: [wallpaper.resolutionLabel, wallpaper.fileType.uppercased(), byteString(wallpaper.fileSize)]
+                    .joined(separator: " · ")
+            )
+        } else {
+            VStack(alignment: .leading, spacing: 5) {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Color.white.opacity(0.24))
+                    .frame(width: 104, height: 13)
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(Color.white.opacity(0.16))
+                    .frame(width: 168, height: 9)
+            }
+            .frame(width: 210, alignment: .leading)
+            .padding(.horizontal, 6)
+        }
+    }
+
+    private func actionBarMetaText(dimensions: String, specs: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(dimensions)
+                .font(.system(size: 13.5, weight: .semibold))
+                .foregroundStyle(Color.white)
+                .monospacedDigit()
+                .lineLimit(1)
+            Text(specs)
+                .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                .tracking(0.45)
+                .foregroundStyle(Color.white.opacity(0.64))
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .frame(width: 210, alignment: .leading)
+        .padding(.horizontal, 6)
     }
 
     private func toolbarMeta(detail d: WallpaperDetail?, wallpaper: Wallpaper?) -> some View {
@@ -1494,6 +1570,29 @@ struct DetailPage: View {
         }
     }
 
+    private func fullscreenAction(detail: WallpaperDetail?) -> some View {
+        Button {
+            guard detail != nil else { return }
+            withAnimation(.easeOut(duration: 0.18)) {
+                showingCollectionPicker = false
+                showingWallpaperPicker = false
+                showingFullscreenPreview = true
+            }
+        } label: {
+            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.white.opacity(0.92))
+                .frame(width: 38, height: 38)
+                .background(Circle().fill(Color.white.opacity(0.08)))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+                .contentShape(Circle())
+        }
+        .buttonStyle(GlassBounceButtonStyle())
+        .allowsHitTesting(detail != nil)
+        .opacity(detail == nil ? 0.48 : 1)
+        .help(L10n.detail.fullscreenPreview)
+    }
+
     private var previewModePicker: some View {
         GlassSegmented(
             segments: Self.previewOptions.map { GlassSegment(id: $0, label: previewModeLabel($0)) },
@@ -1530,7 +1629,7 @@ struct DetailPage: View {
             }) {
                 downloadLabel(icon: downloaded ? "display" : "rectangle.on.rectangle.angled",
                               text: downloadAndSetButtonText(detail: detail, downloaded: downloaded),
-                              emphasized: true)
+                              emphasized: false)
             }
             .allowsHitTesting(hasDetail && ready && !downloading && !applyingWallpaper)
             .opacity(ready || downloaded ? 1 : 0.55)
@@ -1872,10 +1971,10 @@ struct DetailPage: View {
                 .lineLimit(1)
                 .fixedSize()
         }
-        .foregroundStyle(emphasized ? Color.white : Color.ink2)
+        .foregroundStyle(Color.white)
         .padding(.horizontal, emphasized ? 16 : 11).padding(.vertical, emphasized ? 8 : 6)
-        .background(Capsule().fill(emphasized ? Color.accent : Color.paper))
-        .overlay(Capsule().stroke(emphasized ? Color.clear : Color.hair, lineWidth: 1))
+        .background(Capsule().fill(emphasized ? Color.accent : Color.white.opacity(0.08)))
+        .overlay(Capsule().stroke(emphasized ? Color.clear : Color.white.opacity(0.16), lineWidth: 1))
         .shadow(color: emphasized ? Color.accent.opacity(0.45) : Color.clear, radius: emphasized ? 10 : 0, y: emphasized ? 4 : 0)
     }
 
@@ -1944,21 +2043,21 @@ struct DetailPage: View {
                 Image(systemName: icon).font(.system(size: 11, weight: .medium))
                 Text(label).font(.sans11)
                 if let c = count {
-                    Text(c).font(.mono10).tracking(0.4).foregroundStyle(Color.muted)
+                    Text(c).font(.mono10).tracking(0.4).foregroundStyle(Color.white.opacity(0.70))
                         .padding(.horizontal, 5).padding(.vertical, 1)
-                        .background(Capsule().fill(Color.paper2))
+                        .background(Capsule().fill(Color.white.opacity(0.13)))
                 }
             }
-            .foregroundStyle(on ? Color.accent : Color.ink2)
-            .padding(.horizontal, 11).padding(.vertical, 6)
-            .background(Capsule().fill(Color.paper))
-            .overlay(Capsule().stroke(on ? Color.accent : Color.hair, lineWidth: 1))
+            .foregroundStyle(on ? Color.white : Color.white.opacity(0.90))
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .background(Capsule().fill(on ? Color.accent.opacity(0.22) : Color.white.opacity(0.08)))
+            .overlay(Capsule().stroke(on ? Color.accent.opacity(0.75) : Color.white.opacity(0.14), lineWidth: 1))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GlassBounceButtonStyle())
     }
 
     private var divider: some View {
-        Rectangle().fill(Color.hair).frame(width: 1, height: 22)
+        Rectangle().fill(Color.white.opacity(0.22)).frame(width: 1, height: 26)
     }
 
     private func metaGrid(detail: WallpaperDetail, layout: DetailLayout) -> some View {
@@ -2451,12 +2550,12 @@ struct DetailPage: View {
                 Image(systemName: "plus").font(.system(size: 11, weight: .medium))
                 Text(L10n.detail.addToList).font(.sans11)
             }
-            .foregroundStyle(Color.ink2)
-            .padding(.horizontal, 11).padding(.vertical, 6)
-            .background(Capsule().fill(Color.paper))
-            .overlay(Capsule().stroke(Color.hair, lineWidth: 1))
+            .foregroundStyle(Color.white.opacity(0.90))
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .background(Capsule().fill(Color.white.opacity(0.08)))
+            .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GlassBounceButtonStyle())
         .fixedSize()
         .allowsHitTesting(detail != nil)
     }
