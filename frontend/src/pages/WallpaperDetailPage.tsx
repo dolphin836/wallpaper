@@ -1324,6 +1324,12 @@ export default function WallpaperDetailPage() {
 function SpotlightStyles() {
   return (<style>{`
 /* ── Immersive two-screen layout (mirrors the Mac detail page) ── */
+.wd-root, .wd-drawer {
+  --wd-detail-glass-bg: rgba(10,10,12,0.44);
+  --wd-detail-glass-filter: blur(24px) saturate(1.4);
+  --wd-detail-glass-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(0,0,0,0.30),
+                            0 2px 3px rgba(0,0,0,0.22), 0 12px 26px rgba(0,0,0,0.34);
+}
 .wd-s1 { position: relative; height: calc(100dvh - 60px); min-height: 560px; overflow: hidden; }
 /* Inside the route modal the panel has its own definite height. */
 .wd-in-modal .wd-s1 { height: 100%; min-height: 0; }
@@ -1371,10 +1377,9 @@ function SpotlightStyles() {
 /* Info panel — glass-dark metadata card (Mac detailInfoPanel). */
 .wd-info-panel { width: 320px; max-width: 86vw; max-height: calc(100dvh - 120px); overflow-y: auto;
   padding: 16px; border-radius: 18px;
-  background: rgba(10,10,12,0.50);
-  backdrop-filter: blur(28px) saturate(1.4); -webkit-backdrop-filter: blur(28px) saturate(1.4);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.20), inset 0 -1px 0 rgba(0,0,0,0.30),
-              0 2px 3px rgba(0,0,0,0.22), 0 14px 30px rgba(0,0,0,0.34);
+  background: var(--wd-detail-glass-bg);
+  backdrop-filter: var(--wd-detail-glass-filter); -webkit-backdrop-filter: var(--wd-detail-glass-filter);
+  box-shadow: var(--wd-detail-glass-shadow);
   display: flex; flex-direction: column; gap: 14px;
   animation: wdFadeIn .16s ease; }
 .wd-ip-row { display: flex; align-items: center; gap: 10px; }
@@ -1401,10 +1406,9 @@ function SpotlightStyles() {
 /* The toolbar itself — dark glass capsule (Mac immersiveToolbar). */
 .wd-bar { position: relative; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
   padding: 8px 10px; border-radius: 9999px;
-  background: rgba(10,10,12,0.44);
-  backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(0,0,0,0.30),
-              0 2px 3px rgba(0,0,0,0.22), 0 12px 26px rgba(0,0,0,0.34); }
+  background: var(--wd-detail-glass-bg);
+  backdrop-filter: var(--wd-detail-glass-filter); -webkit-backdrop-filter: var(--wd-detail-glass-filter);
+  box-shadow: var(--wd-detail-glass-shadow); }
 .wd-bar-meta { display: flex; flex-direction: column; gap: 3px; padding: 0 6px 0 10px; }
 .wd-bar-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.22); flex-shrink: 0; }
 /* Buttons inside the dark bar: flat white tints (no glass-on-glass). */
@@ -1567,28 +1571,37 @@ function SpotlightStyles() {
 /* ── Devices drawer — right-side slide-in ──────────────────── */
 .wd-drawer-scrim { position: fixed; inset: 0; background: rgba(20,18,15,0.42); backdrop-filter: blur(2px); z-index: 60; display: flex; justify-content: flex-end; animation: wdFadeIn .2s ease; }
 .wd-drawer { width: 440px; max-width: 92vw; height: 100vh;
-  background: color-mix(in oklab, var(--color-paper) 76%, transparent);
-  backdrop-filter: blur(28px) saturate(1.4); -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  color: rgba(255,255,255,0.92); background: var(--wd-detail-glass-bg);
+  backdrop-filter: var(--wd-detail-glass-filter); -webkit-backdrop-filter: var(--wd-detail-glass-filter);
   display: flex; flex-direction: column;
-  box-shadow: inset 1px 0 0 rgba(255,255,255,0.4), -20px 0 60px -20px rgba(0,0,0,0.30);
-  border-left: 1px solid rgba(255,255,255,0.30); animation: wdSlideInRight .28s cubic-bezier(0.2,0.8,0.2,1); }
-.wd-drawer-head { padding: 22px 22px 16px; border-bottom: 1px solid var(--color-hair); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-shrink: 0; }
+  box-shadow: inset 1px 0 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(0,0,0,0.30), -20px 0 60px -20px rgba(0,0,0,0.34);
+  border-left: 1px solid rgba(255,255,255,0.14); animation: wdSlideInRight .28s cubic-bezier(0.2,0.8,0.2,1); }
+.wd-drawer .text-ink { color: rgba(255,255,255,0.92); }
+.wd-drawer .text-ink-2 { color: rgba(255,255,255,0.72); }
+.wd-drawer .text-muted { color: rgba(255,255,255,0.50); }
+.wd-drawer-head { padding: 22px 22px 16px; border-bottom: 1px solid rgba(255,255,255,0.14); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-shrink: 0; }
+.wd-drawer-head button { color: rgba(255,255,255,0.72); }
+.wd-drawer-head button:hover { color: rgba(255,255,255,0.96); background: rgba(255,255,255,0.10); }
 .wd-drawer-body { flex: 1; overflow-y: auto; padding: 6px 18px 18px; }
-.wd-drawer-foot { padding: 12px 22px; border-top: 1px solid var(--color-hair); background: var(--color-paper-2); flex-shrink: 0; }
+.wd-drawer-foot { padding: 12px 22px; border-top: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04); flex-shrink: 0; }
 .wd-drawer-group { margin-top: 14px; }
-.wd-drawer-grouphead { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--color-muted); padding: 0 6px 6px; border-bottom: 1px solid var(--color-hair); margin-bottom: 6px; }
+.wd-drawer-grouphead { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.50); padding: 0 6px 6px; border-bottom: 1px solid rgba(255,255,255,0.14); margin-bottom: 6px; }
 .wd-drawer-row { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; transition: background-color .15s ease; border: 1px solid transparent; margin-bottom: 4px; }
-.wd-drawer-row:hover { background: var(--color-paper-2); border-color: var(--color-hair); }
-.wd-drawer-row.is-matched { background: color-mix(in oklch, var(--color-accent) 5%, var(--color-paper)); border-color: color-mix(in oklch, var(--color-accent) 25%, var(--color-hair)); }
+.wd-drawer-row:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.14); }
+.wd-drawer-row.is-matched { background: color-mix(in oklch, var(--color-accent) 16%, transparent); border-color: color-mix(in oklch, var(--color-accent) 52%, transparent); }
 .wd-drawer-row-head { display: flex; align-items: center; gap: 12px; }
 .wd-drawer-row-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
-.wd-drawer-action { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 8px; border-radius: 999px; border: 1px solid var(--color-hair); background: var(--color-paper); color: var(--color-ink-2); font-size: 11px; font-weight: 500; transition: background-color .15s ease, color .15s ease, border-color .15s ease; }
-.wd-drawer-action:hover:not(:disabled):not(.is-disabled) { background: var(--color-paper-2); color: var(--color-ink); border-color: var(--color-ink-2); }
+.wd-drawer-action { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.82); font-size: 11px; font-weight: 500; transition: background-color .15s ease, color .15s ease, border-color .15s ease; }
+.wd-drawer-action:hover:not(:disabled):not(.is-disabled) { background: rgba(255,255,255,0.16); color: rgba(255,255,255,0.96); border-color: rgba(255,255,255,0.28); }
 .wd-drawer-action:disabled, .wd-drawer-action.is-disabled { opacity: 0.45; cursor: not-allowed; }
-.wd-drawer-action-cta { background: var(--color-ink); color: var(--color-paper); border-color: var(--color-ink); }
-.wd-drawer-action-cta:hover:not(:disabled) { background: var(--color-ink-2); border-color: var(--color-ink-2); color: var(--color-paper); }
+.wd-drawer-action-cta { background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.94); border-color: rgba(255,255,255,0.22); }
+.wd-drawer-action-cta:hover:not(:disabled) { background: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.34); color: white; }
 .wd-drawer-action-cta.is-matched { background: var(--color-accent); border-color: var(--color-accent); }
 .wd-drawer-action-cta.is-matched:hover:not(:disabled) { filter: brightness(1.05); }
+
+@media (prefers-reduced-transparency: reduce) {
+  .wd-info-panel, .wd-bar, .wd-drawer { background: rgba(10,10,12,0.96); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
 
 @keyframes wdSlideInRight { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes wdFadeIn { from { opacity: 0; } to { opacity: 1; } }
