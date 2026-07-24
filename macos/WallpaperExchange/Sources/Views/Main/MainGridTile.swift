@@ -106,21 +106,21 @@ struct MainGridTile: View {
                     HStack {
                         Spacer()
                         VStack(spacing: railGap) {
-                            ActionDot(icon: isFavorited ? "star.fill" : "star",
+                            ActionDot(icon: .system(isFavorited ? "star.fill" : "star"),
                                       kind: .favorite,
                                       active: isFavorited,
                                       help: isFavorited ? L10n.browse.tipUnfavorite : L10n.browse.tipFavorite,
                                       busy: busy,
                                       size: dotSize,
                                       action: { Task { await toggleFavorite() } })
-                            ActionDot(icon: isLiked ? "heart.fill" : "heart",
+                            ActionDot(icon: .system(isLiked ? "heart.fill" : "heart"),
                                       kind: .like,
                                       active: isLiked,
                                       help: isLiked ? L10n.browse.tipUnlike : L10n.browse.tipLike,
                                       busy: busy,
                                       size: dotSize,
                                       action: { Task { await toggleLike() } })
-                            ActionDot(icon: isDownloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
+                            ActionDot(icon: isDownloaded ? .system("checkmark.circle") : .webDownload,
                                       kind: .download,
                                       active: isDownloaded,
                                       help: downloadHelp,
@@ -256,8 +256,12 @@ private enum TransferAction {
 //   Active states use color tokens (like #e0463a, fav #d8a23a, dl #4a8a5a)
 struct ActionDot: View {
     enum Kind { case favorite, like, download, neutral }
+    enum Icon {
+        case system(String)
+        case webDownload
+    }
 
-    let icon: String
+    let icon: Icon
     let kind: Kind
     let active: Bool
     let help: String
@@ -276,9 +280,17 @@ struct ActionDot: View {
         Button(action: action) {
             ZStack {
                 Circle().fill(bgColor)
-                Image(systemName: icon)
-                    .font(.system(size: size * 0.42, weight: .medium))
-                    .foregroundStyle(.white)
+                Group {
+                    switch icon {
+                    case .system(let systemName):
+                        Image(systemName: systemName)
+                    case .webDownload:
+                        WebDownloadIconShape()
+                    }
+                }
+                .font(.system(size: size * 0.42, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(width: size * 0.42, height: size * 0.42)
                 Circle().stroke(borderColor, lineWidth: 1)
                 if loading {
                     progressRing

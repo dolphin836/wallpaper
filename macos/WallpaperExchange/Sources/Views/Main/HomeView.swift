@@ -264,21 +264,21 @@ struct HomeWeeklyCard: View {
                     HStack {
                         Spacer()
                         VStack(spacing: 5) {
-                            ActionDot(icon: isFavorited ? "star.fill" : "star",
+                            ActionDot(icon: .system(isFavorited ? "star.fill" : "star"),
                                       kind: .favorite,
                                       active: isFavorited,
                                       help: isFavorited ? L10n.browse.tipUnfavorite : L10n.browse.tipFavorite,
                                       busy: busy,
                                       size: 24,
                                       action: { Task { await toggleFavorite() } })
-                            ActionDot(icon: isLiked ? "heart.fill" : "heart",
+                            ActionDot(icon: .system(isLiked ? "heart.fill" : "heart"),
                                       kind: .like,
                                       active: isLiked,
                                       help: isLiked ? L10n.browse.tipUnlike : L10n.browse.tipLike,
                                       busy: busy,
                                       size: 24,
                                       action: { Task { await toggleLike() } })
-                            ActionDot(icon: isDownloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
+                            ActionDot(icon: isDownloaded ? .system("checkmark.circle") : .webDownload,
                                       kind: .download,
                                       active: isDownloaded,
                                       help: downloadHelp,

@@ -992,15 +992,15 @@ struct FramedTile: View {
     // lock-screen targets can be chosen explicitly.
     @ViewBuilder private var actionRail: some View {
         VStack(spacing: 5) {
-            ActionDot(icon: isFavorited ? "star.fill" : "star",
+            ActionDot(icon: .system(isFavorited ? "star.fill" : "star"),
                       kind: .favorite, active: isFavorited,
                       help: isFavorited ? L10n.collections.unfavorite : L10n.collections.favorite,
                       busy: busy, size: 26, action: { Task { await toggleFavorite() } })
-            ActionDot(icon: isLiked ? "heart.fill" : "heart",
+            ActionDot(icon: .system(isLiked ? "heart.fill" : "heart"),
                       kind: .like, active: isLiked,
                       help: isLiked ? L10n.collections.unlike : L10n.collections.like,
                       busy: busy, size: 26, action: { Task { await toggleLike() } })
-            ActionDot(icon: isDownloaded ? "checkmark.circle.fill" : "tray.and.arrow.down",
+            ActionDot(icon: isDownloaded ? .system("checkmark.circle") : .webDownload,
                       kind: .download, active: isDownloaded,
                       help: downloadHelp,
                       busy: busy,
