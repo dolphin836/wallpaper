@@ -1278,34 +1278,8 @@ export default function WallpaperDetailPage() {
                 </div>
               ) : null}
 
-              {/* Bottom-centre glass toolbar — meta | social | preview | get */}
+              {/* Bottom-centre glass toolbar: meta | social | navigation | preview | get */}
               <div className="wd-bar">
-                <div className="wd-bar-nav" role="group" aria-label={t('navigation.group')}>
-                  <button
-                    type="button"
-                    onClick={() => navigateWithinDetails(previousWallpaper)}
-                    disabled={!previousWallpaper}
-                    className="wd-bar-nav-btn"
-                    title={t('navigation.previous')}
-                    aria-label={t('navigation.previous')}
-                  >
-                    <AiOutlineLeft size={15} />
-                  </button>
-                  <span className="wd-bar-nav-divider" aria-hidden />
-                  <button
-                    type="button"
-                    onClick={() => navigateWithinDetails(nextWallpaper)}
-                    disabled={!nextWallpaper}
-                    className="wd-bar-nav-btn"
-                    title={t('navigation.next')}
-                    aria-label={t('navigation.next')}
-                  >
-                    <AiOutlineRight size={15} />
-                  </button>
-                </div>
-
-                <span className="wd-bar-divider" />
-
                 <div className="wd-bar-meta">
                   <span className="text-[13px] font-semibold text-white leading-none whitespace-nowrap">
                     {wallpaper.width.toLocaleString()} × {wallpaper.height.toLocaleString()}
@@ -1350,6 +1324,32 @@ export default function WallpaperDetailPage() {
                   <MdPlaylistAdd size={16} />
                   <span className="wd-bar-hidesm">{t('actions.addToList')}</span>
                 </button>
+
+                <span className="wd-bar-divider" />
+
+                <div className="wd-bar-nav" role="group" aria-label={t('navigation.group')}>
+                  <button
+                    type="button"
+                    onClick={() => navigateWithinDetails(previousWallpaper)}
+                    disabled={!previousWallpaper}
+                    className="wd-bar-nav-btn"
+                    title={t('navigation.previous')}
+                    aria-label={t('navigation.previous')}
+                  >
+                    <AiOutlineLeft size={15} />
+                  </button>
+                  <span className="wd-bar-nav-divider" aria-hidden />
+                  <button
+                    type="button"
+                    onClick={() => navigateWithinDetails(nextWallpaper)}
+                    disabled={!nextWallpaper}
+                    className="wd-bar-nav-btn"
+                    title={t('navigation.next')}
+                    aria-label={t('navigation.next')}
+                  >
+                    <AiOutlineRight size={15} />
+                  </button>
+                </div>
 
                 <span className="wd-bar-divider" />
 
