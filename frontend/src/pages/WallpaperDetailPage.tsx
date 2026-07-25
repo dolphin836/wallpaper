@@ -4,6 +4,7 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import PageMeta from '../components/PageMeta';
 import {
   AiOutlineLeft,
+  AiOutlineRight,
   AiOutlineInfoCircle,
   AiFillHeart,
   AiOutlineHeart,
@@ -48,6 +49,10 @@ import AvatarStack from '../components/AvatarStack';
 import AddToCollectionModal from '../components/AddToCollectionModal';
 import useProtectedImageBlob from '../hooks/useProtectedImageBlob';
 import { isMacDynamicWallpaper } from '../lib/wallpaperType';
+import {
+  wallpaperDetailPath,
+  type WallpaperDetailLocationState,
+} from '../lib/wallpaperDetailNavigation';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -61,8 +66,21 @@ function formatNumber(n: number): string {
   return n.toLocaleString();
 }
 
+function toDetailSnapshot(wallpaper: Wallpaper): WallpaperDetail {
+  return {
+    ...wallpaper,
+    tags: [],
+    uploader: undefined as unknown as User,
+  };
+}
+
+function matchesDetailRoute(wallpaper: Wallpaper, routeId: string): boolean {
+  return wallpaper.slug === routeId || String(wallpaper.id) === routeId;
+}
+
 const DRAWER_PLATFORMS = ['desktop', 'laptop', 'tablet', 'phone', 'other'] as const;
 type DrawerPlatform = (typeof DRAWER_PLATFORMS)[number];
+const EMPTY_NAVIGATION_ITEMS: Wallpaper[] = [];
 
 // Pick the variant whose pixel dimensions best match this screen.
 // Two guards keep the match honest:
@@ -144,7 +162,9 @@ export default function WallpaperDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, user, updateCoins } = useAuthStore();
-  const initialWallpaper = (location.state as { initialWallpaper?: Wallpaper } | null)?.initialWallpaper;
+  const detailState = location.state as WallpaperDetailLocationState | null;
+  const initialWallpaper = detailState?.initialWallpaper;
+  const detailScrollRef = useRef<HTMLDivElement>(null);
 
   // Hide only the scrollbar chrome while this route is mounted. The document
   // remains scrollable for direct detail URLs, and modal details keep using
@@ -159,7 +179,7 @@ export default function WallpaperDetailPage() {
   // Hydrate from list snapshot so the preview renders immediately; uploader/tags are filled in by the detail fetch.
   const [wallpaper, setWallpaper] = useState<WallpaperDetail | null>(() =>
     initialWallpaper
-      ? ({ ...initialWallpaper, tags: [], uploader: undefined as unknown as User } as WallpaperDetail)
+      ? toDetailSnapshot(initialWallpaper)
       : null
   );
   const metaTitle = wallpaper ? t('meta.title', { res: `${wallpaper.width}×${wallpaper.height}` }) : t('meta.titleFallback');
@@ -387,26 +407,68 @@ export default function WallpaperDetailPage() {
 
   useEffect(() => {
     if (!id) return;
+
+    let cancelled = false;
+    const snapshot = initialWallpaper && matchesDetailRoute(initialWallpaper, id)
+      ? initialWallpaper
+      : null;
+
+    // Route changes intentionally reset the full detail state machine before
+    // the fresh request starts; keeping any drawer or transform state would
+    // leak controls from the previous wallpaper into the next one.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setError(false);
+    setVariants([]);
+    setEngagements(null);
+    setFrameIdx(0);
+    setFramePlaying(true);
+    setFullscreen(false);
+    setMockupVariant(null);
+    setDrawerOpen(false);
+    setInfoOpen(false);
+    setShowAddToCollection(false);
+    setReadyOriginalURL('');
+    setFailedOriginalURL('');
+    detailScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+
+    if (snapshot) {
+      setWallpaper(toDetailSnapshot(snapshot));
+      setDlDone(snapshot.is_downloaded ?? false);
+      setLoading(false);
+    } else {
+      setWallpaper(null);
+      setLoading(true);
+    }
+
     getWallpaper(id)
-      .then(async (wpRes) => {
+      .then((wpRes) => {
+        if (cancelled) return;
         const wp = wpRes.data.data;
         setWallpaper(wp);
         setDlDone(wp.is_downloaded ?? false);
-        try {
-          const varRes = await getWallpaperVariants(wp.id);
-          setVariants(varRes.data.data || []);
-        } catch { /* variants optional */ }
+
+        getWallpaperVariants(wp.id)
+          .then((varRes) => {
+            if (!cancelled) setVariants(varRes.data.data || []);
+          })
+          .catch(() => { /* variants optional */ });
         getWallpaperEngagements(wp.id)
-          .then((res) => setEngagements(res.data.data))
+          .then((res) => {
+            if (!cancelled) setEngagements(res.data.data);
+          })
           .catch(() => { /* non-critical */ });
       })
       .catch((e) => {
-        if (!initialWallpaper && e?.response?.status !== 404) setError(true);
+        if (!cancelled && !snapshot && e?.response?.status !== 404) setError(true);
       })
-      .finally(() => setLoading(false));
-    // initialWallpaper is read once from navigation state; intentionally not a dep.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, initialWallpaper]);
 
   useEffect(() => {
     if (!fullscreenVisible && !mockupVariant && !drawerOpen) return;
@@ -443,17 +505,49 @@ export default function WallpaperDetailPage() {
     setConfirmDontAsk(false);
   }, [wallpaper?.id]);
 
+  const navigationItems = detailState?.detailNavigation?.items ?? EMPTY_NAVIGATION_ITEMS;
+  const navigationIndex = useMemo(() => {
+    if (!id) return -1;
+    return navigationItems.findIndex((item) => matchesDetailRoute(item, id));
+  }, [id, navigationItems]);
+  const previousWallpaper = navigationIndex > 0
+    ? navigationItems[navigationIndex - 1]
+    : null;
+  const nextWallpaper = navigationIndex >= 0 && navigationIndex < navigationItems.length - 1
+    ? navigationItems[navigationIndex + 1]
+    : null;
+
+  const navigateWithinDetails = useCallback((target: Wallpaper | null) => {
+    if (!target) return;
+    setWallpaper(toDetailSnapshot(target));
+    setDlDone(target.is_downloaded ?? false);
+    setLoading(false);
+    setError(false);
+    navigate(wallpaperDetailPath(target), {
+      replace: Boolean(detailState?.background),
+      state: {
+        ...detailState,
+        initialWallpaper: target,
+      },
+    });
+  }, [detailState, navigate]);
+
   const handleLike = async () => {
     if (!isAuthenticated) { navigate('/login'); return; }
     if (!wallpaper || likeLoading) return;
+    const targetId = wallpaper.id;
     setLikeLoading(true);
     try {
       if (wallpaper.is_liked) {
-        await unlikeWallpaper(wallpaper.id);
-        setWallpaper({ ...wallpaper, is_liked: false, like_count: wallpaper.like_count - 1 });
+        await unlikeWallpaper(targetId);
+        setWallpaper((current) => current?.id === targetId
+          ? { ...current, is_liked: false, like_count: Math.max(0, current.like_count - 1) }
+          : current);
       } else {
-        await likeWallpaper(wallpaper.id);
-        setWallpaper({ ...wallpaper, is_liked: true, like_count: wallpaper.like_count + 1 });
+        await likeWallpaper(targetId);
+        setWallpaper((current) => current?.id === targetId
+          ? { ...current, is_liked: true, like_count: current.like_count + 1 }
+          : current);
       }
     } catch {
       toast.error(t('toast.actionFailed'));
@@ -465,14 +559,19 @@ export default function WallpaperDetailPage() {
   const handleFavorite = async () => {
     if (!isAuthenticated) { navigate('/login'); return; }
     if (!wallpaper || favLoading) return;
+    const targetId = wallpaper.id;
     setFavLoading(true);
     try {
       if (wallpaper.is_favorited) {
-        await unfavoriteWallpaper(wallpaper.id);
-        setWallpaper({ ...wallpaper, is_favorited: false, favorite_count: wallpaper.favorite_count - 1 });
+        await unfavoriteWallpaper(targetId);
+        setWallpaper((current) => current?.id === targetId
+          ? { ...current, is_favorited: false, favorite_count: Math.max(0, current.favorite_count - 1) }
+          : current);
       } else {
-        await favoriteWallpaper(wallpaper.id);
-        setWallpaper({ ...wallpaper, is_favorited: true, favorite_count: wallpaper.favorite_count + 1 });
+        await favoriteWallpaper(targetId);
+        setWallpaper((current) => current?.id === targetId
+          ? { ...current, is_favorited: true, favorite_count: current.favorite_count + 1 }
+          : current);
       }
     } catch {
       toast.error(t('toast.actionFailed'));
@@ -489,10 +588,11 @@ export default function WallpaperDetailPage() {
     if (dlLoading || !downloadReady) return;
     if (!isAuthenticated) { navigate('/login'); return; }
     if (!wallpaper) return;
+    const targetId = wallpaper.id;
     const isOwnerDl = user?.id === wallpaper.user_id;
     setDlLoading(true);
     try {
-      const url = downloadWallpaper(wallpaper.id);
+      const url = downloadWallpaper(targetId);
       const resp = await fetch(url, {
         headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
       });
@@ -519,7 +619,9 @@ export default function WallpaperDetailPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
-      setWallpaper({ ...wallpaper, download_count: wallpaper.download_count + 1 });
+      setWallpaper((current) => current?.id === targetId
+        ? { ...current, download_count: current.download_count + 1 }
+        : current);
       setDlDone(true);
       setTradeFlashTick((n) => n + 1);
       if (!isOwnerDl && user) {
@@ -877,7 +979,7 @@ export default function WallpaperDetailPage() {
         {/* Modal-mode chrome moved to the modal wrapper itself
             (corner-anchored ✕). No header strip here. */}
 
-        <div className="wd-detail-scroll flex-1 min-h-0 overflow-y-auto relative z-10">
+        <div ref={detailScrollRef} className="wd-detail-scroll flex-1 min-h-0 overflow-y-auto relative z-10">
 
           {/* ═══ SCREEN 1 — immersive hero (mirrors the Mac detail page):
               full-bleed wallpaper, back circle top-left, info circle +
@@ -1178,6 +1280,32 @@ export default function WallpaperDetailPage() {
 
               {/* Bottom-centre glass toolbar — meta | social | preview | get */}
               <div className="wd-bar">
+                <div className="wd-bar-nav" role="group" aria-label={t('navigation.group')}>
+                  <button
+                    type="button"
+                    onClick={() => navigateWithinDetails(previousWallpaper)}
+                    disabled={!previousWallpaper}
+                    className="wd-bar-nav-btn"
+                    title={t('navigation.previous')}
+                    aria-label={t('navigation.previous')}
+                  >
+                    <AiOutlineLeft size={15} />
+                  </button>
+                  <span className="wd-bar-nav-divider" aria-hidden />
+                  <button
+                    type="button"
+                    onClick={() => navigateWithinDetails(nextWallpaper)}
+                    disabled={!nextWallpaper}
+                    className="wd-bar-nav-btn"
+                    title={t('navigation.next')}
+                    aria-label={t('navigation.next')}
+                  >
+                    <AiOutlineRight size={15} />
+                  </button>
+                </div>
+
+                <span className="wd-bar-divider" />
+
                 <div className="wd-bar-meta">
                   <span className="text-[13px] font-semibold text-white leading-none whitespace-nowrap">
                     {wallpaper.width.toLocaleString()} × {wallpaper.height.toLocaleString()}
@@ -1444,6 +1572,16 @@ html.wd-detail-scrollbar-hidden body::-webkit-scrollbar,
   box-shadow: var(--wd-detail-glass-shadow); }
 .wd-bar-meta { display: flex; flex-direction: column; gap: 3px; padding: 0 6px 0 10px; }
 .wd-bar-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.22); flex-shrink: 0; }
+.wd-bar-nav { display: inline-flex; align-items: center; flex-shrink: 0; overflow: hidden; padding: 2px;
+  border: 1px solid rgba(255,255,255,0.16); border-radius: 9999px; background: rgba(255,255,255,0.08); }
+.wd-bar-nav-btn { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 9999px; color: rgba(255,255,255,0.92);
+  transition: background-color .15s ease, color .15s ease, transform 180ms cubic-bezier(0.34,1.56,0.64,1), opacity .15s ease; }
+.wd-bar-nav-btn:not(:disabled):hover { background: rgba(255,255,255,0.16); color: #fff; transform: scale(1.05); }
+.wd-bar-nav-btn:not(:disabled):active { transform: scale(0.92); }
+.wd-bar-nav-btn:focus-visible { outline: 2px solid rgba(255,255,255,0.9); outline-offset: 1px; }
+.wd-bar-nav-btn:disabled { color: rgba(255,255,255,0.32); cursor: not-allowed; }
+.wd-bar-nav-divider { width: 1px; height: 18px; background: rgba(255,255,255,0.16); }
 /* Buttons inside the dark bar: flat white tints (no glass-on-glass). */
 .wd-bar .wd-btn { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.14); color: rgba(255,255,255,0.92); box-shadow: none; }
 .wd-bar .wd-btn:not(:disabled):hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.28); }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import { AiOutlineArrowRight } from 'react-icons/ai';
@@ -8,6 +8,10 @@ import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import useSkeletonRows from '../hooks/useSkeletonRows';
+import {
+  createWallpaperDetailNavigation,
+  wallpaperDetailPath,
+} from '../lib/wallpaperDetailNavigation';
 
 const MONTH_ABBR = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const WEEKLY_RACK_GAP = 28;
@@ -106,7 +110,10 @@ export default function WeeklyArchivePage() {
   const latestPalette = latest?.color_palette;
   const latestDominant = latest?.dominant_color;
   const latestAccent = latest?.accent_color;
-  const latestPicks = latestPicksResult.issueKey === latestIssueKey ? latestPicksResult.picks : [];
+  const latestPicks = useMemo(
+    () => latestPicksResult.issueKey === latestIssueKey ? latestPicksResult.picks : [],
+    [latestIssueKey, latestPicksResult],
+  );
   const latestPicksLoading = Boolean(latestIssueKey && latestPicksResult.issueKey !== latestIssueKey);
 
   useEffect(() => {
@@ -143,8 +150,14 @@ export default function WeeklyArchivePage() {
     }
   }, [latestIssueKey, latestPalette, latestDominant, latestAccent]);
 
-  const heroPick = latestPicks.find((p) => p.is_hero) || latestPicks[0];
-  const strip = latestPicks.filter((p) => p.id !== heroPick?.id);
+  const { strip, detailNavigation } = useMemo(() => {
+    const heroPick = latestPicks.find((p) => p.is_hero) || latestPicks[0];
+    const stripItems = latestPicks.filter((p) => p.id !== heroPick?.id);
+    return {
+      strip: stripItems,
+      detailNavigation: createWallpaperDetailNavigation(stripItems),
+    };
+  }, [latestPicks]);
 
   return (
     <div ref={rootRef} className="w-weekly-archive min-h-full">
@@ -207,8 +220,8 @@ export default function WeeklyArchivePage() {
                     {strip.map((p) => (
                       <Link
                         key={p.id}
-                        to={`/wallpaper/${p.slug || p.id}`}
-                        state={{ background: location }}
+                        to={wallpaperDetailPath(p)}
+                        state={{ background: location, initialWallpaper: p, detailNavigation }}
                         className="w2-strip-thumb"
                         style={{ backgroundColor: p.dominant_color || undefined }}
                       >

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AiOutlineArrowLeft } from 'react-icons/ai';
@@ -8,6 +8,11 @@ import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
 import WallpaperTile, { ResChip } from '../components/WallpaperTile';
 import useProtectedImageBlob from '../hooks/useProtectedImageBlob';
+import {
+  createWallpaperDetailNavigation,
+  wallpaperDetailPath,
+  type WallpaperDetailNavigation,
+} from '../lib/wallpaperDetailNavigation';
 
 const MONTH_ABBR = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -31,7 +36,7 @@ function fmtMB(b?: number) { return ((b || 0) / 1024 / 1024).toFixed(1) + ' MB';
 // original_url and swap once decoded; preview stays if original never
 // arrives. Click opens the wallpaper detail as a modal overlay (same
 // pattern as the tiles below) instead of a hard navigate.
-function WeeklyHero({ hero, week, year }: { hero: WeeklyPicked; week: number; year: number }) {
+function WeeklyHero({ hero, week, year, detailNavigation }: { hero: WeeklyPicked; week: number; year: number; detailNavigation?: WallpaperDetailNavigation }) {
   const { t } = useTranslation('browse');
   const location = useLocation();
   const [src, setSrc] = useState(hero.thumb_url || hero.preview_url || '');
@@ -78,8 +83,8 @@ function WeeklyHero({ hero, week, year }: { hero: WeeklyPicked; week: number; ye
 
   return (
     <Link
-      to={`/wallpaper/${hero.slug || hero.id}`}
-      state={{ background: location, initialWallpaper: hero as Wallpaper }}
+      to={wallpaperDetailPath(hero)}
+      state={{ background: location, initialWallpaper: hero as Wallpaper, detailNavigation }}
       className="h3-hero block"
     >
       <img
@@ -167,6 +172,10 @@ export default function WeeklyWeekPage() {
   }, [year, week]);
 
   const hero = rows.find((r) => r.is_hero) || rows[0];
+  const detailNavigation = useMemo(
+    () => createWallpaperDetailNavigation(rows),
+    [rows],
+  );
 
   // Cache the hero's palette so hover-out reverts to it (instead of
   // snapping back to the warm brand default).
@@ -235,7 +244,12 @@ export default function WeeklyWeekPage() {
           <>
             {hero && (
               <div className="mb-12">
-                <WeeklyHero hero={hero} week={weekNum} year={Number(year)} />
+                <WeeklyHero
+                  hero={hero}
+                  week={weekNum}
+                  year={Number(year)}
+                  detailNavigation={detailNavigation}
+                />
               </div>
             )}
 
@@ -247,7 +261,13 @@ export default function WeeklyWeekPage() {
             {rows.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                 {rows.map((p) => (
-                  <WallpaperTile key={p.id} w={p} variant="weekly" onHover={handleTileHover} />
+                  <WallpaperTile
+                    key={p.id}
+                    w={p}
+                    variant="weekly"
+                    onHover={handleTileHover}
+                    detailNavigation={detailNavigation}
+                  />
                 ))}
               </div>
             )}

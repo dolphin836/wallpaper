@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getWeeklyCurrent, type WeeklyCurrent } from '../api';
@@ -8,6 +8,7 @@ import WallpaperTile from '../components/WallpaperTile';
 import useSkeletonRows from '../hooks/useSkeletonRows';
 import useProtectedImageBlob from '../hooks/useProtectedImageBlob';
 import type { Wallpaper } from '../types';
+import { createWallpaperDetailNavigation } from '../lib/wallpaperDetailNavigation';
 
 /**
  * Home v4 — immersive weekly backdrop, mirroring the Mac client
@@ -35,8 +36,12 @@ export default function HomePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const hero = data?.picks?.find((p) => p.is_hero) || data?.picks?.[0] || null;
-  const picks = data?.picks || [];
+  const picks = useMemo(() => data?.picks || [], [data?.picks]);
+  const hero = picks.find((p) => p.is_hero) || picks[0] || null;
+  const detailNavigation = useMemo(
+    () => createWallpaperDetailNavigation(picks),
+    [picks],
+  );
 
   return (
     <div className="h4-home">
@@ -64,7 +69,14 @@ export default function HomePage() {
                 ? Array.from({ length: weeklySkeletonCount }).map((_, i) => (
                     <div key={`hsk-${i}`} className="h3-tile h3-home skeleton-card" style={{ aspectRatio: '1.618' }} />
                   ))
-                : picks.map((w) => <WallpaperTile key={w.id} w={w} variant="home" />)}
+                : picks.map((w) => (
+                    <WallpaperTile
+                      key={w.id}
+                      w={w}
+                      variant="home"
+                      detailNavigation={detailNavigation}
+                    />
+                  ))}
             </div>
 
             {picks.length > 0 && (

@@ -37,6 +37,11 @@ import { isMacDynamicWallpaper } from '../lib/wallpaperType';
 import Pagination from '../components/Pagination';
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
+import {
+  createWallpaperDetailNavigation,
+  wallpaperDetailPath,
+  type WallpaperDetailNavigation,
+} from '../lib/wallpaperDetailNavigation';
 
 const PAGE_SIZE = 12;
 
@@ -46,11 +51,12 @@ const PAGE_SIZE = 12;
    onHover lets the parent drive the page mesh from this
    wallpaper's palette while hovered. */
 function FramedTile({
-  wallpaper: w, index, onHover,
+  wallpaper: w, index, onHover, detailNavigation,
 }: {
   wallpaper: Wallpaper;
   index: number;
   onHover?: (palette: string | undefined, dominant?: string) => void;
+  detailNavigation?: WallpaperDetailNavigation;
 }) {
   const { t } = useTranslation('collections');
   const location = useLocation();
@@ -73,8 +79,8 @@ function FramedTile({
   })();
   return (
     <Link
-      to={`/wallpaper/${w.slug || w.id}`}
-      state={{ background: location, initialWallpaper: w }}
+      to={wallpaperDetailPath(w)}
+      state={{ background: location, initialWallpaper: w, detailNavigation }}
       className="cd-frame"
       style={{ animationDelay: `${index * 35}ms` }}
       onMouseEnter={() => onHover?.(w.color_palette, w.dominant_color)}
@@ -358,6 +364,7 @@ export default function CollectionDetailPage() {
   // editor/weekly themes (kind !== 0) are managed by admins.
   const isOwner = !!collection && user?.id === collection.user_id && collection.kind === 0;
   const visible = pages[currentPage] || [];
+  const detailNavigation = createWallpaperDetailNavigation(visible);
   const total = knownTotalPages ?? (hasMoreUpTo ? hasMoreUpTo + 1 : 1);
   const cover = collection?.cover_url || visible[0]?.preview_url || visible[0]?.thumb_url;
   const curatorInitial = (curator?.nickname || curator?.username || 'U').charAt(0).toUpperCase();
@@ -594,7 +601,13 @@ export default function CollectionDetailPage() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
               {visible.map((w, i) => (
-                <FramedTile key={w.id} wallpaper={w} index={i} onHover={applyPalette} />
+                <FramedTile
+                  key={w.id}
+                  wallpaper={w}
+                  index={i}
+                  onHover={applyPalette}
+                  detailNavigation={detailNavigation}
+                />
               ))}
             </div>
           )}

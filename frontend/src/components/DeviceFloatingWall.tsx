@@ -18,6 +18,11 @@ import type { DeviceProfile, Wallpaper } from '../types';
 import { useWallpaperActions } from '../hooks/useWallpaperActions';
 import MacDynamicChip from './MacDynamicChip';
 import { isMacDynamicWallpaper } from '../lib/wallpaperType';
+import {
+  createWallpaperDetailNavigation,
+  wallpaperDetailPath,
+  type WallpaperDetailNavigation,
+} from '../lib/wallpaperDetailNavigation';
 
 /**
  * DeviceFloatingWall — the draggable-mockup wallpaper canvas that
@@ -83,6 +88,10 @@ export default function DeviceFloatingWall({
   const [featuredIdx, setFeaturedIdx] = useState(0);
   const featured = wallpapers[featuredIdx] ?? wallpapers[0] ?? null;
   const featuredCover = featured?.preview_url || featured?.thumb_url;
+  const detailNavigation = useMemo(
+    () => createWallpaperDetailNavigation(wallpapers),
+    [wallpapers],
+  );
   const onTileHover = useCallback((idx: number) => setFeaturedIdx(idx), []);
   useEffect(() => {
     onFeatureChange?.(featured);
@@ -392,6 +401,7 @@ export default function DeviceFloatingWall({
             previewY={previewY}
             previewW={previewW}
             previewH={previewH}
+            detailNavigation={detailNavigation}
           />
         );
       })}
@@ -439,6 +449,7 @@ function DevWallSlot({
   targetLeft, targetTop,
   tileW, tileH,
   previewX, previewY, previewW, previewH,
+  detailNavigation,
 }: {
   wp: Wallpaper;
   device: DeviceProfile;
@@ -453,6 +464,7 @@ function DevWallSlot({
   previewY: MotionValue<number>;
   previewW: number;
   previewH: number;
+  detailNavigation?: WallpaperDetailNavigation;
 }) {
   const cellX = useSpring(targetLeft, { stiffness: 240, damping: 28, mass: 0.6 });
   const cellY = useSpring(targetTop, { stiffness: 240, damping: 28, mass: 0.6 });
@@ -508,19 +520,21 @@ function DevWallSlot({
         index={index}
         isFeatured={isFeatured}
         onHover={onHover}
+        detailNavigation={detailNavigation}
       />
     </motion.div>
   );
 }
 
 function DevTile({
-  wallpaper: w, device, index, isFeatured, onHover,
+  wallpaper: w, device, index, isFeatured, onHover, detailNavigation,
 }: {
   wallpaper: Wallpaper;
   device: DeviceProfile;
   index: number;
   isFeatured: boolean;
   onHover: (idx: number) => void;
+  detailNavigation?: WallpaperDetailNavigation;
 }) {
   const { t } = useTranslation('devices');
   const location = useLocation();
@@ -544,8 +558,8 @@ function DevTile({
     : '';
   return (
     <Link
-      to={`/wallpaper/${w.slug || w.id}`}
-      state={{ background: location, initialWallpaper: w }}
+      to={wallpaperDetailPath(w)}
+      state={{ background: location, initialWallpaper: w, detailNavigation }}
       className={`dev-spec-card${isFeatured ? ' is-featured' : ''}`}
       // Cap the stagger delay. The unbounded `index * 30ms` was
       // delaying paginated tiles by literal seconds (tile #275 →

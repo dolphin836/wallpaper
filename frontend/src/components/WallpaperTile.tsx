@@ -12,6 +12,10 @@ import type { Wallpaper } from '../types';
 import { useWallpaperActions } from '../hooks/useWallpaperActions';
 import MacDynamicChip from './MacDynamicChip';
 import { isMacDynamicWallpaper } from '../lib/wallpaperType';
+import {
+  wallpaperDetailPath,
+  type WallpaperDetailNavigation,
+} from '../lib/wallpaperDetailNavigation';
 
 /**
  * Resolution chip — small mono pill in the top-left of a tile.
@@ -38,6 +42,7 @@ interface Props {
   w: Wallpaper;
   variant: Variant;
   onHover?: (palette: string | undefined, dominant?: string) => void;
+  detailNavigation?: WallpaperDetailNavigation;
 }
 
 /**
@@ -49,7 +54,7 @@ interface Props {
  * react-router's location.state.background pattern — same UX as the
  * discover salon tiles.
  */
-export default function WallpaperTile({ w, variant, onHover }: Props) {
+export default function WallpaperTile({ w, variant, onHover, detailNavigation }: Props) {
   const { t } = useTranslation('browse');
   const location = useLocation();
   const [loadedSrc, setLoadedSrc] = useState('');
@@ -107,8 +112,8 @@ export default function WallpaperTile({ w, variant, onHover }: Props) {
 
   return (
     <Link
-      to={`/wallpaper/${w.slug || w.id}`}
-      state={{ background: location, initialWallpaper: w }}
+      to={wallpaperDetailPath(w)}
+      state={{ background: location, initialWallpaper: w, detailNavigation }}
       className={`h3-tile h3-${variant}${playing ? ' h3-playing' : ''}`}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}

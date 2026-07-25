@@ -34,6 +34,11 @@ const en = {
     pause: 'PAUSE',
     play: 'PLAY',
   },
+  navigation: {
+    group: 'Wallpaper navigation',
+    previous: 'Previous wallpaper',
+    next: 'Next wallpaper',
+  },
   video: {
     play: 'Play video',
     pause: 'Pause video',
@@ -260,6 +265,11 @@ const zhCN: typeof en = {
   hero: {
     pause: '暂停',
     play: '播放',
+  },
+  navigation: {
+    group: '壁纸浏览',
+    previous: '上一张壁纸',
+    next: '下一张壁纸',
   },
   video: {
     play: '播放视频',
@@ -488,6 +498,11 @@ const zhTW: typeof en = {
     pause: '暫停',
     play: '播放',
   },
+  navigation: {
+    group: '桌布瀏覽',
+    previous: '上一張桌布',
+    next: '下一張桌布',
+  },
   video: {
     play: '播放影片',
     pause: '暫停影片',
@@ -714,6 +729,11 @@ const ja: typeof en = {
   hero: {
     pause: '一時停止',
     play: '再生',
+  },
+  navigation: {
+    group: '壁紙ナビゲーション',
+    previous: '前の壁紙',
+    next: '次の壁紙',
   },
   video: {
     play: '動画を再生',

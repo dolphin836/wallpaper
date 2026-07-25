@@ -16,6 +16,11 @@ import type { Wallpaper } from '../types';
 import { useWallpaperActions } from '../hooks/useWallpaperActions';
 import MacDynamicChip from './MacDynamicChip';
 import { isMacDynamicWallpaper } from '../lib/wallpaperType';
+import {
+  wallpaperDetailPath,
+  type WallpaperDetailLocationState,
+  type WallpaperDetailNavigation,
+} from '../lib/wallpaperDetailNavigation';
 
 const STATUS_PROCESSING = 0;
 const STATUS_PUBLISHED = 1;
@@ -40,9 +45,10 @@ interface Props {
    *  the surrounding layout already provides those actions — e.g. the
    *  "More like this" strip on the detail page. */
   hideActions?: boolean;
+  detailNavigation?: WallpaperDetailNavigation;
 }
 
-export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0, disableModal = false, layout, hideActions = false }: Props) {
+export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fillHeight, style, animDelay = 0, disableModal = false, layout, hideActions = false, detailNavigation }: Props) {
   const { t } = useTranslation('browse');
   // Two-stage progressive load: thumb (~30 KB, displayed immediately with a
   // small blur) → preview_url (~250 KB watermarked 1600px, fades in once
@@ -106,14 +112,14 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   // one detail card to a similar one would push a new history entry,
   // so closing the modal would only step back one detail at a time
   // instead of returning to the original gallery.
-  const existingBg = (location.state as { background?: Location } | null)?.background;
+  const existingBg = (location.state as WallpaperDetailLocationState | null)?.background;
   const insideModal = !!existingBg;
   const wrapperProps = isPublished
     ? {
-        to: `/wallpaper/${wallpaper.slug}`,
+        to: wallpaperDetailPath(wallpaper),
         state: disableModal
-          ? { initialWallpaper: wallpaper }
-          : { background: existingBg || location, initialWallpaper: wallpaper },
+          ? { initialWallpaper: wallpaper, detailNavigation }
+          : { background: existingBg || location, initialWallpaper: wallpaper, detailNavigation },
         ...(insideModal && !disableModal ? { replace: true } : {}),
       }
     : { style: { cursor: 'default' } };

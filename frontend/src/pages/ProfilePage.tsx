@@ -24,6 +24,11 @@ import {
 import { useWallpaperActions } from '../hooks/useWallpaperActions';
 import MacDynamicChip from '../components/MacDynamicChip';
 import { isMacDynamicWallpaper } from '../lib/wallpaperType';
+import {
+  createWallpaperDetailNavigation,
+  wallpaperDetailPath,
+  type WallpaperDetailNavigation,
+} from '../lib/wallpaperDetailNavigation';
 import toast from 'react-hot-toast';
 import type { User, Wallpaper, Collection, CoinTransaction } from '../types';
 import {
@@ -1272,6 +1277,10 @@ function LedgerPanel({ txs, page, total, loading, balance, maxReachable, onPage 
 // Processing overlay still opt-in for the "in progress" panel.
 
 function Grid({ items, showProcessing }: { items: Wallpaper[]; showProcessing?: boolean }) {
+  const detailNavigation = useMemo(
+    () => createWallpaperDetailNavigation(items),
+    [items],
+  );
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
       {items.map((w, i) => (
@@ -1280,6 +1289,7 @@ function Grid({ items, showProcessing }: { items: Wallpaper[]; showProcessing?: 
           w={w}
           index={i}
           showProcessing={!!showProcessing}
+          detailNavigation={detailNavigation}
         />
       ))}
     </div>
@@ -1287,11 +1297,12 @@ function Grid({ items, showProcessing }: { items: Wallpaper[]; showProcessing?: 
 }
 
 function ProfileWallpaperTile({
-  w, index, showProcessing,
+  w, index, showProcessing, detailNavigation,
 }: {
   w: Wallpaper;
   index: number;
   showProcessing: boolean;
+  detailNavigation?: WallpaperDetailNavigation;
 }) {
   const { t } = useTranslation('profile');
   const location = useLocation();
@@ -1312,8 +1323,8 @@ function ProfileWallpaperTile({
   const isPublished = w.status === 1;
   return (
     <Link
-      to={`/wallpaper/${w.slug || w.id}`}
-      state={{ background: location, initialWallpaper: w }}
+      to={wallpaperDetailPath(w)}
+      state={{ background: location, initialWallpaper: w, detailNavigation }}
       className="dev-spec-card"
       style={{ animationDelay: `${Math.min(index, 16) * 30}ms` }}
     >

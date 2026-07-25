@@ -4,6 +4,10 @@ import justifiedLayout from 'justified-layout';
 import type { Wallpaper } from '../types';
 import WallpaperCard from './WallpaperCard';
 import EmptyState from './EmptyState';
+import {
+  createWallpaperDetailNavigation,
+  type WallpaperDetailNavigation,
+} from '../lib/wallpaperDetailNavigation';
 
 export type ViewMode = 'salon' | 'justified' | 'grid';
 export type SizeMode = 'lg' | 'md' | 'sm';
@@ -90,7 +94,7 @@ const GRID_COLS: Record<SizeMode, string> = {
   sm: 'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8',
 };
 
-function GridLayout({ wallpapers, showStatus, sizeMode, staggerFrom = 0, disableModal }: { wallpapers: Wallpaper[]; showStatus?: boolean; sizeMode: SizeMode; staggerFrom?: number; disableModal?: boolean }) {
+function GridLayout({ wallpapers, showStatus, sizeMode, staggerFrom = 0, disableModal, detailNavigation }: { wallpapers: Wallpaper[]; showStatus?: boolean; sizeMode: SizeMode; staggerFrom?: number; disableModal?: boolean; detailNavigation?: WallpaperDetailNavigation }) {
   // Uses the salon (editorial) tile variant so cards share the rounded-
   // chrome + hover-lift look used by the home page's weekly grid. Each
   // cell gets an aspect-ratio host box because the salon card is
@@ -106,6 +110,7 @@ function GridLayout({ wallpapers, showStatus, sizeMode, staggerFrom = 0, disable
             fillHeight
             animDelay={staggerDelay(i, staggerFrom)}
             disableModal={disableModal}
+            detailNavigation={detailNavigation}
           />
         </div>
       ))}
@@ -120,7 +125,7 @@ interface LayoutBox {
   top: number;
 }
 
-function JustifiedView({ wallpapers, showStatus, targetHeight, staggerFrom = 0, disableModal }: { wallpapers: Wallpaper[]; showStatus?: boolean; targetHeight: number; staggerFrom?: number; disableModal?: boolean }) {
+function JustifiedView({ wallpapers, showStatus, targetHeight, staggerFrom = 0, disableModal, detailNavigation }: { wallpapers: Wallpaper[]; showStatus?: boolean; targetHeight: number; staggerFrom?: number; disableModal?: boolean; detailNavigation?: WallpaperDetailNavigation }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const containerWidth = useContainerWidth(containerRef);
 
@@ -160,6 +165,7 @@ function JustifiedView({ wallpapers, showStatus, targetHeight, staggerFrom = 0, 
             fillHeight
             animDelay={staggerDelay(i, staggerFrom)}
             disableModal={disableModal}
+            detailNavigation={detailNavigation}
             style={{
               position: 'absolute',
               left: box.left,
@@ -174,7 +180,7 @@ function JustifiedView({ wallpapers, showStatus, targetHeight, staggerFrom = 0, 
   );
 }
 
-function SalonLayout({ wallpapers, sizeMode, staggerFrom = 0, disableModal }: { wallpapers: Wallpaper[]; sizeMode: SizeMode; staggerFrom?: number; disableModal?: boolean }) {
+function SalonLayout({ wallpapers, sizeMode, staggerFrom = 0, disableModal, detailNavigation }: { wallpapers: Wallpaper[]; sizeMode: SizeMode; staggerFrom?: number; disableModal?: boolean; detailNavigation?: WallpaperDetailNavigation }) {
   const rowH = SALON_ROW_BY_SIZE[sizeMode];
   return (
     <div
@@ -206,6 +212,7 @@ function SalonLayout({ wallpapers, sizeMode, staggerFrom = 0, disableModal }: { 
               fillHeight
               animDelay={staggerDelay(i, staggerFrom)}
               disableModal={disableModal}
+              detailNavigation={detailNavigation}
             />
           </div>
         );
@@ -216,6 +223,10 @@ function SalonLayout({ wallpapers, sizeMode, staggerFrom = 0, disableModal }: { 
 
 export default function WallpaperGrid({ wallpapers, showStatus, viewMode = 'justified', sizeMode = 'md', staggerFrom = 0, disableModal }: Props) {
   const { t } = useTranslation('browse');
+  const detailNavigation = useMemo(
+    () => createWallpaperDetailNavigation(wallpapers),
+    [wallpapers],
+  );
   if (wallpapers.length === 0) {
     return (
       <EmptyState
@@ -229,10 +240,10 @@ export default function WallpaperGrid({ wallpapers, showStatus, viewMode = 'just
 
   switch (viewMode) {
     case 'salon':
-      return <SalonLayout wallpapers={wallpapers} sizeMode={sizeMode} staggerFrom={staggerFrom} disableModal={disableModal} />;
+      return <SalonLayout wallpapers={wallpapers} sizeMode={sizeMode} staggerFrom={staggerFrom} disableModal={disableModal} detailNavigation={detailNavigation} />;
     case 'grid':
-      return <GridLayout wallpapers={wallpapers} showStatus={showStatus} sizeMode={sizeMode} staggerFrom={staggerFrom} disableModal={disableModal} />;
+      return <GridLayout wallpapers={wallpapers} showStatus={showStatus} sizeMode={sizeMode} staggerFrom={staggerFrom} disableModal={disableModal} detailNavigation={detailNavigation} />;
     default:
-      return <JustifiedView wallpapers={wallpapers} showStatus={showStatus} targetHeight={height} staggerFrom={staggerFrom} disableModal={disableModal} />;
+      return <JustifiedView wallpapers={wallpapers} showStatus={showStatus} targetHeight={height} staggerFrom={staggerFrom} disableModal={disableModal} detailNavigation={detailNavigation} />;
   }
 }
