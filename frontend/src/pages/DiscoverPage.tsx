@@ -8,8 +8,6 @@ import type { Wallpaper } from '../types';
 import {
   getWallpapers,
   getForYouWallpapers,
-  getWallpaperFilterOptions,
-  type WallpaperColorOption,
 } from '../api';
 import { useCategories } from '../hooks/useCategories';
 import { useAuthStore } from '../store/auth';
@@ -81,6 +79,20 @@ const FILTER_LABEL_KEYS: Record<FilterMode, string> = {
 };
 
 const DEFAULT_RESOLUTION_OPTIONS = ['720P', '1080P', '2K', '4K', '8K'];
+const COLOR_PRESETS = [
+  { value: 'red', swatch: '#ef4444', labelKey: 'discover.colorRed' },
+  { value: 'orange', swatch: '#f97316', labelKey: 'discover.colorOrange' },
+  { value: 'yellow', swatch: '#eab308', labelKey: 'discover.colorYellow' },
+  { value: 'green', swatch: '#22c55e', labelKey: 'discover.colorGreen' },
+  { value: 'cyan', swatch: '#06b6d4', labelKey: 'discover.colorCyan' },
+  { value: 'blue', swatch: '#3b82f6', labelKey: 'discover.colorBlue' },
+  { value: 'purple', swatch: '#a855f7', labelKey: 'discover.colorPurple' },
+  { value: 'pink', swatch: '#ec4899', labelKey: 'discover.colorPink' },
+  { value: 'brown', swatch: '#92400e', labelKey: 'discover.colorBrown' },
+  { value: 'black', swatch: '#18181b', labelKey: 'discover.colorBlack' },
+  { value: 'gray', swatch: '#71717a', labelKey: 'discover.colorGray' },
+  { value: 'white', swatch: '#f4f4f5', labelKey: 'discover.colorWhite' },
+] as const;
 
 function SkeletonRows({
   sizeMode,
@@ -255,21 +267,26 @@ function FilterDropdown(p: FilterDropdownProps) {
   );
 }
 
+interface FacetOption {
+  value: string;
+  label: string;
+  swatch?: string;
+}
+
 interface FacetDropdownProps {
   label: string;
   allLabel: string;
   value: string;
-  options: WallpaperColorOption[];
+  options: FacetOption[];
   open: boolean;
   setOpen: (open: boolean) => void;
   onChange: (value: string) => void;
   colorSwatches?: boolean;
-  loading?: boolean;
-  unavailableLabel?: string;
 }
 
 function FacetDropdown(p: FacetDropdownProps) {
-  const selectedLabel = p.value || p.allLabel;
+  const selectedOption = p.options.find((option) => option.value === p.value);
+  const selectedLabel = selectedOption?.label || p.allLabel;
   return (
     <div className="relative">
       <button
@@ -285,7 +302,7 @@ function FacetDropdown(p: FacetDropdownProps) {
           <span
             aria-hidden
             className="w-3.5 h-3.5 rounded-full border border-hair flex-shrink-0 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.24)]"
-            style={{ backgroundColor: p.value }}
+            style={{ backgroundColor: selectedOption?.swatch }}
           />
         )}
         <span>{selectedLabel}</span>
@@ -304,9 +321,7 @@ function FacetDropdown(p: FacetDropdownProps) {
           >
             {p.allLabel}
           </button>
-          {p.loading ? (
-            <div className="px-4 py-2 text-[12px] text-muted" aria-live="polite">...</div>
-          ) : p.options.length > 0 ? p.options.map((option) => (
+          {p.options.map((option) => (
             <button
               type="button"
               role="menuitemradio"
@@ -319,14 +334,12 @@ function FacetDropdown(p: FacetDropdownProps) {
                 <span
                   aria-hidden
                   className="w-4 h-4 rounded-full border border-hair flex-shrink-0 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.24)]"
-                  style={{ backgroundColor: option.value }}
+                  style={{ backgroundColor: option.swatch }}
                 />
               )}
-              <span className={p.colorSwatches ? 'mono text-[11px] uppercase' : ''}>{option.value}</span>
+              <span>{option.label}</span>
             </button>
-          )) : (
-            <div className="px-4 py-2 text-[12px] text-muted" role="status">{p.unavailableLabel}</div>
-          )}
+          ))}
         </div>
       )}
     </div>
@@ -428,10 +441,6 @@ export default function DiscoverPage() {
   const [colorOpen, setColorOpen] = useState(false);
   const resolutionRef = useRef<HTMLDivElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
-  const [resolutionOptions, setResolutionOptions] = useState(DEFAULT_RESOLUTION_OPTIONS);
-  const [colorOptions, setColorOptions] = useState<WallpaperColorOption[]>([]);
-  const [filterOptionsLoading, setFilterOptionsLoading] = useState(true);
-  const [filterOptionsUnavailable, setFilterOptionsUnavailable] = useState(false);
   const [loadError, setLoadError] = useState(false);
   // URL is the source of truth for the category filter — `/` means "All",
   // `/category/:slug` pins to that category. Chip clicks navigate; the
@@ -462,25 +471,14 @@ export default function DiscoverPage() {
   const sizeModeRef = useRef(sizeMode);
 
   const screen = useMemo(() => getScreenResolution(), []);
-
-  useEffect(() => {
-    let cancelled = false;
-    getWallpaperFilterOptions()
-      .then((res) => {
-        if (cancelled) return;
-        const options = res.data.data;
-        if (options.resolutions?.length) setResolutionOptions(options.resolutions);
-        setColorOptions(options.colors || []);
-        setFilterOptionsUnavailable(false);
-      })
-      .catch(() => {
-        if (!cancelled) setFilterOptionsUnavailable(true);
-      })
-      .finally(() => {
-        if (!cancelled) setFilterOptionsLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, []);
+  const colorOptions = useMemo<FacetOption[]>(
+    () => COLOR_PRESETS.map((preset) => ({
+      value: preset.value,
+      label: t(preset.labelKey),
+      swatch: preset.swatch,
+    })),
+    [t],
+  );
 
   // Detect the visitor's actual device profile so the floating-
   // wall layout can size itself to *their* screen aspect.
@@ -738,7 +736,7 @@ export default function DiscoverPage() {
                 label={t('discover.resolutionKicker')}
                 allLabel={t('discover.allResolutions')}
                 value={resolutionFilter}
-                options={resolutionOptions.map((value) => ({ value, count: 0 }))}
+                options={DEFAULT_RESOLUTION_OPTIONS.map((value) => ({ value, label: value }))}
                 open={resolutionOpen}
                 setOpen={(open) => {
                   setResolutionOpen(open);
@@ -766,8 +764,6 @@ export default function DiscoverPage() {
                 }}
                 onChange={setColorFilter}
                 colorSwatches
-                loading={filterOptionsLoading}
-                unavailableLabel={filterOptionsUnavailable ? t('discover.filterOptionsUnavailable') : t('discover.noColorOptions')}
               />
             </div>
             <SizeControls

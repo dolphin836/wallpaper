@@ -157,7 +157,7 @@ func (h *WallpaperHandler) List(w http.ResponseWriter, r *http.Request) {
 		ExcludeDynamic: q.Get("exclude_dynamic") == "true",
 		ExcludeVideo:   q.Get("exclude_video") == "true",
 		Resolution:     repo.NormalizeWallpaperResolution(q.Get("resolution")),
-		Color:          normalizeWallpaperColor(q.Get("color")),
+		Color:          repo.NormalizeWallpaperColorFamily(q.Get("color")),
 	}
 
 	userID := middleware.GetUserID(r.Context())

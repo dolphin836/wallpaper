@@ -132,6 +132,20 @@ type WallpaperExclusionFilters struct {
 }
 
 var wallpaperResolutionOptions = []string{"720P", "1080P", "2K", "4K", "8K"}
+var wallpaperColorFamilies = []string{
+	"red",
+	"orange",
+	"yellow",
+	"green",
+	"cyan",
+	"blue",
+	"purple",
+	"pink",
+	"brown",
+	"black",
+	"gray",
+	"white",
+}
 
 func SupportedWallpaperResolutions() []string {
 	return append([]string(nil), wallpaperResolutionOptions...)
@@ -171,11 +185,108 @@ func wallpaperResolutionBounds(value string) (min, max int) {
 	}
 }
 
-func applyWallpaperFacets(query *gorm.DB, qualifier, resolution, color string) *gorm.DB {
-	if qualifier != "" {
-		qualifier += "."
+func SupportedWallpaperColorFamilies() []string {
+	return append([]string(nil), wallpaperColorFamilies...)
+}
+
+func NormalizeWallpaperColorFamily(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	for _, family := range wallpaperColorFamilies {
+		if value == family {
+			return family
+		}
 	}
-	dimension := "GREATEST(" + qualifier + "width, " + qualifier + "height)"
+	return ""
+}
+
+// wallpaperColorFamilyPredicate builds a correlated EXISTS predicate that
+// classifies every color in a wallpaper's generated palette using HSV-like
+// hue, saturation, and brightness ranges. Matching the full palette instead
+// of one exact dominant hex lets a wallpaper belong to every visible color
+// family it contains.
+func wallpaperColorFamilyPredicate(qualifier, family string) string {
+	family = NormalizeWallpaperColorFamily(family)
+	if family == "" {
+		return ""
+	}
+
+	prefix := ""
+	if qualifier != "" {
+		prefix = qualifier + "."
+	}
+
+	var familyCondition string
+	switch family {
+	case "black":
+		familyCondition = "hsv.brightness < 0.20"
+	case "white":
+		familyCondition = "hsv.brightness >= 0.85 AND hsv.saturation <= 0.18"
+	case "gray":
+		familyCondition = "hsv.brightness >= 0.20 AND hsv.brightness < 0.85 AND hsv.saturation <= 0.18"
+	case "red":
+		familyCondition = "hsv.brightness >= 0.20 AND hsv.saturation > 0.18 AND (hsv.hue < 15 OR hsv.hue >= 345)"
+	case "orange":
+		familyCondition = "hsv.brightness >= 0.55 AND hsv.saturation > 0.18 AND hsv.hue >= 15 AND hsv.hue < 45"
+	case "yellow":
+		familyCondition = "hsv.brightness >= 0.45 AND hsv.saturation > 0.18 AND hsv.hue >= 45 AND hsv.hue < 70"
+	case "green":
+		familyCondition = "hsv.brightness >= 0.20 AND hsv.saturation > 0.18 AND hsv.hue >= 70 AND hsv.hue < 165"
+	case "cyan":
+		familyCondition = "hsv.brightness >= 0.20 AND hsv.saturation > 0.18 AND hsv.hue >= 165 AND hsv.hue < 195"
+	case "blue":
+		familyCondition = "hsv.brightness >= 0.20 AND hsv.saturation > 0.18 AND hsv.hue >= 195 AND hsv.hue < 255"
+	case "purple":
+		familyCondition = "hsv.brightness >= 0.20 AND hsv.saturation > 0.18 AND hsv.hue >= 255 AND hsv.hue < 290"
+	case "pink":
+		familyCondition = "hsv.brightness >= 0.35 AND hsv.saturation > 0.18 AND hsv.hue >= 290 AND hsv.hue < 345"
+	case "brown":
+		familyCondition = "hsv.brightness >= 0.20 AND hsv.brightness < 0.55 AND hsv.saturation > 0.18 AND hsv.hue >= 15 AND hsv.hue < 45"
+	}
+
+	palette := "CONCAT_WS(',', NULLIF(" + prefix + "color_palette, ''), NULLIF(" + prefix + "dominant_color, ''))"
+	return `EXISTS (
+		SELECT 1
+		FROM unnest(string_to_array(` + palette + `, ',')) AS palette(raw_hex)
+		CROSS JOIN LATERAL (
+			SELECT BTRIM(palette.raw_hex) AS hex
+		) normalized
+		CROSS JOIN LATERAL (
+			SELECT
+				normalized.hex ~ '^#[0-9A-Fa-f]{6}$' AS valid,
+				get_byte(decode(CASE WHEN normalized.hex ~ '^#[0-9A-Fa-f]{6}$' THEN SUBSTRING(normalized.hex FROM 2) ELSE '000000' END, 'hex'), 0) / 255.0 AS red_value,
+				get_byte(decode(CASE WHEN normalized.hex ~ '^#[0-9A-Fa-f]{6}$' THEN SUBSTRING(normalized.hex FROM 2) ELSE '000000' END, 'hex'), 1) / 255.0 AS green_value,
+				get_byte(decode(CASE WHEN normalized.hex ~ '^#[0-9A-Fa-f]{6}$' THEN SUBSTRING(normalized.hex FROM 2) ELSE '000000' END, 'hex'), 2) / 255.0 AS blue_value
+		) rgb
+		CROSS JOIN LATERAL (
+			SELECT
+				GREATEST(rgb.red_value, rgb.green_value, rgb.blue_value) AS high,
+				LEAST(rgb.red_value, rgb.green_value, rgb.blue_value) AS low
+		) channels
+		CROSS JOIN LATERAL (
+			SELECT
+				channels.high AS brightness,
+				CASE WHEN channels.high = 0 THEN 0 ELSE (channels.high - channels.low) / channels.high END AS saturation,
+				CASE
+					WHEN channels.high = channels.low THEN 0
+					WHEN channels.high = rgb.red_value THEN
+						60 * ((rgb.green_value - rgb.blue_value) / (channels.high - channels.low))
+						+ CASE WHEN rgb.green_value < rgb.blue_value THEN 360 ELSE 0 END
+					WHEN channels.high = rgb.green_value THEN
+						60 * ((rgb.blue_value - rgb.red_value) / (channels.high - channels.low) + 2)
+					ELSE
+						60 * ((rgb.red_value - rgb.green_value) / (channels.high - channels.low) + 4)
+				END AS hue
+		) hsv
+		WHERE rgb.valid AND (` + familyCondition + `)
+	)`
+}
+
+func applyWallpaperFacets(query *gorm.DB, qualifier, resolution, color string) *gorm.DB {
+	columnPrefix := qualifier
+	if columnPrefix != "" {
+		columnPrefix += "."
+	}
+	dimension := "GREATEST(" + columnPrefix + "width, " + columnPrefix + "height)"
 	minResolution, maxResolution := wallpaperResolutionBounds(resolution)
 	if minResolution > 0 {
 		query = query.Where(dimension+" >= ?", minResolution)
@@ -183,8 +294,8 @@ func applyWallpaperFacets(query *gorm.DB, qualifier, resolution, color string) *
 	if maxResolution > 0 {
 		query = query.Where(dimension+" < ?", maxResolution)
 	}
-	if color = strings.ToLower(strings.TrimSpace(color)); color != "" {
-		query = query.Where("LOWER("+qualifier+"dominant_color) = ?", color)
+	if predicate := wallpaperColorFamilyPredicate(qualifier, color); predicate != "" {
+		query = query.Where(predicate)
 	}
 	return query
 }
@@ -288,28 +399,6 @@ func (r *WallpaperRepo) Count(ctx context.Context, opts ListOptions) (int64, err
 	var count int64
 	err := query.Count(&count).Error
 	return count, err
-}
-
-type ColorUsage struct {
-	Value string `gorm:"column:value" json:"value"`
-	Count int64  `gorm:"column:usage_count" json:"count"`
-}
-
-func (r *WallpaperRepo) TopDominantColors(ctx context.Context, limit int) ([]ColorUsage, error) {
-	if limit <= 0 {
-		limit = 10
-	}
-	colors := make([]ColorUsage, 0, limit)
-	err := r.db.WithContext(ctx).
-		Table("wallpapers").
-		Select("LOWER(dominant_color) AS value, COUNT(*) AS usage_count").
-		Where("status = ?", model.WallpaperStatusPublished).
-		Where("dominant_color ~ ?", `^#[0-9A-Fa-f]{6}$`).
-		Group("LOWER(dominant_color)").
-		Order("usage_count DESC, value ASC").
-		Limit(limit).
-		Scan(&colors).Error
-	return colors, err
 }
 
 func (r *WallpaperRepo) GetByIDs(ctx context.Context, ids []int64) ([]model.Wallpaper, error) {
@@ -586,8 +675,11 @@ func (r *WallpaperRepo) ListPopularIDs(ctx context.Context, userID int64, limit 
 	}
 	var rows []row
 	minResolution, maxResolution := wallpaperResolutionBounds(filters.Resolution)
-	color := strings.ToLower(strings.TrimSpace(filters.Color))
-	err := r.db.WithContext(ctx).Raw(`
+	colorPredicate := wallpaperColorFamilyPredicate("w", filters.Color)
+	if colorPredicate == "" {
+		colorPredicate = "TRUE"
+	}
+	querySQL := `
 		WITH user_signals AS (
 			SELECT wallpaper_id FROM user_likes WHERE user_id = ?
 			UNION
@@ -604,13 +696,14 @@ func (r *WallpaperRepo) ListPopularIDs(ctx context.Context, userID int64, limit 
 		  AND (? <= 0 OR ? <= 0 OR (w.width >= ? AND w.height >= ?))
 		  AND (? <= 0 OR GREATEST(w.width, w.height) >= ?)
 		  AND (? <= 0 OR GREATEST(w.width, w.height) < ?)
-		  AND (? = '' OR LOWER(w.dominant_color) = ?)
+		  AND (` + colorPredicate + `)
 		ORDER BY (w.like_count * 2 + w.favorite_count * 3 + w.view_count) DESC, w.created_at DESC
 		LIMIT ?
-	`, userID, userID, userID, model.WallpaperStatusPublished,
+	`
+	err := r.db.WithContext(ctx).Raw(querySQL, userID, userID, userID, model.WallpaperStatusPublished,
 		filters.ExcludeDynamic, filters.ExcludeVideo,
 		filters.DeviceWidth, filters.DeviceHeight, filters.DeviceWidth, filters.DeviceHeight,
-		minResolution, minResolution, maxResolution, maxResolution, color, color,
+		minResolution, minResolution, maxResolution, maxResolution,
 		limit).Scan(&rows).Error
 	if err != nil {
 		return nil, err
@@ -633,8 +726,11 @@ func (r *WallpaperRepo) ListForYouIDs(ctx context.Context, userID int64, limit i
 	}
 	var rows []row
 	minResolution, maxResolution := wallpaperResolutionBounds(filters.Resolution)
-	color := strings.ToLower(strings.TrimSpace(filters.Color))
-	err := r.db.WithContext(ctx).Raw(`
+	colorPredicate := wallpaperColorFamilyPredicate("w", filters.Color)
+	if colorPredicate == "" {
+		colorPredicate = "TRUE"
+	}
+	querySQL := `
 		WITH user_signals AS (
 			SELECT wallpaper_id, 1 AS weight FROM user_likes WHERE user_id = ?
 			UNION ALL
@@ -664,13 +760,14 @@ func (r *WallpaperRepo) ListForYouIDs(ctx context.Context, userID int64, limit i
 		  AND (? <= 0 OR ? <= 0 OR (w.width >= ? AND w.height >= ?))
 		  AND (? <= 0 OR GREATEST(w.width, w.height) >= ?)
 		  AND (? <= 0 OR GREATEST(w.width, w.height) < ?)
-		  AND (? = '' OR LOWER(w.dominant_color) = ?)
+		  AND (` + colorPredicate + `)
 		ORDER BY cs.tag_score DESC, w.created_at DESC
 		LIMIT ?
-	`, userID, userID, userID, model.WallpaperStatusPublished,
+	`
+	err := r.db.WithContext(ctx).Raw(querySQL, userID, userID, userID, model.WallpaperStatusPublished,
 		filters.ExcludeDynamic, filters.ExcludeVideo,
 		filters.DeviceWidth, filters.DeviceHeight, filters.DeviceWidth, filters.DeviceHeight,
-		minResolution, minResolution, maxResolution, maxResolution, color, color,
+		minResolution, minResolution, maxResolution, maxResolution,
 		limit).Scan(&rows).Error
 	if err != nil {
 		return nil, err

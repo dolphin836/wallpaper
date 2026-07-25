@@ -98,8 +98,13 @@ type ListResponse struct {
 }
 
 type WallpaperFilterOptions struct {
-	Resolutions []string          `json:"resolutions"`
-	Colors      []repo.ColorUsage `json:"colors"`
+	Resolutions []string                     `json:"resolutions"`
+	Colors      []WallpaperFilterColorOption `json:"colors"`
+}
+
+type WallpaperFilterColorOption struct {
+	Value string `json:"value"`
+	Count int64  `json:"count"`
 }
 
 type WallpaperUploadedEvent struct {
@@ -315,11 +320,11 @@ func (s *WallpaperService) List(ctx context.Context, opts repo.ListOptions, curr
 	}, nil
 }
 
-func (s *WallpaperService) GetFilterOptions(ctx context.Context) (*WallpaperFilterOptions, *errcode.ErrCode) {
-	colors, err := s.wallpaperRepo.TopDominantColors(ctx, 10)
-	if err != nil {
-		slog.ErrorContext(ctx, "failed to load wallpaper filter options", "error", err)
-		return nil, errcode.ErrInternal
+func (s *WallpaperService) GetFilterOptions(_ context.Context) (*WallpaperFilterOptions, *errcode.ErrCode) {
+	families := repo.SupportedWallpaperColorFamilies()
+	colors := make([]WallpaperFilterColorOption, len(families))
+	for i, family := range families {
+		colors[i] = WallpaperFilterColorOption{Value: family}
 	}
 	return &WallpaperFilterOptions{
 		Resolutions: repo.SupportedWallpaperResolutions(),

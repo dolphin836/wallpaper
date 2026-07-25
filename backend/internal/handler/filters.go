@@ -51,17 +51,6 @@ func parseWallpaperExclusions(r *http.Request) repo.WallpaperExclusionFilters {
 		DeviceWidth:    deviceWidth,
 		DeviceHeight:   deviceHeight,
 		Resolution:     repo.NormalizeWallpaperResolution(q.Get("resolution")),
-		Color:          normalizeWallpaperColor(q.Get("color")),
+		Color:          repo.NormalizeWallpaperColorFamily(q.Get("color")),
 	}
-}
-
-func normalizeWallpaperColor(value string) string {
-	value = strings.ToLower(strings.TrimSpace(value))
-	if len(value) != 7 || value[0] != '#' {
-		return ""
-	}
-	if _, err := strconv.ParseUint(value[1:], 16, 24); err != nil {
-		return ""
-	}
-	return value
 }
