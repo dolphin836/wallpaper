@@ -1303,10 +1303,16 @@ export default function WallpaperDetailPage() {
                   <span className="text-[13px] font-semibold text-white leading-none whitespace-nowrap">
                     {wallpaper.width.toLocaleString()} × {wallpaper.height.toLocaleString()}
                   </span>
-                  <span className="mono text-[10px] tracking-[0.06em] text-white/65 whitespace-nowrap">
-                    {resLabel || '—'} · {(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}
-                    {(wallpaper.is_dynamic || (wallpaper.file_type || '').startsWith('video/')) && <> · {t('pill.live')}</>}
-                    {wallpaper.is_ai_generated && <> · AI</>}
+                  <span className="wd-bar-meta-secondary mono text-[10px] tracking-[0.04em] text-white/65 whitespace-nowrap">
+                    <span className="wd-bar-meta-secondary-main">
+                      {resLabel || '—'} · {(wallpaper.file_type || 'IMAGE').toUpperCase()} · {fileSize}
+                    </span>
+                    {(wallpaper.is_dynamic || isVideoWallpaper) && (
+                      <span className="wd-bar-meta-secondary-flag"> · {t('pill.live')}</span>
+                    )}
+                    {wallpaper.is_ai_generated && (
+                      <span className="wd-bar-meta-secondary-flag"> · AI</span>
+                    )}
                   </span>
                 </div>
 
@@ -1679,8 +1685,11 @@ html.wd-detail-scrollbar-hidden body::-webkit-scrollbar,
   background: var(--wd-detail-glass-bg);
   backdrop-filter: var(--wd-detail-glass-filter); -webkit-backdrop-filter: var(--wd-detail-glass-filter);
   box-shadow: var(--wd-detail-glass-shadow); }
-.wd-bar-meta { width: 224px; min-height: 29px; display: flex; flex-direction: column; gap: 3px; padding: 0 6px 0 10px; flex-shrink: 0; }
+.wd-bar-meta { width: 252px; min-height: 29px; display: flex; flex-direction: column; gap: 3px; padding: 0 6px 0 10px; flex-shrink: 0; }
 .wd-bar-meta > span { overflow: hidden; text-overflow: ellipsis; }
+.wd-bar-meta-secondary { display: flex; align-items: center; min-width: 0; }
+.wd-bar-meta-secondary-main { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wd-bar-meta-secondary-flag { flex-shrink: 0; color: rgba(255,255,255,0.78); }
 .wd-toolbar-skeleton { display: block; border-radius: 9999px; background: rgba(255,255,255,0.18); }
 .wd-toolbar-skeleton.is-meta-primary { width: 112px; height: 13px; }
 .wd-toolbar-skeleton.is-meta-secondary { width: 188px; height: 10px; background: rgba(255,255,255,0.11); }
