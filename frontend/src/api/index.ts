@@ -62,7 +62,22 @@ export const getWallpapers = (params: {
   dynamic_only?: boolean;
   ai_only?: boolean;
   video_only?: boolean;
+  resolution?: string;
+  color?: string;
 }) => client.get<ApiResponse<PaginatedData<Wallpaper>>>('/wallpapers', { params });
+
+export interface WallpaperColorOption {
+  value: string;
+  count: number;
+}
+
+export interface WallpaperFilterOptions {
+  resolutions: string[];
+  colors: WallpaperColorOption[];
+}
+
+export const getWallpaperFilterOptions = () =>
+  client.get<ApiResponse<WallpaperFilterOptions>>('/wallpapers/filter-options');
 
 export const getWallpaper = (slug: string) =>
   client.get<ApiResponse<WallpaperDetail>>(`/wallpapers/${slug}`);
@@ -94,8 +109,12 @@ export const reportWallpaper = (id: number, reason: string, note: string) =>
 export const getSimilarWallpapers = (id: number, limit = 12) =>
   client.get<ApiResponse<Wallpaper[]>>(`/wallpapers/${id}/similar`, { params: { limit } });
 
-export const getForYouWallpapers = (limit = 30) =>
-  client.get<ApiResponse<Wallpaper[]>>('/wallpapers/for-you', { params: { limit } });
+export const getForYouWallpapers = (params: {
+  limit?: number;
+  resolution?: string;
+  color?: string;
+} = { limit: 30 }) =>
+  client.get<ApiResponse<Wallpaper[]>>('/wallpapers/for-you', { params });
 
 export const downloadWallpaper = (id: number) =>
   `${resolveBaseURL()}/wallpapers/${id}/download`;

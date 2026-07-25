@@ -156,6 +156,8 @@ func (h *WallpaperHandler) List(w http.ResponseWriter, r *http.Request) {
 		VideoOnly:      q.Get("video_only") == "true",
 		ExcludeDynamic: q.Get("exclude_dynamic") == "true",
 		ExcludeVideo:   q.Get("exclude_video") == "true",
+		Resolution:     repo.NormalizeWallpaperResolution(q.Get("resolution")),
+		Color:          normalizeWallpaperColor(q.Get("color")),
 	}
 
 	userID := middleware.GetUserID(r.Context())
@@ -165,6 +167,15 @@ func (h *WallpaperHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.OK(w, resp)
+}
+
+func (h *WallpaperHandler) GetFilterOptions(w http.ResponseWriter, r *http.Request) {
+	options, ec := h.wallpaperSvc.GetFilterOptions(r.Context())
+	if ec != nil {
+		response.Error(w, http.StatusInternalServerError, ec)
+		return
+	}
+	response.OK(w, options)
 }
 
 func (h *WallpaperHandler) Get(w http.ResponseWriter, r *http.Request) {

@@ -111,6 +111,7 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Use(middleware.OptionalAuth(deps.JWTSecret))
 			r.Post("/events", deps.AnalyticsHandler.Track)
 			r.Get("/wallpapers", deps.WallpaperHandler.List)
+			r.Get("/wallpapers/filter-options", deps.WallpaperHandler.GetFilterOptions)
 			r.Get("/wallpapers/{id}", deps.WallpaperHandler.Get)
 			r.Get("/wallpapers/{id}/variants", deps.WallpaperHandler.ListSupportedDevices)
 			r.Get("/wallpapers/{id}/engagements", deps.WallpaperHandler.GetEngagements)

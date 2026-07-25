@@ -81,7 +81,7 @@ func TestParseWallpaperDeviceRequirement(t *testing.T) {
 }
 
 func TestParseWallpaperExclusionsIncludesNativeDimensions(t *testing.T) {
-	r := httptest.NewRequest("GET", "/api/v1/wallpapers?exclude_video=true", nil)
+	r := httptest.NewRequest("GET", "/api/v1/wallpapers?exclude_video=true&resolution=4k&color=%2305374F", nil)
 	r.Header.Set(wallpaperClientHeader, "android")
 	r.Header.Set(deviceWidthHeader, "1080")
 	r.Header.Set(deviceHeightHeader, "2400")
@@ -92,5 +92,26 @@ func TestParseWallpaperExclusionsIncludesNativeDimensions(t *testing.T) {
 	}
 	if filters.DeviceWidth != 1080 || filters.DeviceHeight != 2400 {
 		t.Fatalf("got %dx%d, want 1080x2400", filters.DeviceWidth, filters.DeviceHeight)
+	}
+	if filters.Resolution != "4K" {
+		t.Fatalf("got resolution %q, want 4K", filters.Resolution)
+	}
+	if filters.Color != "#05374f" {
+		t.Fatalf("got color %q, want #05374f", filters.Color)
+	}
+}
+
+func TestNormalizeWallpaperColor(t *testing.T) {
+	tests := map[string]string{
+		"#A1B2C3": "#a1b2c3",
+		"#000000": "#000000",
+		"A1B2C3":  "",
+		"#XYZ123": "",
+		"#123":    "",
+	}
+	for input, want := range tests {
+		if got := normalizeWallpaperColor(input); got != want {
+			t.Errorf("normalizeWallpaperColor(%q) = %q, want %q", input, got, want)
+		}
 	}
 }

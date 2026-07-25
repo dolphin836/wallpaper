@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -111,6 +112,8 @@ type ListOptions struct {
 	DynamicOnly      bool
 	AIOnly           bool
 	VideoOnly        bool
+	Resolution       string
+	Color            string
 	// ExcludeDynamic / ExcludeVideo let platform clients hide wallpaper
 	// types they can't render. Windows hides macOS-dynamic HEIC (it
 	// has no system support for them); macOS hides video/* wallpapers
@@ -124,9 +127,70 @@ type WallpaperExclusionFilters struct {
 	ExcludeVideo   bool
 	DeviceWidth    int
 	DeviceHeight   int
+	Resolution     string
+	Color          string
+}
+
+var wallpaperResolutionOptions = []string{"720P", "1080P", "2K", "4K", "8K"}
+
+func SupportedWallpaperResolutions() []string {
+	return append([]string(nil), wallpaperResolutionOptions...)
+}
+
+func NormalizeWallpaperResolution(value string) string {
+	switch strings.ToUpper(strings.TrimSpace(value)) {
+	case "720P":
+		return "720P"
+	case "1080P":
+		return "1080P"
+	case "2K":
+		return "2K"
+	case "4K":
+		return "4K"
+	case "8K":
+		return "8K"
+	default:
+		return ""
+	}
+}
+
+func wallpaperResolutionBounds(value string) (min, max int) {
+	switch NormalizeWallpaperResolution(value) {
+	case "720P":
+		return 1280, 1920
+	case "1080P":
+		return 1920, 2560
+	case "2K":
+		return 2560, 3840
+	case "4K":
+		return 3840, 7680
+	case "8K":
+		return 7680, 0
+	default:
+		return 0, 0
+	}
+}
+
+func applyWallpaperFacets(query *gorm.DB, qualifier, resolution, color string) *gorm.DB {
+	if qualifier != "" {
+		qualifier += "."
+	}
+	dimension := "GREATEST(" + qualifier + "width, " + qualifier + "height)"
+	minResolution, maxResolution := wallpaperResolutionBounds(resolution)
+	if minResolution > 0 {
+		query = query.Where(dimension+" >= ?", minResolution)
+	}
+	if maxResolution > 0 {
+		query = query.Where(dimension+" < ?", maxResolution)
+	}
+	if color = strings.ToLower(strings.TrimSpace(color)); color != "" {
+		query = query.Where("LOWER("+qualifier+"dominant_color) = ?", color)
+	}
+	return query
 }
 
 func (f WallpaperExclusionFilters) apply(query *gorm.DB, qualifier string) *gorm.DB {
+	query = applyWallpaperFacets(query, qualifier, f.Resolution, f.Color)
 	if qualifier != "" {
 		qualifier += "."
 	}
@@ -191,7 +255,7 @@ func (r *WallpaperRepo) applyListFilters(query *gorm.DB, opts ListOptions) *gorm
 				opts.DeviceWidth, opts.DeviceHeight)
 		}
 	}
-	return query
+	return applyWallpaperFacets(query, "", opts.Resolution, opts.Color)
 }
 
 func (r *WallpaperRepo) List(ctx context.Context, opts ListOptions) ([]model.Wallpaper, error) {
@@ -224,6 +288,28 @@ func (r *WallpaperRepo) Count(ctx context.Context, opts ListOptions) (int64, err
 	var count int64
 	err := query.Count(&count).Error
 	return count, err
+}
+
+type ColorUsage struct {
+	Value string `gorm:"column:value" json:"value"`
+	Count int64  `gorm:"column:usage_count" json:"count"`
+}
+
+func (r *WallpaperRepo) TopDominantColors(ctx context.Context, limit int) ([]ColorUsage, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	colors := make([]ColorUsage, 0, limit)
+	err := r.db.WithContext(ctx).
+		Table("wallpapers").
+		Select("LOWER(dominant_color) AS value, COUNT(*) AS usage_count").
+		Where("status = ?", model.WallpaperStatusPublished).
+		Where("dominant_color ~ ?", `^#[0-9A-Fa-f]{6}$`).
+		Group("LOWER(dominant_color)").
+		Order("usage_count DESC, value ASC").
+		Limit(limit).
+		Scan(&colors).Error
+	return colors, err
 }
 
 func (r *WallpaperRepo) GetByIDs(ctx context.Context, ids []int64) ([]model.Wallpaper, error) {
@@ -499,6 +585,8 @@ func (r *WallpaperRepo) ListPopularIDs(ctx context.Context, userID int64, limit 
 		ID int64
 	}
 	var rows []row
+	minResolution, maxResolution := wallpaperResolutionBounds(filters.Resolution)
+	color := strings.ToLower(strings.TrimSpace(filters.Color))
 	err := r.db.WithContext(ctx).Raw(`
 		WITH user_signals AS (
 			SELECT wallpaper_id FROM user_likes WHERE user_id = ?
@@ -514,11 +602,15 @@ func (r *WallpaperRepo) ListPopularIDs(ctx context.Context, userID int64, limit 
 		  AND (? = false OR w.is_dynamic = false)
 		  AND (? = false OR w.file_type NOT LIKE 'video/%')
 		  AND (? <= 0 OR ? <= 0 OR (w.width >= ? AND w.height >= ?))
+		  AND (? <= 0 OR GREATEST(w.width, w.height) >= ?)
+		  AND (? <= 0 OR GREATEST(w.width, w.height) < ?)
+		  AND (? = '' OR LOWER(w.dominant_color) = ?)
 		ORDER BY (w.like_count * 2 + w.favorite_count * 3 + w.view_count) DESC, w.created_at DESC
 		LIMIT ?
 	`, userID, userID, userID, model.WallpaperStatusPublished,
 		filters.ExcludeDynamic, filters.ExcludeVideo,
 		filters.DeviceWidth, filters.DeviceHeight, filters.DeviceWidth, filters.DeviceHeight,
+		minResolution, minResolution, maxResolution, maxResolution, color, color,
 		limit).Scan(&rows).Error
 	if err != nil {
 		return nil, err
@@ -540,6 +632,8 @@ func (r *WallpaperRepo) ListForYouIDs(ctx context.Context, userID int64, limit i
 		WallpaperID int64
 	}
 	var rows []row
+	minResolution, maxResolution := wallpaperResolutionBounds(filters.Resolution)
+	color := strings.ToLower(strings.TrimSpace(filters.Color))
 	err := r.db.WithContext(ctx).Raw(`
 		WITH user_signals AS (
 			SELECT wallpaper_id, 1 AS weight FROM user_likes WHERE user_id = ?
@@ -568,11 +662,15 @@ func (r *WallpaperRepo) ListForYouIDs(ctx context.Context, userID int64, limit i
 		  AND (? = false OR w.is_dynamic = false)
 		  AND (? = false OR w.file_type NOT LIKE 'video/%')
 		  AND (? <= 0 OR ? <= 0 OR (w.width >= ? AND w.height >= ?))
+		  AND (? <= 0 OR GREATEST(w.width, w.height) >= ?)
+		  AND (? <= 0 OR GREATEST(w.width, w.height) < ?)
+		  AND (? = '' OR LOWER(w.dominant_color) = ?)
 		ORDER BY cs.tag_score DESC, w.created_at DESC
 		LIMIT ?
 	`, userID, userID, userID, model.WallpaperStatusPublished,
 		filters.ExcludeDynamic, filters.ExcludeVideo,
 		filters.DeviceWidth, filters.DeviceHeight, filters.DeviceWidth, filters.DeviceHeight,
+		minResolution, minResolution, maxResolution, maxResolution, color, color,
 		limit).Scan(&rows).Error
 	if err != nil {
 		return nil, err

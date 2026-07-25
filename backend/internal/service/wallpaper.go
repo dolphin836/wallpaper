@@ -97,6 +97,11 @@ type ListResponse struct {
 	HasMore    bool                `json:"has_more"`
 }
 
+type WallpaperFilterOptions struct {
+	Resolutions []string          `json:"resolutions"`
+	Colors      []repo.ColorUsage `json:"colors"`
+}
+
 type WallpaperUploadedEvent struct {
 	WallpaperID int64  `json:"wallpaper_id"`
 	UserID      int64  `json:"user_id"`
@@ -310,6 +315,18 @@ func (s *WallpaperService) List(ctx context.Context, opts repo.ListOptions, curr
 	}, nil
 }
 
+func (s *WallpaperService) GetFilterOptions(ctx context.Context) (*WallpaperFilterOptions, *errcode.ErrCode) {
+	colors, err := s.wallpaperRepo.TopDominantColors(ctx, 10)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to load wallpaper filter options", "error", err)
+		return nil, errcode.ErrInternal
+	}
+	return &WallpaperFilterOptions{
+		Resolutions: repo.SupportedWallpaperResolutions(),
+		Colors:      colors,
+	}, nil
+}
+
 func (s *WallpaperService) listTrending(ctx context.Context, opts repo.ListOptions, currentUserID int64) (*ListResponse, *errcode.ErrCode) {
 	since := time.Now().UTC().Add(-7 * 24 * time.Hour)
 	trendingIDs, err := s.eventRepo.GetTrending(ctx, since, opts.Limit, opts.CategoryID, repo.WallpaperExclusionFilters{
@@ -317,6 +334,8 @@ func (s *WallpaperService) listTrending(ctx context.Context, opts repo.ListOptio
 		ExcludeVideo:   opts.ExcludeVideo,
 		DeviceWidth:    opts.DeviceWidth,
 		DeviceHeight:   opts.DeviceHeight,
+		Resolution:     opts.Resolution,
+		Color:          opts.Color,
 	})
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get trending wallpapers", "error", err)

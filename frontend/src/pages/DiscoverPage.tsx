@@ -5,7 +5,12 @@ import { useTranslation } from 'react-i18next';
 import FeedFooter, { type FooterState } from '../components/FeedFooter';
 import toast from 'react-hot-toast';
 import type { Wallpaper } from '../types';
-import { getWallpapers, getForYouWallpapers } from '../api';
+import {
+  getWallpapers,
+  getForYouWallpapers,
+  getWallpaperFilterOptions,
+  type WallpaperColorOption,
+} from '../api';
 import { useCategories } from '../hooks/useCategories';
 import { useAuthStore } from '../store/auth';
 import type { SizeMode } from '../components/WallpaperGrid';
@@ -13,6 +18,7 @@ import DeviceFloatingWall from '../components/DeviceFloatingWall';
 import { useCurrentDevice } from '../hooks/useCurrentDevice';
 import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
 
 function getScreenResolution() {
   const dpr = window.devicePixelRatio || 1;
@@ -73,6 +79,8 @@ const FILTER_LABEL_KEYS: Record<FilterMode, string> = {
   live:      'discover.filterLive',
   ai:        'discover.filterAi',
 };
+
+const DEFAULT_RESOLUTION_OPTIONS = ['720P', '1080P', '2K', '4K', '8K'];
 
 function SkeletonRows({
   sizeMode,
@@ -210,7 +218,6 @@ interface FilterDropdownProps {
   setMode: (m: FilterMode) => void;
   open: boolean;
   setOpen: (b: boolean) => void;
-  ddRef: React.RefObject<HTMLDivElement | null>;
   isAuthenticated: boolean;
 }
 
@@ -224,7 +231,7 @@ function FilterDropdown(p: FilterDropdownProps) {
     : ['latest', 'trending', 'my_device', 'live', 'ai'];
 
   return (
-    <div className="relative" ref={p.ddRef}>
+    <div className="relative">
       <button
         onClick={() => p.setOpen(!p.open)}
         className="inline-flex items-center gap-3 h-8 px-3.5 rounded-lg bg-paper-2 border border-hair text-[12px] text-ink-2"
@@ -242,6 +249,84 @@ function FilterDropdown(p: FilterDropdownProps) {
               className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${p.mode === opt ? 'text-accent-ink bg-accent-soft font-medium' : 'text-ink-2 hover:bg-paper-2'}`}
             >{t(FILTER_LABEL_KEYS[opt])}</button>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface FacetDropdownProps {
+  label: string;
+  allLabel: string;
+  value: string;
+  options: WallpaperColorOption[];
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  onChange: (value: string) => void;
+  colorSwatches?: boolean;
+  loading?: boolean;
+  unavailableLabel?: string;
+}
+
+function FacetDropdown(p: FacetDropdownProps) {
+  const selectedLabel = p.value || p.allLabel;
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={p.open}
+        aria-label={`${p.label}: ${selectedLabel}`}
+        onClick={() => p.setOpen(!p.open)}
+        className="inline-flex items-center gap-2.5 h-8 px-3.5 rounded-lg bg-paper-2 border border-hair text-[12px] text-ink-2 whitespace-nowrap hover:border-ink-2 transition-colors"
+      >
+        <span className="mono text-[10px] tracking-[0.1em] text-muted">{p.label}</span>
+        {p.colorSwatches && p.value && (
+          <span
+            aria-hidden
+            className="w-3.5 h-3.5 rounded-full border border-hair flex-shrink-0 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.24)]"
+            style={{ backgroundColor: p.value }}
+          />
+        )}
+        <span>{selectedLabel}</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <path d="M5 9l7 7 7-7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {p.open && (
+        <div role="menu" className="absolute right-0 mt-1 w-44 bg-paper border border-hair rounded-lg shadow-lg z-20 py-1">
+          <button
+            type="button"
+            role="menuitemradio"
+            aria-checked={!p.value}
+            onClick={() => { p.onChange(''); p.setOpen(false); }}
+            className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${!p.value ? 'text-accent-ink bg-accent-soft font-medium' : 'text-ink-2 hover:bg-paper-2'}`}
+          >
+            {p.allLabel}
+          </button>
+          {p.loading ? (
+            <div className="px-4 py-2 text-[12px] text-muted" aria-live="polite">...</div>
+          ) : p.options.length > 0 ? p.options.map((option) => (
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={p.value === option.value}
+              key={option.value}
+              onClick={() => { p.onChange(option.value); p.setOpen(false); }}
+              className={`w-full flex items-center gap-2.5 px-4 py-2 text-left text-[13px] transition-colors ${p.value === option.value ? 'text-accent-ink bg-accent-soft font-medium' : 'text-ink-2 hover:bg-paper-2'}`}
+            >
+              {p.colorSwatches && (
+                <span
+                  aria-hidden
+                  className="w-4 h-4 rounded-full border border-hair flex-shrink-0 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.24)]"
+                  style={{ backgroundColor: option.value }}
+                />
+              )}
+              <span className={p.colorSwatches ? 'mono text-[11px] uppercase' : ''}>{option.value}</span>
+            </button>
+          )) : (
+            <div className="px-4 py-2 text-[12px] text-muted" role="status">{p.unavailableLabel}</div>
+          )}
         </div>
       )}
     </div>
@@ -337,6 +422,16 @@ export default function DiscoverPage() {
   });
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
+  const [resolutionFilter, setResolutionFilter] = useState('');
+  const [colorFilter, setColorFilter] = useState('');
+  const [resolutionOpen, setResolutionOpen] = useState(false);
+  const [colorOpen, setColorOpen] = useState(false);
+  const resolutionRef = useRef<HTMLDivElement>(null);
+  const colorRef = useRef<HTMLDivElement>(null);
+  const [resolutionOptions, setResolutionOptions] = useState(DEFAULT_RESOLUTION_OPTIONS);
+  const [colorOptions, setColorOptions] = useState<WallpaperColorOption[]>([]);
+  const [filterOptionsLoading, setFilterOptionsLoading] = useState(true);
+  const [filterOptionsUnavailable, setFilterOptionsUnavailable] = useState(false);
   const [loadError, setLoadError] = useState(false);
   // URL is the source of truth for the category filter — `/` means "All",
   // `/category/:slug` pins to that category. Chip clicks navigate; the
@@ -368,6 +463,25 @@ export default function DiscoverPage() {
 
   const screen = useMemo(() => getScreenResolution(), []);
 
+  useEffect(() => {
+    let cancelled = false;
+    getWallpaperFilterOptions()
+      .then((res) => {
+        if (cancelled) return;
+        const options = res.data.data;
+        if (options.resolutions?.length) setResolutionOptions(options.resolutions);
+        setColorOptions(options.colors || []);
+        setFilterOptionsUnavailable(false);
+      })
+      .catch(() => {
+        if (!cancelled) setFilterOptionsUnavailable(true);
+      })
+      .finally(() => {
+        if (!cancelled) setFilterOptionsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   // Detect the visitor's actual device profile so the floating-
   // wall layout can size itself to *their* screen aspect.
   // Synthetic fallback from window.screen ensures device is never
@@ -394,7 +508,11 @@ export default function DiscoverPage() {
       // empty, fall back to latest so cold-start users still see content.
       if (filterMode === 'for_you') {
         if (!reset) return;
-        const res = await getForYouWallpapers(30);
+        const res = await getForYouWallpapers({
+          limit: 30,
+          resolution: resolutionFilter || undefined,
+          color: colorFilter || undefined,
+        });
         const items = res.data.data || [];
         if (items.length === 0) {
           setFilterMode('latest');
@@ -413,6 +531,8 @@ export default function DiscoverPage() {
       const params: Parameters<typeof getWallpapers>[0] = {
         cursor: reset ? undefined : cursorRef.current,
         limit: calculatePageSize(sizeModeRef.current),
+        resolution: resolutionFilter || undefined,
+        color: colorFilter || undefined,
       };
       switch (filterMode) {
         case 'trending':
@@ -474,7 +594,7 @@ export default function DiscoverPage() {
       else setLoadingMore(false);
       busyRef.current = false;
     }
-  }, [screen, filterMode, categoryFilter, t]);
+  }, [screen, filterMode, categoryFilter, resolutionFilter, colorFilter, t]);
 
   // Holds latest fetchWallpapers so the (stable) sentinel ref-callback always calls the latest closure.
   const fetchWallpapersRef = useRef(fetchWallpapers);
@@ -511,11 +631,13 @@ export default function DiscoverPage() {
 
   useEffect(() => {
     fetchWallpapers(true);
-  }, [filterMode, categoryFilter]);
+  }, [filterMode, categoryFilter, resolutionFilter, colorFilter]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false);
+      if (resolutionRef.current && !resolutionRef.current.contains(e.target as Node)) setResolutionOpen(false);
+      if (colorRef.current && !colorRef.current.contains(e.target as Node)) setColorOpen(false);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -569,8 +691,8 @@ export default function DiscoverPage() {
           lines (top-nav border + this one) that read as a sandwich seam.
           Letting the mesh flow through reads cleaner. */}
       <div>
-        <div className="max-w-[1600px] mx-auto flex items-center gap-4 px-6 sm:px-10 lg:px-14 pt-5 pb-3">
-          <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar">
+        <div className="max-w-[1600px] mx-auto flex flex-wrap lg:flex-nowrap items-center gap-3 lg:gap-4 px-6 sm:px-10 lg:px-14 pt-5 pb-3">
+          <div className="flex-1 basis-full lg:basis-auto min-w-0 overflow-x-auto no-scrollbar">
             <div className="flex items-center gap-2">
               <CategoryChip
                 label={t('discover.allCategories')}
@@ -591,15 +713,63 @@ export default function DiscoverPage() {
                   ))}
             </div>
           </div>
-          <div className="flex items-center gap-2.5 flex-shrink-0">
-            <FilterDropdown
-              mode={filterMode}
-              setMode={setFilterMode}
-              open={filterOpen}
-              setOpen={setFilterOpen}
-              ddRef={filterRef}
-              isAuthenticated={isAuthenticated}
-            />
+          <div className="w-full lg:w-auto flex flex-wrap lg:flex-nowrap items-center gap-2.5 flex-shrink-0">
+            <div ref={filterRef}>
+              <FilterDropdown
+                mode={filterMode}
+                setMode={(mode) => {
+                  setFilterMode(mode);
+                  setResolutionOpen(false);
+                  setColorOpen(false);
+                }}
+                open={filterOpen}
+                setOpen={(open) => {
+                  setFilterOpen(open);
+                  if (open) {
+                    setResolutionOpen(false);
+                    setColorOpen(false);
+                  }
+                }}
+                isAuthenticated={isAuthenticated}
+              />
+            </div>
+            <div ref={resolutionRef}>
+              <FacetDropdown
+                label={t('discover.resolutionKicker')}
+                allLabel={t('discover.allResolutions')}
+                value={resolutionFilter}
+                options={resolutionOptions.map((value) => ({ value, count: 0 }))}
+                open={resolutionOpen}
+                setOpen={(open) => {
+                  setResolutionOpen(open);
+                  if (open) {
+                    setFilterOpen(false);
+                    setColorOpen(false);
+                  }
+                }}
+                onChange={setResolutionFilter}
+              />
+            </div>
+            <div ref={colorRef}>
+              <FacetDropdown
+                label={t('discover.colorKicker')}
+                allLabel={t('discover.allColors')}
+                value={colorFilter}
+                options={colorOptions}
+                open={colorOpen}
+                setOpen={(open) => {
+                  setColorOpen(open);
+                  if (open) {
+                    setFilterOpen(false);
+                    setResolutionOpen(false);
+                  }
+                }}
+                onChange={setColorFilter}
+                colorSwatches
+                loading={filterOptionsLoading}
+                unavailableLabel={filterOptionsUnavailable ? t('discover.filterOptionsUnavailable') : t('discover.noColorOptions')}
+              />
+            </div>
             <SizeControls
               sizeMode={sizeMode}
               onSize={handleSizeChange}
@@ -628,6 +798,16 @@ export default function DiscoverPage() {
           <SkeletonRows sizeMode={sizeMode} device={currentDevice} />
         ) : loadError && wallpapers.length === 0 ? (
           <ErrorState />
+        ) : wallpapers.length === 0 ? (
+          <EmptyState
+            title={t('grid.emptyTitle')}
+            message={t('grid.emptyMessage')}
+            actionLabel={resolutionFilter || colorFilter ? t('discover.clearFacets') : undefined}
+            onAction={resolutionFilter || colorFilter ? () => {
+              setResolutionFilter('');
+              setColorFilter('');
+            } : undefined}
+          />
         ) : currentDevice ? (
           <>
             <DeviceFloatingWall
