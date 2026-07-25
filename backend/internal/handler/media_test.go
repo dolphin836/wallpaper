@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/wallpaper/backend/internal/model"
 	"github.com/wallpaper/backend/internal/service"
 )
 
@@ -106,6 +107,78 @@ func TestExpiredMediaTokenIsRejected(t *testing.T) {
 	}
 	if _, err := h.verifyRequestToken(mediaTokenRequest(t, signed)); err == nil {
 		t.Fatal("token valid at its expiration instant")
+	}
+}
+
+func TestStableMediaViewExpiry(t *testing.T) {
+	morning := time.Date(2026, time.July, 25, 1, 2, 3, 0, time.UTC)
+	evening := time.Date(2026, time.July, 25, 23, 59, 59, 0, time.UTC)
+	want := time.Date(2026, time.July, 27, 0, 0, 0, 0, time.UTC)
+
+	if got := stableMediaViewExpiry(morning); !got.Equal(want) {
+		t.Fatalf("morning expiry = %s, want %s", got, want)
+	}
+	if got := stableMediaViewExpiry(evening); !got.Equal(want) {
+		t.Fatalf("evening expiry = %s, want %s", got, want)
+	}
+	if mediaAssetVersion("/originals/a.jpg") == mediaAssetVersion("/originals/b.jpg") {
+		t.Fatal("different original objects produced the same media version")
+	}
+}
+
+func TestDecorateOriginalKeepsImageURLStableWithinDay(t *testing.T) {
+	h := NewMediaHandler(nil, nil, "test-secret", "https://wallpaperexchange.com")
+	request := httptest.NewRequest(http.MethodGet, "https://wallpaperexchange.com/api/v1/wallpapers/example", nil)
+	session := "c3RhYmxlLW1lZGlhLXNlc3Npb24tMTIzNDU2Nzg5MA"
+
+	h.now = func() time.Time { return time.Date(2026, time.July, 25, 1, 0, 0, 0, time.UTC) }
+	first := model.Wallpaper{ID: 42, OriginalURL: "https://storage.example/originals/a.jpg", FileType: "image/jpeg"}
+	if err := h.DecorateOriginal(request, session, &first); err != nil {
+		t.Fatal(err)
+	}
+
+	h.now = func() time.Time { return time.Date(2026, time.July, 25, 23, 0, 0, 0, time.UTC) }
+	second := model.Wallpaper{ID: 42, OriginalURL: "https://storage.example/originals/a.jpg", FileType: "image/jpeg"}
+	if err := h.DecorateOriginal(request, session, &second); err != nil {
+		t.Fatal(err)
+	}
+
+	if first.OriginalURL != second.OriginalURL {
+		t.Fatal("same image received a different signed view URL during one cache day")
+	}
+	if first.OriginalCacheKey == "" || first.OriginalCacheKey != second.OriginalCacheKey {
+		t.Fatalf("unstable original cache key: %q vs %q", first.OriginalCacheKey, second.OriginalCacheKey)
+	}
+
+	replaced := model.Wallpaper{ID: 42, OriginalURL: "https://storage.example/originals/b.jpg", FileType: "image/jpeg"}
+	if err := h.DecorateOriginal(request, session, &replaced); err != nil {
+		t.Fatal(err)
+	}
+	if replaced.OriginalURL == second.OriginalURL || replaced.OriginalCacheKey == second.OriginalCacheKey {
+		t.Fatal("replaced original reused the previous media cache identity")
+	}
+}
+
+func TestMediaNotModified(t *testing.T) {
+	modified := time.Date(2026, time.July, 25, 12, 0, 0, 0, time.UTC)
+
+	etagRequest := httptest.NewRequest(http.MethodGet, "https://example.com/media", nil)
+	etagRequest.Header.Set("If-None-Match", `W/"abc123"`)
+	if !mediaNotModified(etagRequest, "abc123", modified) {
+		t.Fatal("matching weak ETag was not treated as fresh")
+	}
+
+	staleETagRequest := httptest.NewRequest(http.MethodGet, "https://example.com/media", nil)
+	staleETagRequest.Header.Set("If-None-Match", `"different"`)
+	staleETagRequest.Header.Set("If-Modified-Since", modified.Add(time.Hour).Format(http.TimeFormat))
+	if mediaNotModified(staleETagRequest, "abc123", modified) {
+		t.Fatal("If-Modified-Since overrode a non-matching If-None-Match")
+	}
+
+	dateRequest := httptest.NewRequest(http.MethodGet, "https://example.com/media", nil)
+	dateRequest.Header.Set("If-Modified-Since", modified.Format(http.TimeFormat))
+	if !mediaNotModified(dateRequest, "", modified) {
+		t.Fatal("matching modification date was not treated as fresh")
 	}
 }
 

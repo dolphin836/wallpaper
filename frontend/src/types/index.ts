@@ -46,6 +46,7 @@ export interface Wallpaper {
   title: string;
   description: string;
   original_url: string;
+  original_cache_key?: string;
   thumb_url: string;
   preview_url: string;
   poster_url?: string;

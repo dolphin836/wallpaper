@@ -57,6 +57,7 @@ struct WallpaperDetail: Decodable, Identifiable {
     let colorPalette: String?     // comma-separated hex string
     let frameURLs: String?        // comma-separated, dynamic wallpapers only
     let originalURL: String
+    let originalCacheKey: String?
     let thumbURL: String
     let previewURL: String
     let posterURL: String?
@@ -84,6 +85,7 @@ struct WallpaperDetail: Decodable, Identifiable {
         case colorPalette = "color_palette"
         case frameURLs = "frame_urls"
         case originalURL = "original_url"
+        case originalCacheKey = "original_cache_key"
         case thumbURL = "thumb_url"
         case previewURL = "preview_url"
         case posterURL = "poster_url"

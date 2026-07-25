@@ -574,14 +574,14 @@ final class WallpaperManager {
     // instead of receiving resized copies). downloadOriginal remains as
     // an alias for existing call sites.
     func download(wallpaper: Wallpaper) async throws {
-        try await performDownload(wallpaper: wallpaper)
+        try await performDownload(wallpaper: wallpaper, cachedOriginalKey: nil)
     }
 
-    func downloadOriginal(wallpaper: Wallpaper) async throws {
-        try await performDownload(wallpaper: wallpaper)
+    func downloadOriginal(wallpaper: Wallpaper, cachedOriginalKey: String? = nil) async throws {
+        try await performDownload(wallpaper: wallpaper, cachedOriginalKey: cachedOriginalKey)
     }
 
-    private func performDownload(wallpaper: Wallpaper) async throws {
+    private func performDownload(wallpaper: Wallpaper, cachedOriginalKey: String?) async throws {
         if let existing = localURL(for: wallpaper.id) {
             if !Self.isVideo(wallpaper) || Self.isVideoFileURL(existing) {
                 downloadedIDs.insert(wallpaper.id)
@@ -601,10 +601,11 @@ final class WallpaperManager {
         // the download; only the file transfer below is skippable.
         let remoteURL = try await APIClient.shared.getDownloadURL(wallpaperID: wallpaper.id)
 
-        // If the image pipeline already fetched these exact bytes (the
-        // detail page displays the original via CachedAsyncImage), copy
-        // them out of the disk cache instead of re-downloading.
-        if let cached = await ImageCacheStore.shared.cachedData(for: remoteURL) {
+        // If the image pipeline already fetched these exact bytes, reuse the
+        // versioned original cache entry. The download URL has a different
+        // short-lived signature, so keying this lookup by URL would miss.
+        if let cachedOriginalKey,
+           let cached = await ImageCacheStore.shared.cachedData(forKey: cachedOriginalKey) {
             let ext = Self.fileExtension(from: nil, url: remoteURL, fallback: wallpaper.fileType)
             let dest = storageDir.appendingPathComponent("\(wallpaper.id).\(ext)")
             try removeLocalFiles(for: wallpaper.id)
@@ -926,7 +927,7 @@ final class WallpaperManager {
         if localURL(for: wallpaper.id) != nil {
             try removeLocalFiles(for: wallpaper.id)
         }
-        try await performDownload(wallpaper: wallpaper)
+        try await performDownload(wallpaper: wallpaper, cachedOriginalKey: nil)
         guard let url = localURL(for: wallpaper.id), Self.isVideoFileURL(url) else {
             throw WallpaperError.fileUnavailable
         }

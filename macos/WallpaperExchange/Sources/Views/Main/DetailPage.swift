@@ -188,6 +188,7 @@ struct DetailPage: View {
                     FullscreenWallpaperPreview(
                         lowURL: detailPreviewPosterURL(detail),
                         highURL: detailHeroImageURL(detail),
+                        highCacheKey: detailOriginalCacheKey(detail),
                         resolutionName: fullscreenResolutionName(detail),
                         dimensions: "\(detail.width.formatted()) × \(detail.height.formatted())",
                         onClose: { showingFullscreenPreview = false }
@@ -437,6 +438,7 @@ struct DetailPage: View {
                 CachedAsyncImage(
                     url: detailHeroImageURL(d),
                     maxPixelDimension: detailHeroDecodeDimension(detail: d, layout: layout),
+                    cacheKey: detailOriginalCacheKey(d),
                     onLoad: { heroOriginalLoaded = true }
                 ) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
@@ -1007,6 +1009,14 @@ struct DetailPage: View {
         return detailPreviewPosterURL(d)
     }
 
+    private func detailOriginalCacheKey(_ d: WallpaperDetail) -> String? {
+        guard !isVideo(detail: d), !d.isDynamic else { return nil }
+        if let key = d.originalCacheKey?.trimmingCharacters(in: .whitespacesAndNewlines), !key.isEmpty {
+            return key
+        }
+        return "wallpaper-original-v1:\(d.id):\(d.fileSize):\(d.width)x\(d.height):\(d.fileType.lowercased())"
+    }
+
     private func dynamicFrameURLs(detail d: WallpaperDetail) -> [URL] {
         guard d.isDynamic, !isVideo(detail: d), let raw = d.frameURLs else { return [] }
         return raw
@@ -1329,7 +1339,11 @@ struct DetailPage: View {
         let size = rawHeroSize(detail: detail, layout: layout)
         return HStack {
             Spacer(minLength: 0)
-            CachedAsyncImage(url: detailHeroImageURL(detail), maxPixelDimension: detailHeroDecodeDimension(detail: detail, layout: layout)) { img in
+            CachedAsyncImage(
+                url: detailHeroImageURL(detail),
+                maxPixelDimension: detailHeroDecodeDimension(detail: detail, layout: layout),
+                cacheKey: detailOriginalCacheKey(detail)
+            ) { img in
                 img.resizable().aspectRatio(contentMode: .fit)
             } placeholder: {
                 Color(hex: detail.dominantColor ?? "#bbb")
@@ -2478,7 +2492,10 @@ struct DetailPage: View {
         await refreshCoinsIfTradeRequired(detail)
         downloadNotice = nil
         do {
-            try await manager.downloadOriginal(wallpaper: lightWallpaper(detail))
+            try await manager.downloadOriginal(
+                wallpaper: lightWallpaper(detail),
+                cachedOriginalKey: detailOriginalCacheKey(detail)
+            )
             await auth.refreshProfile()
             downloadNotice = .success
         } catch {
@@ -2505,7 +2522,10 @@ struct DetailPage: View {
         do {
             if !isLocalDownloaded(detail) {
                 await refreshCoinsIfTradeRequired(detail)
-                try await manager.downloadOriginal(wallpaper: wallpaper)
+                try await manager.downloadOriginal(
+                    wallpaper: wallpaper,
+                    cachedOriginalKey: detailOriginalCacheKey(detail)
+                )
             }
             let target = selectedDisplayTarget()
             try await manager.setAsWallpaper(wallpaper, target: target, surface: selectedWallpaperSurface)

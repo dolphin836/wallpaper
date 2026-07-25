@@ -31,7 +31,10 @@ export default function useProtectedImageBlob(source: string) {
 
     void fetch(source, {
       credentials: 'include',
-      cache: 'no-store',
+      // The signed view URL is stable for the current media version and its
+      // response is private-cacheable. Let the browser reuse/revalidate it on
+      // refresh; download URLs remain no-store on the backend.
+      cache: 'default',
       signal: controller.signal,
     })
       .then((response) => {

@@ -28,7 +28,7 @@ import (
 
 const (
 	mediaSessionCookie = "wpe_media_session"
-	mediaViewTTL       = 5 * time.Minute
+	mediaViewTTL       = 24 * time.Hour
 	mediaVideoViewTTL  = 30 * time.Minute
 	mediaDownloadTTL   = 10 * time.Minute
 )
@@ -38,6 +38,7 @@ type mediaClaims struct {
 	Kind        string `json:"k"`
 	Mode        string `json:"m"`
 	ExpiresAt   int64  `json:"e"`
+	Version     string `json:"v,omitempty"`
 }
 
 type MediaHandler struct {
@@ -105,15 +106,22 @@ func (h *MediaHandler) DecorateOriginal(r *http.Request, session string, wp *mod
 	if wp == nil || wp.OriginalURL == "" {
 		return nil
 	}
+	version := mediaAssetVersion(wp.OriginalURL)
+	wp.OriginalCacheKey = fmt.Sprintf("wallpaper-original-v1:%d:%s", wp.ID, version)
 	ttl := mediaViewTTL
 	if strings.HasPrefix(strings.ToLower(wp.FileType), "video/") {
 		ttl = mediaVideoViewTTL
+	}
+	expiresAt := h.now().Add(ttl)
+	if ttl == mediaViewTTL {
+		expiresAt = stableMediaViewExpiry(h.now())
 	}
 	viewURL, err := h.signedURL(r, mediaClaims{
 		WallpaperID: wp.ID,
 		Kind:        service.MediaKindOriginal,
 		Mode:        "view",
-		ExpiresAt:   h.now().Add(ttl).Unix(),
+		ExpiresAt:   expiresAt.Unix(),
+		Version:     version,
 	}, session, mediaFilename(wp.ID, wp.OriginalURL, wp.FileType))
 	if err != nil {
 		return err
@@ -130,8 +138,23 @@ func (h *MediaHandler) SignedArchiveOriginal(r *http.Request, session string, wa
 		WallpaperID: wallpaperID,
 		Kind:        service.MediaKindOriginal,
 		Mode:        "view",
-		ExpiresAt:   h.now().Add(mediaViewTTL).Unix(),
+		ExpiresAt:   stableMediaViewExpiry(h.now()).Unix(),
+		Version:     mediaAssetVersion(rawURL),
 	}, session, mediaFilename(wallpaperID, rawURL, ""))
+}
+
+// stableMediaViewExpiry keeps the session-bound view URL identical for every
+// request made during the same UTC day. The token remains valid for at least
+// one full cache lifetime, while the version claim changes the URL whenever
+// the underlying original object changes.
+func stableMediaViewExpiry(now time.Time) time.Time {
+	dayStart := now.UTC().Truncate(24 * time.Hour)
+	return dayStart.Add(2 * mediaViewTTL)
+}
+
+func mediaAssetVersion(rawURL string) string {
+	digest := sha256.Sum256([]byte(rawURL))
+	return base64.RawURLEncoding.EncodeToString(digest[:9])
 }
 
 func (h *MediaHandler) DownloadURL(r *http.Request, wp *model.Wallpaper) (string, error) {
@@ -229,7 +252,12 @@ func (h *MediaHandler) Serve(w http.ResponseWriter, r *http.Request) {
 		disposition = "attachment"
 	}
 	w.Header().Set("Accept-Ranges", "bytes")
-	w.Header().Set("Cache-Control", "private, no-store, max-age=0")
+	if claims.Mode == "view" && strings.HasPrefix(strings.ToLower(contentType), "image/") {
+		w.Header().Set("Cache-Control", fmt.Sprintf("private, max-age=%d", int(mediaViewTTL.Seconds())))
+		w.Header().Add("Vary", "Cookie")
+	} else {
+		w.Header().Set("Cache-Control", "private, no-store, max-age=0")
+	}
 	w.Header().Set("Content-Disposition", mime.FormatMediaType(disposition, map[string]string{"filename": asset.Filename}))
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Cross-Origin-Resource-Policy", "same-site")
@@ -240,6 +268,10 @@ func (h *MediaHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 	if !info.LastModified.IsZero() {
 		w.Header().Set("Last-Modified", info.LastModified.UTC().Format(http.TimeFormat))
+	}
+	if r.Header.Get("Range") == "" && mediaNotModified(r, info.ETag, info.LastModified) {
+		w.WriteHeader(http.StatusNotModified)
+		return
 	}
 
 	start, end, partial, err := parseSingleByteRange(r.Header.Get("Range"), info.Size)
@@ -275,6 +307,35 @@ func (h *MediaHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	if _, err := io.CopyN(w, reader, length); err != nil && !errors.Is(err, r.Context().Err()) {
 		slog.WarnContext(r.Context(), "stream protected media interrupted", "error", err, "wallpaper_id", claims.WallpaperID)
 	}
+}
+
+func mediaNotModified(r *http.Request, rawETag string, lastModified time.Time) bool {
+	if rawETag != "" {
+		current := strconv.Quote(rawETag)
+		ifNoneMatch := r.Header.Get("If-None-Match")
+		if ifNoneMatch != "" {
+			for _, candidate := range strings.Split(ifNoneMatch, ",") {
+				candidate = strings.TrimSpace(candidate)
+				if candidate == "*" || strings.TrimPrefix(candidate, "W/") == current {
+					return true
+				}
+			}
+			return false
+		}
+	}
+
+	if lastModified.IsZero() {
+		return false
+	}
+	ifModifiedSince := r.Header.Get("If-Modified-Since")
+	if ifModifiedSince == "" {
+		return false
+	}
+	since, err := http.ParseTime(ifModifiedSince)
+	if err != nil {
+		return false
+	}
+	return !lastModified.UTC().Truncate(time.Second).After(since.UTC())
 }
 
 func (h *MediaHandler) verifyRequestToken(r *http.Request) (*mediaClaims, error) {

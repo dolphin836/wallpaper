@@ -3,8 +3,9 @@ import AppKit
 import ImageIO
 import CryptoKit
 
-// In-memory cache of *decoded* NSImage instances keyed by URL. SwiftUI's
-// AsyncImage relies on URLCache, which still re-decodes on each appearance —
+// In-memory cache of *decoded* NSImage instances keyed by resource identity.
+// Most images use their URL; signed originals provide a stable version key.
+// SwiftUI's AsyncImage relies on URLCache, which still re-decodes on each appearance —
 // in a LazyVStack that recycles rows on scroll, that produced a visible
 // loading flash every time a row came back into view. Caching the decoded
 // image bypasses both the network and the decoder.
@@ -20,17 +21,17 @@ final class ImageCacheStore {
         cache.totalCostLimit = 64 * 1024 * 1024
     }
 
-    func get(_ url: URL, maxPixelDimension: Int) -> NSImage? {
-        cache.object(forKey: cacheKey(for: url, maxPixelDimension: maxPixelDimension))
+    func get(_ url: URL, maxPixelDimension: Int, cacheKey: String? = nil) -> NSImage? {
+        cache.object(forKey: decodedCacheKey(for: url, maxPixelDimension: maxPixelDimension, cacheKey: cacheKey))
     }
 
-    func load(_ url: URL, maxPixelDimension: Int) async -> NSImage? {
-        if let cached = get(url, maxPixelDimension: maxPixelDimension) {
+    func load(_ url: URL, maxPixelDimension: Int, cacheKey: String? = nil) async -> NSImage? {
+        if let cached = get(url, maxPixelDimension: maxPixelDimension, cacheKey: cacheKey) {
             return cached
         }
 
         do {
-            let data = try await dataLoader.data(for: url)
+            let data = try await dataLoader.data(for: url, cacheKey: cacheKey)
             let image = await Task.detached(priority: .utility) {
                 Self.downsample(data: data, maxPixelDimension: maxPixelDimension)
             }.value
@@ -39,7 +40,7 @@ final class ImageCacheStore {
             }
             cache.setObject(
                 image,
-                forKey: cacheKey(for: url, maxPixelDimension: maxPixelDimension),
+                forKey: decodedCacheKey(for: url, maxPixelDimension: maxPixelDimension, cacheKey: cacheKey),
                 cost: estimatedCost(of: image)
             )
             return image
@@ -48,16 +49,19 @@ final class ImageCacheStore {
         }
     }
 
-    private func cacheKey(for url: URL, maxPixelDimension: Int) -> NSString {
-        "\(url.absoluteString)#px=\(maxPixelDimension)" as NSString
+    private func decodedCacheKey(for url: URL, maxPixelDimension: Int, cacheKey: String?) -> NSString {
+        "\(cacheKey ?? url.absoluteString)#px=\(maxPixelDimension)" as NSString
     }
 
-    /// Raw downloaded bytes for a URL if the image pipeline already
-    /// fetched them (e.g. the detail page displayed the original).
-    /// Lets WallpaperManager.download reuse the file instead of
-    /// re-transferring it.
+    /// Raw downloaded bytes if the image pipeline already fetched them.
+    /// Lets WallpaperManager.download reuse the file instead of transferring
+    /// the same original again through a different signed download URL.
     func cachedData(for url: URL) async -> Data? {
-        await ImageDiskCache.shared.data(for: url)
+        await ImageDiskCache.shared.data(forKey: url.absoluteString)
+    }
+
+    func cachedData(forKey cacheKey: String) async -> Data? {
+        await ImageDiskCache.shared.data(forKey: cacheKey)
     }
 
     nonisolated private static func downsample(data: Data, maxPixelDimension: Int) -> NSImage? {
@@ -93,29 +97,31 @@ final class ImageCacheStore {
 }
 
 private actor ImageDataLoader {
-    private var inFlight: [URL: Task<Data, Error>] = [:]
+    private var inFlight: [String: Task<Data, Error>] = [:]
 
-    func data(for url: URL) async throws -> Data {
-        if let task = inFlight[url] {
+    func data(for url: URL, cacheKey: String?) async throws -> Data {
+        let identity = cacheKey ?? url.absoluteString
+        if let task = inFlight[identity] {
             return try await task.value
         }
 
         let task = Task<Data, Error> {
-            if let cached = await ImageDiskCache.shared.data(for: url) {
+            if let cached = await ImageDiskCache.shared.data(forKey: identity) {
                 return cached
             }
             let (data, _) = try await URLSession.shared.data(from: url)
-            await ImageDiskCache.shared.store(data, for: url)
+            await ImageDiskCache.shared.store(data, forKey: identity)
             return data
         }
-        inFlight[url] = task
-        defer { inFlight[url] = nil }
+        inFlight[identity] = task
+        defer { inFlight[identity] = nil }
         return try await task.value
     }
 }
 
 // Disk layer under the in-memory cache: raw downloaded bytes keyed by a
-// SHA-256 of the URL, in ~/Library/Caches so the system may purge it.
+// SHA-256 of the resource identity, in ~/Library/Caches so the system may
+// purge it.
 // Without it every launch re-downloads the full grid (50+ tiles). Disk
 // hits still pay the decode, but skip the network entirely.
 private actor ImageDiskCache {
@@ -133,9 +139,9 @@ private actor ImageDiskCache {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     }
 
-    func data(for url: URL) -> Data? {
+    func data(forKey cacheKey: String) -> Data? {
         cleanupIfNeeded()
-        let file = fileURL(for: url)
+        let file = fileURL(forKey: cacheKey)
         guard let data = try? Data(contentsOf: file) else { return nil }
         // Touch so the size-cap eviction below behaves as LRU.
         try? FileManager.default.setAttributes(
@@ -143,12 +149,12 @@ private actor ImageDiskCache {
         return data
     }
 
-    func store(_ data: Data, for url: URL) {
-        try? data.write(to: fileURL(for: url), options: .atomic)
+    func store(_ data: Data, forKey cacheKey: String) {
+        try? data.write(to: fileURL(forKey: cacheKey), options: .atomic)
     }
 
-    private func fileURL(for url: URL) -> URL {
-        let digest = SHA256.hash(data: Data(url.absoluteString.utf8))
+    private func fileURL(forKey cacheKey: String) -> URL {
+        let digest = SHA256.hash(data: Data(cacheKey.utf8))
         let name = digest.map { String(format: "%02x", $0) }.joined()
         return dir.appendingPathComponent(name)
     }
@@ -193,23 +199,26 @@ private actor ImageDiskCache {
 struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     let url: URL?
     let maxPixelDimension: Int
+    let cacheKey: String?
     let onLoad: (() -> Void)?
     let content: (Image) -> Content
     let placeholder: () -> Placeholder
 
     @State private var nsImage: NSImage?
-    @State private var loadedURL: URL?
+    @State private var loadedCacheKey: String?
     @State private var loadedMaxPixelDimension: Int?
 
     init(
         url: URL?,
         maxPixelDimension: Int = 1400,
+        cacheKey: String? = nil,
         onLoad: (() -> Void)? = nil,
         @ViewBuilder content: @escaping (Image) -> Content,
         @ViewBuilder placeholder: @escaping () -> Placeholder
     ) {
         self.url = url
         self.maxPixelDimension = maxPixelDimension
+        self.cacheKey = cacheKey
         self.onLoad = onLoad
         self.content = content
         self.placeholder = placeholder
@@ -232,42 +241,52 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     }
 
     private var loadIdentity: String {
-        "\(url?.absoluteString ?? "nil")#px=\(maxPixelDimension)"
+        "\(resolvedCacheKey ?? "nil")#px=\(maxPixelDimension)"
+    }
+
+    private var resolvedCacheKey: String? {
+        guard let url else { return nil }
+        return cacheKey ?? url.absoluteString
     }
 
     private func load() async {
         guard let url else {
             nsImage = nil
-            loadedURL = nil
+            loadedCacheKey = nil
             loadedMaxPixelDimension = nil
             return
         }
 
-        if loadedURL != url || loadedMaxPixelDimension != maxPixelDimension {
+        if loadedCacheKey != resolvedCacheKey || loadedMaxPixelDimension != maxPixelDimension {
             nsImage = nil
-            loadedURL = nil
+            loadedCacheKey = nil
             loadedMaxPixelDimension = nil
         }
 
         // Cache hit — instant, no flash.
-        if let cached = ImageCacheStore.shared.get(url, maxPixelDimension: maxPixelDimension) {
+        if let cached = ImageCacheStore.shared.get(url, maxPixelDimension: maxPixelDimension, cacheKey: cacheKey) {
             if self.nsImage !== cached {
                 self.nsImage = cached
             }
-            loadedURL = url
+            loadedCacheKey = resolvedCacheKey
             loadedMaxPixelDimension = maxPixelDimension
             onLoad?()
             return
         }
 
         let requestURL = url
+        let requestCacheKey = cacheKey
         let requestMaxPixelDimension = maxPixelDimension
-        if let img = await ImageCacheStore.shared.load(requestURL, maxPixelDimension: requestMaxPixelDimension) {
+        if let img = await ImageCacheStore.shared.load(
+            requestURL,
+            maxPixelDimension: requestMaxPixelDimension,
+            cacheKey: requestCacheKey
+        ) {
             guard !Task.isCancelled,
-                  self.url == requestURL,
+                  self.resolvedCacheKey == (requestCacheKey ?? requestURL.absoluteString),
                   self.maxPixelDimension == requestMaxPixelDimension else { return }
             self.nsImage = img
-            loadedURL = requestURL
+            loadedCacheKey = requestCacheKey ?? requestURL.absoluteString
             loadedMaxPixelDimension = requestMaxPixelDimension
             onLoad?()
         }
@@ -278,6 +297,8 @@ struct ProgressiveCachedAsyncImage<Content: View, Placeholder: View>: View {
     let lowURL: URL?
     let highURL: URL?
     let finalURL: URL?
+    let highCacheKey: String?
+    let finalCacheKey: String?
     let lowMaxPixelDimension: Int
     let highMaxPixelDimension: Int
     let finalMaxPixelDimension: Int
@@ -294,6 +315,8 @@ struct ProgressiveCachedAsyncImage<Content: View, Placeholder: View>: View {
         lowURL: URL?,
         highURL: URL?,
         finalURL: URL? = nil,
+        highCacheKey: String? = nil,
+        finalCacheKey: String? = nil,
         lowMaxPixelDimension: Int = 520,
         highMaxPixelDimension: Int = 1400,
         finalMaxPixelDimension: Int = 5200,
@@ -304,6 +327,8 @@ struct ProgressiveCachedAsyncImage<Content: View, Placeholder: View>: View {
         self.lowURL = lowURL
         self.highURL = highURL
         self.finalURL = finalURL
+        self.highCacheKey = highCacheKey
+        self.finalCacheKey = finalCacheKey
         self.lowMaxPixelDimension = lowMaxPixelDimension
         self.highMaxPixelDimension = highMaxPixelDimension
         self.finalMaxPixelDimension = finalMaxPixelDimension
@@ -360,6 +385,8 @@ struct ProgressiveCachedAsyncImage<Content: View, Placeholder: View>: View {
             lowURL?.absoluteString ?? "nil",
             highURL?.absoluteString ?? "nil",
             finalURL?.absoluteString ?? "nil",
+            highCacheKey ?? "nil",
+            finalCacheKey ?? "nil",
             String(lowMaxPixelDimension),
 			String(highMaxPixelDimension),
 			String(finalMaxPixelDimension)
@@ -397,9 +424,17 @@ struct ProgressiveCachedAsyncImage<Content: View, Placeholder: View>: View {
 		   requestFinalURL != nil,
 		   requestHighURL != requestLowURL,
 		   requestHighURL != requestFinalURL {
-			if let cachedHigh = ImageCacheStore.shared.get(requestHighURL, maxPixelDimension: highMaxPixelDimension) {
+			if let cachedHigh = ImageCacheStore.shared.get(
+				requestHighURL,
+				maxPixelDimension: highMaxPixelDimension,
+				cacheKey: highCacheKey
+			) {
 				highImage = cachedHigh
-			} else if let loadedHigh = await ImageCacheStore.shared.load(requestHighURL, maxPixelDimension: highMaxPixelDimension) {
+			} else if let loadedHigh = await ImageCacheStore.shared.load(
+				requestHighURL,
+				maxPixelDimension: highMaxPixelDimension,
+				cacheKey: highCacheKey
+			) {
 				guard !Task.isCancelled, loadIdentity == requestID else { return }
 				highImage = loadedHigh
 			}
@@ -410,8 +445,13 @@ struct ProgressiveCachedAsyncImage<Content: View, Placeholder: View>: View {
 			: (requestShouldUpgrade ? highMaxPixelDimension : lowMaxPixelDimension)
 		let resolvedFinalURL = requestFinalURL
 			?? (requestShouldUpgrade ? (requestHighURL ?? requestTargetURL) : requestTargetURL)
+		let resolvedFinalCacheKey = requestFinalURL != nil ? finalCacheKey : highCacheKey
 
-		if let cachedHigh = ImageCacheStore.shared.get(resolvedFinalURL, maxPixelDimension: finalPixelDimension) {
+		if let cachedHigh = ImageCacheStore.shared.get(
+			resolvedFinalURL,
+			maxPixelDimension: finalPixelDimension,
+			cacheKey: resolvedFinalCacheKey
+		) {
             guard !Task.isCancelled, loadIdentity == requestID else { return }
 			if requestFinalURL != nil { finalImage = cachedHigh } else { highImage = cachedHigh }
             loading = false
@@ -419,7 +459,11 @@ struct ProgressiveCachedAsyncImage<Content: View, Placeholder: View>: View {
             return
         }
 
-		if let loadedHigh = await ImageCacheStore.shared.load(resolvedFinalURL, maxPixelDimension: finalPixelDimension) {
+		if let loadedHigh = await ImageCacheStore.shared.load(
+			resolvedFinalURL,
+			maxPixelDimension: finalPixelDimension,
+			cacheKey: resolvedFinalCacheKey
+		) {
             guard !Task.isCancelled, loadIdentity == requestID else { return }
 			if requestFinalURL != nil { finalImage = loadedHigh } else { highImage = loadedHigh }
             loading = false

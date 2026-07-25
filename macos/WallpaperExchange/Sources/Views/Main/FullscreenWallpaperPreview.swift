@@ -5,6 +5,7 @@ import SwiftUI
 struct FullscreenWallpaperPreview: View {
     let lowURL: URL?
     let highURL: URL?
+    let highCacheKey: String?
     let resolutionName: String
     let dimensions: String
     let onClose: () -> Void
@@ -49,6 +50,7 @@ struct FullscreenWallpaperPreview: View {
         ProgressiveCachedAsyncImage(
             lowURL: lowURL,
             highURL: highURL,
+            highCacheKey: highCacheKey,
             lowMaxPixelDimension: 1600,
             highMaxPixelDimension: 5200
         ) { image in
