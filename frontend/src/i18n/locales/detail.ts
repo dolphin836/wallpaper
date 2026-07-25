@@ -37,7 +37,9 @@ const en = {
   navigation: {
     group: 'Wallpaper navigation',
     previous: 'Previous wallpaper',
+    previousShort: 'Previous',
     next: 'Next wallpaper',
+    nextShort: 'Next',
   },
   video: {
     play: 'Play video',
@@ -270,7 +272,9 @@ const zhCN: typeof en = {
   navigation: {
     group: '壁纸浏览',
     previous: '上一张壁纸',
+    previousShort: '上一页',
     next: '下一张壁纸',
+    nextShort: '下一页',
   },
   video: {
     play: '播放视频',
@@ -503,7 +507,9 @@ const zhTW: typeof en = {
   navigation: {
     group: '桌布瀏覽',
     previous: '上一張桌布',
+    previousShort: '上一頁',
     next: '下一張桌布',
+    nextShort: '下一頁',
   },
   video: {
     play: '播放影片',
@@ -736,7 +742,9 @@ const ja: typeof en = {
   navigation: {
     group: '壁紙ナビゲーション',
     previous: '前の壁紙',
+    previousShort: '前へ',
     next: '次の壁紙',
+    nextShort: '次へ',
   },
   video: {
     play: '動画を再生',

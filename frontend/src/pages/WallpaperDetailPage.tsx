@@ -1351,22 +1351,23 @@ export default function WallpaperDetailPage() {
                     type="button"
                     onClick={() => navigateWithinDetails(previousWallpaper)}
                     disabled={!previousWallpaper}
-                    className="wd-bar-nav-btn"
+                    className="wd-btn wd-bar-nav-btn"
                     title={t('navigation.previous')}
                     aria-label={t('navigation.previous')}
                   >
                     <AiOutlineLeft size={15} />
+                    <span className="wd-bar-hidesm">{t('navigation.previousShort')}</span>
                   </button>
-                  <span className="wd-bar-nav-divider" aria-hidden />
                   <button
                     type="button"
                     onClick={() => navigateWithinDetails(nextWallpaper)}
                     disabled={!nextWallpaper}
-                    className="wd-bar-nav-btn"
+                    className="wd-btn wd-bar-nav-btn"
                     title={t('navigation.next')}
                     aria-label={t('navigation.next')}
                   >
                     <AiOutlineRight size={15} />
+                    <span className="wd-bar-hidesm">{t('navigation.nextShort')}</span>
                   </button>
                 </div>
 
@@ -1538,12 +1539,13 @@ function WallpaperDetailLoading({ title, onBack }: { title: string; onBack: () =
                 <span className="wd-bar-divider" />
 
                 <div className="wd-bar-nav" role="group" aria-label={t('navigation.group')}>
-                  <button type="button" disabled className="wd-bar-nav-btn" aria-label={t('navigation.previous')}>
+                  <button type="button" disabled className="wd-btn wd-bar-nav-btn" aria-label={t('navigation.previous')}>
                     <AiOutlineLeft size={15} />
+                    <span className="wd-bar-hidesm">{t('navigation.previousShort')}</span>
                   </button>
-                  <span className="wd-bar-nav-divider" aria-hidden />
-                  <button type="button" disabled className="wd-bar-nav-btn" aria-label={t('navigation.next')}>
+                  <button type="button" disabled className="wd-btn wd-bar-nav-btn" aria-label={t('navigation.next')}>
                     <AiOutlineRight size={15} />
+                    <span className="wd-bar-hidesm">{t('navigation.nextShort')}</span>
                   </button>
                 </div>
 
@@ -1684,18 +1686,8 @@ html.wd-detail-scrollbar-hidden body::-webkit-scrollbar,
 .wd-toolbar-skeleton.is-meta-secondary { width: 188px; height: 10px; background: rgba(255,255,255,0.11); }
 .wd-toolbar-skeleton.is-cta { width: 68px; height: 12px; background: rgba(255,255,255,0.42); }
 .wd-bar-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.22); flex-shrink: 0; }
-.wd-bar-nav { display: inline-flex; align-items: center; flex-shrink: 0; overflow: hidden; padding: 2px;
-  border: 1px solid rgba(255,255,255,0.16); border-radius: 9999px; background: rgba(255,255,255,0.08); }
-.wd-bar-nav-btn { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 0; color: rgba(255,255,255,0.92);
-  transition: background-color .15s ease, color .15s ease, transform 180ms cubic-bezier(0.34,1.56,0.64,1), opacity .15s ease; }
-.wd-bar-nav-btn:first-child { border-radius: 9999px 3px 3px 9999px; }
-.wd-bar-nav-btn:last-child { border-radius: 3px 9999px 9999px 3px; }
-.wd-bar-nav-btn:not(:disabled):hover { background: rgba(255,255,255,0.14); color: #fff; }
-.wd-bar-nav-btn:not(:disabled):active { transform: translateY(1px); }
-.wd-bar-nav-btn:focus-visible { outline: 2px solid rgba(255,255,255,0.9); outline-offset: 1px; }
-.wd-bar-nav-btn:disabled { color: rgba(255,255,255,0.32); cursor: not-allowed; }
-.wd-bar-nav-divider { width: 1px; height: 18px; background: rgba(255,255,255,0.16); }
+.wd-bar-nav { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.wd-bar-nav-btn { justify-content: center; }
 /* Buttons inside the dark bar: flat white tints (no glass-on-glass). */
 .wd-bar .wd-btn { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.14); color: rgba(255,255,255,0.92); box-shadow: none; }
 .wd-bar .wd-btn:not(:disabled):hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.28); }
