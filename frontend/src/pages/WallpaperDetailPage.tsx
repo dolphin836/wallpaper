@@ -42,7 +42,6 @@ import {
   getWallpaperEngagements,
 } from '../api';
 import { useAuthStore } from '../store/auth';
-import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import AvatarStack from '../components/AvatarStack';
@@ -208,6 +207,7 @@ export default function WallpaperDetailPage() {
       }
     : undefined;
   const [variants, setVariants] = useState<WallpaperVariant[]>([]);
+  const [variantsLoading, setVariantsLoading] = useState(true);
   const [loading, setLoading] = useState(!initialWallpaper);
   const [error, setError] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
@@ -419,6 +419,7 @@ export default function WallpaperDetailPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setError(false);
     setVariants([]);
+    setVariantsLoading(true);
     setEngagements(null);
     setFrameIdx(0);
     setFramePlaying(true);
@@ -451,7 +452,10 @@ export default function WallpaperDetailPage() {
           .then((varRes) => {
             if (!cancelled) setVariants(varRes.data.data || []);
           })
-          .catch(() => { /* variants optional */ });
+          .catch(() => { /* variants optional */ })
+          .finally(() => {
+            if (!cancelled) setVariantsLoading(false);
+          });
         getWallpaperEngagements(wp.id)
           .then((res) => {
             if (!cancelled) setEngagements(res.data.data);
@@ -459,7 +463,10 @@ export default function WallpaperDetailPage() {
           .catch(() => { /* non-critical */ });
       })
       .catch((e) => {
-        if (!cancelled && !snapshot && e?.response?.status !== 404) setError(true);
+        if (!cancelled) {
+          setVariantsLoading(false);
+          if (!snapshot && e?.response?.status !== 404) setError(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -650,7 +657,14 @@ export default function WallpaperDetailPage() {
     }
   };
 
-  if (loading) return <Spinner />;
+  if (loading) {
+    return (
+      <WallpaperDetailLoading
+        title={metaTitle}
+        onBack={() => { if (window.history.length > 1) navigate(-1); else navigate('/'); }}
+      />
+    );
+  }
   if (!wallpaper && error) return <ErrorState />;
   if (!wallpaper) return <EmptyState message={t('notFound')} />;
 
@@ -688,6 +702,11 @@ export default function WallpaperDetailPage() {
   const downloadCost = isOwner ? 0 : 1;
   const userBalance = user?.coins ?? 0;
   const isMacUA = /Macintosh|Mac OS X/i.test(navigator.userAgent);
+  const devicePreviewUnavailable = isVideoWallpaper || isMacDynamic;
+  const devicePreviewDisabled = devicePreviewUnavailable
+    || variantsLoading
+    || variants.length === 0
+    || !downloadReady;
 
   const ctaState = ctaMode;
 
@@ -1353,44 +1372,46 @@ export default function WallpaperDetailPage() {
 
                 <span className="wd-bar-divider" />
 
-                {!isVideoWallpaper && !isMacDynamic && (
-                  <button
-                    type="button"
-                    disabled={!downloadReady}
-                    onClick={() => {
-                      if (!downloadReady) return;
-                      if (frames.length > 1) {
-                        toast(t('toast.useHeroControls'), { icon: 'ℹ️' });
-                        return;
-                      }
-                      setFullscreen(true);
-                    }}
-                    className="wd-btn wd-btn-icon"
-                    title={t('preview.fullscreenTitle')}
-                    aria-label={t('preview.fullscreenTitle')}
-                  >
-                    <AiOutlineFullscreen size={15} />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  disabled={!downloadReady || isVideoWallpaper || isMacDynamic}
+                  onClick={() => {
+                    if (!downloadReady || isVideoWallpaper || isMacDynamic) return;
+                    if (frames.length > 1) {
+                      toast(t('toast.useHeroControls'), { icon: 'ℹ️' });
+                      return;
+                    }
+                    setFullscreen(true);
+                  }}
+                  className="wd-btn wd-btn-icon"
+                  title={t('preview.fullscreenTitle')}
+                  aria-label={t('preview.fullscreenTitle')}
+                >
+                  <AiOutlineFullscreen size={15} />
+                </button>
 
-                {variants.length > 0 && (
-                  <button
-                    onClick={() => {
-                      setExpandedDrawerPlatform(matchedDrawerPlatform);
-                      setDrawerOpen(true);
-                    }}
-                    disabled={!downloadReady}
-                    className="wd-btn"
-                    title={t('actions.devicesTitle')}
-                  >
-                    <MdDevices size={16} />
-                    <span className="wd-bar-hidesm">{t('actions.devices')}</span>
-                    <span className="wd-btn-count">{variants.length}</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (devicePreviewDisabled) return;
+                    setExpandedDrawerPlatform(matchedDrawerPlatform);
+                    setDrawerOpen(true);
+                  }}
+                  disabled={devicePreviewDisabled}
+                  className="wd-btn wd-bar-device"
+                  title={devicePreviewUnavailable || (!variantsLoading && variants.length === 0)
+                    ? t('actions.devicesUnavailable')
+                    : t('actions.devicesTitle')}
+                >
+                  <MdDevices size={16} />
+                  <span className="wd-bar-hidesm">{t('actions.devices')}</span>
+                  <span className={`wd-btn-count ${variantsLoading ? 'is-loading' : ''}`} aria-live="polite">
+                    {variantsLoading ? '\u00A0' : variants.length}
+                  </span>
+                </button>
                 {isMacDynamic && frames.length > 1 && (
                   <>
-                    {variants.length > 0 && <span className="wd-bar-divider" />}
+                    <span className="wd-bar-divider" />
                     <button
                       type="button"
                       onClick={() => setFramePlaying((playing) => !playing)}
@@ -1464,6 +1485,91 @@ export default function WallpaperDetailPage() {
   );
 }
 
+function WallpaperDetailLoading({ title, onBack }: { title: string; onBack: () => void }) {
+  const { t } = useTranslation('detail');
+  return (
+    <>
+      <PageMeta title={title} />
+      <div className="bg-paper text-ink h-full flex flex-col min-h-0 relative wd-root" aria-busy="true">
+        <div className="wd-detail-scroll flex-1 min-h-0 overflow-y-auto relative z-10">
+          <section className="wd-s1">
+            <div className="wd-s1-media wd-detail-loading-media">
+              <span className="wd-s1-loading-glow" aria-hidden />
+            </div>
+            <div className="wd-s1-vignette" aria-hidden />
+
+            <button
+              type="button"
+              className="wd-circle-btn glass-bounce wd-s1-back"
+              onClick={onBack}
+              aria-label={t('cta.cancel')}
+            >
+              <AiOutlineLeft size={17} />
+            </button>
+            <div className="wd-s1-info">
+              <button type="button" className="wd-circle-btn" disabled aria-label={t('video.loading')}>
+                <AiOutlineInfoCircle size={18} />
+              </button>
+            </div>
+
+            <div className="wd-s1-bottom">
+              <div className="wd-bar" aria-label={t('video.loading')}>
+                <div className="wd-bar-meta is-loading" aria-hidden>
+                  <span className="wd-toolbar-skeleton is-meta-primary" />
+                  <span className="wd-toolbar-skeleton is-meta-secondary" />
+                </div>
+
+                <span className="wd-bar-divider" />
+
+                <button type="button" disabled className="wd-btn">
+                  <AiOutlineHeart size={14} />
+                  <span className="wd-bar-hidesm">{t('actions.like')}</span>
+                  <span className="wd-btn-count is-loading">&nbsp;</span>
+                </button>
+                <button type="button" disabled className="wd-btn">
+                  <AiOutlineStar size={14} />
+                  <span className="wd-bar-hidesm">{t('actions.favorite')}</span>
+                </button>
+                <button type="button" disabled className="wd-btn">
+                  <MdPlaylistAdd size={16} />
+                  <span className="wd-bar-hidesm">{t('actions.addToList')}</span>
+                </button>
+
+                <span className="wd-bar-divider" />
+
+                <div className="wd-bar-nav" role="group" aria-label={t('navigation.group')}>
+                  <button type="button" disabled className="wd-bar-nav-btn" aria-label={t('navigation.previous')}>
+                    <AiOutlineLeft size={15} />
+                  </button>
+                  <span className="wd-bar-nav-divider" aria-hidden />
+                  <button type="button" disabled className="wd-bar-nav-btn" aria-label={t('navigation.next')}>
+                    <AiOutlineRight size={15} />
+                  </button>
+                </div>
+
+                <span className="wd-bar-divider" />
+
+                <button type="button" disabled className="wd-btn wd-btn-icon" aria-label={t('preview.fullscreenTitle')}>
+                  <AiOutlineFullscreen size={15} />
+                </button>
+                <button type="button" disabled className="wd-btn wd-bar-device" aria-label={t('actions.devicesTitle')}>
+                  <MdDevices size={16} />
+                  <span className="wd-bar-hidesm">{t('actions.devices')}</span>
+                  <span className="wd-btn-count is-loading">&nbsp;</span>
+                </button>
+                <button type="button" disabled className="wd-btn-cta" aria-label={t('video.loading')}>
+                  <span className="wd-toolbar-skeleton is-cta" aria-hidden />
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <SpotlightStyles />
+    </>
+  );
+}
+
 
 function SpotlightStyles() {
   return (<style>{`
@@ -1513,6 +1619,7 @@ html.wd-detail-scrollbar-hidden body::-webkit-scrollbar,
   .wd-s1-loading-glow, .wd-s1-loading-glow::after { animation: none; }
   .wd-s1-loading-glow { opacity: .55; }
 }
+.wd-detail-loading-media { background: linear-gradient(145deg, rgba(34,34,40,0.98), rgba(16,16,20,0.98)); }
 .wd-s1-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 72px 24px 140px; }
 .wd-s1-center .wd-hero-canvas { max-height: 66dvh; max-width: min(1080px, 92vw); }
 /* Mac heroVignette: top 0.36 → clear → bottom 0.68 + extra lower band. */
@@ -1570,15 +1677,22 @@ html.wd-detail-scrollbar-hidden body::-webkit-scrollbar,
   background: var(--wd-detail-glass-bg);
   backdrop-filter: var(--wd-detail-glass-filter); -webkit-backdrop-filter: var(--wd-detail-glass-filter);
   box-shadow: var(--wd-detail-glass-shadow); }
-.wd-bar-meta { display: flex; flex-direction: column; gap: 3px; padding: 0 6px 0 10px; }
+.wd-bar-meta { width: 224px; min-height: 29px; display: flex; flex-direction: column; gap: 3px; padding: 0 6px 0 10px; flex-shrink: 0; }
+.wd-bar-meta > span { overflow: hidden; text-overflow: ellipsis; }
+.wd-toolbar-skeleton { display: block; border-radius: 9999px; background: rgba(255,255,255,0.18); }
+.wd-toolbar-skeleton.is-meta-primary { width: 112px; height: 13px; }
+.wd-toolbar-skeleton.is-meta-secondary { width: 188px; height: 10px; background: rgba(255,255,255,0.11); }
+.wd-toolbar-skeleton.is-cta { width: 68px; height: 12px; background: rgba(255,255,255,0.42); }
 .wd-bar-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.22); flex-shrink: 0; }
 .wd-bar-nav { display: inline-flex; align-items: center; flex-shrink: 0; overflow: hidden; padding: 2px;
   border: 1px solid rgba(255,255,255,0.16); border-radius: 9999px; background: rgba(255,255,255,0.08); }
 .wd-bar-nav-btn { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 9999px; color: rgba(255,255,255,0.92);
+  border-radius: 0; color: rgba(255,255,255,0.92);
   transition: background-color .15s ease, color .15s ease, transform 180ms cubic-bezier(0.34,1.56,0.64,1), opacity .15s ease; }
-.wd-bar-nav-btn:not(:disabled):hover { background: rgba(255,255,255,0.16); color: #fff; transform: scale(1.05); }
-.wd-bar-nav-btn:not(:disabled):active { transform: scale(0.92); }
+.wd-bar-nav-btn:first-child { border-radius: 9999px 3px 3px 9999px; }
+.wd-bar-nav-btn:last-child { border-radius: 3px 9999px 9999px 3px; }
+.wd-bar-nav-btn:not(:disabled):hover { background: rgba(255,255,255,0.14); color: #fff; }
+.wd-bar-nav-btn:not(:disabled):active { transform: translateY(1px); }
 .wd-bar-nav-btn:focus-visible { outline: 2px solid rgba(255,255,255,0.9); outline-offset: 1px; }
 .wd-bar-nav-btn:disabled { color: rgba(255,255,255,0.32); cursor: not-allowed; }
 .wd-bar-nav-divider { width: 1px; height: 18px; background: rgba(255,255,255,0.16); }
@@ -1586,13 +1700,20 @@ html.wd-detail-scrollbar-hidden body::-webkit-scrollbar,
 .wd-bar .wd-btn { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.14); color: rgba(255,255,255,0.92); box-shadow: none; }
 .wd-bar .wd-btn:not(:disabled):hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.28); }
 .wd-bar .wd-btn-count { background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.75); }
+.wd-bar-device { min-width: 96px; justify-content: center; }
+.wd-bar-device .wd-btn-count { min-width: 24px; justify-content: center; font-variant-numeric: tabular-nums; }
+.wd-bar .wd-btn-count.is-loading { color: transparent; background: rgba(255,255,255,0.10); }
 .wd-bar .wd-btn.is-liked { color: #ff9e97; border-color: rgba(224,70,58,0.65); background: rgba(224,70,58,0.20); }
 .wd-bar .wd-btn.is-favorited { color: #ffd98f; border-color: rgba(216,162,58,0.65); background: rgba(216,162,58,0.20); }
 .wd-bar .wd-actionbar-toggle { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); }
 .wd-bar .wd-toggle-pill { color: rgba(255,255,255,0.60); }
 .wd-bar .wd-toggle-pill:hover { color: rgba(255,255,255,0.9); }
 .wd-bar .wd-toggle-pill.is-on { background: rgba(255,255,255,0.92); color: var(--color-ink); }
-@media (max-width: 900px) { .wd-bar-hidesm { display: none; } .wd-bar-meta { display: none; } }
+@media (max-width: 900px) {
+  .wd-bar-hidesm { display: none; }
+  .wd-bar-meta { display: none; }
+  .wd-bar-device { min-width: 60px; }
+}
 
 /* Screen 2 — recommendations on paper. */
 .wd-s2 { position: relative; z-index: 1; background: var(--color-paper); border-top: 1px solid var(--color-hair); }
@@ -1657,13 +1778,13 @@ html.wd-detail-scrollbar-hidden body::-webkit-scrollbar,
 .wd-btn-icon { padding: 8px 12px; }
 .wd-btn.is-liked { color: oklch(58% 0.20 25); border-color: oklch(58% 0.20 25); background: color-mix(in oklch, oklch(58% 0.20 25) 4%, var(--color-paper)); }
 .wd-btn.is-favorited { color: oklch(70% 0.18 65); border-color: oklch(70% 0.18 65); background: color-mix(in oklch, oklch(70% 0.18 65) 5%, var(--color-paper)); }
-.wd-btn-count { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 999px; background: var(--color-paper-2); color: var(--color-muted); font-family: var(--font-mono); font-size: 10px; margin-left: 2px; }
+.wd-btn-count { min-width: 21px; display: inline-flex; align-items: center; justify-content: center; padding: 1px 6px; border-radius: 999px; background: var(--color-paper-2); color: var(--color-muted); font-family: var(--font-mono); font-size: 10px; margin-left: 2px; font-variant-numeric: tabular-nums; }
 
 .wd-toggle-pill { padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 500; color: var(--color-muted); transition: all .15s ease; }
 .wd-toggle-pill:hover { color: var(--color-ink-2); }
 .wd-toggle-pill.is-on { background: var(--color-paper); color: var(--color-ink); box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 1.5px 2px rgba(0,0,0,0.12), 0 3px 6px rgba(0,0,0,0.14); }
 
-.wd-btn-cta { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 999px; background: var(--color-accent); color: white; font-size: 13px; font-weight: 600; white-space: nowrap;
+.wd-btn-cta { min-width: 108px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 18px; border-radius: 999px; background: var(--color-accent); color: white; font-size: 13px; font-weight: 600; white-space: nowrap;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 4px 8px -2px oklch(64% 0.21 42 / 0.30), 0 8px 16px -6px oklch(64% 0.21 42 / 0.35);
   transition: filter .15s ease, transform 240ms cubic-bezier(0.34,1.56,0.64,1); }
 .wd-btn-cta:not(:disabled):hover { transform: scale(1.04); }
