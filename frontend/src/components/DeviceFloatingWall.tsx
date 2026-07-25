@@ -55,6 +55,66 @@ const DEFAULT_COLS_FOR_WIDTH = (w: number): number => {
   return 2;
 };
 
+type NearViewportCallback = () => void;
+
+const nearViewportCallbacks = new Map<Element, NearViewportCallback>();
+let nearViewportObserver: IntersectionObserver | null = null;
+
+function getNearViewportObserver(): IntersectionObserver {
+  if (nearViewportObserver) return nearViewportObserver;
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+
+      const activate = nearViewportCallbacks.get(entry.target);
+      nearViewportCallbacks.delete(entry.target);
+      observer.unobserve(entry.target);
+      activate?.();
+    });
+
+    if (nearViewportCallbacks.size === 0 && nearViewportObserver === observer) {
+      observer.disconnect();
+      nearViewportObserver = null;
+    }
+  }, {
+    // Start the request before a card reaches the viewport. Once
+    // activated, the image loads eagerly and no longer relies on the
+    // browser's native lazy-loader observing a transformed tile.
+    rootMargin: '1200px 0px',
+  });
+
+  nearViewportObserver = observer;
+  return observer;
+}
+
+function observeNearViewport(
+  element: Element,
+  callback: NearViewportCallback,
+): () => void {
+  if (typeof window === 'undefined') {
+    callback();
+    return () => undefined;
+  }
+  if (typeof IntersectionObserver === 'undefined') {
+    const timeoutId = globalThis.setTimeout(callback, 0);
+    return () => globalThis.clearTimeout(timeoutId);
+  }
+
+  const observer = getNearViewportObserver();
+  nearViewportCallbacks.set(element, callback);
+  observer.observe(element);
+
+  return () => {
+    observer.unobserve(element);
+    nearViewportCallbacks.delete(element);
+    if (nearViewportCallbacks.size === 0 && nearViewportObserver === observer) {
+      observer.disconnect();
+      nearViewportObserver = null;
+    }
+  };
+}
+
 export interface DeviceFloatingWallProps {
   device: DeviceProfile;
   wallpapers: Wallpaper[];
@@ -570,13 +630,12 @@ function DevTile({
       onMouseEnter={() => onHover(index)}
     >
       <div className="dev-spec-card-screen" style={{ aspectRatio: aspect }}>
-        <img
-          src={w.preview_url || w.thumb_url}
+        <DeferredWallpaperImage
+          key={`${w.preview_url}|${w.thumb_url}`}
+          previewSrc={w.preview_url}
+          thumbSrc={w.thumb_url}
           alt={w.title || t('wall.wallpaperAlt', { id: w.id })}
-          loading="lazy"
-          decoding="async"
-          className="dev-spec-card-img"
-          style={{ backgroundColor: w.dominant_color || undefined }}
+          backgroundColor={w.dominant_color}
         />
         {/* Top-left chip strip — resolution + video / mac-dynamic /
             AI badges. Same component vocabulary as the salon
@@ -646,6 +705,55 @@ function DevTile({
         </div>
       </div>
     </Link>
+  );
+}
+
+function DeferredWallpaperImage({
+  previewSrc,
+  thumbSrc,
+  alt,
+  backgroundColor,
+}: {
+  previewSrc?: string;
+  thumbSrc?: string;
+  alt: string;
+  backgroundColor?: string;
+}) {
+  const primarySrc = previewSrc || thumbSrc || '';
+  const fallbackSrc = previewSrc && thumbSrc && previewSrc !== thumbSrc ? thumbSrc : '';
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const [useFallback, setUseFallback] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const stopObservingRef = useRef<(() => void) | null>(null);
+
+  const imageRef = useCallback((node: HTMLImageElement | null) => {
+    stopObservingRef.current?.();
+    stopObservingRef.current = null;
+
+    if (!node || !primarySrc) return;
+    stopObservingRef.current = observeNearViewport(node, () => setShouldLoad(true));
+  }, [primarySrc]);
+
+  const activeSrc = useFallback ? fallbackSrc : primarySrc;
+  const src = shouldLoad && !failed ? activeSrc : undefined;
+
+  return (
+    <img
+      ref={imageRef}
+      src={src}
+      alt={alt}
+      loading="eager"
+      decoding="async"
+      className="dev-spec-card-img"
+      style={{ backgroundColor: backgroundColor || undefined }}
+      onError={() => {
+        if (!useFallback && fallbackSrc) {
+          setUseFallback(true);
+          return;
+        }
+        setFailed(true);
+      }}
+    />
   );
 }
 
