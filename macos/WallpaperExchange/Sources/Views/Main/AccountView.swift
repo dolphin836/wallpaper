@@ -91,6 +91,7 @@ struct AccountView: View {
         }
         .task(id: username) {
             if !didInit { tab = initialTab; didInit = true }
+            counts = [:]
             await loadProfile()
             await prefetchCounts()
         }
@@ -207,11 +208,21 @@ struct AccountView: View {
                     .font(.system(size: 12.5, weight: selected ? .semibold : .medium))
                     .foregroundStyle(selected ? Color.ink : (hovered ? Color.ink2 : Color.muted))
 
-                if let count = counts[item] {
-                    Text("\(count)")
-                        .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-                        .monospacedDigit()
-                        .foregroundStyle(selected ? Color.accent : Color.muted.opacity(0.78))
+                if item != .settings {
+                    Group {
+                        if let count = counts[item] {
+                            Text("\(count)")
+                                .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                                .monospacedDigit()
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
+                                .foregroundStyle(selected ? Color.accent : Color.muted.opacity(0.78))
+                        } else {
+                            SkeletonLine(width: 18, height: 6, cornerRadius: 3)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .frame(width: 32, height: 12, alignment: .leading)
                 }
             }
             .padding(.horizontal, 2)
