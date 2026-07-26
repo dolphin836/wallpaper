@@ -4,6 +4,7 @@ import CoreFoundation
 import CoreVideo
 import Foundation
 import os.log
+import VideoToolbox
 
 /// macOS 26 does not expose a public lock-screen wallpaper API. Its lock screen
 /// is rendered by the selected Apple Aerial asset, so the app safely replaces
@@ -59,11 +60,22 @@ final class AerialLockScreenService {
         }
     }
 
-    private final class ExportSessionBox: @unchecked Sendable {
-        let session: AVAssetExportSession
+    private final class VideoTranscodeBox: @unchecked Sendable {
+        let reader: AVAssetReader
+        let output: AVAssetReaderTrackOutput
+        let writer: AVAssetWriter
+        let input: AVAssetWriterInput
 
-        init(_ session: AVAssetExportSession) {
-            self.session = session
+        init(
+            reader: AVAssetReader,
+            output: AVAssetReaderTrackOutput,
+            writer: AVAssetWriter,
+            input: AVAssetWriterInput
+        ) {
+            self.reader = reader
+            self.output = output
+            self.writer = writer
+            self.input = input
         }
     }
 
@@ -671,24 +683,99 @@ final class AerialLockScreenService {
     private func exportVideo(source: URL, destination: URL) async throws {
         try? fm.removeItem(at: destination)
         let asset = AVURLAsset(url: source)
-        guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
+        guard let track = try await asset.loadTracks(withMediaType: .video).first else {
             throw AerialError.exportUnavailable
         }
-        exporter.outputURL = destination
-        exporter.outputFileType = .mov
-        exporter.shouldOptimizeForNetworkUse = true
+        let naturalSize = try await track.load(.naturalSize)
+        let preferredTransform = try await track.load(.preferredTransform)
+        let width = max(2, Int(abs(naturalSize.width)).roundedDownToEven)
+        let height = max(2, Int(abs(naturalSize.height)).roundedDownToEven)
 
-        let box = ExportSessionBox(exporter)
+        let reader: AVAssetReader
+        let writer: AVAssetWriter
+        do {
+            reader = try AVAssetReader(asset: asset)
+            writer = try AVAssetWriter(outputURL: destination, fileType: .mov)
+        } catch {
+            throw AerialError.conversionFailed(error.localizedDescription)
+        }
+
+        // WallpaperAerialsExtension opens H.264 movies but only renders their
+        // still frame on the Tahoe lock screen. Apple's assets use hvc1 Main 10,
+        // so decode into a 10-bit pixel buffer and let VideoToolbox produce the
+        // same hardware-native profile without requiring an external ffmpeg.
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange,
+            ]
+        )
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else { throw AerialError.exportUnavailable }
+        reader.add(output)
+
+        let bitRate = min(30_000_000, max(12_000_000, width * height * 5))
+        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.hevc,
+            AVVideoWidthKey: width,
+            AVVideoHeightKey: height,
+            AVVideoColorPropertiesKey: [
+                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2,
+            ],
+            AVVideoCompressionPropertiesKey: [
+                AVVideoAverageBitRateKey: bitRate,
+                AVVideoProfileLevelKey: kVTProfileLevel_HEVC_Main10_AutoLevel as String,
+                AVVideoAllowFrameReorderingKey: true,
+            ],
+        ])
+        input.expectsMediaDataInRealTime = false
+        input.transform = preferredTransform
+        guard writer.canAdd(input) else { throw AerialError.exportUnavailable }
+        writer.add(input)
+
+        let box = VideoTranscodeBox(reader: reader, output: output, writer: writer, input: input)
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            box.session.exportAsynchronously {
-                switch box.session.status {
-                case .completed:
-                    continuation.resume()
-                case .failed, .cancelled:
-                    let message = box.session.error?.localizedDescription ?? L10n.detail.lockScreenConversionFailed
+            DispatchQueue.global(qos: .userInitiated).async {
+                guard box.writer.startWriting(), box.reader.startReading() else {
+                    let message = box.writer.error?.localizedDescription
+                        ?? box.reader.error?.localizedDescription
+                        ?? L10n.detail.lockScreenConversionFailed
                     continuation.resume(throwing: AerialError.conversionFailed(message))
-                default:
-                    continuation.resume(throwing: AerialError.conversionFailed(L10n.detail.lockScreenConversionFailed))
+                    return
+                }
+                box.writer.startSession(atSourceTime: .zero)
+
+                while box.reader.status == .reading {
+                    if box.input.isReadyForMoreMediaData {
+                        guard let sample = box.output.copyNextSampleBuffer() else { break }
+                        guard box.input.append(sample) else {
+                            box.reader.cancelReading()
+                            box.writer.cancelWriting()
+                            let message = box.writer.error?.localizedDescription ?? L10n.detail.lockScreenConversionFailed
+                            continuation.resume(throwing: AerialError.conversionFailed(message))
+                            return
+                        }
+                    } else {
+                        Thread.sleep(forTimeInterval: 0.002)
+                    }
+                }
+
+                guard box.reader.status == .completed else {
+                    box.writer.cancelWriting()
+                    let message = box.reader.error?.localizedDescription ?? L10n.detail.lockScreenConversionFailed
+                    continuation.resume(throwing: AerialError.conversionFailed(message))
+                    return
+                }
+                box.input.markAsFinished()
+                box.writer.finishWriting {
+                    if box.writer.status == .completed {
+                        continuation.resume()
+                    } else {
+                        let message = box.writer.error?.localizedDescription ?? L10n.detail.lockScreenConversionFailed
+                        continuation.resume(throwing: AerialError.conversionFailed(message))
+                    }
                 }
             }
         }
@@ -852,10 +939,19 @@ final class AerialLockScreenService {
     }
 
     private func restartWallpaperProcesses() {
+        clearAerialRendererCache()
+
         // Stop the renderer first, then its owners. Killing WallpaperAgent
         // before the extension lets launchd create a new renderer that the next
         // kill immediately tears down again, which made the first apply flaky.
-        for processName in ["WallpaperAerialsExtension", "legacyScreenSaver", "WallpaperAgent", "idleassetsd"] {
+        for processName in [
+            "WallpaperAerialsExtension",
+            "WallpaperImageExtension",
+            "WallpaperLegacyExtension",
+            "legacyScreenSaver",
+            "WallpaperAgent",
+            "idleassetsd",
+        ] {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
             process.arguments = [processName]
@@ -865,4 +961,26 @@ final class AerialLockScreenService {
             process.waitUntilExit()
         }
     }
+
+    private func clearAerialRendererCache() {
+        let cache = fm.homeDirectoryForCurrentUser.appendingPathComponent(
+            "Library/Containers/com.apple.wallpaper.agent/Data/Library/Caches/com.apple.wallpaper.caches/extension-com.apple.wallpaper.extension.aerials",
+            isDirectory: true
+        )
+        guard let items = try? fm.contentsOfDirectory(
+            at: cache,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return }
+
+        for item in items where item.pathExtension.lowercased() == "bmp" {
+            try? fm.removeItem(at: item)
+        }
+        let version = cache.appendingPathComponent("cacheVersion.db")
+        try? Data("{\"version\":0}".utf8).write(to: version, options: .atomic)
+    }
+}
+
+private extension Int {
+    var roundedDownToEven: Int { self / 2 * 2 }
 }
