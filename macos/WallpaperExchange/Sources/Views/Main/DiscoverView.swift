@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // Main Discover content — mirrors the web Discover page:
@@ -77,6 +78,24 @@ struct DiscoverView: View {
         let value: String
         let swatch: String
         var id: String { value }
+
+        var menuSwatch: NSImage {
+            let size = NSSize(width: 12, height: 12)
+            let image = NSImage(size: size, flipped: false) { bounds in
+                let swatchBounds = bounds.insetBy(dx: 1, dy: 1)
+                let path = NSBezierPath(ovalIn: swatchBounds)
+                NSColor(Color(hex: swatch)).setFill()
+                path.fill()
+                NSColor.separatorColor.withAlphaComponent(0.45).setStroke()
+                path.lineWidth = 1
+                path.stroke()
+                return true
+            }
+            // NSMenu renders template images with one foreground color.
+            // Keeping the swatch non-template preserves its actual RGB value.
+            image.isTemplate = false
+            return image
+        }
     }
 
     private static let resolutionOptions = ["720P", "1080P", "2K", "4K", "8K"]
@@ -378,13 +397,12 @@ struct DiscoverView: View {
             )
             Divider()
             ForEach(Self.colorPresets) { preset in
-                Button {
-                    colorFilter = preset.value
-                } label: {
-                    if colorFilter == preset.value {
-                        Label(L10n.browse.colorName(preset.value), systemImage: "checkmark")
-                    } else {
-                        Label(L10n.browse.colorName(preset.value), systemImage: "circle.fill")
+                Toggle(isOn: colorSelectionBinding(preset.value)) {
+                    Label {
+                        Text(L10n.browse.colorName(preset.value))
+                    } icon: {
+                        Image(nsImage: preset.menuSwatch)
+                            .renderingMode(.original)
                     }
                 }
             }
@@ -409,6 +427,13 @@ struct DiscoverView: View {
         .menuIndicator(.hidden)
         .buttonStyle(.plain)
         .fixedSize()
+    }
+
+    private func colorSelectionBinding(_ value: String) -> Binding<Bool> {
+        Binding(
+            get: { colorFilter == value },
+            set: { selected in colorFilter = selected ? value : "" }
+        )
     }
 
     private func facetMenuLabel(kicker: String, value: String) -> some View {

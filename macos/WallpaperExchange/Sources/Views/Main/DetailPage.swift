@@ -718,23 +718,35 @@ struct DetailPage: View {
     }
 
     private func detailInfoPanel(detail d: WallpaperDetail) -> some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 14) {
-                infoUploaderBlock(detail: d)
-                infoAboutBlock(detail: d)
+        ViewThatFits(in: .vertical) {
+            detailInfoPanelContent(detail: d)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 320, alignment: .topLeading)
+                .glassPanel(cornerRadius: 18)
 
-                if !d.paletteList.isEmpty {
-                    infoPaletteBlock(detail: d)
-                }
-
-                infoStatsBlock(detail: d)
+            ScrollView(.vertical, showsIndicators: false) {
+                detailInfoPanelContent(detail: d)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(width: 320, alignment: .topLeading)
+            .frame(maxHeight: 520, alignment: .topLeading)
+            .glassPanel(cornerRadius: 18)
         }
-        .frame(width: 320, alignment: .topLeading)
         .frame(maxHeight: 520, alignment: .topLeading)
-        .glassPanel(cornerRadius: 18)
+    }
+
+    private func detailInfoPanelContent(detail d: WallpaperDetail) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            infoUploaderBlock(detail: d)
+            infoAboutBlock(detail: d)
+
+            if !d.paletteList.isEmpty {
+                infoPaletteBlock(detail: d)
+            }
+
+            infoStatsBlock(detail: d)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
