@@ -2049,7 +2049,7 @@ struct DetailPage: View {
                     }
                     if AerialLockScreenService.isSupported {
                         lockScreenTargetButton(
-                            selected: selectedWallpaperSurface == .lockScreen || selectedWallpaperSurface == .both
+                            selected: selectedWallpaperSurface == .lockScreen
                         )
                     }
                 }
