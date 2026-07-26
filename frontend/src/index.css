@@ -297,15 +297,14 @@
   background: rgba(255, 255, 255, 0.92);
 }
 .w2-strip {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 108px);
+  justify-content: start;
   gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  max-width: 100%;
   padding-bottom: 4px;
 }
-.w2-strip::-webkit-scrollbar { display: none; }
 .w2-strip-thumb {
-  flex: 0 0 auto;
   width: 108px;
   height: 108px;
   border-radius: 10px;

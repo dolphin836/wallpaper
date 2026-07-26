@@ -4,7 +4,7 @@ import SwiftUI
 // Weekly Picks archive — the "magazine rack".
 //
 // No timeline pane: the latest issue opens the page as a full-width
-// spread (21:9 cover + a strip of the rest of its slate, lazily
+// spread (21:9 cover + a wrapping grid of the rest of its slate, lazily
 // fetched), and every past issue sits below as a cover card in a
 // full-width adaptive grid. Covers open the week page; strip thumbs
 // open the wallpaper detail directly.
@@ -157,8 +157,10 @@ struct WeeklyArchiveView: View {
             .id(s.id)
     }
 
-    // The rest of the latest slate as one horizontal strip of square
-    // thumbs — a quick taste of the issue without leaving the page.
+    // The rest of the latest slate as a wrapping grid of square thumbs —
+    // a quick taste of the issue without leaving the page. Fixed-size cells
+    // preserve the compact strip rhythm while keeping every item inside the
+    // page's content width.
     @ViewBuilder
     private func latestStrip(_ s: WeeklyArchiveEntry, availableWidth: CGFloat) -> some View {
         let hero = latestPicks.first(where: { $0.isHero }) ?? latestPicks.first
@@ -166,14 +168,12 @@ struct WeeklyArchiveView: View {
         if loadingPicks && latestPicks.isEmpty {
             stripSkeleton(availableWidth: availableWidth)
         } else if !rest.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(rest) { p in
-                        stripThumb(p)
-                    }
+            LazyVGrid(columns: stripCols, alignment: .leading, spacing: 8) {
+                ForEach(rest) { p in
+                    stripThumb(p)
                 }
             }
-            .scrollClipDisabled()
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -222,8 +222,12 @@ struct WeeklyArchiveView: View {
         [GridItem(.adaptive(minimum: 300), spacing: 28, alignment: .top)]
     }
 
+    private var stripCols: [GridItem] {
+        [GridItem(.adaptive(minimum: 108, maximum: 108), spacing: 8, alignment: .top)]
+    }
+
     private func stripSkeleton(availableWidth: CGFloat) -> some View {
-        HStack(spacing: 8) {
+        LazyVGrid(columns: stripCols, alignment: .leading, spacing: 8) {
             ForEach(0..<stripSkeletonCount(for: availableWidth), id: \.self) { _ in
                 SkeletonPlate(aspectRatio: 1, cornerRadius: 10, shadow: false)
                     .frame(width: 108, height: 108)

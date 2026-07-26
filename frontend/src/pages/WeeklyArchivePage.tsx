@@ -80,7 +80,7 @@ function WeeklyArchiveSkeleton() {
 /**
  * Weekly archive v2 — the "magazine rack", mirroring the Mac client:
  * no timeline pane. The latest issue opens the page as a full-width
- * 21:9 spread with a strip of its slate; every past issue sits below
+ * 21:9 spread with a wrapping grid of its slate; every past issue sits below
  * as a 16:10 cover card in a full-width adaptive grid.
  */
 export default function WeeklyArchivePage() {
