@@ -589,27 +589,12 @@ final class AerialLockScreenService {
         ]
 
         // loginwindow resolves these global nodes rather than a display's Idle
-        // node. Mirror Apple's/Backdrop's native linked layout across existing
-        // displays and spaces so every lock surface resolves the same movie.
+        // node. Keep every display/space entry untouched: those entries own the
+        // desktop wallpaper, while the global linked choice drives lock-screen
+        // playback. Replacing them would also change the desktop when the user
+        // selected the lock-screen-only target.
         root["SystemDefault"] = entry
         root["AllSpacesAndDisplays"] = entry
-
-        if var displays = root["Displays"] as? [String: Any] {
-            for key in displays.keys { displays[key] = entry }
-            root["Displays"] = displays
-        }
-        if var spaces = root["Spaces"] as? [String: Any] {
-            for spaceKey in spaces.keys {
-                guard var space = spaces[spaceKey] as? [String: Any] else { continue }
-                if space["Default"] != nil { space["Default"] = entry }
-                if var displays = space["Displays"] as? [String: Any] {
-                    for displayKey in displays.keys { displays[displayKey] = entry }
-                    space["Displays"] = displays
-                }
-                spaces[spaceKey] = space
-            }
-            root["Spaces"] = spaces
-        }
 
         let linkedData = try PropertyListSerialization.data(
             fromPropertyList: root,
@@ -623,7 +608,7 @@ final class AerialLockScreenService {
             throw error
         }
         updateSystemWallpaperPointer(assetID: assetID, paths: paths)
-        logger.notice("activated global linked Aerial selection \(assetID, privacy: .public)")
+        logger.notice("activated lock-screen linked Aerial selection \(assetID, privacy: .public) while preserving desktop entries")
     }
 
     private func restoreWallpaperStoreIfNeeded(paths: Paths) throws {
