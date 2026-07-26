@@ -47,8 +47,7 @@ struct DetailPage: View {
     @State private var showingFullscreenPreview = false
     @State private var dynamicFrameIndex = 0
     @State private var dynamicFramePlaying = true
-    @State private var selectedWallpaperSurface: WallpaperApplySurface =
-        ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 26 ? .both : .desktop
+    @State private var selectedWallpaperSurface: WallpaperApplySurface?
     @State private var selectedDisplayTargetID = WallpaperDisplayTarget.allID
     @State private var applyingWallpaper = false
     @State private var videoDuration: Double?
@@ -626,6 +625,9 @@ struct DetailPage: View {
             }
 
             Button(action: {
+                if !showingWallpaperPicker {
+                    selectedWallpaperSurface = nil
+                }
                 withAnimation(.easeOut(duration: 0.16)) {
                     showingWallpaperPicker.toggle()
                 }
@@ -1977,6 +1979,9 @@ struct DetailPage: View {
             .buttonStyle(.plain)
             Button(action: {
                 guard detail != nil else { return }
+                if !showingWallpaperPicker {
+                    selectedWallpaperSurface = nil
+                }
                 withAnimation(.easeOut(duration: 0.16)) {
                     showingCollectionPicker = false
                     showingWallpaperPicker.toggle()
@@ -2004,8 +2009,11 @@ struct DetailPage: View {
         let activeTargetID = targets.contains { $0.id == selectedDisplayTargetID }
             ? selectedDisplayTargetID
             : WallpaperDisplayTarget.allID
+        let unavailableSurface = selectedWallpaperSurface.map {
+            surfaceUnavailable($0, detail: d)
+        } ?? true
         let cannotApply = applyingWallpaper || manager.downloading.contains(d.id)
-            || surfaceUnavailable(selectedWallpaperSurface, detail: d) || !downloadReady(d)
+            || unavailableSurface || !downloadReady(d)
 
         return VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 9) {
@@ -2073,7 +2081,9 @@ struct DetailPage: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(cannotApply)
-                .help(surfaceUnavailable(selectedWallpaperSurface, detail: d) ? surfaceUnavailableReason(selectedWallpaperSurface, detail: d) : L10n.detail.wallpaperApply)
+                .help(selectedWallpaperSurface.map {
+                    surfaceUnavailable($0, detail: d) ? surfaceUnavailableReason($0, detail: d) : L10n.detail.wallpaperApply
+                } ?? L10n.detail.wallpaperApply)
             }
         }
         .padding(14)
@@ -2735,6 +2745,7 @@ struct DetailPage: View {
     }
 
     private func applySelectedWallpaper(_ detail: WallpaperDetail) async {
+        guard let selectedWallpaperSurface else { return }
         guard !surfaceUnavailable(selectedWallpaperSurface, detail: detail) else {
             downloadNotice = .failed(surfaceUnavailableReason(selectedWallpaperSurface, detail: detail))
             return
@@ -2802,6 +2813,7 @@ struct DetailPage: View {
         showingWallpaperPicker = false
         showingCollectionPicker = false
         showingFullscreenPreview = false
+        selectedWallpaperSurface = nil
         dynamicFrameIndex = 0
         dynamicFramePlaying = true
         collectionError = nil
@@ -2814,9 +2826,6 @@ struct DetailPage: View {
             detail = d
             isLiked = d.isLiked ?? false
             isFavorited = d.isFavorited ?? false
-            if surfaceUnavailable(selectedWallpaperSurface, detail: d) {
-                selectedWallpaperSurface = .desktop
-            }
             loadVideoDurationIfNeeded(detail: d)
             await loadCategoriesIfNeeded()
             await loadCollections(wallpaperID: d.id)
