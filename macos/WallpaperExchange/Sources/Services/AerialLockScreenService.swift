@@ -129,6 +129,8 @@ final class AerialLockScreenService {
 
     private let logger = Logger(subsystem: "com.wallpaperexchange.mac", category: "aerial-lock-screen")
     private let fm = FileManager.default
+    private var rendererResetTask: Task<Void, Never>?
+    private var screenWasLocked = false
 
     private init() {
         installWakeObservers()
@@ -990,22 +992,51 @@ final class AerialLockScreenService {
     private func installWakeObservers() {
         let workspaceCenter = NSWorkspace.shared.notificationCenter
         workspaceCenter.addObserver(
-            forName: NSWorkspace.didWakeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in self?.reapplyManagedMovieAfterWake() }
-        }
-        workspaceCenter.addObserver(
             forName: NSWorkspace.sessionDidBecomeActiveNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in self?.reapplyManagedMovieAfterWake() }
+            Task { @MainActor in self?.scheduleManagedMovieReset(trigger: "session active") }
+        }
+        let distributedCenter = DistributedNotificationCenter.default()
+        distributedCenter.addObserver(
+            forName: Notification.Name("com.apple.screenIsLocked"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.markScreenLocked() }
+        }
+        distributedCenter.addObserver(
+            forName: Notification.Name("com.apple.screenIsUnlocked"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.scheduleManagedMovieReset(trigger: "screen unlocked") }
         }
     }
 
-    private func reapplyManagedMovieAfterWake() {
+    private func markScreenLocked() {
+        screenWasLocked = true
+        rendererResetTask?.cancel()
+        rendererResetTask = nil
+    }
+
+    /// Unlock commonly emits several notifications seconds apart. Accept only
+    /// the first notification paired with a preceding lock, then delay until
+    /// loginwindow has released the renderer before resetting its timeline.
+    private func scheduleManagedMovieReset(trigger: String) {
+        guard screenWasLocked else { return }
+        screenWasLocked = false
+        rendererResetTask?.cancel()
+        rendererResetTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 750_000_000)
+            guard !Task.isCancelled, let self else { return }
+            self.reapplyManagedMovieAfterWake(trigger: trigger)
+            self.rendererResetTask = nil
+        }
+    }
+
+    private func reapplyManagedMovieAfterWake(trigger: String) {
         guard Self.isSupported,
               let assetIDs = UserDefaults.standard.stringArray(forKey: DefaultsKey.managedAssetIDs),
               !assetIDs.isEmpty,
@@ -1023,12 +1054,13 @@ final class AerialLockScreenService {
                 logger.error("failed to reapply managed Aerial \(assetID, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
         }
-        if replaced > 0 { restartWallpaperProcesses() }
+        if replaced > 0 {
+            restartWallpaperProcesses()
+            logger.notice("reset managed Aerial after \(trigger, privacy: .public)")
+        }
     }
 
     private func restartWallpaperProcesses() {
-        clearAerialRendererCache()
-
         // Stop the renderer first, then its owners. Killing WallpaperAgent
         // before the extension lets launchd create a new renderer that the next
         // kill immediately tears down again, which made the first apply flaky.
@@ -1048,24 +1080,6 @@ final class AerialLockScreenService {
             try? process.run()
             process.waitUntilExit()
         }
-    }
-
-    private func clearAerialRendererCache() {
-        let cache = fm.homeDirectoryForCurrentUser.appendingPathComponent(
-            "Library/Containers/com.apple.wallpaper.agent/Data/Library/Caches/com.apple.wallpaper.caches/extension-com.apple.wallpaper.extension.aerials",
-            isDirectory: true
-        )
-        guard let items = try? fm.contentsOfDirectory(
-            at: cache,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
-        ) else { return }
-
-        for item in items where item.pathExtension.lowercased() == "bmp" {
-            try? fm.removeItem(at: item)
-        }
-        let version = cache.appendingPathComponent("cacheVersion.db")
-        try? Data("{\"version\":0}".utf8).write(to: version, options: .atomic)
     }
 }
 
