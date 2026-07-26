@@ -1,17 +1,56 @@
 import AppKit
 import AVFoundation
+import CoreVideo
 import Foundation
 import os.log
 
-/// Experimental macOS 26+ lock-screen live wallpaper support.
-///
-/// Apple does not expose a stable AppKit lock-screen wallpaper API. Wallspace
-/// appears to use the system Aerial wallpaper cache instead, so this service
-/// keeps that private-path work isolated from the normal desktop wallpaper
-/// path. If Apple changes the Aerial manifest/cache layout, this is the only
-/// file that should need surgery.
+/// macOS 26 does not expose a public lock-screen wallpaper API. Its lock screen
+/// is rendered by the selected Apple Aerial asset, so the app safely replaces
+/// the already-selected, already-downloaded Aerial movie in-place. The original
+/// movie is backed up before the first replacement and can be restored from
+/// Settings at any time.
+@MainActor
 final class AerialLockScreenService {
     static let shared = AerialLockScreenService()
+
+    static var isSupported: Bool {
+        ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 26
+    }
+
+    enum AerialError: LocalizedError {
+        case unsupported
+        case storeUnavailable
+        case noAerialSelected
+        case aerialVideoMissing
+        case permissionRequired
+        case imageUnavailable
+        case exportUnavailable
+        case conversionFailed(String)
+        case restoreUnavailable
+
+        var errorDescription: String? {
+            switch self {
+            case .unsupported:
+                return L10n.detail.lockScreenUnavailable
+            case .storeUnavailable:
+                return L10n.detail.lockScreenStoreUnavailable
+            case .noAerialSelected:
+                return L10n.detail.lockScreenAerialRequired
+            case .aerialVideoMissing:
+                return L10n.detail.lockScreenAerialDownloadRequired
+            case .permissionRequired:
+                return L10n.detail.lockScreenPermissionRequired
+            case .imageUnavailable:
+                return L10n.detail.lockScreenImageUnavailable
+            case .exportUnavailable:
+                return L10n.detail.lockScreenConversionUnavailable
+            case .conversionFailed(let message):
+                return message.isEmpty ? L10n.detail.lockScreenConversionFailed : message
+            case .restoreUnavailable:
+                return L10n.settings.lockScreenRestoreUnavailable
+            }
+        }
+    }
 
     private final class ExportSessionBox: @unchecked Sendable {
         let session: AVAssetExportSession
@@ -21,539 +60,444 @@ final class AerialLockScreenService {
         }
     }
 
-    static var isSupported: Bool {
-        ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 26
-    }
+    private final class StillWriterBox: @unchecked Sendable {
+        let writer: AVAssetWriter
+        let input: AVAssetWriterInput
+        let adaptor: AVAssetWriterInputPixelBufferAdaptor
+        let pixelBuffer: CVPixelBuffer
 
-    private enum Constants {
-        static let categoryID = "B56F8C97-D8EA-4D31-A07A-8F72727B72F5"
-        static let subcategoryID = "615C97DA-A6F6-4571-9EA1-6494972E846E"
-        static let assetIDDefaultsPrefix = "wallpaper.lockScreenAerialID."
-    }
-
-    enum AerialError: LocalizedError {
-        case unsupported
-        case exportUnavailable
-        case conversionFailed(String)
-        case thumbnailFailed
-        case manifestUnavailable
-        case extensionUnavailable
-
-        var errorDescription: String? {
-            switch self {
-            case .unsupported:
-                return L10n.detail.lockScreenUnavailable
-            case .exportUnavailable:
-                return L10n.detail.lockScreenConversionUnavailable
-            case .conversionFailed(let message):
-                return message.isEmpty ? L10n.detail.lockScreenConversionFailed : message
-            case .thumbnailFailed:
-                return L10n.detail.lockScreenThumbnailFailed
-            case .manifestUnavailable:
-                return L10n.detail.lockScreenManifestFailed
-            case .extensionUnavailable:
-                return L10n.detail.lockScreenExtensionFailed
-            }
+        init(
+            writer: AVAssetWriter,
+            input: AVAssetWriterInput,
+            adaptor: AVAssetWriterInputPixelBufferAdaptor,
+            pixelBuffer: CVPixelBuffer
+        ) {
+            self.writer = writer
+            self.input = input
+            self.adaptor = adaptor
+            self.pixelBuffer = pixelBuffer
         }
+    }
+
+    private struct Paths {
+        let videos: URL
+        let storeIndex: URL
+        let workingRoot: URL
+        let backups: URL
+        let currentMovie: URL
+    }
+
+    private enum DefaultsKey {
+        static let managedAssetIDs = "wallpaper.lockScreen.managedAssetIDs"
     }
 
     private let logger = Logger(subsystem: "com.wallpaperexchange.mac", category: "aerial-lock-screen")
     private let fm = FileManager.default
 
-    private init() {}
-
-    func applyStaticImage(imageURL: URL) throws {
-        logger.notice("applying static lock-screen image \(imageURL.path, privacy: .public)")
-        let paths = try aerialPaths()
-        try ensureDirectories(paths)
-
-        do {
-            try updateWallpaperStoreIndexForImage(indexURL: paths.storeIndex, backupURL: paths.storeBackup, imageURL: imageURL)
-        } catch {
-            logger.error("failed to update lock-screen image store: \(error.localizedDescription, privacy: .public)")
-        }
-        try applyStaticLockScreenFallback(imageURL: imageURL)
+    private init() {
+        installWakeObservers()
     }
 
-    func apply(wallpaper: Wallpaper, videoURL: URL, thumbnailURL: URL?) async throws {
+    var canRestoreOriginals: Bool {
+        guard Self.isSupported, let paths = try? paths() else { return false }
+        return !(backupURLs(in: paths.backups).isEmpty)
+    }
+
+    /// Converts the selected wallpaper into an Aerial-compatible movie, backs
+    /// up every active lock-screen Aerial and atomically swaps the cached files.
+    func apply(wallpaper: Wallpaper, sourceURL: URL, sourceIsVideo: Bool) async throws {
         guard Self.isSupported else { throw AerialError.unsupported }
 
-        let assetID = assetID(for: wallpaper.id)
-        logger.notice("applying aerial lock-screen wallpaper id=\(wallpaper.id, privacy: .public) asset=\(assetID, privacy: .public)")
-        let paths = try aerialPaths()
-        try ensureDirectories(paths)
+        let paths = try paths()
+        try ensureWorkingDirectories(paths)
+        let assetIDs = try activeLockScreenAerialAssetIDs(from: paths.storeIndex)
+        guard !assetIDs.isEmpty else { throw AerialError.noAerialSelected }
 
-        let videoDestination = paths.videos.appendingPathComponent("\(assetID).mov")
-        let thumbnailDestination = paths.thumbnails.appendingPathComponent("\(assetID).png")
+        let destinations = try assetIDs.map { assetID -> URL in
+            let destination = paths.videos.appendingPathComponent("\(assetID).mov")
+            guard fm.fileExists(atPath: destination.path) else {
+                throw AerialError.aerialVideoMissing
+            }
+            guard fm.isWritableFile(atPath: destination.path), fm.isWritableFile(atPath: paths.videos.path) else {
+                throw AerialError.permissionRequired
+            }
+            return destination
+        }
 
-        try await convertVideoIfNeeded(source: videoURL, destination: videoDestination)
-        try await writeThumbnail(source: thumbnailURL, videoURL: videoURL, destination: thumbnailDestination)
-        try updateManifest(
-            manifestURL: paths.manifest,
-            backupURL: paths.backup,
-            wallpaper: wallpaper,
-            assetID: assetID,
-            videoURL: videoDestination,
-            thumbnailURL: thumbnailDestination
-        )
-        try updateWallpaperStoreIndex(
-            indexURL: paths.storeIndex,
-            backupURL: paths.storeBackup,
-            assetID: assetID,
-            thumbnailURL: thumbnailDestination
-        )
-        try applySystemWallpaperPointers(videoURL: videoDestination, thumbnailURL: thumbnailDestination)
+        let prepared = paths.workingRoot.appendingPathComponent("prepared-\(UUID().uuidString).mov")
+        defer { try? fm.removeItem(at: prepared) }
+        if sourceIsVideo {
+            try await exportVideo(source: sourceURL, destination: prepared)
+        } else {
+            try await makeStillMovie(source: sourceURL, destination: prepared)
+        }
 
+        try replaceFileAtomically(source: prepared, destination: paths.currentMovie)
+        var replacedAssets: [(assetID: String, destination: URL)] = []
         do {
-            try restartAerialExtension()
+            for (assetID, destination) in zip(assetIDs, destinations) {
+                try backupOriginalIfNeeded(assetID: assetID, source: destination, paths: paths)
+                try replaceFileAtomically(source: paths.currentMovie, destination: destination)
+                replacedAssets.append((assetID, destination))
+            }
         } catch {
-            logger.error("lock-screen static fallback was applied, but Aerial restart failed: \(error.localizedDescription, privacy: .public)")
+            for replaced in replacedAssets.reversed() {
+                let backup = paths.backups.appendingPathComponent("\(replaced.assetID).mov")
+                try? replaceFileAtomically(source: backup, destination: replaced.destination)
+            }
+            throw error
         }
+
+        UserDefaults.standard.set(assetIDs, forKey: DefaultsKey.managedAssetIDs)
+        restartWallpaperProcesses()
+        logger.notice("applied lock-screen wallpaper id=\(wallpaper.id, privacy: .public) to \(assetIDs.count, privacy: .public) Aerial asset(s)")
     }
 
-    private struct AerialPaths {
-        let root: URL
-        let manifestDir: URL
-        let manifest: URL
-        let backup: URL
-        let videos: URL
-        let thumbnails: URL
-        let storeIndex: URL
-        let storeBackup: URL
+    /// Restores every Aerial file ever replaced by Wallpaper Exchange. Backups
+    /// are only deleted after all originals have been put back successfully.
+    func restoreOriginals() throws {
+        guard Self.isSupported else { throw AerialError.unsupported }
+        let paths = try paths()
+        let backups = backupURLs(in: paths.backups)
+        guard !backups.isEmpty else { throw AerialError.restoreUnavailable }
+
+        for backup in backups {
+            let assetID = backup.deletingPathExtension().lastPathComponent
+            let destination = paths.videos.appendingPathComponent("\(assetID).mov")
+            guard fm.isWritableFile(atPath: paths.videos.path) else {
+                throw AerialError.permissionRequired
+            }
+            try replaceFileAtomically(source: backup, destination: destination)
+        }
+
+        for backup in backups {
+            try? fm.removeItem(at: backup)
+        }
+        try? fm.removeItem(at: paths.currentMovie)
+        UserDefaults.standard.removeObject(forKey: DefaultsKey.managedAssetIDs)
+        restartWallpaperProcesses()
+        logger.notice("restored \(backups.count, privacy: .public) original Aerial asset(s)")
     }
 
-    private func aerialPaths() throws -> AerialPaths {
+    private func paths() throws -> Paths {
         guard let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            throw AerialError.manifestUnavailable
+            throw AerialError.storeUnavailable
         }
-        let root = appSupport.appendingPathComponent("com.apple.wallpaper/aerials", isDirectory: true)
-        let manifestDir = root.appendingPathComponent("manifest", isDirectory: true)
-        let manifest = manifestDir.appendingPathComponent("entries.json")
-        return AerialPaths(
-            root: root,
-            manifestDir: manifestDir,
-            manifest: manifest,
-            backup: manifestDir.appendingPathComponent("entries.json.wallpaperexchange.backup"),
-            videos: root.appendingPathComponent("videos", isDirectory: true),
-            thumbnails: root.appendingPathComponent("thumbnails", isDirectory: true),
-            storeIndex: appSupport.appendingPathComponent("com.apple.wallpaper/Store/Index.plist"),
-            storeBackup: appSupport.appendingPathComponent("com.apple.wallpaper/Store/Index.plist.wallpaperexchange.backup")
+        let systemRoot = appSupport.appendingPathComponent("com.apple.wallpaper", isDirectory: true)
+        let workingRoot = appSupport.appendingPathComponent("WallpaperExchange/LockScreen", isDirectory: true)
+        return Paths(
+            videos: systemRoot.appendingPathComponent("aerials/videos", isDirectory: true),
+            storeIndex: systemRoot.appendingPathComponent("Store/Index.plist"),
+            workingRoot: workingRoot,
+            backups: workingRoot.appendingPathComponent("Backups", isDirectory: true),
+            currentMovie: workingRoot.appendingPathComponent("Current.mov")
         )
     }
 
-    private func ensureDirectories(_ paths: AerialPaths) throws {
-        try fm.createDirectory(at: paths.manifestDir, withIntermediateDirectories: true)
-        try fm.createDirectory(at: paths.videos, withIntermediateDirectories: true)
-        try fm.createDirectory(at: paths.thumbnails, withIntermediateDirectories: true)
-        try fm.createDirectory(at: paths.storeIndex.deletingLastPathComponent(), withIntermediateDirectories: true)
-    }
-
-    private func assetID(for wallpaperID: Int) -> String {
-        let key = "\(Constants.assetIDDefaultsPrefix)\(wallpaperID)"
-        if let saved = UserDefaults.standard.string(forKey: key), !saved.isEmpty {
-            return saved
+    private func ensureWorkingDirectories(_ paths: Paths) throws {
+        guard fm.fileExists(atPath: paths.storeIndex.path), fm.fileExists(atPath: paths.videos.path) else {
+            throw AerialError.storeUnavailable
         }
-        let generated = UUID().uuidString.uppercased()
-        UserDefaults.standard.set(generated, forKey: key)
-        return generated
+        try fm.createDirectory(at: paths.backups, withIntermediateDirectories: true)
     }
 
-    private func convertVideoIfNeeded(source: URL, destination: URL) async throws {
-        if fm.fileExists(atPath: destination.path) { return }
-        let temporary = destination
-            .deletingLastPathComponent()
-            .appendingPathComponent("\(destination.deletingPathExtension().lastPathComponent).tmp.mov")
-        try? fm.removeItem(at: temporary)
+    private func backupURLs(in directory: URL) -> [URL] {
+        guard let urls = try? fm.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+        return urls.filter { $0.pathExtension.lowercased() == "mov" }
+    }
 
+    private func backupOriginalIfNeeded(assetID: String, source: URL, paths: Paths) throws {
+        let backup = paths.backups.appendingPathComponent("\(assetID).mov")
+        guard !fm.fileExists(atPath: backup.path) else { return }
+        try fm.copyItem(at: source, to: backup)
+    }
+
+    private func replaceFileAtomically(source: URL, destination: URL) throws {
+        let directory = destination.deletingLastPathComponent()
+        try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+        let temporary = directory.appendingPathComponent(".wallpaperexchange-\(UUID().uuidString).mov")
+        defer { try? fm.removeItem(at: temporary) }
+        try fm.copyItem(at: source, to: temporary)
+
+        if fm.fileExists(atPath: destination.path) {
+            _ = try fm.replaceItemAt(destination, withItemAt: temporary)
+        } else {
+            try fm.moveItem(at: temporary, to: destination)
+        }
+    }
+
+    private func activeLockScreenAerialAssetIDs(from indexURL: URL) throws -> [String] {
+        guard fm.fileExists(atPath: indexURL.path) else { throw AerialError.storeUnavailable }
+        let data = try Data(contentsOf: indexURL)
+        let root = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+
+        var idleIDs = Set<String>()
+        collectAerialAssetIDs(in: root, sectionName: "Idle", output: &idleIDs)
+        if !idleIDs.isEmpty { return idleIDs.sorted() }
+
+        // Some macOS 26 builds store the screen-saver choice in a Linked node.
+        var linkedIDs = Set<String>()
+        collectAerialAssetIDs(in: root, sectionName: "Linked", output: &linkedIDs)
+        return linkedIDs.sorted()
+    }
+
+    private func collectAerialAssetIDs(in node: Any, sectionName: String, output: inout Set<String>) {
+        if let dictionary = node as? [String: Any] {
+            for (key, value) in dictionary {
+                if key.caseInsensitiveCompare(sectionName) == .orderedSame {
+                    collectAerialChoices(in: value, output: &output)
+                }
+                collectAerialAssetIDs(in: value, sectionName: sectionName, output: &output)
+            }
+        } else if let array = node as? [Any] {
+            for value in array {
+                collectAerialAssetIDs(in: value, sectionName: sectionName, output: &output)
+            }
+        }
+    }
+
+    private func collectAerialChoices(in node: Any, output: inout Set<String>) {
+        if let dictionary = node as? [String: Any] {
+            if let provider = dictionary["Provider"] as? String,
+               provider == "com.apple.wallpaper.choice.aerials",
+               let configuration = dictionary["Configuration"] as? Data,
+               let assetID = assetID(from: configuration),
+               isSafeAssetID(assetID) {
+                output.insert(assetID)
+            }
+            for value in dictionary.values {
+                collectAerialChoices(in: value, output: &output)
+            }
+        } else if let array = node as? [Any] {
+            for value in array {
+                collectAerialChoices(in: value, output: &output)
+            }
+        }
+    }
+
+    private func assetID(from configuration: Data) -> String? {
+        guard let root = try? PropertyListSerialization.propertyList(from: configuration, options: [], format: nil) else {
+            return nil
+        }
+        return findStringValue(named: "assetID", in: root)
+    }
+
+    private func isSafeAssetID(_ assetID: String) -> Bool {
+        !assetID.isEmpty && assetID.unicodeScalars.allSatisfy {
+            CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_")).contains($0)
+        }
+    }
+
+    private func findStringValue(named name: String, in node: Any) -> String? {
+        if let dictionary = node as? [String: Any] {
+            for (key, value) in dictionary where key.caseInsensitiveCompare(name) == .orderedSame {
+                if let string = value as? String, !string.isEmpty { return string }
+            }
+            for value in dictionary.values {
+                if let found = findStringValue(named: name, in: value) { return found }
+            }
+        } else if let array = node as? [Any] {
+            for value in array {
+                if let found = findStringValue(named: name, in: value) { return found }
+            }
+        }
+        return nil
+    }
+
+    private func exportVideo(source: URL, destination: URL) async throws {
+        try? fm.removeItem(at: destination)
         let asset = AVURLAsset(url: source)
         guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
             throw AerialError.exportUnavailable
         }
-        exporter.outputURL = temporary
+        exporter.outputURL = destination
         exporter.outputFileType = .mov
         exporter.shouldOptimizeForNetworkUse = true
 
-        let exportSession = ExportSessionBox(exporter)
+        let box = ExportSessionBox(exporter)
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            exportSession.session.exportAsynchronously {
-                switch exportSession.session.status {
+            box.session.exportAsynchronously {
+                switch box.session.status {
                 case .completed:
                     continuation.resume()
                 case .failed, .cancelled:
-                    let message = exportSession.session.error?.localizedDescription ?? L10n.detail.lockScreenConversionFailed
+                    let message = box.session.error?.localizedDescription ?? L10n.detail.lockScreenConversionFailed
                     continuation.resume(throwing: AerialError.conversionFailed(message))
                 default:
                     continuation.resume(throwing: AerialError.conversionFailed(L10n.detail.lockScreenConversionFailed))
                 }
             }
         }
+    }
 
+    private func makeStillMovie(source: URL, destination: URL) async throws {
+        guard let image = NSImage(contentsOf: source),
+              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            throw AerialError.imageUnavailable
+        }
+
+        let maximumDimension = 3840.0
+        let sourceWidth = Double(cgImage.width)
+        let sourceHeight = Double(cgImage.height)
+        let scale = min(1, maximumDimension / max(sourceWidth, sourceHeight))
+        let width = max(2, Int(sourceWidth * scale) / 2 * 2)
+        let height = max(2, Int(sourceHeight * scale) / 2 * 2)
         try? fm.removeItem(at: destination)
-        try fm.moveItem(at: temporary, to: destination)
-    }
 
-    private func writeThumbnail(source: URL?, videoURL: URL, destination: URL) async throws {
-        if fm.fileExists(atPath: destination.path) { return }
-        if let source, let image = NSImage(contentsOf: source), try writePNG(image: image, to: destination) {
-            return
-        }
-
-        let asset = AVURLAsset(url: videoURL)
-        let generator = AVAssetImageGenerator(asset: asset)
-        generator.appliesPreferredTrackTransform = true
-        let cgImage: CGImage
+        let writer: AVAssetWriter
         do {
-            cgImage = try generator.copyCGImage(at: .zero, actualTime: nil)
+            writer = try AVAssetWriter(outputURL: destination, fileType: .mov)
         } catch {
-            throw AerialError.thumbnailFailed
-        }
-        let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
-        guard try writePNG(image: image, to: destination) else {
-            throw AerialError.thumbnailFailed
-        }
-    }
-
-    private func writePNG(image: NSImage, to destination: URL) throws -> Bool {
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return false }
-        let rep = NSBitmapImageRep(cgImage: cgImage)
-        guard let data = rep.representation(using: .png, properties: [:]) else { return false }
-        try data.write(to: destination, options: .atomic)
-        return true
-    }
-
-    private func updateManifest(
-        manifestURL: URL,
-        backupURL: URL,
-        wallpaper: Wallpaper,
-        assetID: String,
-        videoURL: URL,
-        thumbnailURL: URL
-    ) throws {
-        guard fm.fileExists(atPath: manifestURL.path) else {
-            throw AerialError.manifestUnavailable
-        }
-        let originalData = try Data(contentsOf: manifestURL)
-        if !fm.fileExists(atPath: backupURL.path) {
-            try originalData.write(to: backupURL, options: .atomic)
+            throw AerialError.conversionFailed(error.localizedDescription)
         }
 
-        guard var root = try JSONSerialization.jsonObject(with: originalData) as? [String: Any] else {
-            throw AerialError.manifestUnavailable
-        }
-
-        var assets = root["assets"] as? [[String: Any]] ?? []
-        assets.removeAll { item in
-            item["id"] as? String == assetID || item["shotID"] as? String == shotID(for: wallpaper.id)
-        }
-        assets.append(assetEntry(
-            wallpaper: wallpaper,
-            assetID: assetID,
-            videoURL: videoURL,
-            thumbnailURL: thumbnailURL
-        ))
-        root["assets"] = assets
-
-        var categories = root["categories"] as? [[String: Any]] ?? []
-        if let index = categories.firstIndex(where: { $0["id"] as? String == Constants.categoryID }) {
-            categories[index] = categoryEntry(representativeAssetID: assetID, thumbnailURL: thumbnailURL)
-        } else {
-            categories.append(categoryEntry(representativeAssetID: assetID, thumbnailURL: thumbnailURL))
-        }
-        root["categories"] = categories
-
-        do {
-            let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys])
-            try data.write(to: manifestURL, options: .atomic)
-        } catch {
-            try? originalData.write(to: manifestURL, options: .atomic)
-            throw AerialError.manifestUnavailable
-        }
-    }
-
-    private func assetEntry(wallpaper: Wallpaper, assetID: String, videoURL: URL, thumbnailURL: URL) -> [String: Any] {
-        [
-            "accessibilityLabel": wallpaper.title,
-            "categories": [Constants.categoryID],
-            "id": assetID,
-            "includeInShuffle": true,
-            "localizedNameKey": wallpaper.title,
-            "pointsOfInterest": [:],
-            "preferredOrder": -1000,
-            "previewImage": thumbnailURL.absoluteString,
-            "shotID": shotID(for: wallpaper.id),
-            "showInTopLevel": true,
-            "subcategories": [Constants.subcategoryID],
-            "url-4K-SDR-240FPS": videoURL.absoluteString,
-        ]
-    }
-
-    private func categoryEntry(representativeAssetID: String, thumbnailURL: URL) -> [String: Any] {
-        [
-            "id": Constants.categoryID,
-            "localizedDescriptionKey": "Wallpaper Exchange",
-            "localizedNameKey": "Wallpaper Exchange",
-            "preferredOrder": -1000,
-            "previewImage": thumbnailURL.absoluteString,
-            "representativeAssetID": representativeAssetID,
-            "subcategories": [
-                [
-                    "id": Constants.subcategoryID,
-                    "localizedDescriptionKey": "Wallpaper Exchange",
-                    "localizedNameKey": "Wallpaper Exchange",
-                    "preferredOrder": -1000,
-                    "previewImage": thumbnailURL.absoluteString,
-                    "representativeAssetID": representativeAssetID,
-                ],
+        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: width,
+            AVVideoHeightKey: height,
+            AVVideoCompressionPropertiesKey: [
+                AVVideoAverageBitRateKey: min(24_000_000, max(4_000_000, width * height * 3)),
+                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
             ],
-        ]
-    }
+        ])
+        input.expectsMediaDataInRealTime = false
 
-    private func shotID(for wallpaperID: Int) -> String {
-        "WALLPAPER_EXCHANGE_\(wallpaperID)"
-    }
-
-    private func updateWallpaperStoreIndex(indexURL: URL, backupURL: URL, assetID: String, thumbnailURL: URL) throws {
-        guard fm.fileExists(atPath: indexURL.path) else {
-            throw AerialError.manifestUnavailable
-        }
-        let originalData = try Data(contentsOf: indexURL)
-        if !fm.fileExists(atPath: backupURL.path) {
-            try originalData.write(to: backupURL, options: .atomic)
-        }
-
-        guard var root = try PropertyListSerialization.propertyList(from: originalData, options: [], format: nil) as? [String: Any] else {
-            throw AerialError.manifestUnavailable
-        }
-
-        let configuration = try PropertyListSerialization.data(
-            fromPropertyList: ["assetID": assetID],
-            format: .binary,
-            options: 0
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: input,
+            sourcePixelBufferAttributes: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                kCVPixelBufferWidthKey as String: width,
+                kCVPixelBufferHeightKey as String: height,
+            ]
         )
-        let aerialChoice: [String: Any] = [
-            "Configuration": configuration,
-            "Files": [],
-            "Provider": "com.apple.wallpaper.choice.aerials",
-        ]
-        let imageChoice = try imageChoice(for: thumbnailURL)
-        let now = Date()
-        updateIdleNodes(in: &root, choice: aerialChoice, now: now)
-        updateDesktopNodes(in: &root, choice: imageChoice, now: now)
+        guard writer.canAdd(input) else { throw AerialError.exportUnavailable }
+        writer.add(input)
 
-        do {
-            let data = try PropertyListSerialization.data(fromPropertyList: root, format: .binary, options: 0)
-            try data.write(to: indexURL, options: .atomic)
-        } catch {
-            try? originalData.write(to: indexURL, options: .atomic)
-            throw AerialError.manifestUnavailable
+        var pixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            width,
+            height,
+            kCVPixelFormatType_32BGRA,
+            [kCVPixelBufferCGImageCompatibilityKey: true, kCVPixelBufferCGBitmapContextCompatibilityKey: true] as CFDictionary,
+            &pixelBuffer
+        )
+        guard status == kCVReturnSuccess, let pixelBuffer else { throw AerialError.imageUnavailable }
+        try draw(cgImage, into: pixelBuffer, width: width, height: height)
+
+        guard writer.startWriting() else {
+            throw AerialError.conversionFailed(writer.error?.localizedDescription ?? L10n.detail.lockScreenConversionFailed)
         }
-    }
+        writer.startSession(atSourceTime: .zero)
+        let writerBox = StillWriterBox(writer: writer, input: input, adaptor: adaptor, pixelBuffer: pixelBuffer)
 
-    private func updateWallpaperStoreIndexForImage(indexURL: URL, backupURL: URL, imageURL: URL) throws {
-        guard fm.fileExists(atPath: indexURL.path) else {
-            throw AerialError.manifestUnavailable
-        }
-        let originalData = try Data(contentsOf: indexURL)
-        if !fm.fileExists(atPath: backupURL.path) {
-            try originalData.write(to: backupURL, options: .atomic)
-        }
-
-        guard var root = try PropertyListSerialization.propertyList(from: originalData, options: [], format: nil) as? [String: Any] else {
-            throw AerialError.manifestUnavailable
-        }
-
-        let choice = try imageChoice(for: imageURL)
-        let now = Date()
-        updateIdleNodes(in: &root, choice: choice, now: now)
-        updateDesktopNodes(in: &root, choice: choice, now: now)
-
-        do {
-            let data = try PropertyListSerialization.data(fromPropertyList: root, format: .binary, options: 0)
-            try data.write(to: indexURL, options: .atomic)
-        } catch {
-            try? originalData.write(to: indexURL, options: .atomic)
-            throw AerialError.manifestUnavailable
-        }
-    }
-
-    private func updateIdleNodes(in dictionary: inout [String: Any], choice: [String: Any], now: Date) {
-        if var idle = dictionary["Idle"] as? [String: Any] {
-            applyWallpaperChoice(to: &idle, choice: choice, now: now)
-            dictionary["Idle"] = idle
-        }
-
-        for key in Array(dictionary.keys) {
-            if var child = dictionary[key] as? [String: Any] {
-                updateIdleNodes(in: &child, choice: choice, now: now)
-                dictionary[key] = child
-            } else if var array = dictionary[key] as? [[String: Any]] {
-                for index in array.indices {
-                    updateIdleNodes(in: &array[index], choice: choice, now: now)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let frameRate: Int32 = 30
+                let frameCount = 8 * Int(frameRate)
+                let readinessDeadline = Date().addingTimeInterval(60)
+                for frame in 0..<frameCount {
+                    while !writerBox.input.isReadyForMoreMediaData {
+                        if writerBox.writer.status == .failed || writerBox.writer.status == .cancelled {
+                            continuation.resume(throwing: AerialError.conversionFailed(writerBox.writer.error?.localizedDescription ?? L10n.detail.lockScreenConversionFailed))
+                            return
+                        }
+                        if Date() >= readinessDeadline {
+                            writerBox.writer.cancelWriting()
+                            continuation.resume(throwing: AerialError.conversionFailed(L10n.detail.lockScreenConversionFailed))
+                            return
+                        }
+                        Thread.sleep(forTimeInterval: 0.002)
+                    }
+                    let time = CMTime(value: CMTimeValue(frame), timescale: frameRate)
+                    guard writerBox.adaptor.append(writerBox.pixelBuffer, withPresentationTime: time) else {
+                        continuation.resume(throwing: AerialError.conversionFailed(writerBox.writer.error?.localizedDescription ?? L10n.detail.lockScreenConversionFailed))
+                        return
+                    }
                 }
-                dictionary[key] = array
-            }
-        }
-    }
-
-    private func updateDesktopNodes(in dictionary: inout [String: Any], choice: [String: Any], now: Date) {
-        if var desktop = dictionary["Desktop"] as? [String: Any] {
-            applyWallpaperChoice(to: &desktop, choice: choice, now: now)
-            dictionary["Desktop"] = desktop
-        }
-
-        for key in Array(dictionary.keys) {
-            if var child = dictionary[key] as? [String: Any] {
-                updateDesktopNodes(in: &child, choice: choice, now: now)
-                dictionary[key] = child
-            } else if var array = dictionary[key] as? [[String: Any]] {
-                for index in array.indices {
-                    updateDesktopNodes(in: &array[index], choice: choice, now: now)
+                writerBox.input.markAsFinished()
+                writerBox.writer.finishWriting {
+                    if writerBox.writer.status == .completed {
+                        continuation.resume()
+                    } else {
+                        continuation.resume(throwing: AerialError.conversionFailed(writerBox.writer.error?.localizedDescription ?? L10n.detail.lockScreenConversionFailed))
+                    }
                 }
-                dictionary[key] = array
             }
         }
     }
 
-    private func applyWallpaperChoice(to node: inout [String: Any], choice: [String: Any], now: Date) {
-        var content = node["Content"] as? [String: Any] ?? [:]
-        content["Choices"] = [choice]
-        node["Content"] = content
-        node["LastSet"] = now
-        node["LastUse"] = now
+    private func draw(_ image: CGImage, into pixelBuffer: CVPixelBuffer, width: Int, height: Int) throws {
+        CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
+        guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer),
+              let context = CGContext(
+                data: baseAddress,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+              ) else {
+            throw AerialError.imageUnavailable
+        }
+        context.setFillColor(NSColor.black.cgColor)
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
     }
 
-    private func imageChoice(for imageURL: URL) throws -> [String: Any] {
-        let configuration = try PropertyListSerialization.data(
-            fromPropertyList: [
-                "type": "imageFile",
-                "url": ["relative": imageURL.absoluteString],
-            ],
-            format: .binary,
-            options: 0
-        )
-        return [
-            "Configuration": configuration,
-            "Files": [],
-            "Provider": "com.apple.wallpaper.choice.image",
-        ]
+    private func installWakeObservers() {
+        let workspaceCenter = NSWorkspace.shared.notificationCenter
+        workspaceCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.reapplyManagedMovieAfterWake() }
+        }
+        workspaceCenter.addObserver(
+            forName: NSWorkspace.sessionDidBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.reapplyManagedMovieAfterWake() }
+        }
     }
 
-    private func applySystemWallpaperPointers(videoURL: URL, thumbnailURL: URL) throws {
-        try writeDefault(
-            domain: "com.apple.wallpaper",
-            key: "SystemWallpaperURL",
-            value: videoURL.absoluteString
-        )
-        try applyStaticLockScreenFallback(imageURL: thumbnailURL)
+    private func reapplyManagedMovieAfterWake() {
+        guard Self.isSupported,
+              let assetIDs = UserDefaults.standard.stringArray(forKey: DefaultsKey.managedAssetIDs),
+              !assetIDs.isEmpty,
+              let paths = try? paths(),
+              fm.fileExists(atPath: paths.currentMovie.path) else { return }
+
+        var replaced = 0
+        for assetID in assetIDs {
+            let destination = paths.videos.appendingPathComponent("\(assetID).mov")
+            guard fm.fileExists(atPath: destination.path) else { continue }
+            do {
+                try replaceFileAtomically(source: paths.currentMovie, destination: destination)
+                replaced += 1
+            } catch {
+                logger.error("failed to reapply managed Aerial \(assetID, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        if replaced > 0 { restartWallpaperProcesses() }
     }
 
-    private func applyStaticLockScreenFallback(imageURL: URL) throws {
-        try writeDefault(
-            domain: "com.apple.loginwindow",
-            key: "DesktopPicture",
-            value: imageURL.path
-        )
-        writeLockScreenCacheImage(imageURL)
-    }
-
-    private func writeDefault(domain: String, key: String, value: String) throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
-        process.arguments = ["write", domain, key, "-string", value]
-        let errorPipe = Pipe()
-        process.standardError = errorPipe
-
-        do {
-            try process.run()
+    private func restartWallpaperProcesses() {
+        for processName in ["WallpaperAgent", "WallpaperAerialsExtension", "legacyScreenSaver", "idleassetsd"] {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
+            process.arguments = [processName]
+            try? process.run()
             process.waitUntilExit()
-            guard process.terminationStatus == 0 else {
-                let data = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                let message = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                logger.error("failed to write default \(domain, privacy: .public).\(key, privacy: .public): \(message, privacy: .public)")
-                throw AerialError.manifestUnavailable
-            }
-        } catch let error as AerialError {
-            throw error
-        } catch {
-            logger.error("failed to write default \(domain, privacy: .public).\(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            throw AerialError.manifestUnavailable
-        }
-    }
-
-    private func writeLockScreenCacheImage(_ imageURL: URL) {
-        guard let userUUID = generatedUserUUID() else {
-            logger.error("failed to resolve GeneratedUID for lock-screen cache")
-            return
-        }
-
-        let directory = URL(fileURLWithPath: "/Library/Caches/Desktop Pictures", isDirectory: true)
-            .appendingPathComponent(userUUID, isDirectory: true)
-        let destination = directory.appendingPathComponent("lockscreen.png")
-
-        do {
-            try fm.createDirectory(at: directory, withIntermediateDirectories: true)
-            if fm.fileExists(atPath: destination.path) {
-                try fm.removeItem(at: destination)
-            }
-            if let image = NSImage(contentsOf: imageURL), try writePNG(image: image, to: destination) {
-                logger.info("updated lock-screen cache image at \(destination.path, privacy: .public)")
-            } else {
-                try fm.copyItem(at: imageURL, to: destination)
-                logger.info("copied lock-screen cache image at \(destination.path, privacy: .public)")
-            }
-            try fm.setAttributes([.posixPermissions: 0o644], ofItemAtPath: destination.path)
-        } catch {
-            logger.error("failed to update lock-screen cache image: \(error.localizedDescription, privacy: .public)")
-        }
-    }
-
-    private func generatedUserUUID() -> String? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/dscl")
-        process.arguments = [".", "-read", "/Users/\(NSUserName())", "GeneratedUID"]
-
-        let outputPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = Pipe()
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else { return nil }
-            let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8) ?? ""
-            return output
-                .split(separator: "\n")
-                .first(where: { $0.contains("GeneratedUID:") })?
-                .split(separator: " ")
-                .last
-                .map(String.init)
-        } catch {
-            logger.error("failed to read GeneratedUID: \(error.localizedDescription, privacy: .public)")
-            return nil
-        }
-    }
-
-    private func restartAerialExtension() throws {
-        let extensionPath = "/System/Library/ExtensionKit/Extensions/WallpaperAerialsExtension.appex/Contents/MacOS/WallpaperAerialsExtension"
-        guard fm.fileExists(atPath: extensionPath) else {
-            throw AerialError.extensionUnavailable
-        }
-
-        let kill = Process()
-        kill.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
-        kill.arguments = ["-f", "WallpaperAerialsExtension"]
-        try? kill.run()
-        kill.waitUntilExit()
-
-        let start = Process()
-        start.executableURL = URL(fileURLWithPath: extensionPath)
-        do {
-            try start.run()
-            logger.info("restarted WallpaperAerialsExtension for lock-screen wallpaper")
-        } catch {
-            logger.error("failed to restart WallpaperAerialsExtension: \(error.localizedDescription, privacy: .public)")
-            throw AerialError.extensionUnavailable
         }
     }
 }

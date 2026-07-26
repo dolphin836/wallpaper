@@ -2007,34 +2007,38 @@ struct DetailPage: View {
             || surfaceUnavailable(selectedWallpaperSurface, detail: d) || !downloadReady(d)
 
         return VStack(alignment: .leading, spacing: 14) {
-            if selectedWallpaperSurface != .lockScreen {
-                VStack(alignment: .leading, spacing: 9) {
-                    HStack(alignment: .center, spacing: 10) {
-                        Text(L10n.detail.wallpaperChooseDisplay)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.88))
-                        Spacer(minLength: 0)
-                        Button {
-                            withAnimation(.easeOut(duration: 0.16)) {
-                                showingWallpaperPicker = false
-                            }
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(Color.white.opacity(0.66))
-                                .frame(width: 24, height: 24)
-                                .background(Circle().fill(Color.white.opacity(0.08)))
+            VStack(alignment: .leading, spacing: 9) {
+                HStack(alignment: .center, spacing: 10) {
+                    Text(L10n.detail.wallpaperChooseDisplay)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(0.88))
+                    Spacer(minLength: 0)
+                    Button {
+                        withAnimation(.easeOut(duration: 0.16)) {
+                            showingWallpaperPicker = false
                         }
-                        .buttonStyle(.plain)
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(Color.white.opacity(0.66))
+                            .frame(width: 24, height: 24)
+                            .background(Circle().fill(Color.white.opacity(0.08)))
                     }
-                    LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: 170, maximum: 260), spacing: 10, alignment: .top)],
-                        alignment: .leading,
-                        spacing: 10
-                    ) {
-                        ForEach(targets) { target in
-                            displayTargetButton(target: target, selected: activeTargetID == target.id)
-                        }
+                    .buttonStyle(.plain)
+                }
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 170, maximum: 260), spacing: 10, alignment: .top)],
+                    alignment: .leading,
+                    spacing: 10
+                ) {
+                    ForEach(targets) { target in
+                        displayTargetButton(
+                            target: target,
+                            selected: selectedWallpaperSurface == .desktop && activeTargetID == target.id
+                        )
+                    }
+                    if AerialLockScreenService.isSupported {
+                        lockScreenTargetButton(selected: selectedWallpaperSurface == .lockScreen)
                     }
                 }
             }
@@ -2267,6 +2271,7 @@ struct DetailPage: View {
     private func displayTargetButton(target: WallpaperDisplayTarget, selected: Bool) -> some View {
         Button {
             selectedDisplayTargetID = target.id
+            selectedWallpaperSurface = .desktop
         } label: {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
@@ -2299,12 +2304,47 @@ struct DetailPage: View {
         .buttonStyle(.plain)
     }
 
+    private func lockScreenTargetButton(selected: Bool) -> some View {
+        Button {
+            selectedWallpaperSurface = .lockScreen
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(selected ? Color.accent : Color.white.opacity(0.62))
+                    if selected {
+                        Spacer(minLength: 0)
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.accent)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(L10n.detail.wallpaperSurfaceLockScreen)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(0.92))
+                        .lineLimit(1)
+                    Text(L10n.detail.wallpaperLockScreenDetail)
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.white.opacity(0.54))
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 74, alignment: .leading)
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(selected ? Color.accent.opacity(0.20) : Color.white.opacity(0.08)))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(selected ? Color.accent.opacity(0.70) : Color.white.opacity(0.12), lineWidth: selected ? 1.4 : 1))
+        }
+        .buttonStyle(.plain)
+    }
+
     private func surfaceUnavailable(_ surface: WallpaperApplySurface, detail d: WallpaperDetail) -> Bool {
         switch surface {
         case .desktop:
             return false
         case .lockScreen, .both:
-            return true
+            return !AerialLockScreenService.isSupported
         }
     }
 

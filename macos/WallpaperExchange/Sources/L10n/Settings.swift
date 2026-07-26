@@ -35,6 +35,14 @@ struct SettingsStrings {
     let clearDownloadsConfirmTitle: String
     let clearDownloadsDelete: (String) -> String
     let clearDownloadsConfirmMessage: String
+    let lockScreenBackup: String
+    let lockScreenBackupDetail: String
+    let lockScreenRestore: String
+    let lockScreenRestoreConfirmTitle: String
+    let lockScreenRestoreConfirmMessage: String
+    let lockScreenRestoreSucceeded: String
+    let lockScreenRestoreUnavailable: String
+    let lockScreenRestoreFailed: (String) -> String
 
     // About
     let about: String
@@ -85,6 +93,14 @@ private let settingsEN = SettingsStrings(
     clearDownloadsConfirmTitle: "Clear all downloaded wallpapers?",
     clearDownloadsDelete: { "Delete \($0)" },
     clearDownloadsConfirmMessage: "Removes every wallpaper file from the local downloads folder. Your download history stays on the server and files can be re-downloaded.",
+    lockScreenBackup: "Apple lock screen",
+    lockScreenBackupDetail: "Restore the original Apple Aerial files backed up before custom lock screens were applied.",
+    lockScreenRestore: "Restore original",
+    lockScreenRestoreConfirmTitle: "Restore the original Apple lock screen?",
+    lockScreenRestoreConfirmMessage: "This removes the custom lock screen and restores every Apple Aerial file changed by Wallpaper Exchange.",
+    lockScreenRestoreSucceeded: "The original Apple lock screen has been restored.",
+    lockScreenRestoreUnavailable: "No Apple lock screen backup is available.",
+    lockScreenRestoreFailed: { "Could not restore the Apple lock screen: \($0)" },
     about: "About",
     version: { "Version \($0)" },
     checkForUpdates: "Check for updates",
@@ -129,6 +145,14 @@ private let settingsZhCN = SettingsStrings(
     clearDownloadsConfirmTitle: "清除所有已下载壁纸？",
     clearDownloadsDelete: { "删除 \($0)" },
     clearDownloadsConfirmMessage: "会移除本地下载目录中的所有壁纸文件。你的下载记录会保留在服务器上，之后仍可重新下载。",
+    lockScreenBackup: "Apple 锁屏",
+    lockScreenBackupDetail: "恢复设置自定义锁屏前备份的 Apple 航拍原始文件。",
+    lockScreenRestore: "恢复原始锁屏",
+    lockScreenRestoreConfirmTitle: "恢复 Apple 原始锁屏？",
+    lockScreenRestoreConfirmMessage: "会移除自定义锁屏，并恢复 Wallpaper Exchange 修改过的所有 Apple 航拍文件。",
+    lockScreenRestoreSucceeded: "已恢复 Apple 原始锁屏。",
+    lockScreenRestoreUnavailable: "当前没有可恢复的 Apple 锁屏备份。",
+    lockScreenRestoreFailed: { "恢复 Apple 锁屏失败：\($0)" },
     about: "关于",
     version: { "版本 \($0)" },
     checkForUpdates: "检查更新",
@@ -173,6 +197,14 @@ private let settingsZhTW = SettingsStrings(
     clearDownloadsConfirmTitle: "清除所有已下載桌布？",
     clearDownloadsDelete: { "刪除 \($0)" },
     clearDownloadsConfirmMessage: "會移除本機下載資料夾中的所有桌布檔案。你的下載記錄會保留在伺服器上，之後仍可重新下載。",
+    lockScreenBackup: "Apple 鎖定畫面",
+    lockScreenBackupDetail: "還原套用自訂鎖定畫面前備份的 Apple 空拍原始檔案。",
+    lockScreenRestore: "還原原始鎖定畫面",
+    lockScreenRestoreConfirmTitle: "還原 Apple 原始鎖定畫面？",
+    lockScreenRestoreConfirmMessage: "會移除自訂鎖定畫面，並還原 Wallpaper Exchange 修改過的所有 Apple 空拍檔案。",
+    lockScreenRestoreSucceeded: "已還原 Apple 原始鎖定畫面。",
+    lockScreenRestoreUnavailable: "目前沒有可還原的 Apple 鎖定畫面備份。",
+    lockScreenRestoreFailed: { "還原 Apple 鎖定畫面失敗：\($0)" },
     about: "關於",
     version: { "版本 \($0)" },
     checkForUpdates: "檢查更新",
@@ -217,6 +249,14 @@ private let settingsJA = SettingsStrings(
     clearDownloadsConfirmTitle: "ダウンロード済み壁紙をすべて削除しますか？",
     clearDownloadsDelete: { "\($0) を削除" },
     clearDownloadsConfirmMessage: "ローカルのダウンロードフォルダ内にある壁紙ファイルをすべて削除します。ダウンロード履歴はサーバーに残り、後で再ダウンロードできます。",
+    lockScreenBackup: "Apple ロック画面",
+    lockScreenBackupDetail: "カスタムロック画面の適用前にバックアップした Apple Aerial の元ファイルを復元します。",
+    lockScreenRestore: "元に戻す",
+    lockScreenRestoreConfirmTitle: "Apple の元のロック画面を復元しますか？",
+    lockScreenRestoreConfirmMessage: "カスタムロック画面を削除し、Wallpaper Exchange が変更したすべての Apple Aerial ファイルを復元します。",
+    lockScreenRestoreSucceeded: "Apple の元のロック画面を復元しました。",
+    lockScreenRestoreUnavailable: "復元できる Apple ロック画面のバックアップがありません。",
+    lockScreenRestoreFailed: { "Apple ロック画面を復元できませんでした：\($0)" },
     about: "情報",
     version: { "バージョン \($0)" },
     checkForUpdates: "アップデートを確認",

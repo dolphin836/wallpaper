@@ -107,6 +107,9 @@ final class WallpaperManager {
         // by re-running setDesktopImageURL on every screen as soon as
         // the topology stabilizes.
         installScreenChangeObservers()
+        if AerialLockScreenService.isSupported {
+            _ = AerialLockScreenService.shared
+        }
     }
 
     // WallpaperManager is a singleton with process-lifetime — deinit
@@ -727,16 +730,19 @@ final class WallpaperManager {
     }
 
     func setAsWallpaper(_ wallpaper: Wallpaper, target: WallpaperDisplayTarget, surface: WallpaperApplySurface) async throws {
-        guard surface != .lockScreen else {
-            throw WallpaperError.lockScreenUnavailable
-        }
-
         if Self.isVideo(wallpaper) {
             let videoURL = try await ensureLocalVideo(wallpaper)
             let poster = try? await ensureVideoPoster(wallpaper)
 
             if surface == .desktop || surface == .both {
                 applyVideoDesktopWallpaper(wallpaper, videoURL: videoURL, poster: poster, target: target)
+            }
+            if surface == .lockScreen || surface == .both {
+                try await AerialLockScreenService.shared.apply(
+                    wallpaper: wallpaper,
+                    sourceURL: videoURL,
+                    sourceIsVideo: true
+                )
             }
             return
         }
@@ -756,6 +762,13 @@ final class WallpaperManager {
                 source: "manual-set id=\(wallpaper.id)",
                 screens: targetScreens,
                 markAsCurrent: target.isAll
+            )
+        }
+        if surface == .lockScreen || surface == .both {
+            try await AerialLockScreenService.shared.apply(
+                wallpaper: wallpaper,
+                sourceURL: url,
+                sourceIsVideo: false
             )
         }
 

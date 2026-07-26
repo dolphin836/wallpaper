@@ -12,6 +12,9 @@ struct AccountSettingsTab: View {
     @AppStorage(AppearancePref.storageKey) private var appearanceRaw: String = AppearancePref.system.rawValue
     @AppStorage(LanguagePref.storageKey) private var languageRaw: String = LanguagePref.system.rawValue
     @State private var showClearConfirm = false
+    @State private var showLockScreenRestoreConfirm = false
+    @State private var lockScreenRestoreNotice: String?
+    @State private var lockScreenRestoreFailed = false
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
@@ -101,12 +104,49 @@ struct AccountSettingsTab: View {
                 Button(L10n.settings.clearDownloads, role: .destructive) { showClearConfirm = true }
                     .disabled(manager.totalLocalBytes == 0)
             }
+            if AerialLockScreenService.isSupported {
+                Divider().background(Color.hair)
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.settings.lockScreenBackup).font(.system(size: 13)).foregroundStyle(Color.ink)
+                        Text(L10n.settings.lockScreenBackupDetail)
+                            .font(.system(size: 11)).foregroundStyle(Color.muted)
+                    }
+                    Spacer()
+                    Button(L10n.settings.lockScreenRestore) {
+                        showLockScreenRestoreConfirm = true
+                    }
+                    .disabled(!AerialLockScreenService.shared.canRestoreOriginals)
+                }
+                if let lockScreenRestoreNotice {
+                    Text(lockScreenRestoreNotice)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(lockScreenRestoreFailed ? Color.red.opacity(0.82) : Color.green.opacity(0.82))
+                }
+            }
         }
         .confirmationDialog(L10n.settings.clearDownloadsConfirmTitle, isPresented: $showClearConfirm, titleVisibility: .visible) {
             Button(L10n.settings.clearDownloadsDelete(localSizeText), role: .destructive) { manager.clearDownloads() }
             Button(L10n.common.cancel, role: .cancel) {}
         } message: {
             Text(L10n.settings.clearDownloadsConfirmMessage)
+        }
+        .confirmationDialog(L10n.settings.lockScreenRestoreConfirmTitle, isPresented: $showLockScreenRestoreConfirm, titleVisibility: .visible) {
+            Button(L10n.settings.lockScreenRestore) { restoreOriginalLockScreen() }
+            Button(L10n.common.cancel, role: .cancel) {}
+        } message: {
+            Text(L10n.settings.lockScreenRestoreConfirmMessage)
+        }
+    }
+
+    private func restoreOriginalLockScreen() {
+        do {
+            try AerialLockScreenService.shared.restoreOriginals()
+            lockScreenRestoreFailed = false
+            lockScreenRestoreNotice = L10n.settings.lockScreenRestoreSucceeded
+        } catch {
+            lockScreenRestoreFailed = true
+            lockScreenRestoreNotice = L10n.settings.lockScreenRestoreFailed(error.localizedDescription)
         }
     }
 
