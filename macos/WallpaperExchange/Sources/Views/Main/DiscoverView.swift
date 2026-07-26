@@ -10,14 +10,10 @@ import SwiftUI
 //
 // The single FilterMode fully specifies what is fetched and how it is
 // sorted (no separate sort toggle), matching the web: Latest, Trending,
-// For You (signed-in only), My Device, Live, AI Generated.
+// For You (signed-in only), Live, AI Generated.
 struct DiscoverView: View {
     let search: String
     var onPick: WallpaperSelectionHandler
-    /// When true (used by the legacy device-match sidebar entry) the
-    /// initial filter is forced to .myDevice. Discover itself starts on
-    /// Latest.
-    var deviceMatch: Bool = false
     /// Set when arriving from a Home "browse more" CTA (e.g. Live / AI).
     var initialFilter: Filter? = nil
 
@@ -29,6 +25,7 @@ struct DiscoverView: View {
     @State private var loadError: String?
     @State private var filter: Filter = .latest
     @State private var resolutionFilter = ""
+    @State private var currentScreenResolution = DiscoverView.currentScreenResolutionOption()
     @State private var colorFilter = ""
     @State private var sizeMode: SizeMode = .lg
     // The wallpaper currently shown on the device mockup. Driven by
@@ -54,7 +51,6 @@ struct DiscoverView: View {
         case latest = "Latest"
         case trending = "Trending"
         case forYou = "For You"
-        case myDevice = "My Device"
         case live = "Live"
         case ai = "AI Generated"
 
@@ -65,7 +61,6 @@ struct DiscoverView: View {
             case .latest: L10n.browse.filterLatest
             case .trending: L10n.browse.filterTrending
             case .forYou: L10n.browse.filterForYou
-            case .myDevice: L10n.browse.filterMyDevice
             case .live: L10n.browse.filterLive
             case .ai: L10n.browse.filterAI
             }
@@ -99,6 +94,21 @@ struct DiscoverView: View {
     }
 
     private static let resolutionOptions = ["720P", "1080P", "2K", "4K", "8K"]
+
+    private static func currentScreenResolutionOption() -> String? {
+        guard let screen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens.first else {
+            return nil
+        }
+        let longEdge = max(screen.frame.width, screen.frame.height) * screen.backingScaleFactor
+        switch Int(longEdge.rounded()) {
+        case 7680...: return "8K"
+        case 3840..<7680: return "4K"
+        case 2560..<3840: return "2K"
+        case 1920..<2560: return "1080P"
+        case 1280..<1920: return "720P"
+        default: return nil
+        }
+    }
     private static let colorPresets = [
         ColorPreset(value: "red", swatch: "#ef4444"),
         ColorPreset(value: "orange", swatch: "#f97316"),
@@ -119,8 +129,8 @@ struct DiscoverView: View {
     // falls back to Latest.
     private var availableFilters: [Filter] {
         auth.isLoggedIn
-            ? [.latest, .trending, .forYou, .myDevice, .live, .ai]
-            : [.latest, .trending, .myDevice, .live, .ai]
+            ? [.latest, .trending, .forYou, .live, .ai]
+            : [.latest, .trending, .live, .ai]
     }
 
     private var featuredWallpaper: Wallpaper? {
@@ -170,7 +180,6 @@ struct DiscoverView: View {
         }
         .task(id: "discover-init") {
             if let initialFilter { filter = initialFilter }
-            else if deviceMatch { filter = .myDevice }
             if categories.isEmpty {
                 if let list = try? await APIClient.shared.fetchCategories() {
                     categories = list.sorted { ($0.sortOrder ?? 0) < ($1.sortOrder ?? 0) }
@@ -183,6 +192,12 @@ struct DiscoverView: View {
         .onChange(of: selectedCategoryID) { _, _ in Task { await reload() } }
         .onChange(of: resolutionFilter) { _, _ in Task { await reload() } }
         .onChange(of: colorFilter) { _, _ in Task { await reload() } }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didChangeScreenNotification)) { _ in
+            currentScreenResolution = Self.currentScreenResolutionOption()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
+            currentScreenResolution = Self.currentScreenResolutionOption()
+        }
     }
 
     private var discoverHeader: some View {
@@ -371,7 +386,9 @@ struct DiscoverView: View {
             Divider()
             ForEach(Self.resolutionOptions, id: \.self) { resolution in
                 facetMenuButton(
-                    label: resolution,
+                    label: resolution == currentScreenResolution
+                        ? "\(resolution) · \(L10n.browse.currentScreen)"
+                        : resolution,
                     selected: resolutionFilter == resolution,
                     action: { resolutionFilter = resolution }
                 )
@@ -529,7 +546,6 @@ struct DiscoverView: View {
                 search: search.isEmpty ? nil : search,
                 categoryID: selectedCategoryID,
                 sort: filter == .trending ? "trending" : nil,
-                deviceMatch: filter == .myDevice,
                 resolution: resolutionFilter.isEmpty ? nil : resolutionFilter,
                 color: colorFilter.isEmpty ? nil : colorFilter,
                 // Discover mirrors the web: Latest / Trending / Search /

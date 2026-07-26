@@ -12,12 +12,12 @@ struct BrowseStrings {
     let filterLatest: String
     let filterTrending: String
     let filterForYou: String
-    let filterMyDevice: String
     let filterLive: String
     let filterAI: String
     let chipAll: String
     let filterKicker: String
     let resolutionKicker: String
+    let currentScreen: String
     let colorKicker: String
     let facetAll: String
     let colorName: (String) -> String
@@ -109,12 +109,12 @@ private let browseEN = BrowseStrings(
     filterLatest: "Latest",
     filterTrending: "Trending",
     filterForYou: "For You",
-    filterMyDevice: "My Device",
     filterLive: "Live",
     filterAI: "AI Generated",
     chipAll: "All",
     filterKicker: "FILTER",
     resolutionKicker: "RESOLUTION",
+    currentScreen: "Current screen",
     colorKicker: "COLOR",
     facetAll: "All",
     colorName: {
@@ -195,12 +195,12 @@ private let browseZhCN = BrowseStrings(
     filterLatest: "最新",
     filterTrending: "热门",
     filterForYou: "为你推荐",
-    filterMyDevice: "我的设备",
     filterLive: "动态",
     filterAI: "AI 生成",
     chipAll: "全部",
     filterKicker: "筛选",
     resolutionKicker: "分辨率",
+    currentScreen: "当前屏幕",
     colorKicker: "颜色",
     facetAll: "全部",
     colorName: {
@@ -292,12 +292,12 @@ private let browseZhTW = BrowseStrings(
     filterLatest: "最新",
     filterTrending: "熱門",
     filterForYou: "為你推薦",
-    filterMyDevice: "我的裝置",
     filterLive: "動態",
     filterAI: "AI 生成",
     chipAll: "全部",
     filterKicker: "篩選",
     resolutionKicker: "解析度",
+    currentScreen: "目前螢幕",
     colorKicker: "顏色",
     facetAll: "全部",
     colorName: {
@@ -389,12 +389,12 @@ private let browseJA = BrowseStrings(
     filterLatest: "新着",
     filterTrending: "人気",
     filterForYou: "おすすめ",
-    filterMyDevice: "マイデバイス",
     filterLive: "ライブ",
     filterAI: "AI生成",
     chipAll: "すべて",
     filterKicker: "フィルター",
     resolutionKicker: "解像度",
+    currentScreen: "現在の画面",
     colorKicker: "カラー",
     facetAll: "すべて",
     colorName: {

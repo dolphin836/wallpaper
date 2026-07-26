@@ -18,14 +18,6 @@ import PageMeta from '../components/PageMeta';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 
-function getScreenResolution() {
-  const dpr = window.devicePixelRatio || 1;
-  return {
-    width: Math.round(window.screen.width * dpr),
-    height: Math.round(window.screen.height * dpr),
-  };
-}
-
 // Cols per breakpoint [<640, 640+, 768+, 1024+]. Sized to land roughly at
 // the same visual density as the matching Justified row height — Grid LG
 // used to read as Justified MD because [2,2,3,4] put 4 tiles across a
@@ -61,11 +53,9 @@ function calculatePageSize(sizeMode: SizeMode, screens = 5): number {
   return Math.max(40, Math.min(100, count));
 }
 
-const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent);
-
 // Single discovery filter. Each option fully specifies *what* gets fetched
 // and *how* it's sorted — there is no separate sort toggle.
-type FilterMode = 'latest' | 'trending' | 'for_you' | 'my_device' | 'live' | 'ai';
+type FilterMode = 'latest' | 'trending' | 'for_you' | 'live' | 'ai';
 
 // Visible labels live in the `browse` namespace; this maps each mode
 // (the API-facing value, untranslated) onto its translation key.
@@ -73,12 +63,23 @@ const FILTER_LABEL_KEYS: Record<FilterMode, string> = {
   latest:    'discover.filterLatest',
   trending:  'discover.filterTrending',
   for_you:   'discover.filterForYou',
-  my_device: 'discover.filterMyDevice',
   live:      'discover.filterLive',
   ai:        'discover.filterAi',
 };
 
 const DEFAULT_RESOLUTION_OPTIONS = ['720P', '1080P', '2K', '4K', '8K'];
+
+function getCurrentScreenResolutionOption(): string | undefined {
+  const dpr = window.devicePixelRatio || 1;
+  const longEdge = Math.round(Math.max(window.screen.width, window.screen.height) * dpr);
+  if (longEdge >= 7680) return '8K';
+  if (longEdge >= 3840) return '4K';
+  if (longEdge >= 2560) return '2K';
+  if (longEdge >= 1920) return '1080P';
+  if (longEdge >= 1280) return '720P';
+  return undefined;
+}
+
 const COLOR_PRESETS = [
   { value: 'red', swatch: '#ef4444', labelKey: 'discover.colorRed' },
   { value: 'orange', swatch: '#f97316', labelKey: 'discover.colorOrange' },
@@ -239,8 +240,8 @@ function FilterDropdown(p: FilterDropdownProps) {
   // so the dropdown doesn't surface an option that immediately falls
   // back to Latest.
   const options: FilterMode[] = p.isAuthenticated
-    ? ['latest', 'trending', 'for_you', 'my_device', 'live', 'ai']
-    : ['latest', 'trending', 'my_device', 'live', 'ai'];
+    ? ['latest', 'trending', 'for_you', 'live', 'ai']
+    : ['latest', 'trending', 'live', 'ai'];
 
   return (
     <div className="relative">
@@ -271,6 +272,7 @@ interface FacetOption {
   value: string;
   label: string;
   swatch?: string;
+  annotation?: string;
 }
 
 interface FacetDropdownProps {
@@ -338,6 +340,11 @@ function FacetDropdown(p: FacetDropdownProps) {
                 />
               )}
               <span>{option.label}</span>
+              {option.annotation && (
+                <span className="ml-auto text-[10px] font-normal text-muted whitespace-nowrap">
+                  {option.annotation}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -420,8 +427,8 @@ export default function DiscoverPage() {
   const [cursor, setCursor] = useState<number | undefined>();
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
-  // Unified filter mode replaces the four separate toggles (feed,
-  // device, mac, sort). Each option fully describes both the data
+  // Unified filter mode replaces the separate feed, media, and sort
+  // toggles. Each option fully describes both the data
   // source and the sort order — see fetchWallpapers below for the
   // mapping to backend params.
   // URL ?filter=<mode> is honored once on mount so deep-links from
@@ -430,7 +437,7 @@ export default function DiscoverPage() {
   // owns the live state from there on.
   const [filterMode, setFilterMode] = useState<FilterMode>(() => {
     const raw = new URLSearchParams(window.location.search).get('filter');
-    const allowed: FilterMode[] = ['latest', 'trending', 'for_you', 'my_device', 'live', 'ai'];
+    const allowed: FilterMode[] = ['latest', 'trending', 'for_you', 'live', 'ai'];
     return (allowed as string[]).includes(raw || '') ? (raw as FilterMode) : 'latest';
   });
   const [filterOpen, setFilterOpen] = useState(false);
@@ -441,6 +448,9 @@ export default function DiscoverPage() {
   const [colorOpen, setColorOpen] = useState(false);
   const resolutionRef = useRef<HTMLDivElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
+  const [currentScreenResolution, setCurrentScreenResolution] = useState(
+    getCurrentScreenResolutionOption,
+  );
   const [loadError, setLoadError] = useState(false);
   // URL is the source of truth for the category filter — `/` means "All",
   // `/category/:slug` pins to that category. Chip clicks navigate; the
@@ -470,7 +480,14 @@ export default function DiscoverPage() {
   });
   const sizeModeRef = useRef(sizeMode);
 
-  const screen = useMemo(() => getScreenResolution(), []);
+  const resolutionOptions = useMemo<FacetOption[]>(
+    () => DEFAULT_RESOLUTION_OPTIONS.map((value) => ({
+      value,
+      label: value,
+      annotation: value === currentScreenResolution ? t('discover.currentScreen') : undefined,
+    })),
+    [currentScreenResolution, t],
+  );
   const colorOptions = useMemo<FacetOption[]>(
     () => COLOR_PRESETS.map((preset) => ({
       value: preset.value,
@@ -485,6 +502,25 @@ export default function DiscoverPage() {
   // Synthetic fallback from window.screen ensures device is never
   // null after first render, so we always run the floating wall.
   const { device: currentDevice } = useCurrentDevice();
+
+  useEffect(() => {
+    let densityQuery: MediaQueryList | undefined;
+    const update = () => {
+      setCurrentScreenResolution(getCurrentScreenResolutionOption());
+      densityQuery?.removeEventListener('change', update);
+      densityQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+      densityQuery.addEventListener('change', update);
+    };
+
+    update();
+    window.addEventListener('resize', update);
+    window.screen.orientation?.addEventListener('change', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.screen.orientation?.removeEventListener('change', update);
+      densityQuery?.removeEventListener('change', update);
+    };
+  }, []);
 
   const handleSizeChange = (size: SizeMode) => {
     sizeModeRef.current = size;
@@ -535,11 +571,6 @@ export default function DiscoverPage() {
       switch (filterMode) {
         case 'trending':
           params.sort = 'trending';
-          break;
-        case 'my_device':
-          params.device_width = screen.width;
-          params.device_height = screen.height;
-          if (isMac) params.include_dynamic = true;
           break;
         case 'live':
           // Live = Mac dynamic (is_dynamic) ∪ video. Backend's dynamic_only
@@ -592,7 +623,7 @@ export default function DiscoverPage() {
       else setLoadingMore(false);
       busyRef.current = false;
     }
-  }, [screen, filterMode, categoryFilter, resolutionFilter, colorFilter, t]);
+  }, [filterMode, categoryFilter, resolutionFilter, colorFilter, t]);
 
   // Holds latest fetchWallpapers so the (stable) sentinel ref-callback always calls the latest closure.
   const fetchWallpapersRef = useRef(fetchWallpapers);
@@ -736,7 +767,7 @@ export default function DiscoverPage() {
                 label={t('discover.resolutionKicker')}
                 allLabel={t('discover.allResolutions')}
                 value={resolutionFilter}
-                options={DEFAULT_RESOLUTION_OPTIONS.map((value) => ({ value, label: value }))}
+                options={resolutionOptions}
                 open={resolutionOpen}
                 setOpen={(open) => {
                   setResolutionOpen(open);
