@@ -26,6 +26,7 @@ final class AerialLockScreenService {
         case imageUnavailable
         case exportUnavailable
         case conversionFailed(String)
+        case reloadFailed
         case restoreUnavailable
 
         var errorDescription: String? {
@@ -46,6 +47,8 @@ final class AerialLockScreenService {
                 return L10n.detail.lockScreenConversionUnavailable
             case .conversionFailed(let message):
                 return message.isEmpty ? L10n.detail.lockScreenConversionFailed : message
+            case .reloadFailed:
+                return L10n.detail.lockScreenReloadFailed
             case .restoreUnavailable:
                 return L10n.settings.lockScreenRestoreUnavailable
             }
@@ -81,14 +84,22 @@ final class AerialLockScreenService {
 
     private struct Paths {
         let videos: URL
+        let manifest: URL
         let storeIndex: URL
         let workingRoot: URL
         let backups: URL
         let currentMovie: URL
+        let indexRepairBackup: URL
+    }
+
+    private struct AerialProcessSnapshot {
+        var processIDs: Set<Int> = []
+        var assetIDs: Set<String> = []
     }
 
     private enum DefaultsKey {
         static let managedAssetIDs = "wallpaper.lockScreen.managedAssetIDs"
+        static let legacyAssetIDPrefix = "wallpaper.lockScreenAerialID."
     }
 
     private let logger = Logger(subsystem: "com.wallpaperexchange.mac", category: "aerial-lock-screen")
@@ -110,7 +121,8 @@ final class AerialLockScreenService {
 
         let paths = try paths()
         try ensureWorkingDirectories(paths)
-        let assetIDs = try activeLockScreenAerialAssetIDs(from: paths.storeIndex)
+        let previousSnapshot = runningAerialSnapshot(paths: paths)
+        let assetIDs = try activeLockScreenAerialAssetIDs(paths: paths, processSnapshot: previousSnapshot)
         guard !assetIDs.isEmpty else { throw AerialError.noAerialSelected }
 
         let destinations = try assetIDs.map { assetID -> URL in
@@ -150,6 +162,11 @@ final class AerialLockScreenService {
 
         UserDefaults.standard.set(assetIDs, forKey: DefaultsKey.managedAssetIDs)
         restartWallpaperProcesses()
+        try await waitForAerialReload(
+            assetIDs: Set(assetIDs),
+            previousProcessIDs: previousSnapshot.processIDs,
+            paths: paths
+        )
         logger.notice("applied lock-screen wallpaper id=\(wallpaper.id, privacy: .public) to \(assetIDs.count, privacy: .public) Aerial asset(s)")
     }
 
@@ -187,15 +204,19 @@ final class AerialLockScreenService {
         let workingRoot = appSupport.appendingPathComponent("WallpaperExchange/LockScreen", isDirectory: true)
         return Paths(
             videos: systemRoot.appendingPathComponent("aerials/videos", isDirectory: true),
+            manifest: systemRoot.appendingPathComponent("aerials/manifest/entries.json"),
             storeIndex: systemRoot.appendingPathComponent("Store/Index.plist"),
             workingRoot: workingRoot,
             backups: workingRoot.appendingPathComponent("Backups", isDirectory: true),
-            currentMovie: workingRoot.appendingPathComponent("Current.mov")
+            currentMovie: workingRoot.appendingPathComponent("Current.mov"),
+            indexRepairBackup: workingRoot.appendingPathComponent("Index-before-legacy-repair.plist")
         )
     }
 
     private func ensureWorkingDirectories(_ paths: Paths) throws {
-        guard fm.fileExists(atPath: paths.storeIndex.path), fm.fileExists(atPath: paths.videos.path) else {
+        guard fm.fileExists(atPath: paths.storeIndex.path),
+              fm.fileExists(atPath: paths.manifest.path),
+              fm.fileExists(atPath: paths.videos.path) else {
             throw AerialError.storeUnavailable
         }
         try fm.createDirectory(at: paths.backups, withIntermediateDirectories: true)
@@ -230,19 +251,68 @@ final class AerialLockScreenService {
         }
     }
 
-    private func activeLockScreenAerialAssetIDs(from indexURL: URL) throws -> [String] {
+    private func activeLockScreenAerialAssetIDs(
+        paths: Paths,
+        processSnapshot: AerialProcessSnapshot
+    ) throws -> [String] {
+        let manifestIDs = try manifestAssetIDs(from: paths.manifest)
+        guard !manifestIDs.isEmpty else { throw AerialError.storeUnavailable }
+
+        let indexIDs = try aerialAssetIDs(from: paths.storeIndex, sectionName: "Idle")
+        let validIndexIDs = Set(indexIDs.filter {
+            manifestIDs.contains($0) && fm.fileExists(atPath: paths.videos.appendingPathComponent("\($0).mov").path)
+        })
+        let runningIDs = Set(processSnapshot.assetIDs.filter {
+            manifestIDs.contains($0) && fm.fileExists(atPath: paths.videos.appendingPathComponent("\($0).mov").path)
+        })
+
+        // A valid Idle choice remains the safest source because the Aerial
+        // extension can also have a desktop preview open. If the running
+        // extension confirms one of those IDs, prefer the confirmed subset.
+        if !validIndexIDs.isEmpty {
+            let confirmed = validIndexIDs.intersection(runningIDs)
+            return (confirmed.isEmpty ? validIndexIDs : confirmed).sorted()
+        }
+
+        // Builds before 2.1.3 generated synthetic asset IDs and rewrote every
+        // Idle node. Those IDs survive in Index.plist after Apple refreshes its
+        // manifest, so replacing their files reports success while the system
+        // continues rendering a different, real Aerial. Only repair this known
+        // legacy state when the extension exposes one unambiguous real asset.
+        if isLegacySyntheticSelection(indexIDs), runningIDs.count == 1, let actualID = runningIDs.first {
+            try repairLegacyAerialSelection(assetID: actualID, paths: paths)
+            return [actualID]
+        }
+
+        // Some clean macOS installations expose the selected Aerial only via a
+        // Linked node. It is still required to be a real Apple manifest entry.
+        let linkedIDs = Set(try aerialAssetIDs(from: paths.storeIndex, sectionName: "Linked").filter {
+            manifestIDs.contains($0) && fm.fileExists(atPath: paths.videos.appendingPathComponent("\($0).mov").path)
+        })
+        if !linkedIDs.isEmpty { return linkedIDs.sorted() }
+        throw AerialError.noAerialSelected
+    }
+
+    private func manifestAssetIDs(from manifestURL: URL) throws -> Set<String> {
+        let data = try Data(contentsOf: manifestURL)
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let assets = root["assets"] as? [[String: Any]] else {
+            throw AerialError.storeUnavailable
+        }
+        return Set(assets.compactMap { asset in
+            guard let id = asset["id"] as? String, isSafeAssetID(id) else { return nil }
+            return id
+        })
+    }
+
+    private func aerialAssetIDs(from indexURL: URL, sectionName: String) throws -> Set<String> {
         guard fm.fileExists(atPath: indexURL.path) else { throw AerialError.storeUnavailable }
         let data = try Data(contentsOf: indexURL)
         let root = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
 
-        var idleIDs = Set<String>()
-        collectAerialAssetIDs(in: root, sectionName: "Idle", output: &idleIDs)
-        if !idleIDs.isEmpty { return idleIDs.sorted() }
-
-        // Some macOS 26 builds store the screen-saver choice in a Linked node.
-        var linkedIDs = Set<String>()
-        collectAerialAssetIDs(in: root, sectionName: "Linked", output: &linkedIDs)
-        return linkedIDs.sorted()
+        var ids = Set<String>()
+        collectAerialAssetIDs(in: root, sectionName: sectionName, output: &ids)
+        return ids
     }
 
     private func collectAerialAssetIDs(in node: Any, sectionName: String, output: inout Set<String>) {
@@ -306,6 +376,189 @@ final class AerialLockScreenService {
             }
         }
         return nil
+    }
+
+    private func isLegacySyntheticSelection(_ assetIDs: Set<String>) -> Bool {
+        guard !assetIDs.isEmpty else { return false }
+        let legacyIDs = Set(UserDefaults.standard.dictionaryRepresentation().compactMap { key, value -> String? in
+            guard key.hasPrefix(DefaultsKey.legacyAssetIDPrefix), let value = value as? String else { return nil }
+            return value
+        })
+        return !legacyIDs.isEmpty && assetIDs.isSubset(of: legacyIDs)
+    }
+
+    private func repairLegacyAerialSelection(assetID: String, paths: Paths) throws {
+        let originalData = try Data(contentsOf: paths.storeIndex)
+        guard var root = try PropertyListSerialization.propertyList(
+            from: originalData,
+            options: [],
+            format: nil
+        ) as? [String: Any] else {
+            throw AerialError.storeUnavailable
+        }
+
+        let repairedIdleNodes = replaceAerialAssetIDs(in: &root, sectionName: "Idle", assetID: assetID)
+        let repairedLinkedNodes = replaceAerialAssetIDs(in: &root, sectionName: "Linked", assetID: assetID)
+        guard repairedIdleNodes + repairedLinkedNodes > 0 else { throw AerialError.noAerialSelected }
+
+        if !fm.fileExists(atPath: paths.indexRepairBackup.path) {
+            try originalData.write(to: paths.indexRepairBackup, options: .atomic)
+        }
+        let repairedData = try PropertyListSerialization.data(fromPropertyList: root, format: .binary, options: 0)
+        do {
+            try repairedData.write(to: paths.storeIndex, options: .atomic)
+        } catch {
+            try? originalData.write(to: paths.storeIndex, options: .atomic)
+            throw error
+        }
+
+        updateSystemWallpaperPointer(assetID: assetID, paths: paths)
+        clearLegacyAssetIDDefaults()
+        logger.notice("repaired legacy synthetic Aerial selection with real asset \(assetID, privacy: .public)")
+    }
+
+    private func replaceAerialAssetIDs(
+        in dictionary: inout [String: Any],
+        sectionName: String,
+        assetID: String
+    ) -> Int {
+        var replacements = 0
+        for key in Array(dictionary.keys) {
+            if key.caseInsensitiveCompare(sectionName) == .orderedSame,
+               var section = dictionary[key] as? [String: Any] {
+                replacements += replaceAerialChoices(in: &section, assetID: assetID)
+                dictionary[key] = section
+            }
+
+            if var child = dictionary[key] as? [String: Any] {
+                replacements += replaceAerialAssetIDs(in: &child, sectionName: sectionName, assetID: assetID)
+                dictionary[key] = child
+            } else if var children = dictionary[key] as? [[String: Any]] {
+                for index in children.indices {
+                    replacements += replaceAerialAssetIDs(
+                        in: &children[index],
+                        sectionName: sectionName,
+                        assetID: assetID
+                    )
+                }
+                dictionary[key] = children
+            }
+        }
+        return replacements
+    }
+
+    private func replaceAerialChoices(in dictionary: inout [String: Any], assetID: String) -> Int {
+        var replacements = 0
+        if dictionary["Provider"] as? String == "com.apple.wallpaper.choice.aerials",
+           let configuration = dictionary["Configuration"] as? Data,
+           var decoded = try? PropertyListSerialization.propertyList(
+            from: configuration,
+            options: [],
+            format: nil
+           ) as? [String: Any] {
+            decoded["assetID"] = assetID
+            if let data = try? PropertyListSerialization.data(
+                fromPropertyList: decoded,
+                format: .binary,
+                options: 0
+            ) {
+                dictionary["Configuration"] = data
+                replacements += 1
+            }
+        }
+
+        for key in Array(dictionary.keys) {
+            if var child = dictionary[key] as? [String: Any] {
+                replacements += replaceAerialChoices(in: &child, assetID: assetID)
+                dictionary[key] = child
+            } else if var children = dictionary[key] as? [[String: Any]] {
+                for index in children.indices {
+                    replacements += replaceAerialChoices(in: &children[index], assetID: assetID)
+                }
+                dictionary[key] = children
+            }
+        }
+        return replacements
+    }
+
+    private func updateSystemWallpaperPointer(assetID: String, paths: Paths) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
+        process.arguments = [
+            "write",
+            "com.apple.wallpaper",
+            "SystemWallpaperURL",
+            paths.videos.appendingPathComponent("\(assetID).mov").absoluteString,
+        ]
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            logger.error("failed to repair SystemWallpaperURL: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func clearLegacyAssetIDDefaults() {
+        for key in UserDefaults.standard.dictionaryRepresentation().keys
+        where key.hasPrefix(DefaultsKey.legacyAssetIDPrefix) {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+    }
+
+    private func runningAerialSnapshot(paths: Paths) -> AerialProcessSnapshot {
+        let executable = URL(fileURLWithPath: "/usr/sbin/lsof")
+        guard fm.isExecutableFile(atPath: executable.path) else { return AerialProcessSnapshot() }
+
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = executable
+        process.arguments = ["-n", "-Fpn", "-c", "WallpaperAerialsExtension"]
+        process.standardOutput = output
+        process.standardError = Pipe()
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            logger.error("failed to inspect running Aerial extension: \(error.localizedDescription, privacy: .public)")
+            return AerialProcessSnapshot()
+        }
+
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        guard let text = String(data: data, encoding: .utf8) else { return AerialProcessSnapshot() }
+        var snapshot = AerialProcessSnapshot()
+        let videosPath = paths.videos.standardizedFileURL.path
+        for line in text.split(separator: "\n") {
+            guard let prefix = line.first else { continue }
+            let value = String(line.dropFirst())
+            if prefix == "p", let pid = Int(value) {
+                snapshot.processIDs.insert(pid)
+            } else if prefix == "n" {
+                let normalizedPath = value.replacingOccurrences(of: " (deleted)", with: "")
+                let url = URL(fileURLWithPath: normalizedPath).standardizedFileURL
+                guard url.deletingLastPathComponent().path == videosPath,
+                      url.pathExtension.lowercased() == "mov" else { continue }
+                let assetID = url.deletingPathExtension().lastPathComponent
+                if isSafeAssetID(assetID) { snapshot.assetIDs.insert(assetID) }
+            }
+        }
+        return snapshot
+    }
+
+    private func waitForAerialReload(
+        assetIDs: Set<String>,
+        previousProcessIDs: Set<Int>,
+        paths: Paths
+    ) async throws {
+        for _ in 0..<32 {
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            let snapshot = runningAerialSnapshot(paths: paths)
+            let loadedTarget = !snapshot.assetIDs.intersection(assetIDs).isEmpty
+            let relaunched = previousProcessIDs.isEmpty || !snapshot.processIDs.isSubset(of: previousProcessIDs)
+            if loadedTarget && relaunched { return }
+        }
+        throw AerialError.reloadFailed
     }
 
     private func exportVideo(source: URL, destination: URL) async throws {
@@ -492,10 +745,15 @@ final class AerialLockScreenService {
     }
 
     private func restartWallpaperProcesses() {
-        for processName in ["WallpaperAgent", "WallpaperAerialsExtension", "legacyScreenSaver", "idleassetsd"] {
+        // Stop the renderer first, then its owners. Killing WallpaperAgent
+        // before the extension lets launchd create a new renderer that the next
+        // kill immediately tears down again, which made the first apply flaky.
+        for processName in ["WallpaperAerialsExtension", "legacyScreenSaver", "WallpaperAgent", "idleassetsd"] {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
             process.arguments = [processName]
+            process.standardOutput = Pipe()
+            process.standardError = Pipe()
             try? process.run()
             process.waitUntilExit()
         }
