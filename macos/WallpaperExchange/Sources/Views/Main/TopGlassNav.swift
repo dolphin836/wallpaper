@@ -16,7 +16,7 @@ struct GlassChromeBar: View {
     // and stretches between nav segments like a bead of water.
     @Namespace private var dropletNS
 
-    private static let navItems: [MainWindow.SidebarItem] = [.home, .discover, .weekly, .collections]
+    private static let navItems: [MainWindow.SidebarItem] = [.home, .discover, .weekly, .collections, .generative]
 
     var body: some View {
         GlassPill {

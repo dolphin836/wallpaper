@@ -49,3 +49,4 @@ specific UX request for vibes-based queries.
 
 - Support applying wallpapers to the Lock Screen.
 - Support dynamic particle-effect wallpapers.
+  - Phase 1 implemented on `codex/generative-wallpapers`: Metal-rendered Starfield, Rain, Campfire, and Fireflies presets with live catalogue/detail previews, display targeting, background persistence, and relaunch restoration.

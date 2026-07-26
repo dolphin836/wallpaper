@@ -20,6 +20,7 @@ struct MainWindow: View {
     // push. The overlay now fills the window visually so list scroll
     // position stays intact while the detail feels immersive.
     @State private var detailTarget: DetailTarget?
+    @State private var generativeDetailTarget: GenerativePreset?
     @State private var forwardPath: [MainRoute] = []
     @State private var isRestoringForward = false
     @State private var isFullScreen = false
@@ -27,7 +28,7 @@ struct MainWindow: View {
 
     enum SidebarItem: String, CaseIterable, Hashable {
         // Browse section.
-        case home, discover, weekly, collections
+        case home, discover, weekly, collections, generative
         // My Library section (signed-in only).
         case myUploads, myCollections, myDownloads, myFavorites, myLikes, myCoins
         // Toolbar-only destinations.
@@ -39,6 +40,7 @@ struct MainWindow: View {
             case .discover:      L10n.shell.discover
             case .weekly:        L10n.shell.weekly
             case .collections:   L10n.shell.collections
+            case .generative:    L10n.shell.generative
             case .myUploads:     L10n.shell.myUploads
             case .myCollections: L10n.shell.myCollections
             case .myDownloads:   L10n.shell.myDownloads
@@ -55,6 +57,7 @@ struct MainWindow: View {
             case .discover:      "sparkles"
             case .weekly:        "calendar.badge.clock"
             case .collections:   "rectangle.stack"
+            case .generative:    "circle.hexagongrid"
             case .myUploads:     "tray.and.arrow.up"
             case .myCollections: "rectangle.stack.badge.person.crop"
             case .myDownloads:   "arrow.down.circle"
@@ -127,6 +130,17 @@ struct MainWindow: View {
                 .zIndex(10)
             }
 
+            if let preset = generativeDetailTarget {
+                GenerativeDetailModalOverlay(
+                    preset: preset,
+                    isFullScreen: isFullScreen,
+                    onClose: { generativeDetailTarget = nil },
+                    onSelect: { generativeDetailTarget = $0 }
+                )
+                .transition(.opacity)
+                .zIndex(10)
+            }
+
             if let flow = auth.authFlow {
                 AuthModalOverlay(mode: flow)
                     .id(flow.id)
@@ -145,6 +159,7 @@ struct MainWindow: View {
         // window presentation. refreshProfile then runs with the token in
         // place (and again on every remount, e.g. a language change).
         .task {
+            GenerativeWallpaperController.shared.restoreActiveIfNeeded()
             await auth.loadPersistedToken()
             await auth.refreshProfile()
         }
@@ -234,7 +249,7 @@ struct MainWindow: View {
     // upload / settings selections leave the pill unhighlighted.
     private var navSelection: SidebarItem? {
         switch sidebar {
-        case .home, .discover, .weekly, .collections: sidebar
+        case .home, .discover, .weekly, .collections, .generative: sidebar
         default: nil
         }
     }
@@ -307,7 +322,8 @@ struct MainWindow: View {
                 onCancelUpload: { sidebar = auth.isLoggedIn ? .myUploads : .home },
                 onOpenDiscover: { f in pendingDiscoverFilter = f; sidebar = .discover },
                 onOpenCollections: { sidebar = .collections },
-                onOpenWeeklyArchive: { sidebar = .weekly }
+                onOpenWeeklyArchive: { sidebar = .weekly },
+                onOpenGenerative: { generativeDetailTarget = $0 }
             )
         }
     }
@@ -568,6 +584,7 @@ struct ContentRouter: View {
     var onOpenDiscover: (DiscoverView.Filter) -> Void = { _ in }
     var onOpenCollections: () -> Void = {}
     var onOpenWeeklyArchive: () -> Void = {}
+    var onOpenGenerative: (GenerativePreset) -> Void = { _ in }
 
     var body: some View {
         switch sidebar {
@@ -579,6 +596,7 @@ struct ContentRouter: View {
         case .discover:      DiscoverView(search: search, onPick: onPick, initialFilter: discoverInitialFilter)
         case .weekly:        WeeklyArchiveView(onOpenWeek: onWeeklyWeek, onPick: onPick)
         case .collections:   CollectionsListView(onCollection: onCollection)
+        case .generative:    GenerativeWallpapersView(onOpen: onOpenGenerative)
         case .myUploads:     account(.uploads)
         case .myCollections: account(.collections)
         case .myDownloads:   account(.downloads)
@@ -715,6 +733,42 @@ struct DetailModalOverlay: View {
             )
                 .id(target.id)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Button(action: onClose) {
+                Color.clear.frame(width: 1, height: 1)
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.cancelAction)
+            .accessibilityHidden(true)
+        }
+    }
+}
+
+struct GenerativeDetailModalOverlay: View {
+    let preset: GenerativePreset
+    let isFullScreen: Bool
+    let onClose: () -> Void
+    let onSelect: (GenerativePreset) -> Void
+
+    var body: some View {
+        ZStack {
+            WindowTrafficLightVisibility(hidden: true)
+                .frame(width: 0, height: 0)
+
+            Rectangle()
+                .fill(Color.black.opacity(0.66))
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture { onClose() }
+
+            GenerativeDetailPage(
+                preset: preset,
+                isWindowFullScreen: isFullScreen,
+                onClose: onClose,
+                onSelect: onSelect
+            )
+            .id(preset.id)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             Button(action: onClose) {
                 Color.clear.frame(width: 1, height: 1)

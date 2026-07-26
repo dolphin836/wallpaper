@@ -501,6 +501,7 @@ final class WallpaperManager {
         markAsCurrent: Bool = true
     ) {
         let targetScreens = screens ?? Self.connectedScreens()
+        GenerativeWallpaperController.shared.stop(screens: targetScreens)
         if Self.isVideoFileURL(url) {
             logger.info("applying video wallpaper from \(source, privacy: .public): id=\(id, privacy: .public)")
             VideoWallpaperController.shared.start(videoURL: url, wallpaperID: id, screens: targetScreens)
@@ -776,6 +777,7 @@ final class WallpaperManager {
 
     private func applyVideoDesktopWallpaper(_ wallpaper: Wallpaper, videoURL: URL, poster: URL?, target: WallpaperDisplayTarget) {
         let targetScreens = screens(for: target)
+        GenerativeWallpaperController.shared.stop(screens: targetScreens)
         if let poster {
             applyToScreens(
                 url: poster,
@@ -797,6 +799,12 @@ final class WallpaperManager {
         currentWallpaperID = id
         currentWallpaperScreenKeys = screens.map { Set($0.compactMap(Self.screenKey)) }
         UserDefaults.standard.set(id, forKey: currentWallpaperIDDefaultsKey)
+    }
+
+    func clearCurrentWallpaperSelection() {
+        currentWallpaperID = nil
+        currentWallpaperScreenKeys = nil
+        UserDefaults.standard.removeObject(forKey: currentWallpaperIDDefaultsKey)
     }
 
     func deleteLocal(_ wallpaperID: Int) {

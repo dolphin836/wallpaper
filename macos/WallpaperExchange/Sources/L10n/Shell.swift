@@ -12,6 +12,7 @@ struct ShellStrings {
     let discover: String
     let weekly: String
     let collections: String
+    let generative: String
     let myUploads: String
     let myCollections: String
     let myDownloads: String
@@ -62,6 +63,7 @@ private let shellEN = ShellStrings(
     discover: "Discover",
     weekly: "Weekly",
     collections: "Collections",
+    generative: "Generative",
     myUploads: "My Uploads",
     myCollections: "My Collections",
     myDownloads: "My Downloads",
@@ -102,6 +104,7 @@ private let shellZhCN = ShellStrings(
     discover: "发现",
     weekly: "每周精选",
     collections: "合集",
+    generative: "生成",
     myUploads: "我的上传",
     myCollections: "我的合集",
     myDownloads: "我的下载",
@@ -142,6 +145,7 @@ private let shellZhTW = ShellStrings(
     discover: "探索",
     weekly: "每週精選",
     collections: "合輯",
+    generative: "生成",
     myUploads: "我的上傳",
     myCollections: "我的合輯",
     myDownloads: "我的下載",
@@ -182,6 +186,7 @@ private let shellJA = ShellStrings(
     discover: "発見",
     weekly: "ウィークリー",
     collections: "コレクション",
+    generative: "生成",
     myUploads: "マイアップロード",
     myCollections: "マイコレクション",
     myDownloads: "マイダウンロード",
