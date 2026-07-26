@@ -1,5 +1,6 @@
 import AppKit
 import AVFoundation
+import CoreFoundation
 import CoreVideo
 import Foundation
 import os.log
@@ -26,6 +27,7 @@ final class AerialLockScreenService {
         case imageUnavailable
         case exportUnavailable
         case conversionFailed(String)
+        case screenSaverConfigurationFailed
         case reloadFailed
         case restoreUnavailable
 
@@ -47,6 +49,8 @@ final class AerialLockScreenService {
                 return L10n.detail.lockScreenConversionUnavailable
             case .conversionFailed(let message):
                 return message.isEmpty ? L10n.detail.lockScreenConversionFailed : message
+            case .screenSaverConfigurationFailed:
+                return L10n.detail.lockScreenScreenSaverFailed
             case .reloadFailed:
                 return L10n.detail.lockScreenReloadFailed
             case .restoreUnavailable:
@@ -100,6 +104,14 @@ final class AerialLockScreenService {
     private enum DefaultsKey {
         static let managedAssetIDs = "wallpaper.lockScreen.managedAssetIDs"
         static let legacyAssetIDPrefix = "wallpaper.lockScreenAerialID."
+        static let screenSaverBackupCaptured = "wallpaper.lockScreen.screenSaverBackupCaptured"
+        static let previousScreenSaverModule = "wallpaper.lockScreen.previousScreenSaverModule"
+    }
+
+    private enum ScreenSaverPreference {
+        static let applicationID = "com.apple.screensaver"
+        static let moduleKey = "moduleDict"
+        static let aerialsExtensionPath = "/System/Library/ExtensionKit/Extensions/WallpaperAerialsExtension.appex"
     }
 
     private let logger = Logger(subsystem: "com.wallpaperexchange.mac", category: "aerial-lock-screen")
@@ -110,8 +122,10 @@ final class AerialLockScreenService {
     }
 
     var canRestoreOriginals: Bool {
-        guard Self.isSupported, let paths = try? paths() else { return false }
-        return !(backupURLs(in: paths.backups).isEmpty)
+        guard Self.isSupported else { return false }
+        if UserDefaults.standard.bool(forKey: DefaultsKey.screenSaverBackupCaptured) { return true }
+        guard let paths = try? paths() else { return false }
+        return !backupURLs(in: paths.backups).isEmpty
     }
 
     /// Converts the selected wallpaper into an Aerial-compatible movie, backs
@@ -144,6 +158,7 @@ final class AerialLockScreenService {
             try await makeStillMovie(source: sourceURL, destination: prepared)
         }
 
+        try configureScreenSaverForAerials()
         try replaceFileAtomically(source: prepared, destination: paths.currentMovie)
         var replacedAssets: [(assetID: String, destination: URL)] = []
         do {
@@ -176,7 +191,8 @@ final class AerialLockScreenService {
         guard Self.isSupported else { throw AerialError.unsupported }
         let paths = try paths()
         let backups = backupURLs(in: paths.backups)
-        guard !backups.isEmpty else { throw AerialError.restoreUnavailable }
+        let hasScreenSaverBackup = UserDefaults.standard.bool(forKey: DefaultsKey.screenSaverBackupCaptured)
+        guard !backups.isEmpty || hasScreenSaverBackup else { throw AerialError.restoreUnavailable }
 
         for backup in backups {
             let assetID = backup.deletingPathExtension().lastPathComponent
@@ -187,6 +203,8 @@ final class AerialLockScreenService {
             try replaceFileAtomically(source: backup, destination: destination)
         }
 
+        try restoreScreenSaverModuleIfNeeded()
+
         for backup in backups {
             try? fm.removeItem(at: backup)
         }
@@ -194,6 +212,95 @@ final class AerialLockScreenService {
         UserDefaults.standard.removeObject(forKey: DefaultsKey.managedAssetIDs)
         restartWallpaperProcesses()
         logger.notice("restored \(backups.count, privacy: .public) original Aerial asset(s)")
+    }
+
+    /// The lock screen initially displays a still wallpaper. Motion starts in
+    /// the screen-saver phase, which must be backed by Apple's Aerial extension.
+    /// Preserve the user's previous module once so Settings can restore it.
+    private func configureScreenSaverForAerials() throws {
+        let defaults = UserDefaults.standard
+        let current = currentScreenSaverModule()
+        let capturedNow = !defaults.bool(forKey: DefaultsKey.screenSaverBackupCaptured)
+        if capturedNow {
+            if let current {
+                defaults.set(current, forKey: DefaultsKey.previousScreenSaverModule)
+            } else {
+                defaults.removeObject(forKey: DefaultsKey.previousScreenSaverModule)
+            }
+            defaults.set(true, forKey: DefaultsKey.screenSaverBackupCaptured)
+        }
+
+        if current?["path"] as? String == ScreenSaverPreference.aerialsExtensionPath { return }
+
+        let aerialsModule: [String: Any] = [
+            "moduleName": "WallpaperAerialsExtension",
+            "path": ScreenSaverPreference.aerialsExtensionPath,
+            "type": 0,
+        ]
+        setCurrentScreenSaverModule(aerialsModule)
+        guard synchronizeScreenSaverPreferences(),
+              currentScreenSaverModule()?["path"] as? String == ScreenSaverPreference.aerialsExtensionPath else {
+            setCurrentScreenSaverModule(current)
+            _ = synchronizeScreenSaverPreferences()
+            if capturedNow {
+                defaults.removeObject(forKey: DefaultsKey.previousScreenSaverModule)
+                defaults.removeObject(forKey: DefaultsKey.screenSaverBackupCaptured)
+            }
+            throw AerialError.screenSaverConfigurationFailed
+        }
+        logger.notice("configured the lock-screen screen saver to use WallpaperAerialsExtension")
+    }
+
+    private func restoreScreenSaverModuleIfNeeded() throws {
+        let defaults = UserDefaults.standard
+        guard defaults.bool(forKey: DefaultsKey.screenSaverBackupCaptured) else { return }
+
+        let previous = defaults.dictionary(forKey: DefaultsKey.previousScreenSaverModule)
+        setCurrentScreenSaverModule(previous)
+        guard synchronizeScreenSaverPreferences(), screenSaverModulesMatch(currentScreenSaverModule(), previous) else {
+            throw AerialError.screenSaverConfigurationFailed
+        }
+        defaults.removeObject(forKey: DefaultsKey.previousScreenSaverModule)
+        defaults.removeObject(forKey: DefaultsKey.screenSaverBackupCaptured)
+        logger.notice("restored the previous lock-screen screen saver module")
+    }
+
+    private func currentScreenSaverModule() -> [String: Any]? {
+        CFPreferencesCopyValue(
+            ScreenSaverPreference.moduleKey as CFString,
+            ScreenSaverPreference.applicationID as CFString,
+            kCFPreferencesCurrentUser,
+            kCFPreferencesCurrentHost
+        ) as? [String: Any]
+    }
+
+    private func setCurrentScreenSaverModule(_ module: [String: Any]?) {
+        CFPreferencesSetValue(
+            ScreenSaverPreference.moduleKey as CFString,
+            module as CFDictionary?,
+            ScreenSaverPreference.applicationID as CFString,
+            kCFPreferencesCurrentUser,
+            kCFPreferencesCurrentHost
+        )
+    }
+
+    private func synchronizeScreenSaverPreferences() -> Bool {
+        CFPreferencesSynchronize(
+            ScreenSaverPreference.applicationID as CFString,
+            kCFPreferencesCurrentUser,
+            kCFPreferencesCurrentHost
+        )
+    }
+
+    private func screenSaverModulesMatch(_ lhs: [String: Any]?, _ rhs: [String: Any]?) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil):
+            return true
+        case let (lhs?, rhs?):
+            return NSDictionary(dictionary: lhs).isEqual(to: rhs)
+        default:
+            return false
+        }
     }
 
     private func paths() throws -> Paths {

@@ -111,6 +111,7 @@ struct DetailStrings {
     let lockScreenImageUnavailable: String
     let lockScreenConversionUnavailable: String
     let lockScreenConversionFailed: String
+    let lockScreenScreenSaverFailed: String
     let lockScreenReloadFailed: String
     let lockScreenThumbnailFailed: String
     let lockScreenManifestFailed: String
@@ -217,6 +218,7 @@ private let detailEN = DetailStrings(
     lockScreenImageUnavailable: "This image cannot be prepared as a lock screen wallpaper.",
     lockScreenConversionUnavailable: "This video cannot be converted for lock screen wallpaper.",
     lockScreenConversionFailed: "Failed to convert this video for lock screen wallpaper.",
+    lockScreenScreenSaverFailed: "Failed to configure Apple Aerial as the lock screen screen saver.",
     lockScreenReloadFailed: "macOS did not reload the new lock screen wallpaper. Try again after opening the screen saver once.",
     lockScreenThumbnailFailed: "Failed to prepare the lock screen thumbnail.",
     lockScreenManifestFailed: "Failed to update the macOS lock screen wallpaper manifest.",
@@ -319,6 +321,7 @@ private let detailZhCN = DetailStrings(
     lockScreenImageUnavailable: "无法将这张图片处理为锁屏壁纸。",
     lockScreenConversionUnavailable: "这个视频无法转换成锁屏壁纸格式。",
     lockScreenConversionFailed: "转换锁屏壁纸视频失败。",
+    lockScreenScreenSaverFailed: "无法将锁屏屏幕保护程序配置为 Apple 航拍。",
     lockScreenReloadFailed: "macOS 没有重新加载新的锁屏壁纸，请先打开一次屏幕保护程序后重试。",
     lockScreenThumbnailFailed: "准备锁屏缩略图失败。",
     lockScreenManifestFailed: "更新 macOS 锁屏壁纸清单失败。",
@@ -421,6 +424,7 @@ private let detailZhTW = DetailStrings(
     lockScreenImageUnavailable: "無法將這張圖片處理為鎖定畫面桌布。",
     lockScreenConversionUnavailable: "此影片無法轉換為鎖定畫面桌布格式。",
     lockScreenConversionFailed: "轉換鎖定畫面桌布影片失敗。",
+    lockScreenScreenSaverFailed: "無法將鎖定畫面螢幕保護程式設定為 Apple 空拍。",
     lockScreenReloadFailed: "macOS 沒有重新載入新的鎖定畫面桌布，請先開啟一次螢幕保護程式後再試。",
     lockScreenThumbnailFailed: "準備鎖定畫面縮圖失敗。",
     lockScreenManifestFailed: "更新 macOS 鎖定畫面桌布清單失敗。",
@@ -523,6 +527,7 @@ private let detailJA = DetailStrings(
     lockScreenImageUnavailable: "この画像をロック画面壁紙として準備できません。",
     lockScreenConversionUnavailable: "このビデオはロック画面壁紙形式に変換できません。",
     lockScreenConversionFailed: "ロック画面壁紙用ビデオの変換に失敗しました。",
+    lockScreenScreenSaverFailed: "ロック画面のスクリーンセーバを Apple Aerial に設定できませんでした。",
     lockScreenReloadFailed: "macOS が新しいロック画面壁紙を再読み込みできませんでした。スクリーンセーバを一度開いてから再試行してください。",
     lockScreenThumbnailFailed: "ロック画面サムネイルの準備に失敗しました。",
     lockScreenManifestFailed: "macOS ロック画面壁紙マニフェストの更新に失敗しました。",
