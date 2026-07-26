@@ -10,6 +10,24 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.1.3] - 2026-07-26
+
+### Added
+
+- **Lock Screen wallpaper targets on macOS 26.** Still images and animated
+  videos can be applied to the Lock Screen independently from connected
+  displays; choosing All applies every display plus the Lock Screen.
+
+### Changed
+
+- **Animated Lock Screen playback resets after unlock while the client is
+  running.** Videos are converted to the Aerial-compatible format and the next
+  lock starts from the beginning without replacing the desktop selection.
+- **Profile tab counts reserve their space while loading,** so labels no longer
+  shift as totals arrive.
+- **The latest Weekly Picks thumbnails now wrap to the available width**
+  instead of overflowing the window.
+
 ## [2.1.2] - 2026-07-26
 
 ### Added

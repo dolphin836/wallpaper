@@ -4,10 +4,10 @@ import {
   AiOutlineApple,
   AiOutlineCloudDownload,
   AiOutlineDownload,
+  AiOutlineLock,
   AiOutlineMobile,
   AiOutlineQrcode,
   AiOutlineSafetyCertificate,
-  AiOutlineSync,
 } from "react-icons/ai";
 import { FiChrome } from "react-icons/fi";
 import { Link } from "react-router-dom";
@@ -20,9 +20,7 @@ import { track } from "../lib/track";
 const DEFAULT_MACOS_VERSION = "14.0";
 const CHROME_WEB_STORE_URL =
   "https://chromewebstore.google.com/detail/wallpaper-exchange-new-ta/ekphhfbnkncfgapidbghnahmogmhkdhk";
-const CLIENT_KEYS = ["mac", "android", "chrome", "ios"] as const;
-
-type ClientKey = (typeof CLIENT_KEYS)[number];
+type ClientKey = "mac" | "android" | "chrome" | "ios";
 type DownloadTarget = "mac" | "android" | "chrome";
 type DownloadArtifact = "dmg" | "apk" | "zip" | "web_store";
 type DownloadSurface = "client_card" | "release_panel";
@@ -94,7 +92,6 @@ export default function DownloadMacPage() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
 
     Promise.allSettled([getMacRelease(), getAndroidRelease(), getChromeRelease()])
       .then(([macResult, androidResult, chromeResult]) => {
@@ -277,7 +274,7 @@ export default function DownloadMacPage() {
 
               <div className="mt-9 grid max-w-2xl gap-4 sm:grid-cols-3">
                 <QuickPoint icon={<AiOutlineCloudDownload />} label={t("quick.directLabel")} text={t("quick.directText")} />
-                <QuickPoint icon={<AiOutlineSync />} label={t("quick.updateLabel")} text={t("quick.updateText")} />
+                <QuickPoint icon={<AiOutlineLock />} label={t("quick.lockLabel")} text={t("quick.lockText")} />
                 <QuickPoint icon={<AiOutlineSafetyCertificate />} label={t("quick.accountLabel")} text={t("quick.accountText")} />
               </div>
             </div>

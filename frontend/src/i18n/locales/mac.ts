@@ -3,7 +3,7 @@
 const en = {
   meta: {
     title: 'Download Clients',
-    description: 'Download Wallpaper Exchange clients for macOS, Android, and Chrome, with iOS coming soon.',
+    description: 'Download Wallpaper Exchange clients for macOS, Android, and Chrome. The Mac client supports desktop and Lock Screen wallpapers on macOS 26.',
   },
   hero: {
     label: 'Wallpaper Exchange',
@@ -26,8 +26,8 @@ const en = {
   quick: {
     directLabel: 'Direct downloads',
     directText: 'The latest DMG, APK, and Chrome ZIP are hosted by the website.',
-    updateLabel: 'Manifest driven',
-    updateText: 'Clients can check the release API for future updates.',
+    lockLabel: 'Desktop + Lock Screen',
+    lockText: 'On macOS 26, set stills or animated videos on individual displays, the Lock Screen, or both.',
     accountLabel: 'Same account',
     accountText: 'Your uploads, favorites, downloads, and coins stay connected.',
   },
@@ -42,7 +42,7 @@ const en = {
     mac: {
       eyebrow: 'macOS',
       title: 'Mac client',
-      text: 'A quiet desktop client for browsing, downloading originals, and setting wallpapers from your Wallpaper Exchange library.',
+      text: 'Browse and download originals, set each display independently, and on macOS 26 apply still or animated wallpapers to the Lock Screen.',
     },
     android: {
       eyebrow: 'Android APK',
@@ -108,7 +108,7 @@ const en = {
 const zhCN: typeof en = {
   meta: {
     title: '下载客户端',
-    description: '下载 Wallpaper Exchange 的 Mac、安卓和 Chrome 客户端，iOS 入口即将开放。',
+    description: '下载 Wallpaper Exchange 的 Mac、安卓和 Chrome 客户端；Mac 客户端在 macOS 26 上支持桌面与锁屏壁纸。',
   },
   hero: {
     label: 'Wallpaper Exchange',
@@ -131,8 +131,8 @@ const zhCN: typeof en = {
   quick: {
     directLabel: '官网下载',
     directText: '最新 DMG、APK 和 Chrome ZIP 都由官网静态资源提供。',
-    updateLabel: 'Manifest 驱动',
-    updateText: '客户端后续可以通过 release API 检查更新。',
+    lockLabel: '桌面与锁屏',
+    lockText: '在 macOS 26 上，可将静态图片或动态视频分别设置到显示器、锁屏或全部位置。',
     accountLabel: '同一个账号',
     accountText: '上传、收藏、下载和金币都会保持同步。',
   },
@@ -147,7 +147,7 @@ const zhCN: typeof en = {
     mac: {
       eyebrow: 'macOS',
       title: 'Mac 客户端',
-      text: '适合桌面使用的客户端，可以浏览、下载原图，并从 Wallpaper Exchange 资料库设置壁纸。',
+      text: '浏览并下载原图，可分别设置每块显示器；在 macOS 26 上还支持将静态图片或动态视频设置为锁屏壁纸。',
     },
     android: {
       eyebrow: '安卓 APK',
@@ -213,7 +213,7 @@ const zhCN: typeof en = {
 const zhTW: typeof en = {
   meta: {
     title: '下載客戶端',
-    description: '下載 Wallpaper Exchange 的 Mac、Android 和 Chrome 客戶端，iOS 入口即將開放。',
+    description: '下載 Wallpaper Exchange 的 Mac、Android 和 Chrome 客戶端；Mac 客戶端在 macOS 26 上支援桌面與鎖定畫面桌布。',
   },
   hero: {
     label: 'Wallpaper Exchange',
@@ -236,8 +236,8 @@ const zhTW: typeof en = {
   quick: {
     directLabel: '官網下載',
     directText: '最新 DMG、APK 和 Chrome ZIP 都由官網靜態資源提供。',
-    updateLabel: 'Manifest 驅動',
-    updateText: '客戶端後續可以透過 release API 檢查更新。',
+    lockLabel: '桌面與鎖定畫面',
+    lockText: '在 macOS 26 上，可將靜態圖片或動態影片分別設定到顯示器、鎖定畫面或全部位置。',
     accountLabel: '同一個帳號',
     accountText: '上傳、收藏、下載和金幣都會保持同步。',
   },
@@ -252,7 +252,7 @@ const zhTW: typeof en = {
     mac: {
       eyebrow: 'macOS',
       title: 'Mac 客戶端',
-      text: '適合桌面使用的客戶端，可以瀏覽、下載原始圖，並從 Wallpaper Exchange 資料庫設定桌布。',
+      text: '瀏覽並下載原始圖，可分別設定每個顯示器；在 macOS 26 上還支援將靜態圖片或動態影片設為鎖定畫面桌布。',
     },
     android: {
       eyebrow: 'Android APK',
@@ -318,7 +318,7 @@ const zhTW: typeof en = {
 const ja: typeof en = {
   meta: {
     title: 'クライアントをダウンロード',
-    description: 'Wallpaper Exchange の Mac / Android / Chrome クライアントをダウンロード。iOS も近日対応予定です。',
+    description: 'Wallpaper Exchange の Mac / Android / Chrome クライアントをダウンロード。Mac 版は macOS 26 でデスクトップとロック画面の壁紙に対応します。',
   },
   hero: {
     label: 'Wallpaper Exchange',
@@ -341,8 +341,8 @@ const ja: typeof en = {
   quick: {
     directLabel: '公式ダウンロード',
     directText: '最新の DMG、APK、Chrome ZIP は公式サイトで配信します。',
-    updateLabel: 'Manifest 管理',
-    updateText: 'クライアントは release API から更新情報を確認できます。',
+    lockLabel: 'デスクトップ + ロック画面',
+    lockText: 'macOS 26 では、静止画や動画をディスプレイ別、ロック画面、または両方に設定できます。',
     accountLabel: '同じアカウント',
     accountText: 'アップロード、お気に入り、ダウンロード、コインは同期されます。',
   },
@@ -357,7 +357,7 @@ const ja: typeof en = {
     mac: {
       eyebrow: 'macOS',
       title: 'Mac クライアント',
-      text: 'デスクトップ向けのクライアントです。ブラウズ、オリジナルのダウンロード、Wallpaper Exchange ライブラリからの壁紙設定に使えます。',
+      text: 'オリジナルを閲覧・ダウンロードし、ディスプレイごとに設定できます。macOS 26 では静止画や動画をロック画面にも設定できます。',
     },
     android: {
       eyebrow: 'Android APK',
