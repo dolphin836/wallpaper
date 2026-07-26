@@ -10,7 +10,7 @@ import SwiftUI
 // open the wallpaper detail directly.
 struct WeeklyArchiveView: View {
     var onOpenWeek: (Int, Int) -> Void
-    var onPick: (Wallpaper) -> Void = { _ in }
+    var onPick: WallpaperSelectionHandler = { _, _ in }
 
     @State private var entries: [WeeklyArchiveEntry] = []
     @State private var loading = false
@@ -178,7 +178,7 @@ struct WeeklyArchiveView: View {
     }
 
     private func stripThumb(_ p: WeeklyPicked) -> some View {
-        Button(action: { onPick(p.asWallpaper()) }) {
+        Button(action: { onPick(p.asWallpaper(), latestPicks.map { $0.asWallpaper() }) }) {
             CachedAsyncImage(url: cleanURL(p.thumbURL), maxPixelDimension: 400) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
@@ -363,13 +363,14 @@ extension WeeklyPicked {
 struct WeeklyWeekView: View {
     let year: Int
     let week: Int
-    var onWallpaper: (Wallpaper) -> Void
+    var onWallpaper: WallpaperSelectionHandler
 
     @State private var picks: [WeeklyPicked] = []
     @State private var loading = false
     @State private var loadError: String?
 
     private var hero: WeeklyPicked? { picks.first(where: { $0.isHero }) ?? picks.first }
+    private var navigationItems: [Wallpaper] { picks.map(asWallpaper) }
     private var gridColumns: [GridItem] {
         [GridItem(.adaptive(minimum: 190, maximum: 280), spacing: 16, alignment: .top)]
     }
@@ -394,7 +395,7 @@ struct WeeklyWeekView: View {
                     if let h = hero { heroCard(h).padding(.top, 28) }
                     LazyVGrid(columns: gridColumns, spacing: 16) {
                         ForEach(picks) { p in
-                            Button(action: { onWallpaper(asWallpaper(p)) }) {
+                            Button(action: { onWallpaper(asWallpaper(p), navigationItems) }) {
                                 MainGridTile(wallpaper: asWallpaper(p), aspectRatio: 4.0 / 5.0)
                             }
                             .buttonStyle(.plain)
@@ -427,7 +428,7 @@ struct WeeklyWeekView: View {
     // Masthead hero — the issue's hero pick, 16:9, with a curation
     // overlay + trade CTA (mirrors the web/home hero card).
     private func heroCard(_ h: WeeklyPicked) -> some View {
-        Button(action: { onWallpaper(asWallpaper(h)) }) {
+        Button(action: { onWallpaper(asWallpaper(h), navigationItems) }) {
             Color.clear
                 .aspectRatio(16.0 / 9.0, contentMode: .fit)
                 .overlay {

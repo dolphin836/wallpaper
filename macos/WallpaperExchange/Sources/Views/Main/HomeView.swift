@@ -9,7 +9,7 @@ import SwiftUI
 //   • One content row: this week's picks, on home-only landscape cards
 //     (golden ratio) with generous spacing.
 struct HomeView: View {
-    var onPick: (Wallpaper) -> Void
+    var onPick: WallpaperSelectionHandler
     var onOpenWeek: (Int, Int) -> Void
     // Retained for the ContentRouter call site; the home page currently
     // surfaces only the weekly slate.
@@ -66,13 +66,14 @@ struct HomeView: View {
 
     private func weeklySection(availableWidth: CGFloat) -> some View {
         let picks = weekly?.picks ?? []
+        let navigationItems = picks.map(weeklyToWallpaper)
         return VStack(alignment: .leading, spacing: 28) {
             weeklyTitle
             if !picks.isEmpty {
                 LazyVGrid(columns: gridCols, spacing: 28) {
                     ForEach(picks) { p in
                         let wp = weeklyToWallpaper(p)
-                        Button(action: { onPick(wp) }) {
+                        Button(action: { onPick(wp, navigationItems) }) {
                             HomeWeeklyCard(wallpaper: wp)
                         }
                         .buttonStyle(.plain)

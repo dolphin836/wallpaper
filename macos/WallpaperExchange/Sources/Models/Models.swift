@@ -119,6 +119,11 @@ struct Wallpaper: Decodable, Identifiable {
     }
 }
 
+/// A wallpaper selection carries the visible source list into detail so
+/// previous/next navigation can switch immediately from the list snapshot
+/// while the richer detail request is still in flight.
+typealias WallpaperSelectionHandler = (_ wallpaper: Wallpaper, _ navigationItems: [Wallpaper]) -> Void
+
 struct CoinsResponse: Decodable {
     let coins: Int
 }

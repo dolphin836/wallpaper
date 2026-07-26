@@ -17,6 +17,10 @@ struct BrowseStrings {
     let filterAI: String
     let chipAll: String
     let filterKicker: String
+    let resolutionKicker: String
+    let colorKicker: String
+    let facetAll: String
+    let colorName: (String) -> String
 
     // ── Discover: feed footer + empty states ──
     let loadingMore: String
@@ -110,6 +114,18 @@ private let browseEN = BrowseStrings(
     filterAI: "AI Generated",
     chipAll: "All",
     filterKicker: "FILTER",
+    resolutionKicker: "RESOLUTION",
+    colorKicker: "COLOR",
+    facetAll: "All",
+    colorName: {
+        switch $0 {
+        case "red": "Red"; case "orange": "Orange"; case "yellow": "Yellow"
+        case "green": "Green"; case "cyan": "Cyan"; case "blue": "Blue"
+        case "purple": "Purple"; case "pink": "Pink"; case "brown": "Brown"
+        case "black": "Black"; case "gray": "Gray"; case "white": "White"
+        default: $0.capitalized
+        }
+    },
     loadingMore: "Loading more…",
     loadMoreFailed: "Couldn't load more",
     loadMore: "Load more",
@@ -184,6 +200,18 @@ private let browseZhCN = BrowseStrings(
     filterAI: "AI 生成",
     chipAll: "全部",
     filterKicker: "筛选",
+    resolutionKicker: "分辨率",
+    colorKicker: "颜色",
+    facetAll: "全部",
+    colorName: {
+        switch $0 {
+        case "red": "红色"; case "orange": "橙色"; case "yellow": "黄色"
+        case "green": "绿色"; case "cyan": "青色"; case "blue": "蓝色"
+        case "purple": "紫色"; case "pink": "粉色"; case "brown": "棕色"
+        case "black": "黑色"; case "gray": "灰色"; case "white": "白色"
+        default: $0
+        }
+    },
     loadingMore: "正在加载更多…",
     loadMoreFailed: "加载更多失败",
     loadMore: "加载更多",
@@ -269,6 +297,18 @@ private let browseZhTW = BrowseStrings(
     filterAI: "AI 生成",
     chipAll: "全部",
     filterKicker: "篩選",
+    resolutionKicker: "解析度",
+    colorKicker: "顏色",
+    facetAll: "全部",
+    colorName: {
+        switch $0 {
+        case "red": "紅色"; case "orange": "橙色"; case "yellow": "黃色"
+        case "green": "綠色"; case "cyan": "青色"; case "blue": "藍色"
+        case "purple": "紫色"; case "pink": "粉紅色"; case "brown": "棕色"
+        case "black": "黑色"; case "gray": "灰色"; case "white": "白色"
+        default: $0
+        }
+    },
     loadingMore: "正在載入更多…",
     loadMoreFailed: "載入更多失敗",
     loadMore: "載入更多",
@@ -354,6 +394,18 @@ private let browseJA = BrowseStrings(
     filterAI: "AI生成",
     chipAll: "すべて",
     filterKicker: "フィルター",
+    resolutionKicker: "解像度",
+    colorKicker: "カラー",
+    facetAll: "すべて",
+    colorName: {
+        switch $0 {
+        case "red": "赤"; case "orange": "オレンジ"; case "yellow": "黄"
+        case "green": "緑"; case "cyan": "シアン"; case "blue": "青"
+        case "purple": "紫"; case "pink": "ピンク"; case "brown": "茶"
+        case "black": "黒"; case "gray": "グレー"; case "white": "白"
+        default: $0
+        }
+    },
     loadingMore: "さらに読み込み中…",
     loadMoreFailed: "読み込みに失敗しました",
     loadMore: "もっと見る",

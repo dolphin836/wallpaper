@@ -226,6 +226,8 @@ actor APIClient {
         categoryID: Int? = nil,
         sort: String? = nil,
         deviceMatch: Bool = false,
+        resolution: String? = nil,
+        color: String? = nil,
         includeVideo: Bool = false
     ) async throws -> PaginatedData<Wallpaper> {
         var items: [URLQueryItem] = []
@@ -243,6 +245,12 @@ actor APIClient {
         }
         if let sort, !sort.isEmpty {
             items.append(.init(name: "sort", value: sort))
+        }
+        if let resolution, !resolution.isEmpty {
+            items.append(.init(name: "resolution", value: resolution))
+        }
+        if let color, !color.isEmpty {
+            items.append(.init(name: "color", value: color))
         }
         // Explicit My Device match keeps using query parameters so it can
         // override the default native-client header contract.
@@ -557,11 +565,21 @@ actor APIClient {
         return try decoder.decode(APIResponse<AvatarResp>.self, from: data).data.avatar_url
     }
 
-    func fetchForYou(limit: Int = 30) async throws -> [Wallpaper] {
-        let items: [URLQueryItem] = [
+    func fetchForYou(
+        limit: Int = 30,
+        resolution: String? = nil,
+        color: String? = nil
+    ) async throws -> [Wallpaper] {
+        var items: [URLQueryItem] = [
             .init(name: "limit", value: String(limit)),
             .init(name: "exclude_video", value: "true"),
         ]
+        if let resolution, !resolution.isEmpty {
+            items.append(.init(name: "resolution", value: resolution))
+        }
+        if let color, !color.isEmpty {
+            items.append(.init(name: "color", value: color))
+        }
         let resp: APIResponse<[Wallpaper]> = try await request("/wallpapers/for-you", queryItems: items)
         return resp.data
     }

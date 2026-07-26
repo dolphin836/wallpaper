@@ -113,7 +113,7 @@ struct DeviceCard: View {
 struct DeviceDetailView: View {
     let slug: String
     let name: String
-    var onWallpaper: (Wallpaper) -> Void
+    var onWallpaper: WallpaperSelectionHandler
 
     @State private var info: DeviceProfileDetail?
     @State private var items: [Wallpaper] = []
@@ -155,7 +155,7 @@ struct DeviceDetailView: View {
                 } else {
                     LazyVGrid(columns: gridColumns, spacing: 14) {
                         ForEach(items) { wp in
-                            Button(action: { onWallpaper(wp) }) {
+                            Button(action: { onWallpaper(wp, items) }) {
                                 MainGridTile(wallpaper: wp)
                             }
                             .buttonStyle(.plain)

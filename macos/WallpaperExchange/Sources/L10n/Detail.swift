@@ -45,6 +45,8 @@ struct DetailStrings {
     let saved: String
     let favorite: String
     let addToList: String
+    let previousWallpaper: String
+    let nextWallpaper: String
     let noCollections: String
 
     // Stats strip kickers
@@ -150,6 +152,8 @@ private let detailEN = DetailStrings(
     saved: "Saved",
     favorite: "Favorite",
     addToList: "Add to list",
+    previousWallpaper: "Previous",
+    nextWallpaper: "Next",
     noCollections: "No collections yet",
     statDownloads: "DOWNLOADS",
     statLikes: "LIKES",
@@ -243,6 +247,8 @@ private let detailZhCN = DetailStrings(
     saved: "已收藏",
     favorite: "收藏",
     addToList: "加入合集",
+    previousWallpaper: "上一页",
+    nextWallpaper: "下一页",
     noCollections: "还没有合集",
     statDownloads: "下载",
     statLikes: "点赞",
@@ -336,6 +342,8 @@ private let detailZhTW = DetailStrings(
     saved: "已收藏",
     favorite: "收藏",
     addToList: "加入合輯",
+    previousWallpaper: "上一頁",
+    nextWallpaper: "下一頁",
     noCollections: "還沒有合輯",
     statDownloads: "下載",
     statLikes: "按讚",
@@ -429,6 +437,8 @@ private let detailJA = DetailStrings(
     saved: "お気に入り済み",
     favorite: "お気に入り",
     addToList: "コレクションに追加",
+    previousWallpaper: "前へ",
+    nextWallpaper: "次へ",
     noCollections: "コレクションはまだありません",
     statDownloads: "ダウンロード",
     statLikes: "いいね",

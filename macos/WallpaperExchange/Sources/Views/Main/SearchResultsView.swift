@@ -5,7 +5,7 @@ import SwiftUI
 // TopNavBar's submit action.
 struct SearchResultsView: View {
     let query: String
-    var onWallpaper: (Wallpaper) -> Void
+    var onWallpaper: WallpaperSelectionHandler
 
     @State private var items: [Wallpaper] = []
     @State private var cursor: Int?
@@ -47,7 +47,7 @@ struct SearchResultsView: View {
                 } else {
                     LazyVGrid(columns: gridColumns, spacing: 14) {
                         ForEach(items) { wp in
-                            Button(action: { onWallpaper(wp) }) {
+                            Button(action: { onWallpaper(wp, items) }) {
                                 MainGridTile(wallpaper: wp)
                             }
                             .buttonStyle(.plain)

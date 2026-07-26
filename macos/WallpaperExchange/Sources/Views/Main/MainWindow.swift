@@ -120,7 +120,7 @@ struct MainWindow: View {
                     target: target,
                     isFullScreen: isFullScreen,
                     onClose: { detailTarget = nil },
-                    onWallpaper: { wp in openDetail(wp) },
+                    onWallpaper: { wp, items in openDetail(wp, navigationItems: items) },
                     onUploader: { username in detailTarget = nil; push(.profile(username: username)) }
                 )
                 .transition(.opacity)
@@ -150,13 +150,33 @@ struct MainWindow: View {
         }
     }
 
-    private func openDetail(_ wallpaper: Wallpaper) {
-        openDetail(slug: wallpaper.slug, fallbackID: wallpaper.id, initialWallpaper: wallpaper)
+    private func openDetail(_ wallpaper: Wallpaper, navigationItems: [Wallpaper] = []) {
+        openDetail(
+            slug: wallpaper.slug,
+            fallbackID: wallpaper.id,
+            initialWallpaper: wallpaper,
+            navigationItems: navigationItems
+        )
     }
 
-    private func openDetail(slug: String, fallbackID: Int, initialWallpaper: Wallpaper? = nil) {
+    private func openDetail(
+        slug: String,
+        fallbackID: Int,
+        initialWallpaper: Wallpaper? = nil,
+        navigationItems: [Wallpaper] = []
+    ) {
+        var seen = Set<Int>()
+        var normalized = navigationItems.filter { seen.insert($0.id).inserted }
+        if let initialWallpaper, !seen.contains(initialWallpaper.id) {
+            normalized.append(initialWallpaper)
+        }
         withAnimation(.easeOut(duration: 0.18)) {
-            detailTarget = DetailTarget(slug: slug, fallbackID: fallbackID, initialWallpaper: initialWallpaper)
+            detailTarget = DetailTarget(
+                slug: slug,
+                fallbackID: fallbackID,
+                initialWallpaper: initialWallpaper,
+                navigationItems: normalized
+            )
         }
     }
 
@@ -277,7 +297,7 @@ struct MainWindow: View {
                 sidebar: sidebar,
                 search: committedSearch,
                 discoverInitialFilter: pendingDiscoverFilter,
-                onPick: { wp in openDetail(wp) },
+                onPick: { wp, items in openDetail(wp, navigationItems: items) },
                 onDevice: { d in push(.device(slug: d.slug, name: d.name)) },
                 onWeeklyWeek: { y, w in push(.weeklyWeek(year: y, week: w)) },
                 onCategory: { c in push(.category(id: c.id, name: c.name, slug: c.slug)) },
@@ -298,27 +318,27 @@ struct MainWindow: View {
         case .detail(let slug, _):
             DetailPage(slug: slug,
                        onUploader: { push(.profile(username: $0)) },
-                       onWallpaper: { wp in openDetail(wp) },
+                       onWallpaper: { wp, items in openDetail(wp, navigationItems: items) },
                        isWindowFullScreen: isFullScreen)
         case .profile(let username):
             AccountView(username: username,
-                        onWallpaper: { wp in openDetail(wp) },
+                        onWallpaper: { wp, items in openDetail(wp, navigationItems: items) },
                         onCollection: { c in push(.collection(slug: c.slug, title: c.title)) })
         case .collection(let slug, _):
             CollectionDetailView(slug: slug,
-                                 onWallpaper: { wp in openDetail(wp) })
+                                 onWallpaper: { wp, items in openDetail(wp, navigationItems: items) })
         case .device(let slug, let name):
             DeviceDetailView(slug: slug, name: name,
-                             onWallpaper: { wp in openDetail(wp) })
+                             onWallpaper: { wp, items in openDetail(wp, navigationItems: items) })
         case .search(let q):
             SearchResultsView(query: q,
-                              onWallpaper: { wp in openDetail(wp) })
+                              onWallpaper: { wp, items in openDetail(wp, navigationItems: items) })
         case .weeklyWeek(let y, let w):
             WeeklyWeekView(year: y, week: w,
-                           onWallpaper: { wp in openDetail(wp) })
+                           onWallpaper: { wp, items in openDetail(wp, navigationItems: items) })
         case .category(let id, let name, let slug):
             CategoryFeedView(category: Category(id: id, name: name, slug: slug, sortOrder: nil),
-                             onWallpaper: { wp in openDetail(wp) })
+                             onWallpaper: { wp, items in openDetail(wp, navigationItems: items) })
         }
     }
 
@@ -537,7 +557,7 @@ struct ContentRouter: View {
     let sidebar: MainWindow.SidebarItem
     let search: String
     var discoverInitialFilter: DiscoverView.Filter? = nil
-    var onPick: (Wallpaper) -> Void
+    var onPick: WallpaperSelectionHandler
     var onDevice: (DeviceProfile) -> Void
     var onWeeklyWeek: (Int, Int) -> Void
     var onCategory: (Category) -> Void
@@ -592,6 +612,7 @@ struct DetailTarget: Identifiable, Equatable {
     let slug: String
     let fallbackID: Int
     let initialWallpaper: Wallpaper?
+    let navigationItems: [Wallpaper]
     var id: String { slug.isEmpty ? "\(fallbackID)" : slug }
 
     static func == (lhs: DetailTarget, rhs: DetailTarget) -> Bool {
@@ -670,7 +691,7 @@ struct DetailModalOverlay: View {
     let target: DetailTarget
     let isFullScreen: Bool
     var onClose: () -> Void
-    var onWallpaper: (Wallpaper) -> Void
+    var onWallpaper: WallpaperSelectionHandler
     var onUploader: (String) -> Void
     var body: some View {
         ZStack {
@@ -686,6 +707,7 @@ struct DetailModalOverlay: View {
             DetailPage(
                 slug: target.slug,
                 initialWallpaper: target.initialWallpaper,
+                navigationItems: target.navigationItems,
                 onUploader: onUploader,
                 onWallpaper: onWallpaper,
                 onClose: onClose,

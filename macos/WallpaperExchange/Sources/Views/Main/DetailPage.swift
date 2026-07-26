@@ -9,8 +9,9 @@ import AVFoundation
 struct DetailPage: View {
     let slug: String
     var initialWallpaper: Wallpaper? = nil
+    var navigationItems: [Wallpaper] = []
     var onUploader: (String) -> Void
-    var onWallpaper: (Wallpaper) -> Void
+    var onWallpaper: WallpaperSelectionHandler
     // Set when presented as a modal overlay — the breadcrumb close + ESC
     // dismiss the modal instead of popping the navigation stack.
     var onClose: (() -> Void)? = nil
@@ -56,13 +57,15 @@ struct DetailPage: View {
     init(
         slug: String,
         initialWallpaper: Wallpaper? = nil,
+        navigationItems: [Wallpaper] = [],
         onUploader: @escaping (String) -> Void,
-        onWallpaper: @escaping (Wallpaper) -> Void,
+        onWallpaper: @escaping WallpaperSelectionHandler,
         onClose: (() -> Void)? = nil,
         isWindowFullScreen: Bool = false
     ) {
         self.slug = slug
         self.initialWallpaper = initialWallpaper
+        self.navigationItems = navigationItems
         self.onUploader = onUploader
         self.onWallpaper = onWallpaper
         self.onClose = onClose
@@ -162,6 +165,27 @@ struct DetailPage: View {
             return String(fallbackID)
         }
         return primary
+    }
+
+    private var navigationIndex: Int? {
+        if let currentID = detail?.id ?? initialWallpaper?.id,
+           let index = navigationItems.firstIndex(where: { $0.id == currentID }) {
+            return index
+        }
+        return navigationItems.firstIndex {
+            (!$0.slug.isEmpty && $0.slug == detailRequestKey) || String($0.id) == detailRequestKey
+        }
+    }
+
+    private var previousWallpaper: Wallpaper? {
+        guard let navigationIndex, navigationIndex > navigationItems.startIndex else { return nil }
+        return navigationItems[navigationItems.index(before: navigationIndex)]
+    }
+
+    private var nextWallpaper: Wallpaper? {
+        guard let navigationIndex,
+              navigationItems.index(after: navigationIndex) < navigationItems.endIndex else { return nil }
+        return navigationItems[navigationItems.index(after: navigationIndex)]
     }
 
     var body: some View {
@@ -1428,6 +1452,10 @@ struct DetailPage: View {
         d.isDynamic || isVideo(detail: d)
     }
 
+    private func isLive(wallpaper: Wallpaper) -> Bool {
+        wallpaper.isDynamic || wallpaper.fileType.lowercased().hasPrefix("video/")
+    }
+
     private func isVideo(detail d: WallpaperDetail) -> Bool {
         d.fileType.lowercased().hasPrefix("video/")
     }
@@ -1523,8 +1551,11 @@ struct DetailPage: View {
             socialActions(detail: detail, wallpaper: wallpaper)
                 .fixedSize(horizontal: true, vertical: false)
             divider
+            detailNavigationActions
+                .fixedSize(horizontal: true, vertical: false)
+            divider
             fullscreenAction(detail: detail)
-            if hasDynamicPlaybackAction(detail) {
+            if shouldShowDynamicPlaybackAction(detail) {
                 dynamicPlaybackAction(detail: detail)
                 divider
             }
@@ -1542,8 +1573,10 @@ struct DetailPage: View {
                     .fixedSize(horizontal: true, vertical: false)
             }
             HStack(spacing: 8) {
+                detailNavigationActions
+                divider
                 fullscreenAction(detail: detail)
-                if hasDynamicPlaybackAction(detail) {
+                if shouldShowDynamicPlaybackAction(detail) {
                     dynamicPlaybackAction(detail: detail)
                     divider
                 }
@@ -1558,13 +1591,12 @@ struct DetailPage: View {
             actionBarMeta(detail: detail, wallpaper: wallpaper)
             HStack(spacing: 8) {
                 socialActions(detail: detail, wallpaper: wallpaper)
-                if detail.map(supportsFullscreenPreview) ?? true {
-                    divider
-                    fullscreenAction(detail: detail)
-                }
+                divider
+                detailNavigationActions
             }
             HStack(spacing: 8) {
-                if hasDynamicPlaybackAction(detail) {
+                fullscreenAction(detail: detail)
+                if shouldShowDynamicPlaybackAction(detail) {
                     dynamicPlaybackAction(detail: detail)
                     divider
                 }
@@ -1578,8 +1610,10 @@ struct DetailPage: View {
         VStack(alignment: .leading, spacing: 10) {
             actionBarMeta(detail: detail, wallpaper: wallpaper)
             HStack(spacing: 8) {
+                detailNavigationActions
+                divider
                 fullscreenAction(detail: detail)
-                if hasDynamicPlaybackAction(detail) {
+                if shouldShowDynamicPlaybackAction(detail) {
                     dynamicPlaybackAction(detail: detail)
                     divider
                 }
@@ -1594,13 +1628,15 @@ struct DetailPage: View {
         if let d {
             actionBarMetaText(
                 dimensions: "\(d.width.formatted()) × \(d.height.formatted())",
-                specs: metaSpecText(detail: d)
+                primarySpecs: baseMetaSpecText(detail: d),
+                trailingSpecs: trailingMetaSpecs(detail: d)
             )
         } else if let wallpaper {
             actionBarMetaText(
                 dimensions: "\(wallpaper.width.formatted()) × \(wallpaper.height.formatted())",
-                specs: [wallpaper.resolutionLabel, wallpaper.fileType.uppercased(), byteString(wallpaper.fileSize)]
-                    .joined(separator: " · ")
+                primarySpecs: [wallpaper.resolutionLabel, wallpaper.fileType.uppercased(), byteString(wallpaper.fileSize)]
+                    .joined(separator: " · "),
+                trailingSpecs: isLive(wallpaper: wallpaper) ? [L10n.detail.chipLive] : []
             )
         } else {
             VStack(alignment: .leading, spacing: 5) {
@@ -1611,26 +1647,40 @@ struct DetailPage: View {
                     .fill(Color.white.opacity(0.16))
                     .frame(width: 168, height: 9)
             }
-            .frame(width: 210, alignment: .leading)
+            .frame(width: 252, alignment: .leading)
             .padding(.horizontal, 6)
         }
     }
 
-    private func actionBarMetaText(dimensions: String, specs: String) -> some View {
+    private func actionBarMetaText(
+        dimensions: String,
+        primarySpecs: String,
+        trailingSpecs: [String]
+    ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(dimensions)
                 .font(.system(size: 13.5, weight: .semibold))
                 .foregroundStyle(Color.white)
                 .monospacedDigit()
                 .lineLimit(1)
-            Text(specs)
-                .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-                .tracking(0.45)
-                .foregroundStyle(Color.white.opacity(0.64))
-                .lineLimit(1)
-                .truncationMode(.tail)
+            HStack(spacing: 0) {
+                Text(primarySpecs)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .layoutPriority(0)
+                if !trailingSpecs.isEmpty {
+                    Text(" · \(trailingSpecs.joined(separator: " · "))")
+                        .foregroundStyle(Color.white.opacity(0.80))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
+                }
+            }
+            .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+            .tracking(0.35)
+            .foregroundStyle(Color.white.opacity(0.64))
         }
-        .frame(width: 210, alignment: .leading)
+        .frame(width: 252, alignment: .leading)
         .padding(.horizontal, 6)
     }
 
@@ -1685,6 +1735,49 @@ struct DetailPage: View {
         .lineLimit(1)
     }
 
+    private var detailNavigationActions: some View {
+        HStack(spacing: 6) {
+            detailNavigationButton(
+                target: previousWallpaper,
+                icon: "chevron.left",
+                label: L10n.detail.previousWallpaper
+            )
+            detailNavigationButton(
+                target: nextWallpaper,
+                icon: "chevron.right",
+                label: L10n.detail.nextWallpaper
+            )
+        }
+    }
+
+    private func detailNavigationButton(
+        target: Wallpaper?,
+        icon: String,
+        label: String
+    ) -> some View {
+        Button {
+            guard let target else { return }
+            onWallpaper(target, navigationItems)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .semibold))
+                Text(label)
+                    .font(.sans11)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(Color.white.opacity(0.90))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Capsule().fill(Color.white.opacity(0.08)))
+            .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
+        }
+        .buttonStyle(GlassBounceButtonStyle())
+        .disabled(target == nil)
+        .opacity(target == nil ? 0.46 : 1)
+        .help(label)
+    }
+
     private func socialActions(detail: WallpaperDetail?, wallpaper: Wallpaper?) -> some View {
         let likeCount = detail?.likeCount ?? wallpaper?.likeCount
         let hasDetail = detail != nil
@@ -1705,44 +1798,50 @@ struct DetailPage: View {
         }
     }
 
-    @ViewBuilder
     private func fullscreenAction(detail: WallpaperDetail?) -> some View {
-        if detail.map(supportsFullscreenPreview) ?? true {
-            let ready = detail.map(downloadReady) ?? false
-            Button {
-                guard let detail, supportsFullscreenPreview(detail), downloadReady(detail) else { return }
-                withAnimation(.easeOut(duration: 0.18)) {
-                    showingCollectionPicker = false
-                    showingWallpaperPicker = false
-                    showingFullscreenPreview = true
-                }
-            } label: {
-                WebFullscreenIconShape()
-                    .foregroundStyle(Color.white.opacity(0.92))
-                    .frame(width: 15, height: 15)
-                    .frame(width: 38, height: 38)
-                    .background(Circle().fill(Color.white.opacity(0.08)))
-                    .overlay(Circle().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
-                    .contentShape(Circle())
+        let supported = detail.map(supportsFullscreenPreview)
+            ?? initialWallpaper.map { !isLive(wallpaper: $0) }
+            ?? true
+        let ready = supported && (detail.map(downloadReady) ?? false)
+        return Button {
+            guard let detail, supportsFullscreenPreview(detail), downloadReady(detail) else { return }
+            withAnimation(.easeOut(duration: 0.18)) {
+                showingCollectionPicker = false
+                showingWallpaperPicker = false
+                showingFullscreenPreview = true
             }
-            .buttonStyle(GlassBounceButtonStyle())
-            .disabled(!ready)
-            .opacity(ready ? 1 : 0.48)
-            .help(L10n.detail.fullscreenPreview)
+        } label: {
+            WebFullscreenIconShape()
+                .foregroundStyle(Color.white.opacity(0.92))
+                .frame(width: 15, height: 15)
+                .frame(width: 38, height: 38)
+                .background(Circle().fill(Color.white.opacity(0.08)))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+                .contentShape(Circle())
         }
+        .buttonStyle(GlassBounceButtonStyle())
+        .disabled(!ready)
+        .opacity(ready ? 1 : 0.48)
+        .help(L10n.detail.fullscreenPreview)
     }
 
-    private func hasDynamicPlaybackAction(_ detail: WallpaperDetail?) -> Bool {
-        guard let detail, detail.isDynamic, !isVideo(detail: detail) else { return false }
-        return dynamicFrameURLs(detail: detail).count > 1
+    private func shouldShowDynamicPlaybackAction(_ detail: WallpaperDetail?) -> Bool {
+        if let detail {
+            return detail.isDynamic && !isVideo(detail: detail)
+        }
+        guard let initialWallpaper else { return false }
+        return initialWallpaper.isDynamic
+            && !initialWallpaper.fileType.lowercased().hasPrefix("video/")
     }
 
     @ViewBuilder
     private func dynamicPlaybackAction(detail: WallpaperDetail?) -> some View {
-        if let detail, hasDynamicPlaybackAction(detail) {
-            let frameCount = dynamicFrameURLs(detail: detail).count
-            let visibleFrameIndex = min(max(dynamicFrameIndex, 0), frameCount - 1)
+        if shouldShowDynamicPlaybackAction(detail) {
+            let frameCount = detail.map { dynamicFrameURLs(detail: $0).count } ?? 0
+            let ready = frameCount > 1
+            let visibleFrameIndex = min(max(dynamicFrameIndex, 0), max(frameCount - 1, 0))
             Button {
+                guard ready else { return }
                 dynamicFramePlaying.toggle()
             } label: {
                 HStack(spacing: 6) {
@@ -1752,7 +1851,7 @@ struct DetailPage: View {
                     Text(dynamicFramePlaying ? L10n.detail.pausePreview : L10n.detail.playPreview)
                         .font(.sans11)
                         .lineLimit(1)
-                    Text("\(visibleFrameIndex + 1)/\(frameCount)")
+                    Text(ready ? "\(visibleFrameIndex + 1)/\(frameCount)" : "—")
                         .font(.mono10)
                         .tracking(0.4)
                         .monospacedDigit()
@@ -1768,6 +1867,8 @@ struct DetailPage: View {
                 .overlay(Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1))
             }
             .buttonStyle(GlassBounceButtonStyle())
+            .disabled(!ready)
+            .opacity(ready ? 1 : 0.48)
             .help(dynamicFramePlaying ? L10n.detail.pausePreview : L10n.detail.playPreview)
         }
     }
@@ -2208,11 +2309,23 @@ struct DetailPage: View {
     }
 
     private func metaSpecText(detail d: WallpaperDetail) -> String {
-        var parts = [d.resolutionLabel, d.fileType.uppercased(), byteString(d.fileSize)]
+        ([baseMetaSpecText(detail: d)] + trailingMetaSpecs(detail: d)).joined(separator: " · ")
+    }
+
+    private func baseMetaSpecText(detail d: WallpaperDetail) -> String {
+        [d.resolutionLabel, d.fileType.uppercased(), byteString(d.fileSize)]
+            .joined(separator: " · ")
+    }
+
+    private func trailingMetaSpecs(detail d: WallpaperDetail) -> [String] {
+        var parts: [String] = []
+        if isLive(detail: d) {
+            parts.append(L10n.detail.chipLive)
+        }
         if isVideo(detail: d), let videoDuration {
             parts.append(formatDuration(videoDuration))
         }
-        return parts.joined(separator: " · ")
+        return parts
     }
 
     private func formatDuration(_ seconds: Double) -> String {
@@ -2418,7 +2531,7 @@ struct DetailPage: View {
                 spacing: 14
             ) {
                 ForEach(similar) { wp in
-                    Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp) }
+                    Button(action: { onWallpaper(wp, similar) }) { MainGridTile(wallpaper: wp) }
                         .buttonStyle(.plain)
                 }
             }

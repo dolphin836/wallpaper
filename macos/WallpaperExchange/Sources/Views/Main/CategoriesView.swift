@@ -101,7 +101,7 @@ struct CategoryCard: View {
 // is tapped.
 struct CategoryFeedView: View {
     let category: Category
-    var onWallpaper: (Wallpaper) -> Void
+    var onWallpaper: WallpaperSelectionHandler
 
     @State private var items: [Wallpaper] = []
     @State private var cursor: Int?
@@ -131,7 +131,7 @@ struct CategoryFeedView: View {
                 } else {
                     LazyVGrid(columns: gridColumns, spacing: 14) {
                         ForEach(items) { wp in
-                            Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp) }
+                            Button(action: { onWallpaper(wp, items) }) { MainGridTile(wallpaper: wp) }
                                 .buttonStyle(.plain)
                                 .onAppear { maybeLoadMore(wp) }
                         }

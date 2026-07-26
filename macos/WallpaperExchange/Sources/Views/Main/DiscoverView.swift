@@ -2,7 +2,7 @@ import SwiftUI
 
 // Main Discover content — mirrors the web Discover page:
 //   • one unified toolbar: scrollable category chips on the left,
-//     a FILTER dropdown + a size (LG/MD) control on the right
+//     filter / resolution / color dropdowns + a size control on the right
 //   • a static device banner (the Mac's stand-in for the web's
 //     floating device wall) seeded with the first feed wallpaper
 //   • a size-driven wallpaper grid with infinite scroll
@@ -12,7 +12,7 @@ import SwiftUI
 // For You (signed-in only), My Device, Live, AI Generated.
 struct DiscoverView: View {
     let search: String
-    var onPick: (Wallpaper) -> Void
+    var onPick: WallpaperSelectionHandler
     /// When true (used by the legacy device-match sidebar entry) the
     /// initial filter is forced to .myDevice. Discover itself starts on
     /// Latest.
@@ -27,6 +27,8 @@ struct DiscoverView: View {
     @State private var loading = true
     @State private var loadError: String?
     @State private var filter: Filter = .latest
+    @State private var resolutionFilter = ""
+    @State private var colorFilter = ""
     @State private var sizeMode: SizeMode = .lg
     // The wallpaper currently shown on the device mockup. Driven by
     // hovering grid tiles (web "floating wall" feel); falls back to the
@@ -70,6 +72,28 @@ struct DiscoverView: View {
     }
 
     enum SizeMode: String, CaseIterable { case md = "MD", lg = "LG" }
+
+    private struct ColorPreset: Identifiable, Hashable {
+        let value: String
+        let swatch: String
+        var id: String { value }
+    }
+
+    private static let resolutionOptions = ["720P", "1080P", "2K", "4K", "8K"]
+    private static let colorPresets = [
+        ColorPreset(value: "red", swatch: "#ef4444"),
+        ColorPreset(value: "orange", swatch: "#f97316"),
+        ColorPreset(value: "yellow", swatch: "#eab308"),
+        ColorPreset(value: "green", swatch: "#22c55e"),
+        ColorPreset(value: "cyan", swatch: "#06b6d4"),
+        ColorPreset(value: "blue", swatch: "#3b82f6"),
+        ColorPreset(value: "purple", swatch: "#a855f7"),
+        ColorPreset(value: "pink", swatch: "#ec4899"),
+        ColorPreset(value: "brown", swatch: "#92400e"),
+        ColorPreset(value: "black", swatch: "#18181b"),
+        ColorPreset(value: "gray", swatch: "#71717a"),
+        ColorPreset(value: "white", swatch: "#f4f4f5"),
+    ]
 
     // For You is only meaningful for signed-in users — hide it for
     // guests so the dropdown doesn't surface an option that immediately
@@ -138,6 +162,8 @@ struct DiscoverView: View {
         .onChange(of: filter) { _, _ in Task { await reload() } }
         .onChange(of: search) { _, _ in Task { await reload() } }
         .onChange(of: selectedCategoryID) { _, _ in Task { await reload() } }
+        .onChange(of: resolutionFilter) { _, _ in Task { await reload() } }
+        .onChange(of: colorFilter) { _, _ in Task { await reload() } }
     }
 
     private var discoverHeader: some View {
@@ -145,7 +171,7 @@ struct DiscoverView: View {
             featured: featuredWallpaper,
             onPick: {
                 if let shown = featuredWallpaper {
-                    onPick(shown)
+                    onPick(shown, items)
                 }
             }
         ) {
@@ -180,7 +206,7 @@ struct DiscoverView: View {
         } else {
             LazyVGrid(columns: gridColumns, spacing: gridSpacing) {
                 ForEach(items) { wp in
-                    Button(action: { onPick(wp) }) { MainGridTile(wallpaper: wp) }
+                    Button(action: { onPick(wp, items) }) { MainGridTile(wallpaper: wp) }
                         .buttonStyle(.plain)
                         .onHover { if $0 { featuredHover = wp } }
                         .onAppear { maybeLoadMore(wp) }
@@ -270,6 +296,8 @@ struct DiscoverView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             filterMenu
+            resolutionMenu
+            colorMenu
             sizeControl
         }
         // Sit above the device banner / feed so nothing layered below can
@@ -314,6 +342,97 @@ struct DiscoverView: View {
         .fixedSize()
     }
 
+    private var resolutionMenu: some View {
+        Menu {
+            facetMenuButton(
+                label: L10n.browse.facetAll,
+                selected: resolutionFilter.isEmpty,
+                action: { resolutionFilter = "" }
+            )
+            Divider()
+            ForEach(Self.resolutionOptions, id: \.self) { resolution in
+                facetMenuButton(
+                    label: resolution,
+                    selected: resolutionFilter == resolution,
+                    action: { resolutionFilter = resolution }
+                )
+            }
+        } label: {
+            facetMenuLabel(
+                kicker: L10n.browse.resolutionKicker,
+                value: resolutionFilter.isEmpty ? L10n.browse.facetAll : resolutionFilter
+            )
+        }
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+        .fixedSize()
+    }
+
+    private var colorMenu: some View {
+        Menu {
+            facetMenuButton(
+                label: L10n.browse.facetAll,
+                selected: colorFilter.isEmpty,
+                action: { colorFilter = "" }
+            )
+            Divider()
+            ForEach(Self.colorPresets) { preset in
+                Button {
+                    colorFilter = preset.value
+                } label: {
+                    if colorFilter == preset.value {
+                        Label(L10n.browse.colorName(preset.value), systemImage: "checkmark")
+                    } else {
+                        Label(L10n.browse.colorName(preset.value), systemImage: "circle.fill")
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 7) {
+                if let selected = Self.colorPresets.first(where: { $0.value == colorFilter }) {
+                    Circle()
+                        .fill(Color(hex: selected.swatch))
+                        .frame(width: 9, height: 9)
+                        .overlay(Circle().stroke(Color.hair, lineWidth: 0.5))
+                }
+                Text(L10n.browse.colorKicker)
+                    .font(.mono10).tracking(1.2).foregroundStyle(Color.muted)
+                Text(colorFilter.isEmpty ? L10n.browse.facetAll : L10n.browse.colorName(colorFilter))
+                    .font(.sans12).foregroundStyle(Color.ink2)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold)).foregroundStyle(Color.muted)
+            }
+            .glassMenuLabel()
+        }
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+        .fixedSize()
+    }
+
+    private func facetMenuLabel(kicker: String, value: String) -> some View {
+        HStack(spacing: 8) {
+            Text(kicker)
+                .font(.mono10).tracking(1.2).foregroundStyle(Color.muted)
+            Text(value)
+                .font(.sans12).foregroundStyle(Color.ink2)
+            Image(systemName: "chevron.down")
+                .font(.system(size: 9, weight: .semibold)).foregroundStyle(Color.muted)
+        }
+        .glassMenuLabel()
+    }
+
+    private func facetMenuButton(label: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            if selected {
+                Label(label, systemImage: "checkmark")
+            } else {
+                Text(label)
+            }
+        }
+    }
+
     // LG / MD size segmented control — compact GlassKit segments.
     private var sizeControl: some View {
         GlassSegmented(
@@ -351,7 +470,11 @@ struct DiscoverView: View {
     // change re-triggers reload via onChange.
     private func loadForYouPage() async {
         do {
-            let list = try await APIClient.shared.fetchForYou(limit: 30)
+            let list = try await APIClient.shared.fetchForYou(
+                limit: 30,
+                resolution: resolutionFilter.isEmpty ? nil : resolutionFilter,
+                color: colorFilter.isEmpty ? nil : colorFilter
+            )
             if list.isEmpty {
                 filter = .latest
                 return
@@ -382,6 +505,8 @@ struct DiscoverView: View {
                 categoryID: selectedCategoryID,
                 sort: filter == .trending ? "trending" : nil,
                 deviceMatch: filter == .myDevice,
+                resolution: resolutionFilter.isEmpty ? nil : resolutionFilter,
+                color: colorFilter.isEmpty ? nil : colorFilter,
                 // Discover mirrors the web: Latest / Trending / Search /
                 // Category should include video wallpapers too. Live still
                 // narrows the feed with dynamic_only, which server-side

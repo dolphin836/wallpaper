@@ -23,7 +23,7 @@ private func accountGridPageSize(
 struct AccountView: View {
     let username: String
     var initialTab: AccountTab = .uploads
-    var onWallpaper: (Wallpaper) -> Void
+    var onWallpaper: WallpaperSelectionHandler
     var onCollection: (CollectionItem) -> Void
     var onUpload: () -> Void = {}
 
@@ -39,7 +39,7 @@ struct AccountView: View {
     init(
         username: String,
         initialTab: AccountTab = .uploads,
-        onWallpaper: @escaping (Wallpaper) -> Void,
+        onWallpaper: @escaping WallpaperSelectionHandler,
         onCollection: @escaping (CollectionItem) -> Void,
         onUpload: @escaping () -> Void = {}
     ) {
@@ -519,7 +519,7 @@ struct AccountUploadsTab: View {
     let username: String
     let isOwner: Bool
     let availableWidth: CGFloat
-    var onWallpaper: (Wallpaper) -> Void
+    var onWallpaper: WallpaperSelectionHandler
     var onCount: (Int) -> Void
     var onPalette: (String?, String?) -> Void = { _, _ in }
 
@@ -554,7 +554,7 @@ struct PagedWallpaperGrid: View {
     var privacyIsPublic: Bool = false
     var onTogglePrivacy: ((Bool) -> Void)? = nil
     let fetch: (_ cursor: Int?, _ limit: Int) async throws -> PaginatedData<Wallpaper>
-    var onWallpaper: (Wallpaper) -> Void
+    var onWallpaper: WallpaperSelectionHandler
     var onCount: (Int) -> Void = { _ in }
     var onPalette: (String?, String?) -> Void = { _, _ in }
     var flagIfNotLocal: Bool = false
@@ -650,7 +650,7 @@ struct PagedWallpaperGrid: View {
                                 if showProcessing {
                                     PendingUploadTileView(wallpaper: wp)
                                 } else {
-                                    Button(action: { onWallpaper(wp) }) { MainGridTile(wallpaper: wp, flagIfNotLocal: flagIfNotLocal) }.buttonStyle(.plain)
+                                    Button(action: { onWallpaper(wp, visibleItems) }) { MainGridTile(wallpaper: wp, flagIfNotLocal: flagIfNotLocal) }.buttonStyle(.plain)
                                 }
                             }
                         }

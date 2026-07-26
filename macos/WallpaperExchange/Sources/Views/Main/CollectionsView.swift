@@ -571,7 +571,7 @@ struct NewCollectionSheet: View {
 // Collection detail — hero header + grid of wallpapers.
 struct CollectionDetailView: View {
     let slug: String
-    var onWallpaper: (Wallpaper) -> Void
+    var onWallpaper: WallpaperSelectionHandler
 
     @State private var auth = AuthService.shared
     @State private var info: CollectionItem?
@@ -653,7 +653,7 @@ struct CollectionDetailView: View {
                                 FramedTile(
                                     wallpaper: wp,
                                     accent: tint,
-                                    onTap: { onWallpaper(wp) },
+                                    onTap: { onWallpaper(wp, items) },
                                     onHover: { h in
                                         if h { PaletteEnv.shared.apply(palette: wp.colorPalette, dominant: wp.dominantColor) }
                                         else { applyBasePalette() }
