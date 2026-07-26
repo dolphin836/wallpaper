@@ -47,7 +47,8 @@ struct DetailPage: View {
     @State private var showingFullscreenPreview = false
     @State private var dynamicFrameIndex = 0
     @State private var dynamicFramePlaying = true
-    @State private var selectedWallpaperSurface: WallpaperApplySurface = .desktop
+    @State private var selectedWallpaperSurface: WallpaperApplySurface =
+        ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 26 ? .both : .desktop
     @State private var selectedDisplayTargetID = WallpaperDisplayTarget.allID
     @State private var applyingWallpaper = false
     @State private var videoDuration: Double?
@@ -2034,11 +2035,14 @@ struct DetailPage: View {
                     ForEach(targets) { target in
                         displayTargetButton(
                             target: target,
-                            selected: selectedWallpaperSurface == .desktop && activeTargetID == target.id
+                            selected: (selectedWallpaperSurface == .desktop || selectedWallpaperSurface == .both)
+                                && activeTargetID == target.id
                         )
                     }
                     if AerialLockScreenService.isSupported {
-                        lockScreenTargetButton(selected: selectedWallpaperSurface == .lockScreen)
+                        lockScreenTargetButton(
+                            selected: selectedWallpaperSurface == .lockScreen || selectedWallpaperSurface == .both
+                        )
                     }
                 }
             }
@@ -2271,7 +2275,7 @@ struct DetailPage: View {
     private func displayTargetButton(target: WallpaperDisplayTarget, selected: Bool) -> some View {
         Button {
             selectedDisplayTargetID = target.id
-            selectedWallpaperSurface = .desktop
+            selectedWallpaperSurface = target.isAll && AerialLockScreenService.isSupported ? .both : .desktop
         } label: {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
