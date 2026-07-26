@@ -106,6 +106,7 @@ final class AerialLockScreenService {
         let backups: URL
         let currentMovie: URL
         let indexRepairBackup: URL
+        let indexActivationBackup: URL
     }
 
     private struct AerialProcessSnapshot {
@@ -138,6 +139,7 @@ final class AerialLockScreenService {
         if UserDefaults.standard.bool(forKey: DefaultsKey.screenSaverBackupCaptured) { return true }
         guard let paths = try? paths() else { return false }
         return !backupURLs(in: paths.backups).isEmpty
+            || fm.fileExists(atPath: paths.indexActivationBackup.path)
     }
 
     /// Converts the selected wallpaper into an Aerial-compatible movie, backs
@@ -187,6 +189,16 @@ final class AerialLockScreenService {
             throw error
         }
 
+        // A separate image Desktop choice plus an Aerial Idle choice previews
+        // correctly in System Settings, but loginwindow asks WallpaperAgent for
+        // the Desktop choice and keeps the video timeline at rate 0. Apple's
+        // animated lock screens use one global linked Aerial choice instead.
+        // Only videos need that linkage; still lock screens already work via
+        // the selected Idle asset without taking over the system desktop.
+        if sourceIsVideo, let assetID = assetIDs.first {
+            try activateAnimatedAerialSelection(assetID: assetID, paths: paths)
+        }
+
         UserDefaults.standard.set(assetIDs, forKey: DefaultsKey.managedAssetIDs)
         restartWallpaperProcesses()
         try await waitForAerialReload(
@@ -204,7 +216,10 @@ final class AerialLockScreenService {
         let paths = try paths()
         let backups = backupURLs(in: paths.backups)
         let hasScreenSaverBackup = UserDefaults.standard.bool(forKey: DefaultsKey.screenSaverBackupCaptured)
-        guard !backups.isEmpty || hasScreenSaverBackup else { throw AerialError.restoreUnavailable }
+        let hasIndexBackup = fm.fileExists(atPath: paths.indexActivationBackup.path)
+        guard !backups.isEmpty || hasScreenSaverBackup || hasIndexBackup else {
+            throw AerialError.restoreUnavailable
+        }
 
         for backup in backups {
             let assetID = backup.deletingPathExtension().lastPathComponent
@@ -215,11 +230,13 @@ final class AerialLockScreenService {
             try replaceFileAtomically(source: backup, destination: destination)
         }
 
+        try restoreWallpaperStoreIfNeeded(paths: paths)
         try restoreScreenSaverModuleIfNeeded()
 
         for backup in backups {
             try? fm.removeItem(at: backup)
         }
+        try? fm.removeItem(at: paths.indexActivationBackup)
         try? fm.removeItem(at: paths.currentMovie)
         UserDefaults.standard.removeObject(forKey: DefaultsKey.managedAssetIDs)
         restartWallpaperProcesses()
@@ -328,7 +345,8 @@ final class AerialLockScreenService {
             workingRoot: workingRoot,
             backups: workingRoot.appendingPathComponent("Backups", isDirectory: true),
             currentMovie: workingRoot.appendingPathComponent("Current.mov"),
-            indexRepairBackup: workingRoot.appendingPathComponent("Index-before-legacy-repair.plist")
+            indexRepairBackup: workingRoot.appendingPathComponent("Index-before-legacy-repair.plist"),
+            indexActivationBackup: workingRoot.appendingPathComponent("Index-before-animated-lock.plist")
         )
     }
 
@@ -534,6 +552,91 @@ final class AerialLockScreenService {
         updateSystemWallpaperPointer(assetID: assetID, paths: paths)
         clearLegacyAssetIDDefaults()
         logger.notice("repaired legacy synthetic Aerial selection with real asset \(assetID, privacy: .public)")
+    }
+
+    private func activateAnimatedAerialSelection(assetID: String, paths: Paths) throws {
+        let originalData = try Data(contentsOf: paths.storeIndex)
+        guard var root = try PropertyListSerialization.propertyList(
+            from: originalData,
+            options: [.mutableContainersAndLeaves],
+            format: nil
+        ) as? [String: Any] else {
+            throw AerialError.storeUnavailable
+        }
+
+        if !fm.fileExists(atPath: paths.indexActivationBackup.path) {
+            try originalData.write(to: paths.indexActivationBackup, options: .atomic)
+        }
+
+        let configuration = try PropertyListSerialization.data(
+            fromPropertyList: ["assetID": assetID],
+            format: .binary,
+            options: 0
+        )
+        let choice: [String: Any] = [
+            "Provider": "com.apple.wallpaper.choice.aerials",
+            "Files": [] as [Any],
+            "Configuration": configuration,
+        ]
+        let linked: [String: Any] = [
+            "Content": ["Choices": [choice]],
+            "LastSet": Date(),
+            "LastUse": Date(),
+        ]
+        let entry: [String: Any] = [
+            "Type": "linked",
+            "Linked": linked,
+        ]
+
+        // loginwindow resolves these global nodes rather than a display's Idle
+        // node. Mirror Apple's/Backdrop's native linked layout across existing
+        // displays and spaces so every lock surface resolves the same movie.
+        root["SystemDefault"] = entry
+        root["AllSpacesAndDisplays"] = entry
+
+        if var displays = root["Displays"] as? [String: Any] {
+            for key in displays.keys { displays[key] = entry }
+            root["Displays"] = displays
+        }
+        if var spaces = root["Spaces"] as? [String: Any] {
+            for spaceKey in spaces.keys {
+                guard var space = spaces[spaceKey] as? [String: Any] else { continue }
+                if space["Default"] != nil { space["Default"] = entry }
+                if var displays = space["Displays"] as? [String: Any] {
+                    for displayKey in displays.keys { displays[displayKey] = entry }
+                    space["Displays"] = displays
+                }
+                spaces[spaceKey] = space
+            }
+            root["Spaces"] = spaces
+        }
+
+        let linkedData = try PropertyListSerialization.data(
+            fromPropertyList: root,
+            format: .binary,
+            options: 0
+        )
+        do {
+            try linkedData.write(to: paths.storeIndex, options: .atomic)
+        } catch {
+            try? originalData.write(to: paths.storeIndex, options: .atomic)
+            throw error
+        }
+        updateSystemWallpaperPointer(assetID: assetID, paths: paths)
+        logger.notice("activated global linked Aerial selection \(assetID, privacy: .public)")
+    }
+
+    private func restoreWallpaperStoreIfNeeded(paths: Paths) throws {
+        guard fm.fileExists(atPath: paths.indexActivationBackup.path) else { return }
+        let backup = try Data(contentsOf: paths.indexActivationBackup)
+        let current = try Data(contentsOf: paths.storeIndex)
+        do {
+            try backup.write(to: paths.storeIndex, options: .atomic)
+        } catch {
+            try? current.write(to: paths.storeIndex, options: .atomic)
+            throw error
+        }
+        logger.notice("restored wallpaper store from before animated lock-screen activation")
     }
 
     private func replaceAerialAssetIDs(
