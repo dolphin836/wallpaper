@@ -10,6 +10,27 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.1.2] - 2026-07-26
+
+### Added
+
+- **Discover now has resolution and color-family filters.** The resolution
+  menu marks the current display, the duplicate My Device filter is gone, and
+  color swatches render their actual colors.
+- **Detail pages now support Previous and Next navigation** within the list
+  they were opened from. Dynamic wallpapers also expose playback controls,
+  and their supported Apple platforms appear on wallpaper cards.
+
+### Changed
+
+- **Dynamic images and videos now follow the same sizing rules as the web.**
+  Detail previews choose the correct poster or frame tier and preserve the
+  source aspect and size instead of stretching mismatched media.
+- **Detail information is denser and more stable.** The panel sizes itself to
+  its content and organizes uploader, category, tags, palette, and statistics;
+  toolbar metadata keeps its footprint while navigation loads, and stable
+  original-image caches avoid repeat transfers.
+
 ## [2.1.1] - 2026-07-25
 
 ### Added

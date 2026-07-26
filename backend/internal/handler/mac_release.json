@@ -1,8 +1,38 @@
 {
-  "current_version": "2.1.1",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.1.1.dmg",
+  "current_version": "2.1.2",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.1.2.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.1.2",
+      "released_at": "2026-07-26",
+      "notes": [
+        "Discover now offers resolution and color-family filters, marks the current display resolution, removes the duplicate My Device option, and renders accurate color swatches.",
+        "Detail pages now support Previous and Next navigation within the originating list; dynamic wallpapers add playback controls and supported Apple-platform badges.",
+        "Dynamic images and videos now use the correct poster or frame tier and preserve their source aspect and size consistently with the web client.",
+        "The detail information panel now fits its content and organizes uploader, category, tags, palette, and statistics; stable toolbar placeholders and original-image caches reduce layout shifts and repeat transfers."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "发现页新增分辨率和颜色系列筛选；分辨率菜单会标识当前屏幕，移除重复的“我的设备”选项，颜色圆点也会显示正确颜色。",
+          "详情页支持在来源列表中切换上一张和下一张；动态壁纸新增播放控制，并在卡片上显示支持的 Apple 平台标签。",
+          "动态图片和视频现在会选择正确的预览图或帧尺寸，并与 Web 端一致地保留源文件比例和尺寸。",
+          "详情信息面板会按内容自适应，并重新整理上传者、分类、标签、色板和统计信息；工具栏占位与稳定的原图缓存可减少布局跳动和重复传输。"
+        ],
+        "zh-TW": [
+          "探索頁新增解析度和顏色系列篩選；解析度選單會標示目前螢幕，移除重複的「我的裝置」選項，顏色圓點也會顯示正確顏色。",
+          "詳細頁支援在來源清單中切換上一張和下一張；動態桌布新增播放控制，並在卡片上顯示支援的 Apple 平台標籤。",
+          "動態圖片和影片現在會選擇正確的預覽圖或影格尺寸，並與 Web 端一致地保留來源比例和尺寸。",
+          "詳細資訊面板會依內容自動調整，並重新整理上傳者、分類、標籤、色板和統計資訊；工具列預留空間與穩定的原圖快取可減少版面跳動和重複傳輸。"
+        ],
+        "ja": [
+          "Discover に解像度とカラーファミリーのフィルターを追加しました。解像度メニューには現在の画面を表示し、重複していた「マイデバイス」を削除し、カラースウォッチも正しい色で表示します。",
+          "詳細画面で、開いた一覧内の前後の壁紙へ移動できるようになりました。ダイナミック壁紙には再生操作と、対応する Apple プラットフォームのバッジも追加しました。",
+          "ダイナミック画像と動画は適切なポスターまたはフレームサイズを選び、Web 版と同じように元の縦横比とサイズを維持します。",
+          "詳細情報パネルは内容に合わせて高さが変わり、投稿者、カテゴリ、タグ、パレット、統計を整理して表示します。ツールバーのプレースホルダーと安定したオリジナル画像キャッシュにより、レイアウトの揺れと再転送も減りました。"
+        ]
+      }
+    },
     {
       "version": "2.1.1",
       "released_at": "2026-07-25",
