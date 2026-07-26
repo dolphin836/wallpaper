@@ -388,7 +388,9 @@ struct DetailPage: View {
                     thumbURL: detailThumbPosterURL(d),
                     previewURL: detailPreviewPosterURL(d),
                     posterURL: detailFullPosterURL(d),
-                    dominantColor: d.dominantColor ?? initialWallpaper?.dominantColor
+                    dominantColor: d.dominantColor ?? initialWallpaper?.dominantColor,
+                    previewMaxPixelDimension: detailPreviewDecodeDimension(d, layout: layout),
+                    posterMaxPixelDimension: detailHeroDecodeDimension(detail: d, layout: layout)
                 )
             }
         } else if let d = detail {
@@ -403,6 +405,7 @@ struct DetailPage: View {
                         frameURLs: frames,
                         posterURL: detailPreviewPosterURL(d),
                         dominantColor: d.dominantColor ?? initialWallpaper?.dominantColor,
+                        maxPixelDimension: detailDynamicFrameDecodeDimension(d, layout: layout),
                         frameIndex: $dynamicFrameIndex,
                         playing: $dynamicFramePlaying
                     )
@@ -412,14 +415,14 @@ struct DetailPage: View {
             }
         } else if let wallpaper = initialWallpaper {
             fittedHeroMedia(
-                sourceSize: CGSize(width: wallpaper.width, height: wallpaper.height),
+                sourceSize: detailHeroSourceSize(wallpaper),
                 layout: layout,
                 background: Color(hex: wallpaper.dominantColor ?? "#111111")
             ) {
                 posterImage(
                     url: URL(string: wallpaper.displayURL),
                     dominantColor: wallpaper.dominantColor,
-                    maxPixelDimension: 1100
+                    maxPixelDimension: detailPreviewDecodeDimension(wallpaper, layout: layout)
                 )
             }
         } else {
@@ -455,7 +458,7 @@ struct DetailPage: View {
                     posterImage(
                         url: URL(string: wallpaper.displayURL),
                         dominantColor: wallpaper.dominantColor,
-                        maxPixelDimension: 1100
+                        maxPixelDimension: detailPreviewDecodeDimension(wallpaper, layout: layout)
                     )
                 }
 
@@ -513,21 +516,33 @@ struct DetailPage: View {
     }
 
     private func detailHeroSourceSize(_ d: WallpaperDetail) -> CGSize {
-        guard d.width > 0, d.height > 0 else { return .zero }
-        let width = CGFloat(d.width)
-        let height = CGFloat(d.height)
-        let scale: CGFloat
+        displayedHeroSourceSize(
+            width: d.width,
+            height: d.height,
+            usesDerivedHEICFrames: d.isDynamic && !isVideo(detail: d)
+        )
+    }
 
-        if livePreviewVideoURL(detail: d) != nil {
-            // The backend's detail preview is capped at 480 px high.
-            scale = min(1, 480 / height)
-        } else if d.isDynamic {
-            // Dynamic HEIC frames are exported at no more than 1600 px wide.
-            scale = min(1, 1600 / width)
-        } else {
-            scale = 1
-        }
+    private func detailHeroSourceSize(_ wallpaper: Wallpaper) -> CGSize {
+        displayedHeroSourceSize(
+            width: wallpaper.width,
+            height: wallpaper.height,
+            usesDerivedHEICFrames: wallpaper.isDynamic
+                && !wallpaper.fileType.lowercased().hasPrefix("video/")
+        )
+    }
 
+    private func displayedHeroSourceSize(
+        width rawWidth: Int,
+        height rawHeight: Int,
+        usesDerivedHEICFrames: Bool
+    ) -> CGSize {
+        guard rawWidth > 0, rawHeight > 0 else { return .zero }
+        let width = CGFloat(rawWidth)
+        let height = CGFloat(rawHeight)
+        // Only dynamic HEIC frames are derived at a smaller display size.
+        // Video playback and full posters preserve the served dimensions.
+        let scale = usesDerivedHEICFrames ? min(1, 1600 / width) : 1
         return CGSize(width: width * scale, height: height * scale)
     }
 
@@ -1082,10 +1097,55 @@ struct DetailPage: View {
     }
 
     private func detailHeroDecodeDimension(detail d: WallpaperDetail, layout: DetailLayout) -> Int {
-        let sourceMax = CGFloat(max(d.width, d.height, 1))
+        heroDecodeDimension(
+            sourceSize: CGSize(width: CGFloat(max(d.width, 1)), height: CGFloat(max(d.height, 1))),
+            layout: layout,
+            minimum: 2600
+        )
+    }
+
+    private func detailPreviewDecodeDimension(_ wallpaper: Wallpaper, layout: DetailLayout) -> Int {
+        heroDecodeDimension(
+            sourceSize: previewAssetSourceSize(width: wallpaper.width, height: wallpaper.height),
+            layout: layout,
+            minimum: 1100
+        )
+    }
+
+    private func detailPreviewDecodeDimension(_ detail: WallpaperDetail, layout: DetailLayout) -> Int {
+        heroDecodeDimension(
+            sourceSize: previewAssetSourceSize(width: detail.width, height: detail.height),
+            layout: layout,
+            minimum: 1100
+        )
+    }
+
+    private func detailDynamicFrameDecodeDimension(_ detail: WallpaperDetail, layout: DetailLayout) -> Int {
+        heroDecodeDimension(
+            sourceSize: detailHeroSourceSize(detail),
+            layout: layout,
+            minimum: 1600
+        )
+    }
+
+    private func previewAssetSourceSize(width rawWidth: Int, height rawHeight: Int) -> CGSize {
+        guard rawWidth > 0, rawHeight > 0 else { return .zero }
+        let width = CGFloat(rawWidth)
+        let height = CGFloat(rawHeight)
+        let scale = min(1, 1600 / width)
+        return CGSize(width: width * scale, height: height * scale)
+    }
+
+    private func heroDecodeDimension(
+        sourceSize: CGSize,
+        layout: DetailLayout,
+        minimum: CGFloat
+    ) -> Int {
+        let sourceMax = max(sourceSize.width, sourceSize.height, 1)
         let screenScale = NSScreen.screens.map(\.backingScaleFactor).max() ?? NSScreen.main?.backingScaleFactor ?? 2
-        let viewportMax = max(layout.size.width, layout.heroViewportHeight) * screenScale
-        let target = min(max(viewportMax, 2600), sourceMax, 5200)
+        let canvasSize = detailHeroCanvasSize(sourceSize: sourceSize, layout: layout)
+        let displayedPixelMax = max(canvasSize.width, canvasSize.height) * screenScale
+        let target = min(max(displayedPixelMax, minimum), sourceMax, 5200)
         return max(1, Int(target.rounded(.up)))
     }
 
@@ -1407,7 +1467,9 @@ struct DetailPage: View {
                 thumbURL: detailThumbPosterURL(detail),
                 previewURL: detailPreviewPosterURL(detail),
                 posterURL: detailFullPosterURL(detail),
-                dominantColor: detail.dominantColor
+                dominantColor: detail.dominantColor,
+                previewMaxPixelDimension: detailPreviewDecodeDimension(detail, layout: layout),
+                posterMaxPixelDimension: detailHeroDecodeDimension(detail: detail, layout: layout)
             )
             .frame(width: size.width, height: size.height)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -2919,6 +2981,7 @@ private struct DynamicFramePreview: View {
     let frameURLs: [URL]
     let posterURL: URL?
     let dominantColor: String?
+    let maxPixelDimension: Int
     @Binding var frameIndex: Int
     @Binding var playing: Bool
 
@@ -2928,7 +2991,7 @@ private struct DynamicFramePreview: View {
         ZStack {
             Color(hex: dominantColor ?? "#111")
 
-            CachedAsyncImage(url: posterURL, maxPixelDimension: 1400) { img in
+            CachedAsyncImage(url: posterURL, maxPixelDimension: maxPixelDimension) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
                 Color(hex: dominantColor ?? "#111")
@@ -2936,7 +2999,7 @@ private struct DynamicFramePreview: View {
             .clipped()
 
             ForEach(Array(frameURLs.enumerated()), id: \.offset) { index, url in
-                CachedAsyncImage(url: url, maxPixelDimension: 1800) { img in
+                CachedAsyncImage(url: url, maxPixelDimension: maxPixelDimension) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Color.clear
@@ -3003,6 +3066,8 @@ private struct LiveVideoPreview: View {
 	let previewURL: URL?
     let posterURL: URL?
     let dominantColor: String?
+    let previewMaxPixelDimension: Int
+    let posterMaxPixelDimension: Int
 
     @State private var player: AVPlayer?
     @State private var localURL: URL?
@@ -3022,8 +3087,8 @@ private struct LiveVideoPreview: View {
 				highURL: previewURL,
 				finalURL: posterURL,
 				lowMaxPixelDimension: 520,
-				highMaxPixelDimension: 1800,
-				finalMaxPixelDimension: 5200
+				highMaxPixelDimension: previewMaxPixelDimension,
+				finalMaxPixelDimension: posterMaxPixelDimension
 			) { img in
                 img.resizable().aspectRatio(contentMode: .fill)
             } placeholder: {
