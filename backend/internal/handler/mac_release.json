@@ -1,8 +1,34 @@
 {
-  "current_version": "2.1.4",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.1.4.dmg",
+  "current_version": "2.1.5",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.1.5.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.1.5",
+      "released_at": "2026-07-27",
+      "notes": [
+        "Navigation, cards, buttons, skeletons, and collection covers now use calmer, consistent motion and respect the system Reduce Motion setting.",
+        "Wallpaper apply failures are now clearly readable and correctly labeled; existing local videos reuse their local movie or cached poster instead of making an unnecessary network request.",
+        "Animated Lock Screen wallpapers move again on macOS 26: the All Displays target restores the complete linked Aerial selection and verifies that macOS accepted it before reporting success."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "导航、卡片、按钮、骨架屏和合集封面现在使用更克制统一的动效，并遵循系统的“减弱动态效果”设置。",
+          "壁纸设置失败提示现在更清晰且标题准确；设置本地已有的视频时会直接复用本地视频或缓存封面，不再发起不必要的网络请求。",
+          "修复 macOS 26 动态锁屏不播放的问题：“全部显示器”会恢复 loginwindow 所需的完整 Aerial 联动配置，并在提示成功前确认系统已经接受。"
+        ],
+        "zh-TW": [
+          "導覽、卡片、按鈕、骨架畫面和合集封面現在使用更克制一致的動效，並遵循系統的「減少動態效果」設定。",
+          "桌布設定失敗提示現在更清楚且標題正確；設定本機已有的影片時會直接重用本機影片或快取封面，不再發出不必要的網路請求。",
+          "修復 macOS 26 動態鎖定畫面不播放的問題：「所有顯示器」會恢復 loginwindow 所需的完整 Aerial 連動設定，並在提示成功前確認系統已接受。"
+        ],
+        "ja": [
+          "ナビゲーション、カード、ボタン、スケルトン、コレクションカバーの動きを控えめで統一されたものにし、システムの「視差効果を減らす」設定にも対応しました。",
+          "壁紙の適用エラーを読みやすく正確に表示します。ローカルにある動画を設定する際は、動画またはキャッシュ済みポスターを再利用し、不要な通信を行いません。",
+          "macOS 26 で動画のロック画面が動かない問題を修正しました。「すべてのディスプレイ」では loginwindow に必要な完全な Aerial 連動設定を復元し、macOS が受け入れたことを確認してから成功を表示します。"
+        ]
+      }
+    },
     {
       "version": "2.1.4",
       "released_at": "2026-07-27",

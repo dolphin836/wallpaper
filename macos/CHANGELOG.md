@@ -10,6 +10,23 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.1.5] - 2026-07-27
+
+### Changed
+
+- **Interactions feel calmer and more consistent across the app.** Navigation,
+  cards, buttons, skeletons, and collection covers now use restrained motion
+  and respect the system Reduce Motion setting.
+
+### Fixed
+
+- **Wallpaper apply failures are now clearly readable and correctly labeled.**
+  Applying an existing local video reuses the local movie or cached poster, so
+  setting it no longer performs an unnecessary network request.
+- **Animated Lock Screen wallpapers move again on macOS 26.** The combined
+  All Displays target restores the complete linked Aerial selection required
+  by loginwindow and verifies that macOS accepted it before reporting success.
+
 ## [2.1.4] - 2026-07-27
 
 ### Fixed
