@@ -24,6 +24,7 @@ struct WallpaperTileView: View {
     let onDownload: () -> Void
     let onRedownload: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovering = false
     @State private var previewLoaded = false
     @State private var auth = AuthService.shared
@@ -66,7 +67,7 @@ struct WallpaperTileView: View {
             // RoundedRectangle considered outside its hit region.
             .contentShape(Rectangle())
             .onHover { isHovering = $0 }
-            .animation(.easeOut(duration: 0.22), value: isHovering)
+            .animation(.easeOut(duration: 0.18), value: isHovering)
             .animation(.easeInOut(duration: 0.15), value: isDownloading)
     }
 
@@ -123,7 +124,7 @@ struct WallpaperTileView: View {
         }
         .padding(actionInset)
         .opacity(showActions ? 1 : 0)
-        .offset(y: showActions ? 0 : 6)
+        .offset(y: reduceMotion ? 0 : (showActions ? 0 : 6))
         .allowsHitTesting(showActions)
     }
 
@@ -155,9 +156,9 @@ struct WallpaperTileView: View {
         // (chip then "drifts above" the visible rect because the rect is
         // shorter than the surrounding tile-frame would imply).
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .scaleEffect(isHovering ? 1.035 : 1.0)
+        .scaleEffect(reduceMotion ? 1 : (isHovering ? 1.02 : 1.0))
         .brightness(isHovering ? 0.04 : 0)
-        .animation(.timingCurve(0.22, 0.61, 0.36, 1, duration: 0.6), value: isHovering)
+        .animation(.easeOut(duration: 0.20), value: isHovering)
     }
 
     private var hoverGradient: some View {

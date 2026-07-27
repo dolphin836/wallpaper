@@ -27,6 +27,7 @@ struct AccountView: View {
     var onCollection: (CollectionItem) -> Void
     var onUpload: () -> Void = {}
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var auth = AuthService.shared
     @State private var profile: PublicProfile?
     @State private var loadError: String?
@@ -192,7 +193,7 @@ struct AccountView: View {
         }
         .padding(.top, 18)
         .padding(.bottom, 10)
-        .animation(.spring(response: 0.34, dampingFraction: 0.78), value: tab)
+        .animation(reduceMotion ? nil : GlassMotion.selection, value: tab)
         .animation(.easeOut(duration: 0.14), value: hoveredTab)
     }
 

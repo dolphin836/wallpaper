@@ -108,13 +108,12 @@ struct MiniCoinPill: View {
 // the signed-in balance.
 struct BalancePill: View {
     let coins: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hover = false
 
     var body: some View {
         HStack(spacing: 8) {
             CoinDisc(size: 18)
-            .rotation3DEffect(.degrees(hover ? 360 : 0), axis: (x: 0, y: 1, z: 0))
-            .animation(.easeInOut(duration: 0.72), value: hover)
 
             Text("\(coins)")
                 .font(.system(size: 14, weight: .semibold, design: .monospaced))
@@ -140,8 +139,8 @@ struct BalancePill: View {
         )
         .shadow(color: hover ? Color.coinGlow : Color.black.opacity(0.12),
                 radius: hover ? 10 : 1, x: 0, y: hover ? 8 : 1)
-        .offset(y: hover ? -2 : 0)
-        .animation(.easeOut(duration: 0.22), value: hover)
+        .offset(y: reduceMotion ? 0 : (hover ? -1 : 0))
+        .animation(.easeOut(duration: 0.16), value: hover)
         .onHover { hover = $0 }
     }
 }

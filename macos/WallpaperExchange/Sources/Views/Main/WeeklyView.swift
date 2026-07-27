@@ -293,6 +293,7 @@ struct WeeklyArchiveView: View {
 private struct WeeklyIssueCard: View {
     let entry: WeeklyArchiveEntry
     let dateText: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hover = false
 
     var body: some View {
@@ -335,8 +336,8 @@ private struct WeeklyIssueCard: View {
             )
             .shadow(color: .black.opacity(0.20), radius: 3, y: 2)
             .shadow(color: .black.opacity(hover ? 0.34 : 0.22), radius: hover ? 22 : 14, y: hover ? 12 : 7)
-            .scaleEffect(hover ? 1.02 : 1)
-            .animation(.spring(response: 0.34, dampingFraction: 0.72), value: hover)
+            .scaleEffect(reduceMotion ? 1 : (hover ? 1.015 : 1))
+            .animation(.easeOut(duration: 0.18), value: hover)
             .onHover { h in
                 hover = h
                 if h { PaletteEnv.shared.apply(palette: entry.colorPalette, dominant: entry.dominantColor) }

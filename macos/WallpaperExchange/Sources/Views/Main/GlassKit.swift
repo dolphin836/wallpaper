@@ -231,13 +231,21 @@ extension GlassLightingOverlay where S == Capsule {
 
 // ─── Press feedback ─────────────────────────────────────────────
 
-// Quick squish with a springy release, so clicks feel like pressing
-// into the material rather than a flat state swap.
+// Shared motion values keep high-frequency chrome crisp and consistent.
+enum GlassMotion {
+    static let press = Animation.easeOut(duration: 0.16)
+    static let hover = Animation.easeOut(duration: 0.16)
+    static let selection = Animation.easeOut(duration: 0.20)
+}
+
+// A restrained press confirms the click without making the chrome bounce.
 struct GlassBounceButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.90 : 1)
-            .animation(.spring(response: 0.26, dampingFraction: 0.55), value: configuration.isPressed)
+            .scaleEffect(reduceMotion ? 1 : (configuration.isPressed ? 0.97 : 1))
+            .animation(reduceMotion ? nil : GlassMotion.press, value: configuration.isPressed)
     }
 }
 
@@ -321,6 +329,7 @@ struct GlassIconButton: View {
     let action: () -> Void
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hover = false
 
     var body: some View {
@@ -336,12 +345,10 @@ struct GlassIconButton: View {
                         Circle().fill(tone.hoverFill)
                     }
                 }
-                .scaleEffect(hover && isEnabled ? 1.10 : 1)
+                .scaleEffect(reduceMotion ? 1 : (hover && isEnabled ? 1.03 : 1))
                 .contentShape(Circle())
         }
         .buttonStyle(GlassBounceButtonStyle())
-        .focusEffectDisabled()
-        .focusable(false)
         .overlay(alignment: .top) {
             if hover, showTip, !help.isEmpty {
                 HoverTip(text: help)
@@ -352,7 +359,7 @@ struct GlassIconButton: View {
             hover = h
             if h && isEnabled { NSCursor.pointingHand.push() } else if h == false { NSCursor.pop() }
         }
-        .animation(.spring(response: 0.32, dampingFraction: 0.6), value: hover)
+        .animation(GlassMotion.hover, value: hover)
         .animation(.easeOut(duration: 0.14), value: active)
     }
 
@@ -378,14 +385,13 @@ struct GlassCircleButton: View {
     let action: () -> Void
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hover = false
 
     var body: some View {
         button
             .buttonStyle(GlassBounceButtonStyle())
-            .focusEffectDisabled()
-            .focusable(false)
-            .scaleEffect(hover && isEnabled ? 1.08 : 1)
+            .scaleEffect(reduceMotion ? 1 : (hover && isEnabled ? 1.03 : 1))
             .overlay(alignment: .top) {
                 if hover, showTip, !help.isEmpty {
                     HoverTip(text: help)
@@ -396,7 +402,7 @@ struct GlassCircleButton: View {
                 hover = h
                 if h && isEnabled { NSCursor.pointingHand.push() } else if h == false { NSCursor.pop() }
             }
-            .animation(.spring(response: 0.32, dampingFraction: 0.6), value: hover)
+            .animation(GlassMotion.hover, value: hover)
     }
 
     @ViewBuilder
@@ -462,6 +468,7 @@ struct GlassCapsuleButton: View {
     let action: () -> Void
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hover = false
 
     var body: some View {
@@ -481,16 +488,14 @@ struct GlassCapsuleButton: View {
             .contentShape(Capsule())
         }
         .buttonStyle(GlassBounceButtonStyle())
-        .focusEffectDisabled()
-        .focusable(false)
         .modifier(GlassCapsuleChrome(style: style, hover: hover))
-        .scaleEffect(hover && isEnabled ? 1.04 : 1)
+        .scaleEffect(reduceMotion ? 1 : (hover && isEnabled ? 1.015 : 1))
         .opacity(isEnabled ? 1 : 0.55)
         .onHover { h in
             hover = h
             if h && isEnabled { NSCursor.pointingHand.push() } else if h == false { NSCursor.pop() }
         }
-        .animation(.spring(response: 0.32, dampingFraction: 0.6), value: hover)
+        .animation(GlassMotion.hover, value: hover)
     }
 
     private var fg: Color {
@@ -538,6 +543,7 @@ struct GlassChip: View {
     let action: () -> Void
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hover = false
 
     var body: some View {
@@ -560,15 +566,13 @@ struct GlassChip: View {
             .contentShape(Capsule())
         }
         .buttonStyle(GlassBounceButtonStyle())
-        .focusEffectDisabled()
-        .focusable(false)
-        .scaleEffect(hover && isEnabled && !active ? 1.05 : 1)
+        .scaleEffect(reduceMotion ? 1 : (hover && isEnabled && !active ? 1.015 : 1))
         .opacity(isEnabled ? 1 : 0.5)
         .onHover { h in
             hover = h
             if h && isEnabled { NSCursor.pointingHand.push() } else if h == false { NSCursor.pop() }
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.65), value: hover)
+        .animation(GlassMotion.hover, value: hover)
         .animation(.easeOut(duration: 0.14), value: active)
     }
 
@@ -649,6 +653,7 @@ struct GlassSegmented<ID: Hashable>: View {
     var fullWidth: Bool = false
 
     @Namespace private var dropletNS
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GlassPill(tone: tone) {
@@ -664,7 +669,7 @@ struct GlassSegmented<ID: Hashable>: View {
                 )
             }
         }
-        .animation(.spring(response: 0.42, dampingFraction: 0.68), value: selection)
+        .animation(reduceMotion ? nil : GlassMotion.selection, value: selection)
     }
 }
 
@@ -677,6 +682,7 @@ struct GlassSegmentItem<ID: Hashable>: View {
     let dropletNamespace: Namespace.ID
     let action: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hover = false
 
     var body: some View {
@@ -714,17 +720,15 @@ struct GlassSegmentItem<ID: Hashable>: View {
                     Capsule().fill(tone.hoverFill)
                 }
             }
-            .scaleEffect(hover && !isSelected ? 1.05 : 1)
+            .scaleEffect(reduceMotion ? 1 : (hover && !isSelected ? 1.015 : 1))
             .contentShape(Capsule())
         }
         .buttonStyle(GlassBounceButtonStyle())
-        .focusEffectDisabled()
-        .focusable(false)
         .onHover { h in
             hover = h
             if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
-        .animation(.spring(response: 0.32, dampingFraction: 0.6), value: hover)
+        .animation(GlassMotion.hover, value: hover)
         .animation(.easeOut(duration: 0.14), value: isSelected)
     }
 

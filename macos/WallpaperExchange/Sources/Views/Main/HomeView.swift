@@ -191,6 +191,7 @@ private let goldenRatio: CGFloat = 1.618
 
 struct HomeWeeklyCard: View {
     let wallpaper: Wallpaper
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hover = false
     @State private var manager = WallpaperManager.shared
     @State private var auth = AuthService.shared
@@ -291,8 +292,8 @@ struct HomeWeeklyCard: View {
                                       action: { Task { await doDownload() } })
                         }
                         .opacity(hover ? 1 : 0)
-                        .offset(y: hover ? 0 : 4)
-                        .animation(.easeOut(duration: 0.2), value: hover)
+                        .offset(y: reduceMotion ? 0 : (hover ? 0 : 4))
+                        .animation(.easeOut(duration: 0.18), value: hover)
                         .allowsHitTesting(hover)
                     }
                 }
@@ -315,8 +316,8 @@ struct HomeWeeklyCard: View {
         .aspectRatio(goldenRatio, contentMode: .fit)
         .shadow(color: .black.opacity(0.20), radius: 3, y: 2)
         .shadow(color: .black.opacity(hover ? 0.34 : 0.22), radius: hover ? 22 : 14, y: hover ? 12 : 7)
-        .scaleEffect(hover ? 1.02 : 1)
-        .animation(.spring(response: 0.34, dampingFraction: 0.72), value: hover)
+        .scaleEffect(reduceMotion ? 1 : (hover ? 1.015 : 1))
+        .animation(.easeOut(duration: 0.18), value: hover)
         .onHover { entered in
             hover = entered
             if entered {

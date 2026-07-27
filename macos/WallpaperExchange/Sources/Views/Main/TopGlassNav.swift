@@ -15,6 +15,7 @@ struct GlassChromeBar: View {
     // Shared geometry space for the selection droplet, so it slides
     // and stretches between nav segments like a bead of water.
     @Namespace private var dropletNS
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let navItems: [MainWindow.SidebarItem] = [.home, .discover, .weekly, .collections]
 
@@ -33,10 +34,9 @@ struct GlassChromeBar: View {
 
             ToolbarAvatarButton(active: avatarActive, action: onAvatar)
         }
-        // Drives the droplet's matched-geometry slide. The low damping
-        // gives the overshoot-and-settle wobble that makes it read as
-        // liquid rather than a sliding rectangle.
-        .animation(.spring(response: 0.42, dampingFraction: 0.68), value: selection)
+        // Keep this frequently-used navigation transition quick and
+        // disable its movement when Reduce Motion is enabled.
+        .animation(reduceMotion ? nil : GlassMotion.selection, value: selection)
     }
 }
 
@@ -77,8 +77,6 @@ struct ToolbarAvatarButton: View {
             }
         }
         .buttonStyle(GlassBounceButtonStyle())
-        .focusEffectDisabled()
-        .focusable(false)
         .overlay(alignment: .top) {
             if hover {
                 HoverTip(text: auth.isLoggedIn ? L10n.shell.settings : L10n.shell.signIn)
@@ -89,7 +87,7 @@ struct ToolbarAvatarButton: View {
             hover = h
             if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
-        .animation(.spring(response: 0.32, dampingFraction: 0.6), value: hover)
+        .animation(GlassMotion.hover, value: hover)
     }
 
     @ViewBuilder
@@ -132,6 +130,7 @@ struct ChromeAvatarVisual<Content: View>: View {
     var active: Bool = false
     var hover: Bool = false
     let content: Content
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(
         size: CGFloat = 30,
@@ -161,7 +160,7 @@ struct ChromeAvatarVisual<Content: View>: View {
                     .padding(-0.5)
             )
             .frame(width: size + 4, height: size + 4)
-            .scaleEffect(hover ? 1.12 : 1)
+            .scaleEffect(reduceMotion ? 1 : (hover ? 1.03 : 1))
             .contentShape(Circle())
     }
 }

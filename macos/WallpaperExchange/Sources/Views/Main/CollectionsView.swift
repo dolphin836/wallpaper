@@ -222,6 +222,7 @@ private func collectionCoverSlots(_ item: CollectionItem) -> [CollectionCoverSlo
 
 struct CollectionListCard: View {
     let item: CollectionItem
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hovering = false
 
     private var slots: [CollectionCoverSlot] { collectionCoverSlots(item) }
@@ -281,7 +282,7 @@ struct CollectionListCard: View {
                     Image(systemName: "arrow.right")
                         .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(hovering ? Color.ink : Color.muted)
-                        .offset(x: hovering ? 3 : 0)
+                        .offset(x: reduceMotion ? 0 : (hovering ? 2 : 0))
                 }
             }
             .padding(.top, 16)
@@ -300,9 +301,9 @@ struct CollectionListCard: View {
                 .strokeBorder(hovering ? Color.hair.blended(with: Color.ink, fraction: 0.38) : Color.hair, lineWidth: 1)
         )
         .shadow(color: .black.opacity(hovering ? 0.09 : 0), radius: 16, y: 8)
-        .offset(y: hovering ? -2 : 0)
+        .offset(y: reduceMotion ? 0 : (hovering ? -1 : 0))
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .animation(.easeOut(duration: 0.22), value: hovering)
+        .animation(.easeOut(duration: 0.18), value: hovering)
         .onHover { hover in
             hovering = hover
             if hover { PaletteEnv.shared.apply(palette: nil, dominant: tintHex) }
@@ -327,6 +328,7 @@ private struct CollectionSteppedCover: View {
     let slots: [CollectionCoverSlot]
     let fallbackColor: String?
     let cardHovering: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hoveredIndex: Int?
 
     var body: some View {
@@ -353,16 +355,15 @@ private struct CollectionSteppedCover: View {
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
         }
         .background(Color.paper2)
-        .scaleEffect(cardHovering ? 1.018 : 1)
+        .scaleEffect(reduceMotion ? 1 : (cardHovering ? 1.012 : 1))
         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.hair, lineWidth: 1))
-        .animation(.easeOut(duration: 0.38), value: hoveredIndex)
-        .animation(.easeOut(duration: 0.38), value: cardHovering)
+        .animation(.easeOut(duration: 0.18), value: hoveredIndex)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: cardHovering)
     }
 
     private var coverWeights: [CGFloat] {
-        guard let hoveredIndex else { return [1.65, 1, 0.68] }
-        return slots.indices.map { $0 == hoveredIndex ? 2.15 : 0.58 }
+        [1.65, 1, 0.68]
     }
 }
 
@@ -433,6 +434,7 @@ struct CollectionListCardSkeleton: View {
 
 struct CollectionTileCard: View {
     let item: CollectionItem
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hover = false
 
     private var coverURL: URL? {
@@ -466,7 +468,7 @@ struct CollectionTileCard: View {
             }
         }
         .contentShape(Rectangle())
-        .animation(.easeOut(duration: 0.34), value: hover)
+        .animation(.easeOut(duration: 0.18), value: hover)
         .onHover { h in
             hover = h
             if h { PaletteEnv.shared.apply(palette: nil, dominant: tintHex) }
@@ -485,17 +487,24 @@ struct CollectionTileCard: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(Color.hair.blended(with: tint, fraction: 0.18))
                     .frame(width: card, height: card)
-                    .offset(x: hover ? 12 : 8, y: hover ? 12 : 8)
+                    .offset(
+                        x: reduceMotion ? 8 : (hover ? 10 : 8),
+                        y: reduceMotion ? 8 : (hover ? 10 : 8)
+                    )
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(Color.hair.blended(with: tint, fraction: 0.30))
                     .frame(width: card, height: card)
-                    .offset(x: hover ? 6 : 4, y: hover ? 6 : 4)
+                    .offset(
+                        x: reduceMotion ? 4 : (hover ? 5 : 4),
+                        y: reduceMotion ? 4 : (hover ? 5 : 4)
+                    )
                 Color.clear
                     .frame(width: card, height: card)
                     .overlay {
                         if let url = coverURL {
                             CachedAsyncImage(url: url) { img in
-                                img.resizable().aspectRatio(contentMode: .fill).scaleEffect(hover ? 1.04 : 1.0)
+                                img.resizable().aspectRatio(contentMode: .fill)
+                                    .scaleEffect(reduceMotion ? 1 : (hover ? 1.02 : 1.0))
                             } placeholder: { Color.paper2 }
                         } else {
                             Color.paper2.overlay(
@@ -517,7 +526,10 @@ struct CollectionTileCard: View {
                             .padding(8)
                         }
                     }
-                    .offset(x: hover ? -2 : 0, y: hover ? -2 : 0)
+                    .offset(
+                        x: reduceMotion ? 0 : (hover ? -1 : 0),
+                        y: reduceMotion ? 0 : (hover ? -1 : 0)
+                    )
                     .shadow(color: .black.opacity(hover ? 0.30 : 0.16), radius: hover ? 22 : 12, x: 0, y: hover ? 10 : 6)
             }
             .frame(width: cell, height: cell, alignment: .topLeading)
@@ -889,6 +901,7 @@ struct FramedTile: View {
     var accent: Color
     var onTap: () -> Void
     var onHover: (Bool) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hovering = false
 
     @State private var manager = WallpaperManager.shared
@@ -942,7 +955,7 @@ struct FramedTile: View {
                     } placeholder: {
                         (wallpaper.dominantColor.map { Color(hex: $0) } ?? Color.paper2).opacity(0.5)
                     }
-                    .scaleEffect(hovering ? 1.04 : 1.0)
+                    .scaleEffect(reduceMotion ? 1 : (hovering ? 1.02 : 1.0))
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay(alignment: .topLeading) { chips.padding(8) }
@@ -957,10 +970,10 @@ struct FramedTile: View {
                 )
                 .shadow(color: hovering ? accent.opacity(0.32) : Color.black.opacity(0.18),
                         radius: hovering ? 22 : 8, x: 0, y: hovering ? 14 : 6)
-                .offset(y: hovering ? -3 : 0)
+                .offset(y: reduceMotion ? 0 : (hovering ? -1 : 0))
         }
         .buttonStyle(.plain)
-        .animation(.easeOut(duration: 0.32), value: hovering)
+        .animation(.easeOut(duration: 0.18), value: hovering)
         .onHover { h in
             hovering = h
             onHover(h)

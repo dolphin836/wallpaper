@@ -359,36 +359,44 @@ struct SkeletonTile: View {
 // every 1.6s. SwiftUI's animation runs on the @State driver; we use
 // `phase` ∈ [-1, 1] to translate the band from off-left to off-right.
 struct ShimmerBand: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase: CGFloat = -1.0
 
     var body: some View {
-        GeometryReader { proxy in
-            let w = proxy.size.width
-            let h = proxy.size.height
-            // Band wider than the tile so the edges fade off-screen
-            // smoothly. The translateX moves the band's center from
-            // -w (off-left) to +w (off-right) ⇒ a (2 * w) sweep.
-            LinearGradient(
-                stops: [
-                    .init(color: .clear, location: 0.30),
-                    .init(color: Color.white.opacity(0.42), location: 0.50),
-                    .init(color: .clear, location: 0.70),
-                ],
-                // 100deg gradient ≈ slight top-left to bottom-right
-                // diagonal. UnitPoint(0.1, 0) → (0.9, 1) gives the
-                // visual approximation web's 100deg produces.
-                startPoint: UnitPoint(x: 0.1, y: 0),
-                endPoint:   UnitPoint(x: 0.9, y: 1)
-            )
-            .frame(width: w * 1.6, height: h * 1.2)
-            .offset(x: phase * w * 1.3)
-            .blendMode(.plusLighter)
-            .allowsHitTesting(false)
-            .onAppear {
-                withAnimation(
-                    .easeInOut(duration: 1.6).repeatForever(autoreverses: false)
-                ) {
-                    phase = 1.0
+        Group {
+            if reduceMotion {
+                Color.clear
+            } else {
+                GeometryReader { proxy in
+                    let w = proxy.size.width
+                    let h = proxy.size.height
+                    // Band wider than the tile so the edges fade off-screen
+                    // smoothly. The translateX moves the band's center from
+                    // -w (off-left) to +w (off-right) ⇒ a (2 * w) sweep.
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0.30),
+                            .init(color: Color.white.opacity(0.42), location: 0.50),
+                            .init(color: .clear, location: 0.70),
+                        ],
+                        // 100deg gradient ≈ slight top-left to bottom-right
+                        // diagonal. UnitPoint(0.1, 0) → (0.9, 1) gives the
+                        // visual approximation web's 100deg produces.
+                        startPoint: UnitPoint(x: 0.1, y: 0),
+                        endPoint:   UnitPoint(x: 0.9, y: 1)
+                    )
+                    .frame(width: w * 1.6, height: h * 1.2)
+                    .offset(x: phase * w * 1.3)
+                    .blendMode(.plusLighter)
+                    .allowsHitTesting(false)
+                    .onAppear {
+                        phase = -1.0
+                        withAnimation(
+                            .easeInOut(duration: 1.6).repeatForever(autoreverses: false)
+                        ) {
+                            phase = 1.0
+                        }
+                    }
                 }
             }
         }

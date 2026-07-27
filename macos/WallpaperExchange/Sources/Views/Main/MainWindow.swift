@@ -6,6 +6,7 @@ import AppKit
 // plus an icon toolbar on the right (upload, settings, refresh, theme,
 // avatar). Full-page push for detail / profile / collection / etc.
 struct MainWindow: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var auth = AuthService.shared
     @State private var manager = WallpaperManager.shared
 
@@ -205,7 +206,11 @@ struct MainWindow: View {
                 // Full-screen: align with the page content's 40pt
                 // gutter. Windowed: clear the traffic lights.
                 .padding(.leading, isFullScreen ? 40 : 86)
-                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                .transition(
+                    reduceMotion
+                        ? .opacity
+                        : .opacity.combined(with: .scale(scale: 0.96))
+                )
             }
 
             GlassChromeBar(
@@ -225,7 +230,7 @@ struct MainWindow: View {
         .frame(maxWidth: .infinity)
         .frame(height: WindowChrome.topBar)
         .background(Color.clear)
-        .animation(.spring(response: 0.34, dampingFraction: 0.75), value: canGoBack)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: canGoBack)
         .animation(.easeInOut(duration: 0.22), value: isFullScreen)
         .animation(.easeOut(duration: 0.42), value: palette.c2)
     }
