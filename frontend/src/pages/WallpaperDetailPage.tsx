@@ -1676,7 +1676,7 @@ html.wd-detail-scrollbar-hidden body::-webkit-scrollbar,
 .wd-s1-bottom { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 6;
   display: flex; flex-direction: column; align-items: center; gap: 12px;
   width: max-content; max-width: calc(100vw - 32px); }
-.wd-s1-bottom .wd-notice { width: min(560px, calc(100vw - 40px)); }
+.wd-s1-bottom .wd-notice { width: 100%; }
 .wd-s1-bottom .wd-download-progress { width: min(420px, calc(100vw - 40px)); margin-top: 0; }
 
 /* The toolbar itself — dark glass capsule (Mac immersiveToolbar). */
