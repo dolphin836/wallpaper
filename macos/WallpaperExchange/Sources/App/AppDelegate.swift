@@ -4,6 +4,8 @@ import ServiceManagement
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var openMainWindowHandler: (() -> Void)?
+    private var pendingMainWindowRequest = false
+    private var systemReopenInFlight = false
     private var configuredWindowIDs = Set<ObjectIdentifier>()
     private let resourceSampler = ProcessResourceSampler()
 
@@ -25,6 +27,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         setupStatusItem()
         configureMainWindow()
+        // Login-item launches don't always mount the SwiftUI Window scene.
+        // Start process-lifetime services independently of the window so the
+        // saved video wallpaper is restored even when the app starts hidden.
+        _ = WallpaperManager.shared
         UpdateService.shared.checkAtLaunch()
         Task {
             await APIClient.shared.trackEvent("app_launch", path: "/mac")
@@ -143,8 +149,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        openMainWindow()
-        return false
+        // If SwiftUI hasn't mounted the main scene yet, let AppKit perform its
+        // normal reopen handling. Returning false in that state suppresses the
+        // only system path that can create the initial window after a hidden
+        // launch-at-login start.
+        return !openMainWindow()
     }
 
     // Bridge so the SwiftUI command menu can open the main window
@@ -155,6 +164,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func setOpenMainWindowHandler(_ handler: @escaping () -> Void) {
         openMainWindowHandler = handler
+        guard pendingMainWindowRequest else { return }
+        pendingMainWindowRequest = false
+        handler()
+        DispatchQueue.main.async {
+            _ = self.openMainWindow(requestNewWindowIfNeeded: false)
+        }
     }
 
     private func setupStatusItem() {
@@ -270,7 +285,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func menuOpenMainWindow() {
-        openMainWindow()
+        if !openMainWindow() {
+            requestSystemReopen()
+        }
     }
 
     @objc private func menuCheckForUpdates() {
@@ -309,26 +326,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func openMainWindow(requestNewWindowIfNeeded: Bool = true) {
+    @discardableResult
+    private func openMainWindow(requestNewWindowIfNeeded: Bool = true) -> Bool {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
 
-        // canBecomeMain is false while the window is closed (AppKit ties
-        // it to visibility), so also match the SwiftUI "main" scene
-        // window by identifier — makeKeyAndOrderFront re-orders a closed
-        // window back in.
-        if let window = NSApp.windows.first(where: {
-            $0.canBecomeMain || $0.identifier?.rawValue.hasPrefix("main") == true
-        }) {
+        // Prefer the SwiftUI scene identifier. A broad canBecomeMain lookup
+        // can select an update/file panel instead, depending on NSApp.windows
+        // ordering, leaving the actual main window hidden.
+        let window = NSApp.windows.first(where: {
+            $0.identifier?.rawValue.hasPrefix("main") == true
+        }) ?? NSApp.windows.first(where: {
+            $0.canBecomeMain && !($0 is NSPanel) && $0.level == .normal
+        })
+
+        if let window {
             applyWindowChrome(window)
             if window.isMiniaturized {
                 window.deminiaturize(nil)
             }
             window.makeKeyAndOrderFront(nil)
+            pendingMainWindowRequest = false
+            return true
         } else if requestNewWindowIfNeeded, let openMainWindowHandler {
             openMainWindowHandler()
             DispatchQueue.main.async {
-                self.openMainWindow(requestNewWindowIfNeeded: false)
+                _ = self.openMainWindow(requestNewWindowIfNeeded: false)
+            }
+            return true
+        }
+
+        if requestNewWindowIfNeeded {
+            pendingMainWindowRequest = true
+        }
+        return false
+    }
+
+    /// Ask LaunchServices to deliver a normal reopen event to the already
+    /// running app. This gives SwiftUI a chance to create the main Window
+    /// scene when a status-menu click happens before its root view mounted.
+    private func requestSystemReopen() {
+        guard !systemReopenInFlight else { return }
+        systemReopenInFlight = true
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        configuration.createsNewApplicationInstance = false
+        NSWorkspace.shared.openApplication(
+            at: Bundle.main.bundleURL,
+            configuration: configuration
+        ) { [weak self] _, _ in
+            DispatchQueue.main.async {
+                self?.systemReopenInFlight = false
             }
         }
     }

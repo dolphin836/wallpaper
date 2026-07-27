@@ -89,12 +89,24 @@ final class WallpaperManager {
         autoRotateCollectionTitle = UserDefaults.standard.string(forKey: autoRotateCollectionTitleDefaultsKey)
         let saved = UserDefaults.standard.integer(forKey: currentWallpaperIDDefaultsKey)
         currentWallpaperID = saved > 0 ? saved : nil
-        if autoRotate {
-            startRotation()
-        }
-        if !autoRotate, let savedID = currentWallpaperID, let savedURL = localURL(for: savedID),
+        // A video wallpaper is an in-process desktop window, so macOS falls
+        // back to its poster as soon as the app exits. Restore that saved
+        // video from local storage on every launch, independently of whether
+        // auto-rotate is enabled or the network is ready yet.
+        if let savedID = currentWallpaperID, let savedURL = localURL(for: savedID),
            Self.isVideoFileURL(savedURL) {
-            VideoWallpaperController.shared.start(videoURL: savedURL, wallpaperID: savedID)
+            applyLocalWallpaper(
+                id: savedID,
+                url: savedURL,
+                source: "app-launch restore",
+                markAsCurrent: false
+            )
+        }
+        if autoRotate {
+            // Resuming the scheduler should preserve the currently selected
+            // wallpaper until the next interval. An immediate server-backed
+            // pick is fragile during login, before networking is available.
+            startRotation(applyImmediately: false)
         }
 
         // Re-apply the current wallpaper whenever the screen layout
