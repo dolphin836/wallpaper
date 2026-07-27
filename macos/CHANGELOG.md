@@ -10,6 +10,17 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.1.4] - 2026-07-27
+
+### Fixed
+
+- **The main window reliably reopens after a hidden launch-at-login start.**
+  Dock and menu-bar actions now target the real main window and fall back to
+  the system reopen path when SwiftUI has not mounted the window scene yet.
+- **The current video wallpaper resumes immediately after login.** The app
+  restores it from the local file even when auto shuffle is enabled; resumed
+  shuffle keeps the current wallpaper until the next scheduled interval.
+
 ## [2.1.3] - 2026-07-26
 
 ### Added

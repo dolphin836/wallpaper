@@ -1,8 +1,30 @@
 {
-  "current_version": "2.1.3",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.1.3.dmg",
+  "current_version": "2.1.4",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.1.4.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.1.4",
+      "released_at": "2026-07-27",
+      "notes": [
+        "The main window now reliably reopens from the Dock or menu bar after a hidden launch-at-login start.",
+        "The current video wallpaper resumes immediately from its local file after login, including when auto shuffle is enabled; shuffle waits until the next scheduled interval."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "修复登录启动后的主窗口恢复：即使应用以隐藏状态启动，也可通过 Dock 或菜单栏可靠打开主界面。",
+          "当前视频壁纸会在登录启动后立即从本地恢复播放；即使开启自动轮换，也会先保留当前壁纸，到下一个轮换周期再切换。"
+        ],
+        "zh-TW": [
+          "修復登入啟動後的主視窗恢復：即使應用程式以隱藏狀態啟動，也能透過 Dock 或選單列可靠開啟主介面。",
+          "目前的影片桌布會在登入啟動後立即從本機恢復播放；即使開啟自動輪換，也會先保留目前桌布，等到下一個輪換週期再切換。"
+        ],
+        "ja": [
+          "ログイン時に非表示で起動した後でも、Dock またはメニューバーからメインウインドウを確実に開けるようになりました。",
+          "現在の動画壁紙をログイン時にローカルファイルからすぐ再開します。自動切り替えが有効でも、次の切り替え時刻までは現在の壁紙を維持します。"
+        ]
+      }
+    },
     {
       "version": "2.1.3",
       "released_at": "2026-07-26",
