@@ -31,6 +31,7 @@ struct DetailStrings {
     let noticeInsufficientCoinsTitle: String
     let noticeUnavailableTitle: String
     let noticeFailedTitle: String
+    let noticeApplyFailedTitle: String
     let noticeSuccessMessage: (String, String) -> String   // (file label, size)
     let noticeSetMessage: String
     let noticeInsufficientCoinsMessage: (Int) -> String    // (coin balance)
@@ -150,6 +151,7 @@ private let detailEN = DetailStrings(
     noticeInsufficientCoinsTitle: "Insufficient coins",
     noticeUnavailableTitle: "Not ready to download",
     noticeFailedTitle: "Download failed",
+    noticeApplyFailedTitle: "Couldn’t set wallpaper",
     noticeSuccessMessage: { name, size in "\(name) · \(size) saved to your Wallpaper Exchange downloads." },
     noticeSetMessage: "Applied your wallpaper settings from the local Wallpaper Exchange file.",
     noticeInsufficientCoinsMessage: { n in "Your balance is \(n) coin\(n == 1 ? "" : "s"). Upload wallpapers to earn more and keep downloading." },
@@ -253,6 +255,7 @@ private let detailZhCN = DetailStrings(
     noticeInsufficientCoinsTitle: "金币不足",
     noticeUnavailableTitle: "暂不可下载",
     noticeFailedTitle: "下载失败",
+    noticeApplyFailedTitle: "设置壁纸失败",
     noticeSuccessMessage: { name, size in "\(name) · \(size) 已保存到你的 Wallpaper Exchange 下载目录。" },
     noticeSetMessage: "已使用本地 Wallpaper Exchange 文件应用你的壁纸设置。",
     noticeInsufficientCoinsMessage: { n in "你的余额为 \(n) 金币。上传壁纸即可赚取更多金币，继续下载。" },
@@ -356,6 +359,7 @@ private let detailZhTW = DetailStrings(
     noticeInsufficientCoinsTitle: "金幣不足",
     noticeUnavailableTitle: "暫不可下載",
     noticeFailedTitle: "下載失敗",
+    noticeApplyFailedTitle: "設定桌布失敗",
     noticeSuccessMessage: { name, size in "\(name) · \(size) 已儲存到你的 Wallpaper Exchange 下載資料夾。" },
     noticeSetMessage: "已使用本機 Wallpaper Exchange 檔案套用你的桌布設定。",
     noticeInsufficientCoinsMessage: { n in "你的餘額為 \(n) 金幣。上傳桌布即可賺取更多金幣，繼續下載。" },
@@ -459,6 +463,7 @@ private let detailJA = DetailStrings(
     noticeInsufficientCoinsTitle: "コイン不足",
     noticeUnavailableTitle: "ダウンロード準備中",
     noticeFailedTitle: "ダウンロード失敗",
+    noticeApplyFailedTitle: "壁紙を設定できませんでした",
     noticeSuccessMessage: { name, size in "\(name) · \(size) を Wallpaper Exchange のダウンロードに保存しました。" },
     noticeSetMessage: "ローカルの Wallpaper Exchange ファイルから、壁紙設定を適用しました。",
     noticeInsufficientCoinsMessage: { n in "残高は \(n) コインです。壁紙をアップロードしてコインを獲得すると、引き続きダウンロードできます。" },

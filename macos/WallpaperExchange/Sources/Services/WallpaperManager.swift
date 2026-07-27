@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import AVFoundation
 import os.log
 
 enum WallpaperApplySurface: String, CaseIterable, Identifiable {
@@ -964,11 +965,36 @@ final class WallpaperManager {
             return existing
         }
 
+        // A video that is already in the app's Downloads folder is a complete
+        // local resource. Generate its desktop fallback poster from the local
+        // movie first so "Set as wallpaper" never needs the network merely to
+        // rebuild chrome around an existing download.
+        if let localVideo = localURL(for: wallpaper.id),
+           Self.isVideoFileURL(localVideo),
+           let posterData = await Self.makeVideoPosterData(from: localVideo) {
+            let dest = storageDir.appendingPathComponent("poster-\(wallpaper.id).jpg")
+            removeVideoPosterFiles(for: wallpaper.id)
+            try posterData.write(to: dest, options: .atomic)
+            recomputeTotalBytes()
+            return dest
+        }
+
         let posterString = [wallpaper.previewURL, wallpaper.thumbURL]
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first { !$0.isEmpty }
         guard let posterString, let remoteURL = URL(string: posterString) else {
             throw WallpaperError.fileUnavailable
+        }
+
+        // The detail preview normally fetched these bytes already. Reuse that
+        // disk-cache entry before falling back to a new poster transfer.
+        if let cachedPoster = await ImageCacheStore.shared.cachedData(for: remoteURL) {
+            let ext = Self.fileExtension(from: nil, url: remoteURL, fallback: "image/jpeg")
+            let dest = storageDir.appendingPathComponent("poster-\(wallpaper.id).\(ext)")
+            removeVideoPosterFiles(for: wallpaper.id)
+            try cachedPoster.write(to: dest, options: .atomic)
+            recomputeTotalBytes()
+            return dest
         }
 
         let (tempURL, response) = try await Self.downloadWithProgress(from: remoteURL) { _ in }
@@ -979,5 +1005,25 @@ final class WallpaperManager {
         try fm.moveItem(at: tempURL, to: dest)
         recomputeTotalBytes()
         return dest
+    }
+
+    nonisolated private static func makeVideoPosterData(from videoURL: URL) async -> Data? {
+        await Task.detached(priority: .utility) {
+            let asset = AVURLAsset(url: videoURL)
+            let generator = AVAssetImageGenerator(asset: asset)
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = NSSize(width: 2560, height: 2560)
+            let time = CMTime(seconds: 0.25, preferredTimescale: 600)
+
+            do {
+                let result = try await generator.image(at: time)
+                return NSBitmapImageRep(cgImage: result.image).representation(
+                    using: .jpeg,
+                    properties: [.compressionFactor: 0.9]
+                )
+            } catch {
+                return nil
+            }
+        }.value
     }
 }

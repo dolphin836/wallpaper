@@ -91,7 +91,13 @@ struct DetailPage: View {
         case set
         case insufficientCoins
         case unavailable
-        case failed(String)
+        case downloadFailed(String)
+        case applyFailed(String)
+    }
+
+    private enum FailureContext: Equatable {
+        case download
+        case apply
     }
 
     private struct DetailLayout {
@@ -1338,13 +1344,13 @@ struct DetailPage: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(noticeTitle(downloadNotice))
-                        .font(.mono10)
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .tracking(1.4)
                         .textCase(.uppercase)
                         .foregroundStyle(tone.ink)
                     Text(noticeMessage(downloadNotice, detail: d))
-                        .font(.system(size: 12))
-                        .lineSpacing(2)
+                        .font(.system(size: 13, weight: .medium))
+                        .lineSpacing(3)
                         .foregroundStyle(tone.text)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1363,16 +1369,17 @@ struct DetailPage: View {
                 Button(action: { self.downloadNotice = nil }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(tone.ink.opacity(0.74))
+                        .foregroundStyle(tone.ink.opacity(0.92))
                         .frame(width: 24, height: 24)
-                        .background(Circle().fill(Color.white.opacity(0.45)))
+                        .background(Circle().fill(tone.ink.opacity(0.14)))
                 }
                 .buttonStyle(.plain)
             }
             .padding(14)
             .frame(width: resolvedActionBarWidth(layout: layout), alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(tone.background))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(tone.border, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(tone.border, lineWidth: 1.5))
+            .shadow(color: Color.black.opacity(0.24), radius: 18, y: 8)
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
@@ -1385,8 +1392,10 @@ struct DetailPage: View {
         case .insufficientCoins:
             let ink = Color(hex: "#9a6a18")
             return (Color(hex: "#fbf2dd"), Color(hex: "#b07a1a").opacity(0.72), ink, Color(hex: "#5e3f08"))
-        case .unavailable, .failed:
-            return (Color.warn.opacity(0.10), Color.warn.opacity(0.36), Color.warn, Color.ink2)
+        case .unavailable:
+            return (Color(hex: "#fff4e5").opacity(0.97), Color(hex: "#d97706").opacity(0.86), Color(hex: "#9a4d00"), Color(hex: "#5c2e00"))
+        case .downloadFailed, .applyFailed:
+            return (Color(hex: "#321b18").opacity(0.97), Color(hex: "#ff8a5b").opacity(0.90), Color(hex: "#ff9a70"), Color.white.opacity(0.94))
         }
     }
 
@@ -1396,7 +1405,8 @@ struct DetailPage: View {
         case .set: "display"
         case .insufficientCoins: "creditcard"
         case .unavailable: "hammer"
-        case .failed: "exclamationmark"
+        case .downloadFailed: "arrow.down.circle.fill"
+        case .applyFailed: "exclamationmark.triangle.fill"
         }
     }
 
@@ -1406,7 +1416,8 @@ struct DetailPage: View {
         case .set: L10n.detail.noticeSetTitle
         case .insufficientCoins: L10n.detail.noticeInsufficientCoinsTitle
         case .unavailable: L10n.detail.noticeUnavailableTitle
-        case .failed: L10n.detail.noticeFailedTitle
+        case .downloadFailed: L10n.detail.noticeFailedTitle
+        case .applyFailed: L10n.detail.noticeApplyFailedTitle
         }
     }
 
@@ -1420,7 +1431,7 @@ struct DetailPage: View {
             return L10n.detail.noticeInsufficientCoinsMessage(auth.user?.coins ?? 0)
         case .unavailable:
             return L10n.detail.noticeUnavailableMessage
-        case .failed(let message):
+        case .downloadFailed(let message), .applyFailed(let message):
             return message
         }
     }
@@ -2726,7 +2737,7 @@ struct DetailPage: View {
             return
         }
         guard auth.isLoggedIn else {
-            downloadNotice = .failed(L10n.detail.signInToDownload)
+            downloadNotice = .downloadFailed(L10n.detail.signInToDownload)
             auth.login()
             return
         }
@@ -2740,19 +2751,19 @@ struct DetailPage: View {
             await auth.refreshProfile()
             downloadNotice = .success
         } catch {
-            handleDownloadError(error)
+            handleDownloadError(error, context: .download)
         }
     }
 
     private func applySelectedWallpaper(_ detail: WallpaperDetail) async {
         guard let selectedWallpaperSurface else { return }
         guard !surfaceUnavailable(selectedWallpaperSurface, detail: detail) else {
-            downloadNotice = .failed(surfaceUnavailableReason(selectedWallpaperSurface, detail: detail))
+            downloadNotice = .applyFailed(surfaceUnavailableReason(selectedWallpaperSurface, detail: detail))
             return
         }
         let wallpaper = lightWallpaper(detail)
         guard auth.isLoggedIn || isLocalDownloaded(detail) else {
-            downloadNotice = .failed(L10n.detail.signInToDownloadAndSet)
+            downloadNotice = .applyFailed(L10n.detail.signInToDownloadAndSet)
             auth.login()
             return
         }
@@ -2777,29 +2788,50 @@ struct DetailPage: View {
                 showingWallpaperPicker = false
             }
         } catch {
-            handleDownloadError(error)
+            handleDownloadError(error, context: .apply)
         }
     }
 
-    private func handleDownloadError(_ error: Error) {
+    private func failedNotice(_ message: String, context: FailureContext) -> DownloadNotice {
+        switch context {
+        case .download:
+            return .downloadFailed(message)
+        case .apply:
+            return .applyFailed(message)
+        }
+    }
+
+    private func handleDownloadError(_ error: Error, context: FailureContext) {
         if let api = error as? APIError {
             switch api {
             case .insufficientCoins:
                 downloadNotice = .insufficientCoins
             case .unauthorized:
-                downloadNotice = .failed(L10n.detail.signInAgain)
+                let message = context == .apply
+                    ? L10n.detail.signInToDownloadAndSet
+                    : L10n.detail.signInAgain
+                downloadNotice = failedNotice(message, context: context)
                 auth.login()
             case .serverError(let code, let message):
                 if code == 404 || code == 409 || code == 423 {
                     downloadNotice = .unavailable
                 } else {
-                    downloadNotice = .failed(message.isEmpty ? L10n.detail.serverCouldNotPrepare : message)
+                    downloadNotice = failedNotice(
+                        message.isEmpty ? L10n.detail.serverCouldNotPrepare : message,
+                        context: context
+                    )
                 }
             default:
-                downloadNotice = .failed(api.errorDescription ?? L10n.detail.downloadFailedFallback)
+                downloadNotice = failedNotice(
+                    api.errorDescription ?? L10n.detail.downloadFailedFallback,
+                    context: context
+                )
             }
         } else {
-            downloadNotice = .failed(error.localizedDescription.isEmpty ? L10n.detail.downloadFailedFallback : error.localizedDescription)
+            downloadNotice = failedNotice(
+                error.localizedDescription.isEmpty ? L10n.detail.downloadFailedFallback : error.localizedDescription,
+                context: context
+            )
         }
     }
 
