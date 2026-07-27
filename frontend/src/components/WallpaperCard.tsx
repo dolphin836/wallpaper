@@ -94,14 +94,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
     return { label: t('chip.statusN', { num: wallpaper.status }), tone: 'is-muted' };
   })();
 
-  const handleAction = (e: React.MouseEvent, action: () => void) => {
-    e.preventDefault();
-    e.stopPropagation();
-    action();
-  };
-
   const isPublished = wallpaper.status === STATUS_PUBLISHED;
-  const Wrapper = isPublished ? Link : 'div';
   // disableModal omits `background` so the route resolves to the full page
   // instead of the overlay modal. initialWallpaper still hydrates the
   // detail view from this card's data even on a full-page nav.
@@ -114,15 +107,14 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   // instead of returning to the original gallery.
   const existingBg = (location.state as WallpaperDetailLocationState | null)?.background;
   const insideModal = !!existingBg;
-  const wrapperProps = isPublished
-    ? {
-        to: wallpaperDetailPath(wallpaper),
-        state: disableModal
-          ? { initialWallpaper: wallpaper, detailNavigation }
-          : { background: existingBg || location, initialWallpaper: wallpaper, detailNavigation },
-        ...(insideModal && !disableModal ? { replace: true } : {}),
-      }
-    : { style: { cursor: 'default' } };
+  const detailLinkProps = {
+    to: wallpaperDetailPath(wallpaper),
+    state: disableModal
+      ? { initialWallpaper: wallpaper, detailNavigation }
+      : { background: existingBg || location, initialWallpaper: wallpaper, detailNavigation },
+    ...(insideModal && !disableModal ? { replace: true } : {}),
+  };
+  const detailLabel = wallpaper.title || t('tile.wallpaperAlt', { id: wallpaper.id });
 
   // ── Salon variant (editorial Discover tile) ─────────────────────────
   // Minimal chrome: top-left resolution / live / Mac / AI chips, hover reveals a
@@ -132,11 +124,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
   // unpublished items (skips the action rail).
   if (layout === 'salon') {
     return (
-      <Wrapper
-        {...(wrapperProps as any)}
-        // `block` is essential: when isPublished, Wrapper is <Link> which renders
-        // as <a> — that's inline by default, so w-full / h-full are no-ops and
-        // the tile collapses to 0×0, hiding the (absolutely-positioned) image.
+      <article
         className={`tile-cell block relative w-full h-full overflow-hidden animate-fade-in no-underline ${isPublished ? '' : 'cursor-default'}`}
         // data-palette lets parent surfaces (e.g. Discover's liquid mesh)
         // detect which card is hovered via event delegation and tint the
@@ -164,7 +152,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
                 style={{
                   filter: highLoaded ? 'none' : 'blur(12px)',
                   transform: highLoaded ? 'none' : 'scale(1.06)',
-                  transition: 'filter 300ms ease, transform 300ms ease',
+                  transition: 'filter 240ms ease, transform 240ms var(--ease-out-quart)',
                   WebkitUserDrag: 'none',
                 } as React.CSSProperties}
               />
@@ -172,13 +160,14 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
             <img
               src={highResSrc}
               alt=""
+              aria-hidden
               loading="lazy"
               decoding="async"
               onLoad={() => setHighLoaded(true)}
               onContextMenu={(e) => e.preventDefault()}
               draggable={false}
               className={`tile-img absolute inset-0 w-full h-full object-cover select-none ${highLoaded ? 'opacity-100' : 'opacity-0'}`}
-              style={{ WebkitUserDrag: 'none', transition: highLoaded ? undefined : 'opacity 300ms ease' } as React.CSSProperties}
+              style={{ WebkitUserDrag: 'none', transition: highLoaded ? undefined : 'opacity 240ms var(--ease-out-quart)' } as React.CSSProperties}
             />
             {!highLoaded && <span className="card-loading-beam" aria-hidden />}
             <div
@@ -201,10 +190,18 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           </div>
         )}
 
+        {isPublished && (
+          <Link
+            {...detailLinkProps}
+            className="tile-detail-link"
+            aria-label={detailLabel}
+          />
+        )}
+
         {/* Top-left chips. Resolution uses the compact spec-plate treatment;
             live content uses the warmer media pill. AI and status chips keep
             their existing semantic treatments. */}
-        <div className="absolute top-2.5 left-2.5 z-[2] flex gap-1 flex-wrap max-w-[calc(100%-20px)]">
+        <div className="absolute top-2.5 left-2.5 z-[3] flex gap-1 flex-wrap max-w-[calc(100%-20px)] pointer-events-none">
           {resLabel && <span className="tile-chip is-resolution">{resLabel}</span>}
           {(isVideo || wallpaper.is_dynamic) && (
             <span className="tile-chip is-live">
@@ -229,12 +226,13 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
           )}
         </div>
 
-        {/* Hover action rail. Order: favorite → like → download.
-            CSS handles fade-in via .tile-cell:hover .tile-actions. */}
+        {/* The detail link and action controls are siblings, keeping the
+            interactive DOM valid for keyboard and assistive technology. */}
         {isPublished && !hideActions && (
           <div className="tile-actions">
             <button
-              onClick={(e) => handleAction(e, acts.handleFavorite)}
+              type="button"
+              onClick={acts.handleFavorite}
               disabled={acts.favLoading}
               className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
               title={acts.favorited ? t('actions.unfavorite') : t('actions.favorite')}
@@ -242,7 +240,8 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               {acts.favLoading ? <AiOutlineLoading3Quarters size={15} className="animate-spin" /> : acts.favorited ? <AiFillStar size={15} /> : <AiOutlineStar size={15} />}
             </button>
             <button
-              onClick={(e) => handleAction(e, acts.handleLike)}
+              type="button"
+              onClick={acts.handleLike}
               disabled={acts.likeLoading}
               className={`t-act ${acts.liked ? 'is-liked' : ''}`}
               title={acts.liked ? t('actions.unlike') : t('actions.like')}
@@ -251,7 +250,8 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
             </button>
             {acts.canDownload && (
               <button
-                onClick={(e) => handleAction(e, acts.handleDownload)}
+                type="button"
+                onClick={acts.handleDownload}
                 disabled={acts.downloading}
                 className={`t-act ${acts.downloaded ? 'is-downloaded' : ''} ${acts.downloading ? 'is-downloading' : ''}`}
                 title={acts.downloadTitle}
@@ -262,14 +262,13 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
             )}
           </div>
         )}
-      </Wrapper>
+      </article>
     );
   }
 
   return (
-    <Wrapper
-      {...(wrapperProps as any)}
-      className={`wp-card group block relative overflow-hidden transition-all duration-300 no-underline ${fillHeight ? 'h-full' : ''} animate-fade-in ${isPublished ? '' : 'cursor-default'}`}
+    <article
+      className={`wp-card block relative overflow-hidden no-underline ${fillHeight ? 'h-full' : ''} animate-fade-in ${isPublished ? '' : 'cursor-default'}`}
       style={{
         ...style,
         animationDelay: `${animDelay}ms`,
@@ -277,6 +276,13 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         ...(isPublished ? {} : { cursor: 'default' }),
       }}
     >
+      {isPublished && (
+        <Link
+          {...detailLinkProps}
+          className="tile-detail-link"
+          aria-label={detailLabel}
+        />
+      )}
       <div
         className={`relative overflow-hidden ${fillHeight ? 'h-full' : ''} ${fixedAspect ? 'aspect-[3/2]' : ''}`}
         style={{
@@ -304,27 +310,26 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
                 style={{
                   filter: highLoaded ? 'none' : 'blur(12px)',
                   transform: highLoaded ? 'none' : 'scale(1.06)',
-                  transition: 'filter 300ms ease, transform 300ms ease',
+                  transition: 'filter 240ms ease, transform 240ms var(--ease-out-quart)',
                   WebkitUserDrag: 'none',
                 } as React.CSSProperties}
               />
             )}
             {/* High-res preview fades in once loaded, replacing the blurred thumb.
-                Uses transition-all (not transition-opacity) so the group-hover:scale-105
-                transform animates smoothly over 500ms — opacity-only transition was
-                causing the scale to snap instantly on hover. */}
+                The dedicated class limits transitions to opacity and transform. */}
             <img
               src={highResSrc}
               alt=""
+              aria-hidden
               loading="lazy"
               decoding="async"
               onLoad={() => setHighLoaded(true)}
               onContextMenu={(e) => e.preventDefault()}
               draggable={false}
-              className={`absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-105 select-none ${highLoaded ? 'opacity-100' : 'opacity-0'}`}
+              className={`legacy-card-img absolute inset-0 w-full h-full object-cover select-none ${highLoaded ? 'opacity-100' : 'opacity-0'}`}
               style={{ WebkitUserDrag: 'none' } as React.CSSProperties}
             />
-            <div className="absolute inset-0 z-[1] bg-black/0 group-hover:bg-black/10 transition-colors duration-300" onContextMenu={(e) => e.preventDefault()} />
+            <div className="legacy-card-scrim absolute inset-0 z-[1] bg-black/0" onContextMenu={(e) => e.preventDefault()} />
           </>
         ) : (
           <div className={`w-full flex items-center justify-center ${fixedAspect || fillHeight ? 'h-full' : 'aspect-[4/3]'}`}>
@@ -337,7 +342,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         )}
 
         {/* Tags: top-left */}
-        <div className="absolute top-2.5 left-2.5 z-[3] flex items-center gap-1.5 flex-wrap max-w-[calc(100%-20px)]">
+        <div className="absolute top-2.5 left-2.5 z-[3] flex items-center gap-1.5 flex-wrap max-w-[calc(100%-20px)] pointer-events-none">
           {resLabel && (
             <span className="tile-chip is-resolution">
               {resLabel}
@@ -369,7 +374,8 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
         {/* Action buttons — appear on hover, only for published wallpapers */}
         {isPublished && !hideActions && <div className="tile-actions">
             <button
-              onClick={(e) => handleAction(e, acts.handleFavorite)}
+              type="button"
+              onClick={acts.handleFavorite}
               disabled={acts.favLoading}
               className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
               title={acts.favorited ? t('actions.unfavorite') : t('actions.favorite')}
@@ -377,7 +383,8 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
               {acts.favLoading ? <AiOutlineLoading3Quarters size={16} className="animate-spin" /> : acts.favorited ? <AiFillStar size={16} /> : <AiOutlineStar size={16} />}
             </button>
             <button
-              onClick={(e) => handleAction(e, acts.handleLike)}
+              type="button"
+              onClick={acts.handleLike}
               disabled={acts.likeLoading}
               className={`t-act ${acts.liked ? 'is-liked' : ''}`}
               title={acts.liked ? t('actions.unlike') : t('actions.like')}
@@ -386,7 +393,8 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
             </button>
             {acts.canDownload && (
               <button
-                onClick={(e) => handleAction(e, acts.handleDownload)}
+                type="button"
+                onClick={acts.handleDownload}
                 disabled={acts.downloading}
                 className={`t-act ${acts.downloaded ? 'is-downloaded' : ''} ${acts.downloading ? 'is-downloading' : ''}`}
                 title={acts.downloadTitle}
@@ -403,7 +411,7 @@ export default function WallpaperCard({ wallpaper, showStatus, fixedAspect, fill
             )}
         </div>}
       </div>
-    </Wrapper>
+    </article>
   );
 }
 

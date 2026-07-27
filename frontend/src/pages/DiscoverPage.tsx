@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useId } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -165,8 +166,6 @@ function SkeletonRows({
 function BackToTop() {
   const { t } = useTranslation('browse');
   const [show, setShow] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
     let ticking = false;
     const onScroll = () => {
@@ -181,7 +180,6 @@ function BackToTop() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
-  if (!mounted) return null;
   return createPortal(
     <button
       type="button"
@@ -234,8 +232,71 @@ interface FilterDropdownProps {
   isAuthenticated: boolean;
 }
 
+function useDropdownKeyboard(open: boolean, setOpen: (open: boolean) => void) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+
+  const getItems = useCallback(() => (
+    Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]:not(:disabled)') ?? [])
+  ), []);
+
+  const closeAndRestoreFocus = useCallback(() => {
+    setOpen(false);
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  }, [setOpen]);
+
+  const focusBoundary = useCallback((position: 'first' | 'last') => {
+    requestAnimationFrame(() => {
+      const items = getItems();
+      const item = position === 'first' ? items[0] : items[items.length - 1];
+      item?.focus();
+    });
+  }, [getItems]);
+
+  const onKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape' && open) {
+      event.preventDefault();
+      closeAndRestoreFocus();
+      return;
+    }
+
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+
+    if (!open) {
+      setOpen(true);
+      focusBoundary(event.key === 'ArrowUp' || event.key === 'End' ? 'last' : 'first');
+      return;
+    }
+
+    const items = getItems();
+    if (items.length === 0) return;
+    if (event.key === 'Home') {
+      items[0].focus();
+      return;
+    }
+    if (event.key === 'End') {
+      items[items.length - 1].focus();
+      return;
+    }
+
+    const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+    const direction = event.key === 'ArrowDown' ? 1 : -1;
+    const nextIndex = currentIndex === -1
+      ? (direction === 1 ? 0 : items.length - 1)
+      : (currentIndex + direction + items.length) % items.length;
+    items[nextIndex].focus();
+  }, [closeAndRestoreFocus, focusBoundary, getItems, open, setOpen]);
+
+  return { triggerRef, menuRef, menuId, closeAndRestoreFocus, onKeyDown };
+}
+
 function FilterDropdown(p: FilterDropdownProps) {
   const { t } = useTranslation('browse');
+  const {
+    triggerRef, menuRef, menuId, closeAndRestoreFocus, onKeyDown,
+  } = useDropdownKeyboard(p.open, p.setOpen);
   // For-you is only meaningful for signed-in users — hide it for guests
   // so the dropdown doesn't surface an option that immediately falls
   // back to Latest.
@@ -244,8 +305,14 @@ function FilterDropdown(p: FilterDropdownProps) {
     : ['latest', 'trending', 'live', 'ai'];
 
   return (
-    <div className="relative">
+    <div className="relative" onKeyDown={onKeyDown}>
       <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={p.open}
+        aria-controls={menuId}
+        aria-label={`${t('discover.filterKicker')}: ${t(FILTER_LABEL_KEYS[p.mode])}`}
         onClick={() => p.setOpen(!p.open)}
         className="inline-flex items-center gap-3 h-8 px-3.5 rounded-lg bg-paper-2 border border-hair text-[12px] text-ink-2"
       >
@@ -254,11 +321,20 @@ function FilterDropdown(p: FilterDropdownProps) {
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 9l7 7 7-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
       {p.open && (
-        <div className="absolute right-0 mt-1 w-44 bg-paper border border-hair rounded-lg shadow-lg z-20 py-1">
+        <div
+          ref={menuRef}
+          id={menuId}
+          role="menu"
+          className="discover-dropdown-menu absolute right-0 mt-1 w-44 bg-paper border border-hair rounded-lg shadow-lg z-20 py-1"
+        >
           {options.map((opt) => (
             <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={p.mode === opt}
+              tabIndex={p.mode === opt ? 0 : -1}
               key={opt}
-              onClick={() => { p.setMode(opt); p.setOpen(false); }}
+              onClick={() => { p.setMode(opt); closeAndRestoreFocus(); }}
               className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${p.mode === opt ? 'text-accent-ink bg-accent-soft font-medium' : 'text-ink-2 hover:bg-paper-2'}`}
             >{t(FILTER_LABEL_KEYS[opt])}</button>
           ))}
@@ -287,14 +363,19 @@ interface FacetDropdownProps {
 }
 
 function FacetDropdown(p: FacetDropdownProps) {
+  const {
+    triggerRef, menuRef, menuId, closeAndRestoreFocus, onKeyDown,
+  } = useDropdownKeyboard(p.open, p.setOpen);
   const selectedOption = p.options.find((option) => option.value === p.value);
   const selectedLabel = selectedOption?.label || p.allLabel;
   return (
-    <div className="relative">
+    <div className="relative" onKeyDown={onKeyDown}>
       <button
+        ref={triggerRef}
         type="button"
         aria-haspopup="menu"
         aria-expanded={p.open}
+        aria-controls={menuId}
         aria-label={`${p.label}: ${selectedLabel}`}
         onClick={() => p.setOpen(!p.open)}
         className="inline-flex items-center gap-2.5 h-8 px-3.5 rounded-lg bg-paper-2 border border-hair text-[12px] text-ink-2 whitespace-nowrap hover:border-ink-2 transition-colors"
@@ -313,12 +394,18 @@ function FacetDropdown(p: FacetDropdownProps) {
         </svg>
       </button>
       {p.open && (
-        <div role="menu" className="absolute right-0 mt-1 w-44 bg-paper border border-hair rounded-lg shadow-lg z-20 py-1">
+        <div
+          ref={menuRef}
+          id={menuId}
+          role="menu"
+          className="discover-dropdown-menu absolute right-0 mt-1 w-44 bg-paper border border-hair rounded-lg shadow-lg z-20 py-1"
+        >
           <button
             type="button"
             role="menuitemradio"
             aria-checked={!p.value}
-            onClick={() => { p.onChange(''); p.setOpen(false); }}
+            tabIndex={!p.value ? 0 : -1}
+            onClick={() => { p.onChange(''); closeAndRestoreFocus(); }}
             className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${!p.value ? 'text-accent-ink bg-accent-soft font-medium' : 'text-ink-2 hover:bg-paper-2'}`}
           >
             {p.allLabel}
@@ -328,8 +415,9 @@ function FacetDropdown(p: FacetDropdownProps) {
               type="button"
               role="menuitemradio"
               aria-checked={p.value === option.value}
+              tabIndex={p.value === option.value ? 0 : -1}
               key={option.value}
-              onClick={() => { p.onChange(option.value); p.setOpen(false); }}
+              onClick={() => { p.onChange(option.value); closeAndRestoreFocus(); }}
               className={`w-full flex items-center gap-2.5 px-4 py-2 text-left text-[13px] transition-colors ${p.value === option.value ? 'text-accent-ink bg-accent-soft font-medium' : 'text-ink-2 hover:bg-paper-2'}`}
             >
               {p.colorSwatches && (
@@ -659,8 +747,9 @@ export default function DiscoverPage() {
   }, []);
 
   useEffect(() => {
-    fetchWallpapers(true);
-  }, [filterMode, categoryFilter, resolutionFilter, colorFilter]);
+    const frame = requestAnimationFrame(() => { void fetchWallpapers(true); });
+    return () => cancelAnimationFrame(frame);
+  }, [fetchWallpapers]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {

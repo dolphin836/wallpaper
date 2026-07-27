@@ -459,7 +459,7 @@ function SceneSwitcher<T extends string>({
           <button
             key={s.key}
             onClick={() => onChange(s.key)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-[background-color,color,box-shadow,transform] duration-150 active:scale-[0.97] ${
               isActive
                 ? 'bg-white/20 text-white shadow-sm'
                 : 'text-white/60 hover:text-white/90'
@@ -551,7 +551,7 @@ export default function DeviceMockup({ imageUrl, platform, deviceWidth, deviceHe
           filter: 'drop-shadow(0 30px 60px rgba(0, 10, 30, 0.55))',
         }}
       >
-        <div className="transition-all duration-300 ease-in-out">
+        <div>
           {renderMockup()}
         </div>
       </div>

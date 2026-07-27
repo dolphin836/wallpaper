@@ -1315,29 +1315,30 @@ function ProfileWallpaperTile({
     : px >= 1920 ? '1080P'
     : px >= 1280 ? '720P'
     : '';
-  const stop = (e: React.MouseEvent, fn: () => void) => {
-    e.preventDefault();
-    e.stopPropagation();
-    fn();
-  };
   const isPublished = w.status === 1;
+  const detailLabel = w.title || t('tile.altFallback', { id: w.id });
   return (
-    <Link
-      to={wallpaperDetailPath(w)}
-      state={{ background: location, initialWallpaper: w, detailNavigation }}
+    <article
       className="dev-spec-card"
-      style={{ animationDelay: `${Math.min(index, 16) * 30}ms` }}
+      style={{ animationDelay: `${Math.min(index, 8) * 24}ms` }}
     >
       <div className="dev-spec-card-screen" style={{ aspectRatio: '3 / 2' }}>
         <img
           src={w.preview_url || w.thumb_url}
-          alt={w.title || t('tile.altFallback', { id: w.id })}
+          alt=""
+          aria-hidden
           loading="lazy"
           className="dev-spec-card-img"
           style={{ backgroundColor: w.dominant_color || undefined }}
         />
+        <Link
+          to={wallpaperDetailPath(w)}
+          state={{ background: location, initialWallpaper: w, detailNavigation }}
+          className="tile-detail-link"
+          aria-label={detailLabel}
+        />
         {(resLabel || isVideo || w.is_dynamic || w.is_ai_generated) && (
-          <div className="absolute top-2.5 left-2.5 z-[3] flex gap-1 flex-wrap max-w-[calc(100%-20px)]">
+          <div className="absolute top-2.5 left-2.5 z-[3] flex gap-1 flex-wrap max-w-[calc(100%-20px)] pointer-events-none">
             {resLabel && <span className="tile-chip is-resolution">{resLabel}</span>}
             {(isVideo || w.is_dynamic) && (
               <span className="tile-chip is-live">
@@ -1361,7 +1362,7 @@ function ProfileWallpaperTile({
           <div className="tile-actions">
             <button
               type="button"
-              onClick={(e) => stop(e, acts.handleFavorite)}
+              onClick={acts.handleFavorite}
               disabled={acts.favLoading}
               className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
               title={acts.favorited ? t('tile.unfavorite') : t('tile.favorite')}
@@ -1374,7 +1375,7 @@ function ProfileWallpaperTile({
             </button>
             <button
               type="button"
-              onClick={(e) => stop(e, acts.handleLike)}
+              onClick={acts.handleLike}
               disabled={acts.likeLoading}
               className={`t-act ${acts.liked ? 'is-liked' : ''}`}
               title={acts.liked ? t('tile.unlike') : t('tile.like')}
@@ -1388,7 +1389,7 @@ function ProfileWallpaperTile({
             {acts.canDownload && (
               <button
                 type="button"
-                onClick={(e) => stop(e, acts.handleDownload)}
+                onClick={acts.handleDownload}
                 disabled={acts.downloading}
                 className={`t-act ${acts.downloaded ? 'is-downloaded' : ''} ${acts.downloading ? 'is-downloading' : ''}`}
                 title={acts.downloadTitle}
@@ -1426,6 +1427,6 @@ function ProfileWallpaperTile({
           </div>
         )}
       </div>
-    </Link>
+    </article>
   );
 }

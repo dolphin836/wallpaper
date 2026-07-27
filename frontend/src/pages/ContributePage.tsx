@@ -70,7 +70,7 @@ export default function ContributePage() {
         <section className="pt-2 border-t border-hair pt-7 flex flex-wrap gap-3 items-center">
           <Link
             to={startPath}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-accent text-white text-[13px] font-semibold no-underline hover:brightness-95 transition-all"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-accent text-white text-[13px] font-semibold no-underline hover:brightness-95 active:scale-[0.97] transition-[filter,transform] duration-150"
           >
             {isAuthenticated ? t('contribute.ctaUpload') : t('contribute.ctaSignUp')}
           </Link>

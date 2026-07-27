@@ -1781,7 +1781,7 @@ html.wd-detail-scrollbar-hidden body::-webkit-scrollbar,
 .wd-btn.is-favorited { color: oklch(70% 0.18 65); border-color: oklch(70% 0.18 65); background: color-mix(in oklch, oklch(70% 0.18 65) 5%, var(--color-paper)); }
 .wd-btn-count { min-width: 21px; display: inline-flex; align-items: center; justify-content: center; padding: 1px 6px; border-radius: 999px; background: var(--color-paper-2); color: var(--color-muted); font-family: var(--font-mono); font-size: 10px; margin-left: 2px; font-variant-numeric: tabular-nums; }
 
-.wd-toggle-pill { padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 500; color: var(--color-muted); transition: all .15s ease; }
+.wd-toggle-pill { padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 500; color: var(--color-muted); transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
 .wd-toggle-pill:hover { color: var(--color-ink-2); }
 .wd-toggle-pill.is-on { background: var(--color-paper); color: var(--color-ink); box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 1.5px 2px rgba(0,0,0,0.12), 0 3px 6px rgba(0,0,0,0.14); }
 
@@ -2036,7 +2036,7 @@ function VideoPlayer({
           </span>
         ) : (
           <span
-            className={`flex items-center justify-center w-20 h-20 rounded-full bg-black/55 text-white backdrop-blur-md transition-all duration-200 group-hover:scale-110 group-hover:bg-black/70 ${playing ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
+            className={`flex items-center justify-center w-20 h-20 rounded-full bg-black/55 text-white backdrop-blur-md transition-[transform,background-color,opacity] duration-200 group-hover:scale-105 group-hover:bg-black/70 ${playing ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}
             style={{ transitionTimingFunction: 'var(--ease-out-quart)' }}
           >
             {playing ? (

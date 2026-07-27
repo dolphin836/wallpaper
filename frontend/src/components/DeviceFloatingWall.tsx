@@ -218,9 +218,11 @@ export default function DeviceFloatingWall({
   // looked like the preview never moved. Direct .set() bypasses
   // that. Spring is only used for drag-end settle below.
   const parkedRef = useRef(parkedCell);
-  parkedRef.current = parkedCell;
   const isDraggingRef = useRef(isDragging);
-  isDraggingRef.current = isDragging;
+  useLayoutEffect(() => {
+    parkedRef.current = parkedCell;
+    isDraggingRef.current = isDragging;
+  }, [isDragging, parkedCell]);
 
   // Continuous scroll-follow Y (no row snap during scroll). The
   // 70% hysteresis on previewCol/RowMV below converts the
@@ -301,7 +303,9 @@ export default function DeviceFloatingWall({
     return Math.max(0, r);
   });
   const [previewCell, setPreviewCell] = useState({ col: 0, row: 0 });
-  previewCellRef.current = previewCell;
+  useLayoutEffect(() => {
+    previewCellRef.current = previewCell;
+  }, [previewCell]);
   useEffect(() => {
     const u1 = previewColMV.on('change', (v) => setPreviewCell((p) => p.col === v ? p : { ...p, col: v }));
     const u2 = previewRowMV.on('change', (v) => setPreviewCell((p) => p.row === v ? p : { ...p, row: v }));
@@ -341,7 +345,7 @@ export default function DeviceFloatingWall({
       if (r > totalCount + 4) break;
     }
     return out;
-  }, [totalCount, wallWidth, cols, tileW, tileH, gap, previewCell.col, previewCell.row]);
+  }, [totalCount, wallWidth, cols, tileW, tileH, gap, previewCell]);
 
   const wallHeight = useMemo(() => {
     if (wallpapers.length === 0) return previewH;
@@ -543,7 +547,7 @@ function DevWallSlot({
     const DENT_MAX = 0.20;
     let scaleX = 1;
     let scaleY = 1;
-    let origin = '50% 50%';
+    let origin: string;
     if (xRatio > yRatio) {
       scaleY = 1 - Math.min(DENT_MAX, yRatio * 0.7);
       const oy = dy > 0 ? '100%' : '0%';
@@ -556,13 +560,11 @@ function DevWallSlot({
     return { scaleX, scaleY, origin };
   };
 
-  const scaleX = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
+  const tileTransform = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
     const s = computeSquish(cx as number, cy as number, px as number, py as number);
-    return s?.scaleX ?? 1;
-  });
-  const scaleY = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
-    const s = computeSquish(cx as number, cy as number, px as number, py as number);
-    return s?.scaleY ?? 1;
+    const scaleX = s?.scaleX ?? 1;
+    const scaleY = s?.scaleY ?? 1;
+    return `translate3d(${cx}px, ${cy}px, 0) scaleX(${scaleX}) scaleY(${scaleY})`;
   });
   const transformOrigin = useTransform([cellX, cellY, previewX, previewY], ([cx, cy, px, py]) => {
     const s = computeSquish(cx as number, cy as number, px as number, py as number);
@@ -572,7 +574,7 @@ function DevWallSlot({
   return (
     <motion.div
       className="dev-wall-slot"
-      style={{ x: cellX, y: cellY, scaleX, scaleY, transformOrigin, width: tileW, height: tileH }}
+      style={{ transform: tileTransform, transformOrigin, width: tileW, height: tileH }}
     >
       <DevTile
         wallpaper={wp}
@@ -600,11 +602,6 @@ function DevTile({
   const location = useLocation();
   const acts = useWallpaperActions(w);
   const aspect = `${device.width} / ${device.height}`;
-  const stop = (e: React.MouseEvent, fn: () => void) => {
-    e.preventDefault();
-    e.stopPropagation();
-    fn();
-  };
   // Tag chips: resolution band + video / mac-dynamic / AI flags.
   // Same vocabulary as the salon WallpaperCard so the tile reads
   // consistent across surfaces.
@@ -616,17 +613,17 @@ function DevTile({
     : resPx >= 1920 ? '1080P'
     : resPx >= 1280 ? '720P'
     : '';
+  const detailLabel = w.title || t('wall.wallpaperAlt', { id: w.id });
   return (
-    <Link
-      to={wallpaperDetailPath(w)}
-      state={{ background: location, initialWallpaper: w, detailNavigation }}
+    <article
       className={`dev-spec-card${isFeatured ? ' is-featured' : ''}`}
       // Cap the stagger delay. The unbounded `index * 30ms` was
       // delaying paginated tiles by literal seconds (tile #275 →
       // 8.25s of opacity-0 from cd-frame-in's `both` fill), so
       // newly-arrived tiles looked invisible after the pending
-      // skeleton vanished. Cap at 16 tiles' worth → max 480ms.
-      style={{ animationDelay: `${Math.min(index, 16) * 30}ms` }}
+      // skeleton vanished. Keep the short entrance rhythm but cap it
+      // at eight tiles so interaction is never held back by the stagger.
+      style={{ animationDelay: `${Math.min(index, 8) * 24}ms` }}
       onMouseEnter={() => onHover(index)}
     >
       <div className="dev-spec-card-screen" style={{ aspectRatio: aspect }}>
@@ -634,15 +631,21 @@ function DevTile({
           key={`${w.preview_url}|${w.thumb_url}`}
           previewSrc={w.preview_url}
           thumbSrc={w.thumb_url}
-          alt={w.title || t('wall.wallpaperAlt', { id: w.id })}
+          alt=""
           backgroundColor={w.dominant_color}
+        />
+        <Link
+          to={wallpaperDetailPath(w)}
+          state={{ background: location, initialWallpaper: w, detailNavigation }}
+          className="tile-detail-link"
+          aria-label={detailLabel}
         />
         {/* Top-left chip strip — resolution + video / mac-dynamic /
             AI badges. Same component vocabulary as the salon
             WallpaperCard. Positioned absolutely on top of the
             preview image so they read at a glance. */}
         {(resLabel || isVideo || w.is_dynamic || w.is_ai_generated) && (
-          <div className="absolute top-2.5 left-2.5 z-[3] flex gap-1 flex-wrap max-w-[calc(100%-20px)]">
+          <div className="absolute top-2.5 left-2.5 z-[3] flex gap-1 flex-wrap max-w-[calc(100%-20px)] pointer-events-none">
             {resLabel && <span className="tile-chip is-resolution">{resLabel}</span>}
             {(isVideo || w.is_dynamic) && (
               <span className="tile-chip is-live">
@@ -662,7 +665,7 @@ function DevTile({
         <div className="tile-actions">
           <button
             type="button"
-            onClick={(e) => stop(e, acts.handleFavorite)}
+            onClick={acts.handleFavorite}
             disabled={acts.favLoading}
             className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
             title={acts.favorited ? t('wall.unfavorite') : t('wall.favorite')}
@@ -675,7 +678,7 @@ function DevTile({
           </button>
           <button
             type="button"
-            onClick={(e) => stop(e, acts.handleLike)}
+            onClick={acts.handleLike}
             disabled={acts.likeLoading}
             className={`t-act ${acts.liked ? 'is-liked' : ''}`}
             title={acts.liked ? t('wall.unlike') : t('wall.like')}
@@ -689,7 +692,7 @@ function DevTile({
           {acts.canDownload && (
             <button
               type="button"
-              onClick={(e) => stop(e, acts.handleDownload)}
+              onClick={acts.handleDownload}
               disabled={acts.downloading}
               className={`t-act ${acts.downloaded ? 'is-downloaded' : ''} ${acts.downloading ? 'is-downloading' : ''}`}
               title={acts.downloadTitle}
@@ -704,7 +707,7 @@ function DevTile({
           )}
         </div>
       </div>
-    </Link>
+    </article>
   );
 }
 
@@ -742,6 +745,7 @@ function DeferredWallpaperImage({
       ref={imageRef}
       src={src}
       alt={alt}
+      aria-hidden={!alt || undefined}
       loading="eager"
       decoding="async"
       className="dev-spec-card-img"

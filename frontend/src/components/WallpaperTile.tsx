@@ -102,18 +102,8 @@ export default function WallpaperTile({ w, variant, onHover, detailNavigation }:
     if (variant === 'video' && w.preview_video_url) setPlaying(false);
   };
 
-  // Wrap action handlers to stop the click from bubbling into the
-  // outer Link (which would navigate to the detail modal).
-  const stop = (e: React.MouseEvent, fn: () => void) => {
-    e.preventDefault();
-    e.stopPropagation();
-    fn();
-  };
-
   return (
-    <Link
-      to={wallpaperDetailPath(w)}
-      state={{ background: location, initialWallpaper: w, detailNavigation }}
+    <article
       className={`h3-tile h3-${variant}${playing ? ' h3-playing' : ''}`}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
@@ -123,7 +113,8 @@ export default function WallpaperTile({ w, variant, onHover, detailNavigation }:
         <img
           ref={syncBaseImageRef}
           src={baseSrc}
-          alt={w.title || t('tile.wallpaperAlt', { id: w.id })}
+          alt=""
+          aria-hidden
           loading="lazy"
           decoding="async"
           className={`h3-progressive-img ${loaded ? 'h3-loaded' : ''}`}
@@ -166,8 +157,14 @@ export default function WallpaperTile({ w, variant, onHover, detailNavigation }:
           <svg viewBox="0 0 24 24" aria-hidden><polygon points="6,4 6,20 20,12" /></svg>
         </div>
       )}
+      <Link
+        to={wallpaperDetailPath(w)}
+        state={{ background: location, initialWallpaper: w, detailNavigation }}
+        className="tile-detail-link"
+        aria-label={w.title || t('tile.wallpaperAlt', { id: w.id })}
+      />
       {hasBadges && (
-        <div className="h3-tile-chips">
+        <div className="h3-tile-chips pointer-events-none">
           <ResChip wallpaper={w} embedded />
           {(isVideo || w.is_dynamic) && (
             <span className="tile-chip is-live">
@@ -185,14 +182,13 @@ export default function WallpaperTile({ w, variant, onHover, detailNavigation }:
         </div>
       )}
 
-      {/* Hover-revealed action rail — favorite / like / download.
-          Same chrome as the salon variant; CSS rule (.h3-tile:hover
-          .tile-actions) wakes it up on hover, so no JS visibility
-          state needed here. */}
+      {/* The detail link is a sibling of these actions so the DOM never
+          nests buttons inside an anchor. CSS reveals the rail on hover,
+          keyboard focus, or persistently on coarse-pointer devices. */}
       <div className="tile-actions">
         <button
           type="button"
-          onClick={(e) => stop(e, acts.handleFavorite)}
+          onClick={acts.handleFavorite}
           disabled={acts.favLoading}
           className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
           title={acts.favorited ? t('actions.unfavorite') : t('actions.favorite')}
@@ -205,7 +201,7 @@ export default function WallpaperTile({ w, variant, onHover, detailNavigation }:
         </button>
         <button
           type="button"
-          onClick={(e) => stop(e, acts.handleLike)}
+          onClick={acts.handleLike}
           disabled={acts.likeLoading}
           className={`t-act ${acts.liked ? 'is-liked' : ''}`}
           title={acts.liked ? t('actions.unlike') : t('actions.like')}
@@ -219,7 +215,7 @@ export default function WallpaperTile({ w, variant, onHover, detailNavigation }:
         {acts.canDownload && (
           <button
             type="button"
-            onClick={(e) => stop(e, acts.handleDownload)}
+            onClick={acts.handleDownload}
             disabled={acts.downloading}
             className={`t-act ${acts.downloaded ? 'is-downloaded' : ''} ${acts.downloading ? 'is-downloading' : ''}`}
             title={acts.downloadTitle}
@@ -233,6 +229,6 @@ export default function WallpaperTile({ w, variant, onHover, detailNavigation }:
           </button>
         )}
       </div>
-    </Link>
+    </article>
   );
 }

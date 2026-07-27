@@ -107,7 +107,7 @@ function Tile({ tile }: { tile?: CollectionTile }) {
         style={{
           filter: highLoaded ? 'none' : 'blur(12px)',
           transform: highLoaded ? 'none' : 'scale(1.06)',
-          transition: 'filter 300ms ease, transform 300ms ease',
+          transition: 'filter 240ms ease, transform 240ms var(--ease-out-quart)',
         }}
       />
       {tile.preview_url && (
@@ -120,7 +120,7 @@ function Tile({ tile }: { tile?: CollectionTile }) {
           className="absolute inset-0 w-full h-full object-cover"
           style={{
             opacity: highLoaded ? 1 : 0,
-            transition: 'opacity 300ms ease',
+            transition: 'opacity 240ms var(--ease-out-quart)',
           }}
         />
       )}

@@ -160,10 +160,12 @@
 .glass-panel { border-radius: 18px; }
 .glass-circle { border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; }
 
-/* Springy press feedback — the web stand-in for GlassBounceButtonStyle. */
-.glass-bounce { transition: transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1); }
-.glass-bounce:hover  { transform: scale(1.05); }
-.glass-bounce:active { transform: scale(0.92); }
+/* Frequent controls stay crisp: subtle hover, immediate press feedback. */
+.glass-bounce { transition: transform 140ms var(--ease-out-quart); }
+.glass-bounce:active { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) {
+  .glass-bounce:hover { transform: scale(1.02); }
+}
 @media (prefers-reduced-motion: reduce) {
   .glass-bounce, .glass-bounce:hover, .glass-bounce:active { transform: none; }
 }
@@ -175,7 +177,7 @@
   overflow: hidden;
   border-radius: 18px;
   box-shadow: 0 2px 3px rgba(0, 0, 0, 0.20), 0 7px 14px rgba(0, 0, 0, 0.22);
-  transition: transform 340ms cubic-bezier(0.34, 1.2, 0.64, 1), box-shadow 340ms var(--ease-out-quart);
+  transition: transform 220ms var(--ease-out-quart), box-shadow 220ms var(--ease-out-quart);
 }
 .wx-card::after {
   content: "";
@@ -188,9 +190,11 @@
   mask-composite: exclude;
   pointer-events: none;
 }
-.wx-card:hover {
-  transform: scale(1.02);
-  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.20), 0 12px 22px rgba(0, 0, 0, 0.34);
+@media (hover: hover) and (pointer: fine) {
+  .wx-card:hover {
+    transform: scale(1.015);
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.20), 0 12px 22px rgba(0, 0, 0, 0.34);
+  }
 }
 .wx-card-scrim {
   position: absolute;
@@ -257,8 +261,10 @@
   border-radius: 18px;
   box-shadow: 0 2px 3px rgba(0, 0, 0, 0.20), 0 7px 14px rgba(0, 0, 0, 0.22);
 }
-.h3-tile.h3-home:hover {
-  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.20), 0 12px 22px rgba(0, 0, 0, 0.34);
+@media (hover: hover) and (pointer: fine) {
+  .h3-tile.h3-home:hover {
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.20), 0 12px 22px rgba(0, 0, 0, 0.34);
+  }
 }
 
 /* ═══ Weekly archive v2 — magazine rack (mirrors Mac) ═══ */
@@ -310,9 +316,11 @@
   border-radius: 10px;
   overflow: hidden;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25), 0 2px 6px rgba(0, 0, 0, 0.18);
-  transition: transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 180ms var(--ease-out-quart);
 }
-.w2-strip-thumb:hover { transform: scale(1.05); }
+@media (hover: hover) and (pointer: fine) {
+  .w2-strip-thumb:hover { transform: scale(1.02); }
+}
 .w2-strip-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .w2-rack {
   display: grid;
@@ -454,16 +462,21 @@
     box-shadow 220ms ease,
     background 200ms ease;
 }
-.c5-card:hover,
 .c5-card:focus-visible {
-  transform: translateY(-2px);
+  transition-duration: 0ms;
   border-color: color-mix(in srgb, var(--color-hair) 62%, var(--color-ink));
   background: var(--color-paper);
-  box-shadow: 0 8px 24px oklch(0% 0 0 / 0.035);
 }
-.dark .c5-card:hover,
-.dark .c5-card:focus-visible {
-  box-shadow: 0 8px 24px oklch(0% 0 0 / 0.16);
+@media (hover: hover) and (pointer: fine) {
+  .c5-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--color-hair) 62%, var(--color-ink));
+    background: var(--color-paper);
+    box-shadow: 0 8px 24px oklch(0% 0 0 / 0.035);
+  }
+  .dark .c5-card:hover {
+    box-shadow: 0 8px 24px oklch(0% 0 0 / 0.16);
+  }
 }
 .c5-card:focus-visible {
   outline: 2px solid var(--color-accent);
@@ -485,33 +498,20 @@
   gap: 2px;
   align-items: stretch;
   background: color-mix(in srgb, var(--color-hair) 75%, transparent);
-  transition: transform 380ms var(--ease-out-quart);
+  transition: transform 220ms var(--ease-out-quart);
 }
 .c5-cover-layout > div {
   position: relative;
   flex-basis: 0;
   min-width: 0;
   overflow: hidden;
-  transition:
-    flex-grow 420ms var(--ease-out-quart),
-    opacity 240ms ease,
-    filter 240ms ease;
 }
 .c5-cover-layout > div:nth-child(1) { flex-grow: 1.65; }
 .c5-cover-layout > div:nth-child(2) { flex-grow: 1; }
 .c5-cover-layout > div:nth-child(3) { flex-grow: 0.68; }
-.c5-cover-layout:hover > div:not(:hover) {
-  flex-grow: 0.58;
-  opacity: 0.82;
-  filter: saturate(0.82) brightness(0.94);
+@media (hover: hover) and (pointer: fine) {
+  .c5-card:hover .c5-cover-layout { transform: scale(1.012); }
 }
-.c5-cover-layout:hover > div:hover {
-  flex-grow: 2.15;
-  opacity: 1;
-  filter: none;
-}
-.c5-card:hover .c5-cover-layout,
-.c5-card:focus-visible .c5-cover-layout { transform: scale(1.018); }
 .c5-copy {
   display: flex;
   flex-direction: column;
@@ -595,10 +595,15 @@
   stroke-width: 1.8;
   transition: transform 220ms var(--ease-out-quart), color 200ms ease;
 }
-.c5-card:hover .c5-arrow svg,
 .c5-card:focus-visible .c5-arrow svg {
+  transition-duration: 0ms;
   color: var(--color-ink);
-  transform: translateX(3px);
+}
+@media (hover: hover) and (pointer: fine) {
+  .c5-card:hover .c5-arrow svg {
+  color: var(--color-ink);
+  transform: translateX(2px);
+  }
 }
 
 .c5-skeleton-card { pointer-events: none; }
@@ -681,7 +686,7 @@
 }
 
 .animate-fade-in {
-  animation: fade-in 0.4s ease-out both;
+  animation: fade-in 220ms var(--ease-out-quart) both;
 }
 
 /* Route-transition entrance. Fade-in only (no translate) — the
@@ -689,7 +694,7 @@
    animation-fill-mode: both the final `transform: translateY(0)`
    persisted, and any non-`none` transform on this wrapper makes
    it the containing block for fixed descendants. That broke
-   .h3-home-mesh / .d3-discover-mesh: meshes set position:fixed +
+   .d3-discover-mesh: the mesh sets position:fixed +
    inset:0 expecting the viewport as containing block, but instead
    got stretched to the full route-in div height and the keyframe
    transforms inside the mesh bled below content, producing extra
@@ -725,7 +730,6 @@
   .w-weekly-mesh,
   .auth-mesh,
   .c-detail-mesh,
-  .h3-home-mesh,
   .d3-discover-mesh,
   .dev-wall-slot.is-rippled > .dev-spec-card,
   .uploader-card-aura {
@@ -736,10 +740,8 @@
   .wp-card,
   .h3-tile,
   .h3-hero,
-  .h3-tile-collection,
   .w-archive-cover,
   .cd-frame,
-  .c-tile,
   .uploader-card,
   .dev-spec-card,
   .avatar-btn,
@@ -755,10 +757,8 @@
   .wp-card:focus-within,
   .h3-tile:hover,
   .h3-hero:hover,
-  .h3-tile-collection:hover,
   .w-archive-cover-link:hover .w-archive-cover,
   .cd-frame:hover,
-  .c-tile:hover,
   .uploader-card:hover,
   .dev-spec-card:hover,
   .avatar-shell:hover .avatar-btn,
@@ -771,10 +771,8 @@
   .wp-card:hover .tile-img,
   .wp-card:focus-within .tile-img,
   .h3-tile:hover img,
-  .h3-tile-collection:hover img,
   .w-archive-cover-link:hover .w-archive-cover img,
   .cd-frame:hover .cd-frame-img,
-  .c-tile:hover .c-tile-frame img,
   .uploader-card:hover .uploader-card-thumb img,
   .dev-spec-card:hover .dev-spec-card-img {
     transform: none !important;
@@ -900,8 +898,8 @@
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.5),
     0 8px 22px -10px oklch(0% 0 0 / 0.28);
-  transition: transform 380ms var(--ease-out-quart),
-              box-shadow 380ms var(--ease-out-quart);
+  transition: transform 200ms var(--ease-out-quart),
+              box-shadow 200ms var(--ease-out-quart);
 }
 .dark .tile-cell {
   box-shadow:
@@ -909,35 +907,43 @@
     0 8px 22px -10px oklch(0% 0 0 / 0.55);
 }
 .tile-cell .tile-img {
-  transition: transform 700ms var(--ease-out-quart),
-              filter 400ms ease;
+  transition: transform 240ms var(--ease-out-quart),
+              filter 200ms ease;
   will-change: transform;
 }
-.tile-cell:hover,
-.tile-cell:focus-within {
-  transform: translateY(-4px);
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.5),
-    0 20px 42px -12px oklch(0% 0 0 / 0.38);
+.tile-cell .tile-gradient { transition: opacity 180ms ease; }
+
+@media (hover: hover) and (pointer: fine) {
+  .tile-cell:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 oklch(100% 0 0 / 0.5),
+      0 20px 42px -12px oklch(0% 0 0 / 0.38);
+  }
+  .dark .tile-cell:hover {
+    box-shadow:
+      inset 0 1px 0 oklch(100% 0 0 / 0.08),
+      0 20px 42px -12px oklch(0% 0 0 / 0.7);
+  }
+  .tile-cell:hover .tile-img {
+    transform: scale(1.02);
+    filter: brightness(1.04);
+  }
+  .tile-cell:hover .tile-video { opacity: 1; }
+  .tile-cell:hover .tile-gradient { opacity: 1; }
 }
-.dark .tile-cell:hover,
-.dark .tile-cell:focus-within {
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.08),
-    0 20px 42px -12px oklch(0% 0 0 / 0.7);
+
+.tile-detail-link {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  outline: none;
 }
-.tile-cell:hover .tile-img,
-.tile-cell:focus-within .tile-img {
-  transform: scale(1.045);
-  filter: brightness(1.04);
+.tile-detail-link:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--color-accent) 88%, white);
+  outline-offset: -3px;
 }
-.tile-cell:hover .tile-video,
-.tile-cell:focus-within .tile-video {
-  opacity: 1;
-}
-.tile-cell .tile-gradient { transition: opacity 280ms ease; }
-.tile-cell:hover .tile-gradient,
-.tile-cell:focus-within .tile-gradient { opacity: 1; }
 
 /* Top-left wallpaper tag family. The compact, squared resolution plate
    reads as technical metadata; the round accent pill marks live media.
@@ -1058,9 +1064,9 @@
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.5),
     0 8px 22px -10px oklch(0% 0 0 / 0.28);
-  transition: transform 320ms var(--ease-out-quart),
-              box-shadow 320ms var(--ease-out-quart),
-              border-color 220ms ease;
+  transition: transform 200ms var(--ease-out-quart),
+              box-shadow 200ms var(--ease-out-quart),
+              border-color 180ms ease;
 }
 .dark .wp-card {
   background: var(--color-paper-2);
@@ -1101,19 +1107,28 @@
 .wp-card:focus-within::after {
   content: none;
 }
-.wp-card:hover,
-.wp-card:focus-within {
-  transform: translateY(-4px);
-  border-color: color-mix(in oklch, var(--color-accent) 44%, var(--color-hair));
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.5),
-    0 20px 42px -12px oklch(0% 0 0 / 0.38);
+.legacy-card-img {
+  transition: opacity 240ms var(--ease-out-quart), transform 240ms var(--ease-out-quart);
 }
-.dark .wp-card:hover,
-.dark .wp-card:focus-within {
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.08),
-    0 20px 42px -12px oklch(0% 0 0 / 0.7);
+.legacy-card-scrim {
+  transition: background-color 180ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wp-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklch, var(--color-accent) 44%, var(--color-hair));
+    box-shadow:
+      inset 0 1px 0 oklch(100% 0 0 / 0.5),
+      0 20px 42px -12px oklch(0% 0 0 / 0.38);
+  }
+  .dark .wp-card:hover {
+    box-shadow:
+      inset 0 1px 0 oklch(100% 0 0 / 0.08),
+      0 20px 42px -12px oklch(0% 0 0 / 0.7);
+  }
+  .wp-card:hover .legacy-card-img { transform: scale(1.02); }
+  .wp-card:hover .legacy-card-scrim { background-color: rgb(0 0 0 / 0.1); }
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -1193,19 +1208,39 @@
   pointer-events: none;
   z-index: 5;
 }
-.tile-cell:hover .tile-actions,
 .tile-cell:focus-within .tile-actions,
-.wp-card:hover .tile-actions,
 .wp-card:focus-within .tile-actions,
-.h3-tile:hover .tile-actions,
 .h3-tile:focus-within .tile-actions,
-.cd-frame:hover .tile-actions,
 .cd-frame:focus-within .tile-actions,
-.dev-spec-card:hover .tile-actions,
 .dev-spec-card:focus-within .tile-actions {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
+  transition-duration: 0ms;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tile-cell:hover .tile-actions,
+  .wp-card:hover .tile-actions,
+  .h3-tile:hover .tile-actions,
+  .cd-frame:hover .tile-actions,
+  .dev-spec-card:hover .tile-actions {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .tile-cell .tile-actions,
+  .wp-card .tile-actions,
+  .h3-tile .tile-actions,
+  .cd-frame .tile-actions,
+  .dev-spec-card-screen .tile-actions {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
 }
 
 /* ── .dev-spec-card — new grid tile for device-detail page ─────── */
@@ -1222,10 +1257,10 @@
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.5),
     0 4px 12px -6px oklch(28% 0.04 240 / 0.28);
-  transition: transform 280ms var(--ease-out-quart),
-              border-color 220ms ease,
-              box-shadow 280ms var(--ease-out-quart);
-  animation: cd-frame-in 480ms var(--ease-out-quart) both;
+  transition: transform 200ms var(--ease-out-quart),
+              border-color 180ms ease,
+              box-shadow 200ms var(--ease-out-quart);
+  animation: cd-frame-in 220ms var(--ease-out-quart) both;
 }
 .dark .dev-spec-card {
   background: var(--color-paper-2);
@@ -1233,13 +1268,6 @@
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.06),
     0 4px 12px -6px oklch(0% 0 0 / 0.6);
-}
-.dev-spec-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--color-accent);
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.5),
-    0 18px 38px -12px color-mix(in oklch, var(--color-accent) 30%, oklch(0% 0 0 / 0.3));
 }
 .dev-spec-card-screen {
   position: relative;
@@ -1258,7 +1286,7 @@
   border: 1px solid oklch(60% 0.04 240 / 0.7);
   pointer-events: none;
   z-index: 4;
-  transition: border-color 220ms ease, width 220ms ease, height 220ms ease;
+  transition: border-color 180ms ease, opacity 180ms ease;
 }
 .dev-spec-card-screen::before {
   top: 6px; left: 6px;
@@ -1272,19 +1300,31 @@
 .dark .dev-spec-card-screen::after {
   border-color: oklch(70% 0.03 240 / 0.6);
 }
-.dev-spec-card:hover .dev-spec-card-screen::before,
-.dev-spec-card:hover .dev-spec-card-screen::after {
+.dev-spec-card:focus-within .dev-spec-card-screen::before,
+.dev-spec-card:focus-within .dev-spec-card-screen::after {
   border-color: var(--color-accent);
-  width: 16px; height: 16px;
 }
 .dev-spec-card-img {
   width: 100%; height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 700ms var(--ease-out-quart);
+  transition: transform 240ms var(--ease-out-quart);
 }
-.dev-spec-card:hover .dev-spec-card-img {
-  transform: scale(1.04);
+@media (hover: hover) and (pointer: fine) {
+  .dev-spec-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--color-accent);
+    box-shadow:
+      inset 0 1px 0 oklch(100% 0 0 / 0.5),
+      0 18px 38px -12px color-mix(in oklch, var(--color-accent) 30%, oklch(0% 0 0 / 0.3));
+  }
+  .dev-spec-card:hover .dev-spec-card-screen::before,
+  .dev-spec-card:hover .dev-spec-card-screen::after {
+    border-color: var(--color-accent);
+  }
+  .dev-spec-card:hover .dev-spec-card-img {
+    transform: scale(1.02);
+  }
 }
 /* Top-left sequence badge on each dev tile — small mono pill so the
    grid reads as an ordered set ('№ 01' … '№ 47') and the running
@@ -1339,8 +1379,14 @@
   -webkit-backdrop-filter: blur(10px) saturate(1.1);
   transition: background 160ms ease, transform 120ms ease, border-color 160ms ease;
 }
-.t-act:hover  { background: rgba(15,12,8,0.65); }
-.t-act:active { transform: scale(0.94); }
+.t-act:active { transform: scale(0.97); }
+.t-act:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .t-act:hover { background: rgba(15,12,8,0.65); }
+}
 .t-act:disabled { opacity: 0.55; cursor: not-allowed; }
 .t-act.is-downloading:disabled { opacity: 1; }
 .t-act.is-downloading::before {
@@ -1606,8 +1652,10 @@
     0 0 0 2px oklch(72% 0.16 50 / 0.22),
     0 6px 14px -4px oklch(72% 0.16 50 / 0.45);
 }
-.uploader-card:hover .uploader-card-ring {
-  transform: scale(1.03);
+@media (hover: hover) and (pointer: fine) {
+  .uploader-card:hover .uploader-card-ring {
+    transform: scale(1.02);
+  }
 }
 .uploader-card-ring.is-skel {
   background: var(--color-paper-2);
@@ -1705,9 +1753,11 @@
 }
 .uploader-card-thumb img {
   width: 100%; height: 100%; object-fit: cover; display: block;
-  transition: transform 600ms var(--ease-out-quart);
+  transition: transform 240ms var(--ease-out-quart);
 }
-.uploader-card:hover .uploader-card-thumb img { transform: scale(1.06); }
+@media (hover: hover) and (pointer: fine) {
+  .uploader-card:hover .uploader-card-thumb img { transform: scale(1.025); }
+}
 .uploader-card-thumb-more {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -3030,155 +3080,6 @@
   background: var(--color-paper);
 }
 
-/* Collection tile skeleton — mirrors the real CollectionTile so the
-   page doesn't reflow when data lands. Square cover (1:1, matches
-   .c-tile-frame) + three short bars sized to the caption rows
-   (kicker / title / meta). */
-.c-tile-skel {
-  display: block;
-}
-.c-tile-skel-cover {
-  aspect-ratio: 1/1;
-  border-radius: 14px;
-  background: var(--color-paper-2);
-}
-.c-tile-skel-cap {
-  padding-top: 18px;
-  display: flex; flex-direction: column;
-  gap: 8px;
-}
-.c-tile-skel-kicker {
-  height: 9px; width: 38%;
-  border-radius: 4px;
-  background: var(--color-paper-2);
-}
-.c-tile-skel-title {
-  height: 22px; width: 72%;
-  border-radius: 5px;
-  background: var(--color-paper-2);
-  margin-top: 2px;
-}
-.c-tile-skel-meta {
-  height: 10px; width: 30%;
-  border-radius: 4px;
-  background: var(--color-paper-2);
-  margin-top: 4px;
-}
-
-/* New collection card — stacked-paper aesthetic with a single 1:1
-   cover. Multi-shadow box-shadow draws paper layers behind the
-   cover; layers are tinted from the collection's --c-accent so each
-   tile carries a hint of its own colour without overwhelming the
-   library page. Distinct from the old 3-photo CollectionCard. */
-.c-tile {
-  display: block;
-  color: var(--color-ink);
-  text-decoration: none;
-  --c-accent: var(--color-accent);
-}
-.c-tile-frame {
-  position: relative;
-  aspect-ratio: 1/1;
-  border-radius: 14px;
-  background: var(--color-paper-2);
-  overflow: hidden;
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.5),
-    0 8px 22px -10px oklch(0% 0 0 / 0.28),
-    4px 4px 0 -2px var(--color-paper),
-    4px 4px 0 -1px color-mix(in oklch, var(--c-accent) 28%, var(--color-hair)),
-    8px 8px 0 -2px var(--color-paper),
-    8px 8px 0 -1px color-mix(in oklch, var(--c-accent) 18%, var(--color-hair-soft));
-  transition: transform 380ms var(--ease-out-quart),
-              box-shadow 380ms var(--ease-out-quart);
-}
-.dark .c-tile-frame {
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.08),
-    0 8px 22px -10px oklch(0% 0 0 / 0.55),
-    4px 4px 0 -2px var(--color-paper),
-    4px 4px 0 -1px color-mix(in oklch, var(--c-accent) 30%, var(--color-hair-soft)),
-    8px 8px 0 -2px var(--color-paper),
-    8px 8px 0 -1px color-mix(in oklch, var(--c-accent) 20%, var(--color-hair-soft));
-}
-.c-tile-frame img {
-  width: 100%; height: 100%; object-fit: cover;
-  display: block;
-  transition: transform 900ms var(--ease-out-quart);
-}
-.c-tile-empty {
-  width: 100%; height: 100%;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-.c-tile:hover .c-tile-frame {
-  transform: translate(-3px, -3px);
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.5),
-    0 18px 40px -12px oklch(0% 0 0 / 0.38),
-    6px 6px 0 -2px var(--color-paper),
-    6px 6px 0 -1px color-mix(in oklch, var(--c-accent) 28%, var(--color-hair)),
-    12px 12px 0 -2px var(--color-paper),
-    12px 12px 0 -1px color-mix(in oklch, var(--c-accent) 18%, var(--color-hair-soft));
-}
-.dark .c-tile:hover .c-tile-frame {
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.08),
-    0 18px 40px -12px oklch(0% 0 0 / 0.7),
-    6px 6px 0 -2px var(--color-paper),
-    6px 6px 0 -1px color-mix(in oklch, var(--c-accent) 30%, var(--color-hair-soft)),
-    12px 12px 0 -2px var(--color-paper),
-    12px 12px 0 -1px color-mix(in oklch, var(--c-accent) 20%, var(--color-hair-soft));
-}
-.c-tile:hover .c-tile-frame img { transform: scale(1.04); }
-.c-tile-accent-dot {
-  position: absolute;
-  top: 12px; right: 12px;
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  background: var(--c-accent);
-  box-shadow: 0 0 0 3px oklch(100% 0 0 / 0.5),
-              0 1px 2px oklch(0% 0 0 / 0.2);
-}
-.dark .c-tile-accent-dot {
-  box-shadow: 0 0 0 3px oklch(14% 0.018 240 / 0.7),
-              0 1px 2px oklch(0% 0 0 / 0.5);
-}
-.c-tile-caption { padding-top: 18px; }
-.c-tile-kicker {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-}
-.c-tile-title {
-  font-family: var(--font-display);
-  font-weight: 400;
-  font-size: 22px;
-  line-height: 1.16;
-  margin-top: 6px;
-  color: var(--color-ink);
-  letter-spacing: -0.005em;
-  /* line-clamp 2 so unusually long titles don't blow the card height */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.c-tile-meta {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  margin-top: 6px;
-}
-
 /* ── Detail (one collection) ────────────────────────────────────── */
 
 /* Mesh sourced from the collection's accent_color — set via inline
@@ -3501,10 +3402,10 @@
   box-shadow:
     inset 0 1px 0 oklch(100% 0 0 / 0.45),
     0 8px 22px -10px oklch(0% 0 0 / 0.22);
-  transition: transform 380ms var(--ease-out-quart),
-              box-shadow 380ms var(--ease-out-quart),
-              border-color 280ms ease;
-  animation: cd-frame-in 480ms var(--ease-out-quart) both;
+  transition: transform 200ms var(--ease-out-quart),
+              box-shadow 200ms var(--ease-out-quart),
+              border-color 180ms ease;
+  animation: cd-frame-in 220ms var(--ease-out-quart) both;
 }
 @keyframes cd-frame-in {
   from { opacity: 0; transform: translateY(6px); }
@@ -3517,17 +3418,20 @@
     inset 0 1px 0 oklch(100% 0 0 / 0.06),
     0 8px 22px -10px oklch(0% 0 0 / 0.55);
 }
-.cd-frame:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in oklch, var(--c-accent) 35%, var(--color-hair));
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.45),
-    0 22px 44px -16px color-mix(in oklch, var(--c-accent) 35%, oklch(0% 0 0 / 0.32));
-}
-.dark .cd-frame:hover {
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.06),
-    0 22px 44px -16px color-mix(in oklch, var(--c-accent) 45%, oklch(0% 0 0 / 0.7));
+@media (hover: hover) and (pointer: fine) {
+  .cd-frame:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklch, var(--c-accent) 35%, var(--color-hair));
+    box-shadow:
+      inset 0 1px 0 oklch(100% 0 0 / 0.45),
+      0 22px 44px -16px color-mix(in oklch, var(--c-accent) 35%, oklch(0% 0 0 / 0.32));
+  }
+  .dark .cd-frame:hover {
+    box-shadow:
+      inset 0 1px 0 oklch(100% 0 0 / 0.06),
+      0 22px 44px -16px color-mix(in oklch, var(--c-accent) 45%, oklch(0% 0 0 / 0.7));
+  }
+  .cd-frame:hover .cd-frame-img { transform: scale(1.02); }
 }
 .cd-mat {
   position: relative;
@@ -3541,10 +3445,9 @@
   object-fit: cover;
   display: block;
   opacity: 0;
-  transition: opacity 400ms ease, transform 700ms var(--ease-out-quart);
+  transition: opacity 240ms ease, transform 240ms var(--ease-out-quart);
 }
 .cd-frame-img.is-loaded { opacity: 1; }
-.cd-frame:hover .cd-frame-img { transform: scale(1.04); }
 
 /* Chip stack inside the mat — top-left corner, wraps on overflow.
    z-index over the image but below the action rail. */
@@ -4380,14 +4283,16 @@
 .coll-stack img {
   width: 100%; height: 100%; object-fit: cover;
   display: block;
-  transition: transform 700ms cubic-bezier(.22,.61,.36,1), filter 400ms ease;
+  transition: transform 240ms var(--ease-out-quart), filter 200ms ease;
 }
 /* Image-only hover treatment — the lift / border-color / box-shadow
    that used to ride on `.coll-stack` was too busy; just letting the
    imagery breathe and animating the caption rule below carries the
    interaction. */
-.coll-card:hover .coll-stack .coll-main img { transform: scale(1.04); }
-.coll-card:hover .coll-stack .coll-sub  img { transform: scale(1.06); }
+@media (hover: hover) and (pointer: fine) {
+  .coll-card:hover .coll-stack .coll-main img { transform: scale(1.02); }
+  .coll-card:hover .coll-stack .coll-sub  img { transform: scale(1.025); }
+}
 
 /* Caption rule. Default state is the hair color across the full
    width; on hover the card's accent color wipes in from the left
@@ -4473,38 +4378,6 @@
   --h3-liquid-opacity: 0.78;
 }
 
-/* Animated mesh background — three soft blob colors from the hero
-   palette, blurred and slowly drifting. Spans the home content area
-   (not the whole viewport — Layout's sidebar/header keep their own
-   surfaces). */
-.h3-home-mesh {
-  /* fixed (not absolute) so the drift animation never affects document
-     height. Previously the absolute mesh with inset:-10% + scale/translate
-     animation grew/shrunk the document each frame, dragging the scroll
-     position around (you couldn't reach the bottom; the page slowly
-     scrolled up by itself). Fixed = anchored to viewport, zero layout
-     impact. CSS vars still inherit from .h3-home in the DOM tree. */
-  position: fixed; inset: 0; z-index: 0;
-  background:
-    radial-gradient(40% 40% at 22% 30%, var(--h3-c1) 0%, transparent 60%),
-    radial-gradient(45% 45% at 78% 20%, var(--h3-c2) 0%, transparent 55%),
-    radial-gradient(50% 50% at 50% 82%, var(--h3-c3) 0%, transparent 62%);
-  filter: blur(80px) saturate(1.4);
-  opacity: var(--h3-liquid-opacity);
-  animation: h3-drift 30s ease-in-out infinite alternate;
-  transition: background 1400ms ease, opacity 1400ms ease;
-  pointer-events: none;
-}
-.dark .h3-home-mesh { filter: blur(80px) saturate(2.0); }
-@keyframes h3-drift {
-  /* Subtler drift — viewport-anchored, only gradient positions wander. */
-  0%   { transform: translate(0, 0) scale(1); }
-  33%  { transform: translate(-2%, 1.5%) scale(1.03); }
-  66%  { transform: translate(1.5%, -2%) scale(0.98); }
-  100% { transform: translate(-0.5%, 0.5%) scale(1.01); }
-}
-.h3-home-main { position: relative; z-index: 1; }
-
 /* ── Hero card (16:9, full-width-ish, floating with shadow + tilt) ── */
 .h3-hero {
   position: relative;
@@ -4517,18 +4390,15 @@
     0 16px 60px -16px oklch(0% 0 0 / 0.3),
     0 40px 110px -40px oklch(0% 0 0 / 0.35);
   cursor: pointer;
-  transition: transform 600ms var(--ease-out-expo), box-shadow 600ms var(--ease-out-expo);
+  transition: transform 260ms var(--ease-out-expo), box-shadow 260ms var(--ease-out-expo);
   transform-style: preserve-3d;
   text-decoration: none;
 }
 .dark .h3-hero { box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.08), 0 16px 60px -16px oklch(0% 0 0 / 0.6), 0 40px 110px -40px oklch(0% 0 0 / 0.7); }
-.h3-hero:hover {
-  transform: perspective(1500px) rotateY(-1deg) rotateX(0.4deg) translateY(-3px);
-}
 .h3-hero img {
   width: 100%; height: 100%; object-fit: cover; display: block;
   opacity: 0;
-  transition: opacity 700ms var(--ease-out-quart);
+  transition: opacity 260ms var(--ease-out-quart);
 }
 .h3-hero img.h3-loaded { opacity: 1; }
 .h3-hero .h3-hero-overlay {
@@ -4555,12 +4425,14 @@
   border-radius: 999px;
   font-size: 13.5px; font-weight: 600;
   box-shadow: 0 6px 22px -6px rgba(0,0,0,0.4);
-  transition: transform 240ms var(--ease-out-quart), box-shadow 240ms var(--ease-out-quart);
+  transition: transform 180ms var(--ease-out-quart), box-shadow 180ms var(--ease-out-quart);
   border: 0;
   text-decoration: none;
   white-space: nowrap;
 }
-.h3-hero .h3-cta:hover { transform: translateY(-2px); box-shadow: 0 12px 32px -8px rgba(0,0,0,0.5); }
+@media (hover: hover) and (pointer: fine) {
+  .h3-hero .h3-cta:hover { transform: translateY(-1px); box-shadow: 0 12px 32px -8px rgba(0,0,0,0.5); }
+}
 .h3-hero .h3-cta .h3-coin {
   width: 11px; height: 11px; border-radius: 50%;
   background: linear-gradient(135deg, #f4ae66, #d57130);
@@ -4651,19 +4523,14 @@
   border-radius: 16px;
   background: var(--color-paper-2);
   box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.5), 0 8px 22px -10px oklch(0% 0 0 / 0.3);
-  transition: transform 380ms var(--ease-out-quart), box-shadow 380ms var(--ease-out-quart);
+  transition: transform 200ms var(--ease-out-quart), box-shadow 200ms var(--ease-out-quart);
   cursor: pointer; display: block;
   text-decoration: none;
 }
 .dark .h3-tile { box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.08), 0 8px 22px -10px oklch(0% 0 0 / 0.6); }
-.h3-tile:hover {
-  transform: translateY(-5px);
-  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.5), 0 20px 42px -12px oklch(0% 0 0 / 0.4);
-}
-.dark .h3-tile:hover { box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.08), 0 20px 42px -12px oklch(0% 0 0 / 0.75); }
 .h3-tile img {
   width: 100%; height: 100%; object-fit: cover; display: block;
-  transition: transform 800ms var(--ease-out-quart), opacity 400ms var(--ease-out-quart);
+  transition: transform 240ms var(--ease-out-quart), opacity 240ms var(--ease-out-quart);
   opacity: 0;
 }
 .h3-tile img.h3-progressive-img {
@@ -4671,7 +4538,20 @@
   inset: 0;
 }
 .h3-tile img.h3-loaded { opacity: 1; }
-.h3-tile:hover img { transform: scale(1.05); }
+
+@media (hover: hover) and (pointer: fine) {
+  .h3-hero:hover {
+    transform: perspective(1500px) rotateY(-1deg) rotateX(0.4deg) translateY(-2px);
+  }
+  .h3-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.5), 0 20px 42px -12px oklch(0% 0 0 / 0.4);
+  }
+  .dark .h3-tile:hover {
+    box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.08), 0 20px 42px -12px oklch(0% 0 0 / 0.75);
+  }
+  .h3-tile:hover img { transform: scale(1.02); }
+}
 
 /* Aspect ratios per row */
 .h3-tile.h3-weekly { aspect-ratio: 4/5; }
@@ -4697,11 +4577,13 @@
   pointer-events: none;
   animation: h3-foil-sweep 8s linear infinite;
   opacity: 0.55;
-  transition: opacity 320ms var(--ease-out-quart);
+  transition: opacity 240ms var(--ease-out-quart);
 }
 .dark .h3-tile.h3-ai .h3-foil { opacity: 0.45; }
-.h3-tile.h3-ai:hover .h3-foil { opacity: 0.9; animation-duration: 4s; }
-.dark .h3-tile.h3-ai:hover .h3-foil { opacity: 0.78; }
+@media (hover: hover) and (pointer: fine) {
+  .h3-tile.h3-ai:hover .h3-foil { opacity: 0.9; animation-duration: 4s; }
+  .dark .h3-tile.h3-ai:hover .h3-foil { opacity: 0.78; }
+}
 @keyframes h3-foil-sweep {
   0%   { background-position: 200% 200%; }
   100% { background-position: -100% -100%; }
@@ -4727,7 +4609,7 @@
   position: absolute; inset: 0;
   width: 100%; height: 100%; object-fit: cover;
   opacity: 0;
-  transition: opacity 320ms var(--ease-out-quart);
+  transition: opacity 240ms var(--ease-out-quart);
 }
 .h3-tile.h3-video.h3-playing video { opacity: 1; }
 .h3-tile.h3-video.h3-playing img   { opacity: 0; }
@@ -4741,87 +4623,11 @@
   transition: opacity 240ms var(--ease-out-quart), background 240ms var(--ease-out-quart);
   pointer-events: none;
 }
-.h3-tile.h3-video:hover .h3-play { background: oklch(0% 0 0 / 0.7); }
+@media (hover: hover) and (pointer: fine) {
+  .h3-tile.h3-video:hover .h3-play { background: oklch(0% 0 0 / 0.7); }
+}
 .h3-tile.h3-video.h3-playing .h3-play { opacity: 0; }
 .h3-tile.h3-video .h3-play svg { width: 12px; height: 12px; fill: rgba(255,255,255,0.9); }
-
-/* ── Collection tile (stacked paper) ── */
-.h3-tile-collection {
-  position: relative;
-  aspect-ratio: 1/1;
-  border-radius: 14px;
-  background: var(--color-paper-2);
-  cursor: pointer; display: block;
-  text-decoration: none;
-  transition: transform 380ms var(--ease-out-quart);
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.5),
-    0 8px 22px -10px oklch(0% 0 0 / 0.3),
-    4px 4px 0 -1px var(--color-paper-2),
-    4px 4px 0 0 oklch(86% 0.010 240),
-    8px 8px 0 -1px var(--color-paper-2),
-    8px 8px 0 0 oklch(82% 0.012 240);
-}
-.dark .h3-tile-collection {
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.08),
-    0 8px 22px -10px oklch(0% 0 0 / 0.6),
-    4px 4px 0 -1px var(--color-paper-2),
-    4px 4px 0 0 oklch(24% 0.024 240),
-    8px 8px 0 -1px var(--color-paper-2),
-    8px 8px 0 0 oklch(28% 0.026 240);
-}
-.h3-tile-collection:hover {
-  transform: translate(-3px, -3px);
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.5),
-    0 18px 40px -12px oklch(0% 0 0 / 0.4),
-    6px 6px 0 -1px var(--color-paper-2),
-    6px 6px 0 0 oklch(86% 0.010 240),
-    12px 12px 0 -1px var(--color-paper-2),
-    12px 12px 0 0 oklch(82% 0.012 240);
-}
-.dark .h3-tile-collection:hover {
-  box-shadow:
-    inset 0 1px 0 oklch(100% 0 0 / 0.08),
-    0 18px 40px -12px oklch(0% 0 0 / 0.7),
-    6px 6px 0 -1px var(--color-paper-2),
-    6px 6px 0 0 oklch(24% 0.024 240),
-    12px 12px 0 -1px var(--color-paper-2),
-    12px 12px 0 0 oklch(28% 0.026 240);
-}
-.h3-tile-collection .h3-frame {
-  position: absolute; inset: 0;
-  border-radius: 14px; overflow: hidden;
-}
-.h3-tile-collection img {
-  width: 100%; height: 100%; object-fit: cover; display: block;
-  opacity: 0;
-  transition: opacity 400ms var(--ease-out-quart), transform 800ms var(--ease-out-quart);
-}
-.h3-tile-collection img.h3-loaded { opacity: 1; }
-.h3-tile-collection:hover img { transform: scale(1.04); }
-.h3-tile-collection .h3-gradient {
-  position: absolute; inset: 0;
-  background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.7));
-  pointer-events: none;
-}
-.h3-tile-collection .h3-copy {
-  position: absolute; left: 14px; right: 14px; bottom: 14px;
-  color: white;
-  z-index: 2;
-}
-.h3-tile-collection .h3-title {
-  font-family: var(--font-display); font-weight: 400;
-  font-size: 18px; line-height: 1.1;
-  text-shadow: 0 2px 14px rgba(0,0,0,0.7);
-}
-.h3-tile-collection .h3-count {
-  margin-top: 4px;
-  font-family: var(--font-mono);
-  font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: rgba(255,255,255,0.85);
-}
 
 /* ════════════════════════════════════════════════════════════════════
    DiscoverPage v3 — Liquid mesh background only
@@ -4854,7 +4660,7 @@
   --d3-liquid-opacity: 0.72;
 }
 .d3-discover-mesh {
-  /* See .h3-home-mesh — fixed anchoring, viewport-bound, zero layout cost. */
+  /* Fixed anchoring keeps the mesh viewport-bound with zero layout cost. */
   position: fixed; inset: 0; z-index: 0;
   background:
     radial-gradient(40% 40% at 22% 30%, var(--d3-c1) 0%, transparent 60%),

@@ -62,11 +62,6 @@ function FramedTile({
   const location = useLocation();
   const acts = useWallpaperActions(w);
   const [loaded, setLoaded] = useState(false);
-  const stop = (e: React.MouseEvent, fn: () => void) => {
-    e.preventDefault();
-    e.stopPropagation();
-    fn();
-  };
   const isVideo = (w.file_type || '').startsWith('video/');
   const resLabel = (() => {
     const px = Math.max(w.width || 0, w.height || 0);
@@ -77,19 +72,19 @@ function FramedTile({
     if (px >= 1280) return '720P';
     return '';
   })();
+  const detailLabel = w.title || t('frame.wallpaperAlt', { id: w.id });
   return (
-    <Link
-      to={wallpaperDetailPath(w)}
-      state={{ background: location, initialWallpaper: w, detailNavigation }}
+    <article
       className="cd-frame"
-      style={{ animationDelay: `${index * 35}ms` }}
+      style={{ animationDelay: `${Math.min(index, 8) * 24}ms` }}
       onMouseEnter={() => onHover?.(w.color_palette, w.dominant_color)}
       onMouseLeave={() => onHover?.(undefined)}
     >
       <div className="cd-mat">
         <img
           src={w.preview_url || w.thumb_url}
-          alt={w.title || t('frame.wallpaperAlt', { id: w.id })}
+          alt=""
+          aria-hidden
           loading="lazy"
           className={`cd-frame-img${loaded ? ' is-loaded' : ''}`}
           onLoad={() => setLoaded(true)}
@@ -97,11 +92,17 @@ function FramedTile({
           style={{ backgroundColor: w.dominant_color || undefined }}
         />
         {!loaded && <span className="card-loading-beam" aria-hidden />}
+        <Link
+          to={wallpaperDetailPath(w)}
+          state={{ background: location, initialWallpaper: w, detailNavigation }}
+          className="tile-detail-link"
+          aria-label={detailLabel}
+        />
         {/* Top-left chip stack — same vocabulary as the discover
             salon variant. Resolution + Video + Mac (dynamic) + AI
             chips; .is-ai keeps the violet wash so synthetic
             content reads at a glance. */}
-        <div className="cd-frame-chips">
+        <div className="cd-frame-chips pointer-events-none">
           {resLabel && <span className="tile-chip is-resolution">{resLabel}</span>}
           {(isVideo || w.is_dynamic) && (
             <span className="tile-chip is-live">
@@ -120,7 +121,7 @@ function FramedTile({
         <div className="tile-actions">
           <button
             type="button"
-            onClick={(e) => stop(e, acts.handleFavorite)}
+            onClick={acts.handleFavorite}
             disabled={acts.favLoading}
             className={`t-act ${acts.favorited ? 'is-favorited' : ''}`}
             title={acts.favorited ? t('frame.unfavorite') : t('frame.favorite')}
@@ -133,7 +134,7 @@ function FramedTile({
           </button>
           <button
             type="button"
-            onClick={(e) => stop(e, acts.handleLike)}
+            onClick={acts.handleLike}
             disabled={acts.likeLoading}
             className={`t-act ${acts.liked ? 'is-liked' : ''}`}
             title={acts.liked ? t('frame.unlike') : t('frame.like')}
@@ -147,7 +148,7 @@ function FramedTile({
           {acts.canDownload && (
             <button
               type="button"
-              onClick={(e) => stop(e, acts.handleDownload)}
+              onClick={acts.handleDownload}
               disabled={acts.downloading}
               className={`t-act ${acts.downloaded ? 'is-downloaded' : ''} ${acts.downloading ? 'is-downloading' : ''}`}
               title={acts.downloadTitle}
@@ -162,7 +163,7 @@ function FramedTile({
           )}
         </div>
       </div>
-    </Link>
+    </article>
   );
 }
 

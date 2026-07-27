@@ -102,12 +102,9 @@ function WeeklyHero({ hero, week, year, detailNavigation }: { hero: WeeklyPicked
           <div className="h3-kicker">{t('hero.kicker', { week, year })}</div>
           <div className="h3-meta">{hero.width}×{hero.height} · {fmtMB(hero.file_size)}</div>
         </div>
-        <button
-          className="h3-cta"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); /* navigation handles trade flow */ }}
-        >
+        <span className="h3-cta" aria-hidden>
           <span className="h3-coin" /> {t('hero.tradeForOne')}
-        </button>
+        </span>
       </div>
     </Link>
   );

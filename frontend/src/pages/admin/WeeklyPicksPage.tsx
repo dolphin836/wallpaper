@@ -285,7 +285,7 @@ export default function WeeklyPicksPage() {
                         {picks.map((p, index) => (
                           <div
                             key={p.id}
-                            className={`group relative aspect-[4/5] overflow-hidden rounded-lg border-2 transition-all ${
+                            className={`group relative aspect-[4/5] overflow-hidden rounded-lg border-2 transition-[border-color,box-shadow,opacity] duration-200 ${
                               p.is_hero ? 'border-purple-500 ring-2 ring-purple-500/30' : 'border-slate-200 dark:border-slate-700'
                             } ${busyId === p.id ? 'opacity-60' : ''}`}
                           >
@@ -470,7 +470,7 @@ export function AddWallpaperModal({
                         key={w.id}
                         disabled={inSlate}
                         onClick={() => onPick(w.id, w)}
-                        className={`group relative aspect-[4/5] overflow-hidden rounded-lg border-2 transition-all ${
+                        className={`group relative aspect-[4/5] overflow-hidden rounded-lg border-2 transition-[border-color,box-shadow,opacity] duration-200 ${
                           inSlate
                             ? 'border-slate-200 dark:border-slate-700 opacity-40 cursor-not-allowed'
                             : 'border-slate-200 dark:border-slate-700 hover:border-purple-500 cursor-pointer'
