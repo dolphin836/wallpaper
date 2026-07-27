@@ -146,7 +146,12 @@ final class AerialLockScreenService {
 
     /// Converts the selected wallpaper into an Aerial-compatible movie, backs
     /// up every active lock-screen Aerial and atomically swaps the cached files.
-    func apply(wallpaper: Wallpaper, sourceURL: URL, sourceIsVideo: Bool) async throws {
+    func apply(
+        wallpaper: Wallpaper,
+        sourceURL: URL,
+        sourceIsVideo: Bool,
+        linkDesktop: Bool
+    ) async throws {
         guard Self.isSupported else { throw AerialError.unsupported }
 
         let paths = try paths()
@@ -198,7 +203,11 @@ final class AerialLockScreenService {
         // Only videos need that linkage; still lock screens already work via
         // the selected Idle asset without taking over the system desktop.
         if sourceIsVideo, let assetID = assetIDs.first {
-            try activateAnimatedAerialSelection(assetID: assetID, paths: paths)
+            try activateAnimatedAerialSelection(
+                assetID: assetID,
+                paths: paths,
+                linkEverySurface: linkDesktop
+            )
         }
 
         UserDefaults.standard.set(assetIDs, forKey: DefaultsKey.managedAssetIDs)
@@ -208,6 +217,14 @@ final class AerialLockScreenService {
             previousProcessIDs: previousSnapshot.processIDs,
             paths: paths
         )
+        if sourceIsVideo, let assetID = assetIDs.first,
+           !animatedAerialSelectionIsActive(
+               assetID: assetID,
+               paths: paths,
+               linkEverySurface: linkDesktop
+           ) {
+            throw AerialError.reloadFailed
+        }
         logger.notice("applied lock-screen wallpaper id=\(wallpaper.id, privacy: .public) to \(assetIDs.count, privacy: .public) Aerial asset(s)")
     }
 
@@ -556,7 +573,11 @@ final class AerialLockScreenService {
         logger.notice("repaired legacy synthetic Aerial selection with real asset \(assetID, privacy: .public)")
     }
 
-    private func activateAnimatedAerialSelection(assetID: String, paths: Paths) throws {
+    private func activateAnimatedAerialSelection(
+        assetID: String,
+        paths: Paths,
+        linkEverySurface: Bool
+    ) throws {
         let originalData = try Data(contentsOf: paths.storeIndex)
         guard var root = try PropertyListSerialization.propertyList(
             from: originalData,
@@ -598,6 +619,30 @@ final class AerialLockScreenService {
         root["SystemDefault"] = entry
         root["AllSpacesAndDisplays"] = entry
 
+        // A moving login-window wallpaper is only stable when macOS sees the
+        // same linked Aerial choice throughout the store. This is appropriate
+        // for the combined Desktop + Lock Screen target because our desktop
+        // video session already renders the same movie above the system layer.
+        // Keep per-display desktop choices intact for the lock-only target.
+        if linkEverySurface {
+            if var displays = root["Displays"] as? [String: Any] {
+                for key in displays.keys { displays[key] = entry }
+                root["Displays"] = displays
+            }
+            if var spaces = root["Spaces"] as? [String: Any] {
+                for spaceKey in spaces.keys {
+                    guard var space = spaces[spaceKey] as? [String: Any] else { continue }
+                    if space["Default"] != nil { space["Default"] = entry }
+                    if var displays = space["Displays"] as? [String: Any] {
+                        for displayKey in displays.keys { displays[displayKey] = entry }
+                        space["Displays"] = displays
+                    }
+                    spaces[spaceKey] = space
+                }
+                root["Spaces"] = spaces
+            }
+        }
+
         let linkedData = try PropertyListSerialization.data(
             fromPropertyList: root,
             format: .binary,
@@ -610,7 +655,53 @@ final class AerialLockScreenService {
             throw error
         }
         updateSystemWallpaperPointer(assetID: assetID, paths: paths)
-        logger.notice("activated lock-screen linked Aerial selection \(assetID, privacy: .public) while preserving desktop entries")
+        logger.notice("activated lock-screen linked Aerial selection \(assetID, privacy: .public), linkEverySurface=\(linkEverySurface, privacy: .public)")
+    }
+
+    private func animatedAerialSelectionIsActive(
+        assetID: String,
+        paths: Paths,
+        linkEverySurface: Bool
+    ) -> Bool {
+        guard let data = try? Data(contentsOf: paths.storeIndex),
+              let root = try? PropertyListSerialization.propertyList(
+                from: data,
+                options: [],
+                format: nil
+              ) as? [String: Any],
+              linkedEntry(root["AllSpacesAndDisplays"], uses: assetID) else {
+            return false
+        }
+
+        guard linkEverySurface else { return true }
+        if let displays = root["Displays"] as? [String: Any],
+           displays.values.contains(where: { !linkedEntry($0, uses: assetID) }) {
+            return false
+        }
+        if let spaces = root["Spaces"] as? [String: Any] {
+            for value in spaces.values {
+                guard let space = value as? [String: Any] else { continue }
+                if let defaultEntry = space["Default"], !linkedEntry(defaultEntry, uses: assetID) {
+                    return false
+                }
+                if let displays = space["Displays"] as? [String: Any],
+                   displays.values.contains(where: { !linkedEntry($0, uses: assetID) }) {
+                    return false
+                }
+            }
+        }
+        return true
+    }
+
+    private func linkedEntry(_ value: Any?, uses assetID: String) -> Bool {
+        guard let entry = value as? [String: Any],
+              (entry["Type"] as? String)?.caseInsensitiveCompare("linked") == .orderedSame,
+              let linked = entry["Linked"] else {
+            return false
+        }
+        var ids = Set<String>()
+        collectAerialChoices(in: linked, output: &ids)
+        return ids.contains(assetID)
     }
 
     private func restoreWallpaperStoreIfNeeded(paths: Paths) throws {

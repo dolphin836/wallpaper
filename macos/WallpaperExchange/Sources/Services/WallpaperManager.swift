@@ -754,7 +754,8 @@ final class WallpaperManager {
                 try await AerialLockScreenService.shared.apply(
                     wallpaper: wallpaper,
                     sourceURL: videoURL,
-                    sourceIsVideo: true
+                    sourceIsVideo: true,
+                    linkDesktop: surface == .both
                 )
             }
             return
@@ -781,7 +782,8 @@ final class WallpaperManager {
             try await AerialLockScreenService.shared.apply(
                 wallpaper: wallpaper,
                 sourceURL: url,
-                sourceIsVideo: false
+                sourceIsVideo: false,
+                linkDesktop: false
             )
         }
 
