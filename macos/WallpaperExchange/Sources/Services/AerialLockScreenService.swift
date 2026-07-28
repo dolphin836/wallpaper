@@ -110,7 +110,6 @@ final class AerialLockScreenService {
     }
 
     private struct AerialProcessSnapshot {
-        var processIDs: Set<Int> = []
         var assetIDs: Set<String> = []
     }
 
@@ -212,16 +211,15 @@ final class AerialLockScreenService {
 
         UserDefaults.standard.set(assetIDs, forKey: DefaultsKey.managedAssetIDs)
         restartWallpaperProcesses()
-        try await waitForAerialReload(
-            assetIDs: Set(assetIDs),
-            previousProcessIDs: previousSnapshot.processIDs,
-            paths: paths
-        )
+        // The Aerial extension is demand-launched by macOS and is routinely
+        // reclaimed while no preview or lock screen is visible. A successful
+        // on-disk update must not depend on that transient renderer being alive
+        // right now; it will load the new movie on the next lock.
+        try? await Task.sleep(nanoseconds: 500_000_000)
         if sourceIsVideo, let assetID = assetIDs.first,
            !animatedAerialSelectionIsActive(
                assetID: assetID,
-               paths: paths,
-               linkEverySurface: linkDesktop
+               paths: paths
            ) {
             throw AerialError.reloadFailed
         }
@@ -660,8 +658,7 @@ final class AerialLockScreenService {
 
     private func animatedAerialSelectionIsActive(
         assetID: String,
-        paths: Paths,
-        linkEverySurface: Bool
+        paths: Paths
     ) -> Bool {
         guard let data = try? Data(contentsOf: paths.storeIndex),
               let root = try? PropertyListSerialization.propertyList(
@@ -671,24 +668,6 @@ final class AerialLockScreenService {
               ) as? [String: Any],
               linkedEntry(root["AllSpacesAndDisplays"], uses: assetID) else {
             return false
-        }
-
-        guard linkEverySurface else { return true }
-        if let displays = root["Displays"] as? [String: Any],
-           displays.values.contains(where: { !linkedEntry($0, uses: assetID) }) {
-            return false
-        }
-        if let spaces = root["Spaces"] as? [String: Any] {
-            for value in spaces.values {
-                guard let space = value as? [String: Any] else { continue }
-                if let defaultEntry = space["Default"], !linkedEntry(defaultEntry, uses: assetID) {
-                    return false
-                }
-                if let displays = space["Displays"] as? [String: Any],
-                   displays.values.contains(where: { !linkedEntry($0, uses: assetID) }) {
-                    return false
-                }
-            }
         }
         return true
     }
@@ -814,7 +793,7 @@ final class AerialLockScreenService {
         let process = Process()
         let output = Pipe()
         process.executableURL = executable
-        process.arguments = ["-n", "-Fpn", "-c", "WallpaperAerialsExtension"]
+        process.arguments = ["-n", "-Fn", "-c", "WallpaperAerialsExtension"]
         process.standardOutput = output
         process.standardError = Pipe()
         do {
@@ -832,9 +811,7 @@ final class AerialLockScreenService {
         for line in text.split(separator: "\n") {
             guard let prefix = line.first else { continue }
             let value = String(line.dropFirst())
-            if prefix == "p", let pid = Int(value) {
-                snapshot.processIDs.insert(pid)
-            } else if prefix == "n" {
+            if prefix == "n" {
                 let normalizedPath = value.replacingOccurrences(of: " (deleted)", with: "")
                 let url = URL(fileURLWithPath: normalizedPath).standardizedFileURL
                 guard url.deletingLastPathComponent().path == videosPath,
@@ -844,21 +821,6 @@ final class AerialLockScreenService {
             }
         }
         return snapshot
-    }
-
-    private func waitForAerialReload(
-        assetIDs: Set<String>,
-        previousProcessIDs: Set<Int>,
-        paths: Paths
-    ) async throws {
-        for _ in 0..<32 {
-            try? await Task.sleep(nanoseconds: 250_000_000)
-            let snapshot = runningAerialSnapshot(paths: paths)
-            let loadedTarget = !snapshot.assetIDs.intersection(assetIDs).isEmpty
-            let relaunched = previousProcessIDs.isEmpty || !snapshot.processIDs.isSubset(of: previousProcessIDs)
-            if loadedTarget && relaunched { return }
-        }
-        throw AerialError.reloadFailed
     }
 
     private func exportVideo(source: URL, destination: URL) async throws {
