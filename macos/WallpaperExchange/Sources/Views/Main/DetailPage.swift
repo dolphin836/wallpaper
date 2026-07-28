@@ -697,9 +697,7 @@ struct DetailPage: View {
 
             Spacer(minLength: 0)
 
-            if let d {
-                detailInfoHoverButton(detail: d)
-            }
+            detailInfoHoverButton(detail: d)
         }
         .frame(maxWidth: .infinity)
     }
@@ -721,20 +719,26 @@ struct DetailPage: View {
         )
     }
 
-    private func detailInfoHoverButton(detail d: WallpaperDetail) -> some View {
+    private func detailInfoHoverButton(detail d: WallpaperDetail?) -> some View {
         VStack(alignment: .trailing, spacing: 10) {
             detailTopButton(systemName: "info.circle", help: L10n.detail.info) {
+                guard d != nil else { return }
                 withAnimation(.easeOut(duration: 0.16)) {
                     infoPanelHover.toggle()
                 }
             }
+            .disabled(d == nil)
 
-            if infoPanelHover {
+            if infoPanelHover, let d {
                 detailInfoPanel(detail: d)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .onHover { hovering in
+            guard d != nil else {
+                infoPanelHover = false
+                return
+            }
             withAnimation(.easeOut(duration: 0.14)) {
                 infoPanelHover = hovering
             }
@@ -2845,6 +2849,7 @@ struct DetailPage: View {
         showingWallpaperPicker = false
         showingCollectionPicker = false
         showingFullscreenPreview = false
+        infoPanelHover = false
         selectedWallpaperSurface = nil
         dynamicFrameIndex = 0
         dynamicFramePlaying = true
