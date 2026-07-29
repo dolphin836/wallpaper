@@ -1,8 +1,34 @@
 {
-  "current_version": "2.1.5",
-  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.1.5.dmg",
+  "current_version": "2.1.6",
+  "current_dmg_url": "/downloads/mac/WallpaperExchange-2.1.6.dmg",
   "min_macos_version": "14.0",
   "releases": [
+    {
+      "version": "2.1.6",
+      "released_at": "2026-07-29",
+      "notes": [
+        "Animated Lock Screen wallpapers no longer require reopening Screen Saver after macOS reclaims its renderer; applying validates the saved global linked selection instead of an inactive process or stale display records.",
+        "The detail info control now stays visible while data loads and enables when ready, keeping the top layout stable.",
+        "Download & Set display selection, collection panels, success, error, and permission notices, and their buttons now share the bottom toolbar's dark glass treatment."
+      ],
+      "notes_i18n": {
+        "zh-CN": [
+          "macOS 回收后台渲染进程后，动态锁屏不再要求重新打开屏幕保护程序；应用时会验证已保存的全局联动选择，不再误判未运行的进程或历史显示器记录。",
+          "壁纸详情数据加载期间会保留右上角信息按钮，数据就绪后自动启用，顶部布局不再跳动。",
+          "“下载并设置”的屏幕选择、收藏面板、成功、失败及权限提示和相关按钮，现在统一使用底部工具栏的深色玻璃样式。"
+        ],
+        "zh-TW": [
+          "macOS 回收背景算繪程序後，動態鎖定畫面不再要求重新開啟螢幕保護程式；套用時會驗證已儲存的全域連動選擇，不再誤判未執行的程序或歷史顯示器記錄。",
+          "桌布詳細資料載入期間會保留右上角資訊按鈕，資料準備完成後自動啟用，頂部版面不再跳動。",
+          "「下載並設定」的螢幕選擇、收藏面板、成功、失敗及權限提示和相關按鈕，現在統一使用底部工具列的深色玻璃樣式。"
+        ],
+        "ja": [
+          "macOS がバックグラウンドのレンダラーを終了した後でも、動画ロック画面の適用時にスクリーンセーバーを開き直す必要がなくなりました。保存済みのグローバル連携設定を検証し、停止中のプロセスや古いディスプレイ情報を誤判定しません。",
+          "壁紙詳細の読み込み中も右上の情報ボタンを表示し、データの準備後に自動で有効化するため、上部レイアウトが動きません。",
+          "「ダウンロードして設定」のディスプレイ選択、コレクションパネル、成功、失敗、権限の通知と各ボタンを、下部ツールバーと同じダークガラススタイルに統一しました。"
+        ]
+      }
+    },
     {
       "version": "2.1.5",
       "released_at": "2026-07-27",

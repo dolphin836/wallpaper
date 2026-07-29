@@ -10,6 +10,22 @@ ship a release. The web `/download/mac` page reads from the JSON.
 
 ## [Unreleased]
 
+## [2.1.6] - 2026-07-29
+
+### Changed
+
+- **Detail actions now keep a stable, unified toolbar treatment.** The info
+  control remains visible while details load and enables when ready. Download
+  & Set display selection, collection panels, status notices, and their buttons
+  now share the bottom toolbar's dark glass appearance.
+
+### Fixed
+
+- **Animated Lock Screen wallpapers no longer require reopening Screen Saver
+  after macOS reclaims its renderer.** Applying now validates the saved global
+  linked selection instead of treating an inactive process or stale display
+  records as a failure.
+
 ## [2.1.5] - 2026-07-27
 
 ### Changed
