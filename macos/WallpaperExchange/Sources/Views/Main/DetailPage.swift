@@ -688,6 +688,44 @@ struct DetailPage: View {
         .help(help)
     }
 
+    private func detailActionCloseButton(action: @escaping () -> Void) -> some View {
+        GlassIconButton(
+            icon: "xmark",
+            tone: .dark,
+            size: 24,
+            iconSize: 10,
+            showTip: false,
+            action: action
+        )
+    }
+
+    private func detailPrimaryActionLabel(
+        title: String,
+        systemName: String? = nil,
+        busy: Bool = false
+    ) -> some View {
+        HStack(spacing: 7) {
+            if busy {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(.white)
+                    .scaleEffect(0.7)
+                    .frame(width: 12, height: 12)
+            } else if let systemName {
+                Image(systemName: systemName)
+                    .font(.system(size: 11, weight: .bold))
+            }
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(Color.white)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Capsule().fill(Color.accent))
+        .shadow(color: Color.accent.opacity(0.45), radius: 10, y: 4)
+    }
+
     private func detailTopControls(detail d: WallpaperDetail?, layout: DetailLayout) -> some View {
         HStack(alignment: .top, spacing: 12) {
             detailTopButton(systemName: "chevron.left", help: L10n.shell.back) {
@@ -1336,13 +1374,13 @@ struct DetailPage: View {
     @ViewBuilder
     private func downloadNoticeView(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
         if let downloadNotice {
-            let tone = noticeTone(downloadNotice)
+            let accent = noticeAccent(downloadNotice)
             HStack(alignment: .center, spacing: 14) {
                 ZStack {
-                    Circle().fill(tone.ink.opacity(0.13))
+                    Circle().fill(accent.opacity(0.16))
                     Image(systemName: noticeIcon(downloadNotice))
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(tone.ink)
+                        .foregroundStyle(accent)
                 }
                 .frame(width: 34, height: 34)
 
@@ -1351,55 +1389,41 @@ struct DetailPage: View {
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .tracking(1.4)
                         .textCase(.uppercase)
-                        .foregroundStyle(tone.ink)
+                        .foregroundStyle(accent)
                     Text(noticeMessage(downloadNotice, detail: d))
                         .font(.system(size: 13, weight: .medium))
                         .lineSpacing(3)
-                        .foregroundStyle(tone.text)
+                        .foregroundStyle(Color.white.opacity(0.82))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
                 if downloadNotice == .insufficientCoins {
                     Button(action: openUploadOnWeb) {
-                        Text(L10n.detail.uploadToEarn)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Color.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(Capsule().fill(tone.ink))
+                        detailPrimaryActionLabel(title: L10n.detail.uploadToEarn)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GlassBounceButtonStyle())
                 }
-                Button(action: { self.downloadNotice = nil }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(tone.ink.opacity(0.92))
-                        .frame(width: 24, height: 24)
-                        .background(Circle().fill(tone.ink.opacity(0.14)))
+                detailActionCloseButton {
+                    self.downloadNotice = nil
                 }
-                .buttonStyle(.plain)
             }
             .padding(14)
             .frame(width: resolvedActionBarWidth(layout: layout), alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(tone.background))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(tone.border, lineWidth: 1.5))
-            .shadow(color: Color.black.opacity(0.24), radius: 18, y: 8)
+            .detailActionSurface(cornerRadius: 18)
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }
 
-    private func noticeTone(_ notice: DownloadNotice) -> (background: Color, border: Color, ink: Color, text: Color) {
+    private func noticeAccent(_ notice: DownloadNotice) -> Color {
         switch notice {
         case .success, .set:
-            let ink = Color(hex: "#2f6b3e")
-            return (Color(hex: "#edf8ef"), ink.opacity(0.65), ink, Color(hex: "#1f4827"))
+            return Color(hex: "#7edb91")
         case .insufficientCoins:
-            let ink = Color(hex: "#9a6a18")
-            return (Color(hex: "#fbf2dd"), Color(hex: "#b07a1a").opacity(0.72), ink, Color(hex: "#5e3f08"))
+            return Color(hex: "#f6c667")
         case .unavailable:
-            return (Color(hex: "#fff4e5").opacity(0.97), Color(hex: "#d97706").opacity(0.86), Color(hex: "#9a4d00"), Color(hex: "#5c2e00"))
+            return Color(hex: "#ffb866")
         case .downloadFailed, .applyFailed:
-            return (Color(hex: "#321b18").opacity(0.97), Color(hex: "#ff8a5b").opacity(0.90), Color(hex: "#ff9a70"), Color.white.opacity(0.94))
+            return Color(hex: "#ff9a70")
         }
     }
 
@@ -1618,16 +1642,7 @@ struct DetailPage: View {
         .animation(.easeOut(duration: 0.16), value: showingWallpaperPicker)
         .animation(.easeOut(duration: 0.16), value: showingCollectionPicker)
         .padding(layout.isCompact ? 8 : 10)
-        .background(
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(Color.black.opacity(0.42))
-        )
-        .glassSurface(
-            RoundedRectangle(cornerRadius: 30, style: .continuous),
-            tone: .dark,
-            lighting: 0.72
-        )
-        .shadow(color: Color.black.opacity(0.30), radius: 26, y: 10)
+        .detailActionSurface(cornerRadius: 30)
         .background(
             GeometryReader { proxy in
                 Color.clear.preference(key: ActionBarWidthPreferenceKey.self, value: proxy.size.width)
@@ -2037,18 +2052,11 @@ struct DetailPage: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.88))
                     Spacer(minLength: 0)
-                    Button {
+                    detailActionCloseButton {
                         withAnimation(.easeOut(duration: 0.16)) {
                             showingWallpaperPicker = false
                         }
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(Color.white.opacity(0.66))
-                            .frame(width: 24, height: 24)
-                            .background(Circle().fill(Color.white.opacity(0.08)))
                     }
-                    .buttonStyle(.plain)
                 }
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 170, maximum: 260), spacing: 10, alignment: .top)],
@@ -2075,27 +2083,17 @@ struct DetailPage: View {
                 Button {
                     Task { await applySelectedWallpaper(d) }
                 } label: {
-                    HStack(spacing: 7) {
-                        if applyingWallpaper || manager.downloading.contains(d.id) {
-                            ProgressView()
-                                .controlSize(.small)
-                                .scaleEffect(0.7)
-                                .frame(width: 12, height: 12)
-                        } else {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 11, weight: .bold))
-                        }
-                        Text(applyingWallpaper || manager.downloading.contains(d.id) ? L10n.detail.wallpaperApplying : L10n.detail.wallpaperApply)
-                            .font(.system(size: 12, weight: .semibold))
-                            .lineLimit(1)
-                    }
-                    .foregroundStyle(Color.white)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 9)
-                    .background(Capsule().fill(cannotApply ? Color.white.opacity(0.20) : Color.accent))
+                    detailPrimaryActionLabel(
+                        title: applyingWallpaper || manager.downloading.contains(d.id)
+                            ? L10n.detail.wallpaperApplying
+                            : L10n.detail.wallpaperApply,
+                        systemName: "checkmark",
+                        busy: applyingWallpaper || manager.downloading.contains(d.id)
+                    )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GlassBounceButtonStyle())
                 .disabled(cannotApply)
+                .opacity(cannotApply ? 0.55 : 1)
                 .help(selectedWallpaperSurface.map {
                     surfaceUnavailable($0, detail: d) ? surfaceUnavailableReason($0, detail: d) : L10n.detail.wallpaperApply
                 } ?? L10n.detail.wallpaperApply)
@@ -2103,7 +2101,7 @@ struct DetailPage: View {
         }
         .padding(14)
         .frame(width: resolvedActionBarWidth(layout: layout), alignment: .leading)
-        .glassPanel(cornerRadius: 18)
+        .detailActionSurface(cornerRadius: 18)
     }
 
     private func collectionPicker(detail d: WallpaperDetail, layout: DetailLayout) -> some View {
@@ -2113,18 +2111,11 @@ struct DetailPage: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.88))
                 Spacer(minLength: 0)
-                Button {
+                detailActionCloseButton {
                     withAnimation(.easeOut(duration: 0.16)) {
                         showingCollectionPicker = false
                     }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color.white.opacity(0.66))
-                        .frame(width: 24, height: 24)
-                        .background(Circle().fill(Color.white.opacity(0.08)))
                 }
-                .buttonStyle(.plain)
             }
 
             if !auth.isLoggedIn {
@@ -2170,27 +2161,15 @@ struct DetailPage: View {
                         Button {
                             Task { await createCollectionAndAddWallpaper(d) }
                         } label: {
-                            HStack(spacing: 6) {
-                                if creatingCollection {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                        .scaleEffect(0.7)
-                                        .frame(width: 12, height: 12)
-                                } else {
-                                    Image(systemName: "plus")
-                                        .font(.system(size: 10, weight: .bold))
-                                }
-                                Text(creatingCollection ? L10n.collections.creating : L10n.collections.create)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .lineLimit(1)
-                            }
-                            .foregroundStyle(Color.white)
-                            .padding(.horizontal, 13)
-                            .frame(height: 34)
-                            .background(Capsule().fill(canCreateCollection ? Color.accent : Color.white.opacity(0.18)))
+                            detailPrimaryActionLabel(
+                                title: creatingCollection ? L10n.collections.creating : L10n.collections.create,
+                                systemName: "plus",
+                                busy: creatingCollection
+                            )
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(GlassBounceButtonStyle())
                         .disabled(!canCreateCollection || creatingCollection)
+                        .opacity(canCreateCollection && !creatingCollection ? 1 : 0.55)
                     }
 
                     if let collectionError {
@@ -2203,7 +2182,7 @@ struct DetailPage: View {
         }
         .padding(14)
         .frame(width: resolvedActionBarWidth(layout: layout), alignment: .leading)
-        .glassPanel(cornerRadius: 18)
+        .detailActionSurface(cornerRadius: 18)
     }
 
     private var canCreateCollection: Bool {
@@ -3056,6 +3035,24 @@ struct DetailPage: View {
             isLiked: d.isLiked, isFavorited: d.isFavorited, isDownloaded: d.isDownloaded,
             createdAt: d.createdAt
         )
+    }
+}
+
+private struct DetailActionSurfaceModifier: ViewModifier {
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        content
+            .background(shape.fill(Color.black.opacity(0.42)))
+            .glassSurface(shape, tone: .dark, lighting: 0.72)
+            .shadow(color: Color.black.opacity(0.30), radius: 26, y: 10)
+    }
+}
+
+private extension View {
+    func detailActionSurface(cornerRadius: CGFloat) -> some View {
+        modifier(DetailActionSurfaceModifier(cornerRadius: cornerRadius))
     }
 }
 
