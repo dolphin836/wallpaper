@@ -3044,7 +3044,10 @@ private struct DetailActionSurfaceModifier: ViewModifier {
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         content
-            .background(shape.fill(Color.black.opacity(0.42)))
+            // Keep every detail action surface in the same dark tonal range.
+            // A lighter backing lets large glass panels sample much more of a
+            // bright wallpaper than the compact notice and toolbar do.
+            .background(shape.fill(Color.black.opacity(0.72)))
             .glassSurface(shape, tone: .dark, lighting: 0.72)
             .shadow(color: Color.black.opacity(0.30), radius: 26, y: 10)
     }
