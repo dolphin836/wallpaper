@@ -125,13 +125,22 @@ a {
   pointer-events: none;
 }
 
-.wallpaper-image.is-soft {
+.wallpaper-image-thumb {
   filter:
     brightness(var(--wallpaper-brightness))
     saturate(var(--wallpaper-saturation))
     contrast(var(--wallpaper-contrast))
     blur(calc(12px + var(--wallpaper-blur)));
   transform: scale(1.03);
+}
+
+.wallpaper-image-thumb.is-final {
+  filter:
+    brightness(var(--wallpaper-brightness))
+    saturate(var(--wallpaper-saturation))
+    contrast(var(--wallpaper-contrast))
+    blur(var(--wallpaper-blur));
+  transform: scale(var(--wallpaper-scale));
 }
 
 .photo-scrim {

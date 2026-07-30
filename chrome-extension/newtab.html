@@ -10,7 +10,9 @@
   <body>
     <main class="stage is-loading" id="stage">
       <div class="wallpaper-base" id="wallpaperBase"></div>
-      <img class="wallpaper-image" id="wallpaperImage" alt="">
+      <img class="wallpaper-image wallpaper-image-thumb" id="wallpaperThumb" alt="" decoding="async">
+      <img class="wallpaper-image wallpaper-image-preview" id="wallpaperPreview" alt="" decoding="async">
+      <img class="wallpaper-image wallpaper-image-original" id="wallpaperOriginal" alt="" decoding="async">
       <video class="wallpaper-video" id="wallpaperVideo" muted loop autoplay playsinline preload="auto" aria-hidden="true"></video>
       <div class="load-beam" aria-hidden="true"></div>
       <div class="photo-scrim" aria-hidden="true"></div>

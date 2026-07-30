@@ -160,6 +160,7 @@
       chooseCollection: "Choose a collection first.",
       signInToUse: "Sign in to use this source.",
       usingCache: "Using the last loaded wallpaper set.",
+      previewFailed: "The preview did not load. Showing the thumbnail.",
       highQualityFailed: "The high quality image did not load. Showing the preview.",
       authRequired: "Sign in first.",
       emailPasswordRequired: "Enter your email and password.",
@@ -269,6 +270,7 @@
       chooseCollection: "请先选择一个合集。",
       signInToUse: "登录后才能使用这个来源。",
       usingCache: "正在使用上一次加载的壁纸列表。",
+      previewFailed: "预览图加载失败，当前显示缩略图。",
       highQualityFailed: "高清图片加载失败，当前显示预览图。",
       authRequired: "请先登录。",
       emailPasswordRequired: "请输入邮箱和密码。",
@@ -367,6 +369,7 @@
     chooseCollection: "請先選擇一個合集。",
     signInToUse: "登入後才能使用這個來源。",
     usingCache: "正在使用上一次載入的桌布列表。",
+    previewFailed: "預覽圖載入失敗，目前顯示縮圖。",
     highQualityFailed: "高清圖片載入失敗，目前顯示預覽圖。",
     authRequired: "請先登入。",
     emailPasswordRequired: "請輸入信箱和密碼。",
@@ -465,6 +468,7 @@
     chooseCollection: "先にコレクションを選択してください。",
     signInToUse: "このソースを使うにはログインしてください。",
     usingCache: "前回読み込んだ壁紙セットを表示しています。",
+    previewFailed: "プレビューを読み込めませんでした。サムネイルを表示しています。",
     highQualityFailed: "高画質画像を読み込めませんでした。プレビューを表示しています。",
     authRequired: "先にログインしてください。",
     emailPasswordRequired: "メールとパスワードを入力してください。",
@@ -488,7 +492,9 @@
   const elements = {
     stage: document.getElementById("stage"),
     base: document.getElementById("wallpaperBase"),
-    image: document.getElementById("wallpaperImage"),
+    thumbImage: document.getElementById("wallpaperThumb"),
+    previewImage: document.getElementById("wallpaperPreview"),
+    originalImage: document.getElementById("wallpaperOriginal"),
     video: document.getElementById("wallpaperVideo"),
     widgetLayer: document.getElementById("widgetLayer"),
     clock: document.getElementById("clock"),
@@ -564,6 +570,7 @@
     current: null,
     sourceLabel: "",
     loadingToken: 0,
+    paintToken: 0,
     randomTimer: null,
     authMode: "login",
     sessionId: ""
@@ -867,13 +874,19 @@
   }
 
   function paintWallpaper(wallpaper) {
+    const paintToken = ++state.paintToken;
     const videoSrc = getVideoSource(wallpaper);
-    const highSrc = getBestStillImage(wallpaper);
-    const softSrc = wallpaper.thumb_url || wallpaper.preview_url || highSrc;
+    const bestStillSrc = getBestStillImage(wallpaper);
+    const thumbSrc = wallpaper.thumb_url || wallpaper.preview_url || bestStillSrc;
+    const previewSrc = wallpaper.preview_url || thumbSrc;
+    const originalSrc = getOptionalOriginalStillImage(wallpaper, previewSrc);
     const color = sanitizeColor(wallpaper.dominant_color) || "#101316";
+    const previewIsDistinct = Boolean(previewSrc && previewSrc !== thumbSrc);
+    const isCurrentPaint = () => paintToken === state.paintToken && state.current === wallpaper;
 
     elements.base.style.backgroundColor = color;
     elements.stage.classList.add("is-loading");
+    [elements.thumbImage, elements.previewImage, elements.originalImage].forEach(resetImageLayer);
     elements.video.pause();
     elements.video.classList.remove("is-ready");
     elements.video.onloadeddata = null;
@@ -885,11 +898,56 @@
     elements.video.autoplay = true;
     elements.video.playsInline = true;
 
-    if (softSrc && elements.image.src !== softSrc) {
-      elements.image.classList.remove("is-ready");
-      elements.image.classList.add("is-soft");
-      elements.image.src = softSrc;
-      requestAnimationFrame(() => elements.image.classList.add("is-ready"));
+    if (thumbSrc) {
+      elements.thumbImage.onload = () => {
+        if (!isCurrentPaint()) return;
+        elements.thumbImage.classList.add("is-ready");
+        if (!previewIsDistinct) {
+          elements.thumbImage.classList.add("is-final");
+          elements.stage.classList.remove("is-loading");
+          setStatus("");
+        }
+      };
+      elements.thumbImage.onerror = () => {
+        if (!isCurrentPaint()) return;
+        resetImageLayer(elements.thumbImage);
+        if (!previewIsDistinct) elements.stage.classList.remove("is-loading");
+      };
+      elements.thumbImage.src = thumbSrc;
+    }
+
+    const loadOptionalOriginal = () => {
+      if (!originalSrc || !isCurrentPaint()) return;
+      elements.originalImage.onload = () => {
+        if (!isCurrentPaint()) return;
+        elements.originalImage.classList.add("is-ready");
+      };
+      elements.originalImage.onerror = () => {
+        if (!isCurrentPaint()) return;
+        resetImageLayer(elements.originalImage);
+        setStatus(t("highQualityFailed"));
+      };
+      elements.originalImage.src = originalSrc;
+    };
+
+    if (previewIsDistinct) {
+      elements.previewImage.onload = () => {
+        if (!isCurrentPaint()) return;
+        elements.previewImage.classList.add("is-ready");
+        elements.stage.classList.remove("is-loading");
+        setStatus("");
+        loadOptionalOriginal();
+      };
+      elements.previewImage.onerror = () => {
+        if (!isCurrentPaint()) return;
+        resetImageLayer(elements.previewImage);
+        elements.thumbImage.classList.add("is-final");
+        elements.stage.classList.remove("is-loading");
+        setStatus(t("previewFailed"));
+      };
+      elements.previewImage.src = previewSrc;
+    } else {
+      loadOptionalOriginal();
     }
 
     if (videoSrc) {
@@ -899,12 +957,11 @@
       }
 
       const showVideo = () => {
-        if (state.current !== wallpaper) return;
+        if (!isCurrentPaint()) return;
         elements.stage.classList.remove("is-loading");
         elements.video.classList.add("is-ready");
-        elements.image.classList.remove("is-soft");
         elements.video.play().catch(() => {
-          if (state.current !== wallpaper) return;
+          if (!isCurrentPaint()) return;
           elements.video.classList.remove("is-ready");
           elements.stage.classList.remove("is-loading");
         });
@@ -914,10 +971,12 @@
       elements.video.oncanplay = showVideo;
       elements.video.oncanplaythrough = showVideo;
       elements.video.onerror = () => {
-        if (state.current !== wallpaper) return;
-        elements.image.classList.remove("is-soft");
-        elements.image.classList.add("is-ready");
-        elements.stage.classList.remove("is-loading");
+        if (!isCurrentPaint()) return;
+        elements.video.classList.remove("is-ready");
+        if (!previewIsDistinct) {
+          elements.thumbImage.classList.add("is-final");
+          elements.stage.classList.remove("is-loading");
+        }
       };
 
       if (elements.video.readyState >= 2) {
@@ -932,29 +991,13 @@
 
     elements.video.removeAttribute("src");
     elements.video.load();
+  }
 
-    if (!highSrc) {
-      elements.stage.classList.remove("is-loading");
-      return;
-    }
-
-    const loader = new Image();
-    loader.decoding = "async";
-    loader.onload = () => {
-      if (state.current !== wallpaper) return;
-      elements.image.src = highSrc;
-      elements.image.classList.remove("is-soft");
-      elements.image.classList.add("is-ready");
-      elements.stage.classList.remove("is-loading");
-    };
-    loader.onerror = () => {
-      if (state.current !== wallpaper) return;
-      elements.image.classList.remove("is-soft");
-      elements.image.classList.add("is-ready");
-      elements.stage.classList.remove("is-loading");
-      setStatus(t("highQualityFailed"));
-    };
-    loader.src = highSrc;
+  function resetImageLayer(element) {
+    element.onload = null;
+    element.onerror = null;
+    element.classList.remove("is-ready", "is-final");
+    element.removeAttribute("src");
   }
 
   async function loadCollections({ force = false } = {}) {
@@ -1758,6 +1801,17 @@
       return wallpaper.preview_url || wallpaper.thumb_url || "";
     }
     return wallpaper.original_url || wallpaper.preview_url || wallpaper.thumb_url || "";
+  }
+
+  function getOptionalOriginalStillImage(wallpaper, previewSrc) {
+    if (!wallpaper || getVideoSource(wallpaper)) return "";
+    const original = String(wallpaper.original_url || "").trim();
+    if (!original || original === previewSrc) return "";
+    // Browser-extension pages cannot satisfy the cookie-bound media session
+    // used by protected view URLs. Keep the public preview as the stable final
+    // layer instead of falling back to a stretched thumbnail after a 403.
+    if (/\/api\/v1\/media\//.test(original)) return "";
+    return original;
   }
 
   function getVideoSource(wallpaper) {
