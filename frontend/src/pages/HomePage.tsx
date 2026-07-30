@@ -14,7 +14,7 @@ import { createWallpaperDetailNavigation } from '../lib/wallpaperDetailNavigatio
  * Home v4 — immersive weekly backdrop, mirroring the Mac client
  * (docs/design-system.md):
  *   • The weekly hero pick IS the page background — fixed full-bleed,
- *     loaded progressively (dominant color → thumb → original) under
+ *     loaded progressively (dominant color → thumb → preview → original) under
  *     the Mac backdrop's scrim stops.
  *   • One content row: "This week's picks" in white display type over
  *     the photo, then a golden-ratio adaptive grid of the whole slate
@@ -91,46 +91,64 @@ export default function HomePage() {
   );
 }
 
-/* ─── Fixed full-bleed backdrop, Mac loading order:
-       dominant color → thumb (blurred) → original. ─── */
+/* ─── Fixed full-bleed backdrop:
+       dominant color → thumb (blurred) → preview → original. ─── */
 function HomeBackdrop({ hero }: { hero: Partial<Wallpaper> | null }) {
-  const [src, setSrc] = useState('');
-  const [sharp, setSharp] = useState(false);
+  const [loadedThumb, setLoadedThumb] = useState('');
+  const [loadedPreview, setLoadedPreview] = useState('');
+  const [failedPreview, setFailedPreview] = useState('');
+  const [loadedOriginal, setLoadedOriginal] = useState('');
+  const thumb = hero?.thumb_url || hero?.preview_url || '';
+  const preview = hero?.preview_url && hero.preview_url !== thumb
+    ? hero.preview_url
+    : '';
   const protectedOriginal = hero?.original_url
     && !hero.file_type?.startsWith('video/')
     && !hero.is_dynamic
       ? hero.original_url
       : '';
-  const { blobURL: originalBlobURL, loading: originalLoading } = useProtectedImageBlob(protectedOriginal);
-
-  useEffect(() => {
-    if (!hero) return;
-    const thumb = hero.thumb_url || hero.preview_url || '';
-    setSrc(thumb);
-    setSharp(false);
-
-  }, [hero]);
-
-  useEffect(() => {
-    if (!hero) return;
-    let alive = true;
-    const thumb = hero.thumb_url || hero.preview_url || '';
-    const high = originalBlobURL || hero.preview_url || thumb;
-
-    if (high && high !== thumb) {
-      const img = new Image();
-      img.onload = () => { if (alive) { setSrc(high); setSharp(!originalLoading); } };
-      img.onerror = () => { if (alive) setSharp(true); };
-      img.src = high;
-    } else {
-      setSharp(!originalLoading);
-    }
-    return () => { alive = false; };
-  }, [hero, originalBlobURL, originalLoading]);
+  const { blobURL: originalBlobURL } = useProtectedImageBlob(protectedOriginal, {
+    timeoutMs: 20_000,
+    retries: 1,
+  });
+  const thumbReady = !!thumb && loadedThumb === thumb;
+  const previewReady = !!preview && loadedPreview === preview;
+  const previewFailed = !!preview && failedPreview === preview;
+  const originalReady = !!originalBlobURL && loadedOriginal === originalBlobURL;
+  const thumbIsFinal = !preview || previewFailed;
 
   return (
     <div className="h4-backdrop" aria-hidden style={{ backgroundColor: hero?.dominant_color || undefined }}>
-      {src && <img src={src} alt="" decoding="async" className={sharp ? 'is-sharp' : ''} />}
+      {thumb && (
+        <img
+          src={thumb}
+          alt=""
+          decoding="async"
+          fetchPriority="high"
+          className={`h4-backdrop-image h4-backdrop-thumb${thumbReady ? ' is-visible' : ''}${thumbIsFinal ? ' is-final' : ''}`}
+          onLoad={() => setLoadedThumb(thumb)}
+        />
+      )}
+      {preview && (
+        <img
+          src={preview}
+          alt=""
+          decoding="async"
+          fetchPriority="high"
+          className={`h4-backdrop-image h4-backdrop-preview${previewReady ? ' is-visible' : ''}`}
+          onLoad={() => setLoadedPreview(preview)}
+          onError={() => setFailedPreview(preview)}
+        />
+      )}
+      {originalBlobURL && (
+        <img
+          src={originalBlobURL}
+          alt=""
+          decoding="async"
+          className={`h4-backdrop-image h4-backdrop-original${originalReady ? ' is-visible' : ''}`}
+          onLoad={() => setLoadedOriginal(originalBlobURL)}
+        />
+      )}
       <div className="h4-backdrop-scrim" />
     </div>
   );

@@ -211,15 +211,25 @@
   z-index: 0;
   overflow: hidden;
 }
-.h4-backdrop img {
+.h4-backdrop-image {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 600ms var(--ease-out-quart);
+}
+.h4-backdrop-image.is-visible { opacity: 1; }
+.h4-backdrop-thumb {
   filter: blur(14px);
   transform: scale(1.05);
-  transition: filter 600ms var(--ease-out-quart), transform 600ms var(--ease-out-quart);
+  transition:
+    opacity 600ms var(--ease-out-quart),
+    filter 600ms var(--ease-out-quart),
+    transform 600ms var(--ease-out-quart);
 }
-.h4-backdrop img.is-sharp { filter: none; transform: none; }
+.h4-backdrop-thumb.is-final { filter: none; transform: none; }
 /* Same scrim stops as the Mac HomeBackdropView. */
 .h4-backdrop-scrim {
   position: absolute;
@@ -738,6 +748,7 @@
 
   .tile-cell,
   .wp-card,
+  .h4-backdrop-image,
   .h3-tile,
   .h3-hero,
   .w-archive-cover,
