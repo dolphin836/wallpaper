@@ -104,6 +104,7 @@ struct DetailStrings {
     let wallpaperApply: String
     let wallpaperApplying: String
     let wallpaperVideoLockUnavailable: String
+    let lockScreenChecking: String
     let lockScreenUnavailable: String
     let lockScreenStoreUnavailable: String
     let lockScreenAerialRequired: String
@@ -212,10 +213,11 @@ private let detailEN = DetailStrings(
     wallpaperApply: "Apply",
     wallpaperApplying: "Applying",
     wallpaperVideoLockUnavailable: "Lock screen wallpaper will use the selected wallpaper image.",
+    lockScreenChecking: "Checking Apple Aerial setup…",
     lockScreenUnavailable: "Custom lock screen wallpaper requires macOS 26 or later.",
     lockScreenStoreUnavailable: "The macOS wallpaper store is unavailable. Open System Settings and choose a wallpaper first.",
-    lockScreenAerialRequired: "Choose an Apple Aerial as the screen saver in System Settings before setting a custom lock screen.",
-    lockScreenAerialDownloadRequired: "The selected Apple Aerial has not finished downloading. Play it once in System Settings, then try again.",
+    lockScreenAerialRequired: "No usable Apple Aerial was found. Choose any Apple Aerial as the screen saver in System Settings and wait for it to download; this is normally a one-time setup.",
+    lockScreenAerialDownloadRequired: "An Apple Aerial is selected, but its video has not finished downloading. Wait for the download in System Settings, then try again.",
     lockScreenPermissionRequired: "Wallpaper Exchange does not have permission to update the selected Apple Aerial.",
     lockScreenImageUnavailable: "This image cannot be prepared as a lock screen wallpaper.",
     lockScreenConversionUnavailable: "This video cannot be converted for lock screen wallpaper.",
@@ -316,10 +318,11 @@ private let detailZhCN = DetailStrings(
     wallpaperApply: "应用",
     wallpaperApplying: "应用中",
     wallpaperVideoLockUnavailable: "锁屏壁纸会使用当前选择的壁纸图片。",
+    lockScreenChecking: "正在检测 Apple 航拍设置…",
     lockScreenUnavailable: "自定义锁屏壁纸需要 macOS 26 或更高版本。",
     lockScreenStoreUnavailable: "无法读取 macOS 壁纸配置，请先在系统设置中选择一张壁纸。",
-    lockScreenAerialRequired: "请先在系统设置中将屏幕保护程序设为 Apple 航拍，再设置自定义锁屏。",
-    lockScreenAerialDownloadRequired: "当前选择的 Apple 航拍尚未下载完成，请先在系统设置中播放一次后重试。",
+    lockScreenAerialRequired: "未检测到可用的 Apple 航拍。请在系统设置中选择任意一个 Apple 航拍屏幕保护程序并等待下载完成；通常只需设置一次。",
+    lockScreenAerialDownloadRequired: "已选择 Apple 航拍，但视频资源尚未下载完成。请等待系统设置完成下载后重试。",
     lockScreenPermissionRequired: "Wallpaper Exchange 没有权限更新当前选择的 Apple 航拍资源。",
     lockScreenImageUnavailable: "无法将这张图片处理为锁屏壁纸。",
     lockScreenConversionUnavailable: "这个视频无法转换成锁屏壁纸格式。",
@@ -420,10 +423,11 @@ private let detailZhTW = DetailStrings(
     wallpaperApply: "套用",
     wallpaperApplying: "套用中",
     wallpaperVideoLockUnavailable: "鎖定畫面桌布會使用目前選擇的桌布圖片。",
+    lockScreenChecking: "正在檢查 Apple 空拍設定…",
     lockScreenUnavailable: "自訂鎖定畫面桌布需要 macOS 26 或以上版本。",
     lockScreenStoreUnavailable: "無法讀取 macOS 桌布設定，請先在系統設定中選擇一張桌布。",
-    lockScreenAerialRequired: "請先在系統設定中將螢幕保護程式設為 Apple 空拍，再設定自訂鎖定畫面。",
-    lockScreenAerialDownloadRequired: "目前選擇的 Apple 空拍尚未下載完成，請先在系統設定中播放一次後再試。",
+    lockScreenAerialRequired: "未偵測到可用的 Apple 空拍。請在系統設定中選擇任一 Apple 空拍螢幕保護程式並等待下載完成；通常只需設定一次。",
+    lockScreenAerialDownloadRequired: "已選擇 Apple 空拍，但影片資源尚未下載完成。請等待系統設定完成下載後再試。",
     lockScreenPermissionRequired: "Wallpaper Exchange 沒有權限更新目前選擇的 Apple 空拍資源。",
     lockScreenImageUnavailable: "無法將這張圖片處理為鎖定畫面桌布。",
     lockScreenConversionUnavailable: "此影片無法轉換為鎖定畫面桌布格式。",
@@ -524,10 +528,11 @@ private let detailJA = DetailStrings(
     wallpaperApply: "適用",
     wallpaperApplying: "適用中",
     wallpaperVideoLockUnavailable: "ロック画面壁紙には選択中の壁紙画像を使用します。",
+    lockScreenChecking: "Apple Aerial の設定を確認中…",
     lockScreenUnavailable: "カスタムロック画面壁紙には macOS 26 以降が必要です。",
     lockScreenStoreUnavailable: "macOS の壁紙設定を読み込めません。先にシステム設定で壁紙を選択してください。",
-    lockScreenAerialRequired: "カスタムロック画面を設定する前に、システム設定でスクリーンセーバを Apple Aerial にしてください。",
-    lockScreenAerialDownloadRequired: "選択中の Apple Aerial のダウンロードが完了していません。システム設定で一度再生してからお試しください。",
+    lockScreenAerialRequired: "利用可能な Apple Aerial が見つかりません。システム設定で任意の Apple Aerial スクリーンセーバを選び、ダウンロードの完了をお待ちください。通常、この設定は一度だけ必要です。",
+    lockScreenAerialDownloadRequired: "Apple Aerial は選択されていますが、ビデオのダウンロードが完了していません。システム設定で完了を待ってから、もう一度お試しください。",
     lockScreenPermissionRequired: "Wallpaper Exchange に選択中の Apple Aerial を更新する権限がありません。",
     lockScreenImageUnavailable: "この画像をロック画面壁紙として準備できません。",
     lockScreenConversionUnavailable: "このビデオはロック画面壁紙形式に変換できません。",

@@ -49,6 +49,7 @@ struct DetailPage: View {
     @State private var dynamicFramePlaying = true
     @State private var selectedWallpaperSurface: WallpaperApplySurface?
     @State private var selectedDisplayTargetID = WallpaperDisplayTarget.allID
+    @State private var lockScreenReadiness: AerialLockScreenService.Readiness?
     @State private var applyingWallpaper = false
     @State private var videoDuration: Double?
     @State private var videoDurationTask: Task<Void, Never>?
@@ -238,6 +239,12 @@ struct DetailPage: View {
         .onPreferenceChange(ActionBarWidthPreferenceKey.self) { width in
             guard width > 0 else { return }
             measuredActionBarWidth = width
+        }
+        .onChange(of: showingWallpaperPicker) { _, isShowing in
+            if isShowing { refreshLockScreenReadiness() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            if showingWallpaperPicker { refreshLockScreenReadiness() }
         }
     }
 
@@ -2078,6 +2085,10 @@ struct DetailPage: View {
                 }
             }
 
+            if selectedSurfaceUsesLockScreen {
+                lockScreenReadinessNotice
+            }
+
             HStack(alignment: .center, spacing: 12) {
                 Spacer(minLength: 8)
                 Button {
@@ -2347,12 +2358,63 @@ struct DetailPage: View {
         .buttonStyle(.plain)
     }
 
+    @ViewBuilder
+    private var lockScreenReadinessNotice: some View {
+        switch lockScreenReadiness {
+        case nil:
+            HStack(spacing: 9) {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(Color.white.opacity(0.82))
+                Text(L10n.detail.lockScreenChecking)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.72))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(11)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.07)))
+        case .ready:
+            EmptyView()
+        case .unavailable(let error):
+            HStack(alignment: .top, spacing: 9) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.warn)
+                    .padding(.top, 1)
+                Text(error.localizedDescription)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.82))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(11)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.warn.opacity(0.12)))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.warn.opacity(0.28), lineWidth: 1))
+        }
+    }
+
+    private var selectedSurfaceUsesLockScreen: Bool {
+        selectedWallpaperSurface == .lockScreen || selectedWallpaperSurface == .both
+    }
+
+    private func refreshLockScreenReadiness() {
+        guard AerialLockScreenService.isSupported else {
+            lockScreenReadiness = .unavailable(.unsupported)
+            return
+        }
+        lockScreenReadiness = nil
+        Task { @MainActor in
+            await Task.yield()
+            lockScreenReadiness = AerialLockScreenService.shared.readiness()
+        }
+    }
+
     private func surfaceUnavailable(_ surface: WallpaperApplySurface, detail d: WallpaperDetail) -> Bool {
         switch surface {
         case .desktop:
             return false
         case .lockScreen, .both:
-            return !AerialLockScreenService.isSupported
+            return !AerialLockScreenService.isSupported || lockScreenReadiness != .ready
         }
     }
 
@@ -2361,7 +2423,17 @@ struct DetailPage: View {
         case .desktop:
             return L10n.detail.wallpaperApply
         case .lockScreen, .both:
-            return L10n.detail.lockScreenUnavailable
+            guard AerialLockScreenService.isSupported else {
+                return L10n.detail.lockScreenUnavailable
+            }
+            switch lockScreenReadiness {
+            case nil:
+                return L10n.detail.lockScreenChecking
+            case .ready:
+                return L10n.detail.wallpaperApply
+            case .unavailable(let error):
+                return error.localizedDescription
+            }
         }
     }
 
@@ -2830,6 +2902,7 @@ struct DetailPage: View {
         showingFullscreenPreview = false
         infoPanelHover = false
         selectedWallpaperSurface = nil
+        lockScreenReadiness = nil
         dynamicFrameIndex = 0
         dynamicFramePlaying = true
         collectionError = nil

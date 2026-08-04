@@ -19,7 +19,7 @@ final class AerialLockScreenService {
         ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 26
     }
 
-    enum AerialError: LocalizedError {
+    enum AerialError: LocalizedError, Equatable {
         case unsupported
         case storeUnavailable
         case noAerialSelected
@@ -58,6 +58,11 @@ final class AerialLockScreenService {
                 return L10n.settings.lockScreenRestoreUnavailable
             }
         }
+    }
+
+    enum Readiness: Equatable {
+        case ready
+        case unavailable(AerialError)
     }
 
     private final class VideoTranscodeBox: @unchecked Sendable {
@@ -141,6 +146,46 @@ final class AerialLockScreenService {
         guard let paths = try? paths() else { return false }
         return !backupURLs(in: paths.backups).isEmpty
             || fm.fileExists(atPath: paths.indexActivationBackup.path)
+    }
+
+    /// Checks whether the current macOS wallpaper state can back a custom lock
+    /// screen without changing the user's selection or creating app data.
+    func readiness() -> Readiness {
+        guard Self.isSupported else { return .unavailable(.unsupported) }
+
+        do {
+            let paths = try paths()
+            guard fm.fileExists(atPath: paths.storeIndex.path),
+                  fm.fileExists(atPath: paths.manifest.path),
+                  fm.fileExists(atPath: paths.videos.path) else {
+                return .unavailable(.storeUnavailable)
+            }
+
+            let snapshot = runningAerialSnapshot(paths: paths)
+            let assetIDs = try activeLockScreenAerialAssetIDs(
+                paths: paths,
+                processSnapshot: snapshot,
+                repairLegacySelection: false
+            )
+            guard !assetIDs.isEmpty else { return .unavailable(.noAerialSelected) }
+
+            for assetID in assetIDs {
+                let movie = paths.videos.appendingPathComponent("\(assetID).mov")
+                guard fm.fileExists(atPath: movie.path) else {
+                    return .unavailable(.aerialVideoMissing)
+                }
+                guard fm.isWritableFile(atPath: movie.path),
+                      fm.isWritableFile(atPath: paths.videos.path) else {
+                    return .unavailable(.permissionRequired)
+                }
+            }
+            return .ready
+        } catch let error as AerialError {
+            return .unavailable(error)
+        } catch {
+            logger.error("failed to inspect lock-screen readiness: \(error.localizedDescription, privacy: .public)")
+            return .unavailable(.storeUnavailable)
+        }
     }
 
     /// Converts the selected wallpaper into an Aerial-compatible movie, backs
@@ -407,12 +452,14 @@ final class AerialLockScreenService {
 
     private func activeLockScreenAerialAssetIDs(
         paths: Paths,
-        processSnapshot: AerialProcessSnapshot
+        processSnapshot: AerialProcessSnapshot,
+        repairLegacySelection: Bool = true
     ) throws -> [String] {
         let manifestIDs = try manifestAssetIDs(from: paths.manifest)
         guard !manifestIDs.isEmpty else { throw AerialError.storeUnavailable }
 
         let indexIDs = try aerialAssetIDs(from: paths.storeIndex, sectionName: "Idle")
+        let selectedIndexIDs = Set(indexIDs.filter { manifestIDs.contains($0) })
         let validIndexIDs = Set(indexIDs.filter {
             manifestIDs.contains($0) && fm.fileExists(atPath: paths.videos.appendingPathComponent("\($0).mov").path)
         })
@@ -434,16 +481,23 @@ final class AerialLockScreenService {
         // continues rendering a different, real Aerial. Only repair this known
         // legacy state when the extension exposes one unambiguous real asset.
         if isLegacySyntheticSelection(indexIDs), runningIDs.count == 1, let actualID = runningIDs.first {
-            try repairLegacyAerialSelection(assetID: actualID, paths: paths)
+            if repairLegacySelection {
+                try repairLegacyAerialSelection(assetID: actualID, paths: paths)
+            }
             return [actualID]
         }
 
         // Some clean macOS installations expose the selected Aerial only via a
         // Linked node. It is still required to be a real Apple manifest entry.
-        let linkedIDs = Set(try aerialAssetIDs(from: paths.storeIndex, sectionName: "Linked").filter {
+        let rawLinkedIDs = try aerialAssetIDs(from: paths.storeIndex, sectionName: "Linked")
+        let selectedLinkedIDs = Set(rawLinkedIDs.filter { manifestIDs.contains($0) })
+        let linkedIDs = Set(rawLinkedIDs.filter {
             manifestIDs.contains($0) && fm.fileExists(atPath: paths.videos.appendingPathComponent("\($0).mov").path)
         })
         if !linkedIDs.isEmpty { return linkedIDs.sorted() }
+        if !selectedIndexIDs.isEmpty || !selectedLinkedIDs.isEmpty {
+            throw AerialError.aerialVideoMissing
+        }
         throw AerialError.noAerialSelected
     }
 
