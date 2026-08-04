@@ -96,6 +96,9 @@ func registrationSource(explicit, referrer string) string {
 }
 
 func requestEventMeta(r *http.Request, explicitClient, sessionID string) repo.EventMeta {
+	if strings.TrimSpace(sessionID) == "" {
+		sessionID = r.Header.Get("X-Wallpaper-Session")
+	}
 	return repo.EventMeta{
 		Client:    requestClient(r, explicitClient),
 		IP:        truncate(clientIP(r), 64),

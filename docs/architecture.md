@@ -244,6 +244,18 @@ users N──M wallpapers (via user_favorites)
 3. 每 10 秒或累积 1000 条时，批量 UPDATE wallpapers 表的计数字段
 4. 使用 `UPDATE wallpapers SET view_count = view_count + $delta WHERE id = $id`
 
+### 6.4 后台流量分析
+
+后台 `/admin/analytics` 按管理员浏览器时区展示三类独立指标，避免把不同口径混成一个“访问量”：
+
+| 指标 | 数据源 | 粒度 | 说明 |
+|---|---|---|---|
+| Web 页面浏览 | `analytics_events` / `page_view` | 日期 × 页面路径 × 客户端 | PV、会话、登录用户、独立 IP；访客口径过滤明显 Bot UA |
+| 壁纸详情浏览 | `wallpaper_events` / `view` | 日期 × 壁纸 × 客户端 | 浏览次数、会话、登录用户、独立 IP，覆盖 Web 和原生客户端 |
+| API 请求 | `analytics_events` / `api_request` | 日期 × HTTP 方法 × Chi 路由模板 × 客户端 | 请求量、4xx/5xx、平均/P95/最大耗时、请求/响应字节、会话/用户/IP |
+
+API 请求由 `APIRequestRecorder` 在响应完成后写入内存缓冲区，每 500ms 或满 100 条批量落库，不增加用户请求的同步数据库往返。只保存路由模板，不保存带 ID、媒体令牌或查询参数的原始 URL；事件保留 180 天，后台最多查询 90 天。
+
 ## 7. Docker Compose 服务
 
 | 服务 | 镜像 | 端口 | 依赖 |

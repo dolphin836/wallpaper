@@ -296,17 +296,28 @@ export interface AnalyticsDay {
   page_views: number;
   sessions: number;
   unique_ips: number;
+  wallpaper_views: number;
+  api_requests: number;
+  api_errors: number;
+  avg_api_latency_ms: number;
+  p95_api_latency_ms: number;
 }
 export interface AnalyticsTotals {
   page_views: number;
   sessions: number;
   unique_ips: number;
+  wallpaper_views: number;
+  api_requests: number;
+  api_errors: number;
+  avg_api_latency_ms: number;
+  p95_api_latency_ms: number;
 }
 export interface AnalyticsLabel { label: string; count: number }
 export interface AnalyticsSource { source: string; count: number; hosts?: string[] }
 
 export interface AnalyticsOverview {
   days: number;
+  timezone: string;
   daily: AnalyticsDay[];
   totals: AnalyticsTotals;
   previous: AnalyticsTotals;
@@ -317,8 +328,70 @@ export interface AnalyticsOverview {
   client_downloads: AnalyticsLabel[];
 }
 
-export const getAnalytics = (days: number) =>
-  client.get<ApiResponse<AnalyticsOverview>>('/admin/analytics', { params: { days } });
+export interface AnalyticsPageViewDay {
+  day: string;
+  path: string;
+  client: string;
+  views: number;
+  sessions: number;
+  unique_users: number;
+  unique_ips: number;
+}
+
+export interface AnalyticsWallpaperViewDay {
+  day: string;
+  wallpaper_id: number;
+  slug: string;
+  title: string;
+  thumb_url: string;
+  client: string;
+  views: number;
+  sessions: number;
+  unique_users: number;
+  unique_ips: number;
+}
+
+export interface AnalyticsAPIRequestDay {
+  day: string;
+  method: string;
+  route: string;
+  client: string;
+  requests: number;
+  successes: number;
+  client_errors: number;
+  server_errors: number;
+  sessions: number;
+  unique_users: number;
+  unique_ips: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+  max_latency_ms: number;
+  request_bytes: number;
+  response_bytes: number;
+}
+
+export type AnalyticsDetailPage<T> = PaginatedAdmin<T> & { days: number; timezone: string };
+
+export interface AnalyticsDetailParams {
+  days: number;
+  timezone: string;
+  page: number;
+  limit?: number;
+  client?: string;
+  query?: string;
+}
+
+export const getAnalytics = (days: number, timezone: string) =>
+  client.get<ApiResponse<AnalyticsOverview>>('/admin/analytics', { params: { days, timezone } });
+
+export const getAnalyticsPages = (params: AnalyticsDetailParams) =>
+  client.get<ApiResponse<AnalyticsDetailPage<AnalyticsPageViewDay>>>('/admin/analytics/pages', { params });
+
+export const getAnalyticsWallpapers = (params: AnalyticsDetailParams) =>
+  client.get<ApiResponse<AnalyticsDetailPage<AnalyticsWallpaperViewDay>>>('/admin/analytics/wallpapers', { params });
+
+export const getAnalyticsRequests = (params: AnalyticsDetailParams) =>
+  client.get<ApiResponse<AnalyticsDetailPage<AnalyticsAPIRequestDay>>>('/admin/analytics/requests', { params });
 
 // ─── LLM Cost (local llm_usage ledger) ───────────────────────────────
 // Backed by the llm_usage table: pkg/llm.Client writes one row per

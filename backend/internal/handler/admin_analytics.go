@@ -17,6 +17,7 @@ import (
 // number to render delta-vs-last-week arrows).
 type AnalyticsOverview struct {
 	Days            int               `json:"days"`
+	Timezone        string            `json:"timezone"`
 	Daily           []repo.DayBucket  `json:"daily"`
 	Totals          repo.Totals       `json:"totals"`
 	Previous        repo.Totals       `json:"previous"`
@@ -114,19 +115,9 @@ var ownHosts = []string{
 
 func (h *AdminHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	days := parseIntDefault(r.URL.Query().Get("days"), 7)
-	if days <= 0 {
-		days = 7
-	}
-	if days > 90 {
-		days = 90
-	}
+	days, timezone, curStart, now, prevStart, prevEnd := analyticsWindow(r)
 
-	now := time.Now().UTC()
-	curStart := now.AddDate(0, 0, -days)
-	prevStart := now.AddDate(0, 0, -2*days)
-
-	daily, err := h.analyticsRepo.DailyTimeseries(ctx, days)
+	daily, err := h.analyticsRepo.DailyTimeseries(ctx, curStart, now, timezone)
 	if err != nil {
 		slog.ErrorContext(ctx, "analytics: timeseries failed", "error", err)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
@@ -138,31 +129,31 @@ func (h *AdminHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
-	prev, err := h.analyticsRepo.Totals(ctx, prevStart, curStart)
+	prev, err := h.analyticsRepo.Totals(ctx, prevStart, prevEnd)
 	if err != nil {
 		slog.ErrorContext(ctx, "analytics: previous totals failed", "error", err)
 		// Soft-fail — the dashboard renders without a delta arrow.
 		prev = repo.Totals{}
 	}
-	countries, err := h.analyticsRepo.TopCountries(ctx, days, 10)
+	countries, err := h.analyticsRepo.TopCountries(ctx, curStart, now, 10)
 	if err != nil {
 		slog.ErrorContext(ctx, "analytics: countries failed", "error", err)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
-	paths, err := h.analyticsRepo.TopPaths(ctx, days, 10)
+	paths, err := h.analyticsRepo.TopPaths(ctx, curStart, now, 10)
 	if err != nil {
 		slog.ErrorContext(ctx, "analytics: paths failed", "error", err)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
-	clients, err := h.analyticsRepo.ClientBreakdown(ctx, days, 10)
+	clients, err := h.analyticsRepo.ClientBreakdown(ctx, curStart, now, 10)
 	if err != nil {
 		slog.ErrorContext(ctx, "analytics: clients failed", "error", err)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
 		return
 	}
-	clientDownloads, err := h.analyticsRepo.ClientDownloads(ctx, days, 10)
+	clientDownloads, err := h.analyticsRepo.ClientDownloads(ctx, curStart, now, 10)
 	if err != nil {
 		slog.ErrorContext(ctx, "analytics: client downloads failed", "error", err)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
@@ -170,7 +161,7 @@ func (h *AdminHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 	}
 	// Pull a generous referrer pool; classification collapses many hosts
 	// into a single bucket so we want headroom.
-	refs, err := h.analyticsRepo.TopReferrerHosts(ctx, days, 100, ownHosts)
+	refs, err := h.analyticsRepo.TopReferrerHosts(ctx, curStart, now, 100, ownHosts)
 	if err != nil {
 		slog.ErrorContext(ctx, "analytics: referrers failed", "error", err)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
@@ -212,6 +203,7 @@ func (h *AdminHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 
 	response.OK(w, AnalyticsOverview{
 		Days:            days,
+		Timezone:        timezone,
 		Daily:           daily,
 		Totals:          totals,
 		Previous:        prev,
@@ -221,6 +213,95 @@ func (h *AdminHandler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
 		Clients:         clients,
 		ClientDownloads: clientDownloads,
 	})
+}
+
+func (h *AdminHandler) GetAnalyticsPages(w http.ResponseWriter, r *http.Request) {
+	days, timezone, from, to, _, _ := analyticsWindow(r)
+	page, limit := parsePage(r.URL.Query())
+	client := normalizeClient(r.URL.Query().Get("client"))
+	query := truncate(strings.TrimSpace(r.URL.Query().Get("query")), 128)
+
+	rows, total, err := h.analyticsRepo.PageViewsDaily(
+		r.Context(), from, to, timezone, client, query, (page-1)*limit, limit,
+	)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "analytics: page details failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, map[string]any{
+		"days": days, "timezone": timezone,
+		"items": rows, "total": total, "page": page, "limit": limit,
+	})
+}
+
+func (h *AdminHandler) GetAnalyticsWallpapers(w http.ResponseWriter, r *http.Request) {
+	days, timezone, from, to, _, _ := analyticsWindow(r)
+	page, limit := parsePage(r.URL.Query())
+	client := normalizeClient(r.URL.Query().Get("client"))
+	query := truncate(strings.TrimSpace(r.URL.Query().Get("query")), 128)
+
+	rows, total, err := h.analyticsRepo.WallpaperViewsDaily(
+		r.Context(), from, to, timezone, client, query, (page-1)*limit, limit,
+	)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "analytics: wallpaper details failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, map[string]any{
+		"days": days, "timezone": timezone,
+		"items": rows, "total": total, "page": page, "limit": limit,
+	})
+}
+
+func (h *AdminHandler) GetAnalyticsRequests(w http.ResponseWriter, r *http.Request) {
+	days, timezone, from, to, _, _ := analyticsWindow(r)
+	page, limit := parsePage(r.URL.Query())
+	client := normalizeClient(r.URL.Query().Get("client"))
+	query := truncate(strings.TrimSpace(r.URL.Query().Get("query")), 128)
+
+	rows, total, err := h.analyticsRepo.APIRequestsDaily(
+		r.Context(), from, to, timezone, client, query, (page-1)*limit, limit,
+	)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "analytics: api request details failed", "error", err)
+		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)
+		return
+	}
+	response.OK(w, map[string]any{
+		"days": days, "timezone": timezone,
+		"items": rows, "total": total, "page": page, "limit": limit,
+	})
+}
+
+func analyticsWindow(r *http.Request) (days int, timezone string, from, to, previousFrom, previousTo time.Time) {
+	days = parseIntDefault(r.URL.Query().Get("days"), 7)
+	if days <= 0 {
+		days = 7
+	}
+	if days > 90 {
+		days = 90
+	}
+
+	timezone = strings.TrimSpace(r.URL.Query().Get("timezone"))
+	if timezone == "" {
+		timezone = "Asia/Tokyo"
+	}
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		timezone = "UTC"
+		location = time.UTC
+	}
+
+	to = time.Now().UTC()
+	localNow := to.In(location)
+	localStart := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), 0, 0, 0, 0, location).
+		AddDate(0, 0, -days+1)
+	from = localStart.UTC()
+	previousFrom = localStart.AddDate(0, 0, -days).UTC()
+	previousTo = localNow.AddDate(0, 0, -days).UTC()
+	return
 }
 
 // GetLLMCost summarises the local llm_usage ledger — every Anthropic

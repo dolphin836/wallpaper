@@ -357,6 +357,10 @@ CREATE TABLE IF NOT EXISTS analytics_events (
 CREATE INDEX IF NOT EXISTS idx_analytics_events_type_created ON analytics_events(event_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_analytics_events_user ON analytics_events(user_id) WHERE user_id <> 0;
 CREATE INDEX IF NOT EXISTS idx_analytics_events_session ON analytics_events(session_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_api_request_created
+  ON analytics_events(created_at DESC) WHERE event_type = 'api_request';
+CREATE INDEX IF NOT EXISTS idx_analytics_events_api_route_created
+  ON analytics_events((props->>'route'), created_at DESC) WHERE event_type = 'api_request';
 
 -- AI-generated wallpaper marker. Set by the cmd/aigen publish path
 -- (with source=ai on the upload form). Indexed partial so the future

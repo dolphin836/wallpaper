@@ -13,27 +13,28 @@ import (
 )
 
 type Deps struct {
-	AuthHandler       *AuthHandler
-	WallpaperHandler  *WallpaperHandler
-	MediaHandler      *MediaHandler
-	CategoryHandler   *CategoryHandler
-	TagHandler        *TagHandler
-	UserHandler       *UserHandler
-	DeviceHandler     *DeviceHandler
-	CollectionHandler *CollectionHandler
-	ReleaseHandler    *ReleaseHandler
-	SEOHandler        *SEOHandler
-	ReportHandler     *ReportHandler
-	AnalyticsHandler  *AnalyticsHandler
-	RecommendHandler  *RecommendHandler
-	WeeklyPickHandler *WeeklyPickHandler
-	StatsHandler      *StatsHandler
-	AdminHandler      *AdminHandler
-	PinterestHandler  *PinterestHandler
-	RedditHandler     *RedditHandler
-	TusHandler        *TusHandler
-	UserRepo          *repo.UserRepo
-	JWTSecret         string
+	AuthHandler        *AuthHandler
+	WallpaperHandler   *WallpaperHandler
+	MediaHandler       *MediaHandler
+	CategoryHandler    *CategoryHandler
+	TagHandler         *TagHandler
+	UserHandler        *UserHandler
+	DeviceHandler      *DeviceHandler
+	CollectionHandler  *CollectionHandler
+	ReleaseHandler     *ReleaseHandler
+	SEOHandler         *SEOHandler
+	ReportHandler      *ReportHandler
+	AnalyticsHandler   *AnalyticsHandler
+	APIRequestRecorder *middleware.APIRequestRecorder
+	RecommendHandler   *RecommendHandler
+	WeeklyPickHandler  *WeeklyPickHandler
+	StatsHandler       *StatsHandler
+	AdminHandler       *AdminHandler
+	PinterestHandler   *PinterestHandler
+	RedditHandler      *RedditHandler
+	TusHandler         *TusHandler
+	UserRepo           *repo.UserRepo
+	JWTSecret          string
 	// IndexNowKey, when non-empty, registers /{IndexNowKey}.txt to serve
 	// the verification file required by Bing/Yandex/IndexNow.
 	IndexNowKey string
@@ -59,7 +60,7 @@ func NewRouter(deps Deps) *chi.Mux {
 		// protocol; the rest of the API doesn't use them.
 		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowedHeaders: []string{
-			"Accept", "Authorization", "Content-Type", "X-Wallpaper-Client",
+			"Accept", "Authorization", "Content-Type", "X-Wallpaper-Client", "X-Wallpaper-Session",
 			"X-Device-Width", "X-Device-Height",
 			// tus.io protocol headers — required for browser pre-flight
 			// to succeed on POST/PATCH/HEAD against the tus endpoint.
@@ -91,6 +92,9 @@ func NewRouter(deps Deps) *chi.Mux {
 	}
 
 	r.Route("/api/v1", func(r chi.Router) {
+		if deps.APIRequestRecorder != nil {
+			r.Use(deps.APIRequestRecorder.Middleware)
+		}
 		r.Post("/auth/register", deps.AuthHandler.Register)
 		r.Post("/auth/login", deps.AuthHandler.Login)
 
@@ -202,6 +206,9 @@ func NewRouter(deps Deps) *chi.Mux {
 			r.Get("/series", deps.AdminHandler.GetSeries)
 			r.Get("/tops", deps.AdminHandler.GetTops)
 			r.Get("/analytics", deps.AdminHandler.GetAnalytics)
+			r.Get("/analytics/pages", deps.AdminHandler.GetAnalyticsPages)
+			r.Get("/analytics/wallpapers", deps.AdminHandler.GetAnalyticsWallpapers)
+			r.Get("/analytics/requests", deps.AdminHandler.GetAnalyticsRequests)
 			r.Get("/login-logs", deps.AdminHandler.ListLoginLogs)
 			r.Get("/llm-cost", deps.AdminHandler.GetLLMCost)
 			r.Post("/wallpapers/ai-upload", deps.AdminHandler.UploadAIWallpaper)

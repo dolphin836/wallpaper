@@ -17,6 +17,7 @@ import (
 	"github.com/wallpaper/backend/internal/cache"
 	"github.com/wallpaper/backend/internal/config"
 	"github.com/wallpaper/backend/internal/handler"
+	"github.com/wallpaper/backend/internal/middleware"
 	"github.com/wallpaper/backend/internal/pkg/storage"
 	"github.com/wallpaper/backend/internal/repo"
 	"github.com/wallpaper/backend/internal/service"
@@ -85,6 +86,7 @@ func main() {
 	coinRepo := repo.NewCoinRepo(db)
 	reportRepo := repo.NewReportRepo(db)
 	analyticsRepo := repo.NewAnalyticsRepo(db)
+	apiRequestRecorder := middleware.NewAPIRequestRecorder(analyticsRepo, cfg.JWT.Secret)
 	loginLogRepo := repo.NewLoginLogRepo(db)
 	adminRepo := repo.NewAdminRepo(db)
 	workerJobRepo := repo.NewWorkerJobRepo(db)
@@ -127,28 +129,29 @@ func main() {
 	}
 
 	router := handler.NewRouter(handler.Deps{
-		AuthHandler:       authHandler,
-		WallpaperHandler:  wallpaperHandler,
-		MediaHandler:      mediaHandler,
-		CategoryHandler:   categoryHandler,
-		TagHandler:        tagHandler,
-		UserHandler:       userHandler,
-		DeviceHandler:     deviceHandler,
-		CollectionHandler: collectionHandler,
-		ReleaseHandler:    releaseHandler,
-		SEOHandler:        seoHandler,
-		ReportHandler:     reportHandler,
-		AnalyticsHandler:  analyticsHandler,
-		RecommendHandler:  recommendHandler,
-		WeeklyPickHandler: weeklyPickHandler,
-		StatsHandler:      statsHandler,
-		AdminHandler:      adminHandler,
-		PinterestHandler:  pinterestHandler,
-		RedditHandler:     redditHandler,
-		TusHandler:        tusHandler,
-		UserRepo:          userRepo,
-		IndexNowKey:       cfg.IndexNow.Key,
-		JWTSecret:         cfg.JWT.Secret,
+		AuthHandler:        authHandler,
+		WallpaperHandler:   wallpaperHandler,
+		MediaHandler:       mediaHandler,
+		CategoryHandler:    categoryHandler,
+		TagHandler:         tagHandler,
+		UserHandler:        userHandler,
+		DeviceHandler:      deviceHandler,
+		CollectionHandler:  collectionHandler,
+		ReleaseHandler:     releaseHandler,
+		SEOHandler:         seoHandler,
+		ReportHandler:      reportHandler,
+		AnalyticsHandler:   analyticsHandler,
+		APIRequestRecorder: apiRequestRecorder,
+		RecommendHandler:   recommendHandler,
+		WeeklyPickHandler:  weeklyPickHandler,
+		StatsHandler:       statsHandler,
+		AdminHandler:       adminHandler,
+		PinterestHandler:   pinterestHandler,
+		RedditHandler:      redditHandler,
+		TusHandler:         tusHandler,
+		UserRepo:           userRepo,
+		IndexNowKey:        cfg.IndexNow.Key,
+		JWTSecret:          cfg.JWT.Secret,
 	})
 
 	srv := &http.Server{
@@ -181,6 +184,9 @@ func main() {
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
 		slog.Error("server shutdown error", "error", err)
+	}
+	if err := apiRequestRecorder.Close(ctx); err != nil {
+		slog.Error("api request analytics shutdown error", "error", err)
 	}
 	slog.Info("server stopped")
 }

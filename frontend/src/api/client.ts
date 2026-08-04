@@ -1,6 +1,7 @@
 import axios from 'axios';
 import i18n from '../i18n';
 import { requestStarted, requestSettled } from '../lib/pageProgress';
+import { getAnalyticsSessionID } from '../lib/analyticsSession';
 
 export function resolveBaseURL(): string {
   // Cloudflare Pages and the dev Vite server both expose the API on the
@@ -48,6 +49,7 @@ client.interceptors.request.use((config) => {
   // language change (see main.tsx) so responses refetch in the new language.
   config.headers['Accept-Language'] = i18n.language;
   config.headers['X-Wallpaper-Client'] = 'web';
+  config.headers['X-Wallpaper-Session'] = getAnalyticsSessionID();
   requestStarted(config.url);
   return config;
 });
