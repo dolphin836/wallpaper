@@ -57,6 +57,7 @@ macos/AppIcon.iconset/
 chrome-extension/*.zip
 scripts/.qcheck.env
 ai-wallpapers/
+raveby-wallpapers/
 ios/.build/
 ios/.swiftpm/
 ios/WallpaperExchange.xcodeproj/xcuserdata/
