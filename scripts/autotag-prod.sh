@@ -2,8 +2,8 @@
 # Run from a developer Mac: classifies every wallpaper in prod that
 # still has no category and no tags, fills in title where empty, writes
 # the results back to the prod DB. Idempotent — re-running picks up only
-# the newly-untagged rows. No flags, no canary mode; if you want to peek
-# without committing, edit the script.
+# the newly-untagged rows. Extra arguments are passed to autotag, so a run
+# can be restricted with --created-after / --created-before or --limit.
 #
 # Why local: Anthropic blocks the prod IP (403 "Request not allowed"),
 # so worker-side classification was removed from the pipeline. This is
@@ -48,4 +48,4 @@ DB_PASSWORD="${DB_PASSWORD}" \
 DB_NAME=wallpaper \
 DB_SSLMODE=disable \
 ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
-go run ./cmd/autotag --commit --update-title
+go run ./cmd/autotag --commit --update-title "$@"

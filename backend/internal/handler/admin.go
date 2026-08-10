@@ -225,10 +225,11 @@ func (h *AdminHandler) ListWallpapers(w http.ResponseWriter, r *http.Request) {
 }
 
 type adminUpdateWallpaperReq struct {
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
-	CategoryID  *int64  `json:"category_id"`
-	Status      *int16  `json:"status"`
+	Title         *string `json:"title"`
+	Description   *string `json:"description"`
+	CategoryID    *int64  `json:"category_id"`
+	Status        *int16  `json:"status"`
+	IsAIGenerated *bool   `json:"is_ai_generated"`
 }
 
 func (h *AdminHandler) UpdateWallpaper(w http.ResponseWriter, r *http.Request) {
@@ -243,10 +244,11 @@ func (h *AdminHandler) UpdateWallpaper(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.wallpaperRepo.AdminUpdate(r.Context(), id, repo.AdminWallpaperUpdate{
-		Title:       req.Title,
-		Description: req.Description,
-		CategoryID:  req.CategoryID,
-		Status:      req.Status,
+		Title:         req.Title,
+		Description:   req.Description,
+		CategoryID:    req.CategoryID,
+		Status:        req.Status,
+		IsAIGenerated: req.IsAIGenerated,
 	}); err != nil {
 		slog.ErrorContext(r.Context(), "admin wallpaper update failed", "id", id, "error", err)
 		response.Error(w, http.StatusInternalServerError, errcode.ErrInternal)

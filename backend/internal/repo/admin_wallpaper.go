@@ -123,6 +123,7 @@ func (r *WallpaperRepo) AdminList(ctx context.Context, opts AdminWallpaperListOp
                      wallpapers.width, wallpapers.height, wallpapers.file_size, wallpapers.file_type,
                      wallpapers.dominant_color, wallpapers.status, wallpapers.view_count, wallpapers.like_count,
                      wallpapers.download_count, wallpapers.favorite_count, wallpapers.is_dynamic, wallpapers.dynamic_type,
+					 wallpapers.is_ai_generated,
                      wallpapers.quality_flag, wallpapers.quality_notes,
                      wallpapers.created_at, wallpapers.updated_at,
                      COALESCE(u.username, '') AS uploader_username,
@@ -132,10 +133,11 @@ func (r *WallpaperRepo) AdminList(ctx context.Context, opts AdminWallpaperListOp
 }
 
 type AdminWallpaperUpdate struct {
-	Title       *string
-	Description *string
-	CategoryID  *int64
-	Status      *int16
+	Title         *string
+	Description   *string
+	CategoryID    *int64
+	Status        *int16
+	IsAIGenerated *bool
 }
 
 func (r *WallpaperRepo) AdminUpdate(ctx context.Context, id int64, u AdminWallpaperUpdate) error {
@@ -151,6 +153,9 @@ func (r *WallpaperRepo) AdminUpdate(ctx context.Context, id int64, u AdminWallpa
 	}
 	if u.Status != nil {
 		updates["status"] = *u.Status
+	}
+	if u.IsAIGenerated != nil {
+		updates["is_ai_generated"] = *u.IsAIGenerated
 	}
 	if len(updates) == 0 {
 		return nil

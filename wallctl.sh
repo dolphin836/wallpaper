@@ -257,6 +257,13 @@ cmd_autotag() {
     compose exec api /bin/autotag "$@"
 }
 
+cmd_aicheck() {
+    # Detect clearly AI-generated wallpapers from preview_url bytes only.
+    # Defaults to dry-run; use --commit to persist true classifications.
+    log_info "AI check: assessing locally-downloaded preview images..."
+    compose exec api /bin/aicheck "$@"
+}
+
 cmd_recompress() {
     # Re-queues published wallpapers through the image worker so they pick
     # up new variant encoding defaults. Defaults to dry-run; pass --commit
@@ -315,6 +322,7 @@ ${YELLOW}Commands:${NC}
   ${GREEN}phashgen${NC}  [flag]        Backfill pHash for old wallpapers (--force | --report-dupes)
   ${GREEN}recompress${NC}[flags]       Re-queue wallpapers to rebuild variants (--commit, --limit N)
   ${GREEN}autotag${NC}   [flags]       Classify wallpapers via Claude vision (--commit, --limit N)
+  ${GREEN}aicheck${NC}   [flags]       Detect AI-generated wallpapers from previews (--commit, --limit N)
   ${GREEN}setadmin${NC}  [args]        Toggle is_admin on a user (e.g. -username eric -on)
   ${GREEN}help${NC}                    Show this help message
 
@@ -350,6 +358,7 @@ case "${1:-help}" in
     phashgen)   shift; cmd_phashgen "$@" ;;
     recompress) shift; cmd_recompress "$@" ;;
     autotag)    shift; cmd_autotag "$@" ;;
+    aicheck)    shift; cmd_aicheck "$@" ;;
     setadmin)   shift; cmd_setadmin "$@" ;;
     variantgc)  shift; cmd_variantgc "$@" ;;
     help|*)     cmd_help ;;

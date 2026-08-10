@@ -335,6 +335,11 @@ export default function WallpapersPage() {
                         <td className="px-4 py-2 max-w-xs">
                           <div className="flex items-center gap-2">
                             <Link to={`/wallpaper/${w.slug}`} className="font-medium truncate hover:underline">{w.title || `#${w.id}`}</Link>
+                            {w.is_ai_generated && (
+                              <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 text-[10px] rounded border border-violet-300 bg-violet-50 text-violet-700 dark:bg-violet-950 dark:border-violet-800 dark:text-violet-300 whitespace-nowrap">
+                                AI
+                              </span>
+                            )}
                             {w.quality_flag && w.quality_flag !== 'ok' && (
                               <span
                                 title={w.quality_notes || w.quality_flag}
@@ -544,12 +549,19 @@ function EditModal({
   const [description, setDescription] = useState(wallpaper.description);
   const [categoryId, setCategoryId] = useState(wallpaper.category_id);
   const [status, setStatus] = useState(wallpaper.status);
+  const [isAIGenerated, setIsAIGenerated] = useState(Boolean(wallpaper.is_ai_generated));
   const [saving, setSaving] = useState(false);
 
   const save = () => {
     setSaving(true);
     admin
-      .updateAdminWallpaper(wallpaper.id, { title, description, category_id: categoryId, status })
+      .updateAdminWallpaper(wallpaper.id, {
+        title,
+        description,
+        category_id: categoryId,
+        status,
+        is_ai_generated: isAIGenerated,
+      })
       .then(() => { toast.success('已保存'); onSaved(); })
       .catch((e) => toast.error(e?.response?.data?.message || '保存失败'))
       .finally(() => setSaving(false));
@@ -590,6 +602,18 @@ function EditModal({
               </select>
             </label>
           </div>
+          <label className="flex items-start gap-3 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isAIGenerated}
+              onChange={(e) => setIsAIGenerated(e.target.checked)}
+              className="mt-0.5 accent-purple-600"
+            />
+            <span>
+              <span className="block text-sm font-medium">AI 生成壁纸</span>
+              <span className="block text-xs text-slate-500 mt-0.5">勾选后归入 AI 类型；取消勾选即可恢复为普通壁纸。</span>
+            </span>
+          </label>
         </div>
         <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-1.5 rounded text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">取消</button>

@@ -42,17 +42,21 @@ type wallpaperRow struct {
 
 func main() {
 	var (
-		commit    bool
-		limit     int
-		force     bool
-		pause     time.Duration
-		updateTitle bool
+		commit        bool
+		limit         int
+		force         bool
+		pause         time.Duration
+		updateTitle   bool
+		createdAfter  string
+		createdBefore string
 	)
 	flag.BoolVar(&commit, "commit", false, "actually write classifications to the DB (default: dry-run)")
 	flag.IntVar(&limit, "limit", 0, "process at most N wallpapers (0 = unlimited)")
 	flag.BoolVar(&force, "force", false, "re-classify rows that already have a category or tags")
 	flag.DurationVar(&pause, "pause", 500*time.Millisecond, "delay between API calls (rate-limit cushion)")
 	flag.BoolVar(&updateTitle, "update-title", false, "overwrite empty wallpaper titles with the model's suggestion")
+	flag.StringVar(&createdAfter, "created-after", "", "only process rows created at or after this RFC3339 timestamp")
+	flag.StringVar(&createdBefore, "created-before", "", "only process rows created before this RFC3339 timestamp")
 	flag.Parse()
 
 	cfg, err := config.Load()
@@ -93,6 +97,20 @@ func main() {
 		Select("id, title, thumb_url, preview_url, category_id").
 		Where("status = ?", model.WallpaperStatusPublished).
 		Order("id ASC")
+	if createdAfter != "" {
+		t, err := time.Parse(time.RFC3339, createdAfter)
+		if err != nil {
+			log.Fatalf("invalid --created-after: %v", err)
+		}
+		q = q.Where("created_at >= ?", t)
+	}
+	if createdBefore != "" {
+		t, err := time.Parse(time.RFC3339, createdBefore)
+		if err != nil {
+			log.Fatalf("invalid --created-before: %v", err)
+		}
+		q = q.Where("created_at < ?", t)
+	}
 	if !force {
 		q = q.Where("category_id = 0")
 		q = q.Where("NOT EXISTS (SELECT 1 FROM wallpaper_tags wt WHERE wt.wallpaper_id = wallpapers.id)")

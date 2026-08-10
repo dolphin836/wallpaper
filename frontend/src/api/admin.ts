@@ -161,7 +161,7 @@ export const getAdminWallpaperTraffic = (id: number, params: {
 );
 
 export const updateAdminWallpaper = (id: number, data: {
-  title?: string; description?: string; category_id?: number; status?: number;
+  title?: string; description?: string; category_id?: number; status?: number; is_ai_generated?: boolean;
 }) => client.put<ApiResponse<null>>(`/admin/wallpapers/${id}`, data);
 
 export const deleteAdminWallpaper = (id: number) =>

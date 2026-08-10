@@ -151,6 +151,22 @@ worker 在 publish 阶段会**自动 autotag**（写 category / tags / title）�
 
 跑完后只有真正可疑的 50-80 张会出现在 "⚑ 已标记" 里，剩下的全自动打 `ok` 不会再被复跑。
 
+### AI 类型识别（aicheck）
+
+手动导入的壁纸不会自动带上 `is_ai_generated`。`aicheck` 专门判断明显的 AI 生成图，并把高置信度结果归入后台的 **AI** 类型：
+
+```bash
+# 干跑，不写数据库
+./scripts/aicheck-local.sh --limit 10
+
+# 只处理指定上传时间段并写入（时间必须是 RFC3339）
+./scripts/aicheck-local.sh --commit \
+  --created-after 2026-08-09T15:00:00Z \
+  --created-before 2026-08-10T15:00:00Z
+```
+
+这个任务只查询并下载 `preview_url` 到本机内存，再把预览图字节交给 Claude；不会查询、下载或回退到原图。默认只有模型判断为 AI 且置信度达到 `0.85` 才会写 `is_ai_generated=true`。后台壁纸编辑弹窗可以手动勾选或取消“AI 生成壁纸”。
+
 ---
 
 ## 4. 发版（macOS 客户端）
